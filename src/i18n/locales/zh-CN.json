@@ -31,6 +31,10 @@
   "providers": {
     "title": "供应商管理",
     "subtitle": "管理 Claude Code / Desktop 的第三方 API 配置，一键切换",
+    "codeSubtitle": "仅管理 Claude Code（~/.claude/settings.json）的第三方配置",
+    "desktopSubtitle": "仅管理 Claude Desktop（configLibrary）的第三方配置",
+    "claudeCode": "Claude Code",
+    "claudeDesktop": "Claude Desktop",
     "create": "新增供应商",
     "edit": "编辑",
     "delete": "删除",
@@ -68,7 +72,8 @@
     "switched": "已切换到 {{name}}",
     "switchedOfficial": "已切换到官方登录",
     "imported": "已导入当前配置",
-    "missingKey": "该供应商未填写 API Key，请先编辑填入后再切换"
+    "missingKey": "该供应商未填写 API Key，请先编辑填入后再切换",
+    "empty": "当前应用暂无第三方供应商，默认使用官方登录"
   },
   "proxy": {
     "title": "本地代理",

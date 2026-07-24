@@ -7,14 +7,12 @@ import {
   type InputRef,
 } from "antd";
 import { useTranslation } from "react-i18next";
-import type { Provider, PresetInfo, ProviderInput, ProtocolType } from "@/types/backend";
+import type { Provider, ProviderInput, ProtocolType } from "@/types/backend";
 
 interface ProviderFormProps {
   open: boolean;
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
-  /** Presets available for one-click fill (create mode only). */
-  presets: PresetInfo[];
   onCancel: () => void;
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
@@ -22,7 +20,6 @@ interface ProviderFormProps {
 export function ProviderForm({
   open,
   editing,
-  presets,
   onCancel,
   onSubmit,
 }: ProviderFormProps) {
@@ -43,24 +40,18 @@ export function ProviderForm({
         model: editing.model,
         protocolType: editing.protocolType,
         notes: editing.notes,
+        targetApp: editing.targetApp,
       });
     } else {
       form.resetFields();
-      form.setFieldsValue({ protocolType: "anthropic" as ProtocolType });
+      form.setFieldsValue({
+        protocolType: "anthropic" as ProtocolType,
+        targetApp: "claude_code",
+      });
     }
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
   }, [open, editing, form]);
-
-  const applyPreset = (preset: PresetInfo) => {
-    form.setFieldsValue({
-      name: form.getFieldValue("name") || preset.name,
-      baseUrl: preset.baseUrl,
-      model: preset.model,
-      notes: preset.notes,
-      protocolType: "anthropic",
-    });
-  };
 
   const handleOk = async () => {
     try {
@@ -86,23 +77,6 @@ export function ProviderForm({
         <Form.Item name="id" hidden>
           <Input />
         </Form.Item>
-
-        {!isEdit && presets.length > 0 && (
-          <Form.Item label={t("providers.fromPreset")}>
-            <Select
-              placeholder={t("providers.fromPresetPlaceholder")}
-              onChange={(value: string) => {
-                const preset = presets.find((p) => p.name === value);
-                if (preset) applyPreset(preset);
-              }}
-              options={presets.map((p) => ({
-                value: p.name,
-                label: p.notes ? `${p.name} — ${p.notes}` : p.name,
-              }))}
-              allowClear
-            />
-          </Form.Item>
-        )}
 
         <Form.Item
           name="name"

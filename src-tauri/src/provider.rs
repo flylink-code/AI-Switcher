@@ -18,6 +18,36 @@ pub enum ProtocolType {
     Proxy,
 }
 
+/// The Claude application whose configuration owns a provider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderTarget {
+    ClaudeCode,
+    ClaudeDesktop,
+}
+
+impl ProviderTarget {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProviderTarget::ClaudeCode => "claude_code",
+            ProviderTarget::ClaudeDesktop => "claude_desktop",
+        }
+    }
+
+    pub fn from_str_lossy(value: &str) -> Self {
+        match value {
+            "claude_desktop" => ProviderTarget::ClaudeDesktop,
+            _ => ProviderTarget::ClaudeCode,
+        }
+    }
+}
+
+impl Default for ProviderTarget {
+    fn default() -> Self {
+        ProviderTarget::ClaudeCode
+    }
+}
+
 impl Default for ProtocolType {
     fn default() -> Self {
         ProtocolType::Anthropic
@@ -59,6 +89,8 @@ pub struct Provider {
     #[serde(default)]
     pub notes: String,
     #[serde(default)]
+    pub target_app: ProviderTarget,
+    #[serde(default)]
     pub sort_index: i64,
     #[serde(default)]
     pub is_current: bool,
@@ -82,10 +114,12 @@ pub struct ProviderInput {
     #[serde(default)]
     pub protocol_type: ProtocolType,
     #[serde(default)]
+    pub target_app: ProviderTarget,
+    #[serde(default)]
     pub notes: String,
 }
 
-/// Information parsed from the live `settings.json` env block.
+/// Information parsed from a live third-party configuration.
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveProviderInfo {
     pub base_url: String,

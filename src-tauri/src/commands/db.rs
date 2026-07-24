@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::database::dao::count_providers;
 use crate::database::schema::SCHEMA_VERSION;
 use crate::error::AppResult;
+use crate::provider::ProviderTarget;
 use crate::store::AppState;
 
 #[derive(Debug, Serialize)]
@@ -17,7 +18,10 @@ pub struct DbInfo {
 
 #[tauri::command]
 pub fn get_db_info(state: tauri::State<'_, AppState>) -> AppResult<DbInfo> {
-    let provider_count = state.db.with_conn(|conn| count_providers(conn))?;
+    let provider_count = state.db.with_conn(|conn| {
+        Ok(count_providers(conn, ProviderTarget::ClaudeCode)?
+            + count_providers(conn, ProviderTarget::ClaudeDesktop)?)
+    })?;
     Ok(DbInfo {
         path: crate::config::paths::get_app_db_path()
             .to_string_lossy()

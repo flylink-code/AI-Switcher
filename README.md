@@ -1,107 +1,155 @@
 # Claude Switcher
 
-> 统一管理 **Claude Desktop** 和 **Claude Code** 的第三方 API 配置：可视化添加供应商、一键切换，无需手动编辑配置文件。
+> Visual third-party API configuration manager for **Claude Code** and **Claude Desktop**. Add providers, switch configurations independently, and avoid manual configuration-file editing.
 
-技术栈：**Tauri 2 + React 19 + TypeScript + Ant Design 6 + Zustand + i18next + SQLite (rusqlite)**。
-
-当前状态：**P1 — 供应商管理 + Claude Code 一键切换可用**。
-P0 基础库（配置目录探测、原子写入、备份轮换、SQLite 层、系统托盘）已就绪；P1 在此之上实现了供应商 CRUD、内置预设、首次导入现有配置，以及写 `~/.claude/settings.json` 的热切换。详见 [`task.md`](./task.md)。
+[简体中文](#简体中文) · [English](#english)
 
 ---
 
-## 目录结构
+## 简体中文
 
-```
-claudedesktopconfig/
-├── src/                      # React 前端
-│   ├── pages/                # Providers/MCP/Prompts/Skills/Usage 占位页 + Environment 验证页
-│   ├── components/AppLayout  # 侧边栏 + 主题/语言切换
-│   ├── stores/               # Zustand: themeStore, appStore
-│   ├── i18n/                 # zh-CN / en-US
-│   └── services/api.ts       # Tauri IPC 封装
-├── src-tauri/                # Rust 后端
-│   └── src/
-│       ├── config/           # 路径探测 (paths, claude_desktop) + 原子写入 (atomic)
-│       ├── database/         # SQLite: Database 封装 + schema + dao
-│       ├── commands/         # Tauri 命令: ping / get_paths / get_db_info / backup_now
-│       ├── backup.rs         # 文件级备份轮换（保留 10 份）
-│       ├── tray.rs           # 系统托盘
-│       └── lib.rs            # 入口：插件注册、DB 初始化、托盘、窗口事件
-├── scripts/
-│   ├── gen-icons.py          # 重新生成图标集
-│   ├── cargo-msvc.bat        # 在 MSVC 环境中运行 cargo（见下）
-│   └── tauri-msvc.bat        # 在 MSVC 环境中运行 pnpm tauri
-└── task.md                   # 规划文档（阶段、机制、架构）
-```
+### 当前状态
 
-## 开发环境要求
+当前已完成 **P0–P6**：基础工程、独立的 Claude Code / Claude Desktop 供应商管理、本地代理、MCP、Prompts、Skills、用量统计、托盘切换、主题/中英文和开机自启。
 
-- **Node.js** ≥ 20（已用 24 测试）、**pnpm** ≥ 9
-- **Rust**（stable，MSVC 目标）—— 通过 [rustup](https://rustup.rs/) 安装
-- **Windows**：Visual Studio 2022 的「使用 C++ 的桌面开发」工作负载 + Windows 10/11 SDK
-  （macOS / Linux 理论可编译，但 P0 仅在 Windows 验证）
+> **P6 说明**：Claude Code 与 Claude Desktop 的供应商列表、当前激活状态和 live 配置彼此独立。新数据库不会预置任何第三方供应商，两个应用均默认使用官方登录。
 
-## ⚠️ Windows 编译须知：MSVC 环境
+### 功能
 
-`*-sys` crate（如 `vswhom-sys`）调用 `lib.exe` 时需要 MSVC 的 `INCLUDE`/`LIB` 环境变量。
-在 Git Bash / 普通终端中这些变量为空，会导致链接失败（`lib.exe` 退出码 1107）。
+- **独立供应商配置**
+  - Claude Code：管理并安全写入 `~/.claude/settings.json`
+  - Claude Desktop：管理并安全写入 `configLibrary` gateway profile
+  - 分别新增、编辑、导入、排序、切换和恢复官方登录；切换一个应用不会更改另一个应用
+- **本地代理**：本地 Anthropic `/v1/messages` 代理、模型映射、密钥注入、流式透传和请求日志。
+- **MCP 与 Prompts**：统一管理 Claude Code / Desktop MCP；管理和激活 `CLAUDE.md` Prompt 预设。
+- **Skills**：从公开 GitHub 仓库或本地 ZIP 安装，支持启停和删除。
+- **用量统计**：代理请求数、状态、Token、趋势、按供应商/模型聚合，以及每百万 Token 定价的成本估算。
+- **系统集成**：托盘中按应用独立快捷切换；浅色/深色/跟随系统；中文/English；开机自启。
+- **安全写入**：原子写入、写前备份、自动轮换最近 10 个备份。
 
-**解决方法**：通过仓库自带的脚本在 MSVC 环境中运行 cargo/tauri，脚本会先 `call vcvars64.bat`：
+### 运行要求
 
-```bash
-# 安装依赖
+- Node.js 20+、pnpm 9+
+- Rust stable（MSVC 目标）
+- Windows：Visual Studio 2022「使用 C++ 的桌面开发」工作负载与 Windows SDK
+
+### 开发
+
+```powershell
 pnpm install
-
-# 开发模式（启动 Tauri dev，热重载）
-scripts/tauri-msvc.bat dev          # 等价于 pnpm tauri dev，但带 MSVC 环境
-
-# 仅检查/测试 Rust 后端
-cd src-tauri && ../scripts/cargo-msvc.bat check
-cd src-tauri && ../scripts/cargo-msvc.bat test
-
-# 打包（debug，不产出安装包）
-scripts/tauri-msvc.bat build --debug --no-bundle
+pnpm tauri dev
 ```
 
-> 在「Developer Command Prompt for VS 2022」或已 `call vcvars64.bat` 的终端里，可直接用
-> `pnpm tauri dev` / `cargo test`，无需上述脚本。
+如果当前终端没有 MSVC 的环境变量，请使用仓库脚本：
 
-## P0 验证（Environment 页）
+```powershell
+scripts\tauri-msvc.bat dev
+```
 
-启动应用后默认进入「环境信息」页，可视化校验基础库：
+常用命令：
 
-- **ping** —— 确认前后端 IPC 通路（返回 `pong`）
-- 探测路径：`~/.claude`、`~/.claude.json`、Claude Desktop `configLibrary`、`~/.claude-switcher/`
-- **立即备份** —— 在 `~/.claude-switcher/backups/` 生成带时间戳的备份，超过 10 份自动清理
-- 数据库：`~/.claude-switcher/app.db`，Schema 版本与供应商数量
-- 主题（浅/深/跟随系统）+ 语言（中/英）切换
-- 关闭窗口最小化到系统托盘
+```powershell
+# Rust 静态检查 / 测试
+cd src-tauri
+..\scripts\cargo-msvc.bat check
+..\scripts\cargo-msvc.bat test
 
-## 数据目录
+# 构建 Windows MSI 和 NSIS 安装包
+cd ..
+scripts\tauri-msvc.bat build
+```
 
-应用数据存放在 `~/.claude-switcher/`：
+### 数据和配置路径
 
-| 路径 | 说明 |
-|------|------|
-| `app.db` | SQLite 主库（供应商、MCP、请求日志、定价、设置） |
-| `backups/` | 自动轮换的备份（默认保留 10 份） |
+| 路径 | 用途 |
+|---|---|
+| `~/.claude/settings.json` | Claude Code 的 live 配置 |
+| `~/.claude.json` | Claude Code MCP 配置 |
+| `%LOCALAPPDATA%\Claude\configLibrary\` | Claude Desktop gateway 配置（Windows） |
+| `~/.claude/skills/` | Claude Code Skills |
+| `~/.claude-switcher/app.db` | 本地 SQLite 数据库 |
+| `~/.claude-switcher/backups/` | 自动轮换备份 |
 
-## 路线图（见 `task.md`）
+### 项目结构
 
-| 阶段 | 状态 | 内容 |
-|------|------|------|
-| **P0 脚手架** | ✅ | 工程初始化、SQLite、路径探测、原子写入、备份、托盘 |
-| **P1 供应商 + 切换** | ✅ 本版本 | 供应商 CRUD + 6 个内置预设；首次导入现有配置；`settings.json` 热切换（env 块就地合并，保留非 ANTHROPIC 配置） |
-| P2 | 待开发 | Claude Desktop `configLibrary` 写入；Rust 本地代理 |
-| P3 | 待开发 | MCP 统一面板 + Prompts 编辑器 |
-| P4 | 待开发 | 用量统计仪表盘 |
-| P5 | 待开发 | Skills、托盘快速切换、i18n/自启、Windows 打包 |
+```text
+src/                     React 19 前端、Ant Design、Zustand、i18next
+src-tauri/src/config/    Claude Code/Desktop 配置发现、原子写入
+src-tauri/src/database/  SQLite schema、迁移和 DAO
+src-tauri/src/proxy/     本地 Anthropic 兼容代理与日志
+src-tauri/src/commands/  Tauri IPC 命令
+src-tauri/src/tray.rs    系统托盘与双应用快捷切换
+task.md                  产品规划、阶段和后续任务
+```
 
-### P1 切换机制说明
+### 路线图
 
-切换供应商时只改写 `~/.claude/settings.json` 中 `env` 里以 `ANTHROPIC_` 开头的键，**保留**：
-- env 中的其他键（如 `ENABLE_TOOL_SEARCH`、`DISABLE_AUTOUPDATER`、`CLAUDE_CODE_SUBAGENT_MODEL`）
-- 顶层其他键（如 `model`、`enabledPlugins`、`skipWebFetchPreflight`）
+| 阶段 | 状态 | 产出 |
+|---|---|---|
+| P0–P5 | ✅ | 基础能力、供应商、Desktop/代理、MCP、Prompts、用量、Skills、托盘与自启 |
+| P6 | 🚧 | Code/Desktop 独立供应商与迁移、无预置第三方供应商 |
+| P7 | 计划中 | 系统凭据库、连接测试、模型发现、字段级回滚、数据维护 |
+| P8 | 计划中 | OpenAI Chat/Responses 协议转换、代理健康状态、并发双应用代理 |
 
-切换前自动把原文件备份到 `~/.claude-switcher/backups/settings.json_<时间戳>.bak`（保留最近 10 份）。
-「切回官方登录」会移除所有 `ANTHROPIC_*` 键，让 Claude Code 回到原生 OAuth 流程，其他配置不受影响。
+完整规划见 [task.md](./task.md)。
+
+---
+
+## English
+
+### Status
+
+**P0–P6** are implemented: project foundations, independent Claude Code and Claude Desktop provider management, local proxy, MCP, prompts, skills, usage dashboard, tray switching, themes/i18n, and launch at login.
+
+> **P6:** Claude Code and Claude Desktop have independent provider lists, active selections, and live configuration. A fresh database contains no third-party providers; both applications default to official login.
+
+### Features
+
+- **Independent provider configuration** for Claude Code (`~/.claude/settings.json`) and Claude Desktop (`configLibrary`). Adding, importing, activating, or reverting a provider in one app never modifies the other.
+- **Local proxy** for Anthropic `/v1/messages`: model mapping, key injection, streaming pass-through, and request logging.
+- **MCP and prompts** management across both Claude applications.
+- **Skills** installation from public GitHub repositories or local ZIP archives, plus enable/disable and deletion.
+- **Usage dashboard** for proxied requests, status, tokens, trends, provider/model breakdowns, and estimated cost based on custom model prices.
+- **System integration**: per-application tray switching, light/dark/system theme, Chinese/English UI, and launch at login.
+- **Safe configuration writes**: atomic writes, pre-write backups, and rotation of the latest ten backups.
+
+### Requirements
+
+- Node.js 20+ and pnpm 9+
+- Stable Rust with the MSVC target
+- On Windows: Visual Studio 2022 Desktop development with C++ workload and a Windows SDK
+
+### Development
+
+```powershell
+pnpm install
+pnpm tauri dev
+```
+
+Use the bundled MSVC wrapper when the terminal does not already have MSVC environment variables:
+
+```powershell
+scripts\tauri-msvc.bat dev
+```
+
+```powershell
+# Rust check / tests
+cd src-tauri
+..\scripts\cargo-msvc.bat check
+..\scripts\cargo-msvc.bat test
+
+# Build Windows MSI and NSIS installers
+cd ..
+scripts\tauri-msvc.bat build
+```
+
+### Roadmap
+
+| Phase | Status | Deliverable |
+|---|---|---|
+| P0–P5 | ✅ | Foundations, providers, Desktop/proxy, MCP, prompts, usage, skills, tray, and autostart |
+| P6 | 🚧 | Separate Code/Desktop providers and migration; no bundled third-party providers |
+| P7 | Planned | OS credential storage, connection tests, model discovery, field-level rollback, data maintenance |
+| P8 | Planned | OpenAI Chat/Responses conversion, proxy health, simultaneous per-app proxy routing |
+
+See [task.md](./task.md) for the complete plan.

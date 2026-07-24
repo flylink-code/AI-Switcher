@@ -67,7 +67,7 @@ pub fn apply_provider_to_settings_via_proxy_at(
     let env = ensure_env_object(&mut settings);
     remove_anthropic_keys(env);
     set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
-    set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy");
+    set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
     set_str(env, "ANTHROPIC_MODEL", &provider.model);
 
     write_settings(path, &settings)
@@ -215,7 +215,7 @@ fn backup_settings(path: &std::path::Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::ProtocolType;
+    use crate::provider::{ProviderTarget, ProtocolType};
     use serde_json::json;
     use std::fs;
     use tempfile::tempdir;
@@ -228,6 +228,7 @@ mod tests {
             api_key: "sk-deepseek".into(),
             model: "deepseek-v4-pro".into(),
             protocol_type: ProtocolType::Anthropic,
+            target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,
             is_current: true,

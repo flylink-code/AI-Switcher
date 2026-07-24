@@ -13,7 +13,6 @@ mod error;
 mod mcp;
 mod prompts;
 mod provider;
-mod provider_presets;
 mod proxy;
 mod skills;
 mod store;
@@ -27,7 +26,7 @@ use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers,
-    install_github_skill, install_zip_skill, list_mcp_servers, list_presets, list_prompts,
+    install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
     save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official,
@@ -60,7 +59,6 @@ pub fn run() {
             switch_to_official,
             reorder_providers,
             import_live_config,
-            list_presets,
             list_mcp_servers,
             save_mcp_server,
             delete_mcp_server,

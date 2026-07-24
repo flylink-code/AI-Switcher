@@ -31,6 +31,10 @@
   "providers": {
     "title": "Providers",
     "subtitle": "Manage Claude Code / Desktop third-party API configs and switch with one click",
+    "codeSubtitle": "Manages only Claude Code (~/.claude/settings.json) third-party configuration",
+    "desktopSubtitle": "Manages only Claude Desktop (configLibrary) third-party configuration",
+    "claudeCode": "Claude Code",
+    "claudeDesktop": "Claude Desktop",
     "create": "Add provider",
     "edit": "Edit",
     "delete": "Delete",
@@ -68,7 +72,8 @@
     "switched": "Switched to {{name}}",
     "switchedOfficial": "Switched to official login",
     "imported": "Imported current config",
-    "missingKey": "This provider has no API key yet — edit it to add one before switching"
+    "missingKey": "This provider has no API key yet — edit it to add one before switching",
+    "empty": "No third-party providers for this application; official login is the default"
   },
   "proxy": {
     "title": "Local Proxy",

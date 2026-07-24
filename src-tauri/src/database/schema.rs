@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -23,6 +23,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             api_key       TEXT NOT NULL DEFAULT '',
             model         TEXT,
             protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+            target_app    TEXT NOT NULL DEFAULT 'claude_code',
             notes         TEXT NOT NULL DEFAULT '',
             sort_index    INTEGER NOT NULL DEFAULT 0,
             is_current    BOOLEAN NOT NULL DEFAULT 0,
@@ -95,13 +96,41 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     if current < 1 {
         migrate_v0_to_v1(conn)?;
     }
-    // Future: if current < 2 { migrate_v1_to_v2(conn)?; }
+    if current < 2 {
+        migrate_v1_to_v2(conn)?;
+    }
     Ok(())
 }
 
 fn migrate_v0_to_v1(conn: &Connection) -> AppResult<()> {
     // Tables already created idempotently by create_tables(); just stamp the version.
     set_user_version(conn, 1)
+}
+
+/// Split legacy shared providers into independent Claude Code and Claude Desktop
+/// records. Retain old ids for Code and duplicate them with a desktop prefix.
+fn migrate_v1_to_v2(conn: &Connection) -> AppResult<()> {
+    let has_target: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'target_app';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_target == 0 {
+        conn.execute_batch("ALTER TABLE providers ADD COLUMN target_app TEXT NOT NULL DEFAULT 'claude_code';")?;
+    }
+    conn.execute_batch(
+        "UPDATE providers SET target_app = 'claude_code' WHERE target_app IS NULL OR target_app = '';
+         -- Remove only the known shipped P1 presets. User-created and imported
+         -- providers use other ids and are retained for the split migration.
+         DELETE FROM providers WHERE id IN ('preset_0', 'preset_1', 'preset_2', 'preset_3', 'preset_4', 'preset_5');
+         INSERT OR IGNORE INTO providers
+            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at)
+         SELECT 'desktop_' || id, name, base_url, api_key, model, protocol_type, 'claude_desktop',
+                notes, sort_index, is_current, created_at
+         FROM providers WHERE target_app = 'claude_code';
+         CREATE INDEX IF NOT EXISTS idx_providers_target ON providers(target_app);",
+    )?;
+    set_user_version(conn, 2)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

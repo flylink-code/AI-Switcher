@@ -4,6 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy";
+export type ProviderTarget = "claude_code" | "claude_desktop";
 
 /** A single API provider (mirrors `crate::provider::Provider`). */
 export interface Provider {
@@ -13,6 +14,7 @@ export interface Provider {
   apiKey: string;
   model: string;
   protocolType: ProtocolType;
+  targetApp: ProviderTarget;
   notes: string;
   sortIndex: number;
   isCurrent: boolean;
@@ -28,14 +30,7 @@ export interface ProviderInput {
   apiKey: string;
   model: string;
   protocolType: ProtocolType;
-  notes: string;
-}
-
-/** A bundled preset (mirrors `commands::providers::PresetInfo`). */
-export interface PresetInfo {
-  name: string;
-  baseUrl: string;
-  model: string;
+  targetApp: ProviderTarget;
   notes: string;
 }
 

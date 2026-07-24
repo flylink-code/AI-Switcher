@@ -180,7 +180,6 @@ pub fn clear_provider() -> AppResult<()> {
     )?;
     Ok(())
 }
-
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     let (base_url, api_key) = match provider.protocol_type {
         ProtocolType::Anthropic => (provider.base_url.clone(), provider.api_key.clone()),
@@ -205,6 +204,40 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     }
 
     Ok(profile)
+}
+
+/// Read the Claude Switcher profile currently applied to Claude Desktop, if any.
+pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LiveProviderInfo>> {
+    let paths = detect_claude_desktop();
+    let Some(config_library) = paths.config_library else {
+        return Ok(None);
+    };
+    let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
+    let Some(profile) = read_json_file::<Value>(&profile_path)? else {
+        return Ok(None);
+    };
+    let base_url = profile
+        .get("inferenceGatewayBaseUrl")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let auth_token = profile
+        .get("inferenceGatewayApiKey")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let model = profile
+        .get("inferenceModels")
+        .and_then(Value::as_array)
+        .and_then(|models| models.first())
+        .and_then(|model| model.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if base_url.is_empty() && auth_token.is_empty() && model.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(crate::provider::LiveProviderInfo { base_url, auth_token, model }))
 }
 
 fn get_or_create_gateway_token() -> AppResult<String> {

@@ -14,11 +14,11 @@ import type {
   McpServerInput,
   McpTarget,
   PathsInfo,
-  PresetInfo,
   PromptDetail,
   PromptInfo,
   Provider,
   ProviderInput,
+  ProviderTarget,
   ProxyStatus,
   Skill,
   UsageDashboard,
@@ -66,14 +66,14 @@ export async function backupNow(): Promise<string> {
 
 // ---- Providers -------------------------------------------------------------
 
-export async function listProviders(): Promise<Provider[]> {
+export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
   const invoke = await getInvoke();
-  return invoke<Provider[]>("list_providers", {});
+  return invoke<Provider[]>("list_providers", { target });
 }
 
-export async function getCurrentProvider(): Promise<Provider | null> {
+export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {
   const invoke = await getInvoke();
-  return invoke<Provider | null>("get_current_provider", {});
+  return invoke<Provider | null>("get_current_provider", { target });
 }
 
 export async function createProvider(input: ProviderInput): Promise<Provider> {
@@ -96,24 +96,19 @@ export async function switchProvider(id: string): Promise<Provider> {
   return invoke<Provider>("switch_provider", { id });
 }
 
-export async function switchToOfficial(): Promise<void> {
+export async function switchToOfficial(target: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("switch_to_official", {});
+  return invoke<void>("switch_to_official", { target });
 }
 
-export async function reorderProviders(orderedIds: string[]): Promise<void> {
+export async function reorderProviders(orderedIds: string[], target: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("reorder_providers", { orderedIds });
+  return invoke<void>("reorder_providers", { orderedIds, target });
 }
 
-export async function importLiveConfig(): Promise<void> {
+export async function importLiveConfig(target: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("import_live_config", {});
-}
-
-export async function listPresets(): Promise<PresetInfo[]> {
-  const invoke = await getInvoke();
-  return invoke<PresetInfo[]>("list_presets", {});
+  return invoke<void>("import_live_config", { target });
 }
 
 // ---- Local proxy ------------------------------------------------------------

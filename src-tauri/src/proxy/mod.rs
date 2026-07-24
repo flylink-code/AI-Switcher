@@ -28,7 +28,7 @@ use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage}
 use crate::database::dao::providers::get_current_provider;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProtocolType, Provider};
+use crate::provider::{ProtocolType, Provider, ProviderTarget};
 
 const DEFAULT_PORT: u16 = 15821;
 
@@ -38,6 +38,7 @@ pub struct ProxyManager {
     handle: Option<JoinHandle<()>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
     port: u16,
+    target: ProviderTarget,
 }
 
 impl ProxyManager {
@@ -47,6 +48,7 @@ impl ProxyManager {
             handle: None,
             shutdown_tx: None,
             port: DEFAULT_PORT,
+            target: ProviderTarget::ClaudeDesktop,
         }
     }
 
@@ -55,7 +57,7 @@ impl ProxyManager {
         let running = self.handle.as_ref().is_some_and(|h| !h.is_finished());
         let target_provider = if running {
             self.db
-                .with_conn(|conn| get_current_provider(conn))
+                .with_conn(|conn| get_current_provider(conn, self.target))
                 .ok()
                 .flatten()
                 .map(|p| p.name)
@@ -69,8 +71,9 @@ impl ProxyManager {
         }
     }
 
-    /// Start the proxy on `127.0.0.1:port`. Stops any previously running instance.
-    pub async fn start(&mut self, port: u16) -> AppResult<()> {
+    /// Start the proxy on `127.0.0.1:port` for one Claude application. Stops any
+    /// previously running instance because each application owns a separate active provider.
+    pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
         if self.handle.is_some() {
             self.stop();
         }
@@ -86,6 +89,7 @@ impl ProxyManager {
                 .timeout(std::time::Duration::from_secs(300))
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
+            target,
         };
 
         let app = Router::new()
@@ -108,6 +112,7 @@ impl ProxyManager {
         self.handle = Some(handle);
         self.shutdown_tx = Some(shutdown_tx);
         self.port = port;
+        self.target = target;
         log::info!("本地代理已启动: http://127.0.0.1:{port}");
         Ok(())
     }
@@ -136,6 +141,7 @@ pub struct ProxyStatus {
 struct ProxyState {
     db: Arc<Database>,
     client: Client,
+    target: ProviderTarget,
 }
 
 async fn health_handler() -> impl IntoResponse {
@@ -152,7 +158,9 @@ async fn proxy_handler(
     let started = Instant::now();
 
     // Resolve the active provider synchronously.
-    let provider: Option<Provider> = match state.db.with_conn(|conn| get_current_provider(conn)) {
+    let provider: Option<Provider> = match state
+        .db
+        .with_conn(|conn| get_current_provider(conn, state.target)) {
         Ok(p) => p,
         Err(e) => {
             log::error!("代理读取当前供应商失败: {e}");

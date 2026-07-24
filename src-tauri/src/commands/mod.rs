@@ -26,8 +26,7 @@ pub use prompts::{
 };
 pub use providers::{
     create_provider, delete_provider, get_current_provider, import_live_config,
-    list_presets, list_providers, reorder_providers, switch_provider, switch_to_official,
-    update_provider,
+    list_providers, reorder_providers, switch_provider, switch_to_official, update_provider,
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{

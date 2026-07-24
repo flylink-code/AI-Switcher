@@ -1,10 +1,9 @@
 import { create } from "zustand";
-import type { Provider, ProviderInput, PresetInfo } from "@/types/backend";
+import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
 import {
   createProvider,
   deleteProvider,
   importLiveConfig,
-  listPresets,
   listProviders,
   reorderProviders,
   switchProvider,
@@ -14,100 +13,81 @@ import {
 
 interface ProvidersState {
   providers: Provider[];
-  presets: PresetInfo[];
   loading: boolean;
-  /** Last error message, surfaced in the UI banner. */
   error: string | null;
+  target: ProviderTarget;
 
-  load: () => Promise<void>;
-  loadPresets: () => Promise<void>;
+  load: (target: ProviderTarget) => Promise<void>;
   create: (input: ProviderInput) => Promise<void>;
   update: (input: ProviderInput) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  /** Switch to a provider. Throws on validation error (caller shows message). */
   switchTo: (id: string) => Promise<void>;
-  /** Switch to official login mode. */
   useOfficial: () => Promise<void>;
-  /** Move a provider up or down by one slot. */
   move: (id: string, direction: -1 | 1) => Promise<void>;
-  /** Re-import the live settings.json into the DB, then reload. */
   importLive: () => Promise<void>;
   clearError: () => void;
 }
 
 export const useProvidersStore = create<ProvidersState>((set, get) => ({
   providers: [],
-  presets: [],
   loading: false,
   error: null,
+  target: "claude_code",
 
-  load: async () => {
-    set({ loading: true, error: null });
+  load: async (target) => {
+    set({ loading: true, error: null, target });
     try {
-      const providers = await listProviders();
-      set({ providers, loading: false });
+      set({ providers: await listProviders(target), loading: false });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     }
   },
 
-  loadPresets: async () => {
-    try {
-      const presets = await listPresets();
-      set({ presets });
-    } catch (e) {
-      set({ error: errMsg(e) });
-    }
-  },
-
   create: async (input) => {
-    await createProvider(input);
-    await get().load();
+    await createProvider({ ...input, targetApp: get().target });
+    await get().load(get().target);
   },
 
   update: async (input) => {
-    await updateProvider(input);
-    await get().load();
+    await updateProvider({ ...input, targetApp: get().target });
+    await get().load(get().target);
   },
 
   remove: async (id) => {
     await deleteProvider(id);
-    await get().load();
+    await get().load(get().target);
   },
 
   switchTo: async (id) => {
     await switchProvider(id);
-    await get().load();
+    await get().load(get().target);
   },
 
   useOfficial: async () => {
-    await switchToOfficial();
-    await get().load();
+    await switchToOfficial(get().target);
+    await get().load(get().target);
   },
 
   move: async (id, direction) => {
-    const ordered = get().providers.map((p) => p.id);
-    const i = ordered.indexOf(id);
-    const j = i + direction;
-    if (i < 0 || j < 0 || j >= ordered.length) return;
-    [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
-    // Optimistic reorder + persist.
-    const prev = get().providers;
-    const reordered = [...prev];
-    const tmp = reordered[i];
-    reordered[i] = reordered[j];
-    reordered[j] = tmp;
+    const ordered = get().providers.map((provider) => provider.id);
+    const current = ordered.indexOf(id);
+    const next = current + direction;
+    if (current < 0 || next < 0 || next >= ordered.length) return;
+    [ordered[current], ordered[next]] = [ordered[next], ordered[current]];
+    const previous = get().providers;
+    const reordered = [...previous];
+    [reordered[current], reordered[next]] = [reordered[next], reordered[current]];
     set({ providers: reordered });
     try {
-      await reorderProviders(ordered);
+      await reorderProviders(ordered, get().target);
     } catch (e) {
-      set({ providers: prev, error: errMsg(e) });
+      set({ providers: previous, error: errMsg(e) });
     }
   },
 
   importLive: async () => {
-    await importLiveConfig();
-    await get().load();
+    await importLiveConfig(get().target);
+    await get().load(get().target);
   },
 
   clearError: () => set({ error: null }),

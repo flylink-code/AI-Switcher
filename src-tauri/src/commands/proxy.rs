@@ -44,7 +44,7 @@ pub async fn start_proxy(
 ) -> AppResult<ProxyStatusInfo> {
     let target_port = port.unwrap_or_else(|| get_saved_port(&state));
     let mut proxy = state.proxy.lock().await;
-    proxy.start(target_port).await?;
+    proxy.start(target_port, crate::provider::ProviderTarget::ClaudeDesktop).await?;
     persist_port(&state, target_port)?;
     Ok(proxy.status().into())
 }
