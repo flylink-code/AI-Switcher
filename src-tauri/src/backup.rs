@@ -187,10 +187,23 @@ pub fn prune_backups_for_category(dir: &Path, category: &str, keep: usize) -> Ap
     entries.sort_by_key(|(modified, _)| *modified);
     let remove_count = entries.len().saturating_sub(keep);
     for (_, path) in entries.into_iter().take(remove_count) {
-        fs::remove_file(&path).map_err(|error| io_context("删除过期备份失败", error))?;
+        if let Err(error) = fs::remove_file(&path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                // Rotation is maintenance only. A locked old backup can be
+                // retried later; never reject the caller's new backup.
+                log::warn!("删除过期备份失败（已忽略） {}: {error}", path.display());
+            }
+        }
         let manifest = manifest_for_backup(&path);
         if manifest.is_file() {
-            fs::remove_file(manifest).map_err(|error| io_context("删除过期备份清单失败", error))?;
+            if let Err(error) = fs::remove_file(manifest) {
+                if error.kind() != std::io::ErrorKind::NotFound {
+                    // A concurrently opened manifest is harmless: the backup
+                    // body is already gone and a later maintenance pass can
+                    // remove the sidecar. Never fail a configuration write.
+                    log::warn!("删除过期备份清单失败（已忽略）: {error}");
+                }
+            }
         }
     }
     Ok(())

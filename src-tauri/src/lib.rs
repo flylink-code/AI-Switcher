@@ -106,9 +106,24 @@ pub fn run() {
             preview_proxy_log_maintenance,
         ]);
     let builder = add_single_instance(builder);
-    builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    if let Err(error) = builder.run(tauri::generate_context!()) {
+        report_startup_failure(&error.to_string());
+    }
+}
+
+/// Release binaries do not have a console window. Preserve startup failures in
+/// a user-accessible file instead of silently terminating.
+fn report_startup_failure(error: &str) {
+    let directory = config::get_app_config_dir();
+    let _ = std::fs::create_dir_all(&directory);
+    let path = directory.join("startup-error.log");
+    let report = format!(
+        "Claude Switcher failed to start.\n\n{error}\n\nSee: {}\n",
+        path.display()
+    );
+    let _ = std::fs::write(&path, &report);
+
+    eprintln!("{report}");
 }
 
 /// Single-instance guard + DB init + tray. Windows/macOS/Linux only.
