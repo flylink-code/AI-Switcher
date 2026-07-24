@@ -10,6 +10,7 @@ mod convert;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
+use std::convert::Infallible;
 
 use axum::body::Body;
 use axum::extract::State;
@@ -240,11 +241,11 @@ async fn proxy_handler(
     let incoming_stream = convert::wants_stream(&incoming);
     let (target_url, outgoing_body, translated) = match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
-            let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), false);
+            let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), incoming_stream);
             (api_endpoint_url(&provider.base_url, "/v1/chat/completions"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
         }
         ProtocolType::OpenAiResponses => {
-            let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), false);
+            let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), incoming_stream);
             (api_endpoint_url(&provider.base_url, "/v1/responses"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
         }
         ProtocolType::Anthropic => (api_endpoint_url(&provider.base_url, uri.path()), rewrite_body(&provider, &body_bytes), false),
@@ -279,9 +280,12 @@ async fn proxy_handler(
     let upstream_resp = match req_builder.body(outgoing_body).send().await {
         Ok(r) => r,
         Err(e) => {
-            let msg = format!("转发到上游失败: {e}");
             log_request(&state, &provider, None, started.elapsed().as_millis() as i64);
-            return json_error(StatusCode::BAD_GATEWAY, msg);
+            if translated {
+                log::warn!("转发到 OpenAI 兼容上游失败: {e}");
+                return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+            }
+            return json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {e}"));
         }
     };
 
@@ -289,21 +293,58 @@ async fn proxy_handler(
     let duration_ms = started.elapsed().as_millis() as i64;
     let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
 
-    // OpenAI upstreams are normalized into Anthropic JSON, or an Anthropic SSE
-    // sequence when the caller requested streaming. The upstream request itself
-    // is intentionally non-streaming so tool-call arguments are always complete.
+    // OpenAI upstreams are normalized into Anthropic JSON. For an Anthropic
+    // streaming request, keep the OpenAI upstream stream open and translate each
+    // SSE frame as it arrives rather than waiting for a completed response.
     if translated {
+        if incoming_stream && status.is_success() {
+            let protocol = match provider.protocol_type {
+                ProtocolType::OpenAiResponses => convert::OpenAiStreamProtocol::Responses,
+                _ => convert::OpenAiStreamProtocol::Chat,
+            };
+            let db = Arc::clone(&state.db);
+            let mut decoder = UpstreamSseDecoder::default();
+            let mut converter = convert::OpenAiSseConverter::new(protocol, provider.model.trim());
+            let stream_log_id = log_id.clone();
+            let stream = upstream_resp.bytes_stream().map(move |chunk| {
+                let output = match chunk {
+                    Ok(bytes) => {
+                        let mut output = Vec::new();
+                        for item in decoder.push(&bytes) {
+                            match item {
+                                UpstreamSseItem::Json(event) => output.extend(converter.push_event(&event)),
+                                UpstreamSseItem::Done => output.extend(converter.finish_stream()),
+                            }
+                        }
+                        output
+                    }
+                    Err(_) => converter.error_event("上游流式响应中断"),
+                };
+                if let (Some(id), Some((input_tokens, output_tokens))) = (stream_log_id.as_deref(), converter.usage()) {
+                    if let Err(error) = db.with_conn(|conn| update_proxy_log_usage(conn, id, input_tokens, output_tokens)) {
+                        log::error!("更新代理请求 Token 用量失败: {error}");
+                    }
+                }
+                Ok::<Bytes, Infallible>(Bytes::from(output))
+            });
+            return Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, "text/event-stream")
+                .header(header::CACHE_CONTROL, "no-cache")
+                .header("x-accel-buffering", "no")
+                .body(Body::from_stream(stream))
+                .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "构造流式响应失败"));
+        }
         let response_bytes = match upstream_resp.bytes().await {
             Ok(bytes) => bytes,
-            Err(_) => return json_error(StatusCode::BAD_GATEWAY, "读取上游响应失败"),
+            Err(_) => return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502)),
         };
         if !status.is_success() {
-            return Response::builder().status(status).header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(response_bytes)).unwrap_or_else(|_| json_error(StatusCode::BAD_GATEWAY, "上游服务返回错误"));
+            return anthropic_error(status, convert::openai_error_to_anthropic(status.as_u16()));
         }
         let upstream: Value = match serde_json::from_slice(&response_bytes) {
             Ok(value) => value,
-            Err(_) => return json_error(StatusCode::BAD_GATEWAY, "上游返回了无法转换的响应"),
+            Err(_) => return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502)),
         };
         let anthropic = match provider.protocol_type {
             ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
@@ -374,6 +415,51 @@ async fn proxy_handler(
     resp_builder
         .body(body)
         .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")))
+}
+
+#[derive(Default)]
+struct UpstreamSseDecoder {
+    buffer: Vec<u8>,
+}
+
+enum UpstreamSseItem {
+    Json(Value),
+    Done,
+}
+
+impl UpstreamSseDecoder {
+    fn push(&mut self, bytes: &[u8]) -> Vec<UpstreamSseItem> {
+        self.buffer.extend_from_slice(bytes);
+        let mut items = Vec::new();
+        while let Some((end, delimiter_len)) = find_sse_frame_end(&self.buffer) {
+            let frame = self.buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
+            let Ok(frame) = std::str::from_utf8(&frame) else { continue; };
+            let data = frame.lines()
+                .filter_map(|line| line.strip_prefix("data:"))
+                .map(str::trim_start)
+                .collect::<Vec<_>>()
+                .join("\n");
+            if data.is_empty() { continue; }
+            if data == "[DONE]" {
+                items.push(UpstreamSseItem::Done);
+            } else if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                items.push(UpstreamSseItem::Json(value));
+            }
+        }
+        items
+    }
+}
+
+fn find_sse_frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
+    for index in 0..buffer.len().saturating_sub(1) {
+        if buffer[index..].starts_with(b"\n\n") {
+            return Some((index, 2));
+        }
+        if buffer[index..].starts_with(b"\r\n\r\n") {
+            return Some((index, 4));
+        }
+    }
+    None
 }
 
 fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
@@ -465,6 +551,14 @@ fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
         .unwrap_or_else(|_| status.into_response())
 }
 
+fn anthropic_error(status: StatusCode, body: Value) -> Response {
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap_or_else(|_| status.into_response())
+}
+
 fn is_hop_by_hop_header(name: &str) -> bool {
     let name = name.as_bytes();
     matches!(
@@ -478,4 +572,28 @@ fn is_hop_by_hop_header(name: &str) -> bool {
             | b"proxy-authenticate"
             | b"upgrade"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upstream_sse_decoder_reassembles_split_json_frames() {
+        let mut decoder = UpstreamSseDecoder::default();
+        assert!(decoder.push(b"data: {\"type\":\"response.output_text").is_empty());
+        let events = decoder.push(b".delta\",\"delta\":\"hi\"}\n\n");
+        assert_eq!(events.len(), 1);
+        let UpstreamSseItem::Json(event) = &events[0] else { panic!("expected JSON SSE event"); };
+        assert_eq!(event["type"], "response.output_text.delta");
+        assert_eq!(event["delta"], "hi");
+    }
+
+    #[test]
+    fn upstream_sse_decoder_accepts_crlf_and_done() {
+        let mut decoder = UpstreamSseDecoder::default();
+        let events = decoder.push(b"data: [DONE]\r\n\r\n");
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], UpstreamSseItem::Done));
+    }
 }
