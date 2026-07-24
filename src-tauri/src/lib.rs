@@ -1,0 +1,87 @@
+//! Library entry point for the Tauri app. `main.rs` is a thin binary wrapper.
+
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
+mod backup;
+mod commands;
+mod config;
+mod database;
+mod error;
+mod store;
+mod tray;
+
+use tauri::{Manager, WindowEvent};
+
+use crate::commands::{backup_now, get_db_info, get_paths, ping};
+use crate::error::AppError;
+use crate::store::AppState;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
+        .setup(setup)
+        .on_window_event(on_window_event)
+        .invoke_handler(tauri::generate_handler![
+            ping,
+            get_paths,
+            get_db_info,
+            backup_now,
+        ]);
+    let builder = add_single_instance(builder);
+    builder
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+/// Single-instance guard + DB init + tray. Windows/macOS/Linux only.
+#[cfg(desktop)]
+fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }))
+}
+
+#[cfg(not(desktop))]
+fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    builder
+}
+
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    // Ensure the data directory exists before opening the DB.
+    let app_config_dir = config::get_app_config_dir();
+    std::fs::create_dir_all(&app_config_dir)?;
+    std::fs::create_dir_all(config::get_backup_dir())?;
+
+    // Initialize storage.
+    let db = database::Database::init().map_err(box_app_error)?;
+    app.manage(AppState { db });
+
+    // System tray.
+    if let Err(e) = tray::build_tray(app.handle()) {
+        log::error!("托盘初始化失败: {e}");
+    }
+
+    Ok(())
+}
+
+/// Minimize-to-tray on close (kept simple for P0; a setting will toggle this in P5).
+fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if let WindowEvent::CloseRequested { api, .. } = event {
+        window.hide().ok();
+        api.prevent_close();
+    }
+}
+
+/// Promote an [`AppError`] into a boxed error for the setup signature.
+fn box_app_error(e: AppError) -> Box<dyn std::error::Error> {
+    Box::<dyn std::error::Error>::from(e.to_string())
+}

@@ -1,0 +1,55 @@
+[package]
+name = "claude-switcher"
+version = "0.1.0"
+description = "Unified third-party API configuration manager for Claude Desktop & Claude Code"
+authors = ["Claude Switcher"]
+edition = "2021"
+rust-version = "1.77"
+
+# https://doc.rust-lang.org/cargo/reference/manifest.html#the-default-run-field
+[lib]
+name = "claude_switcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri core
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-log = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# Storage
+rusqlite = { version = "0.31", features = ["bundled", "backup"] }
+
+# Async / runtime
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+
+# Utilities
+dirs = "5"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+log = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+filetime = "0.2"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+
+# Optimize release binary size.
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "unwind"
+strip = "symbols"
