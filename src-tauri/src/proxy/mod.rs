@@ -30,7 +30,7 @@ use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage}
 use crate::database::dao::providers::{get_current_provider, resolve_api_key};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProtocolType, Provider, ProviderTarget};
+use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
 
 const DEFAULT_PORT: u16 = 15821;
 
@@ -61,14 +61,19 @@ impl ProxyManager {
         let mut active = Vec::new();
         for (target, runtime) in [(ProviderTarget::ClaudeCode, &self.code), (ProviderTarget::ClaudeDesktop, &self.desktop)] {
             if let Some(runtime) = runtime.as_ref().filter(|runtime| !runtime.handle.is_finished()) {
-                if let Some(provider) = self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten() {
-                    active.push((runtime.port, provider.name));
-                }
+                let provider = self.db.with_conn(|conn| get_current_provider(conn, target))
+                    .ok()
+                    .flatten()
+                    .map(|provider| provider.name);
+                active.push((runtime.port, provider));
             }
         }
         let running = !active.is_empty();
         let port = active.first().map(|(port, _)| *port).unwrap_or(DEFAULT_PORT);
-        let target_provider = (!active.is_empty()).then(|| active.into_iter().map(|(_, name)| name).collect::<Vec<_>>().join(" / "));
+        let target_provider = active.into_iter()
+            .filter_map(|(_, provider)| provider)
+            .collect::<Vec<_>>();
+        let target_provider = (!target_provider.is_empty()).then(|| target_provider.join(" / "));
         ProxyStatus {
             running,
             port,
@@ -96,7 +101,13 @@ impl ProxyManager {
 
     /// Start or replace one app's proxy without interrupting the other app.
     pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
-        self.stop_target(target);
+        let current = match target {
+            ProviderTarget::ClaudeCode => self.code.as_ref(),
+            ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
+        };
+        if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
+            return Ok(());
+        }
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = TcpListener::bind(addr)
@@ -130,9 +141,13 @@ impl ProxyManager {
         });
 
         let runtime = ProxyRuntime { handle, shutdown_tx, port };
-        match target {
-            ProviderTarget::ClaudeCode => self.code = Some(runtime),
-            ProviderTarget::ClaudeDesktop => self.desktop = Some(runtime),
+        let previous = match target {
+            ProviderTarget::ClaudeCode => self.code.replace(runtime),
+            ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
+        };
+        if let Some(previous) = previous {
+            let _ = previous.shutdown_tx.send(());
+            previous.handle.abort();
         }
         log::info!("本地代理已启动: {target:?} http://127.0.0.1:{port}");
         Ok(())
@@ -223,17 +238,16 @@ async fn proxy_handler(
         Err(_) => return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"),
     };
     let incoming_stream = convert::wants_stream(&incoming);
-    let upstream_base = provider.base_url.trim_end_matches('/');
     let (target_url, outgoing_body, translated) = match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
             let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), false);
-            (format!("{upstream_base}/v1/chat/completions"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+            (api_endpoint_url(&provider.base_url, "/v1/chat/completions"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
         }
         ProtocolType::OpenAiResponses => {
             let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), false);
-            (format!("{upstream_base}/v1/responses"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+            (api_endpoint_url(&provider.base_url, "/v1/responses"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
         }
-        ProtocolType::Anthropic => (format!("{upstream_base}{}", uri.path()), rewrite_body(&provider, &body_bytes), false),
+        ProtocolType::Anthropic => (api_endpoint_url(&provider.base_url, uri.path()), rewrite_body(&provider, &body_bytes), false),
     };
 
     // Forward the request.

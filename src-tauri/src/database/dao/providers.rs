@@ -199,11 +199,13 @@ pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
 /// Mark `id` as the sole active provider for its target application.
 pub fn set_current_provider(conn: &Connection, id: &str) -> AppResult<()> {
     let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-    conn.execute(
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
         "UPDATE providers SET is_current = 0 WHERE target_app = ?;",
         params![provider.target_app.as_str()],
     )?;
-    conn.execute("UPDATE providers SET is_current = 1 WHERE id = ?;", params![id])?;
+    tx.execute("UPDATE providers SET is_current = 1 WHERE id = ?;", params![id])?;
+    tx.commit()?;
     Ok(())
 }
 

@@ -5,7 +5,7 @@ use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    ConnectionTestResult, LiveProviderInfo, ModelDiscoveryResult, Provider,
+    api_endpoint_url, ConnectionTestResult, LiveProviderInfo, ModelDiscoveryResult, Provider,
     ProviderExportBundle, ProviderExportEntry, ProviderImportResult, ProviderInput,
     ProviderTarget, ProtocolType,
 };
@@ -14,6 +14,7 @@ use chrono::Utc;
 use reqwest::header;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 
 #[tauri::command]
@@ -51,15 +52,34 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
 /// Activate a provider only for the application that owns it.
 #[tauri::command]
 pub async fn switch_provider(id: String, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
-    let provider = state.db.with_conn(|conn| {
-        dao::get_provider(conn, &id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
+    let target = state.db.with_conn(|conn| {
+        dao::get_provider(conn, &id)?.map(|provider| provider.target_app)
+            .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
+    switch_provider_for_target(&id, target, &state).await
+}
+
+/// Shared provider switching service used by both IPC and tray actions.
+/// It deliberately keeps the preflight before any live configuration change.
+pub async fn switch_provider_for_target(
+    id: &str,
+    target: ProviderTarget,
+    state: &AppState,
+) -> AppResult<Provider> {
+    let provider = state.db.with_conn(|conn| {
+        dao::get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
+    })?;
+    if provider.target_app != target {
+        return Err(AppError::Config("供应商不属于此应用".to_string()));
+    }
     let preflight = test_provider_impl(&provider, &state).await?;
     if !preflight.ok {
         return Err(AppError::Config(format!("连接验证失败（{}）：{}", preflight.category, preflight.message)));
     }
-    apply_target_provider(&provider, &state).await?;
-    state.db.with_conn(|conn| dao::set_current_provider(conn, &id))?;
+    let snapshot = apply_target_provider(&provider, state).await?;
+    if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, id)) {
+        return rollback_switch(snapshot, state, error).await;
+    }
     Ok(provider)
 }
 
@@ -89,7 +109,7 @@ pub async fn discover_provider_models(
         dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| AppError::Config("供应商未配置 API Key".to_string()))
     })?;
     let checked_at = Utc::now().timestamp_millis();
-    let url = endpoint_url(&provider.base_url, "/v1/models");
+    let url = api_endpoint_url(&provider.base_url, "/v1/models");
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
@@ -130,11 +150,17 @@ pub async fn discover_provider_models(
 }
 
 #[tauri::command]
-pub fn switch_to_official(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub async fn switch_to_official(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    switch_to_official_for_target(target, &state).await
+}
+
+/// Shared official-login restoration used by IPC and tray actions.
+pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppState) -> AppResult<()> {
     match target {
-        ProviderTarget::ClaudeCode => restore_code_ownership(&state)?,
-        ProviderTarget::ClaudeDesktop => restore_desktop_ownership(&state)?,
+        ProviderTarget::ClaudeCode => restore_code_ownership(state)?,
+        ProviderTarget::ClaudeDesktop => restore_desktop_ownership(state)?,
     }
+    state.proxy.lock().await.stop_target(target);
     state.db.with_conn(|conn| dao::clear_current_provider(conn, target))
 }
 
@@ -210,7 +236,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     Ok(ProviderImportResult { imported, skipped })
 }
 
-async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResult<()> {
+async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResult<SwitchSnapshot> {
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
     // for config writing; it is never serialized or persisted.
     let mut runtime_provider = provider.clone();
@@ -220,30 +246,183 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
         })
     })?;
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
-    match runtime_provider.target_app {
-        ProviderTarget::ClaudeCode => {
-            let ownership = prepare_code_ownership(
-                &runtime_provider,
-                state,
-                runtime_provider.protocol_type.uses_proxy(),
-                proxy_port,
-            )?;
-            if runtime_provider.protocol_type.uses_proxy() {
-                state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
-                claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, proxy_port)?;
+    let mut snapshot = SwitchSnapshot::capture(state, runtime_provider.target_app).await?;
+    let uses_proxy = runtime_provider.protocol_type.uses_proxy();
+    let result: AppResult<()> = async {
+        match runtime_provider.target_app {
+            ProviderTarget::ClaudeCode => {
+                let ownership = prepare_code_ownership(
+                    &runtime_provider,
+                    state,
+                    uses_proxy,
+                    proxy_port,
+                )?;
+                if uses_proxy {
+                    state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
+                    claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, proxy_port)?;
+                } else {
+                    claude_code::apply_provider_to_settings(&runtime_provider)?;
+                }
+                commit_code_ownership(state, ownership)?;
+            }
+            ProviderTarget::ClaudeDesktop => {
+                let original_applied_id = prepare_desktop_ownership(state)?;
+                if uses_proxy {
+                    state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
+                }
+                claude_desktop::apply_provider(&runtime_provider, proxy_port)?;
+                commit_desktop_ownership(state, original_applied_id)?;
+            }
+        }
+        Ok(())
+    }.await;
+    if let Err(error) = result {
+        if let Err(mark_error) = snapshot.capture_last_written_files() {
+            return rollback_switch(snapshot, state, AppError::Config(format!("{error}；无法安全确认配置写入状态：{mark_error}"))).await;
+        }
+        return rollback_switch(snapshot, state, error).await;
+    }
+    if let Err(error) = snapshot.capture_last_written_files() {
+        return rollback_switch(snapshot, state, error).await;
+    }
+    if !uses_proxy {
+        state.proxy.lock().await.stop_target(runtime_provider.target_app);
+    }
+    Ok(snapshot)
+}
+
+struct SwitchSnapshot {
+    target: ProviderTarget,
+    files: Vec<FileSnapshot>,
+    ownership_key: &'static str,
+    ownership_value: Option<String>,
+    proxy: ProxySnapshot,
+}
+
+struct FileSnapshot {
+    path: PathBuf,
+    contents: Option<Vec<u8>>,
+    last_written: Option<Option<Vec<u8>>>,
+}
+
+struct ProxySnapshot {
+    running: bool,
+    port: u16,
+}
+
+impl SwitchSnapshot {
+    async fn capture(state: &AppState, target: ProviderTarget) -> AppResult<Self> {
+        let paths = match target {
+            ProviderTarget::ClaudeCode => vec![crate::config::get_claude_settings_path()],
+            ProviderTarget::ClaudeDesktop => {
+                let paths = claude_desktop::detect_claude_desktop();
+                let mut files = Vec::new();
+                if let Some(config_library) = paths.config_library {
+                    files.push(config_library.join(format!("{DESKTOP_PROFILE_ID}.json")));
+                }
+                if let Some(meta_path) = paths.meta_path {
+                    files.push(meta_path);
+                }
+                files
+            }
+        };
+        let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
+        let ownership_key = match target {
+            ProviderTarget::ClaudeCode => CODE_OWNERSHIP_KEY,
+            ProviderTarget::ClaudeDesktop => DESKTOP_OWNERSHIP_KEY,
+        };
+        let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
+        let proxy = {
+            let proxy = state.proxy.lock().await;
+            let status = proxy.status_for(target);
+            ProxySnapshot { running: status.running, port: status.port }
+        };
+        Ok(Self { target, files, ownership_key, ownership_value, proxy })
+    }
+
+    async fn restore(self, state: &AppState) -> AppResult<()> {
+        let mut failures = Vec::new();
+        for file in self.files {
+            if let Err(error) = file.restore() {
+                failures.push(format!("恢复配置文件失败: {error}"));
+            }
+        }
+        if let Err(error) = state.db.with_conn(|conn| {
+            set_setting(conn, self.ownership_key, self.ownership_value.as_deref().unwrap_or(""))
+        }) {
+            failures.push(format!("恢复配置所有权失败: {error}"));
+        }
+        let proxy_result = {
+            let mut proxy = state.proxy.lock().await;
+            if self.proxy.running {
+                proxy.start(self.proxy.port, self.target).await
             } else {
-                claude_code::apply_provider_to_settings(&runtime_provider)?;
+                proxy.stop_target(self.target);
+                Ok(())
             }
-            commit_code_ownership(state, ownership)
+        };
+        if let Err(error) = proxy_result {
+            failures.push(format!("恢复本地代理失败: {error}"));
         }
-        ProviderTarget::ClaudeDesktop => {
-            let original_applied_id = prepare_desktop_ownership(state)?;
-            if runtime_provider.protocol_type.uses_proxy() {
-                state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(AppError::Config(failures.join("；")))
+        }
+    }
+
+    fn capture_last_written_files(&mut self) -> AppResult<()> {
+        for file in &mut self.files {
+            file.capture_last_written()?;
+        }
+        Ok(())
+    }
+}
+
+impl FileSnapshot {
+    fn capture(path: PathBuf) -> AppResult<Self> {
+        let contents = if path.exists() { Some(std::fs::read(&path)?) } else { None };
+        Ok(Self { path, contents, last_written: None })
+    }
+
+    fn capture_last_written(&mut self) -> AppResult<()> {
+        self.last_written = Some(Self::read_contents(&self.path)?);
+        Ok(())
+    }
+
+    fn restore(self) -> AppResult<()> {
+        let Some(last_written) = self.last_written else {
+            return Ok(());
+        };
+        if Self::read_contents(&self.path)? != last_written {
+            return Err(AppError::Config(format!(
+                "检测到配置文件已被外部修改，已拒绝覆盖: {}",
+                self.path.display()
+            )));
+        }
+        match self.contents {
+            Some(contents) => crate::config::atomic_write(&self.path, &contents),
+            None if self.path.exists() => {
+                std::fs::remove_file(&self.path)?;
+                Ok(())
             }
-            claude_desktop::apply_provider(&runtime_provider, proxy_port)?;
-            commit_desktop_ownership(state, original_applied_id)
+            None => Ok(()),
         }
+    }
+
+    fn read_contents(path: &std::path::Path) -> AppResult<Option<Vec<u8>>> {
+        if path.exists() {
+            Ok(Some(std::fs::read(path)?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+async fn rollback_switch<T>(snapshot: SwitchSnapshot, state: &AppState, error: AppError) -> AppResult<T> {
+    match snapshot.restore(state).await {
+        Ok(()) => Err(error),
+        Err(rollback_error) => Err(AppError::Config(format!("{error}；已尝试回滚，但部分恢复失败：{rollback_error}"))),
     }
 }
 
@@ -364,19 +543,17 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .map_err(|e| AppError::Other(format!("创建连接测试客户端失败: {e}")))?;
-            let payload = serde_json::json!({
-                "model": provider.model.trim(), "max_tokens": 1, "stream": false,
-                "messages": [{"role": "user", "content": "ping"}]
-            });
-            let response = client
-                .post(endpoint_url(&provider.base_url, "/v1/messages"))
+            let (endpoint, payload) = protocol_test_request(provider);
+            let mut request = client
+                .post(api_endpoint_url(&provider.base_url, endpoint))
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {key}"))
-                .header("x-api-key", key)
-                .body(serde_json::to_vec(&payload)?)
-                .send()
-                .await;
-            classify_test_response(response, checked_at)
+                .header("x-api-key", key);
+            if matches!(provider.protocol_type, ProtocolType::Anthropic) {
+                request = request.header("anthropic-version", "2023-06-01");
+            }
+            let response = request.body(serde_json::to_vec(&payload)?).send().await;
+            classify_test_response(response, checked_at, provider.protocol_type)
         }
         Ok(Some(_)) => ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at },
         Ok(None) => ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at },
@@ -394,7 +571,7 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
 }
 
 fn classify_test_response(
-    response: Result<reqwest::Response, reqwest::Error>, checked_at: i64,
+    response: Result<reqwest::Response, reqwest::Error>, checked_at: i64, protocol: ProtocolType,
 ) -> ConnectionTestResult {
     match response {
         Ok(response) if response.status().is_success() => ConnectionTestResult {
@@ -404,7 +581,7 @@ fn classify_test_response(
             let status = response.status().as_u16();
             let (category, message) = match status {
                 401 | 403 => ("authentication", "API Key 被拒绝"),
-                404 | 405 => ("protocol", "供应商不支持 Anthropic /v1/messages 端点"),
+                404 | 405 => ("protocol", protocol_endpoint_message(protocol)),
                 400 | 422 => ("model", "模型不可用或不兼容"),
                 _ => ("upstream", "上游服务返回错误"),
             };
@@ -419,8 +596,31 @@ fn classify_test_response(
     }
 }
 
-fn endpoint_url(base_url: &str, endpoint: &str) -> String {
-    format!("{}{}", base_url.trim_end_matches('/'), endpoint)
+fn protocol_test_request(provider: &Provider) -> (&'static str, Value) {
+    match provider.protocol_type {
+        ProtocolType::Anthropic => ("/v1/messages", serde_json::json!({
+            "model": provider.model.trim(), "max_tokens": 1, "stream": false,
+            "messages": [{"role": "user", "content": "ping"}]
+        })),
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => ("/v1/chat/completions", serde_json::json!({
+            "model": provider.model.trim(), "max_tokens": 1, "stream": false,
+            "messages": [{"role": "user", "content": "ping"}]
+        })),
+        ProtocolType::OpenAiResponses => ("/v1/responses", serde_json::json!({
+            "model": provider.model.trim(), "max_output_tokens": 1, "stream": false,
+            "input": "ping"
+        })),
+    }
+}
+
+fn protocol_endpoint_message(protocol: ProtocolType) -> &'static str {
+    match protocol {
+        ProtocolType::Anthropic => "供应商不支持 Anthropic /v1/messages 端点",
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => {
+            "供应商不支持 OpenAI /v1/chat/completions 端点"
+        }
+        ProtocolType::OpenAiResponses => "供应商不支持 OpenAI /v1/responses 端点",
+    }
 }
 
 fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &AppState) -> AppResult<()> {

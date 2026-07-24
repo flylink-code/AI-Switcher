@@ -84,6 +84,27 @@ impl ProtocolType {
     }
 }
 
+/// Build an API endpoint URL while preserving provider-specific gateway paths.
+///
+/// Providers commonly store either a host root (`https://api.example.com`) or
+/// a versioned root (`https://api.example.com/v1`). Callers always use normal
+/// API endpoint paths such as `/v1/messages`; this helper avoids accidentally
+/// producing `/v1/v1/messages` for the latter form.
+pub fn api_endpoint_url(base_url: &str, endpoint: &str) -> String {
+    let base = base_url.trim().trim_end_matches('/');
+    let endpoint = if endpoint.starts_with('/') {
+        endpoint
+    } else {
+        return format!("{base}/{endpoint}");
+    };
+    let endpoint = if base.ends_with("/v1") && endpoint.starts_with("/v1/") {
+        &endpoint[3..]
+    } else {
+        endpoint
+    };
+    format!("{base}{endpoint}")
+}
+
 /// A single API provider. Field names are camelCase on the wire for the frontend.
 ///
 /// Note on `api_key`: since P7 this field holds either a keyring reference
@@ -202,4 +223,25 @@ pub struct LiveProviderInfo {
     pub base_url: String,
     pub auth_token: String,
     pub model: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::api_endpoint_url;
+
+    #[test]
+    fn endpoint_url_preserves_gateway_path_without_duplicate_v1() {
+        assert_eq!(
+            api_endpoint_url("https://api.example.test", "/v1/messages"),
+            "https://api.example.test/v1/messages"
+        );
+        assert_eq!(
+            api_endpoint_url("https://api.example.test/v1/", "/v1/messages"),
+            "https://api.example.test/v1/messages"
+        );
+        assert_eq!(
+            api_endpoint_url("https://gateway.example.test/openai/v1", "/v1/models"),
+            "https://gateway.example.test/openai/v1/models"
+        );
+    }
 }

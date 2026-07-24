@@ -34,7 +34,7 @@ pub async fn get_proxy_status(target: Option<crate::provider::ProviderTarget>, s
         .lock()
         .await;
     Ok(match target {
-        Some(target) => proxy.status_for(target).into(),
+        Some(target) => status_for_target(&proxy, &state, target),
         None => proxy.status().into(),
     })
 }
@@ -50,14 +50,14 @@ pub async fn start_proxy(
     let mut proxy = state.proxy.lock().await;
     proxy.start(target_port, target).await?;
     persist_port(&state, target, target_port)?;
-    Ok(proxy.status().into())
+    Ok(status_for_target(&proxy, &state, target))
 }
 
 #[tauri::command]
 pub async fn stop_proxy(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
     let mut proxy = state.proxy.lock().await;
     match target {
-        Some(target) => { proxy.stop_target(target); Ok(proxy.status_for(target).into()) }
+        Some(target) => { proxy.stop_target(target); Ok(status_for_target(&proxy, &state, target)) }
         None => { proxy.stop(); Ok(proxy.status().into()) }
     }
 }
@@ -82,6 +82,18 @@ fn get_saved_port(state: &AppState, target: crate::provider::ProviderTarget) -> 
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1 })
+}
+
+fn status_for_target(
+    proxy: &crate::proxy::ProxyManager,
+    state: &AppState,
+    target: crate::provider::ProviderTarget,
+) -> ProxyStatusInfo {
+    let mut status = proxy.status_for(target);
+    if !status.running {
+        status.port = get_saved_port(state, target);
+    }
+    status.into()
 }
 
 fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port: u16) -> AppResult<()> {

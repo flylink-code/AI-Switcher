@@ -6,9 +6,7 @@ use tauri::{
     AppHandle, Manager, Runtime,
 };
 
-use crate::config::{claude_code, claude_desktop};
 use crate::database::dao;
-use crate::database::dao::settings::get_setting;
 use crate::error::{AppError, AppResult};
 use crate::provider::ProviderTarget;
 use crate::store::AppState;
@@ -42,12 +40,12 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
                 "show" => show_main_window(app),
                 "quit" => app.exit(0),
                 CODE_OFFICIAL_ID => {
-                    if let Err(e) = switch_to_official(app, ProviderTarget::ClaudeCode) {
+                    if let Err(e) = tauri::async_runtime::block_on(switch_to_official(app, ProviderTarget::ClaudeCode)) {
                         log::error!("托盘切换 Claude Code 官方登录失败: {e}");
                     }
                 }
                 DESKTOP_OFFICIAL_ID => {
-                    if let Err(e) = switch_to_official(app, ProviderTarget::ClaudeDesktop) {
+                    if let Err(e) = tauri::async_runtime::block_on(switch_to_official(app, ProviderTarget::ClaudeDesktop)) {
                         log::error!("托盘切换 Claude Desktop 官方登录失败: {e}");
                     }
                 }
@@ -111,44 +109,11 @@ async fn switch_provider<R: Runtime>(
     target: ProviderTarget,
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
-    let provider = state.db.with_conn(|conn| {
-        dao::get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
-    })?;
-    if provider.target_app != target {
-        return Err(AppError::Config("供应商不属于此应用".to_string()));
-    }
-    let mut runtime_provider = provider.clone();
-    runtime_provider.api_key = state.db.with_conn(|conn| {
-        dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| AppError::Config("供应商未配置 API Key".to_string()))
-    })?;
-    let port_key = match target {
-        ProviderTarget::ClaudeCode => "proxy_port_claude_code",
-        ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
-    };
-    let port = state.db.with_conn(|conn| get_setting(conn, port_key))?
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822 });
-    match target {
-        ProviderTarget::ClaudeCode if runtime_provider.protocol_type.uses_proxy() => {
-            state.proxy.lock().await.start(port, ProviderTarget::ClaudeCode).await?;
-            claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, port)?;
-        }
-        ProviderTarget::ClaudeCode => claude_code::apply_provider_to_settings(&runtime_provider)?,
-        ProviderTarget::ClaudeDesktop => {
-            if runtime_provider.protocol_type.uses_proxy() {
-                state.proxy.lock().await.start(port, ProviderTarget::ClaudeDesktop).await?;
-            }
-            claude_desktop::apply_provider(&runtime_provider, port)?;
-        }
-    }
-    state.db.with_conn(|conn| dao::set_current_provider(conn, id))?;
+    crate::commands::providers::switch_provider_for_target(id, target, &state).await?;
     Ok(())
 }
 
-fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
-    match target {
-        ProviderTarget::ClaudeCode => claude_code::clear_provider_from_settings()?,
-        ProviderTarget::ClaudeDesktop => claude_desktop::clear_provider()?,
-    }
-    app.state::<AppState>().db.with_conn(|conn| dao::clear_current_provider(conn, target))
+async fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    crate::commands::providers::switch_to_official_for_target(target, &state).await
 }
