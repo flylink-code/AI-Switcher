@@ -1,0 +1,37 @@
+{
+  "name": "claude-switcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified third-party API configuration manager for Claude Desktop & Claude Code",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.2.5",
+    "@tauri-apps/api": "^2.9.1",
+    "@tauri-apps/plugin-opener": "^2.5.3",
+    "antd": "^6.4.3",
+    "i18next": "^25.7.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-i18next": "^16.5.3",
+    "react-router-dom": "^7.12.0",
+    "zustand": "^5.0.10"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.6",
+    "@types/node": "^25.0.9",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
