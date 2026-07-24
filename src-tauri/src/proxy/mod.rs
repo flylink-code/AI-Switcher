@@ -16,6 +16,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::Router;
 use bytes::Bytes;
+use futures_util::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -23,7 +24,7 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
-use crate::database::dao::proxy_logs::insert_proxy_log;
+use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage};
 use crate::database::dao::providers::get_current_provider;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -215,9 +216,11 @@ async fn proxy_handler(
 
     let status = upstream_resp.status();
     let duration_ms = started.elapsed().as_millis() as i64;
-    log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
+    let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
 
-    // Build the response, streaming the upstream body back to the caller.
+    // Build the response, preserving upstream headers. Non-streaming responses are
+    // inspected directly; streaming responses update usage when the final SSE
+    // message_delta event arrives.
     let mut resp_builder = Response::builder().status(status);
     for (name, value) in upstream_resp.headers() {
         if is_hop_by_hop_header(name.as_str()) {
@@ -226,7 +229,41 @@ async fn proxy_handler(
         resp_builder = resp_builder.header(name, value);
     }
 
-    let stream = upstream_resp.bytes_stream();
+    let is_streaming = upstream_resp
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.contains("text/event-stream"));
+
+    if !is_streaming {
+        let response_bytes = match upstream_resp.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e) => return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {e}")),
+        };
+        if let Some(id) = log_id.as_deref() {
+            update_log_usage(&state, id, extract_usage_from_json(&response_bytes));
+        }
+        return resp_builder
+            .body(Body::from(response_bytes))
+            .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")));
+    }
+
+    let db = Arc::clone(&state.db);
+    let mut sse_buffer = Vec::new();
+    let stream = upstream_resp.bytes_stream().map(move |chunk| {
+        if let (Some(id), Ok(bytes)) = (log_id.as_deref(), &chunk) {
+            sse_buffer.extend_from_slice(bytes);
+            while let Some(end) = sse_buffer.windows(2).position(|window| window == b"\n\n") {
+                let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
+                if let Some(usage) = extract_usage_from_sse(&event) {
+                    if let Err(e) = db.with_conn(|conn| update_proxy_log_usage(conn, id, usage.0, usage.1)) {
+                        log::error!("更新代理请求 Token 用量失败: {e}");
+                    }
+                }
+            }
+        }
+        chunk
+    });
     let body = Body::from_stream(stream);
 
     resp_builder
@@ -253,13 +290,18 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
         .unwrap_or_else(|_| original.clone())
 }
 
-fn log_request(state: &ProxyState, provider: &Provider, status: Option<i64>, duration_ms: i64) {
+fn log_request(
+    state: &ProxyState,
+    provider: &Provider,
+    status: Option<i64>,
+    duration_ms: i64,
+) -> Option<String> {
     let model = if provider.model.trim().is_empty() {
         None
     } else {
         Some(provider.model.trim())
     };
-    if let Err(e) = state.db.with_conn(|conn| {
+    match state.db.with_conn(|conn| {
         insert_proxy_log(
             conn,
             Some(&provider.id),
@@ -269,8 +311,44 @@ fn log_request(state: &ProxyState, provider: &Provider, status: Option<i64>, dur
             duration_ms,
         )
     }) {
-        log::error!("写入代理请求日志失败: {e}");
+        Ok(id) => Some(id),
+        Err(e) => {
+            log::error!("写入代理请求日志失败: {e}");
+            None
+        }
     }
+}
+
+fn update_log_usage(state: &ProxyState, id: &str, usage: Option<(i64, i64)>) {
+    let Some((input_tokens, output_tokens)) = usage else {
+        return;
+    };
+    if let Err(e) = state.db.with_conn(|conn| {
+        update_proxy_log_usage(conn, id, input_tokens, output_tokens)
+    }) {
+        log::error!("更新代理请求 Token 用量失败: {e}");
+    }
+}
+
+fn extract_usage_from_json(bytes: &[u8]) -> Option<(i64, i64)> {
+    let value: Value = serde_json::from_slice(bytes).ok()?;
+    usage_from_value(&value)
+}
+
+fn extract_usage_from_sse(bytes: &[u8]) -> Option<(i64, i64)> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    text.lines()
+        .filter_map(|line| line.strip_prefix("data: "))
+        .filter_map(|data| serde_json::from_str::<Value>(data).ok())
+        .find_map(|value| usage_from_value(&value))
+}
+
+fn usage_from_value(value: &Value) -> Option<(i64, i64)> {
+    let usage = value.get("usage")?;
+    Some((
+        usage.get("input_tokens")?.as_i64()?,
+        usage.get("output_tokens").and_then(Value::as_i64).unwrap_or(0),
+    ))
 }
 
 fn json_error(status: StatusCode, message: impl Into<String>) -> Response {

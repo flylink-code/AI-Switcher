@@ -20,6 +20,9 @@ import type {
   Provider,
   ProviderInput,
   ProxyStatus,
+  UsageDashboard,
+  ModelPricing,
+  ModelPricingInput,
 } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
@@ -197,7 +200,30 @@ export async function readLivePrompt(): Promise<LivePrompt | null> {
   return invoke<LivePrompt | null>("read_live_prompt", {});
 }
 
+
 export async function importLivePrompt(name: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("import_live_prompt", { name });
+}
+
+// ---- Usage ------------------------------------------------------------------
+
+export async function getUsageDashboard(days = 30): Promise<UsageDashboard> {
+  const invoke = await getInvoke();
+  return invoke<UsageDashboard>("get_usage_dashboard", { days });
+}
+
+export async function listModelPricing(): Promise<ModelPricing[]> {
+  const invoke = await getInvoke();
+  return invoke<ModelPricing[]>("list_model_pricing", {});
+}
+
+export async function saveModelPricing(input: ModelPricingInput): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("save_model_pricing", { input });
+}
+
+export async function deleteModelPricing(model: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_model_pricing", { model });
 }

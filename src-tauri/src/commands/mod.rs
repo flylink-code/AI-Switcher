@@ -8,6 +8,7 @@ pub mod paths;
 pub mod prompts;
 pub mod providers;
 pub mod proxy;
+pub mod usage;
 
 pub use backend::ping;
 pub use backup::backup_now;
@@ -27,3 +28,6 @@ pub use providers::{
     update_provider,
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
+pub use usage::{
+    delete_model_pricing, get_usage_dashboard, list_model_pricing, save_model_pricing,
+};

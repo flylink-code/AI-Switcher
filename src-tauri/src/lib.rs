@@ -27,8 +27,9 @@ use crate::commands::{
     delete_provider, get_current_provider, get_db_info, get_paths, get_proxy_status,
     import_live_config, import_live_prompt, import_mcp_servers, list_mcp_servers,
     list_presets, list_prompts, list_providers, ping, read_live_prompt, read_prompt,
-    reorder_providers, save_mcp_server, save_prompt, set_proxy_port, start_proxy,
-    stop_proxy, switch_provider, switch_to_official, toggle_mcp_server, update_provider,
+    reorder_providers, save_mcp_server, save_model_pricing, save_prompt, set_proxy_port,
+    start_proxy, stop_proxy, switch_provider, switch_to_official, toggle_mcp_server,
+    update_provider, delete_model_pricing, get_usage_dashboard, list_model_pricing,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -72,6 +73,10 @@ pub fn run() {
             start_proxy,
             stop_proxy,
             set_proxy_port,
+            get_usage_dashboard,
+            list_model_pricing,
+            save_model_pricing,
+            delete_model_pricing,
         ]);
     let builder = add_single_instance(builder);
     builder

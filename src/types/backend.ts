@@ -119,3 +119,48 @@ export interface LivePrompt {
   content: string;
   updatedAt: number;
 }
+
+export interface UsageSummary {
+  requestCount: number;
+  successfulRequestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+}
+
+export interface UsageBreakdown {
+  key: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+}
+
+export interface UsageTrendPoint {
+  date: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+}
+
+export interface UsageDashboard {
+  summary: UsageSummary;
+  byProvider: UsageBreakdown[];
+  byModel: UsageBreakdown[];
+  trend: UsageTrendPoint[];
+}
+
+export interface ModelPricing {
+  model: string;
+  inputPricePerMillion: number;
+  outputPricePerMillion: number;
+  currency: string;
+}
+
+export interface ModelPricingInput {
+  model: string;
+  inputPricePerMillion: number;
+  outputPricePerMillion: number;
+  currency: string;
+}
