@@ -33,7 +33,7 @@
       "endpoints": [
         "https://github.com/flylink-code/claude-desktop-config/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE0NkFFQ0IzOTFEQzRBQkEKUldTNlN0eVJzK3hxcEs2UGNtK3M0cVQ1b1JRYzFISmxJcHJ5TlI2OElCb1JpUUJ2RnBxdGJPRVIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDMzM2QzY5ODhGRDVFMzgKUldRNFh2MklhV3d6M01hNFNUZzkrYXJYQVQ0TEN4REt0Y2k4Q1pDMDVDYitJWjBmWjJjS0ZTR3MK"
     }
   },
   "bundle": {
