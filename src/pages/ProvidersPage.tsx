@@ -22,11 +22,13 @@ import {
   DeleteOutlined,
   ThunderboltOutlined,
   GlobalOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { ProviderForm } from "@/components/ProviderForm";
+import { exportProviders, importProvidersJson, testProviderConnection } from "@/services/api";
 
 const { Text } = Typography;
 
@@ -61,7 +63,7 @@ export default function ProvidersPage() {
   };
 
   const handleSwitch = async (provider: Provider) => {
-    if (!provider.apiKey.trim()) {
+    if (!provider.apiKeySet) {
       void message.warning(t("providers.missingKey"));
       return;
     }
@@ -72,6 +74,40 @@ export default function ProvidersPage() {
     } catch (e) {
       void message.error(errMsg(e));
     } finally { setBusy(false); }
+  };
+
+  const handleTest = async (provider: Provider) => {
+    setBusy(true);
+    try {
+      const result = await testProviderConnection(provider.id);
+      const notify = result.ok ? message.success : message.error;
+      void notify(result.message);
+      await store.load(target);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally { setBusy(false); }
+  };
+
+  const handleExport = async () => {
+    try {
+      const json = await exportProviders(target);
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `claude-switcher-providers-${target}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { void message.error(errMsg(e)); }
+  };
+
+  const handleImportFile = async (file: File) => {
+    setBusy(true);
+    try {
+      const result = await importProvidersJson(await file.text());
+      void message.success(t("providers.importSummary", result));
+      await store.load(target);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setBusy(false); }
   };
 
   const handleOfficial = async () => {
@@ -105,7 +141,7 @@ export default function ProvidersPage() {
   };
 
   const columns: TableColumnsType<Provider> = [
-    { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}</Space> },
+    { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}{row.healthStatus && <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>{row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}</Tag>}</Space> },
     { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", ellipsis: true, render: (value: string) => <Text code copyable style={{ wordBreak: "break-all" }}>{value}</Text> },
     { title: t("providers.colModel"), dataIndex: "model", ellipsis: true },
     { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 110, render: (value: string) => <Tag color={value === "proxy" ? "orange" : "blue"}>{value}</Tag> },
@@ -115,6 +151,7 @@ export default function ProvidersPage() {
         <Tooltip title={t("providers.moveUp")}><Button size="small" icon={<ArrowUpOutlined />} disabled={index === 0 || busy} onClick={() => void store.move(row.id, -1)} /></Tooltip>
         <Tooltip title={t("providers.moveDown")}><Button size="small" icon={<ArrowDownOutlined />} disabled={index === store.providers.length - 1 || busy} onClick={() => void store.move(row.id, 1)} /></Tooltip>
         <Button size="small" type={row.isCurrent ? "default" : "primary"} disabled={row.isCurrent || busy} icon={<ThunderboltOutlined />} onClick={() => void handleSwitch(row)}>{t("providers.switch")}</Button>
+        <Tooltip title={t("providers.testConnection")}><Button size="small" icon={<SafetyCertificateOutlined />} disabled={busy || !row.apiKeySet} onClick={() => void handleTest(row)} /></Tooltip>
         <Tooltip title={t("providers.edit")}><Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} /></Tooltip>
         <Popconfirm title={t("providers.confirmDelete")} okText={t("providers.delete")} cancelText={t("providers.cancel")} onConfirm={() => void handleDelete(row)} disabled={busy}>
           <Tooltip title={t("providers.delete")}><Button size="small" danger icon={<DeleteOutlined />} disabled={busy} /></Tooltip>
@@ -140,6 +177,8 @@ export default function ProvidersPage() {
       extra={<Space>
         <Button loading={busy} onClick={() => void handleOfficial()}>{t("providers.officialLogin")}</Button>
         <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
+        <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
+        <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t("providers.create")}</Button>
       </Space>}
     >

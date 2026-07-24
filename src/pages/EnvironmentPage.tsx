@@ -4,6 +4,9 @@ import {
   Button,
   Card,
   Descriptions,
+  List,
+  Modal,
+  Popconfirm,
   Space,
   Spin,
   Switch,
@@ -18,8 +21,8 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import type { PathsInfo, DbInfo } from "@/types/backend";
-import { backupNow, getAutostartEnabled, getDbInfo, getPaths, ping, setAutostartEnabled } from "@/services/api";
+import type { PathsInfo, DbInfo, ConfigBackup, ProviderTarget } from "@/types/backend";
+import { backupNow, getAutostartEnabled, getDbInfo, getPaths, listConfigBackups, ping, previewConfigBackup, restoreConfigBackup } from "@/services/api";
 
 const { Text } = Typography;
 
@@ -46,6 +49,9 @@ export default function EnvironmentPage() {
   const [running, setRunning] = useState(false);
   const [autostartEnabled, setAutostartEnabled] = useState(false);
   const [autostartLoading, setAutostartLoading] = useState(true);
+  const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
+  const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
+  const [backupPreview, setBackupPreview] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -113,6 +119,28 @@ export default function EnvironmentPage() {
       setAutostartLoading(false);
     }
   }, [t]);
+
+  const loadConfigBackups = useCallback(async (target = backupTarget) => {
+    setRunning(true);
+    try { setConfigBackups(await listConfigBackups(target)); }
+    catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+    finally { setRunning(false); }
+  }, [backupTarget]);
+
+  const previewBackup = useCallback(async (backup: ConfigBackup) => {
+    try { setBackupPreview(await previewConfigBackup(backupTarget, backup.name)); }
+    catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+  }, [backupTarget]);
+
+  const restoreBackup = useCallback(async (backup: ConfigBackup) => {
+    setRunning(true);
+    try {
+      await restoreConfigBackup(backupTarget, backup.name);
+      void message.success(t("env.restoreDone"));
+      await loadConfigBackups();
+    } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+    finally { setRunning(false); }
+  }, [backupTarget, loadConfigBackups, t]);
 
   const claudeRows: PathRow[] = paths
     ? [
@@ -213,6 +241,21 @@ export default function EnvironmentPage() {
           </Card>
         )}
 
+        <Card size="small" title={t("env.sections.recovery")} extra={<Space>
+          <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
+          <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
+        </Space>}>
+          <List
+            size="small"
+            dataSource={configBackups}
+            locale={{ emptyText: t("env.noConfigBackups") }}
+            renderItem={(backup) => <List.Item actions={[
+              <Button key="preview" size="small" onClick={() => void previewBackup(backup)}>{t("env.previewBackup")}</Button>,
+              <Popconfirm key="restore" title={t("env.confirmRestore")} onConfirm={() => void restoreBackup(backup)}><Button size="small" danger>{t("env.restoreBackup")}</Button></Popconfirm>,
+            ]}>{backup.name}</List.Item>}
+          />
+        </Card>
+
         {db && (
           <Card size="small" title={<><DatabaseOutlined /> {t("env.sections.db")}</>}>
             <Descriptions column={1} size="small" bordered>
@@ -226,6 +269,9 @@ export default function EnvironmentPage() {
           </Card>
         )}
       </Space>
+      <Modal open={backupPreview !== null} footer={null} onCancel={() => setBackupPreview(null)} title={t("env.previewBackup")} width={720}>
+        <pre style={{ maxHeight: 480, overflow: "auto", whiteSpace: "pre-wrap" }}>{backupPreview}</pre>
+      </Modal>
     </Spin>
   );
 }

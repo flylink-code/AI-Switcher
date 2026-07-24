@@ -52,6 +52,15 @@
     "fieldName": "名称",
     "fieldBaseUrl": "API 地址 (Base URL)",
     "fieldApiKey": "API Key",
+    "keyStored": "密钥已保存到系统凭据库；留空会保留当前密钥。",
+    "clearKey": "删除已保存的 API Key",
+    "testConnection": "测试连接",
+    "discoverModels": "刷新可用模型",
+    "healthy": "健康",
+    "unhealthy": "异常",
+    "export": "导出（不含密钥）",
+    "importFile": "导入 JSON",
+    "importSummary": "已导入 {{imported}} 项，跳过 {{skipped}} 项",
     "fieldModel": "模型名",
     "fieldProtocol": "协议类型",
     "fieldNotes": "备注",
@@ -218,7 +227,8 @@
       "claudeDesktop": "Claude Desktop 配置",
       "system": "系统",
       "app": "Claude Switcher 数据目录",
-      "db": "数据库"
+      "db": "数据库",
+      "recovery": "配置备份与恢复"
     },
     "fields": {
       "home": "主目录",
@@ -235,6 +245,11 @@
       "providerCount": "供应商数量",
       "autostart": "开机自启"
     },
-    "autostartUpdated": "开机自启设置已更新"
+    "autostartUpdated": "开机自启设置已更新",
+    "noConfigBackups": "尚无供应商配置备份；切换或恢复配置后会出现在此处。",
+    "previewBackup": "预览（已脱敏）",
+    "restoreBackup": "恢复",
+    "confirmRestore": "恢复会先备份当前配置，并清除该应用的当前供应商状态，是否继续？",
+    "restoreDone": "配置已恢复"
   }
 }

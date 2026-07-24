@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -28,6 +28,22 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             sort_index    INTEGER NOT NULL DEFAULT 0,
             is_current    BOOLEAN NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+
+    // P7: sanitized provider health and model-discovery cache. No response body
+    // or credential is stored here.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS provider_health (
+            provider_id TEXT PRIMARY KEY,
+            status      TEXT NOT NULL,
+            detail      TEXT NOT NULL DEFAULT '',
+            checked_at  INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS provider_models (
+            provider_id TEXT PRIMARY KEY,
+            models_json TEXT NOT NULL DEFAULT '[]',
+            checked_at  INTEGER NOT NULL
         );",
     )?;
 
@@ -99,6 +115,12 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     if current < 2 {
         migrate_v1_to_v2(conn)?;
     }
+    if current < 3 {
+        migrate_v2_to_v3(conn)?;
+    }
+    if current < 4 {
+        migrate_v3_to_v4(conn)?;
+    }
     Ok(())
 }
 
@@ -133,6 +155,30 @@ fn migrate_v1_to_v2(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 2)
 }
 
+/// Move existing plaintext provider credentials into the OS credential store.
+/// This migration is fail-closed; `user_version` is not advanced on failure.
+fn migrate_v2_to_v3(conn: &Connection) -> AppResult<()> {
+    crate::database::dao::migrate_plaintext_api_keys(conn)?;
+    set_user_version(conn, 3)
+}
+
+fn migrate_v3_to_v4(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS provider_health (
+            provider_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            checked_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS provider_models (
+            provider_id TEXT PRIMARY KEY,
+            models_json TEXT NOT NULL DEFAULT '[]',
+            checked_at INTEGER NOT NULL
+        );",
+    )?;
+    set_user_version(conn, 4)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -150,7 +196,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "proxy_request_logs", "model_pricing"] {
+            for table in ["providers", "settings", "mcp_servers", "proxy_request_logs", "model_pricing", "provider_health", "provider_models"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],

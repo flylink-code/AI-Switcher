@@ -52,6 +52,15 @@
     "fieldName": "Name",
     "fieldBaseUrl": "API base URL",
     "fieldApiKey": "API key",
+    "keyStored": "The key is stored in the system credential manager; leave this blank to keep it.",
+    "clearKey": "Remove saved API key",
+    "testConnection": "Test connection",
+    "discoverModels": "Refresh available models",
+    "healthy": "Healthy",
+    "unhealthy": "Unhealthy",
+    "export": "Export (no keys)",
+    "importFile": "Import JSON",
+    "importSummary": "Imported {{imported}}, skipped {{skipped}}",
     "fieldModel": "Model",
     "fieldProtocol": "Protocol",
     "fieldNotes": "Notes",
@@ -218,7 +227,8 @@
       "claudeDesktop": "Claude Desktop config",
       "system": "System",
       "app": "Claude Switcher data dir",
-      "db": "Database"
+      "db": "Database",
+      "recovery": "Configuration backup and recovery"
     },
     "fields": {
       "home": "Home",
@@ -235,6 +245,11 @@
       "providerCount": "Provider count",
       "autostart": "Launch at login"
     },
-    "autostartUpdated": "Launch-at-login setting updated"
+    "autostartUpdated": "Launch-at-login setting updated",
+    "noConfigBackups": "No provider configuration backups yet. They appear after a configuration change.",
+    "previewBackup": "Preview (redacted)",
+    "restoreBackup": "Restore",
+    "confirmRestore": "The current config will be backed up and the active provider state cleared. Continue?",
+    "restoreDone": "Configuration restored"
   }
 }

@@ -17,15 +17,21 @@ use crate::config::{atomic_write, get_claude_settings_path, sort_json_keys};
 use crate::error::AppResult;
 use crate::provider::{LiveProviderInfo, Provider};
 
-/// Env-var prefix that identifies Anthropic/Claude Code provider settings.
-const ANTHROPIC_PREFIX: &str = "ANTHROPIC_";
+/// The exact Claude Code fields owned by this application. Other
+/// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
+const MANAGED_ENV_KEYS: [&str; 4] = [
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_MODEL",
+];
 /// Max backups of `settings.json` to retain.
 const SETTINGS_BACKUP_KEEP: usize = 10;
 
 /// Activate `provider` by writing its env vars into `settings.json`.
 ///
-/// Steps: read existing file (or start fresh) → back up → strip all
-/// `ANTHROPIC_*` env keys → inject the provider's env values → write atomically.
+/// Steps: read existing file (or start fresh) → back up → replace only the
+/// fields owned by this application → write atomically.
 pub fn apply_provider_to_settings(provider: &Provider) -> AppResult<()> {
     apply_provider_to_settings_at(provider, &get_claude_settings_path())
 }
@@ -49,7 +55,7 @@ pub fn apply_provider_to_settings_at(provider: &Provider, path: &Path) -> AppRes
     backup_settings(path)?;
 
     let env = ensure_env_object(&mut settings);
-    remove_anthropic_keys(env);
+    remove_managed_keys(env);
     inject_provider_env(env, provider);
 
     write_settings(path, &settings)
@@ -65,7 +71,7 @@ pub fn apply_provider_to_settings_via_proxy_at(
     backup_settings(path)?;
 
     let env = ensure_env_object(&mut settings);
-    remove_anthropic_keys(env);
+    remove_managed_keys(env);
     set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
     set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
     set_str(env, "ANTHROPIC_MODEL", &provider.model);
@@ -73,8 +79,8 @@ pub fn apply_provider_to_settings_via_proxy_at(
     write_settings(path, &settings)
 }
 
-/// Switch to "official login" mode: remove all `ANTHROPIC_*` env keys so Claude
-/// Code falls back to its native OAuth flow. Other settings are preserved.
+/// Switch to "official login" mode: remove only fields previously owned by this
+/// application. Unrelated user-managed Anthropic settings are preserved.
 pub fn clear_provider_from_settings() -> AppResult<()> {
     clear_provider_from_settings_at(&get_claude_settings_path())
 }
@@ -84,8 +90,26 @@ pub fn clear_provider_from_settings_at(path: &Path) -> AppResult<()> {
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
     let env = ensure_env_object(&mut settings);
-    remove_anthropic_keys(env);
+    remove_managed_keys(env);
     write_settings(path, &settings)
+}
+
+/// Restore the exact values captured before this app first managed its fixed
+/// provider fields. A `None` value means the field did not originally exist.
+pub fn restore_managed_fields(
+    values: &std::collections::BTreeMap<String, Option<Value>>,
+) -> AppResult<()> {
+    let path = get_claude_settings_path();
+    let mut settings = read_or_init_settings_at(&path)?;
+    backup_settings(&path)?;
+    let env = ensure_env_object(&mut settings);
+    remove_managed_keys(env);
+    for (key, value) in values {
+        if let Some(value) = value {
+            env.insert(key.clone(), value.clone());
+        }
+    }
+    write_settings(&path, &settings)
 }
 
 /// Parse the currently-live provider from `settings.json`'s env block, if any.
@@ -168,15 +192,10 @@ fn ensure_env_object(settings: &mut Value) -> &mut Map<String, Value> {
         .expect("env is an object (just ensured)")
 }
 
-/// Remove every key starting with `ANTHROPIC_` from the env object.
-fn remove_anthropic_keys(env: &mut Map<String, Value>) {
-    let keys: Vec<String> = env
-        .keys()
-        .filter(|k| k.starts_with(ANTHROPIC_PREFIX))
-        .cloned()
-        .collect();
-    for k in keys {
-        env.remove(&k);
+/// Remove only the explicit provider fields managed by Claude Switcher.
+fn remove_managed_keys(env: &mut Map<String, Value>) {
+    for key in MANAGED_ENV_KEYS {
+        env.remove(key);
     }
 }
 
@@ -226,6 +245,7 @@ mod tests {
             name: "DeepSeek".into(),
             base_url: "https://api.deepseek.com/anthropic".into(),
             api_key: "sk-deepseek".into(),
+            api_key_set: true,
             model: "deepseek-v4-pro".into(),
             protocol_type: ProtocolType::Anthropic,
             target_app: ProviderTarget::ClaudeCode,
@@ -233,10 +253,12 @@ mod tests {
             sort_index: 0,
             is_current: true,
             created_at: 0,
+            health_status: None,
+            health_checked_at: None,
         }
     }
 
-    /// Apply replaces ANTHROPIC_* keys while preserving unrelated settings.
+    /// Apply replaces owned fields while preserving unrelated settings.
     #[test]
     fn apply_replaces_anthropic_and_preserves_rest() {
         let dir = tempdir().unwrap();
@@ -269,11 +291,8 @@ mod tests {
         assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
-        // Old ANTHROPIC_* values gone (incl. the extra model key).
-        assert!(
-            env.get("ANTHROPIC_DEFAULT_SONNET_MODEL").is_none(),
-            "leftover ANTHROPIC_* key should be removed"
-        );
+        // A user-owned Anthropic setting is retained.
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "old-sonnet");
         // Non-anthropic env preserved.
         assert_eq!(env["ENABLE_TOOL_SEARCH"], "true");
         assert_eq!(env["DISABLE_AUTOUPDATER"], "1");
@@ -282,7 +301,7 @@ mod tests {
         assert_eq!(written["enabledPlugins"][0], "x");
     }
 
-    /// Switching then switching back to official leaves no ANTHROPIC_* keys.
+    /// Switching back removes only fields managed by this application.
     #[test]
     fn apply_then_clear_removes_all_anthropic() {
         let dir = tempdir().unwrap();

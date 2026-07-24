@@ -11,7 +11,8 @@ export interface Provider {
   id: string;
   name: string;
   baseUrl: string;
-  apiKey: string;
+  /** API keys are never returned over IPC. */
+  apiKeySet: boolean;
   model: string;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
@@ -19,6 +20,8 @@ export interface Provider {
   sortIndex: number;
   isCurrent: boolean;
   createdAt: number;
+  healthStatus?: string | null;
+  healthCheckedAt?: number | null;
 }
 
 /** Input shape for create/update commands (mirrors `ProviderInput`). */
@@ -28,10 +31,34 @@ export interface ProviderInput {
   name: string;
   baseUrl: string;
   apiKey: string;
+  clearApiKey?: boolean;
   model: string;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
   notes: string;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  category: string;
+  message: string;
+  checkedAt: number;
+}
+
+export interface ModelDiscoveryResult {
+  models: string[];
+  message: string;
+  checkedAt: number;
+}
+
+export interface ProviderImportResult {
+  imported: number;
+  skipped: number;
+}
+
+export interface ConfigBackup {
+  name: string;
+  createdAt: number;
 }
 
 /** Result of the `get_paths` command — surfaced on the Environment page to verify P0 detection. */

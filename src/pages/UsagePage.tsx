@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Col,
-  Descriptions,
   Empty,
   Form,
   Input,
@@ -36,7 +35,7 @@ import {
   saveModelPricing,
 } from "@/services/api";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export default function UsagePage() {
   const { t } = useTranslation();

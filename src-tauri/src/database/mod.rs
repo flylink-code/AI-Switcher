@@ -72,6 +72,14 @@ impl Database {
     fn ensure_schema(&self) -> AppResult<()> {
         let conn = lock_conn!(self.conn);
         schema::create_tables(&conn)?;
+        // Snapshot the DB before any data-touching migration, so we can recover if
+        // a migration fails midway. Only meaningful for on-disk databases.
+        let current = conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?;
+        if current > 0 && current < schema::SCHEMA_VERSION {
+            if let Err(e) = crate::backup::backup_file(&crate::config::get_app_db_path(), 10) {
+                log::warn!("迁移前数据库备份失败（继续迁移）: {e}");
+            }
+        }
         schema::migrate(&conn)?;
         Ok(())
     }

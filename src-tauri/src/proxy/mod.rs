@@ -25,7 +25,7 @@ use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage};
-use crate::database::dao::providers::get_current_provider;
+use crate::database::dao::providers::{get_current_provider, resolve_api_key};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::provider::{ProtocolType, Provider, ProviderTarget};
@@ -167,8 +167,16 @@ async fn proxy_handler(
             None
         }
     };
-    let Some(provider) = provider else {
+    let Some(mut provider) = provider else {
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商");
+    };
+    provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
+        Ok(Some(key)) => key,
+        Ok(None) => return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 API Key"),
+        Err(e) => {
+            log::error!("代理读取供应商凭据失败: {e}");
+            return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商凭据不可用");
+        }
     };
     if provider.base_url.trim().is_empty() {
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 Base URL");

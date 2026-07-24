@@ -172,7 +172,9 @@ export default function McpPage() {
     setBusy(true);
     try {
       const summary = await importMcpServers();
-      void message.success(t("mcp.imported", summary));
+      void message.success(
+        t("mcp.imported", { imported: summary.imported, updated: summary.updated }),
+      );
       await load();
     } catch (e) {
       void message.error(errMsg(e));

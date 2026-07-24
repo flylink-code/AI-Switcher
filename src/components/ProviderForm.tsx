@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
+  App,
+  Button,
   Form,
+  Checkbox,
   Input,
   Modal,
   Select,
@@ -8,6 +11,7 @@ import {
 } from "antd";
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderInput, ProtocolType } from "@/types/backend";
+import { discoverProviderModels } from "@/services/api";
 
 interface ProviderFormProps {
   open: boolean;
@@ -24,7 +28,10 @@ export function ProviderForm({
   onSubmit,
 }: ProviderFormProps) {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [form] = Form.useForm<ProviderInput>();
+  const [models, setModels] = useState<string[]>([]);
+  const [discovering, setDiscovering] = useState(false);
   let nameRef: InputRef | null = null;
 
   const isEdit = editing !== null;
@@ -32,17 +39,20 @@ export function ProviderForm({
   useEffect(() => {
     if (!open) return;
     if (editing) {
+      setModels([]);
       form.setFieldsValue({
         id: editing.id,
         name: editing.name,
         baseUrl: editing.baseUrl,
-        apiKey: editing.apiKey,
+        apiKey: "",
+        clearApiKey: false,
         model: editing.model,
         protocolType: editing.protocolType,
         notes: editing.notes,
         targetApp: editing.targetApp,
       });
     } else {
+      setModels([]);
       form.resetFields();
       form.setFieldsValue({
         protocolType: "anthropic" as ProtocolType,
@@ -60,6 +70,18 @@ export function ProviderForm({
     } catch {
       // validation errors are shown inline by the form
     }
+  };
+
+  const discoverModels = async () => {
+    if (!editing) return;
+    setDiscovering(true);
+    try {
+      const result = await discoverProviderModels(editing.id);
+      setModels(result.models);
+      void message.info(result.message);
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally { setDiscovering(false); }
   };
 
   return (
@@ -99,13 +121,30 @@ export function ProviderForm({
           <Input placeholder="https://api.example.com/anthropic" />
         </Form.Item>
 
-        <Form.Item name="apiKey" label={t("providers.fieldApiKey")}>
+        <Form.Item
+          name="apiKey"
+          label={t("providers.fieldApiKey")}
+          extra={editing?.apiKeySet ? t("providers.keyStored") : undefined}
+        >
           <Input.Password placeholder="sk-..." autoComplete="new-password" />
         </Form.Item>
 
-        <Form.Item name="model" label={t("providers.fieldModel")}>
-          <Input placeholder="model-name" />
+        {editing?.apiKeySet && (
+          <Form.Item name="clearApiKey" valuePropName="checked">
+            <Checkbox>{t("providers.clearKey")}</Checkbox>
+          </Form.Item>
+        )}
+
+        <Form.Item name="model" label={t("providers.fieldModel")} extra={
+          <Button type="link" size="small" loading={discovering} disabled={!editing} onClick={() => void discoverModels()}>
+            {t("providers.discoverModels")}
+          </Button>
+        }>
+          <Input placeholder="model-name" list="provider-models" />
         </Form.Item>
+        <datalist id="provider-models">
+          {models.map((model) => <option key={model} value={model} />)}
+        </datalist>
 
         <Form.Item name="protocolType" label={t("providers.fieldProtocol")}>
           <Select

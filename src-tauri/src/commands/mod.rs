@@ -6,6 +6,7 @@ pub mod db;
 pub mod mcp;
 pub mod paths;
 pub mod prompts;
+pub mod recovery;
 pub mod providers;
 pub mod proxy;
 pub mod skills;
@@ -24,9 +25,11 @@ pub use prompts::{
     activate_prompt, delete_prompt, import_live_prompt, list_prompts, read_live_prompt,
     read_prompt, save_prompt,
 };
+pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use providers::{
-    create_provider, delete_provider, get_current_provider, import_live_config,
-    list_providers, reorder_providers, switch_provider, switch_to_official, update_provider,
+    create_provider, delete_provider, discover_provider_models, export_providers,
+    get_current_provider, import_live_config, import_providers_json, list_providers, reorder_providers, switch_provider,
+    switch_to_official, test_provider_connection, update_provider,
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{

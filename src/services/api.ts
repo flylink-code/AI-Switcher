@@ -17,6 +17,10 @@ import type {
   PromptDetail,
   PromptInfo,
   Provider,
+  ConnectionTestResult,
+  ModelDiscoveryResult,
+  ProviderImportResult,
+  ConfigBackup,
   ProviderInput,
   ProviderTarget,
   ProxyStatus,
@@ -109,6 +113,41 @@ export async function reorderProviders(orderedIds: string[], target: ProviderTar
 export async function importLiveConfig(target: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("import_live_config", { target });
+}
+
+export async function testProviderConnection(id: string): Promise<ConnectionTestResult> {
+  const invoke = await getInvoke();
+  return invoke<ConnectionTestResult>("test_provider_connection", { id });
+}
+
+export async function discoverProviderModels(id: string): Promise<ModelDiscoveryResult> {
+  const invoke = await getInvoke();
+  return invoke<ModelDiscoveryResult>("discover_provider_models", { id });
+}
+
+export async function exportProviders(target: ProviderTarget): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("export_providers", { target });
+}
+
+export async function importProvidersJson(json: string): Promise<ProviderImportResult> {
+  const invoke = await getInvoke();
+  return invoke<ProviderImportResult>("import_providers_json", { json });
+}
+
+export async function listConfigBackups(target: ProviderTarget): Promise<ConfigBackup[]> {
+  const invoke = await getInvoke();
+  return invoke<ConfigBackup[]>("list_config_backups", { target });
+}
+
+export async function previewConfigBackup(target: ProviderTarget, name: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("preview_config_backup", { target, name });
+}
+
+export async function restoreConfigBackup(target: ProviderTarget, name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("restore_config_backup", { target, name });
 }
 
 // ---- Local proxy ------------------------------------------------------------

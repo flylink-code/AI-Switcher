@@ -180,6 +180,29 @@ pub fn clear_provider() -> AppResult<()> {
     )?;
     Ok(())
 }
+
+/// Clear this application's profile and restore the previously applied profile
+/// id, when P7 ownership tracking captured one before the first switch.
+pub fn clear_provider_restoring_applied_id(previous: Option<String>) -> AppResult<()> {
+    clear_provider()?;
+    let Some(previous) = previous else { return Ok(()); };
+    let paths = detect_claude_desktop();
+    let Some(meta_path) = paths.meta_path else { return Ok(()); };
+    let mut value = read_json_file::<Value>(&meta_path)?.unwrap_or_else(|| serde_json::json!({}));
+    if !value.is_object() {
+        value = serde_json::json!({});
+    }
+    value["appliedId"] = Value::String(previous);
+    write_json_file(&meta_path, &value)
+}
+
+/// Return the currently selected Desktop configuration profile, if readable.
+pub fn current_applied_id() -> AppResult<Option<String>> {
+    let paths = detect_claude_desktop();
+    let Some(meta_path) = paths.meta_path else { return Ok(None); };
+    let value = read_json_file::<Value>(&meta_path)?.unwrap_or_else(|| serde_json::json!({}));
+    Ok(value.get("appliedId").and_then(Value::as_str).map(str::to_string))
+}
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     let (base_url, api_key) = match provider.protocol_type {
         ProtocolType::Anthropic => (provider.base_url.clone(), provider.api_key.clone()),
