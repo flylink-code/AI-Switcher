@@ -181,6 +181,23 @@
     "pricingSaved": "模型定价已保存",
     "pricingDeleted": "模型定价已删除"
   },
+  "skills": {
+    "title": "Skills 管理",
+    "description": "管理 Claude Code 的本地 Skills。安装来源仅限公开 GitHub 仓库或本地 ZIP；安装包必须包含 SKILL.md。",
+    "installedTitle": "已安装 Skills",
+    "installGithub": "从 GitHub 安装",
+    "installZip": "从 ZIP 安装",
+    "githubHelp": "请输入公开 GitHub 仓库地址，例如 https://github.com/owner/repository。",
+    "zipHelp": "请输入本地 ZIP 文件的完整路径。压缩包必须包含 SKILL.md。",
+    "name": "名称",
+    "descriptionLabel": "描述",
+    "enabled": "启用",
+    "actions": "操作",
+    "delete": "删除",
+    "empty": "暂无已安装 Skill",
+    "installed": "Skill 安装成功",
+    "deleted": "Skill 已删除"
+  },
   "env": {
     "title": "环境信息（P0 探测验证）",
     "description": "以下路径由 Rust 后端实时探测，用于验证配置目录发现逻辑是否正确。",
@@ -194,6 +211,7 @@
       "home": "用户主目录",
       "claude": "Claude Code 配置",
       "claudeDesktop": "Claude Desktop 配置",
+      "system": "系统",
       "app": "Claude Switcher 数据目录",
       "db": "数据库"
     },
@@ -209,7 +227,9 @@
       "appDbPath": "数据库文件",
       "backupDir": "备份目录",
       "schemaVersion": "Schema 版本",
-      "providerCount": "供应商数量"
-    }
+      "providerCount": "供应商数量",
+      "autostart": "开机自启"
+    },
+    "autostartUpdated": "开机自启设置已更新"
   }
 }

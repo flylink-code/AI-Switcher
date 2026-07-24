@@ -8,6 +8,8 @@ pub mod paths;
 pub mod prompts;
 pub mod providers;
 pub mod proxy;
+pub mod skills;
+pub mod system;
 pub mod usage;
 
 pub use backend::ping;
@@ -28,6 +30,10 @@ pub use providers::{
     update_provider,
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
+pub use skills::{
+    delete_skill, install_github_skill, install_zip_skill, list_skills, set_skill_enabled,
+};
+pub use system::{get_autostart_enabled, set_autostart_enabled};
 pub use usage::{
     delete_model_pricing, get_usage_dashboard, list_model_pricing, save_model_pricing,
 };

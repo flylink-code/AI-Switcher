@@ -55,6 +55,11 @@ pub fn get_backup_dir() -> PathBuf {
     get_app_config_dir().join(BACKUP_DIR_NAME)
 }
 
+/// `~/.claude/skills` — Claude Code skill directory managed by this app.
+pub fn get_claude_skills_dir() -> PathBuf {
+    get_claude_config_dir().join("skills")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

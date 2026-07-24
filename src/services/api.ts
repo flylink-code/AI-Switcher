@@ -20,6 +20,7 @@ import type {
   Provider,
   ProviderInput,
   ProxyStatus,
+  Skill,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -204,6 +205,45 @@ export async function readLivePrompt(): Promise<LivePrompt | null> {
 export async function importLivePrompt(name: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("import_live_prompt", { name });
+}
+
+// ---- Skills -----------------------------------------------------------------
+
+export async function listSkills(): Promise<Skill[]> {
+  const invoke = await getInvoke();
+  return invoke<Skill[]>("list_skills", {});
+}
+
+export async function installGithubSkill(url: string): Promise<Skill> {
+  const invoke = await getInvoke();
+  return invoke<Skill>("install_github_skill", { url });
+}
+
+export async function installZipSkill(path: string): Promise<Skill> {
+  const invoke = await getInvoke();
+  return invoke<Skill>("install_zip_skill", { path });
+}
+
+export async function setSkillEnabled(name: string, enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_skill_enabled", { name, enabled });
+}
+
+export async function deleteSkill(name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_skill", { name });
+}
+
+// ---- System -----------------------------------------------------------------
+
+export async function getAutostartEnabled(): Promise<boolean> {
+  const invoke = await getInvoke();
+  return invoke<boolean>("get_autostart_enabled", {});
+}
+
+export async function setAutostartEnabled(enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_autostart_enabled", { enabled });
 }
 
 // ---- Usage ------------------------------------------------------------------

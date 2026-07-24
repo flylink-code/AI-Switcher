@@ -120,6 +120,13 @@ export interface LivePrompt {
   updatedAt: number;
 }
 
+export interface Skill {
+  name: string;
+  path: string;
+  enabled: boolean;
+  description: string;
+}
+
 export interface UsageSummary {
   requestCount: number;
   successfulRequestCount: number;

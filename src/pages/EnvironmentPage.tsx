@@ -6,6 +6,7 @@ import {
   Descriptions,
   Space,
   Spin,
+  Switch,
   Tag,
   Typography,
   message,
@@ -18,7 +19,7 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import type { PathsInfo, DbInfo } from "@/types/backend";
-import { backupNow, getDbInfo, getPaths, ping } from "@/services/api";
+import { backupNow, getAutostartEnabled, getDbInfo, getPaths, ping, setAutostartEnabled } from "@/services/api";
 
 const { Text } = Typography;
 
@@ -43,6 +44,8 @@ export default function EnvironmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [autostartEnabled, setAutostartEnabled] = useState(false);
+  const [autostartLoading, setAutostartLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -60,6 +63,15 @@ export default function EnvironmentPage() {
 
   useEffect(() => {
     void refresh();
+    void (async () => {
+      try {
+        setAutostartEnabled(await getAutostartEnabled());
+      } catch (e) {
+        void message.error(e instanceof Error ? e.message : String(e));
+      } finally {
+        setAutostartLoading(false);
+      }
+    })();
   }, [refresh]);
 
   const onPing = useCallback(async () => {
@@ -88,6 +100,19 @@ export default function EnvironmentPage() {
       setRunning(false);
     }
   }, [refresh, t]);
+
+  const onAutostartChange = useCallback(async (enabled: boolean) => {
+    setAutostartLoading(true);
+    try {
+      await setAutostartEnabled(enabled);
+      setAutostartEnabled(enabled);
+      void message.success(t("env.autostartUpdated"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAutostartLoading(false);
+    }
+  }, [t]);
 
   const claudeRows: PathRow[] = paths
     ? [
@@ -163,6 +188,14 @@ export default function EnvironmentPage() {
             </Descriptions>
           </Card>
         )}
+
+        <Card size="small" title={t("env.sections.system")}>
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label={t("env.fields.autostart")}>
+              <Switch checked={autostartEnabled} loading={autostartLoading} onChange={(enabled) => void onAutostartChange(enabled)} />
+            </Descriptions.Item>
+          </Descriptions>
+        </Card>
 
         {paths && (
           <Card size="small" title={t("env.sections.app")}>

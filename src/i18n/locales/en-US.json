@@ -181,6 +181,23 @@
     "pricingSaved": "Model pricing saved",
     "pricingDeleted": "Model pricing deleted"
   },
+  "skills": {
+    "title": "Skills",
+    "description": "Manage local Claude Code Skills. Only public GitHub repositories and local ZIP archives are accepted; a package must include SKILL.md.",
+    "installedTitle": "Installed Skills",
+    "installGithub": "Install from GitHub",
+    "installZip": "Install from ZIP",
+    "githubHelp": "Enter a public GitHub repository URL, such as https://github.com/owner/repository.",
+    "zipHelp": "Enter the full local path to a ZIP file. The archive must include SKILL.md.",
+    "name": "Name",
+    "descriptionLabel": "Description",
+    "enabled": "Enabled",
+    "actions": "Actions",
+    "delete": "Delete",
+    "empty": "No Skills installed",
+    "installed": "Skill installed",
+    "deleted": "Skill deleted"
+  },
   "env": {
     "title": "Environment (P0 detection check)",
     "description": "These paths are detected live by the Rust backend, verifying the config-directory discovery logic.",
@@ -194,6 +211,7 @@
       "home": "User home",
       "claude": "Claude Code config",
       "claudeDesktop": "Claude Desktop config",
+      "system": "System",
       "app": "Claude Switcher data dir",
       "db": "Database"
     },
@@ -209,7 +227,9 @@
       "appDbPath": "Database file",
       "backupDir": "Backup dir",
       "schemaVersion": "Schema version",
-      "providerCount": "Provider count"
-    }
+      "providerCount": "Provider count",
+      "autostart": "Launch at login"
+    },
+    "autostartUpdated": "Launch-at-login setting updated"
   }
 }
