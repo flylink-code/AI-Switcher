@@ -18,8 +18,8 @@ export default function App() {
   const resolved = useThemeStore((s) => s.resolved);
   const language = useAppStore((s) => s.language);
 
-  // Default to the Environment page so P0 detection is visible on first launch.
-  const [activeKey, setActiveKey] = useState<string>("environment");
+  // Default to the Providers page now that it's functional (P1).
+  const [activeKey, setActiveKey] = useState<string>("providers");
 
   // Keep i18next in sync with the persisted language.
   useEffect(() => {

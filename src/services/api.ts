@@ -6,7 +6,7 @@
  * frontend buildable/runnable via `pnpm dev` for quick iteration even outside
  * the desktop shell.
  */
-import type { PathsInfo, DbInfo } from "@/types/backend";
+import type { PathsInfo, DbInfo, Provider, ProviderInput, PresetInfo } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
 
@@ -44,4 +44,56 @@ export async function getDbInfo(): Promise<DbInfo> {
 export async function backupNow(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("backup_now", {});
+}
+
+// ---- Providers -------------------------------------------------------------
+
+export async function listProviders(): Promise<Provider[]> {
+  const invoke = await getInvoke();
+  return invoke<Provider[]>("list_providers", {});
+}
+
+export async function getCurrentProvider(): Promise<Provider | null> {
+  const invoke = await getInvoke();
+  return invoke<Provider | null>("get_current_provider", {});
+}
+
+export async function createProvider(input: ProviderInput): Promise<Provider> {
+  const invoke = await getInvoke();
+  return invoke<Provider>("create_provider", { input });
+}
+
+export async function updateProvider(input: ProviderInput): Promise<Provider> {
+  const invoke = await getInvoke();
+  return invoke<Provider>("update_provider", { input });
+}
+
+export async function deleteProvider(id: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_provider", { id });
+}
+
+export async function switchProvider(id: string): Promise<Provider> {
+  const invoke = await getInvoke();
+  return invoke<Provider>("switch_provider", { id });
+}
+
+export async function switchToOfficial(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("switch_to_official", {});
+}
+
+export async function reorderProviders(orderedIds: string[]): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("reorder_providers", { orderedIds });
+}
+
+export async function importLiveConfig(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("import_live_config", {});
+}
+
+export async function listPresets(): Promise<PresetInfo[]> {
+  const invoke = await getInvoke();
+  return invoke<PresetInfo[]>("list_presets", {});
 }

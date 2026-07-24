@@ -4,7 +4,8 @@
 
 技术栈：**Tauri 2 + React 19 + TypeScript + Ant Design 6 + Zustand + i18next + SQLite (rusqlite)**。
 
-当前状态：**P0 脚手架** —— 可运行的空壳 + 基础库（配置目录探测、原子写入、备份轮换、SQLite 层、系统托盘）。供应商切换等业务功能在 P1+ 阶段实现，详见 [`task.md`](./task.md)。
+当前状态：**P1 — 供应商管理 + Claude Code 一键切换可用**。
+P0 基础库（配置目录探测、原子写入、备份轮换、SQLite 层、系统托盘）已就绪；P1 在此之上实现了供应商 CRUD、内置预设、首次导入现有配置，以及写 `~/.claude/settings.json` 的热切换。详见 [`task.md`](./task.md)。
 
 ---
 
@@ -89,9 +90,18 @@ scripts/tauri-msvc.bat build --debug --no-bundle
 
 | 阶段 | 状态 | 内容 |
 |------|------|------|
-| **P0 脚手架** | ✅ 本版本 | 工程初始化、SQLite、路径探测、原子写入、备份、托盘 |
-| P1 | 待开发 | 供应商 CRUD + 预设；`settings.json` 读写切换 |
+| **P0 脚手架** | ✅ | 工程初始化、SQLite、路径探测、原子写入、备份、托盘 |
+| **P1 供应商 + 切换** | ✅ 本版本 | 供应商 CRUD + 6 个内置预设；首次导入现有配置；`settings.json` 热切换（env 块就地合并，保留非 ANTHROPIC 配置） |
 | P2 | 待开发 | Claude Desktop `configLibrary` 写入；Rust 本地代理 |
 | P3 | 待开发 | MCP 统一面板 + Prompts 编辑器 |
 | P4 | 待开发 | 用量统计仪表盘 |
 | P5 | 待开发 | Skills、托盘快速切换、i18n/自启、Windows 打包 |
+
+### P1 切换机制说明
+
+切换供应商时只改写 `~/.claude/settings.json` 中 `env` 里以 `ANTHROPIC_` 开头的键，**保留**：
+- env 中的其他键（如 `ENABLE_TOOL_SEARCH`、`DISABLE_AUTOUPDATER`、`CLAUDE_CODE_SUBAGENT_MODEL`）
+- 顶层其他键（如 `model`、`enabledPlugins`、`skipWebFetchPreflight`）
+
+切换前自动把原文件备份到 `~/.claude-switcher/backups/settings.json_<时间戳>.bak`（保留最近 10 份）。
+「切回官方登录」会移除所有 `ANTHROPIC_*` 键，让 Claude Code 回到原生 OAuth 流程，其他配置不受影响。
