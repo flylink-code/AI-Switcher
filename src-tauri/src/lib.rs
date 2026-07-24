@@ -10,12 +10,18 @@ mod commands;
 mod config;
 mod database;
 mod error;
+mod provider;
+mod provider_presets;
 mod store;
 mod tray;
 
 use tauri::{Manager, WindowEvent};
 
-use crate::commands::{backup_now, get_db_info, get_paths, ping};
+use crate::commands::{
+    backup_now, create_provider, delete_provider, get_current_provider, get_db_info,
+    get_paths, import_live_config, list_presets, list_providers, ping, reorder_providers,
+    switch_provider, switch_to_official, update_provider,
+};
 use crate::error::AppError;
 use crate::store::AppState;
 
@@ -31,6 +37,16 @@ pub fn run() {
             get_paths,
             get_db_info,
             backup_now,
+            list_providers,
+            get_current_provider,
+            create_provider,
+            update_provider,
+            delete_provider,
+            switch_provider,
+            switch_to_official,
+            reorder_providers,
+            import_live_config,
+            list_presets,
         ]);
     let builder = add_single_instance(builder);
     builder
@@ -63,6 +79,13 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize storage.
     let db = database::Database::init().map_err(box_app_error)?;
+
+    // First-run seeding + live-config import. Non-fatal: a seeding failure should
+    // not block the app, only log.
+    if let Err(e) = db.with_conn(|conn| database::seed::run_seed(conn)) {
+        log::error!("供应商初始化/导入失败: {e}");
+    }
+
     app.manage(AppState { db });
 
     // System tray.

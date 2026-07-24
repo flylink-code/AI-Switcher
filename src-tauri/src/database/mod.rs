@@ -14,6 +14,7 @@ use crate::error::{AppError, AppResult};
 
 pub mod dao;
 pub mod schema;
+pub mod seed;
 
 /// Wraps a mutex-guarded SQLite connection.
 pub struct Database {

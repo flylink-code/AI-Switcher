@@ -4,6 +4,7 @@
 //! re-exports below cover the helpers currently wired into commands.
 
 pub mod atomic;
+pub mod claude_code;
 pub mod claude_desktop;
 pub mod paths;
 
@@ -19,3 +20,5 @@ pub use paths::{
 // `#[allow(unused)]` keeps the crate warning-clean during scaffolding.
 #[allow(unused_imports)]
 pub use atomic::{atomic_write, read_json_file, write_json_file};
+#[allow(unused_imports)]
+pub use atomic::sort_json_keys;

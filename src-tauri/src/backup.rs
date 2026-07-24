@@ -16,10 +16,25 @@ use std::path::{Path, PathBuf};
 pub const DEFAULT_BACKUP_KEEP: usize = 10;
 
 /// Create a timestamped backup copy of `src` inside the app's backup directory,
-/// then prune to at most `max_keep` entries.
+/// then prune to at most `max_keep` entries. The backup stem is derived from the
+/// source filename.
 ///
 /// Returns the created backup path. Returns `Ok(None)` if `src` does not exist.
 pub fn backup_file(src: &Path, max_keep: usize) -> AppResult<Option<PathBuf>> {
+    if !src.exists() {
+        return Ok(None);
+    }
+    let stem = src
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "backup".to_string());
+    backup_file_named(src, &stem, max_keep)
+}
+
+/// Like [`backup_file`] but with an explicit stem (e.g. `"settings.json"` so the
+/// backups are named `settings.json_<ts>.bak`). Used to keep DB and settings
+/// backups visually distinct.
+pub fn backup_file_named(src: &Path, stem: &str, max_keep: usize) -> AppResult<Option<PathBuf>> {
     if !src.exists() {
         return Ok(None);
     }
@@ -27,17 +42,17 @@ pub fn backup_file(src: &Path, max_keep: usize) -> AppResult<Option<PathBuf>> {
     let backup_dir = get_backup_dir();
     fs::create_dir_all(&backup_dir)?;
 
-    let stem = src
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "backup".to_string());
-    let ts = Utc::now().format("%Y%m%d_%H%M%S");
+    let now = Utc::now();
+    let ts = now.format("%Y%m%d_%H%M%S");
+    // Nanosecond suffix makes concurrent backups effectively unique, sidestepping
+    // a same-second filename race (two threads both see dest as absent, then both
+    // try to copy into it).
+    let nanos = now.timestamp_subsec_nanos();
 
-    // Disambiguate within the same second.
-    let mut dest = backup_dir.join(format!("{stem}_{ts}.bak"));
+    let mut dest = backup_dir.join(format!("{stem}_{ts}_{nanos}.bak"));
     let mut counter = 1;
     while dest.exists() {
-        dest = backup_dir.join(format!("{stem}_{ts}_{counter}.bak"));
+        dest = backup_dir.join(format!("{stem}_{ts}_{nanos}_{counter}.bak"));
         counter += 1;
     }
 
