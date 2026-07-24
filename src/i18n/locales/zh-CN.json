@@ -1,0 +1,57 @@
+{
+  "app": {
+    "name": "Claude Switcher",
+    "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具"
+  },
+  "nav": {
+    "providers": "供应商",
+    "mcp": "MCP",
+    "prompts": "Prompts",
+    "skills": "Skills",
+    "usage": "用量统计",
+    "environment": "环境信息"
+  },
+  "common": {
+    "theme": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统",
+    "language": "语言"
+  },
+  "placeholder": {
+    "title": "功能开发中",
+    "subtitle": "该模块将在后续阶段（P1+）实现。",
+    "p0": "当前为 P0 脚手架阶段，仅提供可运行空壳与基础库。"
+  },
+  "env": {
+    "title": "环境信息（P0 探测验证）",
+    "description": "以下路径由 Rust 后端实时探测，用于验证配置目录发现逻辑是否正确。",
+    "refresh": "刷新",
+    "runBackup": "立即备份",
+    "backupDone": "已创建备份",
+    "backupFailed": "备份失败",
+    "ping": "测试后端连接 (ping)",
+    "notDetected": "未检测到",
+    "sections": {
+      "home": "用户主目录",
+      "claude": "Claude Code 配置",
+      "claudeDesktop": "Claude Desktop 配置",
+      "app": "Claude Switcher 数据目录",
+      "db": "数据库"
+    },
+    "fields": {
+      "home": "主目录",
+      "claudeConfigDir": "配置目录",
+      "claudeSettingsPath": "settings.json",
+      "claudeJsonPath": ".claude.json",
+      "claudeDesktopBase": "安装目录",
+      "claudeDesktopConfigLibrary": "configLibrary",
+      "claudeDesktopMetaPath": "_meta.json",
+      "appConfigDir": "数据目录",
+      "appDbPath": "数据库文件",
+      "backupDir": "备份目录",
+      "schemaVersion": "Schema 版本",
+      "providerCount": "供应商数量"
+    }
+  }
+}

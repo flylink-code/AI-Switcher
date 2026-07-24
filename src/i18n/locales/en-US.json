@@ -1,0 +1,57 @@
+{
+  "app": {
+    "name": "Claude Switcher",
+    "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code"
+  },
+  "nav": {
+    "providers": "Providers",
+    "mcp": "MCP",
+    "prompts": "Prompts",
+    "skills": "Skills",
+    "usage": "Usage",
+    "environment": "Environment"
+  },
+  "common": {
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language"
+  },
+  "placeholder": {
+    "title": "Coming soon",
+    "subtitle": "This module will be implemented in a later phase (P1+).",
+    "p0": "Current build is the P0 scaffold: a runnable shell plus core libraries."
+  },
+  "env": {
+    "title": "Environment (P0 detection check)",
+    "description": "These paths are detected live by the Rust backend, verifying the config-directory discovery logic.",
+    "refresh": "Refresh",
+    "runBackup": "Back up now",
+    "backupDone": "Backup created",
+    "backupFailed": "Backup failed",
+    "ping": "Test backend (ping)",
+    "notDetected": "Not detected",
+    "sections": {
+      "home": "User home",
+      "claude": "Claude Code config",
+      "claudeDesktop": "Claude Desktop config",
+      "app": "Claude Switcher data dir",
+      "db": "Database"
+    },
+    "fields": {
+      "home": "Home",
+      "claudeConfigDir": "Config dir",
+      "claudeSettingsPath": "settings.json",
+      "claudeJsonPath": ".claude.json",
+      "claudeDesktopBase": "Install dir",
+      "claudeDesktopConfigLibrary": "configLibrary",
+      "claudeDesktopMetaPath": "_meta.json",
+      "appConfigDir": "Data dir",
+      "appDbPath": "Database file",
+      "backupDir": "Backup dir",
+      "schemaVersion": "Schema version",
+      "providerCount": "Provider count"
+    }
+  }
+}
