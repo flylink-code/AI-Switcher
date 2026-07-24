@@ -6,7 +6,21 @@
  * frontend buildable/runnable via `pnpm dev` for quick iteration even outside
  * the desktop shell.
  */
-import type { PathsInfo, DbInfo, Provider, ProviderInput, PresetInfo, ProxyStatus } from "@/types/backend";
+import type {
+  DbInfo,
+  LivePrompt,
+  McpImportSummary,
+  McpServer,
+  McpServerInput,
+  McpTarget,
+  PathsInfo,
+  PresetInfo,
+  PromptDetail,
+  PromptInfo,
+  Provider,
+  ProviderInput,
+  ProxyStatus,
+} from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
 
@@ -118,4 +132,72 @@ export async function stopProxy(): Promise<ProxyStatus> {
 export async function setProxyPort(port: number): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_proxy_port", { port });
+}
+
+// ---- MCP --------------------------------------------------------------------
+
+export async function listMcpServers(): Promise<McpServer[]> {
+  const invoke = await getInvoke();
+  return invoke<McpServer[]>("list_mcp_servers", {});
+}
+
+export async function saveMcpServer(input: McpServerInput): Promise<McpServer> {
+  const invoke = await getInvoke();
+  return invoke<McpServer>("save_mcp_server", { input });
+}
+
+export async function deleteMcpServer(id: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_mcp_server", { id });
+}
+
+export async function toggleMcpServer(
+  id: string,
+  target: McpTarget,
+  enabled: boolean,
+): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("toggle_mcp_server", { id, target, enabled });
+}
+
+export async function importMcpServers(): Promise<McpImportSummary> {
+  const invoke = await getInvoke();
+  return invoke<McpImportSummary>("import_mcp_servers", {});
+}
+
+// ---- Prompt presets ---------------------------------------------------------
+
+export async function listPrompts(): Promise<PromptInfo[]> {
+  const invoke = await getInvoke();
+  return invoke<PromptInfo[]>("list_prompts", {});
+}
+
+export async function readPrompt(name: string): Promise<PromptDetail> {
+  const invoke = await getInvoke();
+  return invoke<PromptDetail>("read_prompt", { name });
+}
+
+export async function savePrompt(name: string, content: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("save_prompt", { name, content });
+}
+
+export async function deletePrompt(name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_prompt", { name });
+}
+
+export async function activatePrompt(name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("activate_prompt", { name });
+}
+
+export async function readLivePrompt(): Promise<LivePrompt | null> {
+  const invoke = await getInvoke();
+  return invoke<LivePrompt | null>("read_live_prompt", {});
+}
+
+export async function importLivePrompt(name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("import_live_prompt", { name });
 }

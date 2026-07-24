@@ -1,5 +1,6 @@
 //! Data-access helpers.
 
+pub mod mcp;
 pub mod providers;
 pub mod proxy_logs;
 pub mod settings;

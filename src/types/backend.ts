@@ -76,3 +76,46 @@ export interface ProxyStatus {
   port: number;
   targetProvider: string | null;
 }
+
+/** One unified MCP server definition. */
+export interface McpServer {
+  id: string;
+  name: string;
+  /** Raw JSON entry stored under `mcpServers.<name>`. */
+  serverConfig: Record<string, unknown>;
+  enabledClaudeCode: boolean;
+  enabledClaudeDesktop: boolean;
+  createdAt: number;
+}
+
+/** Input shape for creating or updating an MCP server. */
+export interface McpServerInput {
+  id?: string;
+  name: string;
+  serverConfig: Record<string, unknown>;
+  enabledClaudeCode: boolean;
+  enabledClaudeDesktop: boolean;
+}
+
+export type McpTarget = "claude_code" | "claude_desktop";
+
+export interface McpImportSummary {
+  imported: number;
+  updated: number;
+}
+
+/** A stored CLAUDE.md prompt preset. */
+export interface PromptInfo {
+  name: string;
+  updatedAt: number;
+}
+
+export interface PromptDetail extends PromptInfo {
+  content: string;
+}
+
+export interface LivePrompt {
+  path: string;
+  content: string;
+  updatedAt: number;
+}

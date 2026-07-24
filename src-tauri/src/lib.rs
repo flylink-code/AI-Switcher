@@ -10,6 +10,8 @@ mod commands;
 mod config;
 mod database;
 mod error;
+mod mcp;
+mod prompts;
 mod provider;
 mod provider_presets;
 mod proxy;
@@ -21,10 +23,12 @@ use std::sync::Arc;
 use tauri::{Manager, WindowEvent};
 
 use crate::commands::{
-    backup_now, create_provider, delete_provider, get_current_provider, get_db_info,
-    get_paths, get_proxy_status, import_live_config, list_presets, list_providers, ping,
-    reorder_providers, set_proxy_port, start_proxy, stop_proxy, switch_provider,
-    switch_to_official, update_provider,
+    activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
+    delete_provider, get_current_provider, get_db_info, get_paths, get_proxy_status,
+    import_live_config, import_live_prompt, import_mcp_servers, list_mcp_servers,
+    list_presets, list_prompts, list_providers, ping, read_live_prompt, read_prompt,
+    reorder_providers, save_mcp_server, save_prompt, set_proxy_port, start_proxy,
+    stop_proxy, switch_provider, switch_to_official, toggle_mcp_server, update_provider,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -52,6 +56,18 @@ pub fn run() {
             reorder_providers,
             import_live_config,
             list_presets,
+            list_mcp_servers,
+            save_mcp_server,
+            delete_mcp_server,
+            toggle_mcp_server,
+            import_mcp_servers,
+            list_prompts,
+            read_prompt,
+            save_prompt,
+            delete_prompt,
+            activate_prompt,
+            read_live_prompt,
+            import_live_prompt,
             get_proxy_status,
             start_proxy,
             stop_proxy,
