@@ -8,6 +8,7 @@ use crate::error::AppResult;
 use crate::store::AppState;
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DbInfo {
     pub path: String,
     pub schema_version: u32,

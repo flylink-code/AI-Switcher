@@ -11,6 +11,7 @@ import {
   BulbFilled,
   LaptopOutlined,
   GlobalOutlined,
+  NodeIndexOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
@@ -26,6 +27,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { key: "providers", icon: <ApiOutlined /> },
+  { key: "proxy", icon: <NodeIndexOutlined /> },
   { key: "mcp", icon: <ClusterOutlined /> },
   { key: "prompts", icon: <FileTextOutlined /> },
   { key: "skills", icon: <ThunderboltOutlined /> },

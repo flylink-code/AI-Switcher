@@ -30,6 +30,16 @@ pub fn apply_provider_to_settings(provider: &Provider) -> AppResult<()> {
     apply_provider_to_settings_at(provider, &get_claude_settings_path())
 }
 
+/// Activate `provider` in Claude Code by pointing it at the local proxy.
+/// `ANTHROPIC_BASE_URL` becomes `http://127.0.0.1:port`; the proxy injects the
+/// real upstream key and maps the model name.
+pub fn apply_provider_to_settings_via_proxy(
+    provider: &Provider,
+    proxy_port: u16,
+) -> AppResult<()> {
+    apply_provider_to_settings_via_proxy_at(provider, proxy_port, &get_claude_settings_path())
+}
+
 /// Path-injected variant for tests. Backs up to the app backup dir, then mutates
 /// the given file in place using the env-block merge strategy.
 pub fn apply_provider_to_settings_at(provider: &Provider, path: &Path) -> AppResult<()> {
@@ -41,6 +51,24 @@ pub fn apply_provider_to_settings_at(provider: &Provider, path: &Path) -> AppRes
     let env = ensure_env_object(&mut settings);
     remove_anthropic_keys(env);
     inject_provider_env(env, provider);
+
+    write_settings(path, &settings)
+}
+
+/// Path-injected proxy variant for tests.
+pub fn apply_provider_to_settings_via_proxy_at(
+    provider: &Provider,
+    proxy_port: u16,
+    path: &Path,
+) -> AppResult<()> {
+    let mut settings = read_or_init_settings_at(path)?;
+    backup_settings(path)?;
+
+    let env = ensure_env_object(&mut settings);
+    remove_anthropic_keys(env);
+    set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
+    set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy");
+    set_str(env, "ANTHROPIC_MODEL", &provider.model);
 
     write_settings(path, &settings)
 }

@@ -1,0 +1,298 @@
+//! Local HTTP proxy that exposes an Anthropic-compatible `/v1/messages` endpoint.
+//!
+//! Claude Desktop is pointed at `http://127.0.0.1:<port>`; the proxy forwards
+//! requests to the active third-party provider after mapping the model name and
+//! injecting the real API key. Request summaries are written to the SQLite log
+//! table for the usage dashboard (P4).
+
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Instant;
+
+use axum::body::Body;
+use axum::extract::State;
+use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{any, get};
+use axum::Router;
+use bytes::Bytes;
+use reqwest::Client;
+use serde_json::Value;
+use tokio::net::TcpListener;
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
+use tower_http::cors::CorsLayer;
+
+use crate::database::dao::proxy_logs::insert_proxy_log;
+use crate::database::dao::providers::get_current_provider;
+use crate::database::Database;
+use crate::error::{AppError, AppResult};
+use crate::provider::{ProtocolType, Provider};
+
+const DEFAULT_PORT: u16 = 15821;
+
+/// Runtime handle for the local proxy.
+pub struct ProxyManager {
+    db: Arc<Database>,
+    handle: Option<JoinHandle<()>>,
+    shutdown_tx: Option<oneshot::Sender<()>>,
+    port: u16,
+}
+
+impl ProxyManager {
+    pub fn new(db: Arc<Database>) -> Self {
+        Self {
+            db,
+            handle: None,
+            shutdown_tx: None,
+            port: DEFAULT_PORT,
+        }
+    }
+
+    /// Whether the server is currently running.
+    pub fn status(&self) -> ProxyStatus {
+        let running = self.handle.as_ref().is_some_and(|h| !h.is_finished());
+        let target_provider = if running {
+            self.db
+                .with_conn(|conn| get_current_provider(conn))
+                .ok()
+                .flatten()
+                .map(|p| p.name)
+        } else {
+            None
+        };
+        ProxyStatus {
+            running,
+            port: self.port,
+            target_provider,
+        }
+    }
+
+    /// Start the proxy on `127.0.0.1:port`. Stops any previously running instance.
+    pub async fn start(&mut self, port: u16) -> AppResult<()> {
+        if self.handle.is_some() {
+            self.stop();
+        }
+
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let listener = TcpListener::bind(addr)
+            .await
+            .map_err(|e| AppError::Io(format!("无法绑定代理端口 {port}: {e}")))?;
+
+        let state = ProxyState {
+            db: Arc::clone(&self.db),
+            client: Client::builder()
+                .timeout(std::time::Duration::from_secs(300))
+                .build()
+                .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
+        };
+
+        let app = Router::new()
+            .route("/health", get(health_handler))
+            .route("/v1/messages", any(proxy_handler))
+            .layer(CorsLayer::permissive())
+            .with_state(state);
+
+        let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+        let server = axum::serve(listener, app).with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        });
+
+        let handle = tokio::spawn(async move {
+            if let Err(e) = server.await {
+                log::error!("本地代理服务异常退出: {e}");
+            }
+        });
+
+        self.handle = Some(handle);
+        self.shutdown_tx = Some(shutdown_tx);
+        self.port = port;
+        log::info!("本地代理已启动: http://127.0.0.1:{port}");
+        Ok(())
+    }
+
+    /// Signal the running server to shut down.
+    pub fn stop(&mut self) {
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        if let Some(handle) = self.handle.take() {
+            handle.abort();
+        }
+        log::info!("本地代理已停止");
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyStatus {
+    pub running: bool,
+    pub port: u16,
+    pub target_provider: Option<String>,
+}
+
+#[derive(Clone)]
+struct ProxyState {
+    db: Arc<Database>,
+    client: Client,
+}
+
+async fn health_handler() -> impl IntoResponse {
+    axum::Json(serde_json::json!({"status": "ok"}))
+}
+
+async fn proxy_handler(
+    State(state): State<ProxyState>,
+    method: Method,
+    uri: Uri,
+    headers: HeaderMap,
+    body: Body,
+) -> Response {
+    let started = Instant::now();
+
+    // Resolve the active provider synchronously.
+    let provider: Option<Provider> = match state.db.with_conn(|conn| get_current_provider(conn)) {
+        Ok(p) => p,
+        Err(e) => {
+            log::error!("代理读取当前供应商失败: {e}");
+            None
+        }
+    };
+    let Some(provider) = provider else {
+        return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商");
+    };
+    if provider.base_url.trim().is_empty() {
+        return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 Base URL");
+    }
+
+    // Read and optionally rewrite the request body.
+    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(b) => b,
+        Err(e) => {
+            return json_error(StatusCode::BAD_REQUEST, format!("读取请求体失败: {e}"));
+        }
+    };
+
+    let outgoing_body = rewrite_body(&provider, &body_bytes);
+
+    let upstream_base = provider.base_url.trim_end_matches('/');
+    let target_url = format!("{upstream_base}{}", uri.path());
+
+    // Forward the request.
+    let mut req_builder = state
+        .client
+        .request(method.clone(), &target_url)
+        .header(header::CONTENT_TYPE, "application/json");
+
+    for (name, value) in headers.iter() {
+        let name_str = name.as_str();
+        if is_hop_by_hop_header(name_str)
+            || name_str.eq_ignore_ascii_case("host")
+            || name_str.eq_ignore_ascii_case("content-length")
+            || name_str.eq_ignore_ascii_case("content-type")
+            || name_str.eq_ignore_ascii_case("authorization")
+            || name_str.eq_ignore_ascii_case("x-api-key")
+        {
+            continue;
+        }
+        req_builder = req_builder.header(name, value);
+    }
+
+    if !provider.api_key.trim().is_empty() {
+        let key = provider.api_key.trim();
+        req_builder = req_builder.header(header::AUTHORIZATION, format!("Bearer {key}"));
+        req_builder = req_builder.header("x-api-key", key);
+    }
+
+    let upstream_resp = match req_builder.body(outgoing_body).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = format!("转发到上游失败: {e}");
+            log_request(&state, &provider, None, started.elapsed().as_millis() as i64);
+            return json_error(StatusCode::BAD_GATEWAY, msg);
+        }
+    };
+
+    let status = upstream_resp.status();
+    let duration_ms = started.elapsed().as_millis() as i64;
+    log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
+
+    // Build the response, streaming the upstream body back to the caller.
+    let mut resp_builder = Response::builder().status(status);
+    for (name, value) in upstream_resp.headers() {
+        if is_hop_by_hop_header(name.as_str()) {
+            continue;
+        }
+        resp_builder = resp_builder.header(name, value);
+    }
+
+    let stream = upstream_resp.bytes_stream();
+    let body = Body::from_stream(stream);
+
+    resp_builder
+        .body(body)
+        .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")))
+}
+
+fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
+    if provider.protocol_type != ProtocolType::Proxy || provider.model.trim().is_empty() {
+        return original.clone();
+    }
+
+    let mut value: Value = match serde_json::from_slice(original) {
+        Ok(v) => v,
+        Err(_) => return original.clone(),
+    };
+
+    if value.get("model").is_some() {
+        value["model"] = Value::String(provider.model.trim().to_string());
+    }
+
+    serde_json::to_vec(&value)
+        .map(Bytes::from)
+        .unwrap_or_else(|_| original.clone())
+}
+
+fn log_request(state: &ProxyState, provider: &Provider, status: Option<i64>, duration_ms: i64) {
+    let model = if provider.model.trim().is_empty() {
+        None
+    } else {
+        Some(provider.model.trim())
+    };
+    if let Err(e) = state.db.with_conn(|conn| {
+        insert_proxy_log(
+            conn,
+            Some(&provider.id),
+            Some(&provider.name),
+            model,
+            status,
+            duration_ms,
+        )
+    }) {
+        log::error!("写入代理请求日志失败: {e}");
+    }
+}
+
+fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
+    let body = serde_json::json!({"error": message.into()});
+    Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap_or_else(|_| status.into_response())
+}
+
+fn is_hop_by_hop_header(name: &str) -> bool {
+    let name = name.as_bytes();
+    matches!(
+        name,
+        b"connection"
+            | b"keep-alive"
+            | b"transfer-encoding"
+            | b"te"
+            | b"trailer"
+            | b"proxy-authorization"
+            | b"proxy-authenticate"
+            | b"upgrade"
+    )
+}

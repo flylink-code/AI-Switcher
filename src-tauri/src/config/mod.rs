@@ -8,9 +8,9 @@ pub mod claude_code;
 pub mod claude_desktop;
 pub mod paths;
 
-// P0-wired re-exports (used by commands).
+// P2-wired re-exports.
 #[allow(unused_imports)]
-pub use claude_desktop::{detect_claude_desktop, ClaudeDesktopPaths};
+pub use claude_desktop::{apply_provider as apply_provider_to_desktop, clear_provider as clear_desktop_provider, detect_claude_desktop, ClaudeDesktopPaths};
 pub use paths::{
     get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_config_dir,
     get_claude_json_path, get_claude_settings_path, get_home_dir,

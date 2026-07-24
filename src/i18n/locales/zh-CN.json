@@ -5,6 +5,7 @@
   },
   "nav": {
     "providers": "供应商",
+    "proxy": "本地代理",
     "mcp": "MCP",
     "prompts": "Prompts",
     "skills": "Skills",
@@ -25,7 +26,7 @@
   },
   "providers": {
     "title": "供应商管理",
-    "subtitle": "管理 Claude Code 的第三方 API 配置，一键切换",
+    "subtitle": "管理 Claude Code / Desktop 的第三方 API 配置，一键切换",
     "create": "新增供应商",
     "edit": "编辑",
     "delete": "删除",
@@ -47,7 +48,7 @@
     "fieldProtocol": "协议类型",
     "fieldNotes": "备注",
     "protocolAnthropic": "Anthropic 兼容（直连）",
-    "protocolProxy": "需代理转换（P2）",
+    "protocolProxy": "本地代理转换",
     "requiredName": "请输入名称",
     "requiredBaseUrl": "请输入 API 地址",
     "colName": "名称",
@@ -64,6 +65,24 @@
     "switchedOfficial": "已切换到官方登录",
     "imported": "已导入当前配置",
     "missingKey": "该供应商未填写 API Key，请先编辑填入后再切换"
+  },
+  "proxy": {
+    "title": "本地代理",
+    "description": "Claude Desktop 可通过此代理访问非 Anthropic 兼容的第三方 API。切换为「本地代理转换」协议时会自动启动。",
+    "status": "运行状态",
+    "control": "启动 / 停止",
+    "running": "运行中",
+    "stopped": "已停止",
+    "start": "启动代理",
+    "stop": "停止代理",
+    "refresh": "刷新",
+    "started": "代理已启动（端口 {{port}}）",
+    "port": "监听端口",
+    "fieldRunning": "状态",
+    "fieldPort": "端口",
+    "fieldTarget": "当前目标供应商",
+    "fieldEndpoint": "代理端点",
+    "noTarget": "未选择供应商"
   },
   "env": {
     "title": "环境信息（P0 探测验证）",

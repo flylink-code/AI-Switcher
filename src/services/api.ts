@@ -6,7 +6,7 @@
  * frontend buildable/runnable via `pnpm dev` for quick iteration even outside
  * the desktop shell.
  */
-import type { PathsInfo, DbInfo, Provider, ProviderInput, PresetInfo } from "@/types/backend";
+import type { PathsInfo, DbInfo, Provider, ProviderInput, PresetInfo, ProxyStatus } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
 
@@ -96,4 +96,26 @@ export async function importLiveConfig(): Promise<void> {
 export async function listPresets(): Promise<PresetInfo[]> {
   const invoke = await getInvoke();
   return invoke<PresetInfo[]>("list_presets", {});
+}
+
+// ---- Local proxy ------------------------------------------------------------
+
+export async function getProxyStatus(): Promise<ProxyStatus> {
+  const invoke = await getInvoke();
+  return invoke<ProxyStatus>("get_proxy_status", {});
+}
+
+export async function startProxy(port?: number): Promise<ProxyStatus> {
+  const invoke = await getInvoke();
+  return invoke<ProxyStatus>("start_proxy", { port });
+}
+
+export async function stopProxy(): Promise<ProxyStatus> {
+  const invoke = await getInvoke();
+  return invoke<ProxyStatus>("stop_proxy", {});
+}
+
+export async function setProxyPort(port: number): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_proxy_port", { port });
 }

@@ -5,6 +5,7 @@ pub mod backup;
 pub mod db;
 pub mod paths;
 pub mod providers;
+pub mod proxy;
 
 pub use backend::ping;
 pub use backup::backup_now;
@@ -15,3 +16,4 @@ pub use providers::{
     list_presets, list_providers, reorder_providers, switch_provider, switch_to_official,
     update_provider,
 };
+pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};

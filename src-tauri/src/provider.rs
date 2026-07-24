@@ -43,6 +43,7 @@ impl ProtocolType {
 
 /// A single API provider. Field names are camelCase on the wire for the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Provider {
     pub id: String,
     pub name: String,
@@ -68,6 +69,7 @@ pub struct Provider {
 /// Subset that can be created/updated from the frontend. `id` is optional on
 /// create (assigned server-side); required on update.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderInput {
     #[serde(default)]
     pub id: Option<String>,

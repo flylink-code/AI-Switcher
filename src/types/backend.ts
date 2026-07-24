@@ -69,3 +69,10 @@ export interface DbInfo {
   schemaVersion: number;
   providerCount: number;
 }
+
+/** Result of proxy status commands. */
+export interface ProxyStatus {
+  running: boolean;
+  port: number;
+  targetProvider: string | null;
+}

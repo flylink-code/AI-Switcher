@@ -1,6 +1,7 @@
 //! Data-access helpers.
 
 pub mod providers;
+pub mod proxy_logs;
 pub mod settings;
 
 pub use providers::{

@@ -137,7 +137,7 @@ export function ProviderForm({
           <Select
             options={[
               { value: "anthropic", label: t("providers.protocolAnthropic") },
-              { value: "proxy", label: t("providers.protocolProxy"), disabled: true },
+              { value: "proxy", label: t("providers.protocolProxy") },
             ]}
           />
         </Form.Item>

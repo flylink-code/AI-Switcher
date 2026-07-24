@@ -12,17 +12,22 @@ mod database;
 mod error;
 mod provider;
 mod provider_presets;
+mod proxy;
 mod store;
 mod tray;
+
+use std::sync::Arc;
 
 use tauri::{Manager, WindowEvent};
 
 use crate::commands::{
     backup_now, create_provider, delete_provider, get_current_provider, get_db_info,
-    get_paths, import_live_config, list_presets, list_providers, ping, reorder_providers,
-    switch_provider, switch_to_official, update_provider,
+    get_paths, get_proxy_status, import_live_config, list_presets, list_providers, ping,
+    reorder_providers, set_proxy_port, start_proxy, stop_proxy, switch_provider,
+    switch_to_official, update_provider,
 };
 use crate::error::AppError;
+use crate::proxy::ProxyManager;
 use crate::store::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -47,6 +52,10 @@ pub fn run() {
             reorder_providers,
             import_live_config,
             list_presets,
+            get_proxy_status,
+            start_proxy,
+            stop_proxy,
+            set_proxy_port,
         ]);
     let builder = add_single_instance(builder);
     builder
@@ -78,7 +87,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(config::get_backup_dir())?;
 
     // Initialize storage.
-    let db = database::Database::init().map_err(box_app_error)?;
+    let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
 
     // First-run seeding + live-config import. Non-fatal: a seeding failure should
     // not block the app, only log.
@@ -86,7 +95,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         log::error!("供应商初始化/导入失败: {e}");
     }
 
-    app.manage(AppState { db });
+    app.manage(AppState {
+        db: Arc::clone(&db),
+        proxy: tokio::sync::Mutex::new(ProxyManager::new(Arc::clone(&db))),
+    });
 
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {

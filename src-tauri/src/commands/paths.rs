@@ -9,6 +9,7 @@ use crate::config::{
 };
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PathsInfo {
     pub home: String,
     pub claude_config_dir: String,

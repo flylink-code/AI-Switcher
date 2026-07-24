@@ -2,13 +2,15 @@
 
 use serde::Serialize;
 
-use crate::config::claude_code;
+use crate::config::{claude_code, claude_desktop};
+use crate::database::dao::settings::get_setting;
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
 use crate::provider::{Provider, ProviderInput};
 use crate::store::AppState;
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PresetInfo {
     pub name: String,
     pub base_url: String,
@@ -49,10 +51,18 @@ pub fn update_provider(
     let updated = state
         .db
         .with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    // If the updated provider is the current one, re-apply it to settings.json so
-    // the live config reflects the edits (e.g. rotated token).
+    // If the updated provider is the current one, re-apply it so the live config
+    // reflects the edits (e.g. rotated token).
     if updated.is_current {
-        claude_code::apply_provider_to_settings(&updated)?;
+        let proxy_port = get_saved_proxy_port(&state);
+        if updated.protocol_type == crate::provider::ProtocolType::Proxy {
+            claude_code::apply_provider_to_settings_via_proxy(&updated, proxy_port)?;
+        } else {
+            claude_code::apply_provider_to_settings(&updated)?;
+        }
+        if let Err(e) = claude_desktop::apply_provider(&updated, proxy_port) {
+            log::warn!("Claude Desktop 配置更新失败（可能未安装）: {e}");
+        }
     }
     Ok(updated)
 }
@@ -63,26 +73,58 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
     state.db.with_conn(|conn| dao::delete_provider(conn, &id))
 }
 
-/// Activate a provider: write it to settings.json and mark it current.
+/// Activate a provider: write it to settings.json, configLibrary, and mark it current.
 #[tauri::command]
-pub fn switch_provider(id: String, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
+pub async fn switch_provider(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
     let provider = state
         .db
         .with_conn(|conn| {
             dao::get_provider(conn, &id)?
                 .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
         })?;
-    claude_code::apply_provider_to_settings(&provider)?;
+
+    // Claude Code: write env block (direct or via local proxy).
+    let proxy_port = get_saved_proxy_port(&state);
+    if provider.protocol_type == crate::provider::ProtocolType::Proxy {
+        // Ensure the local proxy is running before Desktop is pointed at it.
+        let mut proxy = state.proxy.lock().await;
+        proxy.start(proxy_port).await?;
+        claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)?;
+    } else {
+        claude_code::apply_provider_to_settings(&provider)?;
+    }
+
+    // Claude Desktop: write gateway profile when installed.
+    if let Err(e) = claude_desktop::apply_provider(&provider, proxy_port) {
+        log::warn!("Claude Desktop 配置写入失败（可能未安装）: {e}");
+    }
+
     state
         .db
         .with_conn(|conn| dao::set_current_provider(conn, &id))?;
     Ok(provider)
 }
 
+fn get_saved_proxy_port(state: &AppState) -> u16 {
+    state
+        .db
+        .with_conn(|conn| get_setting(conn, "proxy_port"))
+        .ok()
+        .flatten()
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(15821)
+}
+
 /// Switch to official login mode: clear ANTHROPIC_* keys, unset current.
 #[tauri::command]
 pub fn switch_to_official(state: tauri::State<'_, AppState>) -> AppResult<()> {
     claude_code::clear_provider_from_settings()?;
+    if let Err(e) = claude_desktop::clear_provider() {
+        log::warn!("Claude Desktop 官方模式恢复失败（可能未安装）: {e}");
+    }
     state.db.with_conn(|conn| dao::clear_current_provider(conn))?;
     Ok(())
 }

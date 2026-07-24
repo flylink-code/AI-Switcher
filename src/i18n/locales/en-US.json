@@ -5,6 +5,7 @@
   },
   "nav": {
     "providers": "Providers",
+    "proxy": "Proxy",
     "mcp": "MCP",
     "prompts": "Prompts",
     "skills": "Skills",
@@ -25,7 +26,7 @@
   },
   "providers": {
     "title": "Providers",
-    "subtitle": "Manage Claude Code third-party API configs and switch with one click",
+    "subtitle": "Manage Claude Code / Desktop third-party API configs and switch with one click",
     "create": "Add provider",
     "edit": "Edit",
     "delete": "Delete",
@@ -47,7 +48,7 @@
     "fieldProtocol": "Protocol",
     "fieldNotes": "Notes",
     "protocolAnthropic": "Anthropic-compatible (direct)",
-    "protocolProxy": "Proxy (P2)",
+    "protocolProxy": "Local proxy",
     "requiredName": "Please enter a name",
     "requiredBaseUrl": "Please enter an API base URL",
     "colName": "Name",
@@ -64,6 +65,24 @@
     "switchedOfficial": "Switched to official login",
     "imported": "Imported current config",
     "missingKey": "This provider has no API key yet — edit it to add one before switching"
+  },
+  "proxy": {
+    "title": "Local Proxy",
+    "description": "Claude Desktop can reach non-Anthropic providers through this proxy. It starts automatically when you switch to a provider using the local-proxy protocol.",
+    "status": "Status",
+    "control": "Start / Stop",
+    "running": "Running",
+    "stopped": "Stopped",
+    "start": "Start proxy",
+    "stop": "Stop proxy",
+    "refresh": "Refresh",
+    "started": "Proxy started on port {{port}}",
+    "port": "Listen port",
+    "fieldRunning": "Status",
+    "fieldPort": "Port",
+    "fieldTarget": "Current target provider",
+    "fieldEndpoint": "Proxy endpoint",
+    "noTarget": "No provider selected"
   },
   "env": {
     "title": "Environment (P0 detection check)",

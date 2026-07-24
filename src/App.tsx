@@ -7,6 +7,7 @@ import { AppLayout, NAV_ITEMS } from "@/components/AppLayout";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import ProvidersPage from "@/pages/ProvidersPage";
+import ProxyPage from "@/pages/ProxyPage";
 import McpPage from "@/pages/McpPage";
 import PromptsPage from "@/pages/PromptsPage";
 import SkillsPage from "@/pages/SkillsPage";
@@ -41,6 +42,8 @@ export default function App() {
     switch (activeKey) {
       case "providers":
         return <ProvidersPage />;
+      case "proxy":
+        return <ProxyPage />;
       case "mcp":
         return <McpPage />;
       case "prompts":

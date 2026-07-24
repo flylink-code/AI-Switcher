@@ -15,6 +15,10 @@ export default defineConfig({
   },
   // Tauri requires a deterministic port and supports HMR via TAURI_DEV_HOST.
   clearScreen: false,
+  optimizeDeps: {
+    // Only scan the main entry; ignore example apps under ./examples.
+    entries: ["index.html"],
+  },
   server: {
     port: 5173,
     strictPort: true,
