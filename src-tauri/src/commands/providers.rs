@@ -219,16 +219,16 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
             AppError::Config("供应商未配置 API Key，无法切换".to_string())
         })
     })?;
-    let proxy_port = get_saved_proxy_port(state);
+    let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
     match runtime_provider.target_app {
         ProviderTarget::ClaudeCode => {
             let ownership = prepare_code_ownership(
                 &runtime_provider,
                 state,
-                runtime_provider.protocol_type == ProtocolType::Proxy,
+                runtime_provider.protocol_type.uses_proxy(),
                 proxy_port,
             )?;
-            if runtime_provider.protocol_type == ProtocolType::Proxy {
+            if runtime_provider.protocol_type.uses_proxy() {
                 state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
                 claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, proxy_port)?;
             } else {
@@ -238,7 +238,7 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
         }
         ProviderTarget::ClaudeDesktop => {
             let original_applied_id = prepare_desktop_ownership(state)?;
-            if runtime_provider.protocol_type == ProtocolType::Proxy {
+            if runtime_provider.protocol_type.uses_proxy() {
                 state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
             }
             claude_desktop::apply_provider(&runtime_provider, proxy_port)?;
@@ -444,10 +444,15 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
     state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id))
 }
 
-fn get_saved_proxy_port(state: &AppState) -> u16 {
-    state.db.with_conn(|conn| get_setting(conn, "proxy_port"))
+fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
+    let key = match target {
+        ProviderTarget::ClaudeCode => "proxy_port_claude_code",
+        ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
+    };
+    state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(15821)
+        .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
+        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822 })
 }

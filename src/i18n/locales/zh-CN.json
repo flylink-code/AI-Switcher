@@ -66,6 +66,8 @@
     "fieldNotes": "备注",
     "protocolAnthropic": "Anthropic 兼容（直连）",
     "protocolProxy": "本地代理转换",
+    "protocolOpenAiChat": "OpenAI Chat Completions（本地代理）",
+    "protocolOpenAiResponses": "OpenAI Responses（本地代理）",
     "requiredName": "请输入名称",
     "requiredBaseUrl": "请输入 API 地址",
     "colName": "名称",
@@ -193,7 +195,10 @@
     "noPricing": "暂无模型定价；成本会按 $0 计算",
     "requiredModel": "请输入模型名",
     "pricingSaved": "模型定价已保存",
-    "pricingDeleted": "模型定价已删除"
+    "pricingDeleted": "模型定价已删除",
+    "maintainLogs": "维护代理日志",
+    "logsMaintained": "日志维护完成，已清理 {{deleted}} 条记录",
+    "integrityFailed": "数据库完整性检查未通过，请从备份恢复"
   },
   "skills": {
     "title": "Skills 管理",

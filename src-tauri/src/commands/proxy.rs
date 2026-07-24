@@ -7,7 +7,6 @@ use crate::error::AppResult;
 use crate::proxy::ProxyStatus;
 use crate::store::AppState;
 
-const PROXY_PORT_KEY: &str = "proxy_port";
 const DEFAULT_PORT: u16 = 15821;
 
 #[derive(Debug, Serialize)]
@@ -29,50 +28,64 @@ impl From<ProxyStatus> for ProxyStatusInfo {
 }
 
 #[tauri::command]
-pub async fn get_proxy_status(state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
+pub async fn get_proxy_status(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
     let proxy = state
         .proxy
         .lock()
         .await;
-    Ok(proxy.status().into())
+    Ok(match target {
+        Some(target) => proxy.status_for(target).into(),
+        None => proxy.status().into(),
+    })
 }
 
 #[tauri::command]
 pub async fn start_proxy(
     port: Option<u16>,
+    target: Option<crate::provider::ProviderTarget>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<ProxyStatusInfo> {
-    let target_port = port.unwrap_or_else(|| get_saved_port(&state));
+    let target = target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop);
+    let target_port = port.unwrap_or_else(|| get_saved_port(&state, target));
     let mut proxy = state.proxy.lock().await;
-    proxy.start(target_port, crate::provider::ProviderTarget::ClaudeDesktop).await?;
-    persist_port(&state, target_port)?;
+    proxy.start(target_port, target).await?;
+    persist_port(&state, target, target_port)?;
     Ok(proxy.status().into())
 }
 
 #[tauri::command]
-pub async fn stop_proxy(state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
+pub async fn stop_proxy(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
     let mut proxy = state.proxy.lock().await;
-    proxy.stop();
-    Ok(proxy.status().into())
+    match target {
+        Some(target) => { proxy.stop_target(target); Ok(proxy.status_for(target).into()) }
+        None => { proxy.stop(); Ok(proxy.status().into()) }
+    }
 }
 
 #[tauri::command]
-pub fn set_proxy_port(port: u16, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    persist_port(&state, port)
+pub fn set_proxy_port(port: u16, target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    persist_port(&state, target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop), port)
 }
 
-fn get_saved_port(state: &AppState) -> u16 {
+fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
+    match target {
+        crate::provider::ProviderTarget::ClaudeCode => "proxy_port_claude_code",
+        crate::provider::ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
+    }
+}
+
+fn get_saved_port(state: &AppState, target: crate::provider::ProviderTarget) -> u16 {
     state
         .db
-        .with_conn(|conn| get_setting(conn, PROXY_PORT_KEY))
+        .with_conn(|conn| get_setting(conn, port_key(target)))
         .ok()
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(DEFAULT_PORT)
+        .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1 })
 }
 
-fn persist_port(state: &AppState, port: u16) -> AppResult<()> {
+fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port: u16) -> AppResult<()> {
     state
         .db
-        .with_conn(|conn| set_setting(conn, PROXY_PORT_KEY, &port.to_string()))
+        .with_conn(|conn| set_setting(conn, port_key(target), &port.to_string()))
 }

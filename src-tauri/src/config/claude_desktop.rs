@@ -206,7 +206,7 @@ pub fn current_applied_id() -> AppResult<Option<String>> {
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     let (base_url, api_key) = match provider.protocol_type {
         ProtocolType::Anthropic => (provider.base_url.clone(), provider.api_key.clone()),
-        ProtocolType::Proxy => {
+        _ => {
             let token = get_or_create_gateway_token()?;
             (format!("http://127.0.0.1:{proxy_port}"), token)
         }

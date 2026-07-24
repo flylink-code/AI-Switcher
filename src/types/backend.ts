@@ -3,7 +3,7 @@
  * Keep these in sync with the corresponding serde structs in src-tauri/src/.
  */
 
-export type ProtocolType = "anthropic" | "proxy";
+export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop";
 
 /** A single API provider (mirrors `crate::provider::Provider`). */
@@ -192,4 +192,9 @@ export interface ModelPricingInput {
   inputPricePerMillion: number;
   outputPricePerMillion: number;
   currency: string;
+}
+
+export interface LogMaintenanceResult {
+  deleted: number;
+  integrityOk: boolean;
 }

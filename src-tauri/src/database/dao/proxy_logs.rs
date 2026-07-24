@@ -46,6 +46,32 @@ pub struct ModelPricing {
     pub currency: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogMaintenanceResult {
+    pub deleted: i64,
+    pub integrity_ok: bool,
+}
+
+pub fn maintain_proxy_logs(conn: &Connection, retention_days: u32, max_rows: u32, vacuum: bool) -> AppResult<LogMaintenanceResult> {
+    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650)))).timestamp_millis();
+    let by_age = conn.execute("DELETE FROM proxy_request_logs WHERE created_at < ?", params![cutoff])? as i64;
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+    let by_limit = if count > i64::from(max_rows.max(100)) {
+        conn.execute(
+            "DELETE FROM proxy_request_logs WHERE id IN (
+                SELECT id FROM proxy_request_logs ORDER BY created_at ASC LIMIT ?
+             )",
+            params![count - i64::from(max_rows.max(100))],
+        )? as i64
+    } else { 0 };
+    let integrity: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+    if vacuum {
+        conn.execute_batch("VACUUM")?;
+    }
+    Ok(LogMaintenanceResult { deleted: by_age + by_limit, integrity_ok: integrity == "ok" })
+}
+
 /// Create a proxy request log and return its id so token usage can be completed
 /// once the upstream response body has been streamed.
 pub fn insert_proxy_log(

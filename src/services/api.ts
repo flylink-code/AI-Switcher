@@ -28,6 +28,7 @@ import type {
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
+  LogMaintenanceResult,
 } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
@@ -152,24 +153,24 @@ export async function restoreConfigBackup(target: ProviderTarget, name: string):
 
 // ---- Local proxy ------------------------------------------------------------
 
-export async function getProxyStatus(): Promise<ProxyStatus> {
+export async function getProxyStatus(target?: ProviderTarget): Promise<ProxyStatus> {
   const invoke = await getInvoke();
-  return invoke<ProxyStatus>("get_proxy_status", {});
+  return invoke<ProxyStatus>("get_proxy_status", { target });
 }
 
-export async function startProxy(port?: number): Promise<ProxyStatus> {
+export async function startProxy(port?: number, target?: ProviderTarget): Promise<ProxyStatus> {
   const invoke = await getInvoke();
-  return invoke<ProxyStatus>("start_proxy", { port });
+  return invoke<ProxyStatus>("start_proxy", { port, target });
 }
 
-export async function stopProxy(): Promise<ProxyStatus> {
+export async function stopProxy(target?: ProviderTarget): Promise<ProxyStatus> {
   const invoke = await getInvoke();
-  return invoke<ProxyStatus>("stop_proxy", {});
+  return invoke<ProxyStatus>("stop_proxy", { target });
 }
 
-export async function setProxyPort(port: number): Promise<void> {
+export async function setProxyPort(port: number, target?: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("set_proxy_port", { port });
+  return invoke<void>("set_proxy_port", { port, target });
 }
 
 // ---- MCP --------------------------------------------------------------------
@@ -300,4 +301,9 @@ export async function saveModelPricing(input: ModelPricingInput): Promise<void> 
 export async function deleteModelPricing(model: string): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("delete_model_pricing", { model });
+}
+
+export async function maintainProxyLogs(retentionDays = 90, maxRows = 100000, vacuum = false): Promise<LogMaintenanceResult> {
+  const invoke = await getInvoke();
+  return invoke<LogMaintenanceResult>("maintain_proxy_logs", { retentionDays, maxRows, vacuum });
 }

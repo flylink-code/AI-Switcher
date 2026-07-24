@@ -66,6 +66,8 @@
     "fieldNotes": "Notes",
     "protocolAnthropic": "Anthropic-compatible (direct)",
     "protocolProxy": "Local proxy",
+    "protocolOpenAiChat": "OpenAI Chat Completions (local proxy)",
+    "protocolOpenAiResponses": "OpenAI Responses (local proxy)",
     "requiredName": "Please enter a name",
     "requiredBaseUrl": "Please enter an API base URL",
     "colName": "Name",
@@ -193,7 +195,10 @@
     "noPricing": "No model pricing yet; costs are calculated as $0",
     "requiredModel": "Enter a model name",
     "pricingSaved": "Model pricing saved",
-    "pricingDeleted": "Model pricing deleted"
+    "pricingDeleted": "Model pricing deleted",
+    "maintainLogs": "Maintain proxy logs",
+    "logsMaintained": "Log maintenance complete; removed {{deleted}} records",
+    "integrityFailed": "Database integrity check failed; restore from a backup"
   },
   "skills": {
     "title": "Skills",

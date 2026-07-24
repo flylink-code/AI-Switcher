@@ -6,6 +6,7 @@ import {
   Descriptions,
   InputNumber,
   Space,
+  Segmented,
   Spin,
   Tag,
   Typography,
@@ -19,7 +20,7 @@ import {
   GlobalOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import type { ProxyStatus } from "@/types/backend";
+import type { ProxyStatus, ProviderTarget } from "@/types/backend";
 import { getProxyStatus, setProxyPort, startProxy, stopProxy } from "@/services/api";
 
 const { Text } = Typography;
@@ -30,11 +31,12 @@ export default function ProxyPage() {
   const [loading, setLoading] = useState(false);
   const [port, setPort] = useState<number>(15821);
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState<ProviderTarget>("claude_desktop");
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const s = await getProxyStatus();
+      const s = await getProxyStatus(target);
       setStatus(s);
       setPort(s.port);
     } catch (e) {
@@ -42,7 +44,7 @@ export default function ProxyPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [target]);
 
   useEffect(() => {
     void refresh();
@@ -51,8 +53,8 @@ export default function ProxyPage() {
   const handleStart = async () => {
     setBusy(true);
     try {
-      await setProxyPort(port);
-      const s = await startProxy(port);
+      await setProxyPort(port, target);
+      const s = await startProxy(port, target);
       setStatus(s);
       void message.success(t("proxy.started", { port: s.port }));
     } catch (e) {
@@ -65,7 +67,7 @@ export default function ProxyPage() {
   const handleStop = async () => {
     setBusy(true);
     try {
-      const s = await stopProxy();
+      const s = await stopProxy(target);
       setStatus(s);
       void message.success(t("proxy.stopped"));
     } catch (e) {
@@ -83,6 +85,15 @@ export default function ProxyPage() {
           showIcon
           message={t("proxy.title")}
           description={t("proxy.description")}
+        />
+
+        <Segmented<ProviderTarget>
+          value={target}
+          onChange={setTarget}
+          options={[
+            { value: "claude_code", label: t("providers.claudeCode") },
+            { value: "claude_desktop", label: t("providers.claudeDesktop") },
+          ]}
         />
 
         <Card

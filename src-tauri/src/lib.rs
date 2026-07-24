@@ -34,7 +34,7 @@ use crate::commands::{
     save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
-    list_model_pricing,
+    list_model_pricing, maintain_proxy_logs,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -96,6 +96,7 @@ pub fn run() {
             list_model_pricing,
             save_model_pricing,
             delete_model_pricing,
+            maintain_proxy_logs,
         ]);
     let builder = add_single_instance(builder);
     builder

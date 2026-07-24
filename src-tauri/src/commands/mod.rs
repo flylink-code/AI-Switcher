@@ -37,5 +37,5 @@ pub use skills::{
 };
 pub use system::{get_autostart_enabled, set_autostart_enabled};
 pub use usage::{
-    delete_model_pricing, get_usage_dashboard, list_model_pricing, save_model_pricing,
+    delete_model_pricing, get_usage_dashboard, list_model_pricing, maintain_proxy_logs, save_model_pricing,
 };

@@ -150,7 +150,8 @@ export function ProviderForm({
           <Select
             options={[
               { value: "anthropic", label: t("providers.protocolAnthropic") },
-              { value: "proxy", label: t("providers.protocolProxy") },
+              { value: "openai_chat", label: t("providers.protocolOpenAiChat") },
+              { value: "openai_responses", label: t("providers.protocolOpenAiResponses") },
             ]}
           />
         </Form.Item>

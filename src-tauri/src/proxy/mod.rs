@@ -5,6 +5,8 @@
 //! injecting the real API key. Request summaries are written to the SQLite log
 //! table for the usage dashboard (P4).
 
+mod convert;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
@@ -35,48 +37,66 @@ const DEFAULT_PORT: u16 = 15821;
 /// Runtime handle for the local proxy.
 pub struct ProxyManager {
     db: Arc<Database>,
-    handle: Option<JoinHandle<()>>,
-    shutdown_tx: Option<oneshot::Sender<()>>,
+    code: Option<ProxyRuntime>,
+    desktop: Option<ProxyRuntime>,
+}
+
+struct ProxyRuntime {
+    handle: JoinHandle<()>,
+    shutdown_tx: oneshot::Sender<()>,
     port: u16,
-    target: ProviderTarget,
 }
 
 impl ProxyManager {
     pub fn new(db: Arc<Database>) -> Self {
         Self {
             db,
-            handle: None,
-            shutdown_tx: None,
-            port: DEFAULT_PORT,
-            target: ProviderTarget::ClaudeDesktop,
+            code: None,
+            desktop: None,
         }
     }
 
     /// Whether the server is currently running.
     pub fn status(&self) -> ProxyStatus {
-        let running = self.handle.as_ref().is_some_and(|h| !h.is_finished());
-        let target_provider = if running {
-            self.db
-                .with_conn(|conn| get_current_provider(conn, self.target))
-                .ok()
-                .flatten()
-                .map(|p| p.name)
-        } else {
-            None
-        };
+        let mut active = Vec::new();
+        for (target, runtime) in [(ProviderTarget::ClaudeCode, &self.code), (ProviderTarget::ClaudeDesktop, &self.desktop)] {
+            if let Some(runtime) = runtime.as_ref().filter(|runtime| !runtime.handle.is_finished()) {
+                if let Some(provider) = self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten() {
+                    active.push((runtime.port, provider.name));
+                }
+            }
+        }
+        let running = !active.is_empty();
+        let port = active.first().map(|(port, _)| *port).unwrap_or(DEFAULT_PORT);
+        let target_provider = (!active.is_empty()).then(|| active.into_iter().map(|(_, name)| name).collect::<Vec<_>>().join(" / "));
         ProxyStatus {
             running,
-            port: self.port,
+            port,
             target_provider,
         }
     }
 
-    /// Start the proxy on `127.0.0.1:port` for one Claude application. Stops any
-    /// previously running instance because each application owns a separate active provider.
-    pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
-        if self.handle.is_some() {
-            self.stop();
+    pub fn status_for(&self, target: ProviderTarget) -> ProxyStatus {
+        let runtime = match target {
+            ProviderTarget::ClaudeCode => self.code.as_ref(),
+            ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
+        };
+        let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
+        ProxyStatus {
+            running,
+            port: runtime.map(|runtime| runtime.port).unwrap_or(match target {
+                ProviderTarget::ClaudeCode => DEFAULT_PORT,
+                ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
+            }),
+            target_provider: if running {
+                self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
+            } else { None },
         }
+    }
+
+    /// Start or replace one app's proxy without interrupting the other app.
+    pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
+        self.stop_target(target);
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let listener = TcpListener::bind(addr)
@@ -109,23 +129,31 @@ impl ProxyManager {
             }
         });
 
-        self.handle = Some(handle);
-        self.shutdown_tx = Some(shutdown_tx);
-        self.port = port;
-        self.target = target;
-        log::info!("本地代理已启动: http://127.0.0.1:{port}");
+        let runtime = ProxyRuntime { handle, shutdown_tx, port };
+        match target {
+            ProviderTarget::ClaudeCode => self.code = Some(runtime),
+            ProviderTarget::ClaudeDesktop => self.desktop = Some(runtime),
+        }
+        log::info!("本地代理已启动: {target:?} http://127.0.0.1:{port}");
         Ok(())
     }
 
     /// Signal the running server to shut down.
     pub fn stop(&mut self) {
-        if let Some(tx) = self.shutdown_tx.take() {
-            let _ = tx.send(());
-        }
-        if let Some(handle) = self.handle.take() {
-            handle.abort();
-        }
+        self.stop_target(ProviderTarget::ClaudeCode);
+        self.stop_target(ProviderTarget::ClaudeDesktop);
         log::info!("本地代理已停止");
+    }
+
+    pub fn stop_target(&mut self, target: ProviderTarget) {
+        let runtime = match target {
+            ProviderTarget::ClaudeCode => self.code.take(),
+            ProviderTarget::ClaudeDesktop => self.desktop.take(),
+        };
+        if let Some(runtime) = runtime {
+            let _ = runtime.shutdown_tx.send(());
+            runtime.handle.abort();
+        }
     }
 }
 
@@ -190,10 +218,23 @@ async fn proxy_handler(
         }
     };
 
-    let outgoing_body = rewrite_body(&provider, &body_bytes);
-
+    let incoming: Value = match serde_json::from_slice(&body_bytes) {
+        Ok(value) => value,
+        Err(_) => return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"),
+    };
+    let incoming_stream = convert::wants_stream(&incoming);
     let upstream_base = provider.base_url.trim_end_matches('/');
-    let target_url = format!("{upstream_base}{}", uri.path());
+    let (target_url, outgoing_body, translated) = match provider.protocol_type {
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => {
+            let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), false);
+            (format!("{upstream_base}/v1/chat/completions"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+        }
+        ProtocolType::OpenAiResponses => {
+            let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), false);
+            (format!("{upstream_base}/v1/responses"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+        }
+        ProtocolType::Anthropic => (format!("{upstream_base}{}", uri.path()), rewrite_body(&provider, &body_bytes), false),
+    };
 
     // Forward the request.
     let mut req_builder = state
@@ -233,6 +274,40 @@ async fn proxy_handler(
     let status = upstream_resp.status();
     let duration_ms = started.elapsed().as_millis() as i64;
     let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
+
+    // OpenAI upstreams are normalized into Anthropic JSON, or an Anthropic SSE
+    // sequence when the caller requested streaming. The upstream request itself
+    // is intentionally non-streaming so tool-call arguments are always complete.
+    if translated {
+        let response_bytes = match upstream_resp.bytes().await {
+            Ok(bytes) => bytes,
+            Err(_) => return json_error(StatusCode::BAD_GATEWAY, "读取上游响应失败"),
+        };
+        if !status.is_success() {
+            return Response::builder().status(status).header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(response_bytes)).unwrap_or_else(|_| json_error(StatusCode::BAD_GATEWAY, "上游服务返回错误"));
+        }
+        let upstream: Value = match serde_json::from_slice(&response_bytes) {
+            Ok(value) => value,
+            Err(_) => return json_error(StatusCode::BAD_GATEWAY, "上游返回了无法转换的响应"),
+        };
+        let anthropic = match provider.protocol_type {
+            ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
+            _ => convert::openai_chat_to_anthropic(&upstream, provider.model.trim()),
+        };
+        if let Some(id) = log_id.as_deref() {
+            update_log_usage(&state, id, extract_usage_from_json(&serde_json::to_vec(&anthropic).unwrap_or_default()));
+        }
+        if incoming_stream {
+            return Response::builder().status(status).header(header::CONTENT_TYPE, "text/event-stream")
+                .header(header::CACHE_CONTROL, "no-cache")
+                .body(Body::from(convert::anthropic_message_to_sse(&anthropic)))
+                .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "构造流式响应失败"));
+        }
+        return Response::builder().status(status).header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(serde_json::to_vec(&anthropic).unwrap_or_default()))
+            .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "构造响应失败"));
+    }
 
     // Build the response, preserving upstream headers. Non-streaming responses are
     // inspected directly; streaming responses update usage when the final SSE
@@ -288,7 +363,7 @@ async fn proxy_handler(
 }
 
 fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
-    if provider.protocol_type != ProtocolType::Proxy || provider.model.trim().is_empty() {
+    if !provider.protocol_type.uses_proxy() || provider.model.trim().is_empty() {
         return original.clone();
     }
 

@@ -32,6 +32,7 @@ import {
   deleteModelPricing,
   getUsageDashboard,
   listModelPricing,
+  maintainProxyLogs,
   saveModelPricing,
 } from "@/services/api";
 
@@ -45,6 +46,7 @@ export default function UsagePage() {
   const [loading, setLoading] = useState(true);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [maintaining, setMaintaining] = useState(false);
   const [form] = Form.useForm<ModelPricingInput>();
 
   const refresh = useCallback(async () => {
@@ -93,6 +95,17 @@ export default function UsagePage() {
     }
   };
 
+  const maintainLogs = async () => {
+    setMaintaining(true);
+    try {
+      const result = await maintainProxyLogs(90, 100000, true);
+      void message.success(t("usage.logsMaintained", { deleted: result.deleted }));
+      if (!result.integrityOk) void message.error(t("usage.integrityFailed"));
+      await refresh();
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setMaintaining(false); }
+  };
+
   const summary = dashboard?.summary;
   const totalTokens = (summary?.inputTokens ?? 0) + (summary?.outputTokens ?? 0);
 
@@ -115,6 +128,7 @@ export default function UsagePage() {
             />
           </Space>
           <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>{t("common.refresh")}</Button>
+          <Button loading={maintaining} onClick={() => void maintainLogs()}>{t("usage.maintainLogs")}</Button>
         </Space>
 
         <Row gutter={[16, 16]}>

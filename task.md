@@ -1,219 +1,253 @@
-# Claude Desktop / Claude Code 第三方 API 配置工具 — 规划
+# Claude Switcher 后续开发规划
 
-> 目标：开发一款桌面软件，统一管理 Claude Desktop 和 Claude Code 的第三方 API 配置，可视化添加供应商、一键切换，无需手动编辑配置文件。
+> 当前基线：P0–P8 的主体功能已经落地，包括双应用独立供应商、系统凭据库、脱敏导入导出、连接检查、配置备份恢复、Anthropic/OpenAI 协议代理、双代理实例、用量统计和日志维护入口。
 >
-> 技术栈：**Tauri 2 + React 19 + TypeScript**（与 cc-switch / ai-toolbox 同栈，示例代码可直接参考）
-> 范围：全功能版，**不含**云同步、多供应商故障转移
+> 本文件只保留尚未完成或需要加固的任务。后续不再重复规划已经完成的 P0–P8。
 
 ---
 
-## 一、examples 目录四个参考工具的功能分析
+## 一、当前目标
 
-### 1. cc-switch（Tauri 2 + React + Rust，功能最全，主要参考对象）
+在现有功能基础上完成以下收敛：
 
-- **供应商管理**：支持 8 种 AI 工具（Claude Code、Claude Desktop、Codex、Gemini CLI 等），50+ 内置供应商预设，一键导入当前配置、切换、拖拽排序、导入导出
-- **Claude Code 切换原理**：写 `~/.claude/settings.json` 的 `env.ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_MODEL`，热切换无需重启
-- **Claude Desktop 切换原理**：支持「本地代理模式」和「直连模式」（见 `src-tauri/src/claude_desktop_config.rs`）
-- **本地代理**：格式转换、熔断器、供应商健康监控、按应用（Claude/Codex/Gemini）独立代理接管
-- **MCP / Prompts / Skills 统一管理**：统一面板 + 双向同步；Prompts 用 Markdown 编辑器同步到 CLAUDE.md；Skills 从 GitHub/ZIP 一键安装
-- **用量与成本追踪**：跨供应商支出/请求数/Token 统计、趋势图、请求日志、自定义模型定价
-- **系统能力**：托盘快速切换、Deep Link（`ccswitch://`）导入、深浅色主题、开机自启、自动更新、SQLite 存储 + 原子写入 + 自动备份轮换
+1. 让所有供应商协议都能通过正确的连接预检和切换流程。
+2. 将 OpenAI Chat Completions / Responses 转换从基础可用提升为完整兼容。
+3. 提升双应用代理的启动恢复、健康状态、日志和长期运行能力。
+4. 收敛备份、数据一致性、前端交互和自动化测试，形成可发布版本。
 
-### 2. cc-proxy（Python，最小可用实现，Claude Desktop 机制的最佳参考）
+### 固定约束
 
-- 专做 **Claude Desktop → 第三方 API** 的本地代理，代码量极小，适合理解核心机制
-- **Claude Desktop 配置机制**（`claude_config.py`）：
-  - 配置目录：Windows 为 `%LOCALAPPDATA%\Claude\configLibrary\`，macOS 为 `~/Library/Application Support/Claude/configLibrary\`
-  - 写入一个 `<id>.json`：`{ inferenceProvider: "gateway", inferenceGatewayBaseUrl: "http://127.0.0.1:<port>", inferenceGatewayApiKey, inferenceModels: [{name, supports1m}], disableDeploymentModeChooser: true }`
-  - 在 `_meta.json` 中登记 entry 并设置 `appliedId` 使其生效
-- **代理机制**（`proxy.py`）：本地 HTTP 服务接收 Claude Desktop 的 Anthropic 格式请求 → 改写 body 中的 `model` 字段 → 替换为真实 API Key → 转发到第三方 API → 透传响应（含流式）
-- 供应商增删改、端口可配、SQLite 存储
-
-### 3. ai-toolbox（Tauri 2 + React 19 + Ant Design 6 + Zustand，工程结构参考）
-
-- 与 cc-switch 功能高度重叠（供应商管理、MCP、Skills、会话管理、本机代理网关、用量统计、托盘、备份）
-- 独有能力（本项目不做）：WSL 同步、SSH 同步、Image 工作台
-- **前端工程结构清晰**（`web/features/` 按业务模块划分），可作为本项目目录结构模板
-- 技术栈参考：Ant Design 6 + Zustand + i18next + SQLite + Vite + pnpm
-
-### 4. code-switch（Wails 3 + Go，代理架构参考）
-
-- **统一本地代理架构**：启动时在 `:18100` 起 HTTP 代理，自动把 Claude Code / Codex 配置指向 `http://127.0.0.1:18100`，CLI 只看到固定本地地址，真实请求按当前激活供应商透明路由
-- 只暴露关键端点（`/v1/messages` → Claude 供应商，`/responses` → Codex 供应商）
-- 切换供应商 = 改代理内部路由目标，**完全不用改 CLI 配置、不用重启**——这是最优雅的切换方式
-- 请求级用量统计、MCP 双平台管理、Skill 仓库安装
-
-### 机制总结（两种配置 Claude Desktop 的方式）
-
-| 方式 | 原理 | 优点 | 缺点 |
-|------|------|------|------|
-| **本地代理**（cc-proxy / cc-switch 代理模式） | configLibrary 指向 `127.0.0.1:port`，代理改写模型名 + 注入 Key 转发 | 支持只兼容 OpenAI/自定义协议的第三方；可做用量统计 | 代理必须常驻运行 |
-| **直连**（cc-switch 直连模式） | configLibrary 直接填第三方 Anthropic 兼容地址 + Key | 无需代理常驻 | 第三方必须完整兼容 Anthropic 协议且模型名匹配 |
-
-Claude Code 同理：settings.json 可直接填第三方地址，也可指向本地代理。
+- API Key 只保存在系统凭据库；SQLite、日志、IPC、导入导出和错误信息不得出现明文 Key。
+- Claude Code 与 Claude Desktop 的供应商、激活状态、代理端口和运行实例保持独立。
+- 切换前连接验证为强制条件；验证失败不得改写 live 配置、激活状态或现有代理。
+- 配置回滚不得覆盖用户或其他程序在本应用写入后产生的外部修改。
+- 新安装不内置第三方供应商，默认使用官方登录。
+- 暂不加入云同步、多供应商故障转移、Codex/Gemini 等新应用接入。
 
 ---
 
-## 二、本项目功能定义（V1 全功能版）
+## 二、阶段规划
 
-### 核心功能
-
-1. **供应商管理**
-   - 供应商 CRUD：名称、API 地址、API Key、模型名、备注、协议类型（Anthropic 兼容 / 需代理转换）
-   - 内置常用第三方预设（Kimi、DeepSeek、小米 MiMo、智谱等，持续扩充）
-   - 首次启动自动导入 Claude Code / Claude Desktop 当前配置作为默认供应商
-   - 一键启用/切换、拖拽排序、配置导入导出（JSON）
-2. **Claude Code 配置切换**
-   - 写 `~/.claude/settings.json`（`env.ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_MODEL`）
-   - 支持「直连第三方」和「走本地代理」两种模式
-   - 切换前自动备份原配置；保留官方登录供应商预设
-3. **Claude Desktop 配置切换**
-   - 写 `%LOCALAPPDATA%\Claude\configLibrary\` 的 gateway 配置 + `_meta.json` appliedId（参考 cc-proxy）
-   - 支持直连模式（Anthropic 兼容供应商）和代理模式
-   - 路径自动探测（Claude / ClaudeZhCN 等候选目录）
-4. **本地代理（Rust 实现，随应用启动）**
-   - 接收 Anthropic `/v1/messages` 请求 → 模型名映射 → 注入真实 Key → 转发 → 透传流式响应
-   - 端口可配置、启停控制、运行状态指示
-   - 请求日志（时间、供应商、模型、状态码、Token 用量）
-5. **MCP 服务器管理**
-   - 统一面板管理 Claude Code（`~/.claude.json` 的 `mcpServers`）和 Claude Desktop（`claude_desktop_config.json` 的 `mcpServers`）
-   - 双向同步：从现有配置导入，编辑后写回各应用
-6. **Prompts 管理**
-   - Markdown 编辑器管理 CLAUDE.md 预设，一键激活写入 live 文件，回填保护
-7. **Skills 管理**
-   - 从 GitHub 仓库 / ZIP 一键安装 Skill，按应用启停
-8. **用量统计仪表盘**
-   - 基于代理请求日志：按供应商/模型统计请求数、Token 用量、趋势图表
-   - 自定义模型定价，估算成本
-9. **系统能力**
-   - 系统托盘快速切换供应商（无需开主窗口）
-   - 深色/浅色/跟随系统主题、中英文界面、开机自启
-   - SQLite 存储、原子写入、自动备份轮换（保留最近 10 份）
-
-### 明确不做（V1）
-
-- 云同步（WebDAV / Dropbox 等）
-- 多供应商自动故障转移 / 熔断
-- Claude Desktop / Claude Code 以外的工具（Codex、Gemini 等，架构预留扩展点）
-- Deep Link 导入、会话管理器
+| 阶段 | 目标 | 主要产出 |
+|------|------|----------|
+| **P9 切换链路与代理可靠性** | 修复协议预检、URL、托盘切换和代理启动事务 | 所有入口共享同一套安全切换流程，失败不破坏当前状态 |
+| **P10 完整协议转换与真流式** | 完善 Chat/Responses 双向转换和 SSE | 工具、图片、多轮、思考块、错误和流式响应可正确互转 |
+| **P11 可观测性、维护与备份** | 完善健康状态、诊断日志、数据库维护和备份体系 | 双代理长期运行可诊断、可清理、可恢复 |
+| **P12 交互、测试与发布收敛** | 完善表单体验、自动化验证、性能与发布检查 | 形成可重复验证的 Windows 发布候选版本 |
 
 ---
 
-## 三、架构设计
+## 三、P9 切换链路与代理可靠性
 
-```
-┌─────────────────────────────────────────────┐
-│  React 前端（Ant Design 6 + Zustand + i18next）│
-│  供应商管理 │ MCP │ Prompts │ Skills │ 用量   │
-└──────────────────┬──────────────────────────┘
-                   │ Tauri IPC (commands)
-┌──────────────────┴──────────────────────────┐
-│  Rust 后端                                   │
-│  ├─ config/   配置读写（原子写入 + 备份）     │
-│  │   ├─ claude_code.rs    settings.json     │
-│  │   └─ claude_desktop.rs configLibrary     │
-│  ├─ proxy/    本地 HTTP 代理（axum/tokio）   │
-│  │   ├─ 模型名映射、Key 注入、流式透传        │
-│  │   └─ 请求日志 → SQLite                   │
-│  ├─ mcp/ prompts/ skills/  各应用文件同步    │
-│  ├─ db/       SQLite（供应商、日志、设置）   │
-│  └─ tray/     系统托盘快速切换               │
-└─────────────────────────────────────────────┘
-```
+### 1. 统一端点构造
 
-### 关键设计决策
+- 新增统一的 API URL 构造函数，正确处理以下 Base URL：
+  - `https://host`
+  - `https://host/`
+  - `https://host/v1`
+  - 带自定义路径的兼容网关
+- 禁止生成 `/v1/v1/messages`、重复斜杠或错误丢失自定义路径。
+- 连接测试、模型发现、代理转发必须复用同一实现，不得各自拼接字符串。
 
-1. **切换方式：配置文件直写 + 可选本地代理**
-   - Claude Code 默认直写 settings.json（热切换，简单可靠）
-   - Claude Desktop 默认走本地代理（兼容性最好）；Anthropic 兼容的供应商可选直连模式
-   - 不采用 code-switch 的「强制全部走代理」方案，避免代理成为单点依赖
-2. **数据存储**：`~/.<app-name>/app.db`（SQLite）+ `settings.json`（设备级 UI 偏好）+ `backups/` 自动轮换 — 直接沿用 cc-switch 的存储布局
-3. **写入安全**：所有配置文件写入采用「写临时文件 → 原子 rename」，写前自动备份
-4. **前端结构**：参照 ai-toolbox 的 `web/features/` 按业务模块划分
+### 2. 协议感知的连接预检
 
----
+- Anthropic 使用 `/v1/messages` 和 Anthropic 请求格式。
+- OpenAI Chat Completions 使用 `/v1/chat/completions` 和 Chat 请求格式。
+- OpenAI Responses 使用 `/v1/responses` 和 Responses 请求格式。
+- 模型发现根据协议和供应商能力选择兼容端点；不支持发现时返回“可手动填写”，不误报连接失败。
+- 统一分类网络、认证、端点、协议、模型、限流和上游服务错误，并保证诊断脱敏。
 
-## 四、开发阶段规划
+### 3. 收敛所有切换入口
 
-| 阶段 | 内容 | 产出 |
-|------|------|------|
-| **P0 脚手架** | Tauri 2 + React + Vite + AntD 工程初始化；SQLite 层；配置目录探测；原子写入 + 备份工具 | 可运行的空壳 + 基础库 |
-| **P1 供应商 + Claude Code** | 供应商 CRUD + 预设；settings.json 读写切换；导入现有配置 | Claude Code 一键切换可用 |
-| **P2 Claude Desktop + 代理** | configLibrary 写入/生效；Rust 本地代理（模型映射、Key 注入、流式转发）；端口管理 | Claude Desktop 走通第三方 API |
-| **P3 MCP + Prompts** | MCP 统一面板 + 双向同步；Prompts Markdown 编辑器 + 激活 | 配置生态完整 |
-| **P4 用量统计** | 代理请求日志落库；仪表盘（请求数/Token/趋势/成本）；自定义定价 | 用量可视化 |
-| **P5 Skills + 收尾** | Skills 安装/启停；托盘快速切换；主题/i18n/自启；Windows 打包（msi/exe） | V1 发布 |
-| **P6 双应用独立配置** | Claude Code / Claude Desktop 分别管理供应商、当前激活状态和代理配置；无内置第三方供应商；旧数据迁移向导；托盘双应用快捷切换；修复 Windows 打包配置 | 两个应用可独立切换，发布版默认仅官方登录 |
-| **P7 安全性与可靠性** | API Key 改为系统凭据库保存；导入导出默认脱敏；切换前连接测试、模型发现与健康状态；字段级配置所有权、回滚和恢复入口 | 凭据不再明文存库，配置切换可验证、可恢复 |
-| **P8 代理兼容与运维** | Anthropic ↔ OpenAI Chat/Responses 完整转换（含工具调用/SSE）；代理健康状态；请求日志保留策略、清理和数据库维护 | 更多第三方协议可用，长期运行可维护 |
+- 抽取后端共享切换服务，前端、托盘和后续快捷入口全部调用同一流程。
+- 标准流程：
+  1. 读取并临时解析凭据。
+  2. 执行协议感知预检。
+  3. 创建本次配置操作快照。
+  4. 准备或启动目标应用代理。
+  5. 写入并验证 live 配置。
+  6. 最后更新数据库激活状态。
+- 任一步失败时恢复本次已修改内容，并保持此前供应商和代理可用。
+- 恢复官方登录、恢复配置备份或切换为直连模式时，停止对应应用不再需要的代理实例。
+- 托盘不得绕过连接预检、字段所有权、冲突检测或回滚逻辑。
 
-### 各阶段参考代码
+### 4. 双代理启动恢复
 
-- P1：`examples/cc-switch-main/src-tauri/src/`（settings.json 处理、供应商模型）
-- P2：`examples/cc-proxy-master/claude_config.py` + `proxy.py`（机制最简实现，用 Rust 重写）；`cc-switch/src-tauri/src/claude_desktop_config.rs`（直连模式校验逻辑）
-- P3/P5：`examples/cc-switch-main/`（MCP 同步、托盘）；`examples/ai-toolbox-main/web/`（前端模块结构）
-- 代理架构取舍：`examples/code-switch-main/`（统一代理思路，仅借鉴不照搬）
+- 新实例完成端口绑定和基础初始化后再替换旧实例。
+- 新实例启动失败时保留旧实例，不得先停旧代理再尝试绑定。
+- 停止状态仍展示该应用保存的端口，不回退为硬编码默认值。
+- 聚合状态必须准确反映两个运行实例，不依赖是否存在当前供应商记录。
+
+### P9 验收标准
+
+- 三种协议的供应商均能使用正确端点完成连接测试和切换。
+- Base URL 已含 `/v1` 时不会产生重复路径。
+- 前端和托盘切换具有完全相同的预检、回滚和激活行为。
+- 端口占用、配置写入失败或凭据库失败时，旧配置、旧激活状态和旧代理均保持不变。
+- 恢复官方登录后，对应代理停止，另一应用代理不受影响。
 
 ---
 
-## 五、P6 详细规划（双应用独立配置）
+## 四、P10 完整协议转换与真流式
 
-### 目标与原则
+### 1. Anthropic → OpenAI Chat Completions
 
-- Claude Code 与 Claude Desktop 的供应商列表、当前激活供应商、模型和代理模式必须独立；切换任一应用不得改写另一应用配置。
-- 两个应用均以「官方登录」作为默认状态，而非数据库中的供应商记录。
-- 新安装和后续发布版本不内置、不自动创建第三方供应商；仅提供手动新增与从现有 live 配置导入。
-- 旧版共享供应商数据在迁移前备份，并由迁移逻辑复制为两个应用各自的配置，保证数据不丢失。
+- 正确转换 system、user、assistant 多轮消息。
+- 支持文本、图片、工具调用、工具结果和混合内容块，并保持顺序。
+- 支持 tool choice、停止序列、温度、最大 Token 等可映射参数。
+- 正确处理 reasoning/thinking 内容；无法无损映射的字段必须有明确降级策略。
+- 将 OpenAI finish reason、usage 和错误结构映射为 Anthropic 语义。
 
-### 工作项
+### 2. Anthropic → OpenAI Responses
 
-1. **数据模型与迁移**
-   - 为供应商增加 `target_app`（`claude_code` / `claude_desktop`），当前激活状态按目标应用独立保存。
-   - 数据库 schema 迁移前自动备份；将旧共享供应商复制为两套独立记录并保留当前激活状态。
-   - 清理内置供应商 seed 和前端预设入口；新数据库只显示官方登录状态。
-2. **独立后端流程**
-   - 拆分 Code/Desktop 的列表、CRUD、导入、排序、激活和恢复官方登录命令。
-   - Code 操作仅写 `~/.claude/settings.json`；Desktop 操作仅写 `configLibrary` gateway profile 与 `_meta.json`。
-   - 代理按目标应用读取当前供应商，避免 Desktop 请求误用 Code 配置。
-3. **双应用前端**
-   - 供应商页提供 Claude Code / Claude Desktop 两个独立标签页。
-   - 每个标签页独立展示官方登录、供应商列表、导入、新增、编辑、删除、排序和切换。
-   - 明确提供「复制到另一应用」操作，但不得隐式联动。
-4. **托盘与发布修复**
-   - 托盘分为 Claude Code 与 Claude Desktop 两个快捷切换子菜单。
-   - 修复 Tauri NSIS 配置字段为 `installMode`，确保 `tauri dev` 可以加载配置。
+- 使用 Responses 原生 `input`、`instructions`、`tools` 和工具输出结构，不借用 Chat messages 结构冒充。
+- system 内容不得在 `input` 与 `instructions` 中重复。
+- 支持图片、多轮消息、函数调用/输出、reasoning、文本输出和 usage。
+- 正确转换 Responses 的失败、拒绝、截断和不完整状态。
 
-### 验收标准
+### 3. OpenAI → Anthropic 响应
 
-- 在 Code 标签页切换供应商后，Claude Desktop 的当前供应商及 live 配置不发生变化；反之亦然。
-- 新建数据库没有第三方供应商，两个应用均为官方登录。
-- 旧数据库升级后，原有供应商可在两个应用的独立列表中继续使用。
-- 托盘可分别切换两个应用，且不会串改配置。
+- 保留文本与工具块顺序，生成稳定且唯一的 content block index。
+- 工具参数必须生成合法 JSON；不完整参数流需要缓存和错误处理。
+- 正确映射 stop reason、输入/输出 Token、缓存 Token（若上游提供）和模型信息。
+- 上游错误统一转换为 Anthropic 兼容错误响应，不直接透传不兼容结构。
+
+### 4. 真正的流式转换
+
+- 对 Chat Completions 使用上游 `stream=true`，逐块解析 SSE 并实时输出 Anthropic 事件。
+- 对 Responses 解析原生事件流，实时生成：
+  - `message_start`
+  - `content_block_start`
+  - `content_block_delta`
+  - `content_block_stop`
+  - `message_delta`
+  - `message_stop`
+- 不得等待完整上游响应后再伪造 SSE。
+- 支持心跳、上游断流、客户端取消、超时、背压和流中错误。
+- `content_block_start` 只包含初始块信息，完整文本或工具参数必须通过 delta 增量输出，不得重复。
+
+### 5. 兼容性样例
+
+- 为每种协议建立脱敏 JSON/SSE fixture：
+  - 纯文本与多轮对话
+  - 图片输入
+  - 单个和并行工具调用
+  - 工具结果回传
+  - thinking/reasoning
+  - 正常结束、长度截断、拒绝、认证错误、限流和流中断
+- 转换测试以 fixture 为主，避免只断言少量字段存在。
+
+### P10 验收标准
+
+- 首个上游内容块到达后即可向客户端输出，不等待请求完成。
+- Chat 和 Responses 的文本、图片、工具、多轮和流式 fixture 全部通过。
+- 转换后的 SSE 事件顺序、block index、stop reason 和 usage 符合 Anthropic 客户端预期。
+- 所有错误响应保持协议兼容且不包含 API Key、请求头或敏感上游响应。
 
 ---
 
-## 六、后续优化候选
+## 五、P11 可观测性、维护与备份
 
-### P7 安全性与可靠性（建议下一阶段）
+### 1. 代理健康状态
 
-1. **凭据保护**：接入 Windows Credential Manager / macOS Keychain；SQLite 仅保存 Key 引用，现有明文 Key 迁移后删除；配置导出默认脱敏。
-2. **连接验证**：供应商表单保存或切换前提供测试连接；展示网络、认证、协议与模型错误。
-3. **模型发现**：为支持模型列表端点的供应商拉取模型，表单可选择或手动输入。
-4. **安全配置写入**：记录应用托管字段清单；只回滚本应用写入的字段；增加备份列表、预览、恢复与失败告警。
-5. **数据维护**：请求日志保留天数和上限设置、手动清理、SQLite `VACUUM`/完整性检查。
+- `/health` 返回当前代理目标应用、端口、运行时长、活动供应商 ID、协议和最后错误摘要。
+- 健康状态区分：
+  - 进程运行
+  - 本地代理可监听
+  - 凭据可解析
+  - 上游最近一次检查结果
+- 健康接口和前端状态均不得暴露供应商密钥或完整敏感响应。
 
-### P8 代理兼容与运维
+### 2. 请求日志与诊断
 
-1. Anthropic ↔ OpenAI Chat Completions / Responses 完整协议转换，覆盖工具调用、图片、多轮消息、思考块和 SSE。
-2. 供应商与代理健康状态、可观察错误详情、启动失败恢复。
-3. 每应用独立代理端口或显式路由标识，允许 Claude Code 与 Claude Desktop 同时使用不同的代理供应商。
-4. 导入导出配置包（不含密钥默认值）和可选加密备份。
+- 日志增加 `target_app`、协议、路由、耗时、流式标记、错误分类和脱敏诊断。
+- 请求在凭据解析、请求解析、上游连接等早期阶段失败时也应记录。
+- 为 Code/Desktop、供应商、模型、协议、状态和时间范围提供筛选。
+- 健康检查流量与真实业务流量明确区分，避免污染用量统计。
+
+### 3. 数据库维护
+
+- 将日志保留天数、最大行数、自动清理开关持久化为设置，不在前端硬编码。
+- 删除与统计更新使用事务；耗时维护放到后台阻塞任务，避免卡住 UI 和普通数据库访问。
+- `VACUUM`、完整性检查和 WAL checkpoint 分开执行并显示各自结果。
+- 自动维护按低频计划执行，手动维护前显示影响范围和确认提示。
+- 删除供应商时同步清理或级联删除其健康状态、模型缓存和无效关联数据。
+
+### 4. 备份与恢复
+
+- Code、Desktop、数据库、MCP、Prompts 等备份分别计算保留数量，禁止共享全局 10 份配额。
+- 建立备份 manifest，记录来源、目标应用、时间、摘要、schema 版本和文件校验值，不再只依赖文件名扫描。
+- 恢复前校验文件并备份当前状态；恢复成功后同步修正激活状态并停止相关代理。
+- 增加可选加密备份：
+  - 默认仍为不含密钥的脱敏备份。
+  - 用户明确选择后才生成包含敏感配置的加密包。
+  - 密码不持久化，错误信息不得泄露解密内容。
+
+### P11 验收标准
+
+- 同时运行双代理时可独立查看健康状态和请求日志。
+- 日志清理期间普通页面和代理请求仍可用。
+- 各类备份独立轮换，任一类型频繁写入不会淘汰其他类型备份。
+- 损坏、校验不一致或密码错误的备份无法覆盖当前配置。
 
 ---
 
-## 七、待确认事项
+## 六、P12 交互、测试与发布收敛
 
-- [ ] 应用名称（决定 `~/.<app-name>` 数据目录和包名）
-- [ ] UI 组件库最终选型：Ant Design 6（推荐，表单/表格类界面开发快）vs shadcn/ui + Tailwind
-- [ ] 内置供应商预设清单（第一版内置哪几家）
-- [ ] 是否需要 macOS 打包（当前开发环境为 Windows，可先只做 Windows）
+### 1. 供应商表单体验
+
+- 新建或编辑供应商时，连接测试和模型发现使用表单中的未保存值。
+- 新 Key 仅作为本次 IPC 调用的临时敏感参数，不回传前端、不写日志、不提前持久化。
+- 模型发现失败时保留手动输入，并展示可操作的原因。
+- 供应商列表展示最近健康状态、检查时间和脱敏诊断入口。
+
+### 2. 前端与性能
+
+- 为主要页面按路由懒加载，降低首包体积。
+- 长日志和模型列表使用分页或虚拟滚动。
+- 统一 Code/Desktop 的状态展示、错误提示和恢复入口。
+- 补齐中英文文案，禁止直接显示后端原始错误或未翻译键名。
+
+### 3. 自动化测试
+
+- Rust 单元测试覆盖 URL 构造、错误脱敏、字段所有权、凭据替换/删除和转换器。
+- 集成测试启动本地模拟上游，覆盖：
+  - 三协议连接预检
+  - 真 SSE 转换
+  - 端口占用恢复
+  - 双代理并行
+  - 切换失败不改变状态
+  - 托盘与前端切换行为一致
+- 前端测试覆盖供应商表单、健康状态、日志维护和备份恢复确认。
+- 增加端到端发布前检查清单，所有测试不得依赖真实 API Key 或外部网络。
+
+### 4. Windows 发布
+
+- 验证全新安装、旧数据库升级、凭据迁移失败重试和卸载后数据保留策略。
+- 验证 NSIS 安装、开机自启、单实例、托盘和应用重启后的双代理状态。
+- 发布前检查数据库和配置备份兼容性，记录可回滚版本。
+
+### P12 验收标准
+
+- 用户无需先保存即可测试表单配置和发现模型。
+- 前端生产构建无未处理类型错误，首包不再包含所有页面代码。
+- 自动化测试不访问真实供应商，且可稳定复现流式、回滚和双代理场景。
+- 新安装与旧版本升级均能完成核心切换、恢复和卸载验证。
+
+---
+
+## 七、执行顺序
+
+严格按以下顺序推进，上一阶段验收通过后再开始下一阶段：
+
+1. **P9**：先修复会直接导致无法切换或破坏当前状态的问题。
+2. **P10**：在稳定切换链路上完成协议兼容和真流式。
+3. **P11**：补齐长期运行所需的诊断、维护与备份。
+4. **P12**：最后完成交互、自动化测试和发布收敛。
+
+每个阶段都应：
+
+- 先补充或更新对应测试样例，再实现功能。
+- 保持数据库迁移可重复、可中断重试，并在迁移前备份。
+- 对现有配置和用户数据保持向后兼容。
+- 在阶段结束时更新本文件，删除已完成任务，只保留仍需处理的内容。

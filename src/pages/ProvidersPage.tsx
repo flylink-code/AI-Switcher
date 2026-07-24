@@ -104,7 +104,7 @@ export default function ProvidersPage() {
     setBusy(true);
     try {
       const result = await importProvidersJson(await file.text());
-      void message.success(t("providers.importSummary", result));
+      void message.success(t("providers.importSummary", { imported: result.imported, skipped: result.skipped }));
       await store.load(target);
     } catch (e) { void message.error(errMsg(e)); }
     finally { setBusy(false); }
@@ -144,7 +144,7 @@ export default function ProvidersPage() {
     { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}{row.healthStatus && <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>{row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}</Tag>}</Space> },
     { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", ellipsis: true, render: (value: string) => <Text code copyable style={{ wordBreak: "break-all" }}>{value}</Text> },
     { title: t("providers.colModel"), dataIndex: "model", ellipsis: true },
-    { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 110, render: (value: string) => <Tag color={value === "proxy" ? "orange" : "blue"}>{value}</Tag> },
+    { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 130, render: (value: string) => <Tag color={value === "anthropic" ? "blue" : "orange"}>{value}</Tag> },
     {
       title: t("providers.colActions"), key: "actions", width: 240,
       render: (_: unknown, row: Provider, index: number) => <Space size="small">

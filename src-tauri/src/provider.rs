@@ -15,6 +15,11 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolType {
     Anthropic,
+    /// OpenAI Chat Completions upstream, reached through the local proxy.
+    OpenAiChat,
+    /// OpenAI Responses upstream, reached through the local proxy.
+    OpenAiResponses,
+    /// Legacy P2 value. It remains readable and behaves as OpenAI Chat.
     Proxy,
 }
 
@@ -58,6 +63,8 @@ impl ProtocolType {
     pub fn as_str(&self) -> &'static str {
         match self {
             ProtocolType::Anthropic => "anthropic",
+            ProtocolType::OpenAiChat => "openai_chat",
+            ProtocolType::OpenAiResponses => "openai_responses",
             ProtocolType::Proxy => "proxy",
         }
     }
@@ -65,9 +72,15 @@ impl ProtocolType {
     /// Parse from the stored string, falling back to [`ProtocolType::Anthropic`].
     pub fn from_str_lossy(s: &str) -> Self {
         match s {
+            "openai_chat" => ProtocolType::OpenAiChat,
+            "openai_responses" => ProtocolType::OpenAiResponses,
             "proxy" => ProtocolType::Proxy,
             _ => ProtocolType::Anthropic,
         }
+    }
+
+    pub fn uses_proxy(self) -> bool {
+        !matches!(self, ProtocolType::Anthropic)
     }
 }
 

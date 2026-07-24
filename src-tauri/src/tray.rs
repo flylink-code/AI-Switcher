@@ -10,7 +10,7 @@ use crate::config::{claude_code, claude_desktop};
 use crate::database::dao;
 use crate::database::dao::settings::get_setting;
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProviderTarget, ProtocolType};
+use crate::provider::ProviderTarget;
 use crate::store::AppState;
 
 const CODE_PROVIDER_PREFIX: &str = "code-provider:";
@@ -117,20 +117,28 @@ async fn switch_provider<R: Runtime>(
     if provider.target_app != target {
         return Err(AppError::Config("供应商不属于此应用".to_string()));
     }
-    let port = state.db.with_conn(|conn| get_setting(conn, "proxy_port"))?
+    let mut runtime_provider = provider.clone();
+    runtime_provider.api_key = state.db.with_conn(|conn| {
+        dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| AppError::Config("供应商未配置 API Key".to_string()))
+    })?;
+    let port_key = match target {
+        ProviderTarget::ClaudeCode => "proxy_port_claude_code",
+        ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
+    };
+    let port = state.db.with_conn(|conn| get_setting(conn, port_key))?
         .and_then(|value| value.parse().ok())
-        .unwrap_or(15821);
+        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822 });
     match target {
-        ProviderTarget::ClaudeCode if provider.protocol_type == ProtocolType::Proxy => {
+        ProviderTarget::ClaudeCode if runtime_provider.protocol_type.uses_proxy() => {
             state.proxy.lock().await.start(port, ProviderTarget::ClaudeCode).await?;
-            claude_code::apply_provider_to_settings_via_proxy(&provider, port)?;
+            claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, port)?;
         }
-        ProviderTarget::ClaudeCode => claude_code::apply_provider_to_settings(&provider)?,
+        ProviderTarget::ClaudeCode => claude_code::apply_provider_to_settings(&runtime_provider)?,
         ProviderTarget::ClaudeDesktop => {
-            if provider.protocol_type == ProtocolType::Proxy {
+            if runtime_provider.protocol_type.uses_proxy() {
                 state.proxy.lock().await.start(port, ProviderTarget::ClaudeDesktop).await?;
             }
-            claude_desktop::apply_provider(&provider, port)?;
+            claude_desktop::apply_provider(&runtime_provider, port)?;
         }
     }
     state.db.with_conn(|conn| dao::set_current_provider(conn, id))?;

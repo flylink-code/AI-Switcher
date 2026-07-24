@@ -7,7 +7,7 @@ use crate::database::dao::proxy_logs::{
     delete_model_pricing as delete_pricing, get_usage_by_model, get_usage_by_provider,
     get_usage_summary, get_usage_trend, list_model_pricing as list_pricing,
     save_model_pricing as save_pricing, ModelPricing, UsageBreakdown, UsageSummary,
-    UsageTrendPoint,
+    UsageTrendPoint, LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
 };
 use crate::error::{AppError, AppResult};
 use crate::store::AppState;
@@ -71,4 +71,12 @@ pub fn save_model_pricing(input: ModelPricingInput, state: tauri::State<'_, AppS
 #[tauri::command]
 pub fn delete_model_pricing(model: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
     state.db.with_conn(|conn| delete_pricing(conn, &model))
+}
+
+/// Apply the proxy-log retention policy and optionally reclaim SQLite space.
+#[tauri::command]
+pub fn maintain_proxy_logs(retention_days: Option<u32>, max_rows: Option<u32>, vacuum: Option<bool>, state: tauri::State<'_, AppState>) -> AppResult<LogMaintenanceResult> {
+    let retention_days = retention_days.unwrap_or(90).clamp(1, 3650);
+    let max_rows = max_rows.unwrap_or(100_000).clamp(100, 5_000_000);
+    state.db.with_conn(|conn| maintain_logs(conn, retention_days, max_rows, vacuum.unwrap_or(false)))
 }
