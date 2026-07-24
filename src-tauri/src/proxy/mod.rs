@@ -27,13 +27,17 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
-use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage};
+use crate::database::dao::proxy_logs::{insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_usage};
 use crate::database::dao::providers::{get_current_provider, resolve_api_key};
+use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
 
 const DEFAULT_PORT: u16 = 15821;
+const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
+const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
+const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";
 
 /// Runtime handle for the local proxy.
 pub struct ProxyManager {
@@ -122,6 +126,8 @@ impl ProxyManager {
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
             target,
+            port,
+            started_at: Instant::now(),
         };
 
         let app = Router::new()
@@ -151,6 +157,7 @@ impl ProxyManager {
             previous.handle.abort();
         }
         log::info!("本地代理已启动: {target:?} http://127.0.0.1:{port}");
+        self.schedule_automatic_log_maintenance();
         Ok(())
     }
 
@@ -171,6 +178,32 @@ impl ProxyManager {
             runtime.handle.abort();
         }
     }
+
+    fn schedule_automatic_log_maintenance(&self) {
+        let db = Arc::clone(&self.db);
+        tokio::task::spawn_blocking(move || {
+            let result = db.with_conn(|conn| {
+                let auto_maintain = get_setting(conn, LOG_AUTO_MAINTAIN_KEY)?.as_deref() == Some("true");
+                if !auto_maintain {
+                    return Ok(None);
+                }
+                let retention_days = get_setting(conn, LOG_RETENTION_DAYS_KEY)?
+                    .and_then(|value| value.parse().ok())
+                    .unwrap_or(90_u32)
+                    .clamp(1, 3650);
+                let max_rows = get_setting(conn, LOG_MAX_ROWS_KEY)?
+                    .and_then(|value| value.parse().ok())
+                    .unwrap_or(100_000_u32)
+                    .clamp(100, 5_000_000);
+                maintain_logs(conn, retention_days, max_rows, false).map(Some)
+            });
+            match result {
+                Ok(Some(result)) => log::info!("代理启动后自动维护日志：清理 {} 条", result.deleted),
+                Ok(None) => {}
+                Err(error) => log::warn!("代理启动后自动维护日志失败: {error}"),
+            }
+        });
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -186,10 +219,45 @@ struct ProxyState {
     db: Arc<Database>,
     client: Client,
     target: ProviderTarget,
+    port: u16,
+    started_at: Instant,
 }
 
-async fn health_handler() -> impl IntoResponse {
-    axum::Json(serde_json::json!({"status": "ok"}))
+async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
+    let provider = state.db.with_conn(|conn| get_current_provider(conn, state.target));
+    let (status, provider_id, protocol, credential_ready, upstream_status, checked_at) = match provider {
+        Ok(Some(provider)) => {
+            let credential_ready = matches!(
+                state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)),
+                Ok(Some(key)) if !key.trim().is_empty()
+            );
+            let status = if credential_ready { "ok" } else { "degraded" };
+            (
+                status,
+                Some(provider.id),
+                Some(provider.protocol_type.as_str()),
+                credential_ready,
+                provider.health_status,
+                provider.health_checked_at,
+            )
+        }
+        Ok(None) => ("degraded", None, None, false, None, None),
+        Err(error) => {
+            log::error!("健康检查读取当前供应商失败: {error}");
+            ("degraded", None, None, false, None, None)
+        }
+    };
+    axum::Json(serde_json::json!({
+        "status": status,
+        "proxyListening": true,
+        "targetApp": state.target.as_str(),
+        "port": state.port,
+        "uptimeSeconds": state.started_at.elapsed().as_secs(),
+        "providerId": provider_id,
+        "protocol": protocol,
+        "credentialReady": credential_ready,
+        "lastUpstreamCheck": {"status": upstream_status, "checkedAt": checked_at},
+    }))
 }
 
 async fn proxy_handler(
@@ -212,17 +280,23 @@ async fn proxy_handler(
         }
     };
     let Some(mut provider) = provider else {
+        log_early_failure(&state, uri.path(), "provider", Some(503), started.elapsed().as_millis() as i64);
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商");
     };
     provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
         Ok(Some(key)) => key,
-        Ok(None) => return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 API Key"),
+        Ok(None) => {
+            log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
+            return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 API Key");
+        }
         Err(e) => {
             log::error!("代理读取供应商凭据失败: {e}");
+            log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
             return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商凭据不可用");
         }
     };
     if provider.base_url.trim().is_empty() {
+        log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("configuration"));
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 Base URL");
     }
 
@@ -230,13 +304,17 @@ async fn proxy_handler(
     let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
         Ok(b) => b,
         Err(e) => {
+            log_request(&state, &provider, Some(400), started.elapsed().as_millis() as i64, uri.path(), false, Some("request"));
             return json_error(StatusCode::BAD_REQUEST, format!("读取请求体失败: {e}"));
         }
     };
 
     let incoming: Value = match serde_json::from_slice(&body_bytes) {
         Ok(value) => value,
-        Err(_) => return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"),
+        Err(_) => {
+            log_request(&state, &provider, Some(400), started.elapsed().as_millis() as i64, uri.path(), false, Some("request"));
+            return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON");
+        }
     };
     let incoming_stream = convert::wants_stream(&incoming);
     let (target_url, outgoing_body, translated) = match provider.protocol_type {
@@ -280,7 +358,7 @@ async fn proxy_handler(
     let upstream_resp = match req_builder.body(outgoing_body).send().await {
         Ok(r) => r,
         Err(e) => {
-            log_request(&state, &provider, None, started.elapsed().as_millis() as i64);
+            log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
             if translated {
                 log::warn!("转发到 OpenAI 兼容上游失败: {e}");
                 return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
@@ -291,7 +369,8 @@ async fn proxy_handler(
 
     let status = upstream_resp.status();
     let duration_ms = started.elapsed().as_millis() as i64;
-    let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms);
+    let error_category = (!status.is_success()).then(|| "upstream");
+    let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms, uri.path(), incoming_stream, error_category);
 
     // OpenAI upstreams are normalized into Anthropic JSON. For an Anthropic
     // streaming request, keep the OpenAI upstream stream open and translate each
@@ -486,6 +565,9 @@ fn log_request(
     provider: &Provider,
     status: Option<i64>,
     duration_ms: i64,
+    route: &str,
+    is_stream: bool,
+    error_category: Option<&str>,
 ) -> Option<String> {
     let model = if provider.model.trim().is_empty() {
         None
@@ -500,6 +582,12 @@ fn log_request(
             model,
             status,
             duration_ms,
+            Some(state.target.as_str()),
+            Some(provider.protocol_type.as_str()),
+            Some(route),
+            is_stream,
+            error_category,
+            error_category.map(error_diagnostic),
         )
     }) {
         Ok(id) => Some(id),
@@ -507,6 +595,46 @@ fn log_request(
             log::error!("写入代理请求日志失败: {e}");
             None
         }
+    }
+}
+
+fn log_early_failure(
+    state: &ProxyState,
+    route: &str,
+    error_category: &str,
+    status: Option<i64>,
+    duration_ms: i64,
+) {
+    if let Err(error) = state.db.with_conn(|conn| {
+        insert_proxy_log(
+            conn,
+            None,
+            None,
+            None,
+            status,
+            duration_ms,
+            Some(state.target.as_str()),
+            None,
+            Some(route),
+            false,
+            Some(error_category),
+            Some(error_diagnostic(error_category)),
+        )
+        .map(|_| ())
+    }) {
+        log::error!("写入代理早期失败日志失败: {error}");
+    }
+}
+
+fn error_diagnostic(category: &str) -> &'static str {
+    match category {
+        "credential" => "credential unavailable",
+        "configuration" => "provider configuration invalid",
+        "request" => "request could not be parsed",
+        "network" => "upstream connection failed",
+        "upstream" => "upstream returned an error status",
+        "provider" => "no active provider",
+        _ => "proxy request failed",
     }
 }
 

@@ -21,6 +21,7 @@ import {
   SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { check } from "@tauri-apps/plugin-updater";
 import type { PathsInfo, DbInfo, ConfigBackup, ProviderTarget } from "@/types/backend";
 import { backupNow, getAutostartEnabled, getDbInfo, getPaths, listConfigBackups, ping, previewConfigBackup, restoreConfigBackup } from "@/services/api";
 
@@ -52,6 +53,26 @@ export default function EnvironmentPage() {
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [backupPreview, setBackupPreview] = useState<string | null>(null);
+
+  const checkForUpdates = useCallback(async () => {
+    setRunning(true);
+    try {
+      const update = await check();
+      if (!update) {
+        void message.info(t("env.updateNone"));
+        return;
+      }
+      Modal.confirm({
+        title: t("env.updateAvailable", { version: update.version }),
+        content: t("env.updatePrompt"),
+        okText: t("env.updateInstall"),
+        cancelText: t("providers.cancel"),
+        onOk: async () => { await update.downloadAndInstall(); },
+      });
+    } catch {
+      void message.error(t("env.updateFailed"));
+    } finally { setRunning(false); }
+  }, [t]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -178,6 +199,7 @@ export default function EnvironmentPage() {
           <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
             {t("env.refresh")}
           </Button>
+          <Button loading={running} onClick={() => void checkForUpdates()}>{t("env.checkUpdates")}</Button>
           {pingResult && <Tag color="green">ping: {pingResult}</Tag>}
         </Space>
 

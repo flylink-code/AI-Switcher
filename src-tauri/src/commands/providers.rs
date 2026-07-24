@@ -95,6 +95,17 @@ pub async fn test_provider_connection(
     test_provider_impl(&provider, &state).await
 }
 
+/// Test values currently entered in the form.  The supplied API key is kept
+/// only in this request and is never written to SQLite, the keyring or logs.
+#[tauri::command]
+pub async fn test_provider_input(
+    input: ProviderInput,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ConnectionTestResult> {
+    let provider = temporary_provider(&input, &state)?;
+    test_provider_with_key(&provider, provider.api_key.clone(), &state, false).await
+}
+
 /// Try the standard model-list endpoint. Failure is non-fatal: providers that
 /// do not expose it can still use a manually entered model name.
 #[tauri::command]
@@ -108,6 +119,26 @@ pub async fn discover_provider_models(
     let key = state.db.with_conn(|conn| {
         dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| AppError::Config("供应商未配置 API Key".to_string()))
     })?;
+    discover_provider_models_with_key(&provider, key, &state, true).await
+}
+
+/// Discover models from an unsaved form without persisting its endpoint,
+/// model, notes or newly entered credential.
+#[tauri::command]
+pub async fn discover_provider_models_input(
+    input: ProviderInput,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ModelDiscoveryResult> {
+    let provider = temporary_provider(&input, &state)?;
+    discover_provider_models_with_key(&provider, provider.api_key.clone(), &state, false).await
+}
+
+async fn discover_provider_models_with_key(
+    provider: &Provider,
+    key: String,
+    state: &AppState,
+    cache_result: bool,
+) -> AppResult<ModelDiscoveryResult> {
     let checked_at = Utc::now().timestamp_millis();
     let url = api_endpoint_url(&provider.base_url, "/v1/models");
     let client = reqwest::Client::builder()
@@ -137,15 +168,17 @@ pub async fn discover_provider_models(
         Ok(response) => (Vec::new(), format!("供应商不支持模型发现（HTTP {}）", response.status().as_u16())),
         Err(_) => (Vec::new(), "无法连接模型发现端点".to_string()),
     };
-    let models_json = serde_json::to_string(&models)?;
-    state.db.with_conn(|conn| {
-        conn.execute(
-            "INSERT INTO provider_models (provider_id, models_json, checked_at) VALUES (?, ?, ?)
-             ON CONFLICT(provider_id) DO UPDATE SET models_json = excluded.models_json, checked_at = excluded.checked_at",
-            rusqlite::params![provider.id, models_json, checked_at],
-        )?;
-        Ok(())
-    })?;
+    if cache_result {
+        let models_json = serde_json::to_string(&models)?;
+        state.db.with_conn(|conn| {
+            conn.execute(
+                "INSERT INTO provider_models (provider_id, models_json, checked_at) VALUES (?, ?, ?)
+                 ON CONFLICT(provider_id) DO UPDATE SET models_json = excluded.models_json, checked_at = excluded.checked_at",
+                rusqlite::params![provider.id, models_json, checked_at],
+            )?;
+            Ok(())
+        })?;
+    }
     Ok(ModelDiscoveryResult { models, message, checked_at })
 }
 
@@ -536,9 +569,32 @@ fn restore_desktop_ownership(state: &AppState) -> AppResult<()> {
 }
 
 async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<ConnectionTestResult> {
+    let key = state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id));
+    let key = match key {
+        Ok(Some(key)) => key,
+        Ok(None) => String::new(),
+        Err(_) => {
+            let result = ConnectionTestResult {
+                ok: false,
+                category: "credential".to_string(),
+                message: "无法读取系统凭据库中的 API Key".to_string(),
+                checked_at: Utc::now().timestamp_millis(),
+            };
+            persist_provider_health(provider, &result, state)?;
+            return Ok(result);
+        }
+    };
+    test_provider_with_key(provider, key, state, true).await
+}
+
+async fn test_provider_with_key(
+    provider: &Provider,
+    key: String,
+    state: &AppState,
+    persist_health: bool,
+) -> AppResult<ConnectionTestResult> {
     let checked_at = Utc::now().timestamp_millis();
-    let result = match state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id)) {
-        Ok(Some(key)) if !provider.model.trim().is_empty() => {
+    let result = if !key.trim().is_empty() && !provider.model.trim().is_empty() {
             let client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
@@ -554,11 +610,18 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
             }
             let response = request.body(serde_json::to_vec(&payload)?).send().await;
             classify_test_response(response, checked_at, provider.protocol_type)
-        }
-        Ok(Some(_)) => ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at },
-        Ok(None) => ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at },
-        Err(_) => ConnectionTestResult { ok: false, category: "credential".to_string(), message: "无法读取系统凭据库中的 API Key".to_string(), checked_at },
+    } else if key.trim().is_empty() {
+        ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at }
+    } else {
+        ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at }
     };
+    if persist_health {
+        persist_provider_health(provider, &result, state)?;
+    }
+    Ok(result)
+}
+
+fn persist_provider_health(provider: &Provider, result: &ConnectionTestResult, state: &AppState) -> AppResult<()> {
     state.db.with_conn(|conn| {
         conn.execute(
             "INSERT INTO provider_health (provider_id, status, detail, checked_at) VALUES (?, ?, ?, ?)
@@ -566,8 +629,25 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
             rusqlite::params![provider.id, if result.ok { "healthy" } else { "error" }, result.message, result.checked_at],
         )?;
         Ok(())
-    })?;
-    Ok(result)
+    })
+}
+
+fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Provider> {
+    let key = if !input.api_key.trim().is_empty() {
+        input.api_key.clone()
+    } else if let Some(id) = input.id.as_deref() {
+        state.db.with_conn(|conn| dao::resolve_api_key(conn, id))?.unwrap_or_default()
+    } else {
+        String::new()
+    };
+    Ok(Provider {
+        id: input.id.clone().unwrap_or_else(|| "temporary-form-provider".to_string()),
+        name: input.name.clone(), base_url: input.base_url.clone(), api_key: key,
+        api_key_set: !input.api_key.trim().is_empty(), model: input.model.clone(),
+        protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
+        sort_index: 0, is_current: false, created_at: 0,
+        health_status: None, health_checked_at: None,
+    })
 }
 
 fn classify_test_response(

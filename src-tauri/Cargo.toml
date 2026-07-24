@@ -1,6 +1,6 @@
 [package]
 name = "claude-switcher"
-version = "0.1.0"
+version = "0.0.1"
 description = "Unified third-party API configuration manager for Claude Desktop & Claude Code"
 authors = ["Claude Switcher"]
 edition = "2021"
@@ -21,6 +21,7 @@ tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -48,6 +49,8 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1"
 log = "0.4"
+sha2 = "0.10"
+hex = "0.4"
 
 # Credential storage (Windows Credential Manager / macOS Keychain / Linux Secret Service).
 # P7 fails closed when the OS backend is unavailable.

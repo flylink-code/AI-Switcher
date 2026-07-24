@@ -14,6 +14,7 @@ import {
   Space,
   Spin,
   Statistic,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -27,13 +28,16 @@ import {
   ThunderboltOutlined,
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
-import type { ModelPricing, ModelPricingInput, UsageDashboard } from "@/types/backend";
+import type { LogMaintenancePolicy, LogMaintenancePreview, ModelPricing, ModelPricingInput, UsageDashboard } from "@/types/backend";
 import {
   deleteModelPricing,
   getUsageDashboard,
+  getLogMaintenancePolicy,
   listModelPricing,
   maintainProxyLogs,
+  previewProxyLogMaintenance,
   saveModelPricing,
+  saveLogMaintenancePolicy,
 } from "@/services/api";
 
 const { Text } = Typography;
@@ -47,17 +51,22 @@ export default function UsagePage() {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [maintaining, setMaintaining] = useState(false);
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [maintenancePolicy, setMaintenancePolicy] = useState<LogMaintenancePolicy | null>(null);
+  const [maintenancePreview, setMaintenancePreview] = useState<LogMaintenancePreview | null>(null);
   const [form] = Form.useForm<ModelPricingInput>();
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextDashboard, nextPricing] = await Promise.all([
+      const [nextDashboard, nextPricing, nextPolicy] = await Promise.all([
         getUsageDashboard(days),
         listModelPricing(),
+        getLogMaintenancePolicy(),
       ]);
       setDashboard(nextDashboard);
       setPricing(nextPricing);
+      setMaintenancePolicy(nextPolicy);
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -68,6 +77,13 @@ export default function UsagePage() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!maintenanceOpen || !maintenancePolicy) return;
+    void previewProxyLogMaintenance(maintenancePolicy)
+      .then(setMaintenancePreview)
+      .catch((e) => void message.error(errMsg(e)));
+  }, [maintenanceOpen, maintenancePolicy]);
 
   const savePricing = async () => {
     try {
@@ -95,12 +111,23 @@ export default function UsagePage() {
     }
   };
 
+  const openMaintenance = async () => {
+    try {
+      const preview = await previewProxyLogMaintenance(maintenancePolicy ?? undefined);
+      setMaintenancePreview(preview);
+      setMaintenanceOpen(true);
+    } catch (e) { void message.error(errMsg(e)); }
+  };
+
   const maintainLogs = async () => {
+    if (!maintenancePolicy) return;
     setMaintaining(true);
     try {
-      const result = await maintainProxyLogs(90, 100000, true);
+      await saveLogMaintenancePolicy(maintenancePolicy);
+      const result = await maintainProxyLogs(true);
       void message.success(t("usage.logsMaintained", { deleted: result.deleted }));
       if (!result.integrityOk) void message.error(t("usage.integrityFailed"));
+      setMaintenanceOpen(false);
       await refresh();
     } catch (e) { void message.error(errMsg(e)); }
     finally { setMaintaining(false); }
@@ -128,7 +155,7 @@ export default function UsagePage() {
             />
           </Space>
           <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>{t("common.refresh")}</Button>
-          <Button loading={maintaining} onClick={() => void maintainLogs()}>{t("usage.maintainLogs")}</Button>
+          <Button loading={maintaining} onClick={() => void openMaintenance()}>{t("usage.maintainLogs")}</Button>
         </Space>
 
         <Row gutter={[16, 16]}>
@@ -202,6 +229,38 @@ export default function UsagePage() {
             <Input maxLength={12} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={t("usage.maintainLogs")}
+        open={maintenanceOpen}
+        confirmLoading={maintaining}
+        okText={t("usage.confirmMaintenance")}
+        onOk={() => void maintainLogs()}
+        onCancel={() => setMaintenanceOpen(false)}
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Alert
+            type="warning"
+            showIcon
+            message={t("usage.maintenancePreview", {
+              total: maintenancePreview?.totalRows ?? 0,
+              byAge: maintenancePreview?.deleteByAge ?? 0,
+              byLimit: maintenancePreview?.deleteByLimit ?? 0,
+            })}
+          />
+          <Form layout="vertical">
+            <Form.Item label={t("usage.logRetentionDays")}>
+              <InputNumber min={1} max={3650} style={{ width: "100%" }} value={maintenancePolicy?.retentionDays} onChange={(value) => setMaintenancePolicy((current) => current && { ...current, retentionDays: Number(value ?? 90) })} />
+            </Form.Item>
+            <Form.Item label={t("usage.logMaxRows")}>
+              <InputNumber min={100} max={5000000} style={{ width: "100%" }} value={maintenancePolicy?.maxRows} onChange={(value) => setMaintenancePolicy((current) => current && { ...current, maxRows: Number(value ?? 100000) })} />
+            </Form.Item>
+            <Form.Item label={t("usage.autoMaintain")}>
+              <Switch checked={maintenancePolicy?.autoMaintain ?? false} onChange={(checked) => setMaintenancePolicy((current) => current && { ...current, autoMaintain: checked })} />
+            </Form.Item>
+          </Form>
+        </Space>
       </Modal>
     </Spin>
   );

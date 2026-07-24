@@ -59,6 +59,8 @@ export interface ProviderImportResult {
 export interface ConfigBackup {
   name: string;
   createdAt: number;
+  verified: boolean;
+  sourceName?: string | null;
 }
 
 /** Result of the `get_paths` command — surfaced on the Environment page to verify P0 detection. */
@@ -196,5 +198,19 @@ export interface ModelPricingInput {
 
 export interface LogMaintenanceResult {
   deleted: number;
+  deletedByAge: number;
+  deletedByLimit: number;
   integrityOk: boolean;
+}
+
+export interface LogMaintenancePolicy {
+  retentionDays: number;
+  maxRows: number;
+  autoMaintain: boolean;
+}
+
+export interface LogMaintenancePreview {
+  totalRows: number;
+  deleteByAge: number;
+  deleteByLimit: number;
 }

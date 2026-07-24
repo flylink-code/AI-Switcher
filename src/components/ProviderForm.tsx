@@ -7,11 +7,12 @@ import {
   Input,
   Modal,
   Select,
+  Space,
   type InputRef,
 } from "antd";
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderInput, ProtocolType } from "@/types/backend";
-import { discoverProviderModels } from "@/services/api";
+import { discoverProviderModelsInput, testProviderInput } from "@/services/api";
 
 interface ProviderFormProps {
   open: boolean;
@@ -32,6 +33,7 @@ export function ProviderForm({
   const [form] = Form.useForm<ProviderInput>();
   const [models, setModels] = useState<string[]>([]);
   const [discovering, setDiscovering] = useState(false);
+  const [testing, setTesting] = useState(false);
   let nameRef: InputRef | null = null;
 
   const isEdit = editing !== null;
@@ -73,15 +75,26 @@ export function ProviderForm({
   };
 
   const discoverModels = async () => {
-    if (!editing) return;
     setDiscovering(true);
     try {
-      const result = await discoverProviderModels(editing.id);
+      const values = await form.validateFields(["name", "baseUrl", "apiKey", "model", "protocolType", "targetApp", "notes", "id"]);
+      const result = await discoverProviderModelsInput(values);
       setModels(result.models);
       void message.info(result.message);
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     } finally { setDiscovering(false); }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const values = await form.validateFields();
+      const result = await testProviderInput(values);
+      void (result.ok ? message.success : message.error)(result.message);
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally { setTesting(false); }
   };
 
   return (
@@ -135,11 +148,10 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        <Form.Item name="model" label={t("providers.fieldModel")} extra={
-          <Button type="link" size="small" loading={discovering} disabled={!editing} onClick={() => void discoverModels()}>
-            {t("providers.discoverModels")}
-          </Button>
-        }>
+        <Form.Item name="model" label={t("providers.fieldModel")} extra={<Space size="small">
+          <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
+          <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
+        </Space>}>
           <Input placeholder="model-name" list="provider-models" />
         </Form.Item>
         <datalist id="provider-models">

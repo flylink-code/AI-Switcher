@@ -50,26 +50,56 @@ pub struct ModelPricing {
 #[serde(rename_all = "camelCase")]
 pub struct LogMaintenanceResult {
     pub deleted: i64,
+    pub deleted_by_age: i64,
+    pub deleted_by_limit: i64,
     pub integrity_ok: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogMaintenancePreview {
+    pub total_rows: i64,
+    pub delete_by_age: i64,
+    pub delete_by_limit: i64,
+}
+
+pub fn preview_proxy_log_maintenance(conn: &Connection, retention_days: u32, max_rows: u32) -> AppResult<LogMaintenancePreview> {
+    let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650)))).timestamp_millis();
+    let total_rows: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+    let delete_by_age: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM proxy_request_logs WHERE created_at < ?",
+        params![cutoff],
+        |row| row.get(0),
+    )?;
+    let remaining = total_rows - delete_by_age;
+    let delete_by_limit = (remaining - i64::from(max_rows.max(100))).max(0);
+    Ok(LogMaintenancePreview { total_rows, delete_by_age, delete_by_limit })
 }
 
 pub fn maintain_proxy_logs(conn: &Connection, retention_days: u32, max_rows: u32, vacuum: bool) -> AppResult<LogMaintenanceResult> {
     let cutoff = (Utc::now() - chrono::Duration::days(i64::from(retention_days.clamp(1, 3650)))).timestamp_millis();
-    let by_age = conn.execute("DELETE FROM proxy_request_logs WHERE created_at < ?", params![cutoff])? as i64;
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+    let tx = conn.unchecked_transaction()?;
+    let by_age = tx.execute("DELETE FROM proxy_request_logs WHERE created_at < ?", params![cutoff])? as i64;
+    let count: i64 = tx.query_row("SELECT COUNT(*) FROM proxy_request_logs", [], |row| row.get(0))?;
     let by_limit = if count > i64::from(max_rows.max(100)) {
-        conn.execute(
+        tx.execute(
             "DELETE FROM proxy_request_logs WHERE id IN (
                 SELECT id FROM proxy_request_logs ORDER BY created_at ASC LIMIT ?
              )",
             params![count - i64::from(max_rows.max(100))],
         )? as i64
     } else { 0 };
+    tx.commit()?;
     let integrity: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
     if vacuum {
         conn.execute_batch("VACUUM")?;
     }
-    Ok(LogMaintenanceResult { deleted: by_age + by_limit, integrity_ok: integrity == "ok" })
+    Ok(LogMaintenanceResult {
+        deleted: by_age + by_limit,
+        deleted_by_age: by_age,
+        deleted_by_limit: by_limit,
+        integrity_ok: integrity == "ok",
+    })
 }
 
 /// Create a proxy request log and return its id so token usage can be completed
@@ -81,12 +111,19 @@ pub fn insert_proxy_log(
     model: Option<&str>,
     status_code: Option<i64>,
     duration_ms: i64,
+    target_app: Option<&str>,
+    protocol: Option<&str>,
+    route: Option<&str>,
+    is_stream: bool,
+    error_category: Option<&str>,
+    diagnostic: Option<&str>,
 ) -> AppResult<String> {
     let id = format!("log_{}", Uuid::new_v4().simple());
     conn.execute(
         "INSERT INTO proxy_request_logs
-            (id, created_at, provider_id, provider_name, model, status_code, input_tokens, output_tokens, duration_ms)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?);",
+            (id, created_at, provider_id, provider_name, model, status_code, input_tokens, output_tokens, duration_ms,
+             target_app, protocol, route, is_stream, error_category, diagnostic)
+         VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id,
             Utc::now().timestamp_millis(),
@@ -95,6 +132,12 @@ pub fn insert_proxy_log(
             model,
             status_code,
             duration_ms,
+            target_app,
+            protocol,
+            route,
+            is_stream,
+            error_category,
+            diagnostic,
         ],
     )?;
     Ok(id)

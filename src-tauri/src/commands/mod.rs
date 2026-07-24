@@ -27,9 +27,9 @@ pub use prompts::{
 };
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use providers::{
-    create_provider, delete_provider, discover_provider_models, export_providers,
+    create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_current_provider, import_live_config, import_providers_json, list_providers, reorder_providers, switch_provider,
-    switch_to_official, test_provider_connection, update_provider,
+    switch_to_official, test_provider_connection, test_provider_input, update_provider,
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{
@@ -37,5 +37,6 @@ pub use skills::{
 };
 pub use system::{get_autostart_enabled, set_autostart_enabled};
 pub use usage::{
-    delete_model_pricing, get_usage_dashboard, list_model_pricing, maintain_proxy_logs, save_model_pricing,
+    delete_model_pricing, get_log_maintenance_policy, get_usage_dashboard, list_model_pricing,
+    maintain_proxy_logs, preview_proxy_log_maintenance, save_log_maintenance_policy, save_model_pricing,
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { App as AntApp, ConfigProvider, theme as antdTheme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
@@ -6,13 +6,13 @@ import { useTranslation } from "react-i18next";
 import { AppLayout, NAV_ITEMS } from "@/components/AppLayout";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
-import ProvidersPage from "@/pages/ProvidersPage";
-import ProxyPage from "@/pages/ProxyPage";
-import McpPage from "@/pages/McpPage";
-import PromptsPage from "@/pages/PromptsPage";
-import SkillsPage from "@/pages/SkillsPage";
-import UsagePage from "@/pages/UsagePage";
-import EnvironmentPage from "@/pages/EnvironmentPage";
+const ProvidersPage = lazy(() => import("@/pages/ProvidersPage"));
+const ProxyPage = lazy(() => import("@/pages/ProxyPage"));
+const McpPage = lazy(() => import("@/pages/McpPage"));
+const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
+const SkillsPage = lazy(() => import("@/pages/SkillsPage"));
+const UsagePage = lazy(() => import("@/pages/UsagePage"));
+const EnvironmentPage = lazy(() => import("@/pages/EnvironmentPage"));
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -66,7 +66,7 @@ export default function App() {
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <AntApp>
         <AppLayout activeKey={validKey} onNavigate={setActiveKey}>
-          {renderPage()}
+          <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>{renderPage()}</Suspense>
         </AppLayout>
       </AntApp>
     </ConfigProvider>

@@ -5,7 +5,7 @@ use std::fs;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::backup::{backup_file_named, DEFAULT_BACKUP_KEEP};
+use crate::backup::{backup_file_named, load_manifest, verify_backup, DEFAULT_BACKUP_KEEP};
 use crate::config::{atomic_write, detect_claude_desktop, get_backup_dir, get_claude_settings_path};
 use crate::database::dao;
 use crate::database::dao::settings::set_setting;
@@ -18,6 +18,8 @@ use crate::store::AppState;
 pub struct ConfigBackup {
     pub name: String,
     pub created_at: i64,
+    pub verified: bool,
+    pub source_name: Option<String>,
 }
 
 #[tauri::command]
@@ -35,7 +37,13 @@ pub fn list_config_backups(target: ProviderTarget) -> AppResult<Vec<ConfigBackup
             }
             let created_at = entry.metadata().ok()?.modified().ok()?
                 .duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64;
-            Some(ConfigBackup { name, created_at })
+            let manifest = load_manifest(&entry.path()).ok().flatten();
+            Some(ConfigBackup {
+                name,
+                created_at,
+                verified: manifest.is_some(),
+                source_name: manifest.map(|manifest| manifest.source_name),
+            })
         })
         .collect::<Vec<_>>();
     backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
@@ -45,6 +53,7 @@ pub fn list_config_backups(target: ProviderTarget) -> AppResult<Vec<ConfigBackup
 #[tauri::command]
 pub fn preview_config_backup(target: ProviderTarget, name: String) -> AppResult<String> {
     let path = backup_path(target, &name)?;
+    verify_backup(&path)?;
     let value: Value = serde_json::from_slice(&fs::read(path)?)
         .map_err(|_| AppError::Config("该备份不是可预览的 JSON 配置".to_string()))?;
     Ok(serde_json::to_string_pretty(&redact(value))?)
@@ -57,6 +66,7 @@ pub async fn restore_config_backup(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     let source = backup_path(target, &name)?;
+    verify_backup(&source)?;
     let destination = destination_for_backup(target, &name)?;
     if destination.exists() {
         let stem = destination.file_name().and_then(|n| n.to_str()).unwrap_or("config.json");

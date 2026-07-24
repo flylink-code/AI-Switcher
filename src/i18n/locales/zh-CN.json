@@ -198,7 +198,12 @@
     "pricingDeleted": "模型定价已删除",
     "maintainLogs": "维护代理日志",
     "logsMaintained": "日志维护完成，已清理 {{deleted}} 条记录",
-    "integrityFailed": "数据库完整性检查未通过，请从备份恢复"
+    "integrityFailed": "数据库完整性检查未通过，请从备份恢复",
+    "confirmMaintenance": "确认维护",
+    "maintenancePreview": "当前共 {{total}} 条日志；预计按保留天数删除 {{byAge}} 条，按最大行数删除 {{byLimit}} 条。",
+    "logRetentionDays": "日志保留天数",
+    "logMaxRows": "最大日志行数",
+    "autoMaintain": "启动代理时自动维护"
   },
   "skills": {
     "title": "Skills 管理",
@@ -255,6 +260,12 @@
     "previewBackup": "预览（已脱敏）",
     "restoreBackup": "恢复",
     "confirmRestore": "恢复会先备份当前配置，并清除该应用的当前供应商状态，是否继续？",
-    "restoreDone": "配置已恢复"
+    "restoreDone": "配置已恢复",
+    "checkUpdates": "检查更新",
+    "updateNone": "当前已是最新版本",
+    "updateAvailable": "发现新版本 {{version}}",
+    "updatePrompt": "将下载并安装更新，应用会随后重启。",
+    "updateInstall": "下载并安装",
+    "updateFailed": "无法检查或安装更新，请稍后重试"
   }
 }

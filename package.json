@@ -1,6 +1,6 @@
 {
   "name": "claude-switcher",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Unified third-party API configuration manager for Claude Desktop & Claude Code",
   "type": "module",
@@ -16,8 +16,9 @@
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
     "@tauri-apps/api": "^2.9.1",
-    "@tauri-apps/plugin-opener": "^2.5.3",
     "@tauri-apps/plugin-autostart": "^2.5.0",
+    "@tauri-apps/plugin-opener": "^2.5.3",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "antd": "^6.4.3",
     "i18next": "^25.7.4",
     "react": "^19.2.3",

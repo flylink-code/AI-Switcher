@@ -29,6 +29,8 @@ import type {
   ModelPricing,
   ModelPricingInput,
   LogMaintenanceResult,
+  LogMaintenancePolicy,
+  LogMaintenancePreview,
 } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
@@ -121,9 +123,19 @@ export async function testProviderConnection(id: string): Promise<ConnectionTest
   return invoke<ConnectionTestResult>("test_provider_connection", { id });
 }
 
+export async function testProviderInput(input: ProviderInput): Promise<ConnectionTestResult> {
+  const invoke = await getInvoke();
+  return invoke<ConnectionTestResult>("test_provider_input", { input });
+}
+
 export async function discoverProviderModels(id: string): Promise<ModelDiscoveryResult> {
   const invoke = await getInvoke();
   return invoke<ModelDiscoveryResult>("discover_provider_models", { id });
+}
+
+export async function discoverProviderModelsInput(input: ProviderInput): Promise<ModelDiscoveryResult> {
+  const invoke = await getInvoke();
+  return invoke<ModelDiscoveryResult>("discover_provider_models_input", { input });
 }
 
 export async function exportProviders(target: ProviderTarget): Promise<string> {
@@ -303,7 +315,22 @@ export async function deleteModelPricing(model: string): Promise<void> {
   return invoke<void>("delete_model_pricing", { model });
 }
 
-export async function maintainProxyLogs(retentionDays = 90, maxRows = 100000, vacuum = false): Promise<LogMaintenanceResult> {
+export async function getLogMaintenancePolicy(): Promise<LogMaintenancePolicy> {
   const invoke = await getInvoke();
-  return invoke<LogMaintenanceResult>("maintain_proxy_logs", { retentionDays, maxRows, vacuum });
+  return invoke<LogMaintenancePolicy>("get_log_maintenance_policy");
+}
+
+export async function saveLogMaintenancePolicy(policy: LogMaintenancePolicy): Promise<LogMaintenancePolicy> {
+  const invoke = await getInvoke();
+  return invoke<LogMaintenancePolicy>("save_log_maintenance_policy", { policy });
+}
+
+export async function previewProxyLogMaintenance(policy?: LogMaintenancePolicy): Promise<LogMaintenancePreview> {
+  const invoke = await getInvoke();
+  return invoke<LogMaintenancePreview>("preview_proxy_log_maintenance", { policy });
+}
+
+export async function maintainProxyLogs(vacuum = false): Promise<LogMaintenanceResult> {
+  const invoke = await getInvoke();
+  return invoke<LogMaintenanceResult>("maintain_proxy_logs", { vacuum });
 }

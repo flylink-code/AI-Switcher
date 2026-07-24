@@ -646,7 +646,7 @@ mod tests {
         assert_eq!(message["content"][0]["input"]["q"], "x");
         let sse = String::from_utf8(anthropic_message_to_sse(&message)).unwrap();
         assert!(sse.contains("event: message_start"));
-        assert!(sse.contains("event: input_json_delta"));
+        assert!(sse.contains("\"type\":\"input_json_delta\""));
         assert!(sse.contains("event: message_stop"));
     }
 
@@ -790,7 +790,7 @@ mod tests {
         let delta = String::from_utf8(delta).unwrap();
         let finish = String::from_utf8(finish).unwrap();
         assert!(start.contains("event: content_block_start"));
-        assert!(delta.contains("event: input_json_delta"));
+        assert!(delta.contains("\"type\":\"input_json_delta\""));
         assert!(finish.contains("\"stop_reason\":\"tool_use\""));
         assert!(finish.contains("event: message_stop"));
     }

@@ -26,15 +26,16 @@ use tauri::{Manager, WindowEvent};
 
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
-    delete_provider, delete_skill, discover_provider_models, export_providers, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
+    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input, export_providers, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
     save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
-    set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection,
+    set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
-    list_model_pricing, maintain_proxy_logs,
+    get_log_maintenance_policy, list_model_pricing, maintain_proxy_logs, preview_proxy_log_maintenance,
+    save_log_maintenance_policy,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -46,6 +47,7 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(setup)
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
@@ -62,6 +64,8 @@ pub fn run() {
             switch_to_official,
             test_provider_connection,
             discover_provider_models,
+            test_provider_input,
+            discover_provider_models_input,
             reorder_providers,
             import_live_config,
             export_providers,
@@ -97,6 +101,9 @@ pub fn run() {
             save_model_pricing,
             delete_model_pricing,
             maintain_proxy_logs,
+            get_log_maintenance_policy,
+            save_log_maintenance_policy,
+            preview_proxy_log_maintenance,
         ]);
     let builder = add_single_instance(builder);
     builder

@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -78,11 +78,18 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             status_code  INTEGER,
             input_tokens INTEGER NOT NULL DEFAULT 0,
             output_tokens INTEGER NOT NULL DEFAULT 0,
-            duration_ms  INTEGER NOT NULL DEFAULT 0
+            duration_ms  INTEGER NOT NULL DEFAULT 0,
+            target_app   TEXT,
+            protocol     TEXT,
+            route        TEXT,
+            is_stream    BOOLEAN NOT NULL DEFAULT 0,
+            error_category TEXT,
+            diagnostic   TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
-        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);",
+        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);
+        CREATE INDEX IF NOT EXISTS idx_logs_target_created ON proxy_request_logs(target_app, created_at);",
     )?;
 
     // Custom per-model pricing for cost estimation.
@@ -120,6 +127,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 4 {
         migrate_v3_to_v4(conn)?;
+    }
+    if current < 5 {
+        migrate_v4_to_v5(conn)?;
     }
     Ok(())
 }
@@ -177,6 +187,33 @@ fn migrate_v3_to_v4(conn: &Connection) -> AppResult<()> {
         );",
     )?;
     set_user_version(conn, 4)
+}
+
+/// Add non-sensitive proxy diagnostics.  Each column is independent so an
+/// interrupted migration can safely be retried on the next launch.
+fn migrate_v4_to_v5(conn: &Connection) -> AppResult<()> {
+    for (name, definition) in [
+        ("target_app", "TEXT"),
+        ("protocol", "TEXT"),
+        ("route", "TEXT"),
+        ("is_stream", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("error_category", "TEXT"),
+        ("diagnostic", "TEXT"),
+    ] {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            conn.execute_batch(&format!("ALTER TABLE proxy_request_logs ADD COLUMN {name} {definition};"))?;
+        }
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_logs_target_created
+             ON proxy_request_logs(target_app, created_at);",
+    )?;
+    set_user_version(conn, 5)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

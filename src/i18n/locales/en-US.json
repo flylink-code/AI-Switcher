@@ -198,7 +198,12 @@
     "pricingDeleted": "Model pricing deleted",
     "maintainLogs": "Maintain proxy logs",
     "logsMaintained": "Log maintenance complete; removed {{deleted}} records",
-    "integrityFailed": "Database integrity check failed; restore from a backup"
+    "integrityFailed": "Database integrity check failed; restore from a backup",
+    "confirmMaintenance": "Run maintenance",
+    "maintenancePreview": "{{total}} logs currently stored; {{byAge}} will be removed by age and {{byLimit}} by the row limit.",
+    "logRetentionDays": "Log retention days",
+    "logMaxRows": "Maximum log rows",
+    "autoMaintain": "Maintain automatically when the proxy starts"
   },
   "skills": {
     "title": "Skills",
@@ -255,6 +260,12 @@
     "previewBackup": "Preview (redacted)",
     "restoreBackup": "Restore",
     "confirmRestore": "The current config will be backed up and the active provider state cleared. Continue?",
-    "restoreDone": "Configuration restored"
+    "restoreDone": "Configuration restored",
+    "checkUpdates": "Check for updates",
+    "updateNone": "You are on the latest version",
+    "updateAvailable": "Version {{version}} is available",
+    "updatePrompt": "The update will be downloaded and installed, then the app will restart.",
+    "updateInstall": "Download and install",
+    "updateFailed": "Unable to check for or install updates. Try again later."
   }
 }
