@@ -32,7 +32,9 @@ use crate::database::dao::providers::{get_current_provider, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
+use crate::provider::{
+    api_endpoint_url, protocol_endpoint_path, ProtocolType, Provider, ProviderTarget,
+};
 
 const DEFAULT_PORT: u16 = 15821;
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
@@ -317,16 +319,55 @@ async fn proxy_handler(
         }
     };
     let incoming_stream = convert::wants_stream(&incoming);
-    let (target_url, outgoing_body, translated) = match provider.protocol_type {
+    let upstream_request: AppResult<(String, Bytes, bool)> = match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
             let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), incoming_stream);
-            (api_endpoint_url(&provider.base_url, "/v1/chat/completions"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+            api_endpoint_url(
+                &provider.base_url,
+                protocol_endpoint_path(provider.protocol_type),
+            )
+                .map(|url| {
+                    (
+                        url,
+                        Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
+                        true,
+                    )
+                })
         }
         ProtocolType::OpenAiResponses => {
             let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), incoming_stream);
-            (api_endpoint_url(&provider.base_url, "/v1/responses"), Bytes::from(serde_json::to_vec(&request).unwrap_or_default()), true)
+            api_endpoint_url(
+                &provider.base_url,
+                protocol_endpoint_path(provider.protocol_type),
+            )
+                .map(|url| {
+                    (
+                        url,
+                        Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
+                        true,
+                    )
+                })
         }
-        ProtocolType::Anthropic => (api_endpoint_url(&provider.base_url, uri.path()), rewrite_body(&provider, &body_bytes), false),
+        ProtocolType::Anthropic => api_endpoint_url(
+            &provider.base_url,
+            protocol_endpoint_path(provider.protocol_type),
+        )
+            .map(|url| (url, rewrite_body(&provider, &body_bytes), false)),
+    };
+    let (target_url, outgoing_body, translated) = match upstream_request {
+        Ok(request) => request,
+        Err(error) => {
+            log_request(
+                &state,
+                &provider,
+                Some(400),
+                started.elapsed().as_millis() as i64,
+                uri.path(),
+                incoming_stream,
+                Some("configuration"),
+            );
+            return json_error(StatusCode::BAD_REQUEST, error.to_string());
+        }
     };
 
     // Forward the request.

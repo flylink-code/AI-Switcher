@@ -29,6 +29,7 @@ export default function App() {
 
   const themeConfig = useMemo(
     () => ({
+      zeroRuntime: true,
       algorithm:
         resolved === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       token: { colorPrimary: "#5865f2", borderRadius: 8 },

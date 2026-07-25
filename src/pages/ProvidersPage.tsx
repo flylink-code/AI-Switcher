@@ -142,9 +142,9 @@ export default function ProvidersPage() {
 
   const columns: TableColumnsType<Provider> = [
     { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}{row.healthStatus && <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>{row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}</Tag>}</Space> },
-    { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", ellipsis: true, render: (value: string) => <Text code copyable style={{ wordBreak: "break-all" }}>{value}</Text> },
-    { title: t("providers.colModel"), dataIndex: "model", ellipsis: true },
-    { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 130, render: (value: string) => <Tag color={value === "anthropic" ? "blue" : "orange"}>{value}</Tag> },
+    { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", width: 280, ellipsis: true, render: (value: string) => <Text code copyable ellipsis={{ tooltip: value }}>{value}</Text> },
+    { title: t("providers.colModel"), dataIndex: "model", width: 160, ellipsis: true },
+    { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 150, render: (value: string) => <Tag color={value === "anthropic" ? "blue" : "orange"}>{value}</Tag> },
     {
       title: t("providers.colActions"), key: "actions", width: 240,
       render: (_: unknown, row: Provider, index: number) => <Space size="small">
@@ -160,29 +160,49 @@ export default function ProvidersPage() {
     },
   ];
 
-  return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+  return <Space direction="vertical" size="middle" style={{ width: "100%", minWidth: 0 }}>
     {store.error && <Alert type="error" showIcon message={store.error} closable onClose={() => store.clearError()} />}
-    <Segmented<ProviderTarget>
-      value={target}
-      onChange={setTarget}
-      options={[
-        { value: "claude_code", label: t("providers.claudeCode") },
-        { value: "claude_desktop", label: t("providers.claudeDesktop") },
-      ]}
-    />
-    <Card
-      size="small"
-      styles={{ body: { padding: 12 } }}
-      title={<Space><GlobalOutlined />{t("providers.title")}<Text type="secondary" style={{ fontWeight: "normal", fontSize: 12 }}>{t(target === "claude_code" ? "providers.codeSubtitle" : "providers.desktopSubtitle")}</Text></Space>}
-      extra={<Space>
+    <Space wrap size={[8, 8]} style={{ width: "100%", justifyContent: "space-between" }}>
+      <Segmented<ProviderTarget>
+        value={target}
+        onChange={setTarget}
+        options={[
+          { value: "claude_code", label: t("providers.claudeCode") },
+          { value: "claude_desktop", label: t("providers.claudeDesktop") },
+        ]}
+      />
+      <Space wrap size={[8, 8]}>
         <Button loading={busy} onClick={() => void handleOfficial()}>{t("providers.officialLogin")}</Button>
         <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
         <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
         <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t("providers.create")}</Button>
-      </Space>}
+      </Space>
+    </Space>
+    <Card
+      size="small"
+      styles={{ body: { padding: 12 } }}
+      title={
+        <Space wrap>
+          <GlobalOutlined />
+          {t("providers.title")}
+          <Text type="secondary" style={{ fontWeight: "normal", fontSize: 12 }}>
+            {t(target === "claude_code" ? "providers.codeSubtitle" : "providers.desktopSubtitle")}
+          </Text>
+        </Space>
+      }
     >
-      <Table<Provider> rowKey="id" size="middle" loading={store.loading} dataSource={store.providers} columns={columns} pagination={false} locale={{ emptyText: t("providers.empty") }} />
+      <Table<Provider>
+        rowKey="id"
+        size="middle"
+        loading={store.loading}
+        dataSource={store.providers}
+        columns={columns}
+        pagination={false}
+        tableLayout="fixed"
+        scroll={{ x: 1050 }}
+        locale={{ emptyText: t("providers.empty") }}
+      />
     </Card>
     <ProviderForm open={formOpen} editing={editing} onCancel={() => setFormOpen(false)} onSubmit={handleSubmit} />
   </Space>;

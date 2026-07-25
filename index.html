@@ -6,7 +6,19 @@
     <title>Claude Switcher</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-screen" role="status" aria-live="polite">Claude Switcher 正在启动…</div>
+    </div>
+    <style>
+      .boot-screen {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        color: #5865f2;
+        font: 500 15px system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+        background: #fff;
+      }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

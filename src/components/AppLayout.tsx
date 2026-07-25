@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Layout, Menu, Select, Space, Tooltip, Typography } from "antd";
+import { Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
 import {
   ApiOutlined,
   ClusterOutlined,
@@ -50,9 +50,11 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
 export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
   const { t, i18n } = useTranslation();
   const themeMode = useThemeStore((s) => s.mode);
+  const resolvedTheme = useThemeStore((s) => s.resolved);
   const setThemeMode = useThemeStore((s) => s.setMode);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
+  const { token } = theme.useToken();
 
   const menuItems = useMemo(
     () =>
@@ -65,18 +67,27 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
   );
 
   return (
-    <Layout style={{ height: "100vh" }}>
-      <Sider width={210} theme={useThemeStore((s) => s.resolved) === "dark" ? "dark" : "light"}>
+    <Layout style={{ height: "100vh", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <Sider
+        width={210}
+        theme={resolvedTheme === "dark" ? "dark" : "light"}
+        style={{
+          height: "100vh",
+          minHeight: 0,
+          overflow: "auto",
+          borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
         <div
           style={{
             height: 56,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "var(--ant-color-text)",
+            color: token.colorText,
             fontWeight: 600,
             fontSize: 16,
-            borderBottom: "1px solid var(--ant-color-border-secondary)",
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
           {t("app.name")}
@@ -86,21 +97,26 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
           selectedKeys={[activeKey]}
           items={menuItems}
           onClick={({ key }) => onNavigate(key)}
-          style={{ borderInlineEnd: "none" }}
+          style={{ borderInlineEnd: "none", background: "transparent" }}
         />
       </Sider>
-      <Layout>
+      <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         <Header
           style={{
-            background: "var(--ant-color-bg-container)",
+            flex: "0 0 auto",
+            minWidth: 0,
+            background: token.colorBgContainer,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 16,
             paddingInline: 24,
-            borderBottom: "1px solid var(--ant-color-border-secondary)",
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <Typography.Text type="secondary">{t("app.tagline")}</Typography.Text>
+          <Typography.Text type="secondary" ellipsis style={{ minWidth: 0 }}>
+            {t("app.tagline")}
+          </Typography.Text>
           <Space>
             <Tooltip title={t("common.theme")}>
               <Select<ThemeMode>
@@ -131,7 +147,9 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
             </Tooltip>
           </Space>
         </Header>
-        <Content style={{ overflow: "auto", padding: 24 }}>{children}</Content>
+        <Content style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24 }}>
+          {children}
+        </Content>
       </Layout>
     </Layout>
   );

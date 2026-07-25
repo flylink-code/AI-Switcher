@@ -1,4 +1,4 @@
-import { Result } from "antd";
+import { Result, Typography } from "antd";
 import { ToolOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 
@@ -19,9 +19,9 @@ export function PlaceholderPage({ feature, phase }: PlaceholderPageProps) {
       subTitle={
         <>
           <div>{t("placeholder.subtitle")}</div>
-          <div style={{ marginTop: 8, color: "var(--ant-color-text-tertiary)" }}>
+          <Typography.Text type="secondary" style={{ display: "block", marginTop: 8 }}>
             {t("placeholder.p0")} — {phase}
-          </div>
+          </Typography.Text>
         </>
       }
       style={{ marginTop: 48 }}

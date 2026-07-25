@@ -23,6 +23,7 @@ mod tray;
 use std::sync::Arc;
 
 use tauri::{Manager, WindowEvent};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
@@ -43,8 +44,25 @@ use crate::store::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `generate_context!` and plugin construction happen before `Builder::run`
+    // can return an error.  In a Windows release build those panics otherwise
+    // look like a silent exit because there is no console window.
+    std::panic::set_hook(Box::new(|panic_info| {
+        report_startup_failure(&format!("Startup panic: {panic_info}"));
+    }));
+
+    let runtime_log_dir = config::get_app_config_dir().join("logs");
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_log::Builder::new().build())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([Target::new(TargetKind::Folder {
+                    path: runtime_log_dir,
+                    file_name: Some("runtime.log".to_string()),
+                })])
+                .rotation_strategy(RotationStrategy::KeepSome(5))
+                .max_file_size(1_000_000)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -148,9 +166,11 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_config_dir = config::get_app_config_dir();
     std::fs::create_dir_all(&app_config_dir)?;
     std::fs::create_dir_all(config::get_backup_dir())?;
+    log::info!("Claude Switcher starting; data directory: {}", app_config_dir.display());
 
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
+    log::info!("Database initialization completed");
 
     // First-run seeding + live-config import. Non-fatal: a seeding failure should
     // not block the app, only log.

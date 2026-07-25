@@ -5,9 +5,32 @@ import path from "node:path";
 // Tauri dev host (for mobile/remote dev). Empty in normal desktop dev.
 const host = process.env.TAURI_DEV_HOST;
 
+/**
+ * Ant Design's prebuilt zero-runtime stylesheet scopes CSS variables with
+ * extraction-time `css-var-*` class names. Those generated names do not exist
+ * in an arbitrary application tree, leaving most component declarations with
+ * unresolved variables. Normalize global variables onto :root and component
+ * variables onto their stable `.ant-*` selectors during the Vite build.
+ */
+const normalizeAntdStaticCss = {
+  name: "normalize-antd-static-css",
+  enforce: "pre" as const,
+  transform(code: string, id: string) {
+    const moduleId = id.split("?", 1)[0].replaceAll("\\", "/");
+    if (!moduleId.endsWith("/antd/dist/antd.css")) return null;
+
+    return {
+      code: code
+        .replace(/\.css-var-[\w-]+(?=\.[\w-])/g, "")
+        .replace(/\.css-var-[\w-]+(?=\s*\{)/g, ":root"),
+      map: null,
+    };
+  },
+};
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [normalizeAntdStaticCss, react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -34,10 +57,21 @@ export default defineConfig({
   build: {
     // Tauri webview supports modern ES; esbuild handles minification.
     target: "es2021",
-    // Produce a single chunk to simplify Tauri asset loading.
+    // Split only runtime dependencies that are needed by the shell. Feature
+    // components keep Vite's natural page-level chunks, avoiding a monolithic
+    // Ant Design vendor bundle and its circular dependencies.
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks(id) {
+          const moduleId = id.replaceAll("\\", "/");
+          if (moduleId.includes("/react/") || moduleId.includes("/react-dom/")) {
+            return "react-vendor";
+          }
+          if (moduleId.includes("/i18next/") || moduleId.includes("/react-i18next/")) {
+            return "i18n-vendor";
+          }
+          return undefined;
+        },
       },
     },
   },

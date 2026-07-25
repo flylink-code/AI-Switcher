@@ -4,7 +4,15 @@ body,
 #root {
   margin: 0;
   padding: 0;
+  width: 100%;
   height: 100%;
+  overflow: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -15,7 +23,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Let AntD's Layout fill the viewport. */
-.ant-layout {
-  height: 100vh;
+#root > .ant-app {
+  width: 100%;
+  height: 100%;
 }

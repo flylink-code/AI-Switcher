@@ -4,7 +4,9 @@ use chrono::Utc;
 use rusqlite::{params, Connection};
 
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProtocolType, Provider, ProviderInput, ProviderTarget};
+use crate::provider::{
+    normalize_base_url, ProtocolType, Provider, ProviderInput, ProviderTarget,
+};
 use crate::secrets;
 
 /// Number of providers belonging to a target application.
@@ -75,6 +77,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     if input.base_url.trim().is_empty() {
         return Err(AppError::Config("API 地址不能为空".to_string()));
     }
+    let base_url = normalize_base_url(&input.base_url)?;
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
@@ -100,7 +103,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ? WHERE id = ?;",
             params![
-                input.name, input.base_url, api_key_col, input.model,
+                input.name, base_url, api_key_col, input.model,
                 input.protocol_type.as_str(), input.notes, id,
             ],
         )?;
@@ -127,7 +130,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);",
         params![
-            id, input.name, input.base_url, api_key_col, input.model,
+            id, input.name, base_url, api_key_col, input.model,
             input.protocol_type.as_str(), input.target_app.as_str(), input.notes, next_sort, now,
         ],
     ) {
@@ -284,4 +287,54 @@ fn uuid_v8() -> String {
     let mut buf = uuid::Uuid::encode_buffer();
     let value = uuid::Uuid::new_v4().simple().encode_upper(&mut buf);
     value[..8].to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::Database;
+
+    fn provider_input(base_url: &str) -> ProviderInput {
+        ProviderInput {
+            id: None,
+            name: "Test provider".to_string(),
+            base_url: base_url.to_string(),
+            api_key: String::new(),
+            clear_api_key: false,
+            model: "test-model".to_string(),
+            protocol_type: ProtocolType::OpenAiChat,
+            target_app: ProviderTarget::ClaudeCode,
+            notes: String::new(),
+        }
+    }
+
+    #[test]
+    fn create_and_update_store_canonical_base_urls() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let created = upsert_provider(
+                conn,
+                &provider_input("https://gateway.example.test/openai/v1/chat/completions"),
+            )?;
+            assert_eq!(created.base_url, "https://gateway.example.test/openai/v1");
+
+            let mut update = provider_input("https://gateway.example.test/openai/v1/responses/");
+            update.id = Some(created.id.clone());
+            let updated = upsert_provider(conn, &update)?;
+            assert_eq!(updated.base_url, "https://gateway.example.test/openai/v1");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn invalid_base_url_is_rejected_before_insert() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            assert!(upsert_provider(conn, &provider_input("http://api.example.test")).is_err());
+            assert_eq!(count_providers(conn, ProviderTarget::ClaudeCode)?, 0);
+            Ok(())
+        })
+        .unwrap();
+    }
 }

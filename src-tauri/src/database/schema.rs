@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -88,8 +88,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
-        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);
-        CREATE INDEX IF NOT EXISTS idx_logs_target_created ON proxy_request_logs(target_app, created_at);",
+        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);",
     )?;
 
     // Custom per-model pricing for cost estimation.
@@ -130,6 +129,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 5 {
         migrate_v4_to_v5(conn)?;
+    }
+    if current < 6 {
+        migrate_v5_to_v6(conn)?;
     }
     Ok(())
 }
@@ -216,6 +218,33 @@ fn migrate_v4_to_v5(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 5)
 }
 
+/// Canonicalize legacy provider URLs that stored a complete request endpoint.
+///
+/// Invalid or ambiguous legacy values remain untouched so migration never
+/// destroys user data; normal provider operations will return a configuration
+/// error until those records are corrected.
+fn migrate_v5_to_v6(conn: &Connection) -> AppResult<()> {
+    let rows = {
+        let mut stmt = conn.prepare("SELECT id, base_url FROM providers;")?;
+        let mapped = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        mapped.collect::<Result<Vec<_>, _>>()?
+    };
+
+    for (id, base_url) in rows {
+        if let Ok(normalized) = crate::provider::normalize_base_url(&base_url) {
+            if normalized != base_url {
+                conn.execute(
+                    "UPDATE providers SET base_url = ? WHERE id = ? AND base_url = ?;",
+                    rusqlite::params![normalized, id, base_url],
+                )?;
+            }
+        }
+    }
+    set_user_version(conn, 6)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -244,5 +273,76 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn legacy_proxy_logs_migrate_before_creating_target_index() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE proxy_request_logs (
+                id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                provider_id TEXT,
+                provider_name TEXT,
+                model TEXT,
+                status_code INTEGER,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0
+            );
+            PRAGMA user_version = 4;",
+        )
+        .unwrap();
+
+        create_tables(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let target_column_count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'target_app';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(target_column_count, 1);
+
+        let target_index_count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_logs_target_created';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(target_index_count, 1);
+    }
+
+    #[test]
+    fn legacy_full_provider_endpoints_are_canonicalized() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_tables(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO providers
+                (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at)
+             VALUES ('legacy', 'Legacy', 'https://gateway.example.test/openai/v1/chat/completions',
+                     '', 'model', 'openai_chat', 'claude_code', '', 0, 0, 0);",
+            [],
+        )
+        .unwrap();
+        set_user_version(&conn, 5).unwrap();
+
+        migrate(&conn).unwrap();
+
+        let base_url: String = conn
+            .query_row(
+                "SELECT base_url FROM providers WHERE id = 'legacy';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(base_url, "https://gateway.example.test/openai/v1");
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 6);
     }
 }

@@ -29,6 +29,7 @@ export interface ProviderInput {
   /** Omitted/undefined on create; required on update. */
   id?: string;
   name: string;
+  /** Canonical HTTPS origin or gateway path prefix; never a complete request endpoint. */
   baseUrl: string;
   apiKey: string;
   clearApiKey?: boolean;

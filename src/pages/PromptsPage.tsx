@@ -14,6 +14,7 @@ import {
   Spin,
   Tooltip,
   Typography,
+  theme,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -47,6 +48,7 @@ interface PromptFormValues {
 export default function PromptsPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [prompts, setPrompts] = useState<PromptInfo[]>([]);
   const [live, setLive] = useState<LivePrompt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,7 +185,7 @@ export default function PromptsPage() {
           {live ? (
             <Space direction="vertical" size={4} style={{ width: "100%" }}>
               <Space>
-                <CheckCircleOutlined style={{ color: "var(--ant-color-success)" }} />
+                <CheckCircleOutlined style={{ color: token.colorSuccess }} />
                 <Text strong>{t("prompts.liveDetected")}</Text>
               </Space>
               <Text type="secondary" ellipsis={{ tooltip: live.path }}>{live.path}</Text>

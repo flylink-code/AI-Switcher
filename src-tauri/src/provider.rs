@@ -5,6 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::error::{AppError, AppResult};
+
 /// How requests are routed to a provider.
 ///
 /// - `anthropic`: the provider speaks the Anthropic API protocol natively; Claude
@@ -16,8 +18,10 @@ use serde::{Deserialize, Serialize};
 pub enum ProtocolType {
     Anthropic,
     /// OpenAI Chat Completions upstream, reached through the local proxy.
+    #[serde(rename = "openai_chat", alias = "open_ai_chat")]
     OpenAiChat,
     /// OpenAI Responses upstream, reached through the local proxy.
+    #[serde(rename = "openai_responses", alias = "open_ai_responses")]
     OpenAiResponses,
     /// Legacy P2 value. It remains readable and behaves as OpenAI Chat.
     Proxy,
@@ -72,8 +76,8 @@ impl ProtocolType {
     /// Parse from the stored string, falling back to [`ProtocolType::Anthropic`].
     pub fn from_str_lossy(s: &str) -> Self {
         match s {
-            "openai_chat" => ProtocolType::OpenAiChat,
-            "openai_responses" => ProtocolType::OpenAiResponses,
+            "openai_chat" | "open_ai_chat" => ProtocolType::OpenAiChat,
+            "openai_responses" | "open_ai_responses" => ProtocolType::OpenAiResponses,
             "proxy" => ProtocolType::Proxy,
             _ => ProtocolType::Anthropic,
         }
@@ -84,25 +88,74 @@ impl ProtocolType {
     }
 }
 
+/// Normalize and validate a provider Base URL.
+///
+/// Provider URLs are HTTPS origins or gateway path prefixes. Known request
+/// endpoint suffixes are stripped so the selected protocol remains the single
+/// source of truth for the final upstream path.
+pub fn normalize_base_url(value: &str) -> AppResult<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Config("API 基础地址不能为空".to_string()));
+    }
+
+    let mut url = reqwest::Url::parse(trimmed)
+        .map_err(|_| AppError::Config("API 基础地址不是有效的 HTTPS URL".to_string()))?;
+    if url.scheme() != "https" {
+        return Err(AppError::Config("API 基础地址必须使用 https://".to_string()));
+    }
+    if url.host_str().is_none() {
+        return Err(AppError::Config("API 基础地址缺少有效域名".to_string()));
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err(AppError::Config("API 基础地址不能包含用户名或密码".to_string()));
+    }
+    if url.query().is_some() || url.fragment().is_some() {
+        return Err(AppError::Config("API 基础地址不能包含查询参数或片段".to_string()));
+    }
+
+    let mut path = url.path().trim_end_matches('/').to_string();
+    let lower_path = path.to_ascii_lowercase();
+    for suffix in ["/chat/completions", "/messages", "/responses", "/models"] {
+        if lower_path.ends_with(suffix) {
+            path.truncate(path.len() - suffix.len());
+            path = path.trim_end_matches('/').to_string();
+            break;
+        }
+    }
+    url.set_path(if path.is_empty() { "/" } else { &path });
+
+    Ok(url.to_string().trim_end_matches('/').to_string())
+}
+
 /// Build an API endpoint URL while preserving provider-specific gateway paths.
 ///
 /// Providers commonly store either a host root (`https://api.example.com`) or
 /// a versioned root (`https://api.example.com/v1`). Callers always use normal
 /// API endpoint paths such as `/v1/messages`; this helper avoids accidentally
 /// producing `/v1/v1/messages` for the latter form.
-pub fn api_endpoint_url(base_url: &str, endpoint: &str) -> String {
-    let base = base_url.trim().trim_end_matches('/');
+pub fn api_endpoint_url(base_url: &str, endpoint: &str) -> AppResult<String> {
+    let base = normalize_base_url(base_url)?;
     let endpoint = if endpoint.starts_with('/') {
         endpoint
     } else {
-        return format!("{base}/{endpoint}");
+        return Err(AppError::Config("API 端点路径必须以 / 开头".to_string()));
     };
     let endpoint = if base.ends_with("/v1") && endpoint.starts_with("/v1/") {
         &endpoint[3..]
     } else {
         endpoint
     };
-    format!("{base}{endpoint}")
+    Ok(format!("{base}{endpoint}"))
+}
+
+/// Final request path selected by the provider API protocol.
+pub fn protocol_endpoint_path(protocol: ProtocolType) -> &'static str {
+    match protocol {
+        ProtocolType::Anthropic => "/v1/messages",
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => "/v1/chat/completions",
+        ProtocolType::OpenAiResponses => "/v1/responses",
+    }
 }
 
 /// A single API provider. Field names are camelCase on the wire for the frontend.
@@ -153,6 +206,7 @@ pub struct ProviderInput {
     #[serde(default)]
     pub id: Option<String>,
     pub name: String,
+    /// Canonical HTTPS origin or gateway path prefix, never a request endpoint.
     pub base_url: String,
     #[serde(default)]
     pub api_key: String,
@@ -227,21 +281,75 @@ pub struct LiveProviderInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::api_endpoint_url;
+    use super::{api_endpoint_url, normalize_base_url, protocol_endpoint_path, ProtocolType};
 
     #[test]
     fn endpoint_url_preserves_gateway_path_without_duplicate_v1() {
         assert_eq!(
-            api_endpoint_url("https://api.example.test", "/v1/messages"),
+            api_endpoint_url("https://api.example.test", "/v1/messages").unwrap(),
             "https://api.example.test/v1/messages"
         );
         assert_eq!(
-            api_endpoint_url("https://api.example.test/v1/", "/v1/messages"),
+            api_endpoint_url("https://api.example.test/v1/", "/v1/messages").unwrap(),
             "https://api.example.test/v1/messages"
         );
         assert_eq!(
-            api_endpoint_url("https://gateway.example.test/openai/v1", "/v1/models"),
+            api_endpoint_url("https://gateway.example.test/openai/v1", "/v1/models").unwrap(),
             "https://gateway.example.test/openai/v1/models"
+        );
+    }
+
+    #[test]
+    fn base_url_normalization_strips_known_request_endpoints() {
+        for (input, expected) in [
+            (" https://api.example.test/ ", "https://api.example.test"),
+            ("https://api.example.test/v1/messages", "https://api.example.test/v1"),
+            (
+                "https://gateway.example.test/openai/v1/chat/completions/",
+                "https://gateway.example.test/openai/v1",
+            ),
+            ("https://api.example.test/v1/responses", "https://api.example.test/v1"),
+            ("https://api.example.test/v1/models", "https://api.example.test/v1"),
+        ] {
+            assert_eq!(normalize_base_url(input).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn base_url_validation_rejects_unsafe_or_ambiguous_urls() {
+        for value in [
+            "http://api.example.test",
+            "https://user:pass@api.example.test/v1",
+            "https://api.example.test/v1?tenant=one",
+            "https://api.example.test/v1#section",
+            "not-a-url",
+        ] {
+            assert!(normalize_base_url(value).is_err(), "{value} should be rejected");
+        }
+    }
+
+    #[test]
+    fn protocol_selects_the_upstream_request_path() {
+        assert_eq!(protocol_endpoint_path(ProtocolType::Anthropic), "/v1/messages");
+        assert_eq!(
+            protocol_endpoint_path(ProtocolType::OpenAiChat),
+            "/v1/chat/completions"
+        );
+        assert_eq!(
+            protocol_endpoint_path(ProtocolType::OpenAiResponses),
+            "/v1/responses"
+        );
+    }
+
+    #[test]
+    fn openai_protocol_wire_values_match_the_frontend() {
+        assert_eq!(
+            serde_json::from_str::<ProtocolType>("\"openai_responses\"").unwrap(),
+            ProtocolType::OpenAiResponses
+        );
+        assert_eq!(
+            serde_json::to_string(&ProtocolType::OpenAiChat).unwrap(),
+            "\"openai_chat\""
         );
     }
 }

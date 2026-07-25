@@ -5,9 +5,9 @@ use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, ConnectionTestResult, LiveProviderInfo, ModelDiscoveryResult, Provider,
-    ProviderExportBundle, ProviderExportEntry, ProviderImportResult, ProviderInput,
-    ProviderTarget, ProtocolType,
+    api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
+    LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
+    ProviderImportResult, ProviderInput, ProviderTarget, ProtocolType,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -140,7 +140,7 @@ async fn discover_provider_models_with_key(
     cache_result: bool,
 ) -> AppResult<ModelDiscoveryResult> {
     let checked_at = Utc::now().timestamp_millis();
-    let url = api_endpoint_url(&provider.base_url, "/v1/models");
+    let url = api_endpoint_url(&provider.base_url, "/v1/models")?;
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
@@ -246,9 +246,10 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     let mut imported = 0;
     let mut skipped = 0;
     for entry in bundle.providers {
+        let normalized_base_url = normalize_base_url(&entry.base_url)?;
         let existing = state.db.with_conn(|conn| dao::list_providers(conn, entry.target_app))?;
         if existing.iter().any(|provider| {
-            provider.name == entry.name && provider.base_url == entry.base_url
+            provider.name == entry.name && provider.base_url == normalized_base_url
         }) {
             skipped += 1;
             continue;
@@ -256,7 +257,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
         state.db.with_conn(|conn| dao::upsert_provider(conn, &ProviderInput {
             id: None,
             name: entry.name,
-            base_url: entry.base_url,
+            base_url: normalized_base_url,
             api_key: String::new(),
             clear_api_key: false,
             model: entry.model,
@@ -601,7 +602,7 @@ async fn test_provider_with_key(
                 .map_err(|e| AppError::Other(format!("创建连接测试客户端失败: {e}")))?;
             let (endpoint, payload) = protocol_test_request(provider);
             let mut request = client
-                .post(api_endpoint_url(&provider.base_url, endpoint))
+                .post(api_endpoint_url(&provider.base_url, endpoint)?)
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {key}"))
                 .header("x-api-key", key);
@@ -642,7 +643,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
     };
     Ok(Provider {
         id: input.id.clone().unwrap_or_else(|| "temporary-form-provider".to_string()),
-        name: input.name.clone(), base_url: input.base_url.clone(), api_key: key,
+        name: input.name.clone(), base_url: normalize_base_url(&input.base_url)?, api_key: key,
         api_key_set: !input.api_key.trim().is_empty(), model: input.model.clone(),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
         sort_index: 0, is_current: false, created_at: 0,
@@ -678,15 +679,15 @@ fn classify_test_response(
 
 fn protocol_test_request(provider: &Provider) -> (&'static str, Value) {
     match provider.protocol_type {
-        ProtocolType::Anthropic => ("/v1/messages", serde_json::json!({
+        ProtocolType::Anthropic => (protocol_endpoint_path(provider.protocol_type), serde_json::json!({
             "model": provider.model.trim(), "max_tokens": 1, "stream": false,
             "messages": [{"role": "user", "content": "ping"}]
         })),
-        ProtocolType::OpenAiChat | ProtocolType::Proxy => ("/v1/chat/completions", serde_json::json!({
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => (protocol_endpoint_path(provider.protocol_type), serde_json::json!({
             "model": provider.model.trim(), "max_tokens": 1, "stream": false,
             "messages": [{"role": "user", "content": "ping"}]
         })),
-        ProtocolType::OpenAiResponses => ("/v1/responses", serde_json::json!({
+        ProtocolType::OpenAiResponses => (protocol_endpoint_path(provider.protocol_type), serde_json::json!({
             "model": provider.model.trim(), "max_output_tokens": 1, "stream": false,
             "input": "ping"
         })),
@@ -704,15 +705,16 @@ fn protocol_endpoint_message(protocol: ProtocolType) -> &'static str {
 }
 
 fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &AppState) -> AppResult<()> {
+    let normalized_base_url = normalize_base_url(&live.base_url)?;
     let existing = state.db.with_conn(|conn| dao::list_providers(conn, target))?;
-    if let Some(provider) = existing.iter().find(|p| p.base_url == live.base_url) {
+    if let Some(provider) = existing.iter().find(|p| p.base_url == normalized_base_url) {
         state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id))?;
         return Ok(());
     }
     let input = ProviderInput {
         id: None,
         name: "当前配置（已导入）".to_string(),
-        base_url: live.base_url,
+        base_url: normalized_base_url,
         api_key: live.auth_token,
         clear_api_key: false,
         model: live.model,
