@@ -6,6 +6,14 @@
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop";
 
+export interface ClaudeModelMapping {
+  sonnet: string;
+  opus: string;
+  haiku: string;
+  fable: string;
+  subagent: string;
+}
+
 /** A single API provider (mirrors `crate::provider::Provider`). */
 export interface Provider {
   id: string;
@@ -14,6 +22,7 @@ export interface Provider {
   /** API keys are never returned over IPC. */
   apiKeySet: boolean;
   model: string;
+  modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
   notes: string;
@@ -34,6 +43,7 @@ export interface ProviderInput {
   apiKey: string;
   clearApiKey?: boolean;
   model: string;
+  modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
   notes: string;

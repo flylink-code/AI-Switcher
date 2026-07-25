@@ -33,7 +33,8 @@ use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, protocol_endpoint_path, ProtocolType, Provider, ProviderTarget,
+    api_endpoint_url, protocol_endpoint_path, resolve_upstream_model, ProtocolType, Provider,
+    ProviderTarget,
 };
 
 const DEFAULT_PORT: u16 = 15821;
@@ -134,6 +135,7 @@ impl ProxyManager {
 
         let app = Router::new()
             .route("/health", get(health_handler))
+            .route("/v1/models", get(models_handler))
             .route("/v1/messages", any(proxy_handler))
             .layer(CorsLayer::permissive())
             .with_state(state);
@@ -262,6 +264,23 @@ async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
     }))
 }
 
+async fn models_handler(State(state): State<ProxyState>) -> Response {
+    match state
+        .db
+        .with_conn(|conn| get_current_provider(conn, state.target))
+    {
+        Ok(Some(provider)) => {
+            axum::Json(crate::config::claude_desktop::model_list_response(&provider))
+                .into_response()
+        }
+        Ok(None) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商"),
+        Err(error) => {
+            log::error!("读取模型目录失败: {error}");
+            json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+        }
+    }
+}
+
 async fn proxy_handler(
     State(state): State<ProxyState>,
     method: Method,
@@ -318,42 +337,21 @@ async fn proxy_handler(
             return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON");
         }
     };
+    let requested_model = incoming
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    provider.model = resolve_upstream_model(&provider, requested_model);
     let incoming_stream = convert::wants_stream(&incoming);
-    let upstream_request: AppResult<(String, Bytes, bool)> = match provider.protocol_type {
-        ProtocolType::OpenAiChat | ProtocolType::Proxy => {
-            let request = convert::anthropic_to_openai_chat(&incoming, provider.model.trim(), incoming_stream);
-            api_endpoint_url(
-                &provider.base_url,
-                protocol_endpoint_path(provider.protocol_type),
-            )
-                .map(|url| {
-                    (
-                        url,
-                        Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
-                        true,
-                    )
-                })
-        }
-        ProtocolType::OpenAiResponses => {
-            let request = convert::anthropic_to_openai_responses(&incoming, provider.model.trim(), incoming_stream);
-            api_endpoint_url(
-                &provider.base_url,
-                protocol_endpoint_path(provider.protocol_type),
-            )
-                .map(|url| {
-                    (
-                        url,
-                        Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
-                        true,
-                    )
-                })
-        }
-        ProtocolType::Anthropic => api_endpoint_url(
+    let upstream_request: AppResult<(String, Bytes, bool)> = api_endpoint_url(
             &provider.base_url,
             protocol_endpoint_path(provider.protocol_type),
         )
-            .map(|url| (url, rewrite_body(&provider, &body_bytes), false)),
-    };
+        .map(|url| {
+            let (body, translated) =
+                encode_upstream_request(&provider, &incoming, &body_bytes, incoming_stream);
+            (url, body, translated)
+        });
     let (target_url, outgoing_body, translated) = match upstream_request {
         Ok(request) => request,
         Err(error) => {
@@ -583,7 +581,7 @@ fn find_sse_frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
 }
 
 fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
-    if !provider.protocol_type.uses_proxy() || provider.model.trim().is_empty() {
+    if provider.model.trim().is_empty() {
         return original.clone();
     }
 
@@ -599,6 +597,33 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
     serde_json::to_vec(&value)
         .map(Bytes::from)
         .unwrap_or_else(|_| original.clone())
+}
+
+fn encode_upstream_request(
+    provider: &Provider,
+    incoming: &Value,
+    original: &Bytes,
+    stream: bool,
+) -> (Bytes, bool) {
+    match provider.protocol_type {
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => {
+            let request =
+                convert::anthropic_to_openai_chat(incoming, provider.model.trim(), stream);
+            (
+                Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
+                true,
+            )
+        }
+        ProtocolType::OpenAiResponses => {
+            let request =
+                convert::anthropic_to_openai_responses(incoming, provider.model.trim(), stream);
+            (
+                Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
+                true,
+            )
+        }
+        ProtocolType::Anthropic => (rewrite_body(provider, original), false),
+    }
 }
 
 fn log_request(
@@ -746,6 +771,27 @@ fn is_hop_by_hop_header(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::{ClaudeModelMapping, ProviderTarget};
+
+    fn provider(protocol_type: ProtocolType) -> Provider {
+        Provider {
+            id: "mapped".into(),
+            name: "Mapped".into(),
+            base_url: "https://api.example.test".into(),
+            api_key: "secret".into(),
+            api_key_set: true,
+            model: "opus-upstream".into(),
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type,
+            target_app: ProviderTarget::ClaudeCode,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: true,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        }
+    }
 
     #[test]
     fn upstream_sse_decoder_reassembles_split_json_frames() {
@@ -764,5 +810,26 @@ mod tests {
         let events = decoder.push(b"data: [DONE]\r\n\r\n");
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0], UpstreamSseItem::Done));
+    }
+
+    #[test]
+    fn all_protocols_send_the_resolved_model() {
+        let incoming = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "max_tokens": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        });
+        let original = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+
+        for protocol in [
+            ProtocolType::Anthropic,
+            ProtocolType::OpenAiChat,
+            ProtocolType::OpenAiResponses,
+        ] {
+            let provider = provider(protocol);
+            let (body, _) = encode_upstream_request(&provider, &incoming, &original, false);
+            let value: Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(value["model"], "opus-upstream", "{protocol:?}");
+        }
     }
 }

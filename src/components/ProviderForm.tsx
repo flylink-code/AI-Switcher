@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   App,
+  AutoComplete,
   Button,
   Form,
   Checkbox,
@@ -12,13 +13,20 @@ import {
   type InputRef,
 } from "antd";
 import { useTranslation } from "react-i18next";
-import type { Provider, ProviderInput, ProtocolType } from "@/types/backend";
+import type {
+  ClaudeModelMapping,
+  Provider,
+  ProviderInput,
+  ProviderTarget,
+  ProtocolType,
+} from "@/types/backend";
 import { discoverProviderModelsInput, testProviderInput } from "@/services/api";
 
 interface ProviderFormProps {
   open: boolean;
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
+  target: ProviderTarget;
   onCancel: () => void;
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
@@ -63,6 +71,7 @@ function buildEndpointPreview(baseUrl: string | undefined, protocol: ProtocolTyp
 export function ProviderForm({
   open,
   editing,
+  target,
   onCancel,
   onSubmit,
 }: ProviderFormProps) {
@@ -74,6 +83,8 @@ export function ProviderForm({
   const [testing, setTesting] = useState(false);
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
+  const watchedDefaultModel = Form.useWatch("model", form) ?? "";
+  const watchedMapping = Form.useWatch("modelMapping", form);
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
 
@@ -90,6 +101,7 @@ export function ProviderForm({
         apiKey: "",
         clearApiKey: false,
         model: editing.model,
+        modelMapping: editing.modelMapping,
         protocolType: editing.protocolType,
         notes: editing.notes,
         targetApp: editing.targetApp,
@@ -99,12 +111,19 @@ export function ProviderForm({
       form.resetFields();
       form.setFieldsValue({
         protocolType: "anthropic" as ProtocolType,
-        targetApp: "claude_code",
+        targetApp: target,
+        modelMapping: {
+          sonnet: "",
+          opus: "",
+          haiku: "",
+          fable: "",
+          subagent: "",
+        },
       });
     }
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
-  }, [open, editing, form]);
+  }, [open, editing, form, target]);
 
   const handleOk = async () => {
     try {
@@ -120,7 +139,8 @@ export function ProviderForm({
   const discoverModels = async () => {
     setDiscovering(true);
     try {
-      const values = await form.validateFields(["name", "baseUrl", "apiKey", "model", "protocolType", "targetApp", "notes", "id"]);
+      await form.validateFields(["name", "baseUrl", "apiKey", "protocolType", "targetApp"]);
+      const values = form.getFieldsValue(true);
       const normalized = { ...values, baseUrl: normalizeBaseUrl(values.baseUrl) };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       const result = await discoverProviderModelsInput(normalized);
@@ -155,6 +175,38 @@ export function ProviderForm({
     }
   };
 
+  const roleFields: Array<{
+    key: keyof ClaudeModelMapping;
+    label: string;
+    codeOnly?: boolean;
+  }> = [
+    { key: "sonnet", label: t("providers.modelRoleSonnet") },
+    { key: "opus", label: t("providers.modelRoleOpus") },
+    { key: "haiku", label: t("providers.modelRoleHaiku") },
+    { key: "fable", label: t("providers.modelRoleFable") },
+    { key: "subagent", label: t("providers.modelRoleSubagent"), codeOnly: true },
+  ];
+  const visibleRoleFields = roleFields.filter(
+    (role) => !role.codeOnly || (editing?.targetApp ?? target) === "claude_code",
+  );
+  const modelOptions = models.map((model) => ({ value: model }));
+
+  const fillAllRoles = () => {
+    const model = form.getFieldValue("model")?.trim();
+    if (!model) {
+      void message.warning(t("providers.requiredDefaultModel"));
+      return;
+    }
+    const mapping = {
+      sonnet: model,
+      opus: model,
+      haiku: model,
+      fable: model,
+      subagent: (editing?.targetApp ?? target) === "claude_code" ? model : "",
+    };
+    form.setFieldValue("modelMapping", mapping);
+  };
+
   return (
     <Modal
       open={open}
@@ -164,7 +216,7 @@ export function ProviderForm({
       onCancel={onCancel}
       onOk={handleOk}
       destroyOnHidden
-      width={520}
+      width={640}
       styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto", paddingInlineEnd: 4 } }}
     >
       <Form form={form} layout="vertical" autoComplete="off">
@@ -247,15 +299,58 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        <Form.Item name="model" label={t("providers.fieldModel")} extra={<Space size="small">
-          <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
-          <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
-        </Space>}>
-          <Input placeholder="model-name" list="provider-models" />
+        <Form.Item
+          name="model"
+          label={t("providers.defaultModel")}
+          rules={[{ required: true, whitespace: true, message: t("providers.requiredDefaultModel") }]}
+          extra={<Space size="small" wrap>
+            <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
+            <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
+            <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>
+          </Space>}
+        >
+          <AutoComplete
+            options={modelOptions}
+            placeholder="model-name"
+            filterOption={(input, option) =>
+              String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+          />
         </Form.Item>
-        <datalist id="provider-models">
-          {models.map((model) => <option key={model} value={model} />)}
-        </datalist>
+
+        <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
+          {t("providers.modelMapping")}
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          {t("providers.modelMappingHint")}
+        </Typography.Paragraph>
+        {visibleRoleFields.map((role) => (
+          <Form.Item
+            key={role.key}
+            name={["modelMapping", role.key]}
+            label={role.label}
+            extra={t("providers.modelFallback", { model: watchedDefaultModel || "—" })}
+          >
+            <AutoComplete
+              allowClear
+              options={modelOptions}
+              placeholder={watchedDefaultModel || "model-name"}
+              filterOption={(input, option) =>
+                String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+        ))}
+        <Typography.Paragraph type="secondary">
+          {visibleRoleFields.map((role) => {
+            const mapped = watchedMapping?.[role.key]?.trim() || watchedDefaultModel || "—";
+            return (
+              <Typography.Text key={role.key} code style={{ marginInlineEnd: 8 }}>
+                {role.label} → {mapped}
+              </Typography.Text>
+            );
+          })}
+        </Typography.Paragraph>
 
         <Form.Item name="notes" label={t("providers.fieldNotes")}>
           <Input.TextArea rows={2} />

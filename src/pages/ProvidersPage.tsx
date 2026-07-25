@@ -143,7 +143,23 @@ export default function ProvidersPage() {
   const columns: TableColumnsType<Provider> = [
     { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}{row.healthStatus && <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>{row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}</Tag>}</Space> },
     { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", width: 280, ellipsis: true, render: (value: string) => <Text code copyable ellipsis={{ tooltip: value }}>{value}</Text> },
-    { title: t("providers.colModel"), dataIndex: "model", width: 160, ellipsis: true },
+    {
+      title: t("providers.colModel"),
+      dataIndex: "model",
+      width: 210,
+      ellipsis: true,
+      render: (_: string, row) => {
+        const count = Object.entries(row.modelMapping)
+          .filter(([key]) => key !== "subagent" || row.targetApp === "claude_code")
+          .filter(([, value]) => value.trim()).length;
+        return (
+          <Space size={4}>
+            <Text ellipsis={{ tooltip: row.model }}>{row.model}</Text>
+            <Tag>{t("providers.mappingCount", { count })}</Tag>
+          </Space>
+        );
+      },
+    },
     { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 150, render: (value: string) => <Tag color={value === "anthropic" ? "blue" : "orange"}>{value}</Tag> },
     {
       title: t("providers.colActions"), key: "actions", width: 240,
@@ -200,11 +216,17 @@ export default function ProvidersPage() {
         columns={columns}
         pagination={false}
         tableLayout="fixed"
-        scroll={{ x: 1050 }}
+        scroll={{ x: 1100 }}
         locale={{ emptyText: t("providers.empty") }}
       />
     </Card>
-    <ProviderForm open={formOpen} editing={editing} onCancel={() => setFormOpen(false)} onSubmit={handleSubmit} />
+    <ProviderForm
+      open={formOpen}
+      editing={editing}
+      target={target}
+      onCancel={() => setFormOpen(false)}
+      onSubmit={handleSubmit}
+    />
   </Space>;
 }
 

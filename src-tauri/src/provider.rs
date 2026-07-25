@@ -158,6 +158,115 @@ pub fn protocol_endpoint_path(protocol: ProtocolType) -> &'static str {
     }
 }
 
+/// Optional upstream model overrides for Claude's built-in model roles.
+///
+/// `Provider.model` remains the required default. Empty role values fall back
+/// to that default so legacy single-model providers continue to work.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeModelMapping {
+    #[serde(default)]
+    pub sonnet: String,
+    #[serde(default)]
+    pub opus: String,
+    #[serde(default)]
+    pub haiku: String,
+    #[serde(default)]
+    pub fable: String,
+    #[serde(default)]
+    pub subagent: String,
+}
+
+impl ClaudeModelMapping {
+    pub fn has_explicit_roles(&self) -> bool {
+        [
+            &self.sonnet,
+            &self.opus,
+            &self.haiku,
+            &self.fable,
+            &self.subagent,
+        ]
+        .iter()
+        .any(|model| !model.trim().is_empty())
+    }
+
+    pub fn for_role<'a>(&'a self, role: ClaudeModelRole, default: &'a str) -> &'a str {
+        let configured = match role {
+            ClaudeModelRole::Sonnet => &self.sonnet,
+            ClaudeModelRole::Opus => &self.opus,
+            ClaudeModelRole::Haiku => &self.haiku,
+            ClaudeModelRole::Fable => &self.fable,
+            ClaudeModelRole::Subagent => &self.subagent,
+        };
+        if configured.trim().is_empty() {
+            default.trim()
+        } else {
+            configured.trim()
+        }
+    }
+
+    pub fn configured_models(&self) -> impl Iterator<Item = &str> {
+        [
+            self.sonnet.as_str(),
+            self.opus.as_str(),
+            self.haiku.as_str(),
+            self.fable.as_str(),
+            self.subagent.as_str(),
+        ]
+        .into_iter()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClaudeModelRole {
+    Sonnet,
+    Opus,
+    Haiku,
+    Fable,
+    Subagent,
+}
+
+fn classify_claude_model_role(model: &str) -> Option<ClaudeModelRole> {
+    let normalized = model.to_ascii_lowercase();
+    if normalized.contains("subagent") {
+        Some(ClaudeModelRole::Subagent)
+    } else if normalized.contains("fable") {
+        Some(ClaudeModelRole::Fable)
+    } else if normalized.contains("haiku") {
+        Some(ClaudeModelRole::Haiku)
+    } else if normalized.contains("opus") {
+        Some(ClaudeModelRole::Opus)
+    } else if normalized.contains("sonnet") {
+        Some(ClaudeModelRole::Sonnet)
+    } else {
+        None
+    }
+}
+
+/// Resolve a Claude-facing model id to the configured upstream model.
+///
+/// Requests already carrying a configured upstream id pass through unchanged.
+/// Claude role names use their override, and all unknown values fall back to
+/// the provider default.
+pub fn resolve_upstream_model(provider: &Provider, requested: &str) -> String {
+    let requested = requested.trim();
+    let default = provider.model.trim();
+    if requested == default
+        || provider
+            .model_mapping
+            .configured_models()
+            .any(|configured| configured == requested)
+    {
+        return requested.to_string();
+    }
+    classify_claude_model_role(requested)
+        .map(|role| provider.model_mapping.for_role(role, default))
+        .unwrap_or(default)
+        .to_string()
+}
+
 /// A single API provider. Field names are camelCase on the wire for the frontend.
 ///
 /// Note on `api_key`: since P7 this field holds either a keyring reference
@@ -181,6 +290,8 @@ pub struct Provider {
     #[serde(default)]
     pub model: String,
     #[serde(default)]
+    pub model_mapping: ClaudeModelMapping,
+    #[serde(default)]
     pub protocol_type: ProtocolType,
     #[serde(default)]
     pub notes: String,
@@ -196,6 +307,20 @@ pub struct Provider {
     pub health_status: Option<String>,
     #[serde(default)]
     pub health_checked_at: Option<i64>,
+}
+
+impl Provider {
+    pub fn requires_local_proxy(&self) -> bool {
+        self.protocol_type.uses_proxy()
+            || (self.target_app == ProviderTarget::ClaudeDesktop
+                && (self.model_mapping.has_explicit_roles()
+                    || !is_claude_desktop_safe_model(self.model.trim())))
+    }
+}
+
+fn is_claude_desktop_safe_model(model: &str) -> bool {
+    let normalized = model.to_ascii_lowercase();
+    normalized.starts_with("claude-") || normalized.starts_with("anthropic/claude-")
 }
 
 /// Subset that can be created/updated from the frontend. `id` is optional on
@@ -216,6 +341,8 @@ pub struct ProviderInput {
     pub clear_api_key: bool,
     #[serde(default)]
     pub model: String,
+    #[serde(default)]
+    pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
     pub protocol_type: ProtocolType,
     #[serde(default)]
@@ -258,6 +385,8 @@ pub struct ProviderExportEntry {
     pub name: String,
     pub base_url: String,
     pub model: String,
+    #[serde(default)]
+    pub model_mapping: ClaudeModelMapping,
     pub protocol_type: ProtocolType,
     pub target_app: ProviderTarget,
     #[serde(default)]
@@ -277,11 +406,15 @@ pub struct LiveProviderInfo {
     pub base_url: String,
     pub auth_token: String,
     pub model: String,
+    pub model_mapping: ClaudeModelMapping,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{api_endpoint_url, normalize_base_url, protocol_endpoint_path, ProtocolType};
+    use super::{
+        api_endpoint_url, normalize_base_url, protocol_endpoint_path, resolve_upstream_model,
+        ClaudeModelMapping, ProtocolType, Provider, ProviderTarget,
+    };
 
     #[test]
     fn endpoint_url_preserves_gateway_path_without_duplicate_v1() {
@@ -350,6 +483,61 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&ProtocolType::OpenAiChat).unwrap(),
             "\"openai_chat\""
+        );
+    }
+
+    fn provider_with_mapping() -> Provider {
+        Provider {
+            id: "mapped".into(),
+            name: "Mapped".into(),
+            base_url: "https://api.example.test".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: "default-model".into(),
+            model_mapping: ClaudeModelMapping {
+                sonnet: "sonnet-upstream".into(),
+                opus: "opus-upstream".into(),
+                haiku: String::new(),
+                fable: "fable-upstream".into(),
+                subagent: "agent-upstream".into(),
+            },
+            protocol_type: ProtocolType::OpenAiChat,
+            target_app: ProviderTarget::ClaudeCode,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        }
+    }
+
+    #[test]
+    fn role_models_resolve_with_exact_pass_through_and_default_fallback() {
+        let provider = provider_with_mapping();
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-sonnet-5"),
+            "sonnet-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-opus-4-8"),
+            "opus-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-haiku-4-5"),
+            "default-model"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-fable-5"),
+            "fable-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "agent-upstream"),
+            "agent-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "unknown-model"),
+            "default-model"
         );
     }
 }

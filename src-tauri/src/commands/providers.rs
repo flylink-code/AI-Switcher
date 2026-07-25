@@ -226,6 +226,7 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
             name: provider.name,
             base_url: provider.base_url,
             model: provider.model,
+            model_mapping: provider.model_mapping,
             protocol_type: provider.protocol_type,
             target_app: provider.target_app,
             notes: provider.notes,
@@ -261,6 +262,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             api_key: String::new(),
             clear_api_key: false,
             model: entry.model,
+            model_mapping: entry.model_mapping,
             protocol_type: entry.protocol_type,
             target_app: entry.target_app,
             notes: entry.notes,
@@ -281,7 +283,10 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
     })?;
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
     let mut snapshot = SwitchSnapshot::capture(state, runtime_provider.target_app).await?;
-    let uses_proxy = runtime_provider.protocol_type.uses_proxy();
+    if runtime_provider.model.trim().is_empty() {
+        return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
+    }
+    let uses_proxy = runtime_provider.requires_local_proxy();
     let result: AppResult<()> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
@@ -461,8 +466,11 @@ async fn rollback_switch<T>(snapshot: SwitchSnapshot, state: &AppState, error: A
 }
 
 const CODE_OWNERSHIP_KEY: &str = "p7.code_config_ownership";
-const CODE_MANAGED_KEYS: [&str; 4] = [
+const CODE_MANAGED_KEYS: [&str; 9] = [
     "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
 ];
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -485,6 +493,8 @@ fn code_managed_fields() -> AppResult<BTreeMap<String, Option<Value>>> {
 }
 
 fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap<String, Option<Value>> {
+    use crate::provider::ClaudeModelRole;
+
     let mut values = BTreeMap::new();
     values.insert("ANTHROPIC_BASE_URL".to_string(), Some(Value::String(if proxy {
         format!("http://127.0.0.1:{port}")
@@ -496,7 +506,44 @@ fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap
     values.insert("ANTHROPIC_MODEL".to_string(), if provider.model.is_empty() {
         None
     } else { Some(Value::String(provider.model.clone())) });
+    for (key, role) in [
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL", ClaudeModelRole::Sonnet),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", ClaudeModelRole::Opus),
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", ClaudeModelRole::Haiku),
+        ("ANTHROPIC_DEFAULT_FABLE_MODEL", ClaudeModelRole::Fable),
+        ("CLAUDE_CODE_SUBAGENT_MODEL", ClaudeModelRole::Subagent),
+    ] {
+        values.insert(
+            key.to_string(),
+            Some(Value::String(
+                provider
+                    .model_mapping
+                    .for_role(role, provider.model.trim())
+                    .to_string(),
+            )),
+        );
+    }
     values
+}
+
+fn upgrade_code_ownership_fields(
+    ownership: &mut CodeOwnership,
+    current: &BTreeMap<String, Option<Value>>,
+) {
+    for key in CODE_MANAGED_KEYS {
+        if !ownership.written.contains_key(key) {
+            let current_value = current.get(key).cloned().unwrap_or(None);
+            ownership
+                .before
+                .entry(key.to_string())
+                .or_insert_with(|| current_value.clone());
+            ownership
+                .written
+                .insert(key.to_string(), current_value);
+        } else {
+            ownership.before.entry(key.to_string()).or_insert(None);
+        }
+    }
 }
 
 fn prepare_code_ownership(provider: &Provider, state: &AppState, proxy: bool, port: u16) -> AppResult<CodeOwnership> {
@@ -505,6 +552,7 @@ fn prepare_code_ownership(provider: &Provider, state: &AppState, proxy: bool, po
     if let Some(raw) = raw.filter(|value| !value.is_empty()) {
         let mut ownership: CodeOwnership = serde_json::from_str(&raw)
             .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全切换".to_string()))?;
+        upgrade_code_ownership_fields(&mut ownership, &current);
         if ownership.written != current {
             return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
         }
@@ -645,6 +693,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         id: input.id.clone().unwrap_or_else(|| "temporary-form-provider".to_string()),
         name: input.name.clone(), base_url: normalize_base_url(&input.base_url)?, api_key: key,
         api_key_set: !input.api_key.trim().is_empty(), model: input.model.clone(),
+        model_mapping: input.model_mapping.clone(),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
         sort_index: 0, is_current: false, created_at: 0,
         health_status: None, health_checked_at: None,
@@ -718,6 +767,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         api_key: live.auth_token,
         clear_api_key: false,
         model: live.model,
+        model_mapping: live.model_mapping,
         protocol_type: ProtocolType::Anthropic,
         target_app: target,
         notes: "从当前 Claude Code 配置导入".to_string(),
@@ -737,4 +787,45 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         .and_then(|value| value.parse::<u16>().ok())
         .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
         .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_ownership_adopts_new_role_fields_without_losing_restore_values() {
+        let mut ownership = CodeOwnership {
+            before: BTreeMap::from([(
+                "ANTHROPIC_MODEL".to_string(),
+                Some(Value::String("original-default".to_string())),
+            )]),
+            written: BTreeMap::from([(
+                "ANTHROPIC_MODEL".to_string(),
+                Some(Value::String("managed-default".to_string())),
+            )]),
+        };
+        let current = BTreeMap::from([
+            (
+                "ANTHROPIC_MODEL".to_string(),
+                Some(Value::String("managed-default".to_string())),
+            ),
+            (
+                "ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(),
+                Some(Value::String("user-sonnet".to_string())),
+            ),
+        ]);
+
+        upgrade_code_ownership_fields(&mut ownership, &current);
+
+        let adopted = Some(Value::String("user-sonnet".to_string()));
+        assert_eq!(
+            ownership.before["ANTHROPIC_DEFAULT_SONNET_MODEL"],
+            adopted
+        );
+        assert_eq!(
+            ownership.written["ANTHROPIC_DEFAULT_SONNET_MODEL"],
+            adopted
+        );
+    }
 }

@@ -15,15 +15,20 @@ use serde_json::{Map, Value};
 use crate::backup::backup_file_named;
 use crate::config::{atomic_write, get_claude_settings_path, sort_json_keys};
 use crate::error::AppResult;
-use crate::provider::{LiveProviderInfo, Provider};
+use crate::provider::{ClaudeModelMapping, LiveProviderInfo, Provider};
 
 /// The exact Claude Code fields owned by this application. Other
 /// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
-const MANAGED_ENV_KEYS: [&str; 4] = [
+const MANAGED_ENV_KEYS: [&str; 9] = [
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
 ];
 /// Max backups of `settings.json` to retain.
 const SETTINGS_BACKUP_KEEP: usize = 10;
@@ -74,7 +79,7 @@ pub fn apply_provider_to_settings_via_proxy_at(
     remove_managed_keys(env);
     set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
     set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
-    set_str(env, "ANTHROPIC_MODEL", &provider.model);
+    inject_provider_models(env, provider);
 
     write_settings(path, &settings)
 }
@@ -140,6 +145,19 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    let env_model = |key: &str| {
+        env.get(key)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    let model_mapping = ClaudeModelMapping {
+        sonnet: env_model("ANTHROPIC_DEFAULT_SONNET_MODEL"),
+        opus: env_model("ANTHROPIC_DEFAULT_OPUS_MODEL"),
+        haiku: env_model("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
+        fable: env_model("ANTHROPIC_DEFAULT_FABLE_MODEL"),
+        subagent: env_model("CLAUDE_CODE_SUBAGENT_MODEL"),
+    };
 
     // No base_url = nothing configured (official login).
     if base_url.is_empty() && auth_token.is_empty() && model.is_empty() {
@@ -149,6 +167,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         base_url,
         auth_token,
         model,
+        model_mapping,
     }))
 }
 
@@ -204,7 +223,23 @@ fn remove_managed_keys(env: &mut Map<String, Value>) {
 fn inject_provider_env(env: &mut Map<String, Value>, provider: &Provider) {
     set_str(env, "ANTHROPIC_BASE_URL", &provider.base_url);
     set_str(env, "ANTHROPIC_AUTH_TOKEN", &provider.api_key);
-    set_str(env, "ANTHROPIC_MODEL", &provider.model);
+    inject_provider_models(env, provider);
+}
+
+fn inject_provider_models(env: &mut Map<String, Value>, provider: &Provider) {
+    use crate::provider::ClaudeModelRole;
+
+    let default = provider.model.trim();
+    set_str(env, "ANTHROPIC_MODEL", default);
+    for (key, role) in [
+        ("ANTHROPIC_DEFAULT_SONNET_MODEL", ClaudeModelRole::Sonnet),
+        ("ANTHROPIC_DEFAULT_OPUS_MODEL", ClaudeModelRole::Opus),
+        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", ClaudeModelRole::Haiku),
+        ("ANTHROPIC_DEFAULT_FABLE_MODEL", ClaudeModelRole::Fable),
+        ("CLAUDE_CODE_SUBAGENT_MODEL", ClaudeModelRole::Subagent),
+    ] {
+        set_str(env, key, provider.model_mapping.for_role(role, default));
+    }
 }
 
 fn set_str(env: &mut Map<String, Value>, key: &str, value: &str) {
@@ -247,6 +282,13 @@ mod tests {
             api_key: "sk-deepseek".into(),
             api_key_set: true,
             model: "deepseek-v4-pro".into(),
+            model_mapping: ClaudeModelMapping {
+                sonnet: "deepseek-sonnet".into(),
+                opus: "deepseek-opus".into(),
+                haiku: "deepseek-haiku".into(),
+                fable: "deepseek-fable".into(),
+                subagent: "deepseek-agent".into(),
+            },
             protocol_type: ProtocolType::Anthropic,
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
@@ -291,8 +333,11 @@ mod tests {
         assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
-        // A user-owned Anthropic setting is retained.
-        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "old-sonnet");
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "deepseek-sonnet");
+        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "deepseek-opus");
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "deepseek-haiku");
+        assert_eq!(env["ANTHROPIC_DEFAULT_FABLE_MODEL"], "deepseek-fable");
+        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-agent");
         // Non-anthropic env preserved.
         assert_eq!(env["ENABLE_TOOL_SEARCH"], "true");
         assert_eq!(env["DISABLE_AUTOUPDATER"], "1");
@@ -318,6 +363,7 @@ mod tests {
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = after_clear.get("env").unwrap().as_object().unwrap();
         assert!(env.keys().all(|k| !k.starts_with("ANTHROPIC_")), "anthropic keys remain");
+        assert!(!env.contains_key("CLAUDE_CODE_SUBAGENT_MODEL"));
         assert_eq!(after_clear["model"], "default", "top-level key preserved");
     }
 

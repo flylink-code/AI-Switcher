@@ -19,7 +19,7 @@ use crate::backup::backup_file_named;
 use crate::config::{read_json_file, write_json_file};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProtocolType, Provider};
+use crate::provider::{ClaudeModelMapping, ClaudeModelRole, Provider};
 
 /// Subdirectory inside the Claude install dir that holds provider configs.
 const CONFIG_LIBRARY_DIR: &str = "configLibrary";
@@ -111,6 +111,12 @@ const PROFILE_ID: &str = "claude-switcher";
 const PROFILE_NAME: &str = "Claude Switcher";
 const GATEWAY_TOKEN_KEY: &str = "claude_desktop_gateway_token";
 const MAX_BACKUPS: usize = 10;
+const DESKTOP_ROLE_ROUTES: [(&str, ClaudeModelRole); 4] = [
+    ("claude-sonnet-5", ClaudeModelRole::Sonnet),
+    ("claude-opus-4-8", ClaudeModelRole::Opus),
+    ("claude-haiku-4-5", ClaudeModelRole::Haiku),
+    ("claude-fable-5", ClaudeModelRole::Fable),
+];
 
 /// Activate a provider for Claude Desktop by writing the configLibrary profile
 /// and updating `_meta.json`.
@@ -204,12 +210,12 @@ pub fn current_applied_id() -> AppResult<Option<String>> {
     Ok(value.get("appliedId").and_then(Value::as_str).map(str::to_string))
 }
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
-    let (base_url, api_key) = match provider.protocol_type {
-        ProtocolType::Anthropic => (provider.base_url.clone(), provider.api_key.clone()),
-        _ => {
-            let token = get_or_create_gateway_token()?;
-            (format!("http://127.0.0.1:{proxy_port}"), token)
-        }
+    let role_routes = provider.requires_local_proxy();
+    let (base_url, api_key) = if role_routes {
+        let token = get_or_create_gateway_token()?;
+        (format!("http://127.0.0.1:{proxy_port}"), token)
+    } else {
+        (provider.base_url.clone(), provider.api_key.clone())
     };
 
     let mut profile = serde_json::json!({
@@ -220,13 +226,50 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
         "disableDeploymentModeChooser": true,
     });
 
-    if !provider.model.trim().is_empty() {
+    if role_routes {
+        profile["inferenceModels"] = Value::Array(desktop_inference_models(provider));
+    } else if !provider.model.trim().is_empty() {
         profile["inferenceModels"] = serde_json::json!([
             { "name": provider.model.trim(), "supports1m": true }
         ]);
     }
 
     Ok(profile)
+}
+
+fn desktop_inference_models(provider: &Provider) -> Vec<Value> {
+    DESKTOP_ROLE_ROUTES
+        .iter()
+        .map(|(route_id, role)| {
+            let upstream = provider
+                .model_mapping
+                .for_role(*role, provider.model.trim());
+            serde_json::json!({
+                "name": route_id,
+                "labelOverride": upstream,
+                "supports1m": true,
+            })
+        })
+        .collect()
+}
+
+/// Claude Desktop queries this endpoint to populate its model menu.
+pub fn model_list_response(_provider: &Provider) -> Value {
+    let data = DESKTOP_ROLE_ROUTES
+        .iter()
+        .map(|(route_id, _)| {
+            serde_json::json!({
+                "type": "model",
+                "id": route_id,
+                "created_at": 0,
+                "supports1m": true,
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "data": data,
+        "has_more": false,
+    })
 }
 
 /// Read the Claude Switcher profile currently applied to Claude Desktop, if any.
@@ -249,18 +292,49 @@ pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LivePro
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let model = profile
+    let inference_models = profile
         .get("inferenceModels")
         .and_then(Value::as_array)
-        .and_then(|models| models.first())
-        .and_then(|model| model.get("name"))
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+        .cloned()
+        .unwrap_or_default();
+    let upstream_name = |item: &Value| {
+        item.get("labelOverride")
+            .or_else(|| item.get("name"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    let model = inference_models
+        .first()
+        .map(&upstream_name)
+        .unwrap_or_default();
+    let role_model = |role: &str| {
+        inference_models
+            .iter()
+            .find(|item| {
+                item.get("name")
+                    .and_then(Value::as_str)
+                    .is_some_and(|name| name.to_ascii_lowercase().contains(role))
+            })
+            .map(&upstream_name)
+            .unwrap_or_default()
+    };
+    let model_mapping = ClaudeModelMapping {
+        sonnet: role_model("sonnet"),
+        opus: role_model("opus"),
+        haiku: role_model("haiku"),
+        fable: role_model("fable"),
+        subagent: String::new(),
+    };
     if base_url.is_empty() && auth_token.is_empty() && model.is_empty() {
         return Ok(None);
     }
-    Ok(Some(crate::provider::LiveProviderInfo { base_url, auth_token, model }))
+    Ok(Some(crate::provider::LiveProviderInfo {
+        base_url,
+        auth_token,
+        model,
+        model_mapping,
+    }))
 }
 
 fn get_or_create_gateway_token() -> AppResult<String> {
@@ -323,6 +397,33 @@ fn write_meta(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderTarget};
+
+    fn mapped_provider() -> Provider {
+        Provider {
+            id: "desktop-models".into(),
+            name: "Mapped".into(),
+            base_url: "https://api.example.test".into(),
+            api_key: "secret".into(),
+            api_key_set: true,
+            model: "default-upstream".into(),
+            model_mapping: ClaudeModelMapping {
+                sonnet: "upstream-sonnet".into(),
+                opus: "upstream-opus".into(),
+                haiku: "upstream-haiku".into(),
+                fable: "upstream-fable".into(),
+                subagent: String::new(),
+            },
+            protocol_type: ProtocolType::Anthropic,
+            target_app: ProviderTarget::ClaudeDesktop,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        }
+    }
 
     #[test]
     fn unsupported_platform_returns_none() {
@@ -338,5 +439,21 @@ mod tests {
         if is_supported_platform() {
             assert!(!candidate_base_dirs().is_empty());
         }
+    }
+
+    #[test]
+    fn desktop_catalog_uses_safe_routes_and_upstream_labels() {
+        let provider = mapped_provider();
+        assert!(provider.requires_local_proxy());
+        let models = desktop_inference_models(&provider);
+        assert_eq!(models.len(), 4);
+        assert_eq!(models[0]["name"], "claude-sonnet-5");
+        assert_eq!(models[0]["labelOverride"], "upstream-sonnet");
+        assert_eq!(models[3]["name"], "claude-fable-5");
+        assert_eq!(models[3]["labelOverride"], "upstream-fable");
+
+        let response = model_list_response(&provider);
+        assert_eq!(response["data"][1]["id"], "claude-opus-4-8");
+        assert_eq!(response["data"][2]["id"], "claude-haiku-4-5");
     }
 }

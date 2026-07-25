@@ -1,6 +1,6 @@
-# Claude Switcher P13–P14 优化任务
+# Claude Switcher P13–P15 优化任务
 
-> 当前范围只包含生产界面稳定和供应商地址/API 类型重构。P0–P12 已完成内容不在本文件重复规划。
+> 当前范围包含生产界面稳定、供应商地址/API 类型重构和多模型角色映射。P0–P12 已完成内容不在本文件重复规划。
 
 ## P13：界面稳定与响应式布局
 
@@ -60,3 +60,31 @@
 - 不会生成 `/v1/v1/...` 或重复的完整请求路径。
 - 供应商页在支持的最小窗口中无重叠、溢出和嵌套滚动异常。
 - 编译、自动化测试和生产界面验收通过后，关闭 P13–P14。
+
+## P15：Claude Code / Desktop 多模型角色映射
+
+### 固定接口
+
+- `Provider.model` 保留为必填默认模型。
+- `Provider.modelMapping` 固定支持 Sonnet、Opus、Haiku、Fable 和 Subagent。
+- Claude Code 与 Claude Desktop 的供应商及模型映射继续独立管理。
+- 未配置角色统一回退默认模型。
+
+### 已实施
+
+- [x] 数据库升级至 v7，使用 `model_mapping_json` 保存角色映射，旧记录保持单模型回退行为。
+- [x] 供应商表单支持模型发现下拉、手工输入、一键填充和角色映射预览。
+- [x] Claude Code 写入默认、Sonnet、Opus、Haiku、Fable 和 Subagent 模型变量。
+- [x] 新增模型变量已纳入配置所有权、备份、恢复和官方登录切换。
+- [x] Claude Desktop 使用四个安全 `claude-*` 路由并通过 `labelOverride` 显示真实上游模型。
+- [x] 第三方模型名、非 Anthropic 协议或显式角色映射会自动启用 Desktop 本地代理。
+- [x] 本地代理提供 `/v1/models`，并为三种 API 类型复用统一模型解析结果。
+- [x] 创建、编辑、JSON 导入导出和当前 Claude Code 配置导入支持角色映射。
+- [x] 增加 v7 迁移、角色回退、配置写入、Desktop 模型目录和三协议请求模型测试。
+
+### 待验收
+
+- [ ] 在 Claude Code 中分别选择 Sonnet、Opus、Haiku、Fable 和 Subagent，确认上游收到对应模型。
+- [ ] 在 Claude Desktop 模型菜单中确认四个安全角色可见，且实际请求映射到第三方模型。
+- [ ] 验证角色留空时回退默认模型，编辑当前供应商后配置立即同步。
+- [ ] 验证旧版单模型供应商升级后仍可切换，旧版导出 JSON 仍可导入。

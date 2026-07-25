@@ -5,7 +5,7 @@ use rusqlite::{params, Connection};
 
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    normalize_base_url, ProtocolType, Provider, ProviderInput, ProviderTarget,
+    normalize_base_url, ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderTarget,
 };
 use crate::secrets;
 
@@ -25,7 +25,8 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
         "SELECT id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index,
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
-                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id)
+                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
+                model_mapping_json
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -38,7 +39,8 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
         "SELECT id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index,
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
-                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id)
+                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
+                model_mapping_json
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -54,7 +56,8 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
         "SELECT id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index,
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
-                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id)
+                (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
+                model_mapping_json
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -77,7 +80,11 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     if input.base_url.trim().is_empty() {
         return Err(AppError::Config("API 地址不能为空".to_string()));
     }
+    if input.model.trim().is_empty() {
+        return Err(AppError::Config("默认模型不能为空".to_string()));
+    }
     let base_url = normalize_base_url(&input.base_url)?;
+    let model_mapping_json = serde_json::to_string(&input.model_mapping)?;
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
@@ -101,10 +108,10 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         };
         conn.execute(
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
-                protocol_type = ?, notes = ? WHERE id = ?;",
+                protocol_type = ?, notes = ?, model_mapping_json = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
-                input.protocol_type.as_str(), input.notes, id,
+                input.protocol_type.as_str(), input.notes, model_mapping_json, id,
             ],
         )?;
         if input.clear_api_key {
@@ -127,11 +134,12 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);",
+            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             input.protocol_type.as_str(), input.target_app.as_str(), input.notes, next_sort, now,
+            model_mapping_json,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -236,17 +244,19 @@ pub fn reorder_providers(conn: &Connection, ordered_ids: &[String], target: Prov
 pub fn insert_provider_direct(conn: &Connection, provider: &Provider) -> AppResult<()> {
     conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
             name = excluded.name, base_url = excluded.base_url, api_key = excluded.api_key,
             model = excluded.model, protocol_type = excluded.protocol_type,
             target_app = excluded.target_app, notes = excluded.notes,
-            sort_index = excluded.sort_index, is_current = excluded.is_current;",
+            sort_index = excluded.sort_index, is_current = excluded.is_current,
+            model_mapping_json = excluded.model_mapping_json;",
         params![
             provider.id, provider.name, provider.base_url, provider.api_key, provider.model,
             provider.protocol_type.as_str(), provider.target_app.as_str(), provider.notes,
             provider.sort_index, provider.is_current as i64, provider.created_at,
+            serde_json::to_string(&provider.model_mapping)?,
         ],
     )?;
     Ok(())
@@ -265,6 +275,9 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
     let protocol: String = row.get(5)?;
     let target: String = row.get(6)?;
     let api_key: String = row.get(3)?;
+    let model_mapping_json: String = row.get(13)?;
+    let model_mapping =
+        serde_json::from_str::<ClaudeModelMapping>(&model_mapping_json).unwrap_or_default();
     Ok(Provider {
         api_key_set: !api_key.is_empty(),
         api_key,
@@ -272,6 +285,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         name: row.get(1)?,
         base_url: row.get(2)?,
         model: row.get(4)?,
+        model_mapping,
         protocol_type: ProtocolType::from_str_lossy(&protocol),
         target_app: ProviderTarget::from_str_lossy(&target),
         notes: row.get(7)?,
@@ -302,6 +316,7 @@ mod tests {
             api_key: String::new(),
             clear_api_key: false,
             model: "test-model".to_string(),
+            model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiChat,
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
@@ -312,16 +327,23 @@ mod tests {
     fn create_and_update_store_canonical_base_urls() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
+            let mut create =
+                provider_input("https://gateway.example.test/openai/v1/chat/completions");
+            create.model_mapping.sonnet = "sonnet-upstream".to_string();
             let created = upsert_provider(
                 conn,
-                &provider_input("https://gateway.example.test/openai/v1/chat/completions"),
+                &create,
             )?;
             assert_eq!(created.base_url, "https://gateway.example.test/openai/v1");
+            assert_eq!(created.model_mapping.sonnet, "sonnet-upstream");
 
             let mut update = provider_input("https://gateway.example.test/openai/v1/responses/");
             update.id = Some(created.id.clone());
+            update.model_mapping.opus = "opus-upstream".to_string();
             let updated = upsert_provider(conn, &update)?;
             assert_eq!(updated.base_url, "https://gateway.example.test/openai/v1");
+            assert_eq!(updated.model_mapping.opus, "opus-upstream");
+            assert!(updated.model_mapping.sonnet.is_empty());
             Ok(())
         })
         .unwrap();
