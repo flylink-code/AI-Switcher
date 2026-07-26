@@ -133,10 +133,24 @@ impl ProxyManager {
             started_at: Instant::now(),
         };
 
-        let app = Router::new()
+        let mut app = Router::new()
             .route("/health", get(health_handler))
             .route("/v1/models", get(models_handler))
-            .route("/v1/messages", any(proxy_handler))
+            .route("/v1/messages", any(proxy_handler));
+
+        if target == ProviderTarget::ClaudeDesktop {
+            app = app
+                .route(
+                    &format!("{}/v1/models", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                    get(models_handler),
+                )
+                .route(
+                    &format!("{}/v1/messages", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                    any(proxy_handler),
+                );
+        }
+
+        let app = app
             .layer(CorsLayer::permissive())
             .with_state(state);
 
@@ -264,7 +278,10 @@ async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
     }))
 }
 
-async fn models_handler(State(state): State<ProxyState>) -> Response {
+async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> Response {
+    if let Err(error) = validate_desktop_gateway_auth(&state, &headers) {
+        return gateway_auth_error(error);
+    }
     match state
         .db
         .with_conn(|conn| get_current_provider(conn, state.target))
@@ -288,6 +305,9 @@ async fn proxy_handler(
     headers: HeaderMap,
     body: Body,
 ) -> Response {
+    if let Err(error) = validate_desktop_gateway_auth(&state, &headers) {
+        return gateway_auth_error(error);
+    }
     let started = Instant::now();
 
     // Resolve the active provider synchronously.
@@ -662,6 +682,20 @@ fn log_request(
             None
         }
     }
+}
+
+fn validate_desktop_gateway_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
+    if state.target != ProviderTarget::ClaudeDesktop {
+        return Ok(());
+    }
+    let auth = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    crate::config::claude_desktop::validate_gateway_auth_header(auth)
+}
+
+fn gateway_auth_error(error: AppError) -> Response {
+    json_error(StatusCode::UNAUTHORIZED, error.to_string())
 }
 
 fn log_early_failure(

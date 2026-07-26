@@ -31,6 +31,9 @@ import type {
   LogMaintenanceResult,
   LogMaintenancePolicy,
   LogMaintenancePreview,
+  ProxyLogListInput,
+  PaginatedProxyLogs,
+  ClaudeCodeVersionInfo,
 } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
@@ -333,4 +336,21 @@ export async function previewProxyLogMaintenance(policy?: LogMaintenancePolicy):
 export async function maintainProxyLogs(vacuum = false): Promise<LogMaintenanceResult> {
   const invoke = await getInvoke();
   return invoke<LogMaintenanceResult>("maintain_proxy_logs", { vacuum });
+}
+
+export async function listProxyRequestLogs(input: ProxyLogListInput = {}): Promise<PaginatedProxyLogs> {
+  const invoke = await getInvoke();
+  return invoke<PaginatedProxyLogs>("list_proxy_request_logs_cmd", { input });
+}
+
+// ---- About / tools ----------------------------------------------------------
+
+export async function getClaudeCodeVersion(): Promise<ClaudeCodeVersionInfo> {
+  const invoke = await getInvoke();
+  return invoke<ClaudeCodeVersionInfo>("get_claude_code_version", {});
+}
+
+export async function runClaudeCodeUpdate(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("run_claude_code_update", {});
 }

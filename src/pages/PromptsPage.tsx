@@ -16,16 +16,14 @@ import {
   Typography,
   theme,
 } from "antd";
-import {
-  CheckCircleOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  FileAddOutlined,
-  ImportOutlined,
-  PlayCircleOutlined,
-  ReloadOutlined,
-  SaveOutlined,
-} from "@ant-design/icons";
+import CheckCircleOutlined from "@ant-design/icons/es/icons/CheckCircleOutlined";
+import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
+import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import FileAddOutlined from "@ant-design/icons/es/icons/FileAddOutlined";
+import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
+import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import { useTranslation } from "react-i18next";
 import type { LivePrompt, PromptDetail, PromptInfo } from "@/types/backend";
 import {

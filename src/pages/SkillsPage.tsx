@@ -12,7 +12,10 @@ import {
   Typography,
   message,
 } from "antd";
-import { DeleteOutlined, GithubOutlined, InboxOutlined, ReloadOutlined } from "@ant-design/icons";
+import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
+import GithubOutlined from "@ant-design/icons/es/icons/GithubOutlined";
+import InboxOutlined from "@ant-design/icons/es/icons/InboxOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/backend";
 import { deleteSkill, installGithubSkill, installZipSkill, listSkills, setSkillEnabled } from "@/services/api";

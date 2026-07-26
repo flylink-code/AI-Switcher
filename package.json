@@ -9,9 +9,12 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri": "pnpm exec tauri",
+    "tauri:dev": "pnpm exec tauri dev",
+    "tauri:build": "pnpm exec tauri build",
+    "build:exe": "scripts\\build-exe.bat",
+    "build:exe:debug": "scripts\\build-exe.bat debug",
+    "build:exe:bundle": "scripts\\build-exe.bat bundle"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.5",

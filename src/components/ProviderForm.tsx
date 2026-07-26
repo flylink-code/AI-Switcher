@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   App,
   AutoComplete,
@@ -89,9 +89,13 @@ export function ProviderForm({
   let nameRef: InputRef | null = null;
 
   const isEdit = editing !== null;
+  const prevModelRef = useRef<string | null>(null);
+  const skipModelSyncRef = useRef(true);
 
   useEffect(() => {
     if (!open) return;
+    skipModelSyncRef.current = true;
+    prevModelRef.current = null;
     if (editing) {
       setModels([]);
       form.setFieldsValue({
@@ -124,6 +128,26 @@ export function ProviderForm({
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
   }, [open, editing, form, target]);
+
+  useEffect(() => {
+    if (!open) return;
+    const model = watchedDefaultModel?.trim() ?? "";
+    if (skipModelSyncRef.current) {
+      skipModelSyncRef.current = false;
+      prevModelRef.current = model;
+      return;
+    }
+    if (!model || model === prevModelRef.current) return;
+    prevModelRef.current = model;
+    const isCode = (editing?.targetApp ?? target) === "claude_code";
+    form.setFieldValue("modelMapping", {
+      sonnet: model,
+      opus: model,
+      haiku: model,
+      fable: model,
+      subagent: isCode ? model : "",
+    });
+  }, [open, watchedDefaultModel, editing, target, form]);
 
   const handleOk = async () => {
     try {

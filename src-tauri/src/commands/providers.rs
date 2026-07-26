@@ -356,11 +356,21 @@ impl SwitchSnapshot {
             ProviderTarget::ClaudeDesktop => {
                 let paths = claude_desktop::detect_claude_desktop();
                 let mut files = Vec::new();
-                if let Some(config_library) = paths.config_library {
-                    files.push(config_library.join(format!("{DESKTOP_PROFILE_ID}.json")));
+                if let Some(config_library) = &paths.config_library {
+                    files.push(config_library.join(format!("{}.json", claude_desktop::PROFILE_ID)));
+                    files.push(config_library.join(format!(
+                        "{}.json",
+                        claude_desktop::LEGACY_PROFILE_ID
+                    )));
                 }
-                if let Some(meta_path) = paths.meta_path {
-                    files.push(meta_path);
+                if let Some(meta_path) = &paths.meta_path {
+                    files.push(meta_path.clone());
+                }
+                if let Some(normal_config_path) = &paths.normal_config_path {
+                    files.push(normal_config_path.clone());
+                }
+                if let Some(threep_config_path) = &paths.threep_config_path {
+                    files.push(threep_config_path.clone());
                 }
                 files
             }
@@ -466,13 +476,6 @@ async fn rollback_switch<T>(snapshot: SwitchSnapshot, state: &AppState, error: A
 }
 
 const CODE_OWNERSHIP_KEY: &str = "p7.code_config_ownership";
-const CODE_MANAGED_KEYS: [&str; 9] = [
-    "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL",
-    "CLAUDE_CODE_SUBAGENT_MODEL",
-];
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct CodeOwnership {
     before: BTreeMap<String, Option<Value>>,
@@ -487,7 +490,7 @@ fn code_managed_fields() -> AppResult<BTreeMap<String, Option<Value>>> {
         Value::Object(Default::default())
     };
     let env = settings.get("env").and_then(Value::as_object);
-    Ok(CODE_MANAGED_KEYS.into_iter().map(|key| {
+    Ok(claude_code::MANAGED_ENV_KEYS.into_iter().map(|key| {
         (key.to_string(), env.and_then(|map| map.get(key)).cloned())
     }).collect())
 }
@@ -495,34 +498,72 @@ fn code_managed_fields() -> AppResult<BTreeMap<String, Option<Value>>> {
 fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap<String, Option<Value>> {
     use crate::provider::ClaudeModelRole;
 
-    let mut values = BTreeMap::new();
+    let mut values = claude_code::MANAGED_ENV_KEYS
+        .into_iter()
+        .map(|key| (key.to_string(), None))
+        .collect::<BTreeMap<_, _>>();
     values.insert("ANTHROPIC_BASE_URL".to_string(), Some(Value::String(if proxy {
         format!("http://127.0.0.1:{port}")
     } else { provider.base_url.clone() })));
     values.insert("ANTHROPIC_AUTH_TOKEN".to_string(), Some(Value::String(if proxy {
         "local-proxy-code".to_string()
     } else { provider.api_key.clone() })));
-    values.insert("ANTHROPIC_API_KEY".to_string(), None);
-    values.insert("ANTHROPIC_MODEL".to_string(), if provider.model.is_empty() {
-        None
-    } else { Some(Value::String(provider.model.clone())) });
-    for (key, role) in [
-        ("ANTHROPIC_DEFAULT_SONNET_MODEL", ClaudeModelRole::Sonnet),
-        ("ANTHROPIC_DEFAULT_OPUS_MODEL", ClaudeModelRole::Opus),
-        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", ClaudeModelRole::Haiku),
-        ("ANTHROPIC_DEFAULT_FABLE_MODEL", ClaudeModelRole::Fable),
-        ("CLAUDE_CODE_SUBAGENT_MODEL", ClaudeModelRole::Subagent),
-    ] {
+    let roles = [
+        (
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
+            "claude-sonnet-4-6",
+            ClaudeModelRole::Sonnet,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
+            "claude-opus-4-8",
+            ClaudeModelRole::Opus,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
+            "claude-haiku-4-5",
+            ClaudeModelRole::Haiku,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME",
+            "claude-fable-5",
+            ClaudeModelRole::Fable,
+        ),
+    ];
+    if !proxy && !provider.model.trim().is_empty() {
         values.insert(
-            key.to_string(),
-            Some(Value::String(
-                provider
-                    .model_mapping
-                    .for_role(role, provider.model.trim())
-                    .to_string(),
-            )),
+            "ANTHROPIC_MODEL".to_string(),
+            Some(Value::String(provider.model.trim().to_string())),
         );
     }
+    for (model_key, name_key, stable_model, role) in roles {
+        let upstream = provider
+            .model_mapping
+            .for_role(role, provider.model.trim())
+            .to_string();
+        values.insert(
+            model_key.to_string(),
+            Some(Value::String(if proxy {
+                stable_model.to_string()
+            } else {
+                upstream.clone()
+            })),
+        );
+        values.insert(name_key.to_string(), Some(Value::String(upstream)));
+    }
+    values.insert(
+        "CLAUDE_CODE_SUBAGENT_MODEL".to_string(),
+        Some(Value::String(
+            provider
+                .model_mapping
+                .for_role(ClaudeModelRole::Subagent, provider.model.trim())
+                .to_string(),
+        )),
+    );
     values
 }
 
@@ -530,13 +571,13 @@ fn upgrade_code_ownership_fields(
     ownership: &mut CodeOwnership,
     current: &BTreeMap<String, Option<Value>>,
 ) {
-    for key in CODE_MANAGED_KEYS {
+    for key in claude_code::MANAGED_ENV_KEYS {
         if !ownership.written.contains_key(key) {
             let current_value = current.get(key).cloned().unwrap_or(None);
             ownership
                 .before
                 .entry(key.to_string())
-                .or_insert_with(|| current_value.clone());
+                .or_insert(None);
             ownership
                 .written
                 .insert(key.to_string(), current_value);
@@ -574,9 +615,11 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
     let Some(raw) = raw.filter(|value| !value.is_empty()) else {
         return claude_code::clear_provider_from_settings();
     };
-    let ownership: CodeOwnership = serde_json::from_str(&raw)
+    let mut ownership: CodeOwnership = serde_json::from_str(&raw)
         .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全恢复".to_string()))?;
-    if code_managed_fields()? != ownership.written {
+    let current = code_managed_fields()?;
+    upgrade_code_ownership_fields(&mut ownership, &current);
+    if current != ownership.written {
         return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
     }
     claude_code::restore_managed_fields(&ownership.before)?;
@@ -584,17 +627,21 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
 }
 
 const DESKTOP_OWNERSHIP_KEY: &str = "p7.desktop_original_applied_id";
-const DESKTOP_PROFILE_ID: &str = "claude-switcher";
 
 fn prepare_desktop_ownership(state: &AppState) -> AppResult<Option<String>> {
     let raw = state.db.with_conn(|conn| get_setting(conn, DESKTOP_OWNERSHIP_KEY))?;
     if let Some(raw) = raw.filter(|value| !value.is_empty()) {
-        if claude_desktop::current_applied_id()?.as_deref() != Some(DESKTOP_PROFILE_ID) {
+        if !claude_desktop::current_applied_id()?
+            .as_deref()
+            .is_some_and(claude_desktop::is_managed_profile_id)
+        {
             return Err(AppError::Config("检测到 Claude Desktop 配置已被外部修改，已拒绝覆盖".to_string()));
         }
-        Ok(serde_json::from_str(&raw)?)
+        let original: Option<String> = serde_json::from_str(&raw)?;
+        Ok(original.filter(|id| !claude_desktop::is_managed_profile_id(id)))
     } else {
-        claude_desktop::current_applied_id()
+        let applied = claude_desktop::current_applied_id()?;
+        Ok(applied.filter(|id| !claude_desktop::is_managed_profile_id(id)))
     }
 }
 
@@ -609,12 +656,75 @@ fn restore_desktop_ownership(state: &AppState) -> AppResult<()> {
     let Some(raw) = raw.filter(|value| !value.is_empty()) else {
         return claude_desktop::clear_provider();
     };
-    if claude_desktop::current_applied_id()?.as_deref() != Some(DESKTOP_PROFILE_ID) {
+    if !claude_desktop::current_applied_id()?
+        .as_deref()
+        .is_some_and(claude_desktop::is_managed_profile_id)
+    {
         return Err(AppError::Config("检测到 Claude Desktop 配置已被外部修改，已拒绝覆盖".to_string()));
     }
     let original: Option<String> = serde_json::from_str(&raw)?;
     claude_desktop::clear_provider_restoring_applied_id(original)?;
     state.db.with_conn(|conn| set_setting(conn, DESKTOP_OWNERSHIP_KEY, ""))
+}
+
+/// Upgrade the pre-UUID Desktop profile in the background without a network
+/// preflight. The existing provider row and credential remain unchanged.
+pub async fn repair_legacy_desktop_profile(state: &AppState) -> AppResult<()> {
+    if claude_desktop::current_applied_id()?.as_deref()
+        != Some(claude_desktop::LEGACY_PROFILE_ID)
+    {
+        return Ok(());
+    }
+    let provider = state
+        .db
+        .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeDesktop))?;
+    let Some(provider) = provider else {
+        return Ok(());
+    };
+    let _snapshot = apply_target_provider(&provider, state).await?;
+    log::info!(
+        "Claude Desktop legacy profile migrated to {}",
+        claude_desktop::PROFILE_ID
+    );
+    Ok(())
+}
+
+/// Reapply an active Claude Code provider only when the live model fields use
+/// the pre-display-name or pre-role-alias format.
+pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()> {
+    let provider = state
+        .db
+        .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeCode))?;
+    let Some(provider) = provider else {
+        return Ok(());
+    };
+    let proxy = provider.requires_local_proxy();
+    let port = get_saved_proxy_port(state, ProviderTarget::ClaudeCode);
+    let expected = expected_code_fields(&provider, proxy, port);
+    let current = code_managed_fields()?;
+    let model_keys = [
+        "ANTHROPIC_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL",
+        "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME",
+        "CLAUDE_CODE_SUBAGENT_MODEL",
+        "ANTHROPIC_SMALL_FAST_MODEL",
+        "ANTHROPIC_REASONING_MODEL",
+    ];
+    if model_keys
+        .iter()
+        .all(|key| current.get(*key) == expected.get(*key))
+    {
+        return Ok(());
+    }
+    let _snapshot = apply_target_provider(&provider, state).await?;
+    log::info!("Claude Code live model fields upgraded");
+    Ok(())
 }
 
 async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<ConnectionTestResult> {
@@ -794,7 +904,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn legacy_ownership_adopts_new_role_fields_without_losing_restore_values() {
+    fn legacy_ownership_adopts_new_role_fields_as_newly_managed() {
         let mut ownership = CodeOwnership {
             before: BTreeMap::from([(
                 "ANTHROPIC_MODEL".to_string(),
@@ -818,14 +928,10 @@ mod tests {
 
         upgrade_code_ownership_fields(&mut ownership, &current);
 
-        let adopted = Some(Value::String("user-sonnet".to_string()));
-        assert_eq!(
-            ownership.before["ANTHROPIC_DEFAULT_SONNET_MODEL"],
-            adopted
-        );
+        assert_eq!(ownership.before["ANTHROPIC_DEFAULT_SONNET_MODEL"], None);
         assert_eq!(
             ownership.written["ANTHROPIC_DEFAULT_SONNET_MODEL"],
-            adopted
+            Some(Value::String("user-sonnet".to_string()))
         );
     }
 }

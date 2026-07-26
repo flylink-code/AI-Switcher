@@ -7,8 +7,9 @@ use std::sync::Arc;
 use crate::database::dao::proxy_logs::{
     delete_model_pricing as delete_pricing, get_usage_by_model, get_usage_by_provider,
     get_usage_summary, get_usage_trend, list_model_pricing as list_pricing,
-    save_model_pricing as save_pricing, ModelPricing, UsageBreakdown, UsageSummary,
-    UsageTrendPoint, LogMaintenancePreview, LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
+    list_proxy_request_logs, save_model_pricing as save_pricing, ModelPricing, PaginatedProxyLogs,
+    ProxyLogFilters, UsageBreakdown, UsageSummary, UsageTrendPoint, LogMaintenancePreview,
+    LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
     preview_proxy_log_maintenance as preview_logs,
 };
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -49,6 +50,35 @@ impl Default for LogMaintenancePolicy {
     fn default() -> Self {
         Self { retention_days: 90, max_rows: 100_000, auto_maintain: false }
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyLogListInput {
+    pub days: Option<u32>,
+    pub target_app: Option<String>,
+    pub status_code: Option<i64>,
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+#[tauri::command]
+pub fn list_proxy_request_logs_cmd(
+    input: ProxyLogListInput,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<PaginatedProxyLogs> {
+    let days = input.days.unwrap_or(30).clamp(1, 365);
+    let since = (Utc::now() - Duration::days(i64::from(days))).timestamp_millis();
+    let page = input.page.unwrap_or(0);
+    let page_size = input.page_size.unwrap_or(20);
+    let filters = ProxyLogFilters {
+        since: Some(since),
+        target_app: input.target_app,
+        status_code: input.status_code,
+    };
+    state
+        .db
+        .with_conn(|conn| list_proxy_request_logs(conn, &filters, page, page_size))
 }
 
 #[tauri::command]

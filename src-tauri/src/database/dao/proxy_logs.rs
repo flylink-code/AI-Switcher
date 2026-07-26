@@ -259,3 +259,118 @@ pub fn delete_model_pricing(conn: &Connection, model: &str) -> AppResult<()> {
     conn.execute("DELETE FROM model_pricing WHERE model = ?;", params![model])?;
     Ok(())
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyRequestLog {
+    pub id: String,
+    pub created_at: i64,
+    pub provider_id: Option<String>,
+    pub provider_name: Option<String>,
+    pub model: Option<String>,
+    pub status_code: Option<i64>,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub duration_ms: i64,
+    pub target_app: Option<String>,
+    pub protocol: Option<String>,
+    pub route: Option<String>,
+    pub is_stream: bool,
+    pub error_category: Option<String>,
+    pub diagnostic: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedProxyLogs {
+    pub data: Vec<ProxyRequestLog>,
+    pub total: i64,
+    pub page: u32,
+    pub page_size: u32,
+}
+
+#[derive(Debug, Default)]
+pub struct ProxyLogFilters {
+    pub since: Option<i64>,
+    pub target_app: Option<String>,
+    pub status_code: Option<i64>,
+}
+
+pub fn list_proxy_request_logs(
+    conn: &Connection,
+    filters: &ProxyLogFilters,
+    page: u32,
+    page_size: u32,
+) -> AppResult<PaginatedProxyLogs> {
+    let page_size = page_size.clamp(1, 100);
+    let page = page;
+    let offset = i64::from(page) * i64::from(page_size);
+
+    let mut conditions = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(since) = filters.since {
+        conditions.push("created_at >= ?".to_string());
+        params.push(Box::new(since));
+    }
+    if let Some(ref target_app) = filters.target_app {
+        conditions.push("target_app = ?".to_string());
+        params.push(Box::new(target_app.clone()));
+    }
+    if let Some(status_code) = filters.status_code {
+        conditions.push("status_code = ?".to_string());
+        params.push(Box::new(status_code));
+    }
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+
+    let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs {where_clause}");
+    let count_params: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let total: i64 = conn.query_row(&count_sql, count_params.as_slice(), |row| row.get(0))?;
+
+    let data_sql = format!(
+        "SELECT id, created_at, provider_id, provider_name, model, status_code,
+                input_tokens, output_tokens, duration_ms, target_app, protocol, route,
+                is_stream, error_category, diagnostic
+         FROM proxy_request_logs
+         {where_clause}
+         ORDER BY created_at DESC
+         LIMIT ? OFFSET ?"
+    );
+    params.push(Box::new(i64::from(page_size)));
+    params.push(Box::new(offset));
+    let data_params: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn.prepare(&data_sql)?;
+    let rows = stmt.query_map(data_params.as_slice(), |row| {
+        Ok(ProxyRequestLog {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            provider_id: row.get(2)?,
+            provider_name: row.get(3)?,
+            model: row.get(4)?,
+            status_code: row.get(5)?,
+            input_tokens: row.get(6)?,
+            output_tokens: row.get(7)?,
+            duration_ms: row.get(8)?,
+            target_app: row.get(9)?,
+            protocol: row.get(10)?,
+            route: row.get(11)?,
+            is_stream: row.get::<_, i64>(12)? != 0,
+            error_category: row.get(13)?,
+            diagnostic: row.get(14)?,
+        })
+    })?;
+    let data = rows.collect::<Result<Vec<_>, _>>()?;
+
+    Ok(PaginatedProxyLogs {
+        data,
+        total,
+        page,
+        page_size,
+    })
+}

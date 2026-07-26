@@ -1,0 +1,748 @@
+//! Claude Code installation discovery, version reporting and anchored updates.
+
+use serde::Serialize;
+use std::collections::HashSet;
+use std::io::{self, Read};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::time::{Duration, Instant};
+
+use crate::error::{AppError, AppResult};
+
+const NPM_PACKAGE: &str = "@anthropic-ai/claude-code";
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCodeVersionInfo {
+    pub installed: bool,
+    pub current_version: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub install_command: String,
+    pub update_command: String,
+    pub error: Option<String>,
+    pub executable_path: Option<String>,
+    pub source: Option<String>,
+    pub environment: String,
+    pub installed_but_broken: bool,
+    pub wsl_distro: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+enum Probe {
+    Found(Installation),
+    Broken(Installation, String),
+    NotFound(String),
+}
+
+#[derive(Debug, Clone)]
+struct Installation {
+    path: String,
+    version: Option<String>,
+    source: String,
+    environment: String,
+    wsl_distro: Option<String>,
+}
+
+fn install_command() -> String {
+    format!("npm i -g {NPM_PACKAGE}@latest")
+}
+
+fn parse_version(text: &str) -> Option<String> {
+    text.split_whitespace().find_map(|token| {
+        let token = token.trim_matches(|c: char| {
+            !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+'
+        });
+        (token
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit())
+            && token.contains('.'))
+            .then(|| token.to_string())
+    })
+}
+
+fn decode_output(bytes: &[u8]) -> String {
+    if bytes.len() >= 2 && bytes.iter().skip(1).step_by(2).any(|byte| *byte == 0) {
+        let utf16 = bytes
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect::<Vec<_>>();
+        String::from_utf16_lossy(&utf16)
+    } else {
+        String::from_utf8_lossy(bytes).into_owned()
+    }
+}
+
+fn output_detail(output: &Output) -> String {
+    let stderr = decode_output(&output.stderr).trim().to_string();
+    let stdout = decode_output(&output.stdout).trim().to_string();
+    if !stderr.is_empty() {
+        stderr.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+    } else if !stdout.is_empty() {
+        stdout.lines().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+    } else {
+        format!("claude --version exited with {}", output.status)
+    }
+}
+
+fn push_unique(paths: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, path: PathBuf) {
+    if !path.as_os_str().is_empty() && path.is_dir() && seen.insert(path.clone()) {
+        paths.push(path);
+    }
+}
+
+fn push_env_dir(
+    paths: &mut Vec<PathBuf>,
+    seen: &mut HashSet<PathBuf>,
+    key: &str,
+    child: Option<&str>,
+) {
+    if let Some(value) = std::env::var_os(key) {
+        let mut path = PathBuf::from(value);
+        if let Some(child) = child {
+            path.push(child);
+        }
+        push_unique(paths, seen, path);
+    }
+}
+
+fn push_child_dirs(
+    paths: &mut Vec<PathBuf>,
+    seen: &mut HashSet<PathBuf>,
+    root: &Path,
+) {
+    if let Ok(entries) = std::fs::read_dir(root) {
+        for entry in entries.flatten().take(100) {
+            let path = entry.path();
+            push_unique(paths, seen, path.clone());
+            push_unique(paths, seen, path.join("bin"));
+        }
+    }
+}
+
+fn candidate_dirs() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    let mut seen = HashSet::new();
+    let home = dirs::home_dir().unwrap_or_default();
+
+    push_unique(&mut paths, &mut seen, home.join(".local").join("bin"));
+    push_env_dir(&mut paths, &mut seen, "PNPM_HOME", None);
+    push_env_dir(&mut paths, &mut seen, "VOLTA_HOME", Some("bin"));
+    push_env_dir(&mut paths, &mut seen, "NVM_SYMLINK", None);
+    push_env_dir(&mut paths, &mut seen, "FNM_MULTISHELL_PATH", None);
+    push_env_dir(&mut paths, &mut seen, "SCOOP", Some("shims"));
+    push_env_dir(&mut paths, &mut seen, "SCOOP_GLOBAL", Some("shims"));
+
+    if let Some(app_data) = dirs::data_dir() {
+        push_unique(&mut paths, &mut seen, app_data.join("npm"));
+        let nvm = app_data.join("nvm");
+        push_unique(&mut paths, &mut seen, nvm.clone());
+        push_child_dirs(&mut paths, &mut seen, &nvm);
+    }
+    if let Some(local_data) = dirs::data_local_dir() {
+        push_unique(&mut paths, &mut seen, local_data.join("pnpm"));
+        push_unique(&mut paths, &mut seen, local_data.join("Volta").join("bin"));
+        push_unique(&mut paths, &mut seen, local_data.join("Yarn").join("bin"));
+        let fnm = local_data.join("fnm_multishells");
+        push_child_dirs(&mut paths, &mut seen, &fnm);
+    }
+    if let Some(nvm_home) = std::env::var_os("NVM_HOME").map(PathBuf::from) {
+        push_unique(&mut paths, &mut seen, nvm_home.clone());
+        push_child_dirs(&mut paths, &mut seen, &nvm_home);
+    }
+
+    push_unique(&mut paths, &mut seen, home.join("scoop").join("shims"));
+    push_unique(
+        &mut paths,
+        &mut seen,
+        PathBuf::from(r"C:\Program Files\nodejs"),
+    );
+    let program_data = std::env::var_os("ProgramData")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData"));
+    push_unique(
+        &mut paths,
+        &mut seen,
+        program_data.join("scoop").join("shims"),
+    );
+
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            push_unique(&mut paths, &mut seen, dir);
+        }
+    }
+    paths
+}
+
+fn executable_candidates(dir: &Path) -> Vec<PathBuf> {
+    #[cfg(windows)]
+    {
+        vec![
+            dir.join("claude.cmd"),
+            dir.join("claude.exe"),
+            dir.join("claude.bat"),
+            dir.join("claude"),
+        ]
+    }
+    #[cfg(not(windows))]
+    {
+        vec![dir.join("claude")]
+    }
+}
+
+fn infer_source(path: &Path) -> String {
+    let normalized = path.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+    if normalized.contains("/.local/bin/claude") {
+        "native".to_string()
+    } else if normalized.contains("/pnpm/") {
+        "pnpm".to_string()
+    } else if normalized.contains("/volta/") {
+        "volta".to_string()
+    } else if normalized.contains("/nvm/") {
+        "nvm".to_string()
+    } else if normalized.contains("fnm_multishell") {
+        "fnm".to_string()
+    } else if normalized.contains("/scoop/") {
+        "scoop".to_string()
+    } else if normalized.contains("/npm/") {
+        "npm".to_string()
+    } else {
+        "system".to_string()
+    }
+}
+
+#[cfg(windows)]
+fn compact_execution_path(tool_dir: &Path) -> std::ffi::OsString {
+    let mut dirs = vec![tool_dir.to_path_buf(), PathBuf::from(r"C:\Program Files\nodejs")];
+    if let Some(system_root) = std::env::var_os("SystemRoot").map(PathBuf::from) {
+        dirs.push(system_root.join("System32"));
+        dirs.push(system_root);
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    let mut seen = HashSet::new();
+    let mut unique = Vec::new();
+    let mut estimated_length = 0usize;
+    for path in dirs {
+        if !seen.insert(path.clone()) {
+            continue;
+        }
+        let added = path.as_os_str().to_string_lossy().len() + 1;
+        if estimated_length + added > 6_000 {
+            continue;
+        }
+        estimated_length += added;
+        unique.push(path);
+    }
+    std::env::join_paths(unique).unwrap_or_default()
+}
+
+#[cfg(windows)]
+fn run_local_tool(path: &Path) -> io::Result<Output> {
+    use std::os::windows::process::CommandExt;
+
+    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+    if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
+        let quoted_path = path.to_string_lossy().replace('"', "\"\"");
+        let command_line = format!("call \"{quoted_path}\" --version");
+        let mut command = Command::new("cmd");
+        command
+            .args(["/D", "/S", "/C"])
+            .raw_arg(command_line)
+            .env("PATH", compact_execution_path(path.parent().unwrap_or(Path::new(""))))
+            .creation_flags(CREATE_NO_WINDOW);
+        command.output()
+    } else {
+        let mut command = Command::new(path);
+        command
+            .arg("--version")
+            .env("PATH", compact_execution_path(path.parent().unwrap_or(Path::new(""))))
+            .creation_flags(CREATE_NO_WINDOW);
+        command.output()
+    }
+}
+
+#[cfg(not(windows))]
+fn run_local_tool(path: &Path) -> io::Result<Output> {
+    Command::new(path).arg("--version").output()
+}
+
+fn probe_native_installations() -> Probe {
+    let mut seen = HashSet::new();
+    let mut broken: Option<(Installation, String)> = None;
+    for dir in candidate_dirs() {
+        for path in executable_candidates(&dir) {
+            if !path.is_file() {
+                continue;
+            }
+            let real = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            if !seen.insert(real) {
+                continue;
+            }
+            let installation = Installation {
+                path: path.display().to_string(),
+                version: None,
+                source: infer_source(&path),
+                environment: if cfg!(windows) { "windows" } else { "native" }.to_string(),
+                wsl_distro: None,
+            };
+            match run_local_tool(&path) {
+                Ok(output) if output.status.success() => {
+                    let stdout = decode_output(&output.stdout);
+                    let stderr = decode_output(&output.stderr);
+                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    if let Some(version) = parse_version(raw) {
+                        return Probe::Found(Installation {
+                            version: Some(version),
+                            ..installation
+                        });
+                    }
+                    if broken.is_none() {
+                        broken = Some((installation, "Claude Code returned no version".to_string()));
+                    }
+                }
+                Ok(output) if broken.is_none() => {
+                    broken = Some((installation, output_detail(&output)));
+                }
+                Err(error) if broken.is_none() => {
+                    broken = Some((installation, error.to_string()));
+                }
+                _ => {}
+            }
+        }
+    }
+    match broken {
+        Some((installation, error)) => Probe::Broken(installation, error),
+        None => Probe::NotFound("Claude Code executable was not found".to_string()),
+    }
+}
+
+fn collect_child_output(mut child: Child, status: ExitStatus) -> io::Result<Output> {
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    if let Some(mut pipe) = child.stdout.take() {
+        pipe.read_to_end(&mut stdout)?;
+    }
+    if let Some(mut pipe) = child.stderr.take() {
+        pipe.read_to_end(&mut stderr)?;
+    }
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
+fn run_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<Output> {
+    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return collect_child_output(child, status);
+        }
+        if started.elapsed() >= timeout {
+            let _ = child.kill();
+            let status = child.wait()?;
+            let mut output = collect_child_output(child, status)?;
+            output.stderr.extend_from_slice(b"\nWSL probe timed out");
+            return Ok(output);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[cfg(windows)]
+fn configure_hidden(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn configure_hidden(_command: &mut Command) {}
+
+#[cfg(windows)]
+fn probe_wsl_distro(distro: Option<&str>) -> Probe {
+    let script =
+        "p=\"$(command -v claude 2>/dev/null)\" || exit 127; printf '%s\\n' \"$p\"; \"$p\" --version";
+    let mut command = Command::new("wsl.exe");
+    if let Some(distro) = distro {
+        command.args(["-d", distro]);
+    }
+    command.args(["--", "sh", "-lc", script]);
+    configure_hidden(&mut command);
+    let output = match run_with_timeout(&mut command, Duration::from_secs(5)) {
+        Ok(output) => output,
+        Err(error) => return Probe::NotFound(error.to_string()),
+    };
+    let stdout = decode_output(&output.stdout);
+    let mut lines = stdout.lines();
+    let path = lines.next().unwrap_or("").trim().to_string();
+    let version_text = lines.collect::<Vec<_>>().join(" ");
+    let installation = Installation {
+        path,
+        version: parse_version(&version_text),
+        source: "wsl".to_string(),
+        environment: "wsl".to_string(),
+        wsl_distro: distro.map(str::to_string),
+    };
+    if output.status.success() && installation.version.is_some() {
+        Probe::Found(installation)
+    } else if output.status.code() != Some(127) && !installation.path.is_empty() {
+        Probe::Broken(installation, output_detail(&output))
+    } else {
+        Probe::NotFound(output_detail(&output))
+    }
+}
+
+#[cfg(windows)]
+fn list_wsl_distros() -> Vec<String> {
+    let mut command = Command::new("wsl.exe");
+    command.args(["--list", "--quiet"]);
+    configure_hidden(&mut command);
+    let Ok(output) = run_with_timeout(&mut command, Duration::from_secs(3)) else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    decode_output(&output.stdout)
+        .lines()
+        .map(|line| line.trim_matches('\0').trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+#[cfg(windows)]
+fn probe_wsl() -> Probe {
+    match probe_wsl_distro(None) {
+        found @ Probe::Found(_) | found @ Probe::Broken(_, _) => return found,
+        Probe::NotFound(_) => {}
+    }
+    for distro in list_wsl_distros() {
+        match probe_wsl_distro(Some(&distro)) {
+            found @ Probe::Found(_) | found @ Probe::Broken(_, _) => return found,
+            Probe::NotFound(_) => {}
+        }
+    }
+    Probe::NotFound("Claude Code was not found in Windows or WSL".to_string())
+}
+
+fn probe_installation() -> Probe {
+    match probe_native_installations() {
+        found @ Probe::Found(_) | found @ Probe::Broken(_, _) => found,
+        Probe::NotFound(native_error) => {
+            #[cfg(windows)]
+            {
+                let wsl = probe_wsl();
+                if matches!(wsl, Probe::NotFound(_)) {
+                    Probe::NotFound(native_error)
+                } else {
+                    wsl
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                Probe::NotFound(native_error)
+            }
+        }
+    }
+}
+
+async fn fetch_npm_latest() -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .ok()?;
+    let url = format!("https://registry.npmjs.org/{NPM_PACKAGE}/latest");
+    let response = client.get(url).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let text = response.text().await.ok()?;
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()?
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+fn version_parts(version: &str) -> Vec<u64> {
+    version
+        .split(|c| c == '.' || c == '-')
+        .filter_map(|part| part.parse().ok())
+        .collect()
+}
+
+fn update_available(current: &str, latest: &str) -> bool {
+    current != latest && version_parts(latest) > version_parts(current)
+}
+
+fn find_command_near(name: &str, installation: &Installation) -> PathBuf {
+    let bin = PathBuf::from(&installation.path);
+    let mut dirs = bin.parent().map(Path::to_path_buf).into_iter().collect::<Vec<_>>();
+    dirs.push(PathBuf::from(r"C:\Program Files\nodejs"));
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    for dir in dirs {
+        for suffix in ["cmd", "exe", "bat"] {
+            let candidate = dir.join(format!("{name}.{suffix}"));
+            if candidate.is_file() {
+                return candidate;
+            }
+        }
+    }
+    PathBuf::from(name)
+}
+
+fn quoted(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+fn update_command_for(installation: Option<&Installation>) -> String {
+    let Some(installation) = installation else {
+        return install_command();
+    };
+    if installation.environment == "wsl" {
+        let prefix = installation
+            .wsl_distro
+            .as_deref()
+            .map(|distro| format!("wsl -d {} -- ", quoted(distro)))
+            .unwrap_or_else(|| "wsl -- ".to_string());
+        return format!(
+            "{prefix}sh -lc 'claude update || npm i -g {NPM_PACKAGE}@latest'"
+        );
+    }
+    match installation.source.as_str() {
+        "native" => format!("{} update", quoted(&installation.path)),
+        "pnpm" => format!(
+            "{} add -g {NPM_PACKAGE}@latest",
+            quoted(&find_command_near("pnpm", installation).display().to_string())
+        ),
+        "volta" => format!(
+            "{} install {NPM_PACKAGE}@latest",
+            quoted(&find_command_near("volta", installation).display().to_string())
+        ),
+        _ => {
+            let npm = find_command_near("npm", installation);
+            format!("{} i -g {NPM_PACKAGE}@latest", quoted(&npm.display().to_string()))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_claude_code_version() -> AppResult<ClaudeCodeVersionInfo> {
+    let probe_task = tokio::task::spawn_blocking(probe_installation);
+    let (probe_result, latest_version) = tokio::join!(probe_task, fetch_npm_latest());
+    let probe = probe_result
+        .map_err(|error| AppError::Other(format!("Claude Code version probe failed: {error}")))?;
+
+    let (installation, error, installed_but_broken) = match &probe {
+        Probe::Found(installation) => (Some(installation), None, false),
+        Probe::Broken(installation, error) => (Some(installation), Some(error.clone()), true),
+        Probe::NotFound(error) => (None, Some(error.clone()), false),
+    };
+    let current_version = installation.and_then(|value| value.version.clone());
+    let has_update = current_version
+        .as_deref()
+        .zip(latest_version.as_deref())
+        .is_some_and(|(current, latest)| update_available(current, latest));
+
+    Ok(ClaudeCodeVersionInfo {
+        installed: installation.is_some(),
+        current_version,
+        latest_version,
+        update_available: has_update,
+        install_command: install_command(),
+        update_command: update_command_for(installation),
+        error,
+        executable_path: installation.map(|value| value.path.clone()),
+        source: installation.map(|value| value.source.clone()),
+        environment: installation
+            .map(|value| value.environment.clone())
+            .unwrap_or_else(|| if cfg!(windows) { "windows" } else { "native" }.to_string()),
+        installed_but_broken,
+        wsl_distro: installation.and_then(|value| value.wsl_distro.clone()),
+    })
+}
+
+#[cfg(windows)]
+fn run_windows_command(program: &Path, args: &[&str]) -> io::Result<Output> {
+    use std::os::windows::process::CommandExt;
+
+    let extension = program.extension().and_then(|value| value.to_str()).unwrap_or("");
+    if extension.eq_ignore_ascii_case("cmd")
+        || extension.eq_ignore_ascii_case("bat")
+        || extension.is_empty()
+    {
+        let mut command_line = format!("call {}", quoted(&program.display().to_string()));
+        for arg in args {
+            command_line.push(' ');
+            command_line.push_str(&quoted(arg));
+        }
+        let mut command = Command::new("cmd");
+        command
+            .args(["/D", "/S", "/C"])
+            .raw_arg(command_line)
+            .creation_flags(CREATE_NO_WINDOW);
+        command.output()
+    } else {
+        let mut command = Command::new(program);
+        command.args(args).creation_flags(CREATE_NO_WINDOW);
+        command.output()
+    }
+}
+
+fn run_anchored_update(installation: &Installation) -> io::Result<Output> {
+    if installation.environment == "wsl" {
+        let mut command = Command::new("wsl.exe");
+        if let Some(distro) = &installation.wsl_distro {
+            command.args(["-d", distro]);
+        }
+        command.args([
+            "--",
+            "sh",
+            "-lc",
+            "claude update || npm i -g @anthropic-ai/claude-code@latest",
+        ]);
+        configure_hidden(&mut command);
+        return command.output();
+    }
+
+    let program;
+    let args: Vec<&str>;
+    match installation.source.as_str() {
+        "native" => {
+            program = PathBuf::from(&installation.path);
+            args = vec!["update"];
+        }
+        "pnpm" => {
+            program = find_command_near("pnpm", installation);
+            args = vec!["add", "-g", "@anthropic-ai/claude-code@latest"];
+        }
+        "volta" => {
+            program = find_command_near("volta", installation);
+            args = vec!["install", "@anthropic-ai/claude-code@latest"];
+        }
+        _ => {
+            program = find_command_near("npm", installation);
+            args = vec!["i", "-g", "@anthropic-ai/claude-code@latest"];
+        }
+    }
+    #[cfg(windows)]
+    {
+        run_windows_command(&program, &args)
+    }
+    #[cfg(not(windows))]
+    {
+        Command::new(program).args(args).output()
+    }
+}
+
+#[tauri::command]
+pub async fn run_claude_code_update() -> AppResult<String> {
+    let result = tokio::task::spawn_blocking(|| {
+        let probe = probe_installation();
+        match probe {
+            Probe::Found(installation) | Probe::Broken(installation, _) => {
+                run_anchored_update(&installation)
+            }
+            Probe::NotFound(_) => {
+                #[cfg(windows)]
+                {
+                    run_windows_command(
+                        Path::new("npm"),
+                        &["i", "-g", "@anthropic-ai/claude-code@latest"],
+                    )
+                }
+                #[cfg(not(windows))]
+                {
+                    Command::new("npm")
+                        .args(["i", "-g", "@anthropic-ai/claude-code@latest"])
+                        .output()
+                }
+            }
+        }
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
+
+    let output = result.map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+    if output.status.success() {
+        let stdout = decode_output(&output.stdout).trim().to_string();
+        Ok(if stdout.is_empty() {
+            "Claude Code 更新完成".to_string()
+        } else {
+            stdout
+        })
+    } else {
+        Err(AppError::Config(output_detail(&output)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_common_claude_version_outputs() {
+        assert_eq!(parse_version("2.1.146 (Claude Code)"), Some("2.1.146".into()));
+        assert_eq!(parse_version("claude 1.0.20"), Some("1.0.20".into()));
+        assert_eq!(parse_version("no version"), None);
+    }
+
+    #[test]
+    fn identifies_common_install_sources() {
+        assert_eq!(
+            infer_source(Path::new(r"C:\Users\me\AppData\Roaming\npm\claude.cmd")),
+            "npm"
+        );
+        assert_eq!(
+            infer_source(Path::new(r"C:\Users\me\AppData\Local\pnpm\claude.cmd")),
+            "pnpm"
+        );
+        assert_eq!(
+            infer_source(Path::new(r"C:\Users\me\.local\bin\claude.exe")),
+            "native"
+        );
+    }
+
+    #[test]
+    fn compares_semver_like_versions() {
+        assert!(update_available("2.1.9", "2.2.0"));
+        assert!(!update_available("2.2.0", "2.2.0"));
+        assert!(!update_available("2.3.0", "2.2.0"));
+    }
+
+    #[test]
+    fn native_install_uses_self_update() {
+        let installation = Installation {
+            path: r"C:\Users\me\.local\bin\claude.exe".into(),
+            version: Some("2.1.146".into()),
+            source: "native".into(),
+            environment: "windows".into(),
+            wsl_distro: None,
+        };
+        assert_eq!(
+            update_command_for(Some(&installation)),
+            r#""C:\Users\me\.local\bin\claude.exe" update"#
+        );
+    }
+
+    #[test]
+    fn wsl_install_updates_inside_its_distro() {
+        let installation = Installation {
+            path: "/home/me/.local/bin/claude".into(),
+            version: Some("2.1.146".into()),
+            source: "wsl".into(),
+            environment: "wsl".into(),
+            wsl_distro: Some("Ubuntu-24.04".into()),
+        };
+        let command = update_command_for(Some(&installation));
+        assert!(command.starts_with(r#"wsl -d "Ubuntu-24.04" -- "#));
+        assert!(command.contains("claude update"));
+    }
+}

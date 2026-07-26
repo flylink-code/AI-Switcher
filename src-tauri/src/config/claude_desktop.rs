@@ -1,115 +1,137 @@
-//! Claude Desktop configuration directory discovery.
+//! Claude Desktop configuration directory discovery and profile management.
 //!
-//! Claude Desktop stores its per-provider gateway configs under a `configLibrary`
-//! folder inside its install/support directory. The candidate order mirrors the
-//! reference implementation in `examples/cc-proxy-master/claude_config.py`:
-//!
-//! - Windows: `%LOCALAPPDATA%\Claude`, then `%LOCALAPPDATA%\ClaudeZhCN`
-//!   (the Chinese-locale folder name), then `%APPDATA%\Claude`.
-//! - macOS: `~/Library/Application Support/Claude`.
-//!
-//! Linux is unsupported (Claude Desktop does not ship there); detection returns
-//! `None`.
+//! Third-party gateway profiles live under `configLibrary` inside the **3p**
+//! install directory (`Claude-3p` on Windows, `Claude-3p` under Application
+//! Support on macOS). Logic aligned with `examples/cc-switch-main`.
 
 use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
 use crate::backup::backup_file_named;
-use crate::config::{read_json_file, write_json_file};
+use crate::config::{get_home_dir, read_json_file, write_json_file};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{ClaudeModelMapping, ClaudeModelRole, Provider};
 
-/// Subdirectory inside the Claude install dir that holds provider configs.
 const CONFIG_LIBRARY_DIR: &str = "configLibrary";
-/// The registry file listing available provider entries + the applied one.
+const CONFIG_FILE: &str = "claude_desktop_config.json";
 const META_FILE: &str = "_meta.json";
 
-/// All Claude Desktop paths relevant to config writing. Fields are `None` when
-/// the platform is unsupported or Claude Desktop is not installed.
+/// All Claude Desktop paths relevant to config writing.
 #[derive(Debug, Clone, Serialize)]
 pub struct ClaudeDesktopPaths {
-    /// Install/support base dir (e.g. `%LOCALAPPDATA%\Claude`).
+    /// 1p (official) install dir, e.g. `%LOCALAPPDATA%\Claude`.
     pub base: Option<PathBuf>,
-    /// `configLibrary` dir inside base.
+    /// 3p (third-party) install dir, e.g. `%LOCALAPPDATA%\Claude-3p`.
+    pub threep_base: Option<PathBuf>,
+    /// `Claude-3p/configLibrary`.
     pub config_library: Option<PathBuf>,
     /// `configLibrary/_meta.json`.
     pub meta_path: Option<PathBuf>,
+    /// `Claude/claude_desktop_config.json`.
+    pub normal_config_path: Option<PathBuf>,
+    /// `Claude-3p/claude_desktop_config.json`.
+    pub threep_config_path: Option<PathBuf>,
 }
 
 impl ClaudeDesktopPaths {
-    fn not_detected() -> Self {
-        ClaudeDesktopPaths {
+    fn unsupported() -> Self {
+        Self {
             base: None,
+            threep_base: None,
             config_library: None,
             meta_path: None,
+            normal_config_path: None,
+            threep_config_path: None,
         }
     }
 }
 
 /// Whether Claude Desktop config management is supported on this OS.
 pub fn is_supported_platform() -> bool {
-    cfg!(target_os = "windows") || cfg!(target_os = "macos")
+    cfg!(any(target_os = "windows", target_os = "macos"))
 }
 
-/// Probe candidate directories and return the first that exists, along with its
-/// `configLibrary` and `_meta.json` paths.
+/// Resolve platform paths. On supported platforms this always returns concrete
+/// paths (directories may not exist yet — callers create them on write).
 pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
     if !is_supported_platform() {
-        return ClaudeDesktopPaths::not_detected();
-    }
-
-    for candidate in candidate_base_dirs() {
-        if candidate.is_dir() {
-            let config_library = candidate.join(CONFIG_LIBRARY_DIR);
-            let meta_path = config_library.join(META_FILE);
-            return ClaudeDesktopPaths {
-                base: Some(candidate),
-                config_library: Some(config_library),
-                meta_path: Some(meta_path),
-            };
-        }
-    }
-    ClaudeDesktopPaths::not_detected()
-}
-
-/// Ordered list of base directories to probe for the current platform.
-fn candidate_base_dirs() -> Vec<PathBuf> {
-    let mut out = Vec::new();
-
-    #[cfg(windows)]
-    {
-        let local_app_data = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
-        let roaming_app_data = std::env::var_os("APPDATA").map(PathBuf::from);
-        if let Some(lad) = local_app_data {
-            out.push(lad.join("Claude"));
-            out.push(lad.join("ClaudeZhCN"));
-        }
-        if let Some(rad) = roaming_app_data {
-            out.push(rad.join("Claude"));
-        }
+        return ClaudeDesktopPaths::unsupported();
     }
 
     #[cfg(target_os = "macos")]
     {
-        if let Some(home) = dirs::home_dir() {
-            out.push(home.join("Library/Application Support/Claude"));
-        }
+        let home = get_home_dir();
+        let app_support = home.join("Library").join("Application Support");
+        return paths_from_dirs(app_support.join("Claude"), app_support.join("Claude-3p"));
+    }
+
+    #[cfg(windows)]
+    {
+        let local_app_data = windows_local_app_data_dir();
+        let normal_dir = pick_windows_claude_dir(&local_app_data, false)
+            .unwrap_or_else(|| local_app_data.join("Claude"));
+        let threep_dir = pick_windows_claude_dir(&local_app_data, true)
+            .unwrap_or_else(|| local_app_data.join("Claude-3p"));
+        return paths_from_dirs(normal_dir, threep_dir);
     }
 
     #[cfg(not(any(windows, target_os = "macos")))]
-    {
-        // Unsupported platform; no candidates. Nothing to add.
-    }
-
-    out
+    ClaudeDesktopPaths::unsupported()
 }
 
-/// Stable profile id for this app's Claude Desktop gateway config.
-const PROFILE_ID: &str = "claude-switcher";
+#[cfg(windows)]
+fn windows_local_app_data_dir() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| get_home_dir().join("AppData").join("Local"))
+}
+
+#[cfg(windows)]
+fn pick_windows_claude_dir(local_app_data: &Path, threep: bool) -> Option<PathBuf> {
+    let exact_name = if threep { "Claude-3p" } else { "Claude" };
+    let exact = local_app_data.join(exact_name);
+    if exact.is_dir() {
+        return Some(exact);
+    }
+
+    let mut candidates: Vec<PathBuf> = std::fs::read_dir(local_app_data)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .filter(|path| {
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                return false;
+            };
+            let starts = name.starts_with("Claude");
+            let is_threep = name.contains("-3p");
+            starts && is_threep == threep
+        })
+        .collect();
+    candidates.sort();
+    candidates.into_iter().next()
+}
+
+fn paths_from_dirs(normal_dir: PathBuf, threep_dir: PathBuf) -> ClaudeDesktopPaths {
+    let config_library = threep_dir.join(CONFIG_LIBRARY_DIR);
+    ClaudeDesktopPaths {
+        base: Some(normal_dir.clone()),
+        threep_base: Some(threep_dir.clone()),
+        meta_path: Some(config_library.join(META_FILE)),
+        normal_config_path: Some(normal_dir.join(CONFIG_FILE)),
+        threep_config_path: Some(threep_dir.join(CONFIG_FILE)),
+        config_library: Some(config_library),
+    }
+}
+
+pub const PROFILE_ID: &str = "c765dca5-1e8f-4a6d-9b04-2a76a8b94e31";
+pub const LEGACY_PROFILE_ID: &str = "claude-switcher";
 const PROFILE_NAME: &str = "Claude Switcher";
 const GATEWAY_TOKEN_KEY: &str = "claude_desktop_gateway_token";
+/// Claude Desktop appends `/v1/messages` to this base path segment.
+pub const CLAUDE_DESKTOP_PROXY_PREFIX: &str = "/claude-desktop";
 const MAX_BACKUPS: usize = 10;
 const DESKTOP_ROLE_ROUTES: [(&str, ClaudeModelRole); 4] = [
     ("claude-sonnet-5", ClaudeModelRole::Sonnet),
@@ -118,49 +140,97 @@ const DESKTOP_ROLE_ROUTES: [(&str, ClaudeModelRole); 4] = [
     ("claude-fable-5", ClaudeModelRole::Fable),
 ];
 
+fn platform_paths() -> AppResult<ClaudeDesktopPaths> {
+    let paths = detect_claude_desktop();
+    if paths.config_library.is_none() {
+        return Err(AppError::Config(
+            "当前平台不支持 Claude Desktop 配置管理".to_string(),
+        ));
+    }
+    Ok(paths)
+}
+
+/// Local proxy base URL written into the Desktop gateway profile (proxy mode).
+pub fn desktop_proxy_gateway_base_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}{CLAUDE_DESKTOP_PROXY_PREFIX}")
+}
+
+/// Validate the bearer token Claude Desktop sends to the local gateway.
+pub fn validate_gateway_auth_header(auth_header: Option<&str>) -> AppResult<()> {
+    let expected = get_or_create_gateway_token()?;
+    let Some(value) = auth_header else {
+        return Err(AppError::Config(
+            "Claude Desktop gateway 缺少 Authorization 头".to_string(),
+        ));
+    };
+    let token = value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("bearer "))
+        .unwrap_or(value)
+        .trim();
+    if token != expected {
+        return Err(AppError::Config(
+            "Claude Desktop gateway token 无效".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Activate a provider for Claude Desktop by writing the configLibrary profile
 /// and updating `_meta.json`.
-///
-/// - `Anthropic` protocol: point Desktop directly at the provider's base URL.
-/// - `Proxy` protocol: point Desktop at the local proxy (`http://127.0.0.1:port`).
 pub fn apply_provider(provider: &Provider, proxy_port: u16) -> AppResult<()> {
-    let paths = detect_claude_desktop();
+    let paths = platform_paths()?;
     let config_library = paths
         .config_library
-        .ok_or_else(|| AppError::Config("未检测到 Claude Desktop 配置目录".to_string()))?;
+        .as_ref()
+        .ok_or_else(|| AppError::Config("未解析 Claude Desktop configLibrary 路径".to_string()))?;
     let meta_path = paths
         .meta_path
-        .ok_or_else(|| AppError::Config("未检测到 Claude Desktop _meta.json".to_string()))?;
+        .as_ref()
+        .ok_or_else(|| AppError::Config("未解析 Claude Desktop _meta.json 路径".to_string()))?;
 
-    std::fs::create_dir_all(&config_library)?;
-    backup_file_named(&meta_path,
-        "_meta.json",
-        MAX_BACKUPS,
-    )?;
+    std::fs::create_dir_all(config_library)?;
+
+    if let Some(normal_config) = &paths.normal_config_path {
+        write_deployment_mode(normal_config, "3p")?;
+    }
+    if let Some(threep_config) = &paths.threep_config_path {
+        write_deployment_mode(threep_config, "3p")?;
+    }
+
+    if meta_path.exists() {
+        backup_file_named(meta_path, "_meta.json", MAX_BACKUPS)?;
+    }
 
     let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
+    let legacy_profile_path = config_library.join(format!("{LEGACY_PROFILE_ID}.json"));
     if profile_path.exists() {
-        backup_file_named(&profile_path,
+        backup_file_named(
+            &profile_path,
             &format!("{PROFILE_ID}.json"),
+            MAX_BACKUPS,
+        )?;
+    }
+    if legacy_profile_path.exists() {
+        backup_file_named(
+            &legacy_profile_path,
+            &format!("{LEGACY_PROFILE_ID}.json"),
             MAX_BACKUPS,
         )?;
     }
 
     let profile = build_profile(provider, proxy_port)?;
     write_json_file(&profile_path, &profile)?;
-
-    write_meta(&meta_path,
-        Some(PROFILE_ID),
-        Some(PROFILE_NAME),
-    )?;
-
+    write_meta(meta_path, Some(PROFILE_ID), Some(PROFILE_NAME))?;
+    if legacy_profile_path.exists() {
+        std::fs::remove_file(&legacy_profile_path)?;
+    }
     Ok(())
 }
 
-/// Restore official login mode for Claude Desktop: remove our profile and clear
-/// our applied id in `_meta.json`.
+/// Restore official login mode for Claude Desktop.
 pub fn clear_provider() -> AppResult<()> {
-    let paths = detect_claude_desktop();
+    let paths = platform_paths()?;
     let config_library = match paths.config_library {
         Some(p) => p,
         None => return Ok(()),
@@ -170,30 +240,38 @@ pub fn clear_provider() -> AppResult<()> {
         None => return Ok(()),
     };
 
-    let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
-    if profile_path.exists() {
-        backup_file_named(
-            &profile_path,
-            &format!("{PROFILE_ID}.json"),
-            MAX_BACKUPS,
-        )?;
-        std::fs::remove_file(&profile_path)?;
+    if let Some(normal_config) = paths.normal_config_path {
+        write_deployment_mode(&normal_config, "1p")?;
+    }
+    if let Some(threep_config) = paths.threep_config_path {
+        write_deployment_mode(&threep_config, "1p")?;
     }
 
-    write_meta(&meta_path,
-        None,
-        Some(PROFILE_NAME),
-    )?;
+    for id in [PROFILE_ID, LEGACY_PROFILE_ID] {
+        let profile_path = config_library.join(format!("{id}.json"));
+        if profile_path.exists() {
+            backup_file_named(
+                &profile_path,
+                &format!("{id}.json"),
+                MAX_BACKUPS,
+            )?;
+            std::fs::remove_file(&profile_path)?;
+        }
+    }
+
+    write_meta(&meta_path, None, Some(PROFILE_NAME))?;
     Ok(())
 }
 
-/// Clear this application's profile and restore the previously applied profile
-/// id, when P7 ownership tracking captured one before the first switch.
 pub fn clear_provider_restoring_applied_id(previous: Option<String>) -> AppResult<()> {
     clear_provider()?;
-    let Some(previous) = previous else { return Ok(()); };
-    let paths = detect_claude_desktop();
-    let Some(meta_path) = paths.meta_path else { return Ok(()); };
+    let Some(previous) = previous.filter(|id| !is_managed_profile_id(id)) else {
+        return Ok(());
+    };
+    let paths = platform_paths()?;
+    let Some(meta_path) = paths.meta_path else {
+        return Ok(());
+    };
     let mut value = read_json_file::<Value>(&meta_path)?.unwrap_or_else(|| serde_json::json!({}));
     if !value.is_object() {
         value = serde_json::json!({});
@@ -202,23 +280,36 @@ pub fn clear_provider_restoring_applied_id(previous: Option<String>) -> AppResul
     write_json_file(&meta_path, &value)
 }
 
-/// Return the currently selected Desktop configuration profile, if readable.
 pub fn current_applied_id() -> AppResult<Option<String>> {
     let paths = detect_claude_desktop();
-    let Some(meta_path) = paths.meta_path else { return Ok(None); };
+    let Some(meta_path) = paths.meta_path else {
+        return Ok(None);
+    };
+    if !meta_path.exists() {
+        return Ok(None);
+    }
     let value = read_json_file::<Value>(&meta_path)?.unwrap_or_else(|| serde_json::json!({}));
-    Ok(value.get("appliedId").and_then(Value::as_str).map(str::to_string))
+    Ok(value
+        .get("appliedId")
+        .and_then(Value::as_str)
+        .map(str::to_string))
 }
+
+pub fn is_managed_profile_id(id: &str) -> bool {
+    id == PROFILE_ID || id == LEGACY_PROFILE_ID
+}
+
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     let role_routes = provider.requires_local_proxy();
     let (base_url, api_key) = if role_routes {
         let token = get_or_create_gateway_token()?;
-        (format!("http://127.0.0.1:{proxy_port}"), token)
+        (desktop_proxy_gateway_base_url(proxy_port), token)
     } else {
         (provider.base_url.clone(), provider.api_key.clone())
     };
 
     let mut profile = serde_json::json!({
+        "coworkEgressAllowedHosts": ["*"],
         "inferenceProvider": "gateway",
         "inferenceGatewayBaseUrl": base_url.trim_end_matches('/'),
         "inferenceGatewayApiKey": api_key,
@@ -253,7 +344,6 @@ fn desktop_inference_models(provider: &Provider) -> Vec<Value> {
         .collect()
 }
 
-/// Claude Desktop queries this endpoint to populate its model menu.
 pub fn model_list_response(_provider: &Provider) -> Value {
     let data = DESKTOP_ROLE_ROUTES
         .iter()
@@ -272,13 +362,40 @@ pub fn model_list_response(_provider: &Provider) -> Value {
     })
 }
 
-/// Read the Claude Switcher profile currently applied to Claude Desktop, if any.
+pub fn active_profile_uses_local_proxy() -> bool {
+    let Ok(applied) = current_applied_id() else {
+        return false;
+    };
+    let Some(applied) = applied.filter(|id| is_managed_profile_id(id)) else {
+        return false;
+    };
+    let paths = detect_claude_desktop();
+    let Some(config_library) = paths.config_library else {
+        return false;
+    };
+    let profile_path = config_library.join(format!("{applied}.json"));
+    let Ok(Some(profile)) = read_json_file::<Value>(&profile_path) else {
+        return false;
+    };
+    let base_url = profile
+        .get("inferenceGatewayBaseUrl")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    base_url.contains("127.0.0.1") && base_url.contains(CLAUDE_DESKTOP_PROXY_PREFIX)
+}
+
 pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LiveProviderInfo>> {
     let paths = detect_claude_desktop();
     let Some(config_library) = paths.config_library else {
         return Ok(None);
     };
-    let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
+    let applied = current_applied_id()?;
+    let id = applied
+        .as_deref()
+        .filter(|id| is_managed_profile_id(id))
+        .unwrap_or(PROFILE_ID);
+    let profile_path = config_library.join(format!("{id}.json"));
     let Some(profile) = read_json_file::<Value>(&profile_path)? else {
         return Ok(None);
     };
@@ -337,7 +454,7 @@ pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LivePro
     }))
 }
 
-fn get_or_create_gateway_token() -> AppResult<String> {
+pub fn get_or_create_gateway_token() -> AppResult<String> {
     let token = crate::database::Database::init()
         .and_then(|db| {
             db.with_conn(|conn| {
@@ -356,15 +473,35 @@ fn get_or_create_gateway_token() -> AppResult<String> {
     Ok(token)
 }
 
-fn write_meta(
-    path: &Path,
-    applied_id: Option<&str>,
-    our_name: Option<&str>,
-) -> AppResult<()> {
-    let mut value = read_json_file::<Value>(path)?.unwrap_or_else(|| serde_json::json!({}));
-    if !value.is_object() {
-        value = serde_json::json!({});
+fn read_json_or_empty(path: &Path) -> AppResult<Value> {
+    let value = if path.exists() {
+        read_json_file(path)?.unwrap_or_else(|| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    if value.is_object() {
+        Ok(value)
+    } else {
+        Ok(serde_json::json!({}))
     }
+}
+
+fn write_deployment_mode(path: &Path, mode: &str) -> AppResult<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut value = read_json_or_empty(path)?;
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert(
+            "deploymentMode".to_string(),
+            Value::String(mode.to_string()),
+        );
+    }
+    write_json_file(path, &value)
+}
+
+fn write_meta(path: &Path, applied_id: Option<&str>, our_name: Option<&str>) -> AppResult<()> {
+    let mut value = read_json_or_empty(path)?;
     let obj = value.as_object_mut().expect("normalized to object");
 
     let mut entries = obj
@@ -373,8 +510,12 @@ fn write_meta(
         .cloned()
         .unwrap_or_default();
 
-    // Remove our previous entry.
-    entries.retain(|entry| entry.get("id").and_then(Value::as_str) != Some(PROFILE_ID));
+    entries.retain(|entry| {
+        !entry
+            .get("id")
+            .and_then(Value::as_str)
+            .is_some_and(is_managed_profile_id)
+    });
 
     if let Some(id) = applied_id {
         entries.push(serde_json::json!({
@@ -385,7 +526,7 @@ fn write_meta(
     } else if obj
         .get("appliedId")
         .and_then(Value::as_str)
-        .is_some_and(|id| id == PROFILE_ID)
+        .is_some_and(is_managed_profile_id)
     {
         obj.remove("appliedId");
     }
@@ -427,7 +568,6 @@ mod tests {
 
     #[test]
     fn unsupported_platform_returns_none() {
-        // This test is only meaningful on Linux; on win/mac detection may succeed.
         if !is_supported_platform() {
             let p = detect_claude_desktop();
             assert!(p.base.is_none());
@@ -435,9 +575,15 @@ mod tests {
     }
 
     #[test]
-    fn candidate_dirs_nonempty_on_supported() {
+    fn supported_platform_paths_are_populated() {
         if is_supported_platform() {
-            assert!(!candidate_base_dirs().is_empty());
+            let p = detect_claude_desktop();
+            assert!(p.base.is_some());
+            assert!(p.threep_base.is_some());
+            assert!(p.config_library.is_some());
+            assert!(p.meta_path.is_some());
+            assert!(p.normal_config_path.is_some());
+            assert!(p.threep_config_path.is_some());
         }
     }
 
@@ -455,5 +601,92 @@ mod tests {
         let response = model_list_response(&provider);
         assert_eq!(response["data"][1]["id"], "claude-opus-4-8");
         assert_eq!(response["data"][2]["id"], "claude-haiku-4-5");
+    }
+
+    #[test]
+    fn proxy_profile_uses_claude_desktop_gateway_prefix() {
+        let provider = Provider {
+            id: "proxy-provider".into(),
+            name: "Proxy".into(),
+            base_url: "https://api.example.test".into(),
+            api_key: "secret".into(),
+            api_key_set: true,
+            model: "deepseek-chat".into(),
+            model_mapping: ClaudeModelMapping {
+                sonnet: "deepseek-chat".into(),
+                opus: "deepseek-chat".into(),
+                haiku: "deepseek-chat".into(),
+                fable: "deepseek-chat".into(),
+                subagent: String::new(),
+            },
+            protocol_type: ProtocolType::OpenAiChat,
+            target_app: ProviderTarget::ClaudeDesktop,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        };
+        let profile = build_profile(&provider, 15_821).expect("profile");
+        assert_eq!(
+            profile["inferenceGatewayBaseUrl"],
+            serde_json::json!("http://127.0.0.1:15821/claude-desktop")
+        );
+        assert_eq!(profile["coworkEgressAllowedHosts"], serde_json::json!(["*"]));
+    }
+
+    #[test]
+    fn paths_from_dirs_uses_threep_for_config_library() {
+        let paths = paths_from_dirs(
+            PathBuf::from("/tmp/Claude"),
+            PathBuf::from("/tmp/Claude-3p"),
+        );
+        assert_eq!(paths.base, Some(PathBuf::from("/tmp/Claude")));
+        assert_eq!(paths.threep_base, Some(PathBuf::from("/tmp/Claude-3p")));
+        assert_eq!(
+            paths.config_library,
+            Some(PathBuf::from("/tmp/Claude-3p/configLibrary"))
+        );
+    }
+
+    #[test]
+    fn managed_profile_id_is_a_stable_uuid() {
+        assert!(uuid::Uuid::parse_str(PROFILE_ID).is_ok());
+        assert!(is_managed_profile_id(PROFILE_ID));
+        assert!(is_managed_profile_id(LEGACY_PROFILE_ID));
+    }
+
+    #[test]
+    fn write_meta_replaces_legacy_profile_entry() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("_meta.json");
+        write_json_file(
+            &path,
+            &serde_json::json!({
+                "appliedId": LEGACY_PROFILE_ID,
+                "entries": [
+                    { "id": LEGACY_PROFILE_ID, "name": "Legacy" },
+                    { "id": "other-profile", "name": "Other" }
+                ]
+            }),
+        )
+        .expect("seed meta");
+
+        write_meta(&path, Some(PROFILE_ID), Some(PROFILE_NAME)).expect("write meta");
+        let value = read_json_file::<Value>(&path)
+            .expect("read meta")
+            .expect("meta exists");
+        assert_eq!(value["appliedId"], PROFILE_ID);
+        let entries = value["entries"].as_array().expect("entries");
+        assert!(entries
+            .iter()
+            .any(|entry| entry["id"] == serde_json::json!(PROFILE_ID)));
+        assert!(!entries
+            .iter()
+            .any(|entry| entry["id"] == serde_json::json!(LEGACY_PROFILE_ID)));
+        assert!(entries
+            .iter()
+            .any(|entry| entry["id"] == serde_json::json!("other-profile")));
     }
 }

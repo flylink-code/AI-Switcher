@@ -19,16 +19,44 @@ use crate::provider::{ClaudeModelMapping, LiveProviderInfo, Provider};
 
 /// The exact Claude Code fields owned by this application. Other
 /// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
-const MANAGED_ENV_KEYS: [&str; 9] = [
+pub const MANAGED_ENV_KEYS: [&str; 15] = [
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_MODEL",
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
     "ANTHROPIC_DEFAULT_FABLE_MODEL",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME",
     "CLAUDE_CODE_SUBAGENT_MODEL",
+    "ANTHROPIC_SMALL_FAST_MODEL",
+    "ANTHROPIC_REASONING_MODEL",
+];
+const PROXY_ROLE_MODELS: [(&str, &str, crate::provider::ClaudeModelRole); 4] = [
+    (
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "claude-sonnet-4-6",
+        crate::provider::ClaudeModelRole::Sonnet,
+    ),
+    (
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "claude-opus-4-8",
+        crate::provider::ClaudeModelRole::Opus,
+    ),
+    (
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "claude-haiku-4-5",
+        crate::provider::ClaudeModelRole::Haiku,
+    ),
+    (
+        "ANTHROPIC_DEFAULT_FABLE_MODEL",
+        "claude-fable-5",
+        crate::provider::ClaudeModelRole::Fable,
+    ),
 ];
 /// Max backups of `settings.json` to retain.
 const SETTINGS_BACKUP_KEEP: usize = 10;
@@ -79,7 +107,7 @@ pub fn apply_provider_to_settings_via_proxy_at(
     remove_managed_keys(env);
     set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
     set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
-    inject_provider_models(env, provider);
+    inject_proxy_models(env, provider);
 
     write_settings(path, &settings)
 }
@@ -140,23 +168,49 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let model = env
+    let configured_default = env
         .get("ANTHROPIC_MODEL")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
-    let env_model = |key: &str| {
-        env.get(key)
+    let env_model = |model_key: &str, name_key: Option<&str>| {
+        let model = env
+            .get(model_key)
             .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string()
+            .unwrap_or("");
+        let display_name = name_key
+            .and_then(|key| env.get(key))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if is_proxy_role_model(model) && !display_name.trim().is_empty() {
+            display_name.to_string()
+        } else {
+            model.to_string()
+        }
     };
     let model_mapping = ClaudeModelMapping {
-        sonnet: env_model("ANTHROPIC_DEFAULT_SONNET_MODEL"),
-        opus: env_model("ANTHROPIC_DEFAULT_OPUS_MODEL"),
-        haiku: env_model("ANTHROPIC_DEFAULT_HAIKU_MODEL"),
-        fable: env_model("ANTHROPIC_DEFAULT_FABLE_MODEL"),
-        subagent: env_model("CLAUDE_CODE_SUBAGENT_MODEL"),
+        sonnet: env_model(
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            Some("ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"),
+        ),
+        opus: env_model(
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            Some("ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"),
+        ),
+        haiku: env_model(
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            Some("ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"),
+        ),
+        fable: env_model(
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            Some("ANTHROPIC_DEFAULT_FABLE_MODEL_NAME"),
+        ),
+        subagent: env_model("CLAUDE_CODE_SUBAGENT_MODEL", None),
+    };
+    let model = if configured_default.is_empty() {
+        model_mapping.sonnet.clone()
+    } else {
+        configured_default
     };
 
     // No base_url = nothing configured (official login).
@@ -231,15 +285,62 @@ fn inject_provider_models(env: &mut Map<String, Value>, provider: &Provider) {
 
     let default = provider.model.trim();
     set_str(env, "ANTHROPIC_MODEL", default);
-    for (key, role) in [
-        ("ANTHROPIC_DEFAULT_SONNET_MODEL", ClaudeModelRole::Sonnet),
-        ("ANTHROPIC_DEFAULT_OPUS_MODEL", ClaudeModelRole::Opus),
-        ("ANTHROPIC_DEFAULT_HAIKU_MODEL", ClaudeModelRole::Haiku),
-        ("ANTHROPIC_DEFAULT_FABLE_MODEL", ClaudeModelRole::Fable),
-        ("CLAUDE_CODE_SUBAGENT_MODEL", ClaudeModelRole::Subagent),
+    for (model_key, name_key, role) in [
+        (
+            "ANTHROPIC_DEFAULT_SONNET_MODEL",
+            "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
+            ClaudeModelRole::Sonnet,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
+            ClaudeModelRole::Opus,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+            "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
+            ClaudeModelRole::Haiku,
+        ),
+        (
+            "ANTHROPIC_DEFAULT_FABLE_MODEL",
+            "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME",
+            ClaudeModelRole::Fable,
+        ),
     ] {
-        set_str(env, key, provider.model_mapping.for_role(role, default));
+        let upstream = provider.model_mapping.for_role(role, default);
+        set_str(env, model_key, upstream);
+        set_str(env, name_key, upstream);
     }
+    set_str(
+        env,
+        "CLAUDE_CODE_SUBAGENT_MODEL",
+        provider
+            .model_mapping
+            .for_role(ClaudeModelRole::Subagent, default),
+    );
+}
+
+fn inject_proxy_models(env: &mut Map<String, Value>, provider: &Provider) {
+    let default = provider.model.trim();
+    for (model_key, stable_model, role) in PROXY_ROLE_MODELS {
+        let upstream = provider.model_mapping.for_role(role, default);
+        set_str(env, model_key, stable_model);
+        set_str(env, &format!("{model_key}_NAME"), upstream);
+    }
+    set_str(
+        env,
+        "CLAUDE_CODE_SUBAGENT_MODEL",
+        provider
+            .model_mapping
+            .for_role(crate::provider::ClaudeModelRole::Subagent, default),
+    );
+}
+
+fn is_proxy_role_model(model: &str) -> bool {
+    let normalized = model.trim().to_ascii_lowercase();
+    PROXY_ROLE_MODELS
+        .iter()
+        .any(|(_, stable_model, _)| normalized == *stable_model)
 }
 
 fn set_str(env: &mut Map<String, Value>, key: &str, value: &str) {
@@ -317,7 +418,11 @@ mod tests {
                     "ANTHROPIC_BASE_URL": "https://old.example.com",
                     "ANTHROPIC_AUTH_TOKEN": "sk-old",
                     "ANTHROPIC_MODEL": "old-model",
-                    "ANTHROPIC_DEFAULT_SONNET_MODEL": "old-sonnet"
+                    "ANTHROPIC_DEFAULT_SONNET_MODEL": "old-sonnet",
+                    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Old Sonnet",
+                    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Old Opus",
+                    "ANTHROPIC_SMALL_FAST_MODEL": "old-fast",
+                    "ANTHROPIC_REASONING_MODEL": "old-reasoning"
                 }
             })
             .to_string(),
@@ -334,10 +439,16 @@ mod tests {
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "deepseek-sonnet");
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "deepseek-opus");
+        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"], "deepseek-opus");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "deepseek-haiku");
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "deepseek-haiku");
         assert_eq!(env["ANTHROPIC_DEFAULT_FABLE_MODEL"], "deepseek-fable");
+        assert_eq!(env["ANTHROPIC_DEFAULT_FABLE_MODEL_NAME"], "deepseek-fable");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-agent");
+        assert!(!env.contains_key("ANTHROPIC_SMALL_FAST_MODEL"));
+        assert!(!env.contains_key("ANTHROPIC_REASONING_MODEL"));
         // Non-anthropic env preserved.
         assert_eq!(env["ENABLE_TOOL_SEARCH"], "true");
         assert_eq!(env["DISABLE_AUTOUPDATER"], "1");
@@ -376,5 +487,44 @@ mod tests {
         assert!(path.exists());
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+    }
+
+    #[test]
+    fn proxy_mode_writes_stable_roles_and_current_display_names() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({
+                "enabledPlugins": {"github@example": true},
+                "env": {
+                    "ENABLE_TOOL_SEARCH": "true",
+                    "ANTHROPIC_MODEL": "stale-default",
+                    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Stale Sonnet"
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path).unwrap();
+        let written: Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let env = written["env"].as_object().unwrap();
+
+        assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15821");
+        assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "local-proxy-code");
+        assert!(!env.contains_key("ANTHROPIC_MODEL"));
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "claude-sonnet-4-6");
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
+        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "claude-opus-4-8");
+        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"], "deepseek-opus");
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "deepseek-haiku");
+        assert_eq!(env["ANTHROPIC_DEFAULT_FABLE_MODEL"], "claude-fable-5");
+        assert_eq!(env["ANTHROPIC_DEFAULT_FABLE_MODEL_NAME"], "deepseek-fable");
+        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-agent");
+        assert_eq!(env["ENABLE_TOOL_SEARCH"], "true");
+        assert_eq!(written["enabledPlugins"]["github@example"], true);
     }
 }

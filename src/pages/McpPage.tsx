@@ -17,14 +17,12 @@ import {
   Typography,
   type TableColumnsType,
 } from "antd";
-import {
-  DeleteOutlined,
-  EditOutlined,
-  ImportOutlined,
-  PlusOutlined,
-  SaveOutlined,
-  SyncOutlined,
-} from "@ant-design/icons";
+import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
+import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
+import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
+import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useTranslation } from "react-i18next";
 import type { McpServer, McpServerInput, McpTarget } from "@/types/backend";
 import {

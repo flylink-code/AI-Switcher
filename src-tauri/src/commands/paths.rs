@@ -19,8 +19,11 @@ pub struct PathsInfo {
     pub app_db_path: String,
     pub backup_dir: String,
     pub claude_desktop_base: Option<String>,
+    pub claude_desktop_threep_base: Option<String>,
     pub claude_desktop_config_library: Option<String>,
     pub claude_desktop_meta_path: Option<String>,
+    pub claude_desktop_normal_config_path: Option<String>,
+    pub claude_desktop_threep_config_path: Option<String>,
 }
 
 /// Camel-case the field names for the frontend (TS interface uses camelCase).
@@ -40,7 +43,10 @@ pub fn get_paths() -> PathsInfo {
         app_db_path: s(&get_app_db_path()),
         backup_dir: s(&get_backup_dir()),
         claude_desktop_base: desktop.base.map(|p| s(&p)),
+        claude_desktop_threep_base: desktop.threep_base.map(|p| s(&p)),
         claude_desktop_config_library: desktop.config_library.map(|p| s(&p)),
         claude_desktop_meta_path: desktop.meta_path.map(|p| s(&p)),
+        claude_desktop_normal_config_path: desktop.normal_config_path.map(|p| s(&p)),
+        claude_desktop_threep_config_path: desktop.threep_config_path.map(|p| s(&p)),
     }
 }

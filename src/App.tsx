@@ -13,6 +13,7 @@ const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
 const SkillsPage = lazy(() => import("@/pages/SkillsPage"));
 const UsagePage = lazy(() => import("@/pages/UsagePage"));
 const EnvironmentPage = lazy(() => import("@/pages/EnvironmentPage"));
+const AboutPage = lazy(() => import("@/pages/AboutPage"));
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -21,6 +22,14 @@ export default function App() {
 
   // Default to the Providers page now that it's functional (P1).
   const [activeKey, setActiveKey] = useState<string>("providers");
+  const [pageReady, setPageReady] = useState(false);
+
+  // Paint the lightweight application shell before requesting the default
+  // page's Ant Design Table chunk and provider data.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setPageReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   // Keep i18next in sync with the persisted language.
   useEffect(() => {
@@ -55,8 +64,10 @@ export default function App() {
         return <UsagePage />;
       case "environment":
         return <EnvironmentPage />;
+      case "about":
+        return <AboutPage />;
       default:
-        return <EnvironmentPage />;
+        return <AboutPage />;
     }
   };
 
@@ -67,7 +78,9 @@ export default function App() {
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <AntApp>
         <AppLayout activeKey={validKey} onNavigate={setActiveKey}>
-          <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>{renderPage()}</Suspense>
+          <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+            {pageReady ? renderPage() : null}
+          </Suspense>
         </AppLayout>
       </AntApp>
     </ConfigProvider>

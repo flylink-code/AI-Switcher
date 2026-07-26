@@ -13,17 +13,15 @@ import {
   Typography,
   type TableColumnsType,
 } from "antd";
-import {
-  PlusOutlined,
-  ImportOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ThunderboltOutlined,
-  GlobalOutlined,
-  SafetyCertificateOutlined,
-} from "@ant-design/icons";
+import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
+import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
+import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
+import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
+import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
+import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
+import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";

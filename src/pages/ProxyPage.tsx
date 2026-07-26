@@ -12,13 +12,11 @@ import {
   Typography,
   message,
 } from "antd";
-import {
-  PlayCircleOutlined,
-  StopOutlined,
-  ReloadOutlined,
-  ApiOutlined,
-  GlobalOutlined,
-} from "@ant-design/icons";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
+import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import { useTranslation } from "react-i18next";
 import type { ProxyStatus, ProviderTarget } from "@/types/backend";
 import { getProxyStatus, setProxyPort, startProxy, stopProxy } from "@/services/api";

@@ -1,5 +1,5 @@
 import { Result, Typography } from "antd";
-import { ToolOutlined } from "@ant-design/icons";
+import ToolOutlined from "@ant-design/icons/es/icons/ToolOutlined";
 import { useTranslation } from "react-i18next";
 
 interface PlaceholderPageProps {

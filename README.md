@@ -46,17 +46,53 @@ pnpm tauri dev
 scripts\tauri-msvc.bat dev
 ```
 
-常用命令：
+### 编译
+
+**快速编译 exe（推荐本地测试）**：跳过 MSI/NSIS 打包，只生成可执行文件，速度更快。
+
+```powershell
+# Release exe（推荐）
+scripts\build-exe.bat
+# 或
+pnpm build:exe
+
+# Debug exe（编译更快，适合频繁改代码）
+scripts\build-exe.bat debug
+pnpm build:exe:debug
+```
+
+编译完成后：
+
+| 产物 | 路径 |
+|---|---|
+| 原始 exe | `src-tauri\target\release\claude-switcher.exe` |
+| 测试副本 | `release\claude-switcher-release.exe` |
+
+直接运行测试：
+
+```powershell
+.\release\claude-switcher-release.exe
+```
+
+**完整安装包构建**（MSI + NSIS）：
+
+```powershell
+scripts\build-exe.bat bundle
+# 或
+pnpm build:exe:bundle
+# 或
+scripts\tauri-msvc.bat build
+```
+
+安装包输出目录：`src-tauri\target\release\bundle\`
+
+### 常用命令
 
 ```powershell
 # Rust 静态检查 / 测试
 cd src-tauri
 ..\scripts\cargo-msvc.bat check
 ..\scripts\cargo-msvc.bat test
-
-# 构建 Windows MSI 和 NSIS 安装包
-cd ..
-scripts\tauri-msvc.bat build
 ```
 
 ### 数据和配置路径
@@ -65,7 +101,7 @@ scripts\tauri-msvc.bat build
 |---|---|
 | `~/.claude/settings.json` | Claude Code 的 live 配置 |
 | `~/.claude.json` | Claude Code MCP 配置 |
-| `%LOCALAPPDATA%\Claude\configLibrary\` | Claude Desktop gateway 配置（Windows） |
+| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop gateway 配置（Windows 3p 目录） |
 | `~/.claude/skills/` | Claude Code Skills |
 | `~/.claude-switcher/app.db` | 本地 SQLite 数据库 |
 | `~/.claude-switcher/backups/` | 自动轮换备份 |
@@ -79,6 +115,7 @@ src-tauri/src/database/  SQLite schema、迁移和 DAO
 src-tauri/src/proxy/     本地 Anthropic 兼容代理与日志
 src-tauri/src/commands/  Tauri IPC 命令
 src-tauri/src/tray.rs    系统托盘与双应用快捷切换
+scripts/build-exe.bat    本地快速编译 exe（测试用）
 task.md                  产品规划、阶段和后续任务
 ```
 
@@ -132,15 +169,53 @@ Use the bundled MSVC wrapper when the terminal does not already have MSVC enviro
 scripts\tauri-msvc.bat dev
 ```
 
+### Build
+
+**Quick EXE build (recommended for local testing):** skips MSI/NSIS bundling and only produces the executable.
+
+```powershell
+# Release exe (recommended)
+scripts\build-exe.bat
+# or
+pnpm build:exe
+
+# Debug exe (faster compile, good for frequent iteration)
+scripts\build-exe.bat debug
+pnpm build:exe:debug
+```
+
+After a successful build:
+
+| Artifact | Path |
+|---|---|
+| Raw exe | `src-tauri\target\release\claude-switcher.exe` |
+| Test copy | `release\claude-switcher-release.exe` |
+
+Run for testing:
+
+```powershell
+.\release\claude-switcher-release.exe
+```
+
+**Full installer build** (MSI + NSIS):
+
+```powershell
+scripts\build-exe.bat bundle
+# or
+pnpm build:exe:bundle
+# or
+scripts\tauri-msvc.bat build
+```
+
+Installer output: `src-tauri\target\release\bundle\`
+
+### Common commands
+
 ```powershell
 # Rust check / tests
 cd src-tauri
 ..\scripts\cargo-msvc.bat check
 ..\scripts\cargo-msvc.bat test
-
-# Build Windows MSI and NSIS installers
-cd ..
-scripts\tauri-msvc.bat build
 ```
 
 ### Roadmap

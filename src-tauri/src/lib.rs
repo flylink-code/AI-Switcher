@@ -35,8 +35,8 @@ use crate::commands::{
     save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
-    get_log_maintenance_policy, list_model_pricing, maintain_proxy_logs, preview_proxy_log_maintenance,
-    save_log_maintenance_policy,
+    get_log_maintenance_policy, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
+    preview_proxy_log_maintenance, save_log_maintenance_policy, get_claude_code_version, run_claude_code_update,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -55,6 +55,11 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(
             tauri_plugin_log::Builder::new()
+                .level(if cfg!(debug_assertions) {
+                    log::LevelFilter::Debug
+                } else {
+                    log::LevelFilter::Info
+                })
                 .targets([Target::new(TargetKind::Folder {
                     path: runtime_log_dir,
                     file_name: Some("runtime.log".to_string()),
@@ -122,6 +127,9 @@ pub fn run() {
             get_log_maintenance_policy,
             save_log_maintenance_policy,
             preview_proxy_log_maintenance,
+            list_proxy_request_logs_cmd,
+            get_claude_code_version,
+            run_claude_code_update,
         ]);
     let builder = add_single_instance(builder);
     if let Err(error) = builder.run(tauri::generate_context!()) {
@@ -181,6 +189,20 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(AppState {
         db: Arc::clone(&db),
         proxy: tokio::sync::Mutex::new(ProxyManager::new(Arc::clone(&db))),
+    });
+
+    let app_handle = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        // Let WebView paint the shell before touching legacy Desktop files.
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        let state = app_handle.state::<AppState>();
+        if let Err(error) = commands::providers::repair_legacy_desktop_profile(&state).await {
+            log::error!("Claude Desktop legacy profile migration failed: {error}");
+        }
+        if let Err(error) = commands::providers::repair_current_code_model_fields(&state).await {
+            log::error!("Claude Code model-field migration failed: {error}");
+        }
+        commands::proxy::ensure_runtime_proxies(&state).await;
     });
 
     // System tray.

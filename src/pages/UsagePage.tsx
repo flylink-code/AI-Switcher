@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -20,20 +21,28 @@ import {
   Typography,
   message,
 } from "antd";
-import {
-  DollarOutlined,
-  LineChartOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
+import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
+import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
+import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
+import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { useTranslation } from "react-i18next";
-import type { LogMaintenancePolicy, LogMaintenancePreview, ModelPricing, ModelPricingInput, UsageDashboard } from "@/types/backend";
+import type {
+  LogMaintenancePolicy,
+  LogMaintenancePreview,
+  ModelPricing,
+  ModelPricingInput,
+  PaginatedProxyLogs,
+  ProviderTarget,
+  UsageDashboard,
+} from "@/types/backend";
 import {
   deleteModelPricing,
   getUsageDashboard,
   getLogMaintenancePolicy,
   listModelPricing,
+  listProxyRequestLogs,
   maintainProxyLogs,
   previewProxyLogMaintenance,
   saveModelPricing,
@@ -55,28 +64,43 @@ export default function UsagePage() {
   const [maintenancePolicy, setMaintenancePolicy] = useState<LogMaintenancePolicy | null>(null);
   const [maintenancePreview, setMaintenancePreview] = useState<LogMaintenancePreview | null>(null);
   const [form] = Form.useForm<ModelPricingInput>();
+  const [requestLogs, setRequestLogs] = useState<PaginatedProxyLogs | null>(null);
+  const [logPage, setLogPage] = useState(0);
+  const [logTargetApp, setLogTargetApp] = useState<ProviderTarget | "all">("all");
+  const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextDashboard, nextPricing, nextPolicy] = await Promise.all([
+      const [nextDashboard, nextPricing, nextPolicy, nextLogs] = await Promise.all([
         getUsageDashboard(days),
         listModelPricing(),
         getLogMaintenancePolicy(),
+        listProxyRequestLogs({
+          days,
+          page: logPage,
+          pageSize: 20,
+          targetApp: logTargetApp === "all" ? undefined : logTargetApp,
+        }),
       ]);
       setDashboard(nextDashboard);
       setPricing(nextPricing);
       setMaintenancePolicy(nextPolicy);
+      setRequestLogs(nextLogs);
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
       setLoading(false);
     }
-  }, [days]);
+  }, [days, logPage, logTargetApp]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    setLogPage(0);
+  }, [days, logTargetApp]);
 
   useEffect(() => {
     if (!maintenanceOpen || !maintenancePolicy) return;
@@ -194,6 +218,97 @@ export default function UsagePage() {
 
         <Card
           size="small"
+          title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
+          extra={
+            <Select
+              size="small"
+              value={logTargetApp}
+              style={{ width: 160 }}
+              onChange={(value: ProviderTarget | "all") => setLogTargetApp(value)}
+              options={[
+                { value: "all", label: t("usage.allApps") },
+                { value: "claude_code", label: t("providers.claudeCode") },
+                { value: "claude_desktop", label: t("providers.claudeDesktop") },
+              ]}
+            />
+          }
+        >
+          <Table
+            size="small"
+            rowKey="id"
+            locale={{ emptyText: t("usage.noData") }}
+            dataSource={requestLogs?.data ?? []}
+            pagination={{
+              current: (requestLogs?.page ?? 0) + 1,
+              pageSize: requestLogs?.pageSize ?? 20,
+              total: requestLogs?.total ?? 0,
+              showSizeChanger: false,
+              onChange: (page) => setLogPage(page - 1),
+            }}
+            onRow={(row) => ({
+              onClick: () => {
+                if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
+              },
+              style: { cursor: row.diagnostic ? "pointer" : "default" },
+            })}
+            columns={[
+              {
+                title: t("usage.logTime"),
+                dataIndex: "createdAt",
+                width: 170,
+                render: (v: number) => new Date(v).toLocaleString(),
+              },
+              {
+                title: t("usage.logApp"),
+                dataIndex: "targetApp",
+                width: 120,
+                render: (v: string | null) => v ?? "—",
+              },
+              {
+                title: t("usage.logProvider"),
+                dataIndex: "providerName",
+                ellipsis: true,
+                render: (v: string | null) => v ?? "—",
+              },
+              {
+                title: t("usage.model"),
+                dataIndex: "model",
+                ellipsis: true,
+                render: (v: string | null) => v ?? "—",
+              },
+              {
+                title: t("usage.logStatus"),
+                dataIndex: "statusCode",
+                width: 80,
+                render: (v: number | null) => {
+                  if (v === null) return "—";
+                  const color = v >= 200 && v < 300 ? "green" : "red";
+                  return <Tag color={color}>{v}</Tag>;
+                },
+              },
+              {
+                title: t("usage.logTokens"),
+                render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
+                  `${formatNumber(row.inputTokens)} / ${formatNumber(row.outputTokens)}`,
+              },
+              {
+                title: t("usage.logDuration"),
+                dataIndex: "durationMs",
+                width: 90,
+                render: (v: number) => `${v}ms`,
+              },
+              {
+                title: t("usage.logStream"),
+                dataIndex: "isStream",
+                width: 70,
+                render: (v: boolean) => (v ? t("common.enabled") : "—"),
+              },
+            ]}
+          />
+        </Card>
+
+        <Card
+          size="small"
           title={t("usage.pricing")}
           extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setPricingOpen(true)}>{t("usage.addPricing")}</Button>}
         >
@@ -262,6 +377,15 @@ export default function UsagePage() {
           </Form>
         </Space>
       </Modal>
+
+      <Drawer
+        title={t("usage.logDetail")}
+        open={detailDiagnostic !== null}
+        onClose={() => setDetailDiagnostic(null)}
+        width={560}
+      >
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{detailDiagnostic}</pre>
+      </Drawer>
     </Spin>
   );
 }

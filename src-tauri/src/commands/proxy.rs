@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use crate::database::dao::providers::get_current_provider;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::AppResult;
 use crate::proxy::ProxyStatus;
@@ -100,4 +101,33 @@ fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port:
     state
         .db
         .with_conn(|conn| set_setting(conn, port_key(target), &port.to_string()))
+}
+
+/// Start local proxies required by the active providers or live Desktop profile.
+pub async fn ensure_runtime_proxies(state: &AppState) {
+    for target in [
+        crate::provider::ProviderTarget::ClaudeCode,
+        crate::provider::ProviderTarget::ClaudeDesktop,
+    ] {
+        let needs_proxy = state
+            .db
+            .with_conn(|conn| {
+                Ok(get_current_provider(conn, target)?
+                    .is_some_and(|provider| provider.requires_local_proxy()))
+            })
+            .unwrap_or(false)
+            || (target == crate::provider::ProviderTarget::ClaudeDesktop
+                && crate::config::claude_desktop::active_profile_uses_local_proxy());
+
+        if !needs_proxy {
+            continue;
+        }
+
+        let port = get_saved_port(state, target);
+        let mut proxy = state.proxy.lock().await;
+        match proxy.start(port, target).await {
+            Ok(()) => log::info!("已自动启动 {target:?} 本地代理: http://127.0.0.1:{port}"),
+            Err(error) => log::error!("自动启动 {target:?} 本地代理失败: {error}"),
+        }
+    }
 }

@@ -90,12 +90,18 @@ export interface PathsInfo {
   appDbPath: string;
   /** Backup directory. */
   backupDir: string;
-  /** Detected Claude Desktop base dir, or null when Claude Desktop is not installed. */
+  /** Detected Claude Desktop 1p install dir. */
   claudeDesktopBase: string | null;
-  /** Claude Desktop `configLibrary` dir, or null. */
+  /** Detected Claude Desktop 3p install dir. */
+  claudeDesktopThreepBase: string | null;
+  /** Claude Desktop `configLibrary` dir (under 3p), or null. */
   claudeDesktopConfigLibrary: string | null;
   /** `configLibrary/_meta.json`, or null. */
   claudeDesktopMetaPath: string | null;
+  /** `Claude/claude_desktop_config.json`, or null. */
+  claudeDesktopNormalConfigPath: string | null;
+  /** `Claude-3p/claude_desktop_config.json`, or null. */
+  claudeDesktopThreepConfigPath: string | null;
 }
 
 /** Basic database info returned by `get_db_info`. */
@@ -224,4 +230,52 @@ export interface LogMaintenancePreview {
   totalRows: number;
   deleteByAge: number;
   deleteByLimit: number;
+}
+
+export interface ProxyRequestLog {
+  id: string;
+  createdAt: number;
+  providerId: string | null;
+  providerName: string | null;
+  model: string | null;
+  statusCode: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  durationMs: number;
+  targetApp: string | null;
+  protocol: string | null;
+  route: string | null;
+  isStream: boolean;
+  errorCategory: string | null;
+  diagnostic: string | null;
+}
+
+export interface PaginatedProxyLogs {
+  data: ProxyRequestLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ProxyLogListInput {
+  days?: number;
+  targetApp?: string;
+  statusCode?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ClaudeCodeVersionInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
+  wslDistro: string | null;
 }

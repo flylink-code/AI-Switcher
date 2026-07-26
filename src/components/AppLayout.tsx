@@ -1,18 +1,17 @@
 import { useMemo } from "react";
 import { Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
-import {
-  ApiOutlined,
-  ClusterOutlined,
-  FileTextOutlined,
-  ThunderboltOutlined,
-  BarChartOutlined,
-  DesktopOutlined,
-  BulbOutlined,
-  BulbFilled,
-  LaptopOutlined,
-  GlobalOutlined,
-  NodeIndexOutlined,
-} from "@ant-design/icons";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
+import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
+import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
+import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
+import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
+import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
+import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
+import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
+import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
+import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
+import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
@@ -33,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "skills", icon: <ThunderboltOutlined /> },
   { key: "usage", icon: <BarChartOutlined /> },
   { key: "environment", icon: <DesktopOutlined /> },
+  { key: "about", icon: <InfoCircleOutlined /> },
 ];
 
 interface AppLayoutProps {
