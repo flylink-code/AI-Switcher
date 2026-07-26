@@ -56,6 +56,15 @@ export interface ConnectionTestResult {
   checkedAt: number;
 }
 
+export interface ProviderHealthUpdated {
+  providerId: string;
+  targetApp: ProviderTarget;
+  ok: boolean;
+  category: string;
+  message: string;
+  checkedAt: number;
+}
+
 export interface ModelDiscoveryResult {
   models: string[];
   message: string;
@@ -82,6 +91,9 @@ export interface DesktopLocalizationStatus {
   platformSupported: boolean;
   installDetected: boolean;
   installKind?: string | null;
+  detectionSource: string;
+  checkedAt: number;
+  diagnostics: string[];
   installPath?: string | null;
   resourcesPath?: string | null;
   claudeVersion?: string | null;
@@ -205,6 +217,8 @@ export interface UsageSummary {
   requestCount: number;
   successfulRequestCount: number;
   inputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
 }
@@ -213,6 +227,8 @@ export interface UsageBreakdown {
   key: string;
   requestCount: number;
   inputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
 }
@@ -221,6 +237,8 @@ export interface UsageTrendPoint {
   date: string;
   requestCount: number;
   inputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
 }
@@ -273,6 +291,8 @@ export interface ProxyRequestLog {
   model: string | null;
   statusCode: number | null;
   inputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
   outputTokens: number;
   durationMs: number;
   targetApp: string | null;

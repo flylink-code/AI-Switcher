@@ -13,6 +13,7 @@ const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
 const SkillsPage = lazy(() => import("@/pages/SkillsPage"));
 const UsagePage = lazy(() => import("@/pages/UsagePage"));
 const EnvironmentPage = lazy(() => import("@/pages/EnvironmentPage"));
+const DesktopLocalizationPage = lazy(() => import("@/pages/DesktopLocalizationPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
 
   // Default to the Providers page now that it's functional (P1).
   const [activeKey, setActiveKey] = useState<string>("providers");
+  const [visitedKeys, setVisitedKeys] = useState<Set<string>>(() => new Set(["providers"]));
   const [pageReady, setPageReady] = useState(false);
 
   // Paint the lightweight application shell before requesting the default
@@ -29,6 +31,42 @@ export default function App() {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => setPageReady(true));
     return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    setVisitedKeys((current) => {
+      if (current.has(activeKey)) return current;
+      const next = new Set(current);
+      next.add(activeKey);
+      return next;
+    });
+  }, [activeKey]);
+
+  useEffect(() => {
+    const preload = () => {
+      void Promise.allSettled([
+        import("@/pages/ProxyPage"),
+        import("@/pages/McpPage"),
+        import("@/pages/PromptsPage"),
+        import("@/pages/SkillsPage"),
+        import("@/pages/UsagePage"),
+        import("@/pages/EnvironmentPage"),
+        import("@/pages/DesktopLocalizationPage"),
+        import("@/pages/AboutPage"),
+      ]).then(() => {
+        setVisitedKeys(new Set(NAV_ITEMS.map((item) => item.key)));
+      });
+    };
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (idleWindow.requestIdleCallback) {
+      const idle = idleWindow.requestIdleCallback(preload);
+      return () => idleWindow.cancelIdleCallback?.(idle);
+    }
+    const timer = window.setTimeout(preload, 500);
+    return () => window.clearTimeout(timer);
   }, []);
 
   // Keep i18next in sync with the persisted language.
@@ -48,8 +86,8 @@ export default function App() {
 
   const antdLocale = language === "en-US" ? enUS : zhCN;
 
-  const renderPage = () => {
-    switch (activeKey) {
+  const renderPage = (key: string) => {
+    switch (key) {
       case "providers":
         return <ProvidersPage />;
       case "proxy":
@@ -65,7 +103,7 @@ export default function App() {
       case "environment":
         return <EnvironmentPage />;
       case "localization":
-        return <EnvironmentPage focusLocalization />;
+        return <DesktopLocalizationPage />;
       case "about":
         return <AboutPage />;
       default:
@@ -80,9 +118,19 @@ export default function App() {
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <AntApp>
         <AppLayout activeKey={validKey} onNavigate={setActiveKey}>
-          <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
-            {pageReady ? renderPage() : null}
-          </Suspense>
+          {pageReady
+            ? NAV_ITEMS.filter((item) => visitedKeys.has(item.key)).map((item) => (
+                <div
+                  key={item.key}
+                  hidden={item.key !== validKey}
+                  aria-hidden={item.key !== validKey}
+                >
+                  <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+                    {renderPage(item.key)}
+                  </Suspense>
+                </div>
+              ))
+            : null}
         </AppLayout>
       </AntApp>
     </ConfigProvider>

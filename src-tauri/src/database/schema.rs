@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 7;
+pub const SCHEMA_VERSION: u32 = 8;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -78,6 +78,8 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             model        TEXT,
             status_code  INTEGER,
             input_tokens INTEGER NOT NULL DEFAULT 0,
+            cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+            cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
             output_tokens INTEGER NOT NULL DEFAULT 0,
             duration_ms  INTEGER NOT NULL DEFAULT 0,
             target_app   TEXT,
@@ -136,6 +138,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 7 {
         migrate_v6_to_v7(conn)?;
+    }
+    if current < 8 {
+        migrate_v7_to_v8(conn)?;
     }
     Ok(())
 }
@@ -265,6 +270,22 @@ fn migrate_v6_to_v7(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 7)
 }
 
+fn migrate_v7_to_v8(conn: &Connection) -> AppResult<()> {
+    for name in ["cache_read_input_tokens", "cache_creation_input_tokens"] {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            conn.execute_batch(&format!(
+                "ALTER TABLE proxy_request_logs ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0;"
+            ))?;
+        }
+    }
+    set_user_version(conn, 8)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -383,6 +404,9 @@ mod tests {
                 is_current BOOLEAN NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE proxy_request_logs (
+                id TEXT PRIMARY KEY
+            );
             INSERT INTO providers
                 (id, name, base_url, model)
             VALUES ('legacy', 'Legacy', 'https://api.example.test', 'old-default');
@@ -405,5 +429,34 @@ mod tests {
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();
         assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn v7_proxy_logs_gain_cache_usage_columns_idempotently() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE proxy_request_logs (
+                id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0
+            );
+            PRAGMA user_version = 7;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        for name in ["cache_read_input_tokens", "cache_creation_input_tokens"] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+                    [name],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "missing {name}");
+        }
     }
 }

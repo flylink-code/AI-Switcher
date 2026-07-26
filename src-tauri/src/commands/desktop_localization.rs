@@ -36,6 +36,9 @@ pub struct DesktopLocalizationStatus {
     pub platform_supported: bool,
     pub install_detected: bool,
     pub install_kind: Option<String>,
+    pub detection_source: String,
+    pub checked_at: i64,
+    pub diagnostics: Vec<String>,
     pub install_path: Option<String>,
     pub resources_path: Option<String>,
     pub claude_version: Option<String>,
@@ -74,6 +77,12 @@ struct LocalizationInstall {
     exe_path: PathBuf,
     version: String,
     multiple_installs: bool,
+}
+
+#[derive(Debug, Clone)]
+struct InstallDetection {
+    install: Option<LocalizationInstall>,
+    diagnostics: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -244,12 +253,16 @@ async fn run_localization_action(
 }
 
 fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalizationStatus> {
+    let checked_at = Utc::now().timestamp_millis();
     #[cfg(not(windows))]
     {
         return Ok(DesktopLocalizationStatus {
             platform_supported: false,
             install_detected: false,
             install_kind: None,
+            detection_source: "unsupported".to_string(),
+            checked_at,
+            diagnostics: vec!["当前平台不是 Windows".to_string()],
             install_path: None,
             resources_path: None,
             claude_version: None,
@@ -265,7 +278,8 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
 
     #[cfg(windows)]
     {
-        let install = detect_install()?;
+        let detection = detect_install_with_diagnostics()?;
+        let install = detection.install;
         let pack_valid = pack_path
             .map(|path| validate_pack(Path::new(path)).is_ok())
             .unwrap_or(false);
@@ -275,6 +289,9 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
                 platform_supported: true,
                 install_detected: false,
                 install_kind: None,
+                detection_source: "none".to_string(),
+                checked_at,
+                diagnostics: detection.diagnostics,
                 install_path: None,
                 resources_path: None,
                 claude_version: None,
@@ -320,6 +337,9 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             platform_supported: true,
             install_detected: true,
             install_kind: Some(install.kind.clone()),
+            detection_source: install.kind.clone(),
+            checked_at,
+            diagnostics: detection.diagnostics,
             install_path: Some(install.app_path.to_string_lossy().into_owned()),
             resources_path: Some(install.resources_path.to_string_lossy().into_owned()),
             claude_version: Some(install.version.clone()),
@@ -378,9 +398,16 @@ fn validate_pack(path: &Path) -> AppResult<ValidatedPack> {
 
 #[cfg(windows)]
 fn detect_install() -> AppResult<Option<LocalizationInstall>> {
+    Ok(detect_install_with_diagnostics()?.install)
+}
+
+#[cfg(windows)]
+fn detect_install_with_diagnostics() -> AppResult<InstallDetection> {
     let mut installs = Vec::new();
+    let mut diagnostics = Vec::new();
     if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
         let base = local_app_data.join("AnthropicClaude");
+        diagnostics.push(format!("检查 unpackaged 安装: {}", base.display()));
         if let Ok(entries) = fs::read_dir(base) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -409,9 +436,17 @@ fn detect_install() -> AppResult<Option<LocalizationInstall>> {
     installs.sort_by(|a, b| version_key(&b.version).cmp(&version_key(&a.version)));
     if let Some(mut install) = installs.into_iter().next() {
         install.multiple_installs = count_unpackaged_installs() > 1;
-        return Ok(Some(install));
+        diagnostics.push(format!(
+            "使用 unpackaged 安装: {}",
+            install.app_path.display()
+        ));
+        return Ok(InstallDetection {
+            install: Some(install),
+            diagnostics,
+        });
     }
 
+    diagnostics.push("检查 AppX 包: Claude".to_string());
     let script = concat!(
         "$all=@(Get-AppxPackage -Name Claude -ErrorAction SilentlyContinue | ",
         "Sort-Object Version -Descending);$p=$all|Select-Object -First 1;",
@@ -421,30 +456,74 @@ fn detect_install() -> AppResult<Option<LocalizationInstall>> {
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .output()?;
     if !output.status.success() {
-        return Ok(None);
+        diagnostics.push(format!(
+            "AppX 查询失败: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+        return Ok(InstallDetection {
+            install: None,
+            diagnostics,
+        });
     }
     let text = String::from_utf8_lossy(&output.stdout);
     let mut parts = text.trim().split('|');
     let (Some(path), Some(version), Some(count)) = (parts.next(), parts.next(), parts.next()) else {
-        return Ok(None);
+        diagnostics.push("未找到 Claude AppX 包".to_string());
+        return Ok(InstallDetection {
+            install: None,
+            diagnostics,
+        });
     };
     let app_path = PathBuf::from(path);
-    let resources_path = app_path.join("resources");
-    if !resources_path.is_dir() {
-        return Ok(None);
-    }
-    let exe_path = ["Claude.exe", "claude.exe", "app/Claude.exe"]
-        .into_iter()
-        .map(|relative| app_path.join(relative))
-        .find(|candidate| candidate.is_file());
-    Ok(exe_path.map(|exe_path| LocalizationInstall {
+    let install = install_from_appx_path(
+        app_path.clone(),
+        version,
+        count.parse::<usize>().unwrap_or(1) > 1,
+    );
+    diagnostics.push(match &install {
+        Some(install) => format!(
+            "使用 AppX 安装: {}；资源目录: {}",
+            install.app_path.display(),
+            install.resources_path.display()
+        ),
+        None => format!(
+            "Claude AppX 存在，但未找到受支持的可执行文件或资源目录: {}",
+            app_path.display()
+        ),
+    });
+    Ok(InstallDetection {
+        install,
+        diagnostics,
+    })
+}
+
+fn install_from_appx_path(
+    app_path: PathBuf,
+    version: &str,
+    multiple_installs: bool,
+) -> Option<LocalizationInstall> {
+    let resources_path = [
+        app_path.join("app").join("resources"),
+        app_path.join("resources"),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_dir())?;
+    let exe_path = [
+        app_path.join("app").join("Claude.exe"),
+        app_path.join("app").join("claude.exe"),
+        app_path.join("Claude.exe"),
+        app_path.join("claude.exe"),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_file())?;
+    Some(LocalizationInstall {
         kind: "appx".to_string(),
         app_path,
         resources_path,
         exe_path,
         version: version.to_string(),
-        multiple_installs: count.parse::<usize>().unwrap_or(1) > 1,
-    }))
+        multiple_installs,
+    })
 }
 
 #[cfg(windows)]
@@ -1234,6 +1313,33 @@ mod tests {
     #[test]
     fn safe_component_removes_path_characters() {
         assert_eq!(safe_component("1.2.3/../../x"), "1.2.3_.._.._x");
+    }
+
+    #[test]
+    fn appx_layout_prefers_nested_app_resources() {
+        let root = tempdir().unwrap();
+        let app_path = root.path().join("Claude_AppX");
+        fs::create_dir_all(app_path.join("app").join("resources")).unwrap();
+        fs::create_dir_all(app_path.join("resources")).unwrap();
+        fs::write(app_path.join("app").join("claude.exe"), b"exe").unwrap();
+
+        let install = install_from_appx_path(app_path.clone(), "1.24012.9.0", false).unwrap();
+
+        assert_eq!(install.resources_path, app_path.join("app").join("resources"));
+        assert_eq!(install.exe_path, app_path.join("app").join("Claude.exe"));
+    }
+
+    #[test]
+    fn appx_layout_keeps_legacy_root_resources_compatible() {
+        let root = tempdir().unwrap();
+        let app_path = root.path().join("Claude_Legacy");
+        fs::create_dir_all(app_path.join("resources")).unwrap();
+        fs::write(app_path.join("Claude.exe"), b"exe").unwrap();
+
+        let install = install_from_appx_path(app_path.clone(), "1.0.0", true).unwrap();
+
+        assert_eq!(install.resources_path, app_path.join("resources"));
+        assert!(install.multiple_installs);
     }
 
     #[test]

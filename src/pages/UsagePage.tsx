@@ -158,7 +158,11 @@ export default function UsagePage() {
   };
 
   const summary = dashboard?.summary;
-  const totalTokens = (summary?.inputTokens ?? 0) + (summary?.outputTokens ?? 0);
+  const totalTokens =
+    (summary?.inputTokens ?? 0) +
+    (summary?.cacheReadInputTokens ?? 0) +
+    (summary?.cacheCreationInputTokens ?? 0) +
+    (summary?.outputTokens ?? 0);
 
   return (
     <Spin spinning={loading}>
@@ -199,7 +203,16 @@ export default function UsagePage() {
               columns={[
                 { title: t("usage.date"), dataIndex: "date" },
                 { title: t("usage.requests"), dataIndex: "requestCount" },
-                { title: t("usage.inputTokens"), dataIndex: "inputTokens", render: formatNumber },
+                {
+                  title: t("usage.inputTokens"),
+                  render: (_: unknown, row: UsageDashboard["trend"][number]) =>
+                    formatNumber(
+                      row.inputTokens +
+                        row.cacheReadInputTokens +
+                        row.cacheCreationInputTokens,
+                    ),
+                },
+                { title: t("usage.cacheTokens"), dataIndex: "cacheReadInputTokens", render: formatNumber },
                 { title: t("usage.outputTokens"), dataIndex: "outputTokens", render: formatNumber },
                 { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
               ]}
@@ -287,9 +300,16 @@ export default function UsagePage() {
                 },
               },
               {
+                title: t("usage.errorSource"),
+                dataIndex: "errorCategory",
+                width: 105,
+                render: (value: string | null) =>
+                  value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
+              },
+              {
                 title: t("usage.logTokens"),
                 render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                  `${formatNumber(row.inputTokens)} / ${formatNumber(row.outputTokens)}`,
+                  `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`,
               },
               {
                 title: t("usage.logDuration"),
@@ -405,7 +425,16 @@ function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard
       columns={[
         { title: t("usage.name"), dataIndex: "key", ellipsis: true },
         { title: t("usage.requests"), dataIndex: "requestCount" },
-        { title: t("usage.totalTokens"), render: (_: unknown, row: UsageDashboard["byModel"][number]) => formatNumber(row.inputTokens + row.outputTokens) },
+        {
+          title: t("usage.totalTokens"),
+          render: (_: unknown, row: UsageDashboard["byModel"][number]) =>
+            formatNumber(
+              row.inputTokens +
+                row.cacheReadInputTokens +
+                row.cacheCreationInputTokens +
+                row.outputTokens,
+            ),
+        },
         { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
       ]}
     />

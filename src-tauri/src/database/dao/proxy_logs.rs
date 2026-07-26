@@ -13,6 +13,8 @@ pub struct UsageSummary {
     pub request_count: i64,
     pub successful_request_count: i64,
     pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
 }
@@ -23,6 +25,8 @@ pub struct UsageBreakdown {
     pub key: String,
     pub request_count: i64,
     pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
 }
@@ -33,6 +37,8 @@ pub struct UsageTrendPoint {
     pub date: String,
     pub request_count: i64,
     pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
 }
@@ -148,11 +154,37 @@ pub fn update_proxy_log_usage(
     conn: &Connection,
     id: &str,
     input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<()> {
     conn.execute(
-        "UPDATE proxy_request_logs SET input_tokens = ?, output_tokens = ? WHERE id = ?;",
-        params![input_tokens, output_tokens, id],
+        "UPDATE proxy_request_logs
+         SET input_tokens = ?, cache_read_input_tokens = ?,
+             cache_creation_input_tokens = ?, output_tokens = ?
+         WHERE id = ?;",
+        params![
+            input_tokens,
+            cache_read_input_tokens,
+            cache_creation_input_tokens,
+            output_tokens,
+            id
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn update_proxy_log_diagnostic(
+    conn: &Connection,
+    id: &str,
+    error_category: &str,
+    diagnostic: &str,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE proxy_request_logs
+         SET error_category = ?, diagnostic = ?
+         WHERE id = ?;",
+        params![error_category, diagnostic, id],
     )?;
     Ok(())
 }
@@ -161,8 +193,12 @@ pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummar
     conn.query_row(
         "SELECT COUNT(*),
                 COALESCE(SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0),
-                COALESCE(SUM(input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+                COALESCE(SUM(input_tokens), 0),
+                COALESCE(SUM(cache_read_input_tokens), 0),
+                COALESCE(SUM(cache_creation_input_tokens), 0),
+                COALESCE(SUM(output_tokens), 0),
+                COALESCE(SUM((input_tokens + cache_read_input_tokens + cache_creation_input_tokens)
+                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
                     + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE created_at >= ?;",
@@ -171,8 +207,10 @@ pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummar
             request_count: row.get(0)?,
             successful_request_count: row.get(1)?,
             input_tokens: row.get(2)?,
-            output_tokens: row.get(3)?,
-            estimated_cost: row.get(4)?,
+            cache_read_input_tokens: row.get(3)?,
+            cache_creation_input_tokens: row.get(4)?,
+            output_tokens: row.get(5)?,
+            estimated_cost: row.get(6)?,
         }),
     )
     .map_err(Into::into)
@@ -188,8 +226,12 @@ pub fn get_usage_by_model(conn: &Connection, since: i64) -> AppResult<Vec<UsageB
 
 fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<Vec<UsageBreakdown>> {
     let sql = format!(
-        "SELECT {grouping}, COUNT(*), COALESCE(SUM(l.input_tokens), 0), COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM(l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+        "SELECT {grouping}, COUNT(*), COALESCE(SUM(l.input_tokens), 0),
+                COALESCE(SUM(l.cache_read_input_tokens), 0),
+                COALESCE(SUM(l.cache_creation_input_tokens), 0),
+                COALESCE(SUM(l.output_tokens), 0),
+                COALESCE(SUM((l.input_tokens + l.cache_read_input_tokens + l.cache_creation_input_tokens)
+                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
                   + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= ? GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
@@ -200,8 +242,10 @@ fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<V
             key: row.get(0)?,
             request_count: row.get(1)?,
             input_tokens: row.get(2)?,
-            output_tokens: row.get(3)?,
-            estimated_cost: row.get(4)?,
+            cache_read_input_tokens: row.get(3)?,
+            cache_creation_input_tokens: row.get(4)?,
+            output_tokens: row.get(5)?,
+            estimated_cost: row.get(6)?,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -210,8 +254,12 @@ fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<V
 pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTrendPoint>> {
     let mut stmt = conn.prepare(
         "SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime'), COUNT(*),
-                COALESCE(SUM(l.input_tokens), 0), COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM(l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+                COALESCE(SUM(l.input_tokens), 0),
+                COALESCE(SUM(l.cache_read_input_tokens), 0),
+                COALESCE(SUM(l.cache_creation_input_tokens), 0),
+                COALESCE(SUM(l.output_tokens), 0),
+                COALESCE(SUM((l.input_tokens + l.cache_read_input_tokens + l.cache_creation_input_tokens)
+                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
                   + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= ? GROUP BY 1 ORDER BY 1 ASC;",
@@ -221,8 +269,10 @@ pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTren
             date: row.get(0)?,
             request_count: row.get(1)?,
             input_tokens: row.get(2)?,
-            output_tokens: row.get(3)?,
-            estimated_cost: row.get(4)?,
+            cache_read_input_tokens: row.get(3)?,
+            cache_creation_input_tokens: row.get(4)?,
+            output_tokens: row.get(5)?,
+            estimated_cost: row.get(6)?,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -270,6 +320,8 @@ pub struct ProxyRequestLog {
     pub model: Option<String>,
     pub status_code: Option<i64>,
     pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub duration_ms: i64,
     pub target_app: Option<String>,
@@ -334,7 +386,8 @@ pub fn list_proxy_request_logs(
 
     let data_sql = format!(
         "SELECT id, created_at, provider_id, provider_name, model, status_code,
-                input_tokens, output_tokens, duration_ms, target_app, protocol, route,
+                input_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+                output_tokens, duration_ms, target_app, protocol, route,
                 is_stream, error_category, diagnostic
          FROM proxy_request_logs
          {where_clause}
@@ -355,14 +408,16 @@ pub fn list_proxy_request_logs(
             model: row.get(4)?,
             status_code: row.get(5)?,
             input_tokens: row.get(6)?,
-            output_tokens: row.get(7)?,
-            duration_ms: row.get(8)?,
-            target_app: row.get(9)?,
-            protocol: row.get(10)?,
-            route: row.get(11)?,
-            is_stream: row.get::<_, i64>(12)? != 0,
-            error_category: row.get(13)?,
-            diagnostic: row.get(14)?,
+            cache_read_input_tokens: row.get(7)?,
+            cache_creation_input_tokens: row.get(8)?,
+            output_tokens: row.get(9)?,
+            duration_ms: row.get(10)?,
+            target_app: row.get(11)?,
+            protocol: row.get(12)?,
+            route: row.get(13)?,
+            is_stream: row.get::<_, i64>(14)? != 0,
+            error_category: row.get(15)?,
+            diagnostic: row.get(16)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;

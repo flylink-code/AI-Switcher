@@ -109,7 +109,13 @@ async fn switch_provider<R: Runtime>(
     target: ProviderTarget,
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
-    crate::commands::providers::switch_provider_for_target(id, target, &state).await?;
+    let provider =
+        crate::commands::providers::switch_provider_for_target(id, target, &state).await?;
+    crate::commands::providers::schedule_provider_health_check(
+        app.clone(),
+        provider,
+        std::sync::Arc::clone(&state.db),
+    );
     Ok(())
 }
 

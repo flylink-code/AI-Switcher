@@ -22,20 +22,29 @@ Write-Host "[build-exe] Project: $root"
 # vcvars64.bat appends several toolchain directories to PATH.  CMD cannot process
 # an environment variable longer than about 8191 characters, so preserve the
 # executable locations we need and start vcvars from a compact PATH.
-$pnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
-if (-not $pnpmCommand) {
-    throw "pnpm not found. Install Node.js 20+ and run: corepack enable"
-}
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCommand) {
     throw "node not found. Install Node.js 20+."
 }
+$pnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
+$packageManagerPrefix = @()
+if ($pnpmCommand) {
+    $packageManagerCommand = $pnpmCommand
+} else {
+    $packageManagerCommand = Get-Command corepack -ErrorAction SilentlyContinue
+    if (-not $packageManagerCommand) {
+        throw "Neither pnpm nor corepack was found. Install Node.js 20+ with Corepack."
+    }
+    $packageManagerPrefix = @("pnpm")
+    Write-Host "[build-exe] pnpm shim not found; using corepack pnpm"
+}
+$packageManagerPath = $packageManagerCommand.Path
 $cargoCommand = Get-Command cargo -ErrorAction SilentlyContinue
 if (-not $cargoCommand) {
     throw "cargo not found. Install Rust stable MSVC target."
 }
 
-$toolDirs = @($pnpmCommand.Path, $nodeCommand.Path, $cargoCommand.Path) |
+$toolDirs = @($packageManagerPath, $nodeCommand.Path, $cargoCommand.Path) |
     ForEach-Object { Split-Path -Parent $_ } |
     Select-Object -Unique
 $system32 = Join-Path $env:SystemRoot "System32"
@@ -72,7 +81,7 @@ $nodeBin = Join-Path $root "node_modules\.bin"
 $tauriCli = Join-Path $nodeBin "tauri.cmd"
 if (-not (Test-Path $tauriCli)) {
     Write-Host "[build-exe] @tauri-apps/cli not found; running pnpm install"
-    & pnpm install
+    & $packageManagerPath @packageManagerPrefix install
     if ($LASTEXITCODE -ne 0) {
         throw "pnpm install failed (exit $LASTEXITCODE)."
     }
@@ -127,7 +136,7 @@ Write-Host "[build-exe] Running: pnpm exec tauri $($tauriArgs -join ' ')"
 Write-Host ""
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-& pnpm exec tauri @tauriArgs
+& $packageManagerPath @packageManagerPrefix exec tauri @tauriArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed (exit $LASTEXITCODE)."
 }

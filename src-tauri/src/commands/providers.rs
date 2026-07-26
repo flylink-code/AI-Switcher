@@ -12,9 +12,13 @@ use crate::provider::{
 use crate::store::AppState;
 use chrono::Utc;
 use reqwest::header;
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
+use tauri::Emitter;
 
 const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
@@ -54,16 +58,23 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
 
 /// Activate a provider only for the application that owns it.
 #[tauri::command]
-pub async fn switch_provider(id: String, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
+pub async fn switch_provider(
+    id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
     let target = state.db.with_conn(|conn| {
         dao::get_provider(conn, &id)?.map(|provider| provider.target_app)
             .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
-    switch_provider_for_target(&id, target, &state).await
+    let provider = switch_provider_for_target(&id, target, &state).await?;
+    schedule_provider_health_check(app, provider.clone(), Arc::clone(&state.db));
+    Ok(provider)
 }
 
 /// Shared provider switching service used by both IPC and tray actions.
-/// It deliberately keeps the preflight before any live configuration change.
+/// Live configuration is switched locally first. Connectivity is checked in the
+/// background so network latency never blocks the user's explicit selection.
 pub async fn switch_provider_for_target(
     id: &str,
     target: ProviderTarget,
@@ -75,15 +86,74 @@ pub async fn switch_provider_for_target(
     if provider.target_app != target {
         return Err(AppError::Config("供应商不属于此应用".to_string()));
     }
-    let preflight = test_provider_impl(&provider, &state).await?;
-    if !preflight.ok {
-        return Err(AppError::Config(format!("连接验证失败（{}）：{}", preflight.category, preflight.message)));
-    }
+    let started = Instant::now();
     let snapshot = apply_target_provider(&provider, state).await?;
+    let applied_ms = started.elapsed().as_millis();
     if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, id)) {
         return rollback_switch(snapshot, state, error).await;
     }
+    log::info!(
+        "供应商快速切换完成: target={} provider={} apply={}ms total={}ms",
+        target.as_str(),
+        id,
+        applied_ms,
+        started.elapsed().as_millis()
+    );
     Ok(provider)
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderHealthUpdated {
+    provider_id: String,
+    target_app: ProviderTarget,
+    ok: bool,
+    category: String,
+    message: String,
+    checked_at: i64,
+}
+
+pub fn schedule_provider_health_check<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    provider: Provider,
+    db: Arc<crate::database::Database>,
+) {
+    tauri::async_runtime::spawn(async move {
+        let started = Instant::now();
+        let key = db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let result = test_provider_with_key(&provider, key, db.as_ref(), true).await;
+        let result = match result {
+            Ok(result) => result,
+            Err(error) => ConnectionTestResult {
+                ok: false,
+                category: "internal".to_string(),
+                message: error.to_string(),
+                checked_at: Utc::now().timestamp_millis(),
+            },
+        };
+        log::info!(
+            "供应商后台验证完成: target={} provider={} ok={} duration={}ms",
+            provider.target_app.as_str(),
+            provider.id,
+            result.ok,
+            started.elapsed().as_millis()
+        );
+        let _ = app.emit(
+            "provider-health-updated",
+            ProviderHealthUpdated {
+                provider_id: provider.id,
+                target_app: provider.target_app,
+                ok: result.ok,
+                category: result.category,
+                message: result.message,
+                checked_at: result.checked_at,
+            },
+        );
+    });
 }
 
 /// Test an already-stored provider without exposing its credential to the UI.
@@ -106,7 +176,7 @@ pub async fn test_provider_input(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<ConnectionTestResult> {
     let provider = temporary_provider(&input, &state)?;
-    test_provider_with_key(&provider, provider.api_key.clone(), &state, false).await
+    test_provider_with_key(&provider, provider.api_key.clone(), state.db.as_ref(), false).await
 }
 
 /// Try the standard model-list endpoint. Failure is non-fatal: providers that
@@ -870,17 +940,17 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
                 message: "无法读取系统凭据库中的 API Key".to_string(),
                 checked_at: Utc::now().timestamp_millis(),
             };
-            persist_provider_health(provider, &result, state)?;
+            persist_provider_health(provider, &result, state.db.as_ref())?;
             return Ok(result);
         }
     };
-    test_provider_with_key(provider, key, state, true).await
+    test_provider_with_key(provider, key, state.db.as_ref(), true).await
 }
 
 async fn test_provider_with_key(
     provider: &Provider,
     key: String,
-    state: &AppState,
+    db: &crate::database::Database,
     persist_health: bool,
 ) -> AppResult<ConnectionTestResult> {
     let checked_at = Utc::now().timestamp_millis();
@@ -906,13 +976,17 @@ async fn test_provider_with_key(
         ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at }
     };
     if persist_health {
-        persist_provider_health(provider, &result, state)?;
+        persist_provider_health(provider, &result, db)?;
     }
     Ok(result)
 }
 
-fn persist_provider_health(provider: &Provider, result: &ConnectionTestResult, state: &AppState) -> AppResult<()> {
-    state.db.with_conn(|conn| {
+fn persist_provider_health(
+    provider: &Provider,
+    result: &ConnectionTestResult,
+    db: &crate::database::Database,
+) -> AppResult<()> {
+    db.with_conn(|conn| {
         conn.execute(
             "INSERT INTO provider_health (provider_id, status, detail, checked_at) VALUES (?, ?, ?, ?)
              ON CONFLICT(provider_id) DO UPDATE SET status = excluded.status, detail = excluded.detail, checked_at = excluded.checked_at",

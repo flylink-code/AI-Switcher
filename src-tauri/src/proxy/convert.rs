@@ -23,6 +23,9 @@ pub fn anthropic_to_openai_chat(request: &Value, model: &str, stream: bool) -> V
         "messages": messages,
         "stream": stream,
     });
+    if stream {
+        result["stream_options"] = json!({"include_usage": true});
+    }
     copy_if_present(request, &mut result, "temperature");
     copy_if_present(request, &mut result, "top_p");
     if let Some(max) = request.get("max_tokens") {
@@ -103,13 +106,21 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
         }));
     }
     let finish = choice.and_then(|choice| choice.get("finish_reason")).and_then(Value::as_str);
-    let mut usage = json!({
-        "input_tokens": value.pointer("/usage/prompt_tokens").and_then(Value::as_i64).unwrap_or(0),
+    let total_input = value
+        .pointer("/usage/prompt_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let cached = value
+        .pointer("/usage/prompt_tokens_details/cached_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        .clamp(0, total_input);
+    let usage = json!({
+        "input_tokens": total_input.saturating_sub(cached),
+        "cache_read_input_tokens": cached,
+        "cache_creation_input_tokens": 0,
         "output_tokens": value.pointer("/usage/completion_tokens").and_then(Value::as_i64).unwrap_or(0),
     });
-    if let Some(cached) = value.pointer("/usage/prompt_tokens_details/cached_tokens").and_then(Value::as_i64) {
-        usage["cache_read_input_tokens"] = Value::from(cached);
-    }
     json!({
         "id": value.get("id").and_then(Value::as_str).unwrap_or("msg_proxy"),
         "type": "message",
@@ -185,10 +196,25 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
         "content": content,
         "stop_reason": stop_reason,
         "stop_sequence": Value::Null,
-        "usage": {
-            "input_tokens": value.pointer("/usage/input_tokens").and_then(Value::as_i64).unwrap_or(0),
-            "output_tokens": value.pointer("/usage/output_tokens").and_then(Value::as_i64).unwrap_or(0),
-        }
+        "usage": anthropic_usage_from_openai_responses(value)
+    })
+}
+
+fn anthropic_usage_from_openai_responses(value: &Value) -> Value {
+    let total_input = value
+        .pointer("/usage/input_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
+    let cached = value
+        .pointer("/usage/input_tokens_details/cached_tokens")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        .clamp(0, total_input);
+    json!({
+        "input_tokens": total_input.saturating_sub(cached),
+        "cache_read_input_tokens": cached,
+        "cache_creation_input_tokens": 0,
+        "output_tokens": value.pointer("/usage/output_tokens").and_then(Value::as_i64).unwrap_or(0),
     })
 }
 
@@ -214,6 +240,8 @@ pub struct OpenAiSseConverter {
     tool_blocks: BTreeMap<usize, usize>,
     open_blocks: Vec<usize>,
     input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
     output_tokens: i64,
     stop_reason: String,
 }
@@ -232,6 +260,8 @@ impl OpenAiSseConverter {
             tool_blocks: BTreeMap::new(),
             open_blocks: Vec::new(),
             input_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
             output_tokens: 0,
             stop_reason: "end_turn".to_string(),
         }
@@ -267,8 +297,13 @@ impl OpenAiSseConverter {
         output.into_bytes()
     }
 
-    pub fn usage(&self) -> Option<(i64, i64)> {
-        self.started.then_some((self.input_tokens, self.output_tokens))
+    pub fn usage(&self) -> Option<super::UsageCounts> {
+        self.started.then_some(super::UsageCounts {
+            input_tokens: self.input_tokens,
+            cache_read_input_tokens: self.cache_read_input_tokens,
+            cache_creation_input_tokens: self.cache_creation_input_tokens,
+            output_tokens: self.output_tokens,
+        })
     }
 
     fn push_chat_event(&mut self, event: &Value, output: &mut String) {
@@ -383,8 +418,24 @@ impl OpenAiSseConverter {
         }
         let usage = response.get("usage").or_else(|| event.get("usage"));
         if let Some(usage) = usage {
-            self.input_tokens = usage.get("input_tokens").or_else(|| usage.get("prompt_tokens"))
-                .and_then(Value::as_i64).unwrap_or(self.input_tokens);
+            let total_input = usage
+                .get("input_tokens")
+                .or_else(|| usage.get("prompt_tokens"))
+                .and_then(Value::as_i64)
+                .unwrap_or(self.input_tokens + self.cache_read_input_tokens);
+            let cached = usage
+                .pointer("/input_tokens_details/cached_tokens")
+                .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
+                .or_else(|| usage.get("cache_read_input_tokens"))
+                .and_then(Value::as_i64)
+                .unwrap_or(self.cache_read_input_tokens)
+                .clamp(0, total_input);
+            self.input_tokens = total_input.saturating_sub(cached);
+            self.cache_read_input_tokens = cached;
+            self.cache_creation_input_tokens = usage
+                .get("cache_creation_input_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(self.cache_creation_input_tokens);
             self.output_tokens = usage.get("output_tokens").or_else(|| usage.get("completion_tokens"))
                 .and_then(Value::as_i64).unwrap_or(self.output_tokens);
         }
@@ -396,7 +447,12 @@ impl OpenAiSseConverter {
             "id": self.message_id.as_str(), "type":"message", "role":"assistant", "content":[],
             "model": if self.model.is_empty() { &self.fallback_model } else { &self.model },
             "stop_reason":Value::Null, "stop_sequence":Value::Null,
-            "usage":{"input_tokens":self.input_tokens,"output_tokens":0}
+            "usage":{
+                "input_tokens":self.input_tokens,
+                "cache_read_input_tokens":self.cache_read_input_tokens,
+                "cache_creation_input_tokens":self.cache_creation_input_tokens,
+                "output_tokens":0
+            }
         }}));
         self.started = true;
     }
@@ -440,7 +496,12 @@ impl OpenAiSseConverter {
         }
         push_event(output, "message_delta", json!({
             "type":"message_delta", "delta":{"stop_reason":self.stop_reason.as_str(),"stop_sequence":Value::Null},
-            "usage":{"output_tokens":self.output_tokens}
+            "usage":{
+                "input_tokens":self.input_tokens,
+                "cache_read_input_tokens":self.cache_read_input_tokens,
+                "cache_creation_input_tokens":self.cache_creation_input_tokens,
+                "output_tokens":self.output_tokens
+            }
         }));
         push_event(output, "message_stop", json!({"type":"message_stop"}));
         self.completed = true;
@@ -625,9 +686,10 @@ mod tests {
             ]}],
             "tools":[{"name":"lookup","description":"Find data","input_schema":{"type":"object"}}]
         });
-        let output = anthropic_to_openai_chat(&request, "gpt-test", false);
+        let output = anthropic_to_openai_chat(&request, "gpt-test", true);
         assert_eq!(output["model"], "gpt-test");
-        assert_eq!(output["stream"], false);
+        assert_eq!(output["stream"], true);
+        assert_eq!(output["stream_options"]["include_usage"], true);
         assert_eq!(output["tools"][0]["function"]["name"], "lookup");
         assert_eq!(output["messages"][0]["content"][1]["image_url"]["url"], "data:image/png;base64,abc");
     }
@@ -666,6 +728,7 @@ mod tests {
         assert_eq!(message["content"][1]["text"], "cannot continue");
         assert_eq!(message["content"].as_array().unwrap().len(), 2);
         assert_eq!(message["stop_reason"], "max_tokens");
+        assert_eq!(message["usage"]["input_tokens"], 5);
         assert_eq!(message["usage"]["cache_read_input_tokens"], 2);
     }
 
@@ -682,10 +745,12 @@ mod tests {
         let upstream = json!({"id":"resp_1","model":"gpt-test","output":[
             {"type":"message","content":[{"type":"output_text","text":"done"}]},
             {"type":"function_call","call_id":"call_2","name":"save","arguments":"{\"ok\":true}"}
-        ],"usage":{"input_tokens":4,"output_tokens":5}});
+        ],"usage":{"input_tokens":4,"input_tokens_details":{"cached_tokens":1},"output_tokens":5}});
         let message = openai_responses_to_anthropic(&upstream, "fallback");
         assert_eq!(message["content"][0]["text"], "done");
         assert_eq!(message["content"][1]["name"], "save");
+        assert_eq!(message["usage"]["input_tokens"], 3);
+        assert_eq!(message["usage"]["cache_read_input_tokens"], 1);
         assert_eq!(message["usage"]["output_tokens"], 5);
     }
 
@@ -784,7 +849,7 @@ mod tests {
         }));
         let finish = converter.push_event(&json!({
             "type":"response.completed", "response":{"id":"resp_1","model":"gpt-test","status":"completed",
-            "usage":{"input_tokens":3,"output_tokens":2}}
+            "usage":{"input_tokens":3,"input_tokens_details":{"cached_tokens":1},"output_tokens":2}}
         }));
         let start = String::from_utf8(start).unwrap();
         let delta = String::from_utf8(delta).unwrap();
@@ -792,6 +857,7 @@ mod tests {
         assert!(start.contains("event: content_block_start"));
         assert!(delta.contains("\"type\":\"input_json_delta\""));
         assert!(finish.contains("\"stop_reason\":\"tool_use\""));
+        assert!(finish.contains("\"cache_read_input_tokens\":1"));
         assert!(finish.contains("event: message_stop"));
     }
 

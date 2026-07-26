@@ -38,6 +38,7 @@ export default function ProvidersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
+  const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
 
@@ -80,7 +81,17 @@ export default function ProvidersPage() {
       const result = await testProviderConnection(provider.id);
       const notify = result.ok ? message.success : message.error;
       void notify(result.message);
-      await store.load(target);
+      useProvidersStore.setState((state) => ({
+        providers: state.providers.map((item) =>
+          item.id === provider.id
+            ? {
+                ...item,
+                healthStatus: result.ok ? "healthy" : "error",
+                healthCheckedAt: result.checkedAt,
+              }
+            : item,
+        ),
+      }));
     } catch (e) {
       void message.error(errMsg(e));
     } finally { setBusy(false); }
@@ -186,13 +197,36 @@ export default function ProvidersPage() {
         ]}
       />
       <Space wrap size={[8, 8]}>
-        <Button loading={busy} onClick={() => void handleOfficial()}>{t("providers.officialLogin")}</Button>
         <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
         <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
         <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t("providers.create")}</Button>
       </Space>
     </Space>
+    <Card
+      size="small"
+      title={
+        <Space>
+          <GlobalOutlined />
+          <Text strong>{t("providers.officialMode")}</Text>
+          {officialCurrent && <Tag color="green">{t("providers.current")}</Tag>}
+        </Space>
+      }
+      extra={
+        <Button
+          size="small"
+          type={officialCurrent ? "default" : "primary"}
+          icon={<ThunderboltOutlined />}
+          loading={busy}
+          disabled={officialCurrent}
+          onClick={() => void handleOfficial()}
+        >
+          {t("providers.switch")}
+        </Button>
+      }
+    >
+      <Text type="secondary">{t("providers.officialModeDescription")}</Text>
+    </Card>
     <Card
       size="small"
       styles={{ body: { padding: 12 } }}

@@ -27,7 +27,10 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
-use crate::database::dao::proxy_logs::{insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_usage};
+use crate::database::dao::proxy_logs::{
+    insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
+    update_proxy_log_usage,
+};
 use crate::database::dao::providers::{get_current_provider, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
@@ -41,6 +44,15 @@ const DEFAULT_PORT: u16 = 15821;
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
 const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
 const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";
+const MAX_UPSTREAM_ERROR_BYTES: usize = 16 * 1024;
+
+#[derive(Debug, Clone, Copy, Default)]
+struct UsageCounts {
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
+    output_tokens: i64,
+}
 
 /// Runtime handle for the local proxy.
 pub struct ProxyManager {
@@ -414,10 +426,28 @@ async fn proxy_handler(
         req_builder = req_builder.header("x-api-key", key);
     }
 
-    let upstream_resp = match req_builder.body(outgoing_body).send().await {
+    let retry_without_stream_options = if translated
+        && incoming_stream
+        && matches!(
+            provider.protocol_type,
+            ProtocolType::OpenAiChat | ProtocolType::Proxy
+        )
+    {
+        serde_json::from_slice::<Value>(&outgoing_body)
+            .ok()
+            .and_then(|mut value| {
+                value.as_object_mut()?.remove("stream_options")?;
+                serde_json::to_vec(&value).ok()
+            })
+            .and_then(|body| req_builder.try_clone().map(|builder| builder.body(body)))
+    } else {
+        None
+    };
+
+    let mut upstream_resp = match req_builder.body(outgoing_body).send().await {
         Ok(r) => r,
         Err(e) => {
-            log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
+            log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
             if translated {
                 log::warn!("转发到 OpenAI 兼容上游失败: {e}");
                 return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
@@ -425,6 +455,90 @@ async fn proxy_handler(
             return json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {e}"));
         }
     };
+
+    if let Some(retry_request) = retry_without_stream_options {
+        let rejected_status = upstream_resp.status();
+        if matches!(
+            rejected_status,
+            StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY
+        ) {
+            let rejected_body = match upstream_resp.bytes().await {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    let log_id = log_request(
+                        &state,
+                        &provider,
+                        Some(502),
+                        started.elapsed().as_millis() as i64,
+                        uri.path(),
+                        incoming_stream,
+                        Some("network"),
+                    );
+                    update_log_diagnostic(
+                        &state,
+                        log_id.as_deref(),
+                        "network",
+                        "读取 stream_options 兼容性错误响应失败",
+                    );
+                    log::warn!("读取 OpenAI stream_options 兼容性错误失败: {error}");
+                    return anthropic_error(
+                        StatusCode::BAD_GATEWAY,
+                        convert::openai_error_to_anthropic(502),
+                    );
+                }
+            };
+            if explicitly_rejects_stream_options(&rejected_body) {
+                log::info!(
+                    "上游明确不支持 stream_options.include_usage，移除该字段后兼容重试一次"
+                );
+                upstream_resp = match retry_request.send().await {
+                    Ok(response) => response,
+                    Err(error) => {
+                        let log_id = log_request(
+                            &state,
+                            &provider,
+                            Some(502),
+                            started.elapsed().as_millis() as i64,
+                            uri.path(),
+                            incoming_stream,
+                            Some("network"),
+                        );
+                        update_log_diagnostic(
+                            &state,
+                            log_id.as_deref(),
+                            "network",
+                            "移除 stream_options 后的兼容重试连接失败",
+                        );
+                        log::warn!("OpenAI stream_options 兼容重试失败: {error}");
+                        return anthropic_error(
+                            StatusCode::BAD_GATEWAY,
+                            convert::openai_error_to_anthropic(502),
+                        );
+                    }
+                };
+            } else {
+                let log_id = log_request(
+                    &state,
+                    &provider,
+                    Some(rejected_status.as_u16() as i64),
+                    started.elapsed().as_millis() as i64,
+                    uri.path(),
+                    incoming_stream,
+                    Some("upstream"),
+                );
+                update_log_diagnostic(
+                    &state,
+                    log_id.as_deref(),
+                    "upstream",
+                    &sanitized_upstream_diagnostic(rejected_status, &rejected_body),
+                );
+                return anthropic_error(
+                    rejected_status,
+                    convert::openai_error_to_anthropic(rejected_status.as_u16()),
+                );
+            }
+        }
+    }
 
     let status = upstream_resp.status();
     let duration_ms = started.elapsed().as_millis() as i64;
@@ -458,8 +572,17 @@ async fn proxy_handler(
                     }
                     Err(_) => converter.error_event("上游流式响应中断"),
                 };
-                if let (Some(id), Some((input_tokens, output_tokens))) = (stream_log_id.as_deref(), converter.usage()) {
-                    if let Err(error) = db.with_conn(|conn| update_proxy_log_usage(conn, id, input_tokens, output_tokens)) {
+                if let (Some(id), Some(usage)) = (stream_log_id.as_deref(), converter.usage()) {
+                    if let Err(error) = db.with_conn(|conn| {
+                        update_proxy_log_usage(
+                            conn,
+                            id,
+                            usage.input_tokens,
+                            usage.cache_read_input_tokens,
+                            usage.cache_creation_input_tokens,
+                            usage.output_tokens,
+                        )
+                    }) {
                         log::error!("更新代理请求 Token 用量失败: {error}");
                     }
                 }
@@ -475,14 +598,36 @@ async fn proxy_handler(
         }
         let response_bytes = match upstream_resp.bytes().await {
             Ok(bytes) => bytes,
-            Err(_) => return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502)),
+            Err(_) => {
+                update_log_diagnostic(
+                    &state,
+                    log_id.as_deref(),
+                    "network",
+                    "读取 OpenAI 上游响应失败",
+                );
+                return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+            }
         };
         if !status.is_success() {
+            update_log_diagnostic(
+                &state,
+                log_id.as_deref(),
+                "upstream",
+                &sanitized_upstream_diagnostic(status, &response_bytes),
+            );
             return anthropic_error(status, convert::openai_error_to_anthropic(status.as_u16()));
         }
         let upstream: Value = match serde_json::from_slice(&response_bytes) {
             Ok(value) => value,
-            Err(_) => return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502)),
+            Err(_) => {
+                update_log_diagnostic(
+                    &state,
+                    log_id.as_deref(),
+                    "conversion",
+                    "OpenAI 上游返回了无法转换的非 JSON 成功响应",
+                );
+                return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+            }
         };
         let anthropic = match provider.protocol_type {
             ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
@@ -522,8 +667,24 @@ async fn proxy_handler(
     if !is_streaming {
         let response_bytes = match upstream_resp.bytes().await {
             Ok(bytes) => bytes,
-            Err(e) => return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {e}")),
+            Err(e) => {
+                update_log_diagnostic(
+                    &state,
+                    log_id.as_deref(),
+                    "network",
+                    "读取 Anthropic 上游响应失败",
+                );
+                return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {e}"));
+            }
         };
+        if !status.is_success() {
+            update_log_diagnostic(
+                &state,
+                log_id.as_deref(),
+                "upstream",
+                &sanitized_upstream_diagnostic(status, &response_bytes),
+            );
+        }
         if let Some(id) = log_id.as_deref() {
             update_log_usage(&state, id, extract_usage_from_json(&response_bytes));
         }
@@ -540,7 +701,16 @@ async fn proxy_handler(
             while let Some(end) = sse_buffer.windows(2).position(|window| window == b"\n\n") {
                 let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
                 if let Some(usage) = extract_usage_from_sse(&event) {
-                    if let Err(e) = db.with_conn(|conn| update_proxy_log_usage(conn, id, usage.0, usage.1)) {
+                    if let Err(e) = db.with_conn(|conn| {
+                        update_proxy_log_usage(
+                            conn,
+                            id,
+                            usage.input_tokens,
+                            usage.cache_read_input_tokens,
+                            usage.cache_creation_input_tokens,
+                            usage.output_tokens,
+                        )
+                    }) {
                         log::error!("更新代理请求 Token 用量失败: {e}");
                     }
                 }
@@ -733,28 +903,124 @@ fn error_diagnostic(category: &str) -> &'static str {
         "request" => "request could not be parsed",
         "network" => "upstream connection failed",
         "upstream" => "upstream returned an error status",
+        "conversion" => "upstream response conversion failed",
         "provider" => "no active provider",
         _ => "proxy request failed",
     }
 }
 
-fn update_log_usage(state: &ProxyState, id: &str, usage: Option<(i64, i64)>) {
-    let Some((input_tokens, output_tokens)) = usage else {
+fn update_log_diagnostic(
+    state: &ProxyState,
+    id: Option<&str>,
+    category: &str,
+    diagnostic: &str,
+) {
+    let Some(id) = id else {
+        return;
+    };
+    if let Err(error) = state.db.with_conn(|conn| {
+        update_proxy_log_diagnostic(conn, id, category, diagnostic)
+    }) {
+        log::error!("更新代理错误诊断失败: {error}");
+    }
+}
+
+fn sanitized_upstream_diagnostic(status: StatusCode, bytes: &[u8]) -> String {
+    let limited = &bytes[..bytes.len().min(MAX_UPSTREAM_ERROR_BYTES)];
+    let value = serde_json::from_slice::<Value>(limited).ok();
+    let mut fields = Vec::new();
+    if let Some(value) = value.as_ref() {
+        let error = value.get("error").unwrap_or(value);
+        for (label, candidate) in [
+            ("type", error.get("type")),
+            ("code", error.get("code")),
+            ("message", error.get("message").or_else(|| value.get("message"))),
+            (
+                "request_id",
+                value
+                    .get("request_id")
+                    .or_else(|| value.get("requestId"))
+                    .or_else(|| error.get("request_id")),
+            ),
+        ] {
+            let text = candidate.and_then(|item| match item {
+                Value::String(text) => Some(text.clone()),
+                Value::Number(number) => Some(number.to_string()),
+                _ => None,
+            });
+            if let Some(text) = text.filter(|text| !text.trim().is_empty()) {
+                fields.push(format!("{label}={}", sanitize_diagnostic_text(&text)));
+            }
+        }
+    }
+    if fields.is_empty() {
+        format!("上游返回 HTTP {}，未提供可安全展示的错误摘要", status.as_u16())
+    } else {
+        format!("上游 HTTP {}；{}", status.as_u16(), fields.join("；"))
+    }
+}
+
+fn explicitly_rejects_stream_options(bytes: &[u8]) -> bool {
+    let limited = &bytes[..bytes.len().min(MAX_UPSTREAM_ERROR_BYTES)];
+    let text = String::from_utf8_lossy(limited).to_lowercase();
+    text.contains("stream_options")
+        && [
+            "unknown",
+            "unsupported",
+            "unrecognized",
+            "not allowed",
+            "extra field",
+            "不支持",
+            "未知",
+        ]
+        .iter()
+        .any(|marker| text.contains(marker))
+}
+
+fn sanitize_diagnostic_text(value: &str) -> String {
+    let mut result = value
+        .chars()
+        .filter(|character| !character.is_control() || *character == ' ')
+        .take(500)
+        .collect::<String>();
+    for marker in ["Bearer ", "sk-", "api_key=", "apiKey=", "x-api-key="] {
+        while let Some(start) = result.find(marker) {
+            let token_start = start + marker.len();
+            let token_len = result[token_start..]
+                .find(|character: char| {
+                    character.is_whitespace() || matches!(character, ',' | ';' | '"' | '\'')
+                })
+                .unwrap_or(result.len() - token_start);
+            result.replace_range(start..token_start + token_len, "[redacted]");
+        }
+    }
+    result
+}
+
+fn update_log_usage(state: &ProxyState, id: &str, usage: Option<UsageCounts>) {
+    let Some(usage) = usage else {
         return;
     };
     if let Err(e) = state.db.with_conn(|conn| {
-        update_proxy_log_usage(conn, id, input_tokens, output_tokens)
+        update_proxy_log_usage(
+            conn,
+            id,
+            usage.input_tokens,
+            usage.cache_read_input_tokens,
+            usage.cache_creation_input_tokens,
+            usage.output_tokens,
+        )
     }) {
         log::error!("更新代理请求 Token 用量失败: {e}");
     }
 }
 
-fn extract_usage_from_json(bytes: &[u8]) -> Option<(i64, i64)> {
+fn extract_usage_from_json(bytes: &[u8]) -> Option<UsageCounts> {
     let value: Value = serde_json::from_slice(bytes).ok()?;
     usage_from_value(&value)
 }
 
-fn extract_usage_from_sse(bytes: &[u8]) -> Option<(i64, i64)> {
+fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
     let text = std::str::from_utf8(bytes).ok()?;
     text.lines()
         .filter_map(|line| line.strip_prefix("data: "))
@@ -762,12 +1028,23 @@ fn extract_usage_from_sse(bytes: &[u8]) -> Option<(i64, i64)> {
         .find_map(|value| usage_from_value(&value))
 }
 
-fn usage_from_value(value: &Value) -> Option<(i64, i64)> {
+fn usage_from_value(value: &Value) -> Option<UsageCounts> {
     let usage = value.get("usage")?;
-    Some((
-        usage.get("input_tokens")?.as_i64()?,
-        usage.get("output_tokens").and_then(Value::as_i64).unwrap_or(0),
-    ))
+    Some(UsageCounts {
+        input_tokens: usage.get("input_tokens")?.as_i64()?,
+        cache_read_input_tokens: usage
+            .get("cache_read_input_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
+        cache_creation_input_tokens: usage
+            .get("cache_creation_input_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
+        output_tokens: usage
+            .get("output_tokens")
+            .and_then(Value::as_i64)
+            .unwrap_or(0),
+    })
 }
 
 fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
@@ -875,5 +1152,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn upstream_diagnostic_keeps_safe_fields_and_redacts_tokens() {
+        let body = br#"{"error":{"type":"gateway_error","code":"bad_gateway","message":"Bearer secret-token failed"},"request_id":"req_1"}"#;
+        let diagnostic = sanitized_upstream_diagnostic(StatusCode::BAD_GATEWAY, body);
+        assert!(diagnostic.contains("HTTP 502"));
+        assert!(diagnostic.contains("gateway_error"));
+        assert!(diagnostic.contains("req_1"));
+        assert!(!diagnostic.contains("secret-token"));
+        assert!(diagnostic.contains("[redacted]"));
+    }
+
+    #[test]
+    fn stream_options_retry_requires_an_explicit_parameter_rejection() {
+        assert!(explicitly_rejects_stream_options(
+            br#"{"error":{"message":"Unknown field: stream_options"}}"#
+        ));
+        assert!(!explicitly_rejects_stream_options(
+            br#"{"error":{"message":"Temporary upstream failure"}}"#
+        ));
+        assert!(!explicitly_rejects_stream_options(
+            br#"{"error":{"message":"Unknown model"}}"#
+        ));
     }
 }

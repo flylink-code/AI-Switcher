@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
+import { listen } from "@tauri-apps/api/event";
+import type {
+  Provider,
+  ProviderHealthUpdated,
+  ProviderInput,
+  ProviderTarget,
+} from "@/types/backend";
 import {
   createProvider,
   deleteProvider,
@@ -59,13 +65,23 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
   },
 
   switchTo: async (id) => {
-    await switchProvider(id);
-    await get().load(get().target);
+    const provider = await switchProvider(id);
+    set({
+      providers: get().providers.map((item) => ({
+        ...item,
+        isCurrent: item.id === provider.id,
+      })),
+    });
   },
 
   useOfficial: async () => {
     await switchToOfficial(get().target);
-    await get().load(get().target);
+    set({
+      providers: get().providers.map((provider) => ({
+        ...provider,
+        isCurrent: false,
+      })),
+    });
   },
 
   move: async (id, direction) => {
@@ -95,4 +111,27 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+let healthEventsInitialized = false;
+
+export function initializeProviderHealthEvents(): void {
+  if (healthEventsInitialized) return;
+  healthEventsInitialized = true;
+  void listen<ProviderHealthUpdated>("provider-health-updated", ({ payload }) => {
+    useProvidersStore.setState((state) => {
+      if (state.target !== payload.targetApp) return state;
+      return {
+        providers: state.providers.map((provider) =>
+          provider.id === payload.providerId
+            ? {
+                ...provider,
+                healthStatus: payload.ok ? "healthy" : "error",
+                healthCheckedAt: payload.checkedAt,
+              }
+            : provider,
+        ),
+      };
+    });
+  });
 }
