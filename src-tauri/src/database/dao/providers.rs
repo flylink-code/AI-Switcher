@@ -9,6 +9,12 @@ use crate::provider::{
 };
 use crate::secrets;
 
+#[derive(Debug, Clone)]
+pub struct ProviderModelCache {
+    pub models: Vec<String>,
+    pub checked_at: i64,
+}
+
 /// Number of providers belonging to a target application.
 pub fn count_providers(conn: &Connection, target: ProviderTarget) -> AppResult<i64> {
     let n: i64 = conn.query_row(
@@ -171,6 +177,42 @@ pub fn resolve_api_key(conn: &Connection, id: &str) -> AppResult<Option<String>>
     })
 }
 
+pub fn get_provider_model_cache(
+    conn: &Connection,
+    provider_id: &str,
+) -> AppResult<Option<ProviderModelCache>> {
+    let mut stmt = conn.prepare(
+        "SELECT models_json, checked_at FROM provider_models WHERE provider_id = ?;",
+    )?;
+    let mut rows = stmt.query(params![provider_id])?;
+    let Some(row) = rows.next()? else {
+        return Ok(None);
+    };
+    let models_json: String = row.get(0)?;
+    let models = serde_json::from_str::<Vec<String>>(&models_json).unwrap_or_default();
+    Ok(Some(ProviderModelCache {
+        models,
+        checked_at: row.get(1)?,
+    }))
+}
+
+pub fn save_provider_model_cache(
+    conn: &Connection,
+    provider_id: &str,
+    models: &[String],
+    checked_at: i64,
+) -> AppResult<()> {
+    let models_json = serde_json::to_string(models)?;
+    conn.execute(
+        "INSERT INTO provider_models (provider_id, models_json, checked_at) VALUES (?, ?, ?)
+         ON CONFLICT(provider_id) DO UPDATE SET
+            models_json = excluded.models_json,
+            checked_at = excluded.checked_at;",
+        params![provider_id, models_json, checked_at],
+    )?;
+    Ok(())
+}
+
 /// Migrate all legacy plaintext values. Schema version advancement is left to
 /// the caller so a credential-store failure keeps this operation retryable.
 pub fn migrate_plaintext_api_keys(conn: &Connection) -> AppResult<()> {
@@ -199,7 +241,11 @@ pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     if provider.is_current {
         return Err(AppError::Config("不能删除当前激活的供应商".to_string()));
     }
-    conn.execute("DELETE FROM providers WHERE id = ?;", params![id])?;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM provider_models WHERE provider_id = ?;", params![id])?;
+    tx.execute("DELETE FROM provider_health WHERE provider_id = ?;", params![id])?;
+    tx.execute("DELETE FROM providers WHERE id = ?;", params![id])?;
+    tx.commit()?;
     // Clean up the keyring entry; a missing entry is not an error.
     if let Err(e) = secrets::delete_key(id) {
         log::warn!("删除供应商 {id} 的凭据失败（已忽略）: {e}");
@@ -355,6 +401,24 @@ mod tests {
         db.with_conn(|conn| {
             assert!(upsert_provider(conn, &provider_input("http://api.example.test")).is_err());
             assert_eq!(count_providers(conn, ProviderTarget::ClaudeCode)?, 0);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn model_cache_roundtrips_and_is_removed_with_provider() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let provider = upsert_provider(conn, &provider_input("https://api.example.test"))?;
+            let models = vec!["model-a".to_string(), "model-b".to_string()];
+            save_provider_model_cache(conn, &provider.id, &models, 123)?;
+            let cache = get_provider_model_cache(conn, &provider.id)?.unwrap();
+            assert_eq!(cache.models, models);
+            assert_eq!(cache.checked_at, 123);
+
+            delete_provider(conn, &provider.id)?;
+            assert!(get_provider_model_cache(conn, &provider.id)?.is_none());
             Ok(())
         })
         .unwrap();

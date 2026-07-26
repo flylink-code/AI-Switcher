@@ -13,9 +13,12 @@ use crate::store::AppState;
 use chrono::Utc;
 use reqwest::header;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
+const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
+const MAX_DISCOVERED_MODELS: usize = 1_000;
+const MAX_MODEL_NAME_CHARS: usize = 256;
 
 #[tauri::command]
 pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
@@ -116,10 +119,32 @@ pub async fn discover_provider_models(
     let provider = state.db.with_conn(|conn| {
         dao::get_provider(conn, &id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
-    let key = state.db.with_conn(|conn| {
-        dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| AppError::Config("供应商未配置 API Key".to_string()))
-    })?;
+    let key = state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id))?;
+    let Some(key) = key else {
+        return cached_or_empty_model_result(
+            &provider.id,
+            "供应商未配置 API Key",
+            &state,
+        );
+    };
     discover_provider_models_with_key(&provider, key, &state, true).await
+}
+
+#[tauri::command]
+pub fn get_cached_provider_models(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ModelDiscoveryResult> {
+    state.db.with_conn(|conn| {
+        if dao::get_provider(conn, &id)?.is_none() {
+            return Err(AppError::Config(format!("供应商不存在: {id}")));
+        }
+        Ok(model_result_from_cache(
+            dao::get_provider_model_cache(conn, &id)?,
+            "已加载保存的模型列表",
+            None,
+        ))
+    })
 }
 
 /// Discover models from an unsaved form without persisting its endpoint,
@@ -151,35 +176,134 @@ async fn discover_provider_models_with_key(
         .header("x-api-key", key)
         .send()
         .await;
-    let (models, message) = match response {
+    let discovered = match response {
         Ok(response) if response.status().is_success() => {
-            let bytes = response.bytes().await.unwrap_or_default();
-            let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
-            let models = value
-                .get("data")
-                .or_else(|| value.get("models"))
-                .and_then(Value::as_array)
-                .map(|items| items.iter().filter_map(|item| {
-                    item.get("id").or_else(|| item.get("name")).and_then(Value::as_str)
-                }).map(str::to_string).collect())
-                .unwrap_or_default();
-            (models, "模型列表已更新".to_string())
+            match response.bytes().await {
+                Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
+                    Ok(value) => {
+                        let models = extract_model_ids(&value);
+                        if models.is_empty() {
+                            Err("供应商没有返回可用的模型".to_string())
+                        } else {
+                            Ok(models)
+                        }
+                    }
+                    Err(_) => Err("模型发现响应不是有效 JSON".to_string()),
+                },
+                Err(_) => Err("读取模型发现响应失败".to_string()),
+            }
         }
-        Ok(response) => (Vec::new(), format!("供应商不支持模型发现（HTTP {}）", response.status().as_u16())),
-        Err(_) => (Vec::new(), "无法连接模型发现端点".to_string()),
+        Ok(response) => Err(format!(
+            "供应商不支持模型发现（HTTP {}）",
+            response.status().as_u16()
+        )),
+        Err(_) => Err("无法连接模型发现端点".to_string()),
     };
-    if cache_result {
-        let models_json = serde_json::to_string(&models)?;
-        state.db.with_conn(|conn| {
-            conn.execute(
-                "INSERT INTO provider_models (provider_id, models_json, checked_at) VALUES (?, ?, ?)
-                 ON CONFLICT(provider_id) DO UPDATE SET models_json = excluded.models_json, checked_at = excluded.checked_at",
-                rusqlite::params![provider.id, models_json, checked_at],
-            )?;
-            Ok(())
-        })?;
+    match discovered {
+        Ok(models) => {
+            if cache_result {
+                state.db.with_conn(|conn| {
+                    dao::save_provider_model_cache(conn, &provider.id, &models, checked_at)
+                })?;
+            }
+            Ok(ModelDiscoveryResult {
+                models,
+                message: "模型列表已更新".to_string(),
+                checked_at,
+                source: "network".to_string(),
+                stale: false,
+                expires_at: cache_result.then_some(checked_at + MODEL_CACHE_TTL_MS),
+                error: None,
+            })
+        }
+        Err(error) if cache_result => cached_or_empty_model_result(&provider.id, &error, state),
+        Err(error) => Ok(ModelDiscoveryResult {
+            models: Vec::new(),
+            message: error.clone(),
+            checked_at,
+            source: "none".to_string(),
+            stale: false,
+            expires_at: None,
+            error: Some(error),
+        }),
     }
-    Ok(ModelDiscoveryResult { models, message, checked_at })
+}
+
+fn cached_or_empty_model_result(
+    provider_id: &str,
+    error: &str,
+    state: &AppState,
+) -> AppResult<ModelDiscoveryResult> {
+    state.db.with_conn(|conn| {
+        Ok(model_result_from_cache(
+            dao::get_provider_model_cache(conn, provider_id)?,
+            "刷新失败，继续使用已保存的模型列表",
+            Some(error.to_string()),
+        ))
+    })
+}
+
+fn model_result_from_cache(
+    cache: Option<dao::providers::ProviderModelCache>,
+    cached_message: &str,
+    error: Option<String>,
+) -> ModelDiscoveryResult {
+    let now = Utc::now().timestamp_millis();
+    match cache {
+        Some(cache) if !cache.models.is_empty() => {
+            let expires_at = cache.checked_at + MODEL_CACHE_TTL_MS;
+            ModelDiscoveryResult {
+                models: cache.models,
+                message: cached_message.to_string(),
+                checked_at: cache.checked_at,
+                source: "cache".to_string(),
+                stale: now >= expires_at,
+                expires_at: Some(expires_at),
+                error,
+            }
+        }
+        _ => {
+            let message = error
+                .clone()
+                .unwrap_or_else(|| "尚未保存模型列表".to_string());
+            ModelDiscoveryResult {
+                models: Vec::new(),
+                message,
+                checked_at: now,
+                source: "none".to_string(),
+                stale: false,
+                expires_at: None,
+                error,
+            }
+        }
+    }
+}
+
+fn extract_model_ids(value: &Value) -> Vec<String> {
+    let mut models = BTreeSet::new();
+    if let Some(items) = value
+        .get("data")
+        .or_else(|| value.get("models"))
+        .and_then(Value::as_array)
+    {
+        for item in items {
+            let value = item.as_str().or_else(|| {
+                item.get("id")
+                    .or_else(|| item.get("name"))
+                    .and_then(Value::as_str)
+            });
+            let Some(model) = value.map(str::trim) else {
+                continue;
+            };
+            if !model.is_empty() && model.chars().count() <= MAX_MODEL_NAME_CHARS {
+                models.insert(model.to_string());
+                if models.len() >= MAX_DISCOVERED_MODELS {
+                    break;
+                }
+            }
+        }
+    }
+    models.into_iter().collect()
 }
 
 #[tauri::command]
@@ -496,7 +620,10 @@ fn code_managed_fields() -> AppResult<BTreeMap<String, Option<Value>>> {
 }
 
 fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap<String, Option<Value>> {
-    use crate::provider::ClaudeModelRole;
+    use crate::provider::{
+        ClaudeModelRole, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID, CLAUDE_OPUS_ROLE_ID,
+        CLAUDE_SONNET_ROLE_ID,
+    };
 
     let mut values = claude_code::MANAGED_ENV_KEYS
         .into_iter()
@@ -512,25 +639,25 @@ fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap
         (
             "ANTHROPIC_DEFAULT_SONNET_MODEL",
             "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
-            "claude-sonnet-4-6",
+            CLAUDE_SONNET_ROLE_ID,
             ClaudeModelRole::Sonnet,
         ),
         (
             "ANTHROPIC_DEFAULT_OPUS_MODEL",
             "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
-            "claude-opus-4-8",
+            CLAUDE_OPUS_ROLE_ID,
             ClaudeModelRole::Opus,
         ),
         (
             "ANTHROPIC_DEFAULT_HAIKU_MODEL",
             "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
-            "claude-haiku-4-5",
+            CLAUDE_HAIKU_ROLE_ID,
             ClaudeModelRole::Haiku,
         ),
         (
             "ANTHROPIC_DEFAULT_FABLE_MODEL",
             "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME",
-            "claude-fable-5",
+            CLAUDE_FABLE_ROLE_ID,
             ClaudeModelRole::Fable,
         ),
     ];
@@ -667,12 +794,13 @@ fn restore_desktop_ownership(state: &AppState) -> AppResult<()> {
     state.db.with_conn(|conn| set_setting(conn, DESKTOP_OWNERSHIP_KEY, ""))
 }
 
-/// Upgrade the pre-UUID Desktop profile in the background without a network
-/// preflight. The existing provider row and credential remain unchanged.
-pub async fn repair_legacy_desktop_profile(state: &AppState) -> AppResult<()> {
-    if claude_desktop::current_applied_id()?.as_deref()
-        != Some(claude_desktop::LEGACY_PROFILE_ID)
-    {
+/// Upgrade a legacy Desktop profile ID or model route list in the background
+/// without a network preflight. The provider row and credential remain unchanged.
+pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
+    let applied_id = claude_desktop::current_applied_id()?;
+    let legacy_profile = applied_id.as_deref() == Some(claude_desktop::LEGACY_PROFILE_ID);
+    let managed_profile = applied_id.as_deref() == Some(claude_desktop::PROFILE_ID);
+    if !legacy_profile && !managed_profile {
         return Ok(());
     }
     let provider = state
@@ -681,11 +809,14 @@ pub async fn repair_legacy_desktop_profile(state: &AppState) -> AppResult<()> {
     let Some(provider) = provider else {
         return Ok(());
     };
+    let legacy_routes = managed_profile
+        && provider.requires_local_proxy()
+        && claude_desktop::current_profile_uses_legacy_role_routes()?;
+    if !legacy_profile && !legacy_routes {
+        return Ok(());
+    }
     let _snapshot = apply_target_provider(&provider, state).await?;
-    log::info!(
-        "Claude Desktop legacy profile migrated to {}",
-        claude_desktop::PROFILE_ID
-    );
+    log::info!("Claude Desktop managed profile upgraded");
     Ok(())
 }
 
@@ -902,6 +1033,42 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovered_models_are_trimmed_deduplicated_and_sorted() {
+        let value = serde_json::json!({
+            "data": [
+                {"id": " model-z "},
+                {"name": "model-a"},
+                {"id": "model-a"},
+                "model-m",
+                {"id": ""}
+            ]
+        });
+        assert_eq!(
+            extract_model_ids(&value),
+            vec![
+                "model-a".to_string(),
+                "model-m".to_string(),
+                "model-z".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn old_model_cache_remains_available_but_is_stale() {
+        let result = model_result_from_cache(
+            Some(dao::providers::ProviderModelCache {
+                models: vec!["cached-model".to_string()],
+                checked_at: Utc::now().timestamp_millis() - MODEL_CACHE_TTL_MS - 1,
+            }),
+            "cached",
+            None,
+        );
+        assert_eq!(result.models, vec!["cached-model".to_string()]);
+        assert!(result.stale);
+        assert_eq!(result.source, "cache");
+    }
 
     #[test]
     fn legacy_ownership_adopts_new_role_fields_as_newly_managed() {

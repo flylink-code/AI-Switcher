@@ -64,6 +64,8 @@ export default function App() {
         return <UsagePage />;
       case "environment":
         return <EnvironmentPage />;
+      case "localization":
+        return <EnvironmentPage focusLocalization />;
       case "about":
         return <AboutPage />;
       default:

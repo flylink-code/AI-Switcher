@@ -31,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "prompts", icon: <FileTextOutlined /> },
   { key: "skills", icon: <ThunderboltOutlined /> },
   { key: "usage", icon: <BarChartOutlined /> },
+  { key: "localization", icon: <GlobalOutlined /> },
   { key: "environment", icon: <DesktopOutlined /> },
   { key: "about", icon: <InfoCircleOutlined /> },
 ];

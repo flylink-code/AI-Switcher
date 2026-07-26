@@ -848,22 +848,32 @@ mod tests {
 
     #[test]
     fn all_protocols_send_the_resolved_model() {
-        let incoming = serde_json::json!({
-            "model": "claude-opus-4-8",
-            "max_tokens": 32,
-            "messages": [{"role": "user", "content": "hello"}],
-        });
-        let original = Bytes::from(serde_json::to_vec(&incoming).unwrap());
-
-        for protocol in [
-            ProtocolType::Anthropic,
-            ProtocolType::OpenAiChat,
-            ProtocolType::OpenAiResponses,
+        for requested_model in [
+            "claude-opus-5",
+            "claude-opus-5[1m]",
+            "claude-opus-4-8",
+            "claude-opus-4-8[1m]",
         ] {
-            let provider = provider(protocol);
-            let (body, _) = encode_upstream_request(&provider, &incoming, &original, false);
-            let value: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(value["model"], "opus-upstream", "{protocol:?}");
+            let incoming = serde_json::json!({
+                "model": requested_model,
+                "max_tokens": 32,
+                "messages": [{"role": "user", "content": "hello"}],
+            });
+            let original = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+
+            for protocol in [
+                ProtocolType::Anthropic,
+                ProtocolType::OpenAiChat,
+                ProtocolType::OpenAiResponses,
+            ] {
+                let provider = provider(protocol);
+                let (body, _) = encode_upstream_request(&provider, &incoming, &original, false);
+                let value: Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(
+                    value["model"], "opus-upstream",
+                    "{protocol:?} / {requested_model}"
+                );
+            }
         }
     }
 }

@@ -28,15 +28,17 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, discover_provider_models, discover_provider_models_input, export_providers, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
-    get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
+    get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
-    install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
+    install_desktop_localization, install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
     save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     get_log_maintenance_policy, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
-    preview_proxy_log_maintenance, save_log_maintenance_policy, get_claude_code_version, run_claude_code_update,
+    preview_proxy_log_maintenance, restore_desktop_localization, save_log_maintenance_policy,
+    select_desktop_localization_pack,
+    validate_desktop_localization_pack, get_claude_code_version, run_claude_code_update,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -78,6 +80,11 @@ pub fn run() {
             get_paths,
             get_db_info,
             backup_now,
+            get_desktop_localization_status,
+            validate_desktop_localization_pack,
+            select_desktop_localization_pack,
+            install_desktop_localization,
+            restore_desktop_localization,
             list_providers,
             get_current_provider,
             create_provider,
@@ -87,6 +94,7 @@ pub fn run() {
             switch_to_official,
             test_provider_connection,
             discover_provider_models,
+            get_cached_provider_models,
             test_provider_input,
             discover_provider_models_input,
             reorder_providers,
@@ -135,6 +143,10 @@ pub fn run() {
     if let Err(error) = builder.run(tauri::generate_context!()) {
         report_startup_failure(&error.to_string());
     }
+}
+
+pub fn run_localization_worker_if_requested() -> bool {
+    commands::desktop_localization::run_worker_from_args()
 }
 
 /// Release binaries do not have a console window. Preserve startup failures in
@@ -196,8 +208,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         // Let WebView paint the shell before touching legacy Desktop files.
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let state = app_handle.state::<AppState>();
-        if let Err(error) = commands::providers::repair_legacy_desktop_profile(&state).await {
-            log::error!("Claude Desktop legacy profile migration failed: {error}");
+        if let Err(error) = commands::providers::repair_current_desktop_profile(&state).await {
+            log::error!("Claude Desktop managed profile migration failed: {error}");
         }
         if let Err(error) = commands::providers::repair_current_code_model_fields(&state).await {
             log::error!("Claude Code model-field migration failed: {error}");

@@ -12,7 +12,10 @@ use crate::backup::backup_file_named;
 use crate::config::{get_home_dir, read_json_file, write_json_file};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
-use crate::provider::{ClaudeModelMapping, ClaudeModelRole, Provider};
+use crate::provider::{
+    ClaudeModelMapping, ClaudeModelRole, Provider, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID,
+    CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
+};
 
 const CONFIG_LIBRARY_DIR: &str = "configLibrary";
 const CONFIG_FILE: &str = "claude_desktop_config.json";
@@ -134,10 +137,10 @@ const GATEWAY_TOKEN_KEY: &str = "claude_desktop_gateway_token";
 pub const CLAUDE_DESKTOP_PROXY_PREFIX: &str = "/claude-desktop";
 const MAX_BACKUPS: usize = 10;
 const DESKTOP_ROLE_ROUTES: [(&str, ClaudeModelRole); 4] = [
-    ("claude-sonnet-5", ClaudeModelRole::Sonnet),
-    ("claude-opus-4-8", ClaudeModelRole::Opus),
-    ("claude-haiku-4-5", ClaudeModelRole::Haiku),
-    ("claude-fable-5", ClaudeModelRole::Fable),
+    (CLAUDE_SONNET_ROLE_ID, ClaudeModelRole::Sonnet),
+    (CLAUDE_OPUS_ROLE_ID, ClaudeModelRole::Opus),
+    (CLAUDE_HAIKU_ROLE_ID, ClaudeModelRole::Haiku),
+    (CLAUDE_FABLE_ROLE_ID, ClaudeModelRole::Fable),
 ];
 
 fn platform_paths() -> AppResult<ClaudeDesktopPaths> {
@@ -297,6 +300,49 @@ pub fn current_applied_id() -> AppResult<Option<String>> {
 
 pub fn is_managed_profile_id(id: &str) -> bool {
     id == PROFILE_ID || id == LEGACY_PROFILE_ID
+}
+
+pub fn current_profile_uses_legacy_role_routes() -> AppResult<bool> {
+    let paths = platform_paths()?;
+    profile_paths_use_legacy_role_routes(&paths)
+}
+
+fn profile_paths_use_legacy_role_routes(paths: &ClaudeDesktopPaths) -> AppResult<bool> {
+    let Some(meta_path) = paths.meta_path.as_ref() else {
+        return Ok(false);
+    };
+    if !meta_path.exists() {
+        return Ok(false);
+    }
+    let meta = read_json_file::<Value>(meta_path)?.unwrap_or_else(|| serde_json::json!({}));
+    if meta.get("appliedId").and_then(Value::as_str) != Some(PROFILE_ID) {
+        return Ok(false);
+    }
+    let Some(config_library) = paths.config_library.as_ref() else {
+        return Ok(false);
+    };
+    let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
+    if !profile_path.exists() {
+        return Ok(false);
+    }
+    let Some(profile) = read_json_file::<Value>(&profile_path)? else {
+        return Ok(false);
+    };
+    Ok(profile_uses_legacy_role_routes(&profile))
+}
+
+fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
+    profile
+        .get("inferenceModels")
+        .and_then(Value::as_array)
+        .is_some_and(|models| {
+            models.iter().any(|model| {
+                matches!(
+                    model.get("name").and_then(Value::as_str),
+                    Some("claude-sonnet-4-6" | "claude-opus-4-8")
+                )
+            })
+        })
 }
 
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
@@ -539,6 +585,7 @@ fn write_meta(path: &Path, applied_id: Option<&str>, our_name: Option<&str>) -> 
 mod tests {
     use super::*;
     use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderTarget};
+    use tempfile::tempdir;
 
     fn mapped_provider() -> Provider {
         Provider {
@@ -595,12 +642,82 @@ mod tests {
         assert_eq!(models.len(), 4);
         assert_eq!(models[0]["name"], "claude-sonnet-5");
         assert_eq!(models[0]["labelOverride"], "upstream-sonnet");
+        assert_eq!(models[1]["name"], "claude-opus-5");
+        assert_eq!(models[1]["labelOverride"], "upstream-opus");
         assert_eq!(models[3]["name"], "claude-fable-5");
         assert_eq!(models[3]["labelOverride"], "upstream-fable");
 
         let response = model_list_response(&provider);
-        assert_eq!(response["data"][1]["id"], "claude-opus-4-8");
+        assert_eq!(response["data"][1]["id"], "claude-opus-5");
         assert_eq!(response["data"][2]["id"], "claude-haiku-4-5");
+        assert!(!response["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["id"] == "claude-opus-4-8"));
+    }
+
+    #[test]
+    fn stale_route_detection_only_applies_to_the_managed_uuid_profile() {
+        let dir = tempdir().unwrap();
+        let paths = paths_from_dirs(dir.path().join("Claude"), dir.path().join("Claude-3p"));
+        let config_library = paths.config_library.as_ref().unwrap();
+        let meta_path = paths.meta_path.as_ref().unwrap();
+        std::fs::create_dir_all(config_library).unwrap();
+        let profile_path = config_library.join(format!("{PROFILE_ID}.json"));
+
+        write_json_file(
+            meta_path,
+            &serde_json::json!({
+                "appliedId": PROFILE_ID,
+                "entries": [{"id": PROFILE_ID, "name": PROFILE_NAME}]
+            }),
+        )
+        .unwrap();
+        write_json_file(
+            &profile_path,
+            &serde_json::json!({
+                "inferenceModels": [
+                    {"name": "claude-sonnet-5"},
+                    {"name": "claude-opus-4-8"},
+                    {"name": "claude-haiku-4-5"},
+                    {"name": "claude-fable-5"}
+                ]
+            }),
+        )
+        .unwrap();
+        assert!(profile_paths_use_legacy_role_routes(&paths).unwrap());
+
+        write_json_file(
+            &profile_path,
+            &serde_json::json!({
+                "inferenceModels": [
+                    {"name": "claude-sonnet-5"},
+                    {"name": "claude-opus-5"},
+                    {"name": "claude-haiku-4-5"},
+                    {"name": "claude-fable-5"}
+                ]
+            }),
+        )
+        .unwrap();
+        assert!(!profile_paths_use_legacy_role_routes(&paths).unwrap());
+
+        write_json_file(
+            meta_path,
+            &serde_json::json!({
+                "appliedId": "user-profile",
+                "entries": [{"id": "user-profile", "name": "User profile"}]
+            }),
+        )
+        .unwrap();
+        write_json_file(
+            &profile_path,
+            &serde_json::json!({
+                "inferenceModels": [{"name": "claude-opus-4-8"}]
+            }),
+        )
+        .unwrap();
+        assert!(!profile_paths_use_legacy_role_routes(&paths).unwrap());
     }
 
     #[test]

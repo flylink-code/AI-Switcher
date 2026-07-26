@@ -15,7 +15,10 @@ use serde_json::{Map, Value};
 use crate::backup::backup_file_named;
 use crate::config::{atomic_write, get_claude_settings_path, sort_json_keys};
 use crate::error::AppResult;
-use crate::provider::{ClaudeModelMapping, LiveProviderInfo, Provider};
+use crate::provider::{
+    ClaudeModelMapping, LiveProviderInfo, Provider, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID,
+    CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
+};
 
 /// The exact Claude Code fields owned by this application. Other
 /// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
@@ -39,22 +42,22 @@ pub const MANAGED_ENV_KEYS: [&str; 15] = [
 const PROXY_ROLE_MODELS: [(&str, &str, crate::provider::ClaudeModelRole); 4] = [
     (
         "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "claude-sonnet-4-6",
+        CLAUDE_SONNET_ROLE_ID,
         crate::provider::ClaudeModelRole::Sonnet,
     ),
     (
         "ANTHROPIC_DEFAULT_OPUS_MODEL",
-        "claude-opus-4-8",
+        CLAUDE_OPUS_ROLE_ID,
         crate::provider::ClaudeModelRole::Opus,
     ),
     (
         "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "claude-haiku-4-5",
+        CLAUDE_HAIKU_ROLE_ID,
         crate::provider::ClaudeModelRole::Haiku,
     ),
     (
         "ANTHROPIC_DEFAULT_FABLE_MODEL",
-        "claude-fable-5",
+        CLAUDE_FABLE_ROLE_ID,
         crate::provider::ClaudeModelRole::Fable,
     ),
 ];
@@ -515,9 +518,9 @@ mod tests {
         assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15821");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "local-proxy-code");
         assert!(!env.contains_key("ANTHROPIC_MODEL"));
-        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "claude-sonnet-4-6");
+        assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "claude-sonnet-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
-        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "claude-opus-4-8");
+        assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL"], "claude-opus-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"], "deepseek-opus");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "deepseek-haiku");

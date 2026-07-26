@@ -228,6 +228,11 @@ pub enum ClaudeModelRole {
     Subagent,
 }
 
+pub const CLAUDE_SONNET_ROLE_ID: &str = "claude-sonnet-5";
+pub const CLAUDE_OPUS_ROLE_ID: &str = "claude-opus-5";
+pub const CLAUDE_HAIKU_ROLE_ID: &str = "claude-haiku-4-5";
+pub const CLAUDE_FABLE_ROLE_ID: &str = "claude-fable-5";
+
 fn classify_claude_model_role(model: &str) -> Option<ClaudeModelRole> {
     let normalized = model.to_ascii_lowercase();
     if normalized.contains("subagent") {
@@ -369,6 +374,10 @@ pub struct ModelDiscoveryResult {
     pub models: Vec<String>,
     pub message: String,
     pub checked_at: i64,
+    pub source: String,
+    pub stale: bool,
+    pub expires_at: Option<i64>,
+    pub error: Option<String>,
 }
 
 /// Versioned, intentionally credential-free provider export format.
@@ -520,7 +529,23 @@ mod tests {
             "sonnet-upstream"
         );
         assert_eq!(
+            resolve_upstream_model(&provider, "claude-sonnet-4-6"),
+            "sonnet-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-opus-5"),
+            "opus-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-opus-5[1m]"),
+            "opus-upstream"
+        );
+        assert_eq!(
             resolve_upstream_model(&provider, "claude-opus-4-8"),
+            "opus-upstream"
+        );
+        assert_eq!(
+            resolve_upstream_model(&provider, "claude-opus-4-8[1m]"),
             "opus-upstream"
         );
         assert_eq!(

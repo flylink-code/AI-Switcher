@@ -60,6 +60,10 @@ export interface ModelDiscoveryResult {
   models: string[];
   message: string;
   checkedAt: number;
+  source: "network" | "cache" | "none";
+  stale: boolean;
+  expiresAt?: number | null;
+  error?: string | null;
 }
 
 export interface ProviderImportResult {
@@ -72,6 +76,35 @@ export interface ConfigBackup {
   createdAt: number;
   verified: boolean;
   sourceName?: string | null;
+}
+
+export interface DesktopLocalizationStatus {
+  platformSupported: boolean;
+  installDetected: boolean;
+  installKind?: string | null;
+  installPath?: string | null;
+  resourcesPath?: string | null;
+  claudeVersion?: string | null;
+  multipleInstalls: boolean;
+  state: "unsupported" | "notInstalled" | "installed" | "partial";
+  configuredLocale?: string | null;
+  packPath?: string | null;
+  packValid: boolean;
+  backupAvailable: boolean;
+  message: string;
+}
+
+export interface DesktopLocalizationPackValidation {
+  valid: boolean;
+  packPath: string;
+  message: string;
+}
+
+export interface DesktopLocalizationActionResult {
+  ok: boolean;
+  changedFiles: number;
+  message: string;
+  logPath?: string | null;
 }
 
 /** Result of the `get_paths` command — surfaced on the Environment page to verify P0 detection. */

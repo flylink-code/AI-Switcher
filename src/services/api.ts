@@ -28,6 +28,9 @@ import type {
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
+  DesktopLocalizationActionResult,
+  DesktopLocalizationPackValidation,
+  DesktopLocalizationStatus,
   LogMaintenanceResult,
   LogMaintenancePolicy,
   LogMaintenancePreview,
@@ -134,6 +137,11 @@ export async function testProviderInput(input: ProviderInput): Promise<Connectio
 export async function discoverProviderModels(id: string): Promise<ModelDiscoveryResult> {
   const invoke = await getInvoke();
   return invoke<ModelDiscoveryResult>("discover_provider_models", { id });
+}
+
+export async function getCachedProviderModels(id: string): Promise<ModelDiscoveryResult> {
+  const invoke = await getInvoke();
+  return invoke<ModelDiscoveryResult>("get_cached_provider_models", { id });
 }
 
 export async function discoverProviderModelsInput(input: ProviderInput): Promise<ModelDiscoveryResult> {
@@ -294,6 +302,40 @@ export async function getAutostartEnabled(): Promise<boolean> {
 export async function setAutostartEnabled(enabled: boolean): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_autostart_enabled", { enabled });
+}
+
+export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizationStatus> {
+  const invoke = await getInvoke();
+  return invoke<DesktopLocalizationStatus>("get_desktop_localization_status", {});
+}
+
+export async function selectDesktopLocalizationPack(): Promise<string | null> {
+  const invoke = await getInvoke();
+  return invoke<string | null>("select_desktop_localization_pack", {});
+}
+
+export async function validateDesktopLocalizationPack(
+  path: string,
+): Promise<DesktopLocalizationPackValidation> {
+  const invoke = await getInvoke();
+  return invoke<DesktopLocalizationPackValidation>(
+    "validate_desktop_localization_pack",
+    { path },
+  );
+}
+
+export async function installDesktopLocalization(
+  packPath: string,
+): Promise<DesktopLocalizationActionResult> {
+  const invoke = await getInvoke();
+  return invoke<DesktopLocalizationActionResult>("install_desktop_localization", {
+    packPath,
+  });
+}
+
+export async function restoreDesktopLocalization(): Promise<DesktopLocalizationActionResult> {
+  const invoke = await getInvoke();
+  return invoke<DesktopLocalizationActionResult>("restore_desktop_localization", {});
 }
 
 // ---- Usage ------------------------------------------------------------------

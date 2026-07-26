@@ -15,12 +15,18 @@ import {
 import { useTranslation } from "react-i18next";
 import type {
   ClaudeModelMapping,
+  ModelDiscoveryResult,
   Provider,
   ProviderInput,
   ProviderTarget,
   ProtocolType,
 } from "@/types/backend";
-import { discoverProviderModelsInput, testProviderInput } from "@/services/api";
+import {
+  discoverProviderModels,
+  discoverProviderModelsInput,
+  getCachedProviderModels,
+  testProviderInput,
+} from "@/services/api";
 
 interface ProviderFormProps {
   open: boolean;
@@ -79,6 +85,7 @@ export function ProviderForm({
   const { message } = App.useApp();
   const [form] = Form.useForm<ProviderInput>();
   const [models, setModels] = useState<string[]>([]);
+  const [modelResult, setModelResult] = useState<ModelDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [testing, setTesting] = useState(false);
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
@@ -94,8 +101,10 @@ export function ProviderForm({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     skipModelSyncRef.current = true;
     prevModelRef.current = null;
+    setModelResult(null);
     if (editing) {
       setModels([]);
       form.setFieldsValue({
@@ -110,6 +119,15 @@ export function ProviderForm({
         notes: editing.notes,
         targetApp: editing.targetApp,
       });
+      void getCachedProviderModels(editing.id)
+        .then((result) => {
+          if (cancelled || result.source !== "cache") return;
+          setModels(result.models);
+          setModelResult(result);
+        })
+        .catch(() => {
+          // A missing or unreadable cache must not prevent editing the provider.
+        });
     } else {
       setModels([]);
       form.resetFields();
@@ -127,6 +145,9 @@ export function ProviderForm({
     }
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
+    return () => {
+      cancelled = true;
+    };
   }, [open, editing, form, target]);
 
   useEffect(() => {
@@ -167,9 +188,25 @@ export function ProviderForm({
       const values = form.getFieldsValue(true);
       const normalized = { ...values, baseUrl: normalizeBaseUrl(values.baseUrl) };
       form.setFieldValue("baseUrl", normalized.baseUrl);
-      const result = await discoverProviderModelsInput(normalized);
+      const canPersist =
+        editing !== null &&
+        normalized.id === editing.id &&
+        normalized.baseUrl === editing.baseUrl &&
+        normalized.protocolType === editing.protocolType &&
+        !normalized.apiKey?.trim() &&
+        !normalized.clearApiKey;
+      const result = canPersist
+        ? await discoverProviderModels(editing.id)
+        : await discoverProviderModelsInput(normalized);
       setModels(result.models);
-      void message.info(result.message);
+      setModelResult(result);
+      if (result.error) {
+        void message.warning(`${result.message}: ${result.error}`);
+      } else if (!canPersist) {
+        void message.info(t("providers.draftModelsNotCached"));
+      } else {
+        void message.success(result.message);
+      }
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     } finally { setDiscovering(false); }
@@ -214,6 +251,17 @@ export function ProviderForm({
     (role) => !role.codeOnly || (editing?.targetApp ?? target) === "claude_code",
   );
   const modelOptions = models.map((model) => ({ value: model }));
+  const modelCacheText = modelResult
+    ? modelResult.source === "cache"
+      ? t(modelResult.stale ? "providers.modelCacheStale" : "providers.modelCacheFresh", {
+          time: new Date(modelResult.checkedAt).toLocaleString(),
+        })
+      : modelResult.source === "network"
+        ? t("providers.modelCacheUpdated", {
+            time: new Date(modelResult.checkedAt).toLocaleString(),
+          })
+        : modelResult.message
+    : null;
 
   const fillAllRoles = () => {
     const model = form.getFieldValue("model")?.trim();
@@ -327,11 +375,20 @@ export function ProviderForm({
           name="model"
           label={t("providers.defaultModel")}
           rules={[{ required: true, whitespace: true, message: t("providers.requiredDefaultModel") }]}
-          extra={<Space size="small" wrap>
-            <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
-            <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
-            <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>
-          </Space>}
+          extra={
+            <Space direction="vertical" size={0}>
+              <Space size="small" wrap>
+                <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
+                <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
+                <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>
+              </Space>
+              {modelCacheText && (
+                <Typography.Text type={modelResult?.stale || modelResult?.error ? "warning" : "secondary"}>
+                  {modelCacheText}
+                </Typography.Text>
+              )}
+            </Space>
+          }
         >
           <AutoComplete
             options={modelOptions}
