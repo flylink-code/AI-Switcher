@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   App,
@@ -10,7 +10,6 @@ import {
   Modal,
   Popconfirm,
   Space,
-  Spin,
   Switch,
   Table,
   Tooltip,
@@ -23,15 +22,16 @@ import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { McpServer, McpServerInput, McpTarget } from "@/types/backend";
 import {
   deleteMcpServer,
   importMcpServers,
-  listMcpServers,
   saveMcpServer,
   toggleMcpServer,
 } from "@/services/api";
+import { mcpServersOptions } from "@/lib/appQueries";
 
 const { Text, Paragraph } = Typography;
 
@@ -50,29 +50,13 @@ const EXAMPLE_CONFIG = `{
 export default function McpPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
-  const [servers, setServers] = useState<McpServer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const serversQuery = useQuery(mcpServersOptions);
+  const servers = serversQuery.data ?? [];
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<McpServer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form] = Form.useForm<FormValues>();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setServers(await listMcpServers());
-      setError(null);
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const openCreate = () => {
     setEditing(null);
@@ -121,7 +105,7 @@ export default function McpPage() {
       await saveMcpServer(input);
       void message.success(t(editing ? "mcp.updated" : "mcp.created"));
       setFormOpen(false);
-      await load();
+      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -133,7 +117,7 @@ export default function McpPage() {
     setBusy(true);
     try {
       await toggleMcpServer(server.id, target, enabled);
-      setServers((current) =>
+      queryClient.setQueryData<McpServer[]>(mcpServersOptions.queryKey, (current = []) =>
         current.map((item) =>
           item.id === server.id
             ? {
@@ -158,7 +142,7 @@ export default function McpPage() {
     try {
       await deleteMcpServer(server.id);
       void message.success(t("mcp.deleted"));
-      await load();
+      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -173,7 +157,7 @@ export default function McpPage() {
       void message.success(
         t("mcp.imported", { imported: summary.imported, updated: summary.updated }),
       );
-      await load();
+      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -253,9 +237,9 @@ export default function McpPage() {
   ];
 
   return (
-    <Spin spinning={loading}>
+    <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        {error && <Alert type="error" showIcon closable message={error} onClose={() => setError(null)} />}
+        {serversQuery.error && <Alert type="error" showIcon message={errMsg(serversQuery.error)} />}
         <Alert type="info" showIcon message={t("mcp.title")} description={t("mcp.description")} />
         <Card
           size="small"
@@ -265,7 +249,12 @@ export default function McpPage() {
               <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
                 {t("mcp.import")}
               </Button>
-              <Button icon={<SyncOutlined />} disabled={busy} onClick={() => void load()}>
+              <Button
+                icon={<SyncOutlined />}
+                disabled={busy}
+                loading={serversQuery.isFetching}
+                onClick={() => void serversQuery.refetch()}
+              >
                 {t("common.refresh")}
               </Button>
               <Button type="primary" icon={<PlusOutlined />} disabled={busy} onClick={openCreate}>
@@ -278,6 +267,7 @@ export default function McpPage() {
             rowKey="id"
             columns={columns}
             dataSource={servers}
+            loading={serversQuery.isPending}
             pagination={false}
             locale={{ emptyText: t("mcp.empty") }}
           />
@@ -321,7 +311,7 @@ export default function McpPage() {
           </Paragraph>
         </Form>
       </Modal>
-    </Spin>
+    </>
   );
 }
 

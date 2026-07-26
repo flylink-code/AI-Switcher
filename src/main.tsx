@@ -7,8 +7,10 @@ import App from "@/App";
 import "@/styles.css";
 import { queryClient } from "@/lib/queryClient";
 import { initializeProviderHealthEvents } from "@/stores/providersStore";
+import { initializeProxyStatusEvents } from "@/lib/proxyStatusEvents";
 
 initializeProviderHealthEvents();
+initializeProxyStatusEvents();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

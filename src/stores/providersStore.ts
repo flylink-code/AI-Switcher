@@ -10,12 +10,13 @@ import {
   createProvider,
   deleteProvider,
   importLiveConfig,
-  listProviders,
   reorderProviders,
   switchProvider,
   switchToOfficial,
   updateProvider,
 } from "@/services/api";
+import { providerListOptions } from "@/lib/appQueries";
+import { queryClient } from "@/lib/queryClient";
 
 interface ProvidersState {
   providers: Provider[];
@@ -41,9 +42,17 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
   target: "claude_code",
 
   load: async (target) => {
-    set({ loading: true, error: null, target });
+    const options = providerListOptions(target);
+    const cached = queryClient.getQueryData<Provider[]>(options.queryKey);
+    set({
+      providers: cached ?? [],
+      loading: !cached,
+      error: null,
+      target,
+    });
     try {
-      set({ providers: await listProviders(target), loading: false });
+      const providers = await queryClient.fetchQuery(options);
+      set({ providers, loading: false });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     }
@@ -51,16 +60,19 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
 
   create: async (input) => {
     await createProvider({ ...input, targetApp: get().target });
+    await queryClient.invalidateQueries({ queryKey: providerListOptions(get().target).queryKey });
     await get().load(get().target);
   },
 
   update: async (input) => {
     await updateProvider({ ...input, targetApp: get().target });
+    await queryClient.invalidateQueries({ queryKey: providerListOptions(get().target).queryKey });
     await get().load(get().target);
   },
 
   remove: async (id) => {
     await deleteProvider(id);
+    await queryClient.invalidateQueries({ queryKey: providerListOptions(get().target).queryKey });
     await get().load(get().target);
   },
 
@@ -72,6 +84,11 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
         isCurrent: item.id === provider.id,
       })),
     });
+    queryClient.setQueryData<Provider[]>(
+      providerListOptions(get().target).queryKey,
+      (current = []) =>
+        current.map((item) => ({ ...item, isCurrent: item.id === provider.id })),
+    );
   },
 
   useOfficial: async () => {
@@ -82,6 +99,10 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
         isCurrent: false,
       })),
     });
+    queryClient.setQueryData<Provider[]>(
+      providerListOptions(get().target).queryKey,
+      (current = []) => current.map((provider) => ({ ...provider, isCurrent: false })),
+    );
   },
 
   move: async (id, direction) => {
@@ -96,6 +117,7 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
     set({ providers: reordered });
     try {
       await reorderProviders(ordered, get().target);
+      queryClient.setQueryData(providerListOptions(get().target).queryKey, reordered);
     } catch (e) {
       set({ providers: previous, error: errMsg(e) });
     }
@@ -103,6 +125,7 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
 
   importLive: async () => {
     await importLiveConfig(get().target);
+    await queryClient.invalidateQueries({ queryKey: providerListOptions(get().target).queryKey });
     await get().load(get().target);
   },
 
@@ -119,6 +142,19 @@ export function initializeProviderHealthEvents(): void {
   if (healthEventsInitialized) return;
   healthEventsInitialized = true;
   void listen<ProviderHealthUpdated>("provider-health-updated", ({ payload }) => {
+    queryClient.setQueryData<Provider[]>(
+      providerListOptions(payload.targetApp).queryKey,
+      (current = []) =>
+        current.map((provider) =>
+          provider.id === payload.providerId
+            ? {
+                ...provider,
+                healthStatus: payload.ok ? "healthy" : "error",
+                healthCheckedAt: payload.checkedAt,
+              }
+            : provider,
+        ),
+    );
     useProvidersStore.setState((state) => {
       if (state.target !== payload.targetApp) return state;
       return {

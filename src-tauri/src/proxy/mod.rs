@@ -98,6 +98,9 @@ impl ProxyManager {
             running,
             port,
             target_provider,
+            phase: if running { "running" } else { "stopped" }.to_string(),
+            last_error: None,
+            checked_at: chrono::Utc::now().timestamp_millis(),
         }
     }
 
@@ -116,6 +119,9 @@ impl ProxyManager {
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
             } else { None },
+            phase: if running { "running" } else { "stopped" }.to_string(),
+            last_error: None,
+            checked_at: chrono::Utc::now().timestamp_millis(),
         }
     }
 
@@ -242,6 +248,9 @@ pub struct ProxyStatus {
     pub running: bool,
     pub port: u16,
     pub target_provider: Option<String>,
+    pub phase: String,
+    pub last_error: Option<String>,
+    pub checked_at: i64,
 }
 
 #[derive(Clone)]

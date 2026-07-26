@@ -534,9 +534,16 @@ fn update_command_for(installation: Option<&Installation>) -> String {
 }
 
 #[tauri::command]
-pub async fn get_claude_code_version() -> AppResult<ClaudeCodeVersionInfo> {
+pub async fn get_claude_code_version(
+    include_latest: Option<bool>,
+) -> AppResult<ClaudeCodeVersionInfo> {
     let probe_task = tokio::task::spawn_blocking(probe_installation);
-    let (probe_result, latest_version) = tokio::join!(probe_task, fetch_npm_latest());
+    let (probe_result, latest_version) = if include_latest.unwrap_or(true) {
+        let (probe_result, latest_version) = tokio::join!(probe_task, fetch_npm_latest());
+        (probe_result, latest_version)
+    } else {
+        (probe_task.await, None)
+    };
     let probe = probe_result
         .map_err(|error| AppError::Other(format!("Claude Code version probe failed: {error}")))?;
 

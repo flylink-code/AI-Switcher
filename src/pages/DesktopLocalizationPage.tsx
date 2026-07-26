@@ -16,15 +16,14 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  getDesktopLocalizationStatus,
   installDesktopLocalization,
   restoreDesktopLocalization,
   selectDesktopLocalizationPack,
   validateDesktopLocalizationPack,
 } from "@/services/api";
+import { localizationOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
-const localizationKey = ["environment", "desktop-localization"] as const;
 
 function PathValue({ value }: { value?: string | null }) {
   const { t } = useTranslation();
@@ -35,15 +34,11 @@ function PathValue({ value }: { value?: string | null }) {
 export default function DesktopLocalizationPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const statusQuery = useQuery({
-    queryKey: localizationKey,
-    queryFn: getDesktopLocalizationStatus,
-    staleTime: 60_000,
-  });
+  const statusQuery = useQuery(localizationOptions);
   const localization = statusQuery.data;
 
   const refreshStatus = async () => {
-    await queryClient.invalidateQueries({ queryKey: localizationKey });
+    await queryClient.invalidateQueries({ queryKey: localizationOptions.queryKey });
   };
 
   const selectPack = useMutation({

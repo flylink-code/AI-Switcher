@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
   Card,
   Descriptions,
   Space,
-  Spin,
   Tag,
   Typography,
   message,
@@ -16,50 +15,31 @@ import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
-import type { ClaudeCodeVersionInfo } from "@/types/backend";
-import { getClaudeCodeVersion, runClaudeCodeUpdate } from "@/services/api";
+import { runClaudeCodeUpdate } from "@/services/api";
+import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
 
 const { Text, Paragraph } = Typography;
 
 export default function AboutPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [claudeInfo, setClaudeInfo] = useState<ClaudeCodeVersionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
   const [checkingApp, setCheckingApp] = useState(false);
-  const [checkingClaude, setCheckingClaude] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
-
-  const refreshClaude = useCallback(async () => {
-    setCheckingClaude(true);
-    try {
-      setClaudeInfo(await getClaudeCodeVersion());
-    } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      setCheckingClaude(false);
-    }
-  }, []);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [version] = await Promise.all([
-        getVersion().catch(() => null),
-        refreshClaude(),
-      ]);
-      setAppVersion(version);
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshClaude]);
+  const localClaudeQuery = useQuery(localClaudeVersionOptions);
+  const claudeQuery = useQuery({
+    ...claudeVersionOptions,
+    placeholderData: () => localClaudeQuery.data,
+  });
+  const claudeInfo = claudeQuery.data ?? localClaudeQuery.data ?? null;
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
 
   const checkAppUpdate = async () => {
     setCheckingApp(true);
@@ -99,7 +79,7 @@ export default function AboutPage() {
     try {
       const result = await runClaudeCodeUpdate();
       void message.success(result);
-      await refreshClaude();
+      await queryClient.invalidateQueries({ queryKey: ["claude-code-version"] });
     } catch (e) {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -108,7 +88,7 @@ export default function AboutPage() {
   };
 
   return (
-    <Spin spinning={loading}>
+    <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Alert
           type="info"
@@ -151,8 +131,8 @@ export default function AboutPage() {
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              loading={checkingClaude}
-              onClick={() => void refreshClaude()}
+              loading={claudeQuery.isFetching}
+              onClick={() => void claudeQuery.refetch()}
             >
               {t("common.refresh")}
             </Button>
@@ -235,6 +215,6 @@ export default function AboutPage() {
           </Space>
         </Card>
       </Space>
-    </Spin>
+    </>
   );
 }

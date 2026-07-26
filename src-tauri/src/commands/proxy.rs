@@ -1,6 +1,7 @@
 //! Commands for controlling and inspecting the local proxy.
 
 use serde::Serialize;
+use tauri::Emitter;
 
 use crate::database::dao::providers::get_current_provider;
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -10,56 +11,89 @@ use crate::store::AppState;
 
 const DEFAULT_PORT: u16 = 15821;
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProxyStatusInfo {
-    pub running: bool,
-    pub port: u16,
-    pub target_provider: Option<String>,
-}
+pub type ProxyStatusInfo = ProxyStatus;
 
-impl From<ProxyStatus> for ProxyStatusInfo {
-    fn from(s: ProxyStatus) -> Self {
-        Self {
-            running: s.running,
-            port: s.port,
-            target_provider: s.target_provider,
-        }
-    }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProxyStatusUpdated {
+    target: crate::provider::ProviderTarget,
+    status: ProxyStatus,
 }
 
 #[tauri::command]
 pub async fn get_proxy_status(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
-    let proxy = state
-        .proxy
-        .lock()
-        .await;
-    Ok(match target {
-        Some(target) => status_for_target(&proxy, &state, target),
-        None => proxy.status().into(),
-    })
+    let target = target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop);
+    Ok(status_snapshot(&state, target).await)
 }
 
 #[tauri::command]
 pub async fn start_proxy(
     port: Option<u16>,
     target: Option<crate::provider::ProviderTarget>,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<ProxyStatusInfo> {
     let target = target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop);
     let target_port = port.unwrap_or_else(|| get_saved_port(&state, target));
+    publish_status(
+        &app,
+        &state,
+        target,
+        status_value(&state, target, target_port, "starting", None),
+    )
+    .await;
     let mut proxy = state.proxy.lock().await;
-    proxy.start(target_port, target).await?;
-    persist_port(&state, target, target_port)?;
-    Ok(status_for_target(&proxy, &state, target))
+    match proxy.start(target_port, target).await {
+        Ok(()) => {
+            persist_port(&state, target, target_port)?;
+            let status = proxy.status_for(target);
+            drop(proxy);
+            publish_status(&app, &state, target, status.clone()).await;
+            Ok(status)
+        }
+        Err(error) => {
+            drop(proxy);
+            let status = status_value(
+                &state,
+                target,
+                target_port,
+                "error",
+                Some(sanitize_status_error(&error.to_string())),
+            );
+            publish_status(&app, &state, target, status).await;
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command]
-pub async fn stop_proxy(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
+pub async fn stop_proxy(
+    target: Option<crate::provider::ProviderTarget>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ProxyStatusInfo> {
     let mut proxy = state.proxy.lock().await;
     match target {
-        Some(target) => { proxy.stop_target(target); Ok(status_for_target(&proxy, &state, target)) }
-        None => { proxy.stop(); Ok(proxy.status().into()) }
+        Some(target) => {
+            proxy.stop_target(target);
+            drop(proxy);
+            let status = status_value(&state, target, get_saved_port(&state, target), "stopped", None);
+            publish_status(&app, &state, target, status.clone()).await;
+            Ok(status)
+        }
+        None => {
+            proxy.stop();
+            drop(proxy);
+            for target in [
+                crate::provider::ProviderTarget::ClaudeCode,
+                crate::provider::ProviderTarget::ClaudeDesktop,
+            ] {
+                let status =
+                    status_value(&state, target, get_saved_port(&state, target), "stopped", None);
+                publish_status(&app, &state, target, status).await;
+            }
+            Ok(status_snapshot(&state, crate::provider::ProviderTarget::ClaudeDesktop).await)
+        }
     }
 }
 
@@ -85,16 +119,56 @@ fn get_saved_port(state: &AppState, target: crate::provider::ProviderTarget) -> 
         .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1 })
 }
 
-fn status_for_target(
-    proxy: &crate::proxy::ProxyManager,
+fn status_value(
     state: &AppState,
     target: crate::provider::ProviderTarget,
-) -> ProxyStatusInfo {
-    let mut status = proxy.status_for(target);
-    if !status.running {
-        status.port = get_saved_port(state, target);
+    port: u16,
+    phase: &str,
+    last_error: Option<String>,
+) -> ProxyStatus {
+    let running = phase == "running";
+    ProxyStatus {
+        running,
+        port,
+        target_provider: state
+            .db
+            .with_conn(|conn| get_current_provider(conn, target))
+            .ok()
+            .flatten()
+            .map(|provider| provider.name),
+        phase: phase.to_string(),
+        last_error,
+        checked_at: chrono::Utc::now().timestamp_millis(),
     }
-    status.into()
+}
+
+async fn status_snapshot(state: &AppState, target: crate::provider::ProviderTarget) -> ProxyStatus {
+    state
+        .proxy_status
+        .read()
+        .await
+        .get(&target)
+        .cloned()
+        .unwrap_or_else(|| status_value(state, target, get_saved_port(state, target), "stopped", None))
+}
+
+async fn publish_status(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    target: crate::provider::ProviderTarget,
+    status: ProxyStatus,
+) {
+    state.proxy_status.write().await.insert(target, status.clone());
+    if let Err(error) = app.emit(
+        "proxy-status-updated",
+        ProxyStatusUpdated { target, status },
+    ) {
+        log::warn!("发送代理状态事件失败: {error}");
+    }
+}
+
+fn sanitize_status_error(value: &str) -> String {
+    value.chars().take(300).collect()
 }
 
 fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port: u16) -> AppResult<()> {
@@ -104,7 +178,7 @@ fn persist_port(state: &AppState, target: crate::provider::ProviderTarget, port:
 }
 
 /// Start local proxies required by the active providers or live Desktop profile.
-pub async fn ensure_runtime_proxies(state: &AppState) {
+pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
     for target in [
         crate::provider::ProviderTarget::ClaudeCode,
         crate::provider::ProviderTarget::ClaudeDesktop,
@@ -124,10 +198,46 @@ pub async fn ensure_runtime_proxies(state: &AppState) {
         }
 
         let port = get_saved_port(state, target);
+        publish_status(
+            app,
+            state,
+            target,
+            status_value(state, target, port, "starting", None),
+        )
+        .await;
         let mut proxy = state.proxy.lock().await;
         match proxy.start(port, target).await {
-            Ok(()) => log::info!("已自动启动 {target:?} 本地代理: http://127.0.0.1:{port}"),
-            Err(error) => log::error!("自动启动 {target:?} 本地代理失败: {error}"),
+            Ok(()) => {
+                let status = proxy.status_for(target);
+                drop(proxy);
+                publish_status(app, state, target, status).await;
+                log::info!("已自动启动 {target:?} 本地代理: http://127.0.0.1:{port}");
+            }
+            Err(error) => {
+                drop(proxy);
+                let status = status_value(
+                    state,
+                    target,
+                    port,
+                    "error",
+                    Some(sanitize_status_error(&error.to_string())),
+                );
+                publish_status(app, state, target, status).await;
+                log::error!("自动启动 {target:?} 本地代理失败: {error}");
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proxy_status_errors_are_bounded_without_breaking_unicode() {
+        let input = "端口占用".repeat(100);
+        let sanitized = sanitize_status_error(&input);
+        assert_eq!(sanitized.chars().count(), 300);
+        assert!(input.starts_with(&sanitized));
     }
 }

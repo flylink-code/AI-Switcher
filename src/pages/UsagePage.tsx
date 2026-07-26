@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -13,7 +13,6 @@ import {
   Row,
   Select,
   Space,
-  Spin,
   Statistic,
   Switch,
   Table,
@@ -27,6 +26,7 @@ import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type {
   LogMaintenancePolicy,
@@ -39,24 +39,19 @@ import type {
 } from "@/types/backend";
 import {
   deleteModelPricing,
-  getUsageDashboard,
-  getLogMaintenancePolicy,
-  listModelPricing,
-  listProxyRequestLogs,
   maintainProxyLogs,
   previewProxyLogMaintenance,
   saveModelPricing,
   saveLogMaintenancePolicy,
 } from "@/services/api";
+import { usageOverviewOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
 export default function UsagePage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [days, setDays] = useState(30);
-  const [dashboard, setDashboard] = useState<UsageDashboard | null>(null);
-  const [pricing, setPricing] = useState<ModelPricing[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [maintaining, setMaintaining] = useState(false);
@@ -64,39 +59,22 @@ export default function UsagePage() {
   const [maintenancePolicy, setMaintenancePolicy] = useState<LogMaintenancePolicy | null>(null);
   const [maintenancePreview, setMaintenancePreview] = useState<LogMaintenancePreview | null>(null);
   const [form] = Form.useForm<ModelPricingInput>();
-  const [requestLogs, setRequestLogs] = useState<PaginatedProxyLogs | null>(null);
   const [logPage, setLogPage] = useState(0);
   const [logTargetApp, setLogTargetApp] = useState<ProviderTarget | "all">("all");
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [nextDashboard, nextPricing, nextPolicy, nextLogs] = await Promise.all([
-        getUsageDashboard(days),
-        listModelPricing(),
-        getLogMaintenancePolicy(),
-        listProxyRequestLogs({
-          days,
-          page: logPage,
-          pageSize: 20,
-          targetApp: logTargetApp === "all" ? undefined : logTargetApp,
-        }),
-      ]);
-      setDashboard(nextDashboard);
-      setPricing(nextPricing);
-      setMaintenancePolicy(nextPolicy);
-      setRequestLogs(nextLogs);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [days, logPage, logTargetApp]);
+  const overviewQuery = useQuery({
+    ...usageOverviewOptions(days, logPage, logTargetApp),
+    placeholderData: keepPreviousData,
+  });
+  const dashboard = overviewQuery.data?.dashboard ?? null;
+  const pricing = overviewQuery.data?.pricing ?? [];
+  const requestLogs = overviewQuery.data?.requestLogs ?? null;
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!maintenanceOpen && overviewQuery.data?.maintenancePolicy) {
+      setMaintenancePolicy(overviewQuery.data.maintenancePolicy);
+    }
+  }, [maintenanceOpen, overviewQuery.data?.maintenancePolicy]);
 
   useEffect(() => {
     setLogPage(0);
@@ -117,7 +95,7 @@ export default function UsagePage() {
       setPricingOpen(false);
       form.resetFields();
       void message.success(t("usage.pricingSaved"));
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
     } catch (e) {
       if (e instanceof Error) void message.error(errMsg(e));
     } finally {
@@ -129,7 +107,7 @@ export default function UsagePage() {
     try {
       await deleteModelPricing(model);
       void message.success(t("usage.pricingDeleted"));
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
     } catch (e) {
       void message.error(errMsg(e));
     }
@@ -152,7 +130,7 @@ export default function UsagePage() {
       void message.success(t("usage.logsMaintained", { deleted: result.deleted }));
       if (!result.integrityOk) void message.error(t("usage.integrityFailed"));
       setMaintenanceOpen(false);
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
     } catch (e) { void message.error(errMsg(e)); }
     finally { setMaintaining(false); }
   };
@@ -165,8 +143,9 @@ export default function UsagePage() {
     (summary?.outputTokens ?? 0);
 
   return (
-    <Spin spinning={loading}>
+    <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <Alert type="info" showIcon message={t("usage.title")} description={t("usage.description")} />
 
         <Space wrap style={{ justifyContent: "space-between", width: "100%" }}>
@@ -182,7 +161,13 @@ export default function UsagePage() {
               onChange={setDays}
             />
           </Space>
-          <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>{t("common.refresh")}</Button>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={overviewQuery.isFetching}
+            onClick={() => void overviewQuery.refetch()}
+          >
+            {t("common.refresh")}
+          </Button>
           <Button loading={maintaining} onClick={() => void openMaintenance()}>{t("usage.maintainLogs")}</Button>
         </Space>
 
@@ -251,6 +236,7 @@ export default function UsagePage() {
             rowKey="id"
             locale={{ emptyText: t("usage.noData") }}
             dataSource={requestLogs?.data ?? []}
+            loading={overviewQuery.isPending}
             pagination={{
               current: (requestLogs?.page ?? 0) + 1,
               pageSize: requestLogs?.pageSize ?? 20,
@@ -338,6 +324,7 @@ export default function UsagePage() {
             pagination={false}
             locale={{ emptyText: t("usage.noPricing") }}
             dataSource={pricing}
+            loading={overviewQuery.isPending}
             columns={[
               { title: t("usage.model"), dataIndex: "model" },
               { title: t("usage.inputPrice"), dataIndex: "inputPricePerMillion", render: (v: number) => formatCost(v) },
@@ -406,7 +393,7 @@ export default function UsagePage() {
       >
         <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{detailDiagnostic}</pre>
       </Drawer>
-    </Spin>
+    </>
   );
 }
 

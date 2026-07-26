@@ -3,6 +3,36 @@
     "name": "Claude Switcher",
     "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code"
   },
+  "startup": {
+    "preparing": "Preparing application data…",
+    "skip": "Enter now",
+    "backgroundPending": "{{count}} items will continue loading in the background",
+    "tasks": {
+      "starting": "Initializing",
+      "done": "Ready",
+      "codeProviders": "Loading Claude Code providers",
+      "desktopProviders": "Loading Claude Desktop providers",
+      "codeProxy": "Reading Claude Code proxy status",
+      "desktopProxy": "Reading Claude Desktop proxy status",
+      "mcpData": "Loading MCP configuration",
+      "promptsData": "Loading prompts",
+      "skillsData": "Loading skills",
+      "usageData": "Loading usage and logs",
+      "environmentData": "Reading environment information",
+      "autostartData": "Reading launch-at-login settings",
+      "providersPage": "Preparing providers page",
+      "proxyPage": "Preparing local proxy page",
+      "mcpPage": "Preparing MCP page",
+      "promptsPage": "Preparing prompts page",
+      "skillsPage": "Preparing skills page",
+      "usagePage": "Preparing usage page",
+      "environmentPage": "Preparing environment page",
+      "localizationPage": "Preparing localization page",
+      "aboutPage": "Preparing about page",
+      "localizationData": "Detecting Claude Desktop",
+      "versionData": "Detecting Claude Code version"
+    }
+  },
   "nav": {
     "providers": "Providers",
     "proxy": "Proxy",
@@ -118,6 +148,8 @@
     "status": "Status",
     "control": "Start / Stop",
     "running": "Running",
+    "starting": "Starting",
+    "failed": "Failed",
     "stopped": "Stopped",
     "start": "Start proxy",
     "stop": "Stop proxy",
@@ -322,6 +354,11 @@
       }
     },
     "autostartUpdated": "Launch-at-login setting updated",
+    "autostartModes": {
+      "off": "Disabled",
+      "silent": "Start silently in tray",
+      "window": "Start and show window"
+    },
     "noConfigBackups": "No provider configuration backups yet. They appear after a configuration change.",
     "previewBackup": "Preview (redacted)",
     "restoreBackup": "Restore",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   App,
@@ -11,7 +11,6 @@ import {
   Modal,
   Popconfirm,
   Space,
-  Spin,
   Tooltip,
   Typography,
   theme,
@@ -24,17 +23,17 @@ import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { LivePrompt, PromptDetail, PromptInfo } from "@/types/backend";
+import type { PromptDetail, PromptInfo } from "@/types/backend";
 import {
   activatePrompt,
   deletePrompt,
   importLivePrompt,
-  listPrompts,
-  readLivePrompt,
   readPrompt,
   savePrompt,
 } from "@/services/api";
+import { promptsOverviewOptions } from "@/lib/appQueries";
 
 const { Text, Paragraph } = Typography;
 
@@ -47,34 +46,16 @@ export default function PromptsPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const [prompts, setPrompts] = useState<PromptInfo[]>([]);
-  const [live, setLive] = useState<LivePrompt | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const promptsQuery = useQuery(promptsOverviewOptions);
+  const prompts = promptsQuery.data?.items ?? [];
+  const live = promptsQuery.data?.livePrompt ?? null;
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<PromptDetail | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [form] = Form.useForm<PromptFormValues>();
   const [importForm] = Form.useForm<{ name: string }>();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [items, livePrompt] = await Promise.all([listPrompts(), readLivePrompt()]);
-      setPrompts(items);
-      setLive(livePrompt);
-      setError(null);
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const openCreate = () => {
     setEditing(null);
@@ -107,7 +88,7 @@ export default function PromptsPage() {
       await savePrompt(name, values.content);
       void message.success(t(editing ? "prompts.updated" : "prompts.created"));
       setFormOpen(false);
-      await load();
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -120,7 +101,7 @@ export default function PromptsPage() {
     try {
       await activatePrompt(info.name);
       void message.success(t("prompts.activated", { name: info.name }));
-      await load();
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -133,7 +114,7 @@ export default function PromptsPage() {
     try {
       await deletePrompt(info.name);
       void message.success(t("prompts.deleted"));
-      await load();
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -152,7 +133,7 @@ export default function PromptsPage() {
       await importLivePrompt(name.trim());
       void message.success(t("prompts.imported"));
       setImportOpen(false);
-      await load();
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -161,9 +142,9 @@ export default function PromptsPage() {
   };
 
   return (
-    <Spin spinning={loading}>
+    <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        {error && <Alert type="error" showIcon closable message={error} onClose={() => setError(null)} />}
+        {promptsQuery.error && <Alert type="error" showIcon message={errMsg(promptsQuery.error)} />}
         <Alert type="info" showIcon message={t("prompts.title")} description={t("prompts.description")} />
 
         <Card
@@ -204,7 +185,12 @@ export default function PromptsPage() {
           title={t("prompts.presetsTitle")}
           extra={
             <Space>
-              <Button icon={<ReloadOutlined />} disabled={busy} onClick={() => void load()}>
+              <Button
+                icon={<ReloadOutlined />}
+                disabled={busy}
+                loading={promptsQuery.isFetching}
+                onClick={() => void promptsQuery.refetch()}
+              >
                 {t("common.refresh")}
               </Button>
               <Button type="primary" icon={<FileAddOutlined />} disabled={busy} onClick={openCreate}>
@@ -214,6 +200,7 @@ export default function PromptsPage() {
           }
         >
           <List
+            loading={promptsQuery.isPending}
             dataSource={prompts}
             locale={{ emptyText: t("prompts.empty") }}
             renderItem={(item) => (
@@ -303,7 +290,7 @@ export default function PromptsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Spin>
+    </>
   );
 }
 

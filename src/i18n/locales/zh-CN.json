@@ -3,6 +3,36 @@
     "name": "Claude Switcher",
     "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具"
   },
+  "startup": {
+    "preparing": "正在准备应用数据…",
+    "skip": "立即进入",
+    "backgroundPending": "{{count}} 项将在后台继续加载",
+    "tasks": {
+      "starting": "正在初始化",
+      "done": "准备完成",
+      "codeProviders": "加载 Claude Code 供应商",
+      "desktopProviders": "加载 Claude Desktop 供应商",
+      "codeProxy": "读取 Claude Code 代理状态",
+      "desktopProxy": "读取 Claude Desktop 代理状态",
+      "mcpData": "加载 MCP 配置",
+      "promptsData": "加载提示词",
+      "skillsData": "加载技能",
+      "usageData": "加载用量与日志",
+      "environmentData": "读取环境信息",
+      "autostartData": "读取开机自启设置",
+      "providersPage": "准备供应商页面",
+      "proxyPage": "准备本地代理页面",
+      "mcpPage": "准备 MCP 页面",
+      "promptsPage": "准备提示词页面",
+      "skillsPage": "准备技能页面",
+      "usagePage": "准备用量页面",
+      "environmentPage": "准备环境页面",
+      "localizationPage": "准备中文化页面",
+      "aboutPage": "准备关于页面",
+      "localizationData": "检测 Claude Desktop",
+      "versionData": "检测 Claude Code 版本"
+    }
+  },
   "nav": {
     "providers": "供应商",
     "proxy": "本地代理",
@@ -118,6 +148,8 @@
     "status": "运行状态",
     "control": "启动 / 停止",
     "running": "运行中",
+    "starting": "正在启动",
+    "failed": "启动失败",
     "stopped": "已停止",
     "start": "启动代理",
     "stop": "停止代理",
@@ -322,6 +354,11 @@
       }
     },
     "autostartUpdated": "开机自启设置已更新",
+    "autostartModes": {
+      "off": "关闭开机自启",
+      "silent": "静默启动到托盘",
+      "window": "启动并显示窗口"
+    },
     "noConfigBackups": "尚无供应商配置备份；切换或恢复配置后会出现在此处。",
     "previewBackup": "预览（已脱敏）",
     "restoreBackup": "恢复",

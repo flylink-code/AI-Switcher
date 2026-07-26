@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Button,
@@ -6,7 +6,6 @@ import {
   Input,
   Modal,
   Space,
-  Spin,
   Switch,
   Table,
   Typography,
@@ -16,34 +15,24 @@ import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import GithubOutlined from "@ant-design/icons/es/icons/GithubOutlined";
 import InboxOutlined from "@ant-design/icons/es/icons/InboxOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { Skill } from "@/types/backend";
-import { deleteSkill, installGithubSkill, installZipSkill, listSkills, setSkillEnabled } from "@/services/api";
+import { deleteSkill, installGithubSkill, installZipSkill, setSkillEnabled } from "@/services/api";
+import { skillsOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
 export default function SkillsPage() {
   const { t } = useTranslation();
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const skillsQuery = useQuery(skillsOptions);
+  const skills = skillsQuery.data ?? [];
   const [busy, setBusy] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
   const [githubUrl, setGithubUrl] = useState("");
   const [zipPath, setZipPath] = useState("");
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      setSkills(await listSkills());
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void refresh(); }, [refresh]);
 
   const installGithub = async () => {
     if (!githubUrl.trim()) return;
@@ -53,7 +42,7 @@ export default function SkillsPage() {
       setGithubOpen(false);
       setGithubUrl("");
       void message.success(t("skills.installed"));
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -69,7 +58,7 @@ export default function SkillsPage() {
       setZipOpen(false);
       setZipPath("");
       void message.success(t("skills.installed"));
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -81,7 +70,9 @@ export default function SkillsPage() {
     setBusy(true);
     try {
       await setSkillEnabled(skill.name, enabled);
-      await refresh();
+      queryClient.setQueryData<Skill[]>(skillsOptions.queryKey, (current = []) =>
+        current.map((item) => (item.name === skill.name ? { ...item, enabled } : item)),
+      );
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -94,7 +85,7 @@ export default function SkillsPage() {
     try {
       await deleteSkill(skill.name);
       void message.success(t("skills.deleted"));
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -102,14 +93,20 @@ export default function SkillsPage() {
     }
   };
 
-  return <Spin spinning={loading || busy}>
+  return <>
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Alert type="info" showIcon message={t("skills.title")} description={t("skills.description")} />
       <Card
         size="small"
         title={t("skills.installedTitle")}
         extra={<Space>
-          <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>{t("common.refresh")}</Button>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={skillsQuery.isFetching}
+            onClick={() => void skillsQuery.refetch()}
+          >
+            {t("common.refresh")}
+          </Button>
           <Button icon={<InboxOutlined />} onClick={() => setZipOpen(true)} disabled={busy}>{t("skills.installZip")}</Button>
           <Button type="primary" icon={<GithubOutlined />} onClick={() => setGithubOpen(true)}>{t("skills.installGithub")}</Button>
         </Space>}
@@ -118,6 +115,7 @@ export default function SkillsPage() {
           size="small"
           rowKey="name"
           dataSource={skills}
+          loading={skillsQuery.isPending}
           pagination={false}
           locale={{ emptyText: t("skills.empty") }}
           columns={[
@@ -141,7 +139,7 @@ export default function SkillsPage() {
         <Input prefix={<GithubOutlined />} placeholder="https://github.com/owner/repository" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} onPressEnter={() => void installGithub()} />
       </Space>
     </Modal>
-  </Spin>;
+  </>;
 }
 
 function errMsg(e: unknown) { return e instanceof Error ? e.message : String(e); }

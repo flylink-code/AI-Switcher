@@ -43,7 +43,10 @@ pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{
     delete_skill, install_github_skill, install_zip_skill, list_skills, set_skill_enabled,
 };
-pub use system::{get_autostart_enabled, set_autostart_enabled};
+pub use system::{
+    get_autostart_config, get_autostart_enabled, report_frontend_startup,
+    set_autostart_config, set_autostart_enabled,
+};
 pub use tools::{get_claude_code_version, run_claude_code_update};
 pub use usage::{
     delete_model_pricing, get_log_maintenance_policy, get_usage_dashboard, list_model_pricing,

@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
   Card,
   Descriptions,
   InputNumber,
+  Skeleton,
   Space,
   Segmented,
-  Spin,
   Tag,
   Typography,
   message,
@@ -17,43 +17,36 @@ import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { ProxyStatus, ProviderTarget } from "@/types/backend";
-import { getProxyStatus, setProxyPort, startProxy, stopProxy } from "@/services/api";
+import type { ProviderTarget } from "@/types/backend";
+import { setProxyPort, startProxy, stopProxy } from "@/services/api";
+import { proxyStatusOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
 export default function ProxyPage() {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<ProxyStatus | null>(null);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [port, setPort] = useState<number>(15821);
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState<ProviderTarget>("claude_desktop");
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const s = await getProxyStatus(target);
-      setStatus(s);
-      setPort(s.port);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [target]);
+  const statusQuery = useQuery({
+    ...proxyStatusOptions(target),
+    placeholderData: keepPreviousData,
+  });
+  const status = statusQuery.data ?? null;
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (status) setPort(status.port);
+  }, [status]);
 
   const handleStart = async () => {
     setBusy(true);
     try {
       await setProxyPort(port, target);
       const s = await startProxy(port, target);
-      setStatus(s);
+      queryClient.setQueryData(["proxy-status", target], s);
       void message.success(t("proxy.started", { port: s.port }));
     } catch (e) {
       void message.error(errMsg(e));
@@ -66,7 +59,7 @@ export default function ProxyPage() {
     setBusy(true);
     try {
       const s = await stopProxy(target);
-      setStatus(s);
+      queryClient.setQueryData(["proxy-status", target], s);
       void message.success(t("proxy.stopped"));
     } catch (e) {
       void message.error(errMsg(e));
@@ -76,8 +69,7 @@ export default function ProxyPage() {
   };
 
   return (
-    <Spin spinning={loading}>
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Alert
           type="info"
           showIcon
@@ -103,16 +95,26 @@ export default function ProxyPage() {
             </Space>
           }
           extra={
-            <Button icon={<ReloadOutlined />} loading={busy} onClick={() => void refresh()}>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={statusQuery.isFetching}
+              onClick={() => void statusQuery.refetch()}
+            >
               {t("proxy.refresh")}
             </Button>
           }
         >
-          {status && (
+          {!status ? (
+            <Skeleton active paragraph={{ rows: 3 }} />
+          ) : (
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label={t("proxy.fieldRunning")}>
-                {status.running ? (
+                {status.phase === "starting" ? (
+                  <Tag color="processing">{t("proxy.starting")}</Tag>
+                ) : status.running ? (
                   <Tag color="green">{t("proxy.running")}</Tag>
+                ) : status.phase === "error" ? (
+                  <Tag color="red">{t("proxy.failed")}</Tag>
                 ) : (
                   <Tag>{t("proxy.stopped")}</Tag>
                 )}
@@ -131,6 +133,14 @@ export default function ProxyPage() {
                 <Text copyable code>{`http://127.0.0.1:${status.port}/v1/messages`}</Text>
               </Descriptions.Item>
             </Descriptions>
+          )}
+          {status?.lastError && (
+            <Alert
+              style={{ marginTop: 12 }}
+              type="error"
+              showIcon
+              message={status.lastError}
+            />
           )}
         </Card>
 
@@ -151,7 +161,7 @@ export default function ProxyPage() {
                 max={65535}
                 value={port}
                 onChange={(v) => v != null && setPort(v)}
-                disabled={busy || status?.running}
+                disabled={busy || status?.running || status?.phase === "starting"}
                 style={{ width: 120 }}
               />
             </Space>
@@ -177,8 +187,7 @@ export default function ProxyPage() {
             )}
           </Space>
         </Card>
-      </Space>
-    </Spin>
+    </Space>
   );
 }
 

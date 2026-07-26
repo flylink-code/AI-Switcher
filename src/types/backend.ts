@@ -161,6 +161,21 @@ export interface ProxyStatus {
   running: boolean;
   port: number;
   targetProvider: string | null;
+  phase: "stopped" | "starting" | "running" | "error";
+  lastError: string | null;
+  checkedAt: number;
+}
+
+export interface ProxyStatusUpdated {
+  target: ProviderTarget;
+  status: ProxyStatus;
+}
+
+export type AutostartMode = "off" | "silent" | "window";
+
+export interface AutostartConfig {
+  enabled: boolean;
+  mode: AutostartMode;
 }
 
 /** One unified MCP server definition. */

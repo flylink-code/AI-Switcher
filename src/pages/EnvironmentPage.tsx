@@ -7,9 +7,9 @@ import {
   List,
   Modal,
   Popconfirm,
+  Select,
   Skeleton,
   Space,
-  Switch,
   Tag,
   Typography,
   message,
@@ -20,23 +20,16 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type {
-  PathsInfo,
-  DbInfo,
-  ConfigBackup,
-  ProviderTarget,
-} from "@/types/backend";
+import type { ConfigBackup, ProviderTarget, AutostartMode } from "@/types/backend";
 import {
   backupNow,
-  getAutostartEnabled,
-  getDbInfo,
-  getPaths,
   listConfigBackups,
   ping,
   previewConfigBackup,
   restoreConfigBackup,
-  setAutostartEnabled,
+  setAutostartConfig,
 } from "@/services/api";
+import { autostartOptions, environmentOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
@@ -56,19 +49,8 @@ function PathValue({ value }: { value: string | null }) {
 export default function EnvironmentPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const environmentQuery = useQuery({
-    queryKey: ["environment", "paths-db"],
-    queryFn: async (): Promise<{ paths: PathsInfo; db: DbInfo }> => {
-      const [paths, db] = await Promise.all([getPaths(), getDbInfo()]);
-      return { paths, db };
-    },
-    staleTime: 5 * 60_000,
-  });
-  const autostartQuery = useQuery({
-    queryKey: ["environment", "autostart"],
-    queryFn: getAutostartEnabled,
-    staleTime: 60_000,
-  });
+  const environmentQuery = useQuery(environmentOptions);
+  const autostartQuery = useQuery(autostartOptions);
   const paths = environmentQuery.data?.paths ?? null;
   const db = environmentQuery.data?.db ?? null;
   const error = environmentQuery.error
@@ -110,11 +92,14 @@ export default function EnvironmentPage() {
     }
   }, [environmentQuery, t]);
 
-  const onAutostartChange = useCallback(async (enabled: boolean) => {
+  const onAutostartChange = useCallback(async (mode: AutostartMode) => {
     setAutostartChanging(true);
     try {
-      await setAutostartEnabled(enabled);
-      queryClient.setQueryData(["environment", "autostart"], enabled);
+      await setAutostartConfig(mode);
+      queryClient.setQueryData(["environment", "autostart"], {
+        enabled: mode !== "off",
+        mode,
+      });
       void message.success(t("env.autostartUpdated"));
     } catch (e) {
       void message.error(e instanceof Error ? e.message : String(e));
@@ -233,10 +218,17 @@ export default function EnvironmentPage() {
         <Card size="small" title={t("env.sections.system")}>
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label={t("env.fields.autostart")}>
-              <Switch
-                checked={autostartQuery.data ?? false}
+              <Select<AutostartMode>
+                value={autostartQuery.data?.mode ?? "off"}
                 loading={autostartQuery.isPending || autostartChanging}
-                onChange={(enabled) => void onAutostartChange(enabled)}
+                disabled={autostartChanging}
+                style={{ width: 220 }}
+                options={[
+                  { value: "off", label: t("env.autostartModes.off") },
+                  { value: "silent", label: t("env.autostartModes.silent") },
+                  { value: "window", label: t("env.autostartModes.window") },
+                ]}
+                onChange={(mode) => void onAutostartChange(mode)}
               />
             </Descriptions.Item>
           </Descriptions>

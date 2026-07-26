@@ -37,6 +37,8 @@ import type {
   ProxyLogListInput,
   PaginatedProxyLogs,
   ClaudeCodeVersionInfo,
+  AutostartConfig,
+  AutostartMode,
 } from "@/types/backend";
 
 let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
@@ -304,6 +306,25 @@ export async function setAutostartEnabled(enabled: boolean): Promise<void> {
   return invoke<void>("set_autostart_enabled", { enabled });
 }
 
+export async function getAutostartConfig(): Promise<AutostartConfig> {
+  const invoke = await getInvoke();
+  return invoke<AutostartConfig>("get_autostart_config", {});
+}
+
+export async function setAutostartConfig(mode: AutostartMode): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_autostart_config", { mode });
+}
+
+export async function reportFrontendStartup(
+  durationMs: number,
+  reason: "completed" | "timeout" | "skipped",
+  failures: string[],
+): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("report_frontend_startup", { durationMs, reason, failures });
+}
+
 export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizationStatus> {
   const invoke = await getInvoke();
   return invoke<DesktopLocalizationStatus>("get_desktop_localization_status", {});
@@ -387,9 +408,9 @@ export async function listProxyRequestLogs(input: ProxyLogListInput = {}): Promi
 
 // ---- About / tools ----------------------------------------------------------
 
-export async function getClaudeCodeVersion(): Promise<ClaudeCodeVersionInfo> {
+export async function getClaudeCodeVersion(includeLatest = true): Promise<ClaudeCodeVersionInfo> {
   const invoke = await getInvoke();
-  return invoke<ClaudeCodeVersionInfo>("get_claude_code_version", {});
+  return invoke<ClaudeCodeVersionInfo>("get_claude_code_version", { includeLatest });
 }
 
 export async function runClaudeCodeUpdate(): Promise<string> {

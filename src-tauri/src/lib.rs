@@ -27,12 +27,12 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
-    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input, export_providers, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
+    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input, export_providers, get_autostart_config, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
-    save_mcp_server, save_model_pricing, save_prompt, set_autostart_enabled, set_proxy_port,
+    report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     get_log_maintenance_policy, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
@@ -71,7 +71,10 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(setup)
         .on_window_event(on_window_event)
@@ -127,6 +130,9 @@ pub fn run() {
             delete_skill,
             get_autostart_enabled,
             set_autostart_enabled,
+            get_autostart_config,
+            set_autostart_config,
+            report_frontend_startup,
             get_usage_dashboard,
             list_model_pricing,
             save_model_pricing,
@@ -167,7 +173,10 @@ fn report_startup_failure(error: &str) {
 /// Single-instance guard + DB init + tray. Windows/macOS/Linux only.
 #[cfg(desktop)]
 fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+    builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        if argv.iter().any(|arg| arg == "--autostart") {
+            return;
+        }
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
@@ -182,6 +191,7 @@ fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
 }
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let setup_started = std::time::Instant::now();
     // Ensure the data directory exists before opening the DB.
     let app_config_dir = config::get_app_config_dir();
     std::fs::create_dir_all(&app_config_dir)?;
@@ -190,7 +200,13 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
-    log::info!("Database initialization completed");
+    log::info!(
+        "Database initialization completed: duration_ms={}",
+        setup_started.elapsed().as_millis()
+    );
+    if let Err(error) = commands::system::migrate_autostart_registration(app.handle(), &db) {
+        log::warn!("开机自启注册迁移失败: {error}");
+    }
 
     // First-run seeding + live-config import. Non-fatal: a seeding failure should
     // not block the app, only log.
@@ -201,26 +217,51 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(AppState {
         db: Arc::clone(&db),
         proxy: tokio::sync::Mutex::new(ProxyManager::new(Arc::clone(&db))),
+        proxy_status: tokio::sync::RwLock::new(std::collections::HashMap::new()),
     });
 
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
+        let background_started = std::time::Instant::now();
         // Let WebView paint the shell before touching legacy Desktop files.
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let state = app_handle.state::<AppState>();
+        let repair_started = std::time::Instant::now();
         if let Err(error) = commands::providers::repair_current_desktop_profile(&state).await {
             log::error!("Claude Desktop managed profile migration failed: {error}");
         }
         if let Err(error) = commands::providers::repair_current_code_model_fields(&state).await {
             log::error!("Claude Code model-field migration failed: {error}");
         }
-        commands::proxy::ensure_runtime_proxies(&state).await;
+        log::info!(
+            "启动配置修复完成: duration_ms={}",
+            repair_started.elapsed().as_millis()
+        );
+        let proxy_started = std::time::Instant::now();
+        commands::proxy::ensure_runtime_proxies(&app_handle, &state).await;
+        log::info!(
+            "启动代理检查完成: duration_ms={}, background_total_ms={}",
+            proxy_started.elapsed().as_millis(),
+            background_started.elapsed().as_millis()
+        );
     });
 
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {
         log::error!("托盘初始化失败: {e}");
     }
+
+    if !commands::system::is_silent_autostart(&db) {
+        if let Some(window) = app.get_webview_window("main") {
+            window.show().ok();
+        }
+    } else {
+        log::info!("开机自启采用静默模式，主窗口保持隐藏");
+    }
+    log::info!(
+        "Tauri setup completed: duration_ms={}",
+        setup_started.elapsed().as_millis()
+    );
 
     Ok(())
 }
