@@ -15,6 +15,7 @@ mod prompts;
 mod provider;
 mod proxy;
 mod secrets;
+mod session_manager;
 mod skills;
 mod store;
 mod tray;
@@ -40,6 +41,8 @@ use crate::commands::{
     preview_proxy_log_maintenance, restore_desktop_localization, save_log_maintenance_policy,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, run_claude_code_update,
+    load_session_messages, scan_sessions, search_session_contents,
+    set_app_language,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -147,6 +150,10 @@ pub fn run() {
             list_proxy_request_logs_cmd,
             get_claude_code_version,
             run_claude_code_update,
+            scan_sessions,
+            search_session_contents,
+            load_session_messages,
+            set_app_language,
         ]);
     let builder = add_single_instance(builder);
     if let Err(error) = builder.run(tauri::generate_context!()) {

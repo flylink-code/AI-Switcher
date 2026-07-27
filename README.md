@@ -1,239 +1,155 @@
 # Claude Switcher
 
-> Visual third-party API configuration manager for **Claude Code** and **Claude Desktop**. Add providers, switch configurations independently, and avoid manual configuration-file editing.
+> 面向 Claude Code 与 Claude Desktop 的本地配置、供应商和辅助工具管理器。
 
-[简体中文](#简体中文) · [English](#english)
+[English](README_en.md)
 
----
+Claude Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它把分散在配置文件、系统凭据库和本地目录中的常用能力整合到一个界面中，并让 Claude Code 与 Claude Desktop 的供应商和当前配置保持相互独立。
 
-## 简体中文
+项目默认在本机工作。API 密钥保存到操作系统凭据库，配置写入前会备份，会话管理器只读取本地 Claude Code 会话文件。
 
-### 当前状态
+## 主要功能
 
-**v0.1.0** 已完成基础工程、独立的 Claude Code / Claude Desktop 供应商管理、本地代理、MCP、Prompts、Skills、用量统计、托盘切换、主题/中英文和开机自启，并加入多角色模型映射、Desktop 本地化包、关于/更新页和启动预热。
+- **供应商管理**：分别管理 Claude Code 和 Claude Desktop 的第三方 API、模型映射、导入导出、连接测试、模型发现和官方登录恢复。
+- **本地代理**：提供 Anthropic Messages 兼容代理、模型映射、密钥注入、流式转发、运行状态和请求日志。
+- **MCP、Prompts 与 Skills**：统一维护 MCP 服务，管理 `CLAUDE.md` 预设，并从 GitHub 或本地 ZIP 安装 Skills。
+- **会话管理**：浏览、筛选和搜索 `~/.claude/projects` 下的 Claude Code 会话，查看消息时间线，复制恢复命令与工作目录。
+- **Claude Desktop 中文化**：检测、下载、校验、安装和还原本地语言包。
+- **用量统计**：按供应商和模型统计请求、Token、趋势与估算成本，并提供日志维护策略。
+- **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、浅色/深色主题和开机自启。
+- **环境与更新**：查看配置路径、Claude Code 版本和应用更新状态。
 
-> **P6 说明**：Claude Code 与 Claude Desktop 的供应商列表、当前激活状态和 live 配置彼此独立。新数据库不会预置任何第三方供应商，两个应用均默认使用官方登录。
+## 会话管理说明
 
-### 功能
+Claude Code 会话以只读方式扫描：
 
-- **独立供应商配置与模型映射**
-  - Claude Code：管理并安全写入 `~/.claude/settings.json`
-  - Claude Desktop：管理并安全写入 `configLibrary` gateway profile
-  - 分别新增、编辑、导入、排序、切换和恢复官方登录；切换一个应用不会更改另一个应用
-  - 为默认模型及 Sonnet、Opus、Haiku、Fable、Subagent（Claude Code）分别设置映射
-- **本地代理**：本地 Anthropic `/v1/messages` 代理、模型映射、密钥注入、流式透传和请求日志。
-- **MCP 与 Prompts**：统一管理 Claude Code / Desktop MCP；管理和激活 `CLAUDE.md` Prompt 预设。
-- **Skills**：从公开 GitHub 仓库或本地 ZIP 安装，支持启停和删除。
-- **Claude Desktop 本地化**：查看状态、选择或直接下载语言包，并安装、验证或还原 Desktop 本地化。
-- **用量统计**：代理请求数、状态、Token、趋势、按供应商/模型聚合，以及每百万 Token 定价的成本估算。
-- **关于、更新与性能**：在关于页查看应用和 Claude Code 版本、检查或安装更新；启动预热、页面预加载和请求缓存改善响应速度。
-- **系统集成**：托盘中按应用独立快捷切换；浅色/深色/跟随系统；中文/English；开机自启。
-- **安全写入**：原子写入、写前备份、自动轮换最近 10 个备份。
+- 数据源：`~/.claude/projects/**/*.jsonl`
+- 列表阶段只提取会话 ID、摘要、工作目录和时间等元数据
+- 打开详情或执行全文搜索时才读取消息内容
+- 所有文件路径都会校验在允许的会话根目录内
+- 不修改、删除、缓存或上传原始会话
 
-### 运行要求
+Claude Desktop 没有公开稳定的本地会话枚举格式。当前版本仅检测其本地数据目录并提供 `claude://claude.ai/new` 官方入口，不读取 Chromium 缓存或调用私有接口。已知会话 ID 可使用 Anthropic 公布的 [Claude Desktop 深链格式](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link) 打开。
 
-- Node.js 20+、pnpm 9+
-- Rust stable（MSVC 目标）
-- Windows：Visual Studio 2022「使用 C++ 的桌面开发」工作负载与 Windows SDK
+## 安装
 
-### 安装与更新
+从 [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest) 下载 NSIS 安装程序。安装后的主程序文件名为 `ClaudeSwitch.exe`。
 
-从 [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest) 下载 **NSIS installer** 完成首次安装。之后可在应用的「关于」页检查并安装新版本；更新包由 Release 提供并经过签名。
+运行环境：
 
-### 开发
+- Windows 10/11
+- Claude Code 或 Claude Desktop 按需安装
+- 从源码开发时需要 Node.js 20+、pnpm 9+、Rust stable（MSVC）以及 Visual Studio 2022 C++ 桌面开发组件
+
+## 从源码运行
 
 ```powershell
 pnpm install
 pnpm tauri dev
 ```
 
-如果当前终端没有 MSVC 的环境变量，请使用仓库脚本：
+如果当前终端没有 MSVC 环境变量：
 
 ```powershell
 scripts\tauri-msvc.bat dev
 ```
 
-### 编译
+## 构建
 
-**快速编译 exe（推荐本地测试）**：跳过 MSI/NSIS 打包，只生成可执行文件，速度更快。
+构建脚本默认先运行完整 Rust 测试，再编译应用。构建正式版 exe：
 
 ```powershell
-# Release exe（推荐）
 scripts\build-exe.bat
 # 或
 pnpm build:exe
+```
 
-# Debug exe（编译更快，适合频繁改代码）
+快速构建调试版：
+
+```powershell
 scripts\build-exe.bat debug
+# 或
 pnpm build:exe:debug
 ```
 
-编译完成后：
+完整构建 MSI 与 NSIS 安装包：
+
+```powershell
+scripts\build-exe.bat bundle
+# 或
+pnpm build:exe:bundle
+```
+
+需要跳过测试进行快速本地构建时：
+
+```powershell
+scripts\build-exe.bat release skip-tests
+# 或直接使用 PowerShell 入口
+.\scripts\build-exe.ps1 -SkipTests
+```
+
+脚本会自动发现已安装的 Visual Studio 2022 Community、Professional、Enterprise 或 Build Tools，并在没有全局 `pnpm` shim 时回退到 `corepack pnpm`。
+
+主要产物：
 
 | 产物 | 路径 |
 |---|---|
-| 原始 exe | `src-tauri\target\release\claude-switcher.exe` |
-| 测试副本 | `release\claude-switcher-release.exe` |
+| Tauri 正式版 | `src-tauri\target\release\ClaudeSwitch.exe` |
+| 正式版测试副本 | `release\ClaudeSwitch.exe` |
+| 调试版测试副本 | `release\ClaudeSwitch-debug.exe` |
+| 安装包 | `src-tauri\target\release\bundle\` |
 
-直接运行测试：
-
-```powershell
-.\release\claude-switcher-release.exe
-```
-
-**完整安装包构建**（MSI + NSIS）：
-
-```powershell
-scripts\build-exe.bat bundle
-# 或
-pnpm build:exe:bundle
-# 或
-scripts\tauri-msvc.bat build
-```
-
-安装包输出目录：`src-tauri\target\release\bundle\`
-
-### 常用命令
-
-```powershell
-# Rust 静态检查 / 测试
-cd src-tauri
-..\scripts\cargo-msvc.bat check
-..\scripts\cargo-msvc.bat test
-```
-
-### 数据和配置路径
+## 数据与配置
 
 | 路径 | 用途 |
 |---|---|
-| `~/.claude/settings.json` | Claude Code 的 live 配置 |
-| `~/.claude.json` | Claude Code MCP 配置 |
-| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop gateway 配置（Windows 3p 目录） |
+| `~/.claude/settings.json` | Claude Code 当前供应商配置 |
+| `~/.claude.json` | Claude Code MCP 与项目配置 |
+| `~/.claude/projects/` | Claude Code 本地会话，只读 |
+| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方网关配置 |
 | `~/.claude/skills/` | Claude Code Skills |
-| `~/.claude-switcher/app.db` | 本地 SQLite 数据库 |
-| `~/.claude-switcher/backups/` | 自动轮换备份 |
+| `~/.claude-switcher/app.db` | 应用 SQLite 数据库 |
+| `~/.claude-switcher/backups/` | 配置备份 |
+| `~/.claude-switcher/logs/` | 本地运行日志 |
 
-### 项目结构
+应用的产品名、安装标识和数据目录仍为 Claude Switcher；仅可执行文件简化为 `ClaudeSwitch.exe`，升级不会迁移或重置原有数据。
+
+## 安全与隐私
+
+- API 密钥通过 Windows Credential Manager、macOS Keychain 或 Linux Secret Service 保存。
+- 配置文件使用原子写入，并在修改前创建轮换备份。
+- 会话管理器只读本地 JSONL，不建立全文数据库，不访问任意用户路径。
+- 会话可能包含源代码、密钥或其他敏感信息，复制命令和内容前请自行确认。
+- 除供应商连接测试、模型发现、更新检查和用户主动下载外，应用不会主动上传本地会话内容。
+
+## 项目结构
 
 ```text
-src/                     React 19 前端、Ant Design、Zustand、i18next
-src-tauri/src/config/    Claude Code/Desktop 配置发现、原子写入
-src-tauri/src/database/  SQLite schema、迁移和 DAO
-src-tauri/src/proxy/     本地 Anthropic 兼容代理与日志
-src-tauri/src/commands/  Tauri IPC 命令
-src-tauri/src/tray.rs    系统托盘与双应用快捷切换
-scripts/build-exe.bat    本地快速编译 exe（测试用）
-task.md                  产品规划、阶段和后续任务
+src/                         React、Ant Design、Zustand 与 i18next 前端
+src/pages/SessionsPage.tsx   本地会话列表与详情
+src-tauri/src/               Rust 后端、配置、代理、数据库与托盘
+src-tauri/src/session_manager.rs
+                             只读会话适配与路径校验
+scripts/                     Windows 开发和构建脚本
 ```
 
-### 路线图
+## 参考与致谢
 
-| 阶段 | 状态 | 产出 |
+本项目在产品设计和实现思路上参考了以下开源工程。Claude Switcher 是独立项目，与这些项目及 Anthropic 均无隶属或官方关系。
+
+| 项目 | 参考方向 | 上游与许可证 |
 |---|---|---|
-| P0–P5 | ✅ | 基础能力、供应商、Desktop/代理、MCP、Prompts、用量、Skills、托盘与自启 |
-| P6 | ✅ | Code/Desktop 独立供应商与迁移、无预置第三方供应商 |
-| P7 | 计划中 | 系统凭据库、连接测试、模型发现、字段级回滚、数据维护 |
-| P8 | 计划中 | OpenAI Chat/Responses 协议转换、代理健康状态、并发双应用代理 |
+| AI Toolbox | 多工具配置管理、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox)，MIT |
+| cc Proxy | Claude Desktop 本地代理和模型替换思路 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy)，以其仓库许可证声明为准 |
+| CC Switch | Provider 切换、Tauri 架构、会话解析与托盘交互 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch)，MIT |
+| Claude Desktop 中文补丁 | Desktop 安装发现、语言包校验与恢复流程 | 汉化仓库：[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)，以其仓库声明为准 |
+| Code Switch | 本地代理、故障切换与 Claude Code/Codex 配置管理 | [daodao97/code-swtich](https://github.com/daodao97/code-swtich)，Apache-2.0 |
 
----
+引用、移植或再分发对应项目代码时，请同时遵守其上游许可证和版权声明。
 
-## English
+## 当前边界
 
-### Status
-
-**v0.1.0** includes the project foundations, independent Claude Code and Claude Desktop provider management, local proxy, MCP, prompts, skills, usage dashboard, tray switching, themes/i18n, and launch at login, plus role-based model mapping, Desktop localization packs, an About/update page, and startup warmup.
-
-> **P6:** Claude Code and Claude Desktop have independent provider lists, active selections, and live configuration. A fresh database contains no third-party providers; both applications default to official login.
-
-### Features
-
-- **Independent provider configuration and model mapping** for Claude Code (`~/.claude/settings.json`) and Claude Desktop (`configLibrary`). Adding, importing, activating, or reverting a provider in one app never modifies the other; assign models for the default role and Sonnet, Opus, Haiku, Fable, and Subagent (Claude Code).
-- **Local proxy** for Anthropic `/v1/messages`: model mapping, key injection, streaming pass-through, and request logging.
-- **MCP and prompts** management across both Claude applications.
-- **Skills** installation from public GitHub repositories or local ZIP archives, plus enable/disable and deletion.
-- **Claude Desktop localization**: inspect localization status, select or download language packs, then install, validate, or restore Desktop localization.
-- **Usage dashboard** for proxied requests, status, tokens, trends, provider/model breakdowns, and estimated cost based on custom model prices.
-- **About, updates, and performance**: check app and Claude Code versions, install updates from the About page, and benefit from startup warmup, page preloading, and request caching.
-- **System integration**: per-application tray switching, light/dark/system theme, Chinese/English UI, and launch at login.
-- **Safe configuration writes**: atomic writes, pre-write backups, and rotation of the latest ten backups.
-
-### Requirements
-
-- Node.js 20+ and pnpm 9+
-- Stable Rust with the MSVC target
-- On Windows: Visual Studio 2022 Desktop development with C++ workload and a Windows SDK
-
-### Install and update
-
-For a first installation, download the **NSIS installer** from [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest). Later releases can be checked and installed from the app's About page; update packages are signed and delivered with each release.
-
-### Development
-
-```powershell
-pnpm install
-pnpm tauri dev
-```
-
-Use the bundled MSVC wrapper when the terminal does not already have MSVC environment variables:
-
-```powershell
-scripts\tauri-msvc.bat dev
-```
-
-### Build
-
-**Quick EXE build (recommended for local testing):** skips MSI/NSIS bundling and only produces the executable.
-
-```powershell
-# Release exe (recommended)
-scripts\build-exe.bat
-# or
-pnpm build:exe
-
-# Debug exe (faster compile, good for frequent iteration)
-scripts\build-exe.bat debug
-pnpm build:exe:debug
-```
-
-After a successful build:
-
-| Artifact | Path |
-|---|---|
-| Raw exe | `src-tauri\target\release\claude-switcher.exe` |
-| Test copy | `release\claude-switcher-release.exe` |
-
-Run for testing:
-
-```powershell
-.\release\claude-switcher-release.exe
-```
-
-**Full installer build** (MSI + NSIS):
-
-```powershell
-scripts\build-exe.bat bundle
-# or
-pnpm build:exe:bundle
-# or
-scripts\tauri-msvc.bat build
-```
-
-Installer output: `src-tauri\target\release\bundle\`
-
-### Common commands
-
-```powershell
-# Rust check / tests
-cd src-tauri
-..\scripts\cargo-msvc.bat check
-..\scripts\cargo-msvc.bat test
-```
-
-### Roadmap
-
-| Phase | Status | Deliverable |
-|---|---|---|
-| P0–P5 | ✅ | Foundations, providers, Desktop/proxy, MCP, prompts, usage, skills, tray, and autostart |
-| P6 | ✅ | Separate Code/Desktop providers and migration; no bundled third-party providers |
-| P7 | Planned | OS credential storage, connection tests, model discovery, field-level rollback, data maintenance |
-| P8 | Planned | OpenAI Chat/Responses conversion, proxy health, simultaneous per-app proxy routing |
+- 会话恢复仅复制命令，不自动启动终端或执行命令。
+- 不提供会话删除、云端同步或团队分享。
+- Claude Desktop 历史记录在官方提供稳定接口前不做私有格式解析。
+- Claude Code 与 Claude Desktop 的供应商、激活状态和 live 配置始终独立。

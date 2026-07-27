@@ -6,6 +6,7 @@
  * frontend buildable/runnable via `pnpm dev` for quick iteration even outside
  * the desktop shell.
  */
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   DbInfo,
   LivePrompt,
@@ -40,12 +41,12 @@ import type {
   ClaudeCodeVersionInfo,
   AutostartConfig,
   AutostartMode,
+  SessionMessage,
+  SessionProvider,
+  SessionScanResult,
 } from "@/types/backend";
 
-let invokeImpl: typeof import("@tauri-apps/api/core").invoke | null = null;
-
 async function getInvoke() {
-  if (invokeImpl) return invokeImpl;
   // Detect the Tauri runtime. The internal global is present only inside the app.
   const hasTauri =
     typeof window !== "undefined" &&
@@ -55,9 +56,7 @@ async function getInvoke() {
   if (!hasTauri) {
     throw new Error("Tauri runtime not available (running in a plain browser).");
   }
-  const mod = await import("@tauri-apps/api/core");
-  invokeImpl = mod.invoke;
-  return invokeImpl;
+  return tauriInvoke;
 }
 
 export async function ping(): Promise<string> {
@@ -444,4 +443,40 @@ export async function getClaudeCodeVersion(includeLatest = true): Promise<Claude
 export async function runClaudeCodeUpdate(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("run_claude_code_update", {});
+}
+
+export async function scanSessions(
+  provider?: SessionProvider,
+): Promise<SessionScanResult> {
+  const invoke = await getInvoke();
+  return invoke<SessionScanResult>("scan_sessions", { provider });
+}
+
+export async function searchSessionContents(
+  query: string,
+  provider?: SessionProvider,
+  limit = 200,
+): Promise<SessionScanResult> {
+  const invoke = await getInvoke();
+  return invoke<SessionScanResult>("search_session_contents", {
+    query,
+    provider,
+    limit,
+  });
+}
+
+export async function loadSessionMessages(
+  provider: SessionProvider,
+  sourcePath: string,
+): Promise<SessionMessage[]> {
+  const invoke = await getInvoke();
+  return invoke<SessionMessage[]>("load_session_messages", {
+    provider,
+    sourcePath,
+  });
+}
+
+export async function setAppLanguage(language: "zh-CN" | "en-US"): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_app_language", { language });
 }

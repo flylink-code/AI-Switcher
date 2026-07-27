@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
+import { useEffect, useMemo } from "react";
+import { App as AntApp, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
@@ -10,6 +10,7 @@ import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
+import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import { languages } from "@/i18n";
 import type { PageKey } from "@/lib/pageRegistry";
+import { setAppLanguage } from "@/services/api";
 
 const { Sider, Header, Content } = Layout;
 
@@ -31,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "mcp", icon: <ClusterOutlined /> },
   { key: "prompts", icon: <FileTextOutlined /> },
   { key: "skills", icon: <ThunderboltOutlined /> },
+  { key: "sessions", icon: <MessageOutlined /> },
   { key: "usage", icon: <BarChartOutlined /> },
   { key: "localization", icon: <GlobalOutlined /> },
   { key: "environment", icon: <DesktopOutlined /> },
@@ -56,7 +59,14 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
   const setThemeMode = useThemeStore((s) => s.setMode);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
+  const { message } = AntApp.useApp();
   const { token } = theme.useToken();
+
+  useEffect(() => {
+    void setAppLanguage(language).catch(() => {
+      void message.warning(t("common.trayLanguageSyncFailed"));
+    });
+  }, [language, message, t]);
 
   const menuItems = useMemo(
     () =>

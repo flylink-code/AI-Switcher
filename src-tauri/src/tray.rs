@@ -11,6 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::provider::ProviderTarget;
 use crate::store::AppState;
 
+const TRAY_ID: &str = "main-tray";
 const CODE_PROVIDER_PREFIX: &str = "code-provider:";
 const DESKTOP_PROVIDER_PREFIX: &str = "desktop-provider:";
 const CODE_OFFICIAL_ID: &str = "code-provider:official";
@@ -19,17 +20,11 @@ const DESKTOP_OFFICIAL_ID: &str = "desktop-provider:official";
 /// Build and attach the tray icon. Provider entries are generated once at app
 /// startup; selecting an entry applies the same configuration as the UI switch.
 pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
-    let code_menu = build_provider_menu(app, ProviderTarget::ClaudeCode, "Claude Code")?;
-    let desktop_menu = build_provider_menu(app, ProviderTarget::ClaudeDesktop, "Claude Desktop")?;
-    let show = MenuItem::with_id(app, "show", "Claude Switcher", true, None::<&str>)
-        .map_err(|e| AppError::Tauri(e.to_string()))?;
-    let separator = PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
-        .map_err(|e| AppError::Tauri(e.to_string()))?;
-    let menu = Menu::with_items(app, &[&show, &code_menu, &desktop_menu, &separator, &quit])
-        .map_err(|e| AppError::Tauri(e.to_string()))?;
+    let state = app.state::<AppState>();
+    let language = crate::commands::system::read_app_language(&state.db)?;
+    let menu = create_tray_menu(app, &language)?;
 
-    TrayIconBuilder::with_id("main-tray")
+    TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("missing icon"))
         .tooltip("Claude Switcher")
         .menu(&menu)
@@ -68,10 +63,63 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
     Ok(())
 }
 
+pub fn refresh_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult<()> {
+    let menu = create_tray_menu(app, language)?;
+    let tray = app
+        .tray_by_id(TRAY_ID)
+        .ok_or_else(|| AppError::Tauri("找不到系统托盘图标".to_string()))?;
+    tray.set_menu(Some(menu))
+        .map_err(|error| AppError::Tauri(format!("更新托盘菜单失败: {error}")))
+}
+
+fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult<Menu<R>> {
+    let labels = tray_labels(language);
+    let code_menu =
+        build_provider_menu(app, ProviderTarget::ClaudeCode, "Claude Code", labels.official)?;
+    let desktop_menu = build_provider_menu(
+        app,
+        ProviderTarget::ClaudeDesktop,
+        "Claude Desktop",
+        labels.official,
+    )?;
+    let show = MenuItem::with_id(app, "show", labels.show, true, None::<&str>)
+        .map_err(|e| AppError::Tauri(e.to_string()))?;
+    let separator =
+        PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
+    let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)
+        .map_err(|e| AppError::Tauri(e.to_string()))?;
+    Menu::with_items(app, &[&show, &code_menu, &desktop_menu, &separator, &quit])
+        .map_err(|e| AppError::Tauri(e.to_string()))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct TrayLabels {
+    show: &'static str,
+    official: &'static str,
+    quit: &'static str,
+}
+
+fn tray_labels(language: &str) -> TrayLabels {
+    if language == "en-US" {
+        TrayLabels {
+            show: "Open Claude Switcher",
+            official: "Official login",
+            quit: "Quit",
+        }
+    } else {
+        TrayLabels {
+            show: "打开 Claude Switcher",
+            official: "官方登录",
+            quit: "退出",
+        }
+    }
+}
+
 fn build_provider_menu<R: Runtime>(
     app: &AppHandle<R>,
     target: ProviderTarget,
     label: &str,
+    official_label: &str,
 ) -> AppResult<Submenu<R>> {
     let state = app.state::<AppState>();
     let providers = state.db.with_conn(|conn| dao::list_providers(conn, target))?;
@@ -79,7 +127,7 @@ fn build_provider_menu<R: Runtime>(
         ProviderTarget::ClaudeCode => (CODE_PROVIDER_PREFIX, CODE_OFFICIAL_ID),
         ProviderTarget::ClaudeDesktop => (DESKTOP_PROVIDER_PREFIX, DESKTOP_OFFICIAL_ID),
     };
-    let official = MenuItem::with_id(app, official_id, "Official login", true, None::<&str>)
+    let official = MenuItem::with_id(app, official_id, official_label, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
     let mut provider_items = Vec::new();
     for provider in providers {
@@ -122,4 +170,16 @@ async fn switch_provider<R: Runtime>(
 async fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
     let state = app.state::<AppState>();
     crate::commands::providers::switch_to_official_for_target(target, &state).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_labels_follow_the_selected_language() {
+        assert_eq!(tray_labels("zh-CN").quit, "退出");
+        assert_eq!(tray_labels("en-US").quit, "Quit");
+        assert_eq!(tray_labels("unsupported"), tray_labels("zh-CN"));
+    }
 }

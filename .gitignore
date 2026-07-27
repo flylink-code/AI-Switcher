@@ -37,3 +37,5 @@ Thumbs.db
 # Local app runtime data (the app writes these on the user's machine — never commit).
 # ~/.claude-switcher/ lives outside the repo, but ignore any stray copies.
 .claude-switcher/
+
+task.md

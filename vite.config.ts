@@ -57,6 +57,10 @@ export default defineConfig({
   build: {
     // Tauri webview supports modern ES; esbuild handles minification.
     target: "es2021",
+    // The eagerly loaded Ant Design application shell is currently ~620 kB.
+    // Keep page-level chunks independent and warn only if the reviewed shell
+    // grows materially beyond its present size.
+    chunkSizeWarningLimit: 700,
     // Split only runtime dependencies that are needed by the shell. Feature
     // components keep Vite's natural page-level chunks, avoiding a monolithic
     // Ant Design vendor bundle and its circular dependencies.

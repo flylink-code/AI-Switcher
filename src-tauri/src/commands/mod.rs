@@ -8,6 +8,7 @@ pub mod mcp;
 pub mod paths;
 pub mod prompts;
 pub mod recovery;
+pub mod sessions;
 pub mod providers;
 pub mod proxy;
 pub mod skills;
@@ -34,6 +35,7 @@ pub use prompts::{
     read_prompt, save_prompt,
 };
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
+pub use sessions::{load_session_messages, scan_sessions, search_session_contents};
 pub use providers::{
     create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_cached_provider_models, get_current_provider, import_live_config, import_providers_json,
@@ -47,7 +49,7 @@ pub use skills::{
 pub use system::{
     get_autostart_config, get_autostart_enabled, report_frontend_performance,
     report_frontend_startup,
-    set_autostart_config, set_autostart_enabled,
+    set_app_language, set_autostart_config, set_autostart_enabled,
 };
 pub use tools::{get_claude_code_version, run_claude_code_update};
 pub use usage::{

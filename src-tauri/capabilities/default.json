@@ -13,6 +13,14 @@
     "core:window:allow-set-title",
     "log:default",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "claude://claude.ai/*"
+        }
+      ]
+    },
     "autostart:default"
   ]
 }

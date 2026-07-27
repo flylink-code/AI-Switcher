@@ -4,11 +4,14 @@
 #   .\scripts\build-exe.ps1           Release exe (recommended)
 #   .\scripts\build-exe.ps1 -Debug    Debug exe (faster compile)
 #   .\scripts\build-exe.ps1 -Bundle   Full release + installers
+#   .\scripts\build-exe.ps1 -SkipTests
+#                                      Skip Rust tests for a faster local build
 
 param(
     [switch]$Debug,
     [switch]$Bundle,
-    [switch]$Clean
+    [switch]$Clean,
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = "Stop"
@@ -77,6 +80,18 @@ $vcvarsOutput | ForEach-Object {
 
 $env:PATH = (($toolDirs + $cargoBin | Select-Object -Unique) -join ";") + ";$env:PATH"
 
+# MSVC prints a localized "creating import library" status line while linking
+# the cdylib target. Rust reports that harmless stdout as `linker_messages`.
+# Preserve caller-provided flags and suppress only that specific lint.
+$hasLinkerMessageFlag =
+    $env:RUSTFLAGS -match "(^|\s)-A\s+linker-messages(\s|$)" -or
+    $env:RUSTFLAGS -match "(^|\s)-Alinker-messages(\s|$)"
+if (-not $hasLinkerMessageFlag) {
+    $env:RUSTFLAGS = (@($env:RUSTFLAGS, "-A linker-messages") |
+        Where-Object { $_ } |
+        ForEach-Object { $_.Trim() }) -join " "
+}
+
 $nodeBin = Join-Path $root "node_modules\.bin"
 $tauriCli = Join-Path $nodeBin "tauri.cmd"
 if (-not (Test-Path $tauriCli)) {
@@ -124,6 +139,23 @@ if ($Clean -or (-not (Test-Path $targetDir))) {
     }
 }
 
+if (-not $SkipTests) {
+    Write-Host "[build-exe] Running: cargo test"
+    Push-Location $tauriDir
+    try {
+        & $cargoCommand.Path test
+        if ($LASTEXITCODE -ne 0) {
+            throw "Rust tests failed (exit $LASTEXITCODE)."
+        }
+    } finally {
+        Pop-Location
+    }
+    Write-Host ""
+} else {
+    Write-Host "[build-exe] Rust tests skipped by -SkipTests"
+    Write-Host ""
+}
+
 $tauriArgs = if ($Debug) {
     @("build", "--debug", "--no-bundle", "--ci")
 } elseif ($Bundle) {
@@ -142,14 +174,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 $sw.Stop()
 
-$exeSrc = Join-Path $targetDir "$profile\claude-switcher.exe"
+$exeSrc = Join-Path $targetDir "$profile\ClaudeSwitch.exe"
 if (-not (Test-Path $exeSrc)) {
     throw "Expected binary not found: $exeSrc"
 }
 
 $releaseDir = Join-Path $root "release"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-$exeDst = Join-Path $releaseDir "claude-switcher-$mode.exe"
+$outputName = if ($mode -eq "debug") { "ClaudeSwitch-debug.exe" } else { "ClaudeSwitch.exe" }
+$exeDst = Join-Path $releaseDir $outputName
 $copiedPath = $exeDst
 $targetProcesses = @()
 
@@ -166,7 +199,7 @@ if (Test-Path -LiteralPath $exeDst) {
 
 if ($targetProcesses.Count -gt 0) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $copiedPath = Join-Path $releaseDir "claude-switcher-$mode-$timestamp.exe"
+    $copiedPath = Join-Path $releaseDir "ClaudeSwitch-$mode-$timestamp.exe"
     Copy-Item -LiteralPath $exeSrc -Destination $copiedPath
 
     $processSummary = ($targetProcesses | ForEach-Object {
@@ -200,7 +233,7 @@ if ($targetProcesses.Count -gt 0) {
         }
 
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $copiedPath = Join-Path $releaseDir "claude-switcher-$mode-$timestamp.exe"
+        $copiedPath = Join-Path $releaseDir "ClaudeSwitch-$mode-$timestamp.exe"
         Copy-Item -LiteralPath $exeSrc -Destination $copiedPath
         Write-Warning "The existing output is locked by another process: $exeDst"
         Write-Warning "The new build was copied to: $copiedPath"

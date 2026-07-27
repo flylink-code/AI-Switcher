@@ -10,6 +10,7 @@ use crate::store::AppState;
 
 const AUTOSTART_MODE_KEY: &str = "autostart_launch_mode";
 const AUTOSTART_ARGS_MIGRATED_KEY: &str = "autostart_args_migrated_v1";
+const APP_LANGUAGE_KEY: &str = "app.language";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -17,6 +18,32 @@ pub enum AutostartMode {
     Off,
     Silent,
     Window,
+}
+
+pub(crate) fn read_app_language(db: &Database) -> AppResult<String> {
+    Ok(db
+        .with_conn(|conn| get_setting(conn, APP_LANGUAGE_KEY))?
+        .filter(|value| value == "zh-CN" || value == "en-US")
+        .unwrap_or_else(|| "zh-CN".to_string()))
+}
+
+#[tauri::command]
+pub fn set_app_language(
+    language: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    validate_app_language(&language)?;
+    set_setting_value(&state.db, APP_LANGUAGE_KEY, &language)?;
+    crate::tray::refresh_tray_menu(&app, &language)
+}
+
+fn validate_app_language(language: &str) -> AppResult<()> {
+    if matches!(language, "zh-CN" | "en-US") {
+        Ok(())
+    } else {
+        Err(AppError::Config(format!("不支持的界面语言: {language}")))
+    }
 }
 
 impl AutostartMode {
@@ -215,6 +242,13 @@ mod tests {
             serde_json::to_string(&AutostartMode::Window).unwrap(),
             "\"window\""
         );
+    }
+
+    #[test]
+    fn app_language_validation_rejects_unknown_values() {
+        assert!(validate_app_language("zh-CN").is_ok());
+        assert!(validate_app_language("en-US").is_ok());
+        assert!(validate_app_language("ja-JP").is_err());
     }
 
     #[test]

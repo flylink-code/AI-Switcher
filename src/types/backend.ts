@@ -360,3 +360,35 @@ export interface ClaudeCodeVersionInfo {
   installedButBroken: boolean;
   wslDistro: string | null;
 }
+
+export type SessionProvider = "claude_code" | "claude_desktop";
+
+export interface SessionProviderStatus {
+  provider: SessionProvider;
+  status: "available" | "not_found" | "unsupported_format";
+  detail: string;
+  rootPath?: string;
+}
+
+export interface SessionMeta {
+  provider: SessionProvider;
+  sessionId: string;
+  title?: string;
+  summary?: string;
+  projectDir?: string;
+  createdAt?: number;
+  lastActiveAt?: number;
+  sourcePath: string;
+  resumeCommand?: string;
+}
+
+export interface SessionMessage {
+  role: string;
+  content: string;
+  timestamp?: number;
+}
+
+export interface SessionScanResult {
+  sessions: SessionMeta[];
+  providers: SessionProviderStatus[];
+}
