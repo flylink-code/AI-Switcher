@@ -38,7 +38,14 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: Claude Switcher v__VERSION__
-          releaseBody: Windows release. Download the NSIS installer for new installations; in-app updates are signed and delivered from this release.
+          releaseBody: |-
+            ## Claude Switcher v__VERSION__
+
+            - Independent Claude Code and Claude Desktop providers with role-based model mapping
+            - Claude Desktop localization pack management, including direct downloads
+            - About and update page, startup warmup, page preloading, and cached data loading
+
+            Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
           releaseDraft: false
           prerelease: false
           args: --bundles nsis,msi

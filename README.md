@@ -10,20 +10,23 @@
 
 ### 当前状态
 
-当前已完成 **P0–P6**：基础工程、独立的 Claude Code / Claude Desktop 供应商管理、本地代理、MCP、Prompts、Skills、用量统计、托盘切换、主题/中英文和开机自启。
+**v0.1.0** 已完成基础工程、独立的 Claude Code / Claude Desktop 供应商管理、本地代理、MCP、Prompts、Skills、用量统计、托盘切换、主题/中英文和开机自启，并加入多角色模型映射、Desktop 本地化包、关于/更新页和启动预热。
 
 > **P6 说明**：Claude Code 与 Claude Desktop 的供应商列表、当前激活状态和 live 配置彼此独立。新数据库不会预置任何第三方供应商，两个应用均默认使用官方登录。
 
 ### 功能
 
-- **独立供应商配置**
+- **独立供应商配置与模型映射**
   - Claude Code：管理并安全写入 `~/.claude/settings.json`
   - Claude Desktop：管理并安全写入 `configLibrary` gateway profile
   - 分别新增、编辑、导入、排序、切换和恢复官方登录；切换一个应用不会更改另一个应用
+  - 为默认模型及 Sonnet、Opus、Haiku、Fable、Subagent（Claude Code）分别设置映射
 - **本地代理**：本地 Anthropic `/v1/messages` 代理、模型映射、密钥注入、流式透传和请求日志。
 - **MCP 与 Prompts**：统一管理 Claude Code / Desktop MCP；管理和激活 `CLAUDE.md` Prompt 预设。
 - **Skills**：从公开 GitHub 仓库或本地 ZIP 安装，支持启停和删除。
+- **Claude Desktop 本地化**：查看状态、选择或直接下载语言包，并安装、验证或还原 Desktop 本地化。
 - **用量统计**：代理请求数、状态、Token、趋势、按供应商/模型聚合，以及每百万 Token 定价的成本估算。
+- **关于、更新与性能**：在关于页查看应用和 Claude Code 版本、检查或安装更新；启动预热、页面预加载和请求缓存改善响应速度。
 - **系统集成**：托盘中按应用独立快捷切换；浅色/深色/跟随系统；中文/English；开机自启。
 - **安全写入**：原子写入、写前备份、自动轮换最近 10 个备份。
 
@@ -32,6 +35,10 @@
 - Node.js 20+、pnpm 9+
 - Rust stable（MSVC 目标）
 - Windows：Visual Studio 2022「使用 C++ 的桌面开发」工作负载与 Windows SDK
+
+### 安装与更新
+
+从 [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest) 下载 **NSIS installer** 完成首次安装。之后可在应用的「关于」页检查并安装新版本；更新包由 Release 提供并经过签名。
 
 ### 开发
 
@@ -124,11 +131,9 @@ task.md                  产品规划、阶段和后续任务
 | 阶段 | 状态 | 产出 |
 |---|---|---|
 | P0–P5 | ✅ | 基础能力、供应商、Desktop/代理、MCP、Prompts、用量、Skills、托盘与自启 |
-| P6 | 🚧 | Code/Desktop 独立供应商与迁移、无预置第三方供应商 |
+| P6 | ✅ | Code/Desktop 独立供应商与迁移、无预置第三方供应商 |
 | P7 | 计划中 | 系统凭据库、连接测试、模型发现、字段级回滚、数据维护 |
 | P8 | 计划中 | OpenAI Chat/Responses 协议转换、代理健康状态、并发双应用代理 |
-
-完整规划见 [task.md](./task.md)。
 
 ---
 
@@ -136,17 +141,19 @@ task.md                  产品规划、阶段和后续任务
 
 ### Status
 
-**P0–P6** are implemented: project foundations, independent Claude Code and Claude Desktop provider management, local proxy, MCP, prompts, skills, usage dashboard, tray switching, themes/i18n, and launch at login.
+**v0.1.0** includes the project foundations, independent Claude Code and Claude Desktop provider management, local proxy, MCP, prompts, skills, usage dashboard, tray switching, themes/i18n, and launch at login, plus role-based model mapping, Desktop localization packs, an About/update page, and startup warmup.
 
 > **P6:** Claude Code and Claude Desktop have independent provider lists, active selections, and live configuration. A fresh database contains no third-party providers; both applications default to official login.
 
 ### Features
 
-- **Independent provider configuration** for Claude Code (`~/.claude/settings.json`) and Claude Desktop (`configLibrary`). Adding, importing, activating, or reverting a provider in one app never modifies the other.
+- **Independent provider configuration and model mapping** for Claude Code (`~/.claude/settings.json`) and Claude Desktop (`configLibrary`). Adding, importing, activating, or reverting a provider in one app never modifies the other; assign models for the default role and Sonnet, Opus, Haiku, Fable, and Subagent (Claude Code).
 - **Local proxy** for Anthropic `/v1/messages`: model mapping, key injection, streaming pass-through, and request logging.
 - **MCP and prompts** management across both Claude applications.
 - **Skills** installation from public GitHub repositories or local ZIP archives, plus enable/disable and deletion.
+- **Claude Desktop localization**: inspect localization status, select or download language packs, then install, validate, or restore Desktop localization.
 - **Usage dashboard** for proxied requests, status, tokens, trends, provider/model breakdowns, and estimated cost based on custom model prices.
+- **About, updates, and performance**: check app and Claude Code versions, install updates from the About page, and benefit from startup warmup, page preloading, and request caching.
 - **System integration**: per-application tray switching, light/dark/system theme, Chinese/English UI, and launch at login.
 - **Safe configuration writes**: atomic writes, pre-write backups, and rotation of the latest ten backups.
 
@@ -155,6 +162,10 @@ task.md                  产品规划、阶段和后续任务
 - Node.js 20+ and pnpm 9+
 - Stable Rust with the MSVC target
 - On Windows: Visual Studio 2022 Desktop development with C++ workload and a Windows SDK
+
+### Install and update
+
+For a first installation, download the **NSIS installer** from [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest). Later releases can be checked and installed from the app's About page; update packages are signed and delivered with each release.
 
 ### Development
 
@@ -223,8 +234,6 @@ cd src-tauri
 | Phase | Status | Deliverable |
 |---|---|---|
 | P0–P5 | ✅ | Foundations, providers, Desktop/proxy, MCP, prompts, usage, skills, tray, and autostart |
-| P6 | 🚧 | Separate Code/Desktop providers and migration; no bundled third-party providers |
+| P6 | ✅ | Separate Code/Desktop providers and migration; no bundled third-party providers |
 | P7 | Planned | OS credential storage, connection tests, model discovery, field-level rollback, data maintenance |
 | P8 | Planned | OpenAI Chat/Responses conversion, proxy health, simultaneous per-app proxy routing |
-
-See [task.md](./task.md) for the complete plan.
