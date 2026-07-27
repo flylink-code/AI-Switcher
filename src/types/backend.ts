@@ -102,8 +102,21 @@ export interface DesktopLocalizationStatus {
   configuredLocale?: string | null;
   packPath?: string | null;
   packValid: boolean;
+  packSource?: "local" | "github" | null;
+  packVersion?: string | null;
+  packRevision?: string | null;
+  packFetchedAt?: number | null;
   backupAvailable: boolean;
   message: string;
+}
+
+export interface DesktopLocalizationPackInfo {
+  source: "local" | "github";
+  version?: string | null;
+  revision?: string | null;
+  fetchedAt?: number | null;
+  packPath: string;
+  valid: boolean;
 }
 
 export interface DesktopLocalizationPackValidation {

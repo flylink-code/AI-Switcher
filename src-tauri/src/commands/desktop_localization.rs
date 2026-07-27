@@ -13,14 +13,25 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs;
+use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
+use zip::ZipArchive;
 
 const PACK_SETTING_KEY: &str = "desktop_localization_pack_path";
 const LOCALIZATION_LOCALE: &str = "zh-CN";
 const MAX_PACK_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_PACK_ARCHIVE_BYTES: u64 = 20 * 1024 * 1024;
+const MAX_PACK_EXTRACTED_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_GITHUB_METADATA_BYTES: u64 = 1024 * 1024;
 const MAX_HARDCODED_REPLACEMENTS: usize = 5_000;
 const BACKUPS_TO_KEEP: usize = 3;
+const UPSTREAM_REPOSITORY: &str = "javaht/claude-desktop-zh-cn";
+const UPSTREAM_BRANCH: &str = "main";
+const PACK_INFO_FILE: &str = "pack-info.json";
+const MANIFEST_FILE: &str = "manifest.json";
+const RELEASE_FILE: &str = "release.json";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -49,8 +60,23 @@ pub struct DesktopLocalizationStatus {
     pub configured_locale: Option<String>,
     pub pack_path: Option<String>,
     pub pack_valid: bool,
+    pub pack_source: Option<String>,
+    pub pack_version: Option<String>,
+    pub pack_revision: Option<String>,
+    pub pack_fetched_at: Option<i64>,
     pub backup_available: bool,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopLocalizationPackInfo {
+    pub source: String,
+    pub version: Option<String>,
+    pub revision: Option<String>,
+    pub fetched_at: Option<i64>,
+    pub pack_path: String,
+    pub valid: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -158,6 +184,57 @@ pub fn validate_desktop_localization_pack(
 }
 
 #[tauri::command]
+pub async fn download_desktop_localization_pack(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<DesktopLocalizationPackInfo> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(45))
+        .user_agent("Claude-Switcher desktop-localization")
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 5 {
+                attempt.error("中文资源下载重定向次数过多")
+            } else if upstream_url_allowed(attempt.url()) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
+        .build()
+        .map_err(|error| AppError::Other(format!("创建中文资源下载客户端失败: {error}")))?;
+    let revision = fetch_upstream_revision(&client).await?;
+    let packs_root = get_app_config_dir().join("localization").join("packs");
+    fs::create_dir_all(&packs_root)?;
+    let target = packs_root.join(&revision);
+    let stage = packs_root.join(format!(
+        ".download-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    fs::create_dir_all(stage.join("resources"))?;
+
+    let result = download_pack_to_stage(&client, &revision, &stage, &target).await;
+    let info = match result {
+        Ok(info) => info,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&stage);
+            return Err(error);
+        }
+    };
+
+    if let Err(error) = promote_downloaded_pack(&stage, &target) {
+        let _ = fs::remove_dir_all(&stage);
+        return Err(error);
+    }
+    state.db.with_conn(|conn| {
+        set_setting(
+            conn,
+            PACK_SETTING_KEY,
+            &target.to_string_lossy(),
+        )
+    })?;
+    Ok(info)
+}
+
+#[tauri::command]
 pub fn select_desktop_localization_pack() -> AppResult<Option<String>> {
     #[cfg(not(windows))]
     {
@@ -254,8 +331,315 @@ async fn run_localization_action(
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct GitHubCommitResponse {
+    sha: String,
+}
+
+async fn fetch_upstream_revision(client: &reqwest::Client) -> AppResult<String> {
+    let url = format!(
+        "https://api.github.com/repos/{UPSTREAM_REPOSITORY}/commits/{UPSTREAM_BRANCH}"
+    );
+    let response = client
+        .get(url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| AppError::Other(format!("连接中文资源仓库失败: {error}")))?;
+    validate_upstream_url(response.url())?;
+    if !response.status().is_success() {
+        return Err(github_http_error(
+            "读取中文资源版本",
+            response.status(),
+        ));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_GITHUB_METADATA_BYTES)
+    {
+        return Err(AppError::Config(
+            "中文资源版本响应超过 1 MB 限制".to_string(),
+        ));
+    }
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| AppError::Other(format!("读取中文资源版本失败: {error}")))?;
+    if body.len() as u64 > MAX_GITHUB_METADATA_BYTES {
+        return Err(AppError::Config(
+            "中文资源版本响应超过 1 MB 限制".to_string(),
+        ));
+    }
+    let payload: GitHubCommitResponse = serde_json::from_slice(&body)
+        .map_err(|error| AppError::Config(format!("中文资源版本响应无效: {error}")))?;
+    if payload.sha.len() != 40 || !payload.sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(AppError::Config(
+            "中文资源仓库返回了无效的 commit SHA".to_string(),
+        ));
+    }
+    Ok(payload.sha.to_ascii_lowercase())
+}
+
+async fn download_pack_to_stage(
+    client: &reqwest::Client,
+    revision: &str,
+    stage: &Path,
+    final_target: &Path,
+) -> AppResult<DesktopLocalizationPackInfo> {
+    let url = format!(
+        "https://api.github.com/repos/{UPSTREAM_REPOSITORY}/zipball/{revision}"
+    );
+    let mut response = client
+        .get(url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| AppError::Other(format!("下载中文资源失败: {error}")))?;
+    validate_upstream_url(response.url())?;
+    if !response.status().is_success() {
+        return Err(github_http_error("下载中文资源", response.status()));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_PACK_ARCHIVE_BYTES)
+    {
+        return Err(AppError::Config(
+            "中文资源仓库压缩包超过 20 MB 限制".to_string(),
+        ));
+    }
+
+    let mut archive_bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::Other(format!("读取中文资源下载内容失败: {error}")))?
+    {
+        if archive_bytes.len() as u64 + chunk.len() as u64 > MAX_PACK_ARCHIVE_BYTES {
+            return Err(AppError::Config(
+                "中文资源仓库压缩包超过 20 MB 限制".to_string(),
+            ));
+        }
+        archive_bytes.extend_from_slice(&chunk);
+    }
+
+    extract_pack_archive(&archive_bytes, stage)?;
+    let version = validate_downloaded_metadata(stage)?;
+    validate_pack(stage)?;
+    let info = DesktopLocalizationPackInfo {
+        source: "github".to_string(),
+        version: Some(version),
+        revision: Some(revision.to_string()),
+        fetched_at: Some(Utc::now().timestamp_millis()),
+        pack_path: final_target.to_string_lossy().into_owned(),
+        valid: true,
+    };
+    write_json_file(&stage.join(PACK_INFO_FILE), &info)?;
+    Ok(info)
+}
+
+fn validate_upstream_url(url: &reqwest::Url) -> AppResult<()> {
+    if !upstream_url_allowed(url) {
+        return Err(AppError::Config(format!(
+            "中文资源下载被重定向到不受信任的地址: {url}"
+        )));
+    }
+    Ok(())
+}
+
+fn upstream_url_allowed(url: &reqwest::Url) -> bool {
+    url.scheme() == "https"
+        && matches!(
+            url.host_str(),
+            Some("api.github.com" | "github.com" | "codeload.github.com")
+        )
+}
+
+fn github_http_error(action: &str, status: reqwest::StatusCode) -> AppError {
+    let detail = match status.as_u16() {
+        403 | 429 => "，GitHub 可能已限流，请稍后重试",
+        404 => "，上游仓库或分支不存在",
+        _ => "",
+    };
+    AppError::Config(format!("{action}失败（HTTP {status}{detail}）"))
+}
+
+fn extract_pack_archive(bytes: &[u8], stage: &Path) -> AppResult<()> {
+    let mut archive = ZipArchive::new(Cursor::new(bytes))
+        .map_err(|error| AppError::Config(format!("中文资源 ZIP 无效: {error}")))?;
+    let required = [
+        FRONTEND_FILE,
+        HARDCODED_FILE,
+        DESKTOP_FILE,
+        STATSIG_FILE,
+        MANIFEST_FILE,
+        RELEASE_FILE,
+    ];
+    let resources = stage.join("resources");
+    let mut found = HashSet::new();
+    let mut extracted_bytes = 0u64;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| AppError::Config(format!("读取中文资源 ZIP 条目失败: {error}")))?;
+        let enclosed = entry
+            .enclosed_name()
+            .ok_or_else(|| AppError::Config("中文资源 ZIP 包含不安全路径".to_string()))?;
+        let Some(name) = enclosed.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let in_resources = enclosed
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            == Some("resources");
+        if !in_resources || !required.contains(&name) {
+            continue;
+        }
+        if entry.is_dir()
+            || entry
+                .unix_mode()
+                .is_some_and(|mode| mode & 0o170000 == 0o120000)
+        {
+            return Err(AppError::Config(format!(
+                "中文资源 ZIP 条目类型无效: {name}"
+            )));
+        }
+        if !found.insert(name.to_string()) {
+            return Err(AppError::Config(format!(
+                "中文资源 ZIP 包含重复文件: {name}"
+            )));
+        }
+        if entry.size() == 0 || entry.size() > MAX_PACK_FILE_BYTES {
+            return Err(AppError::Config(format!(
+                "中文资源 ZIP 文件大小异常: {name}"
+            )));
+        }
+        extracted_bytes = extracted_bytes.saturating_add(entry.size());
+        if extracted_bytes > MAX_PACK_EXTRACTED_BYTES {
+            return Err(AppError::Config(
+                "中文资源 ZIP 解压内容超过 32 MB 限制".to_string(),
+            ));
+        }
+        let mut content = Vec::with_capacity(entry.size() as usize);
+        entry
+            .read_to_end(&mut content)
+            .map_err(|error| AppError::Other(format!("解压中文资源 {name} 失败: {error}")))?;
+        if content.len() as u64 != entry.size() {
+            return Err(AppError::Config(format!(
+                "中文资源 ZIP 文件长度不一致: {name}"
+            )));
+        }
+        atomic_write(&resources.join(name), &content)?;
+    }
+
+    for name in required {
+        if !found.contains(name) {
+            return Err(AppError::Config(format!(
+                "中文资源 ZIP 缺少文件: {name}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_downloaded_metadata(stage: &Path) -> AppResult<String> {
+    let resources = stage.join("resources");
+    let manifest: Value = read_json_file(&resources.join(MANIFEST_FILE))?
+        .ok_or_else(|| AppError::Config("中文资源缺少 manifest.json".to_string()))?;
+    if manifest.get("language").and_then(Value::as_str) != Some(LOCALIZATION_LOCALE) {
+        return Err(AppError::Config(
+            "中文资源 manifest.json 不是 zh-CN 资源".to_string(),
+        ));
+    }
+    let release: Value = read_json_file(&resources.join(RELEASE_FILE))?
+        .ok_or_else(|| AppError::Config("中文资源缺少 release.json".to_string()))?;
+    if release.get("repo").and_then(Value::as_str) != Some(UPSTREAM_REPOSITORY) {
+        return Err(AppError::Config(
+            "中文资源 release.json 的仓库来源不匹配".to_string(),
+        ));
+    }
+    release
+        .get("release")
+        .and_then(Value::as_str)
+        .filter(|version| !version.trim().is_empty() && version.len() <= 64)
+        .map(str::to_string)
+        .ok_or_else(|| AppError::Config("中文资源 release.json 缺少有效版本".to_string()))
+}
+
+fn promote_downloaded_pack(stage: &Path, target: &Path) -> AppResult<()> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| AppError::Path("中文资源缓存目标目录无效".to_string()))?;
+    let previous = parent.join(format!(
+        ".previous-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
+    let had_previous = target.exists();
+    if had_previous {
+        fs::rename(target, &previous).map_err(|error| {
+            AppError::Other(format!("无法暂存旧中文资源缓存: {error}"))
+        })?;
+    }
+    if let Err(error) = fs::rename(stage, target) {
+        if had_previous {
+            let _ = fs::rename(&previous, target);
+        }
+        return Err(AppError::Other(format!(
+            "无法启用新中文资源缓存: {error}"
+        )));
+    }
+    if had_previous {
+        if let Err(error) = fs::remove_dir_all(&previous) {
+            log::warn!("无法清理旧中文资源缓存 {}: {error}", previous.display());
+        }
+    }
+    Ok(())
+}
+
+fn pack_info(pack_path: Option<&str>, valid: bool) -> Option<DesktopLocalizationPackInfo> {
+    let path = Path::new(pack_path?);
+    let local_info = || DesktopLocalizationPackInfo {
+        source: "local".to_string(),
+        version: None,
+        revision: None,
+        fetched_at: None,
+        pack_path: path.to_string_lossy().into_owned(),
+        valid,
+    };
+    let metadata_path = if path.join(PACK_INFO_FILE).is_file() {
+        path.join(PACK_INFO_FILE)
+    } else if path
+        .parent()
+        .is_some_and(|parent| parent.join(PACK_INFO_FILE).is_file())
+    {
+        path.parent()?.join(PACK_INFO_FILE)
+    } else {
+        return Some(local_info());
+    };
+    let Some(mut info): Option<DesktopLocalizationPackInfo> =
+        read_json_file(&metadata_path).ok().flatten()
+    else {
+        return Some(local_info());
+    };
+    let github_revision_valid = info.source == "github"
+        && info.revision.as_ref().is_some_and(|revision| {
+            revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit())
+        });
+    if !github_revision_valid {
+        return Some(local_info());
+    }
+    info.pack_path = path.to_string_lossy().into_owned();
+    info.valid = valid;
+    Some(info)
+}
+
 fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalizationStatus> {
     let checked_at = Utc::now().timestamp_millis();
+    let pack_valid = pack_path
+        .map(|path| validate_pack(Path::new(path)).is_ok())
+        .unwrap_or(false);
+    let current_pack = pack_info(pack_path, pack_valid);
     #[cfg(not(windows))]
     {
         return Ok(DesktopLocalizationStatus {
@@ -272,7 +656,11 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             state: "unsupported".to_string(),
             configured_locale: None,
             pack_path: pack_path.map(str::to_string),
-            pack_valid: false,
+            pack_valid,
+            pack_source: current_pack.as_ref().map(|pack| pack.source.clone()),
+            pack_version: current_pack.as_ref().and_then(|pack| pack.version.clone()),
+            pack_revision: current_pack.as_ref().and_then(|pack| pack.revision.clone()),
+            pack_fetched_at: current_pack.as_ref().and_then(|pack| pack.fetched_at),
             backup_available: false,
             message: "Claude Desktop 中文化首版仅支持 Windows".to_string(),
         });
@@ -282,9 +670,6 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
     {
         let detection = detect_install_with_diagnostics()?;
         let install = detection.install;
-        let pack_valid = pack_path
-            .map(|path| validate_pack(Path::new(path)).is_ok())
-            .unwrap_or(false);
         let configured_locale = read_configured_locale();
         let Some(install) = install else {
             return Ok(DesktopLocalizationStatus {
@@ -302,6 +687,10 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
                 configured_locale,
                 pack_path: pack_path.map(str::to_string),
                 pack_valid,
+                pack_source: current_pack.as_ref().map(|pack| pack.source.clone()),
+                pack_version: current_pack.as_ref().and_then(|pack| pack.version.clone()),
+                pack_revision: current_pack.as_ref().and_then(|pack| pack.revision.clone()),
+                pack_fetched_at: current_pack.as_ref().and_then(|pack| pack.fetched_at),
                 backup_available: false,
                 message: "未检测到 Claude Desktop".to_string(),
             });
@@ -350,6 +739,10 @@ fn localization_status(pack_path: Option<&str>) -> AppResult<DesktopLocalization
             configured_locale,
             pack_path: pack_path.map(str::to_string),
             pack_valid,
+            pack_source: current_pack.as_ref().map(|pack| pack.source.clone()),
+            pack_version: current_pack.as_ref().and_then(|pack| pack.version.clone()),
+            pack_revision: current_pack.as_ref().and_then(|pack| pack.revision.clone()),
+            pack_fetched_at: current_pack.as_ref().and_then(|pack| pack.fetched_at),
             backup_available,
             message: match localized_state {
                 "installed" => "简体中文资源已安装".to_string(),
@@ -827,15 +1220,33 @@ fn perform_install(job: &LocalizationWorkerJob) -> AppResult<usize> {
         ));
     }
     let backup_dir = create_backup(&job.backup_root, &job.install, &changes)?;
+    let mut applied_targets = HashSet::new();
     for change in &changes {
         if let Err(error) = atomic_write(&change.target, &change.bytes) {
-            let rollback_error =
-                restore_backup_dir(&backup_dir, &job.install, &job.locale_paths).err();
+            let install_error = format!(
+                "写入中文化文件失败 {}: {error}",
+                change.target.display()
+            );
+            if applied_targets.is_empty() {
+                return Err(AppError::Other(format!(
+                    "安装失败，尚未写入任何文件：{install_error}"
+                )));
+            }
+            let rollback_error = restore_backup_targets(
+                &backup_dir,
+                &job.install,
+                &job.locale_paths,
+                &applied_targets,
+            )
+            .err();
             return Err(AppError::Other(match rollback_error {
-                Some(rollback) => format!("安装失败且自动回滚失败：{error}；{rollback}"),
-                None => format!("安装失败，已自动回滚：{error}"),
+                Some(rollback) => {
+                    format!("安装失败且自动回滚失败：{install_error}；{rollback}")
+                }
+                None => format!("安装失败，已自动回滚：{install_error}"),
             }));
         }
+        applied_targets.insert(change.target.clone());
     }
     if let Err(error) = prune_backups(&job.backup_root, &job.install) {
         log::warn!("轮换中文化备份失败（安装已完成）: {error}");
@@ -1037,36 +1448,57 @@ fn create_backup(
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S_%f").to_string();
     let backup_dir = version_dir.join(timestamp);
     fs::create_dir_all(&backup_dir)?;
-    let mut files = Vec::with_capacity(changes.len());
-    for (index, change) in changes.iter().enumerate() {
-        if change.target.exists() {
-            let backup_file = format!("{index:04}.bin");
-            let backup_path = backup_dir.join(&backup_file);
-            fs::copy(&change.target, &backup_path)?;
-            files.push(LocalizationBackupFile {
-                target: change.target.clone(),
-                existed: true,
-                sha256: Some(sha256_file(&backup_path)?),
-                backup_file: Some(backup_file),
-            });
-        } else {
-            files.push(LocalizationBackupFile {
-                target: change.target.clone(),
-                existed: false,
-                sha256: None,
-                backup_file: None,
-            });
+    let result = (|| {
+        let mut files = Vec::with_capacity(changes.len());
+        for (index, change) in changes.iter().enumerate() {
+            if change.target.exists() {
+                let backup_file = format!("{index:04}.bin");
+                let backup_path = backup_dir.join(&backup_file);
+                copy_backup_contents(&change.target, &backup_path)?;
+                files.push(LocalizationBackupFile {
+                    target: change.target.clone(),
+                    existed: true,
+                    sha256: Some(sha256_file(&backup_path)?),
+                    backup_file: Some(backup_file),
+                });
+            } else {
+                files.push(LocalizationBackupFile {
+                    target: change.target.clone(),
+                    existed: false,
+                    sha256: None,
+                    backup_file: None,
+                });
+            }
         }
+        let manifest = LocalizationBackupManifest {
+            version: 1,
+            claude_version: install.version.clone(),
+            install_path: install.app_path.clone(),
+            created_at: Utc::now().timestamp_millis(),
+            files,
+        };
+        write_json_file(&backup_dir.join("manifest.json"), &manifest)?;
+        Ok(backup_dir.clone())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&backup_dir);
     }
-    let manifest = LocalizationBackupManifest {
-        version: 1,
-        claude_version: install.version.clone(),
-        install_path: install.app_path.clone(),
-        created_at: Utc::now().timestamp_millis(),
-        files,
-    };
-    write_json_file(&backup_dir.join("manifest.json"), &manifest)?;
-    Ok(backup_dir)
+    result
+}
+
+fn copy_backup_contents(source: &Path, destination: &Path) -> AppResult<()> {
+    let contents = fs::read(source).map_err(|error| {
+        AppError::Other(format!(
+            "读取 Claude 原文件用于备份失败 {}: {error}",
+            source.display()
+        ))
+    })?;
+    atomic_write(destination, &contents).map_err(|error| {
+        AppError::Other(format!(
+            "写入中文化备份失败 {}: {error}",
+            destination.display()
+        ))
+    })
 }
 
 fn restore_latest_backup(
@@ -1088,10 +1520,32 @@ fn restore_backup_dir(
     install: &LocalizationInstall,
     locale_paths: &[PathBuf],
 ) -> AppResult<usize> {
+    restore_backup_dir_filtered(backup_dir, install, locale_paths, None)
+}
+
+fn restore_backup_targets(
+    backup_dir: &Path,
+    install: &LocalizationInstall,
+    locale_paths: &[PathBuf],
+    targets: &HashSet<PathBuf>,
+) -> AppResult<usize> {
+    restore_backup_dir_filtered(backup_dir, install, locale_paths, Some(targets))
+}
+
+fn restore_backup_dir_filtered(
+    backup_dir: &Path,
+    install: &LocalizationInstall,
+    locale_paths: &[PathBuf],
+    targets: Option<&HashSet<PathBuf>>,
+) -> AppResult<usize> {
     let manifest: LocalizationBackupManifest =
         serde_json::from_slice(&fs::read(backup_dir.join("manifest.json"))?)?;
     validate_backup_manifest(&manifest, install)?;
+    let mut restored = 0;
     for file in &manifest.files {
+        if targets.is_some_and(|targets| !targets.contains(&file.target)) {
+            continue;
+        }
         validate_restore_target(&file.target, install, locale_paths)?;
         if file.existed {
             let name = file
@@ -1109,8 +1563,9 @@ fn restore_backup_dir(
         } else if file.target.exists() {
             fs::remove_file(&file.target)?;
         }
+        restored += 1;
     }
-    Ok(manifest.files.len())
+    Ok(restored)
 }
 
 fn latest_backup_dir(
@@ -1235,28 +1690,102 @@ fn safe_component(value: &str) -> String {
 fn ensure_write_access(path: &Path) -> AppResult<()> {
     #[cfg(windows)]
     {
-        let username = std::env::var("USERNAME")
-            .map_err(|_| AppError::Config("无法确定 Windows 用户名".to_string()))?;
-        let identity = std::env::var("USERDOMAIN")
-            .ok()
-            .filter(|domain| !domain.is_empty())
-            .map(|domain| format!("{domain}\\{username}"))
-            .unwrap_or(username);
-        let grant = format!("{identity}:(OI)(CI)F");
-        let mut command = Command::new(windows_system_executable("icacls.exe"));
-        command.arg(path).args(["/grant", &grant, "/T", "/C", "/Q"]);
-        hide_console_window(&mut command);
-        let output = command.output()?;
-        if !output.status.success() {
+        let mut takeown = Command::new(windows_system_executable("takeown.exe"));
+        takeown
+            .args(["/F"])
+            .arg(path)
+            .args(["/A", "/R", "/D", "Y"]);
+        hide_console_window(&mut takeown);
+        let takeown_output = takeown.output()?;
+        if !takeown_output.status.success() {
             return Err(AppError::Config(format!(
-                "无法取得 Claude Desktop 资源目录写入权限: {}",
-                String::from_utf8_lossy(&output.stderr).trim()
+                "无法接管 Claude Desktop 资源目录: {}",
+                command_failure_summary(&takeown_output)
             )));
         }
+
+        // Grant the built-in Administrators group by SID so this works on every
+        // Windows display language. The localization worker itself is elevated.
+        let mut icacls = Command::new(windows_system_executable("icacls.exe"));
+        icacls
+            .arg(path)
+            .args([
+                "/grant",
+                "*S-1-5-32-544:(OI)(CI)F",
+                "/T",
+                "/C",
+                "/Q",
+            ]);
+        hide_console_window(&mut icacls);
+        let icacls_output = icacls.output()?;
+        if !icacls_output.status.success() {
+            return Err(AppError::Config(format!(
+                "无法授予 Claude Desktop 资源目录写入权限: {}",
+                command_failure_summary(&icacls_output)
+            )));
+        }
+        verify_write_access(path)?;
     }
     #[cfg(not(windows))]
     let _ = path;
     Ok(())
+}
+
+#[cfg(windows)]
+fn verify_write_access(resources: &Path) -> AppResult<()> {
+    for directory in [
+        resources.to_path_buf(),
+        resources.join("ion-dist").join("i18n"),
+        resources
+            .join("ion-dist")
+            .join("i18n")
+            .join("statsig"),
+        resources
+            .join("ion-dist")
+            .join("assets")
+            .join("v1"),
+    ] {
+        if !directory.is_dir() {
+            continue;
+        }
+        let probe = directory.join(format!(
+            ".claude-switcher-write-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&probe)
+            .map_err(|error| {
+                AppError::Config(format!(
+                    "Claude Desktop 目录仍不可写 {}: {error}",
+                    directory.display()
+                ))
+            })?;
+        drop(file);
+        fs::remove_file(&probe).map_err(|error| {
+            AppError::Other(format!(
+                "无法清理 Claude Desktop 写入探针 {}: {error}",
+                probe.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn command_failure_summary(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let summary = format!("{} {}", stdout.trim(), stderr.trim())
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if summary.is_empty() {
+        format!("exit {}", output.status)
+    } else {
+        summary.chars().take(800).collect()
+    }
 }
 
 fn stop_claude() {
@@ -1302,7 +1831,39 @@ fn hide_console_window(command: &mut Command) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
     use tempfile::tempdir;
+    use zip::write::SimpleFileOptions;
+
+    fn pack_archive(extra_entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let cursor = Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(cursor);
+        let options = SimpleFileOptions::default();
+        for (name, content) in [
+            ("source/resources/frontend-zh-CN.json", b"{}".as_slice()),
+            (
+                "source/resources/frontend-hardcoded-zh-CN.json",
+                b"[]".as_slice(),
+            ),
+            ("source/resources/desktop-zh-CN.json", b"{}".as_slice()),
+            ("source/resources/statsig-zh-CN.json", b"{}".as_slice()),
+            (
+                "source/resources/manifest.json",
+                br#"{"language":"zh-CN"}"#.as_slice(),
+            ),
+            (
+                "source/resources/release.json",
+                br#"{"repo":"javaht/claude-desktop-zh-cn","release":"1.2.3"}"#.as_slice(),
+            ),
+        ]
+        .into_iter()
+        .chain(extra_entries.iter().copied())
+        {
+            writer.start_file(name, options).unwrap();
+            writer.write_all(content).unwrap();
+        }
+        writer.finish().unwrap().into_inner()
+    }
 
     #[test]
     fn language_registration_is_idempotent() {
@@ -1392,6 +1953,209 @@ mod tests {
         assert_eq!(fs::read(js_path).unwrap(), b"original");
         assert!(!zh_path.exists());
         assert!(!locale_path.exists());
+    }
+
+    #[test]
+    fn rollback_restores_only_files_written_before_failure() {
+        let root = tempdir().unwrap();
+        let app_path = root.path().join("Claude");
+        let resources_path = app_path.join("resources");
+        let assets_path = resources_path.join("ion-dist").join("assets").join("v1");
+        fs::create_dir_all(&assets_path).unwrap();
+        let first = assets_path.join("first.js");
+        let second = assets_path.join("second.js");
+        fs::write(&first, b"first-original").unwrap();
+        fs::write(&second, b"second-original").unwrap();
+        let install = LocalizationInstall {
+            kind: "unpackaged".to_string(),
+            app_path,
+            resources_path,
+            exe_path: root.path().join("Claude.exe"),
+            version: "1.2.3".to_string(),
+            multiple_installs: false,
+        };
+        let changes = vec![
+            FileChange {
+                target: first.clone(),
+                bytes: b"first-patched".to_vec(),
+            },
+            FileChange {
+                target: second.clone(),
+                bytes: b"second-patched".to_vec(),
+            },
+        ];
+        let backup = create_backup(&root.path().join("backups"), &install, &changes).unwrap();
+        fs::write(&first, b"first-patched").unwrap();
+        fs::write(&second, b"second-external-change").unwrap();
+        let targets = HashSet::from([first.clone()]);
+
+        let restored =
+            restore_backup_targets(&backup, &install, &[], &targets).unwrap();
+
+        assert_eq!(restored, 1);
+        assert_eq!(fs::read(first).unwrap(), b"first-original");
+        assert_eq!(fs::read(second).unwrap(), b"second-external-change");
+    }
+
+    #[test]
+    fn backup_copy_writes_contents_without_source_file_attributes() {
+        let root = tempdir().unwrap();
+        let source = root.path().join("encrypted-source.bin");
+        let destination = root.path().join("backup").join("0000.bin");
+        fs::write(&source, b"original").unwrap();
+        let mut permissions = fs::metadata(&source).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&source, permissions).unwrap();
+
+        copy_backup_contents(&source, &destination).unwrap();
+
+        assert_eq!(fs::read(&destination).unwrap(), b"original");
+        assert!(!fs::metadata(&destination).unwrap().permissions().readonly());
+        let mut permissions = fs::metadata(&source).unwrap().permissions();
+        permissions.set_readonly(false);
+        fs::set_permissions(source, permissions).unwrap();
+    }
+
+    #[test]
+    fn failed_backup_removes_incomplete_backup_directory() {
+        let root = tempdir().unwrap();
+        let app_path = root.path().join("Claude");
+        let existing_file = app_path.join("resources").join("bundle.js");
+        let invalid_source = app_path.join("resources").join("directory-target");
+        fs::create_dir_all(existing_file.parent().unwrap()).unwrap();
+        fs::write(&existing_file, b"original").unwrap();
+        fs::create_dir_all(&invalid_source).unwrap();
+        let install = LocalizationInstall {
+            kind: "appx".to_string(),
+            app_path,
+            resources_path: root.path().join("Claude").join("resources"),
+            exe_path: root.path().join("Claude.exe"),
+            version: "1.2.3".to_string(),
+            multiple_installs: false,
+        };
+        let changes = vec![
+            FileChange {
+                target: existing_file,
+                bytes: b"patched".to_vec(),
+            },
+            FileChange {
+                target: invalid_source,
+                bytes: b"invalid".to_vec(),
+            },
+        ];
+        let backup_root = root.path().join("backups");
+
+        assert!(create_backup(&backup_root, &install, &changes).is_err());
+
+        let version_dir = backup_root.join("1.2.3");
+        let leftovers = fs::read_dir(version_dir).unwrap().count();
+        assert_eq!(leftovers, 0);
+    }
+
+    #[test]
+    fn downloaded_archive_extracts_only_allowlisted_resource_files() {
+        let root = tempdir().unwrap();
+        let archive = pack_archive(&[
+            ("source/scripts/install_windows.ps1", b"Write-Host unsafe"),
+            ("source/install-windows.bat", b"powershell.exe"),
+        ]);
+
+        extract_pack_archive(&archive, root.path()).unwrap();
+
+        assert!(root.path().join("resources").join(FRONTEND_FILE).is_file());
+        assert!(!root.path().join("scripts").exists());
+        assert!(!root.path().join("install-windows.bat").exists());
+        assert_eq!(validate_downloaded_metadata(root.path()).unwrap(), "1.2.3");
+        validate_pack(root.path()).unwrap();
+    }
+
+    #[test]
+    fn downloaded_archive_rejects_unsafe_paths() {
+        let root = tempdir().unwrap();
+        let archive = pack_archive(&[("../resources/ignored.json", b"{}")]);
+
+        let error = extract_pack_archive(&archive, root.path()).unwrap_err();
+
+        assert!(error.to_string().contains("不安全路径"));
+    }
+
+    #[test]
+    fn downloaded_archive_requires_every_metadata_file() {
+        let root = tempdir().unwrap();
+        let cursor = Cursor::new(Vec::new());
+        let mut writer = zip::ZipWriter::new(cursor);
+        writer
+            .start_file(
+                "source/resources/frontend-zh-CN.json",
+                SimpleFileOptions::default(),
+            )
+            .unwrap();
+        writer.write_all(b"{}").unwrap();
+        let archive = writer.finish().unwrap().into_inner();
+
+        let error = extract_pack_archive(&archive, root.path()).unwrap_err();
+
+        assert!(error.to_string().contains("缺少文件"));
+    }
+
+    #[test]
+    fn downloaded_metadata_rejects_wrong_repository() {
+        let root = tempdir().unwrap();
+        let archive = pack_archive(&[]);
+        extract_pack_archive(&archive, root.path()).unwrap();
+        fs::write(
+            root.path().join("resources").join(RELEASE_FILE),
+            br#"{"repo":"attacker/repository","release":"1.2.3"}"#,
+        )
+        .unwrap();
+
+        let error = validate_downloaded_metadata(root.path()).unwrap_err();
+
+        assert!(error.to_string().contains("仓库来源不匹配"));
+    }
+
+    #[test]
+    fn downloaded_pack_promotion_replaces_existing_cache() {
+        let root = tempdir().unwrap();
+        let stage = root.path().join(".stage");
+        let target = root.path().join("revision");
+        fs::create_dir_all(&stage).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        fs::write(stage.join("new"), b"new").unwrap();
+        fs::write(target.join("old"), b"old").unwrap();
+
+        promote_downloaded_pack(&stage, &target).unwrap();
+
+        assert!(target.join("new").is_file());
+        assert!(!target.join("old").exists());
+        assert!(!stage.exists());
+    }
+
+    #[test]
+    fn upstream_download_allows_only_expected_https_hosts() {
+        assert!(upstream_url_allowed(
+            &reqwest::Url::parse("https://api.github.com/repos/example").unwrap()
+        ));
+        assert!(upstream_url_allowed(
+            &reqwest::Url::parse("https://codeload.github.com/example/archive.zip").unwrap()
+        ));
+        assert!(!upstream_url_allowed(
+            &reqwest::Url::parse("http://api.github.com/repos/example").unwrap()
+        ));
+        assert!(!upstream_url_allowed(
+            &reqwest::Url::parse("https://github.com.attacker.invalid/archive.zip").unwrap()
+        ));
+    }
+
+    #[test]
+    fn invalid_download_metadata_falls_back_to_local_source() {
+        let root = tempdir().unwrap();
+        fs::write(root.path().join(PACK_INFO_FILE), b"{\"source\":\"github\"}").unwrap();
+
+        let info = pack_info(root.path().to_str(), false).unwrap();
+
+        assert_eq!(info.source, "local");
+        assert!(!info.valid);
     }
 }
 

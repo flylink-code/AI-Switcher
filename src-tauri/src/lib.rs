@@ -26,7 +26,9 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
-    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input, export_providers, get_autostart_config, get_autostart_enabled, get_current_provider, get_db_info, get_paths,
+    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input,
+    download_desktop_localization_pack, export_providers, get_autostart_config,
+    get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
@@ -83,6 +85,7 @@ pub fn run() {
             get_db_info,
             backup_now,
             get_desktop_localization_status,
+            download_desktop_localization_pack,
             validate_desktop_localization_pack,
             select_desktop_localization_pack,
             install_desktop_localization,

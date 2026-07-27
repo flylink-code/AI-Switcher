@@ -19,7 +19,8 @@ pub use backend::ping;
 pub use backup::backup_now;
 pub use db::get_db_info;
 pub use desktop_localization::{
-    get_desktop_localization_status, install_desktop_localization,
+    download_desktop_localization_pack, get_desktop_localization_status,
+    install_desktop_localization,
     restore_desktop_localization, select_desktop_localization_pack,
     validate_desktop_localization_pack,
 };

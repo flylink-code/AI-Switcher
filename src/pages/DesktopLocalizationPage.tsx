@@ -12,10 +12,13 @@ import {
   message,
 } from "antd";
 import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
+import DownloadOutlined from "@ant-design/icons/es/icons/DownloadOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  downloadDesktopLocalizationPack,
   installDesktopLocalization,
   restoreDesktopLocalization,
   selectDesktopLocalizationPack,
@@ -54,6 +57,19 @@ export default function DesktopLocalizationPage() {
     onError: (error) => void message.error(errorMessage(error)),
   });
 
+  const downloadPack = useMutation({
+    mutationFn: downloadDesktopLocalizationPack,
+    onSuccess: async (result) => {
+      void message.success(
+        t("env.localization.downloadSuccess", {
+          version: result.version ?? result.revision?.slice(0, 12) ?? "latest",
+        }),
+      );
+      await refreshStatus();
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
   const install = useMutation({
     mutationFn: async () => {
       if (!localization?.packPath) throw new Error(t("env.localization.selectPack"));
@@ -81,7 +97,11 @@ export default function DesktopLocalizationPage() {
     },
   });
 
-  const busy = selectPack.isPending || install.isPending || restore.isPending;
+  const busy =
+    selectPack.isPending ||
+    downloadPack.isPending ||
+    install.isPending ||
+    restore.isPending;
   const diagnostics = useMemo(
     () => localization?.diagnostics.filter(Boolean).join("\n") ?? "",
     [localization?.diagnostics],
@@ -94,6 +114,26 @@ export default function DesktopLocalizationPage() {
         showIcon
         message={t("env.localization.safeMode")}
         description={t("env.localization.safeModeDescription")}
+      />
+      <Alert
+        type="warning"
+        showIcon
+        message={t("env.localization.thirdPartyTitle")}
+        description={
+          <Space direction="vertical" size={0}>
+            <Text>{t("env.localization.thirdPartyDescription")}</Text>
+            <Button
+              type="link"
+              size="small"
+              style={{ paddingInline: 0, alignSelf: "flex-start" }}
+              onClick={() =>
+                void openUrl("https://github.com/javaht/claude-desktop-zh-cn")
+              }
+            >
+              {t("env.localization.openRepository")}
+            </Button>
+          </Space>
+        }
       />
       <Card
         size="small"
@@ -147,6 +187,32 @@ export default function DesktopLocalizationPage() {
               <Descriptions.Item label={t("env.localization.packPath")}>
                 <PathValue value={localization?.packPath} />
               </Descriptions.Item>
+              <Descriptions.Item label={t("env.localization.packSource")}>
+                {localization?.packSource ? (
+                  <Tag color={localization.packSource === "github" ? "blue" : "default"}>
+                    {t(`env.localization.packSources.${localization.packSource}`)}
+                  </Tag>
+                ) : (
+                  "—"
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("env.localization.packVersion")}>
+                {localization?.packVersion ?? "—"}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("env.localization.packRevision")}>
+                {localization?.packRevision ? (
+                  <Text copyable={{ text: localization.packRevision }} code>
+                    {localization.packRevision.slice(0, 12)}
+                  </Text>
+                ) : (
+                  "—"
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("env.localization.packFetchedAt")}>
+                {localization?.packFetchedAt
+                  ? new Date(localization.packFetchedAt).toLocaleString()
+                  : "—"}
+              </Descriptions.Item>
             </Descriptions>
             {!localization?.installDetected && diagnostics && (
               <Alert
@@ -157,6 +223,21 @@ export default function DesktopLocalizationPage() {
               />
             )}
             <Space wrap>
+              <Popconfirm
+                title={t("env.localization.confirmDownload")}
+                description={t("env.localization.confirmDownloadDescription")}
+                onConfirm={() => downloadPack.mutate()}
+              >
+                <Button
+                  icon={<DownloadOutlined />}
+                  loading={downloadPack.isPending}
+                  disabled={busy && !downloadPack.isPending}
+                >
+                  {localization?.packSource === "github"
+                    ? t("env.localization.updatePack")
+                    : t("env.localization.downloadPack")}
+                </Button>
+              </Popconfirm>
               <Button
                 icon={<FolderOpenOutlined />}
                 loading={selectPack.isPending}

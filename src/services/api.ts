@@ -29,6 +29,7 @@ import type {
   ModelPricing,
   ModelPricingInput,
   DesktopLocalizationActionResult,
+  DesktopLocalizationPackInfo,
   DesktopLocalizationPackValidation,
   DesktopLocalizationStatus,
   LogMaintenanceResult,
@@ -350,6 +351,11 @@ export async function reportFrontendPerformance(
 export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizationStatus> {
   const invoke = await getInvoke();
   return invoke<DesktopLocalizationStatus>("get_desktop_localization_status", {});
+}
+
+export async function downloadDesktopLocalizationPack(): Promise<DesktopLocalizationPackInfo> {
+  const invoke = await getInvoke();
+  return invoke<DesktopLocalizationPackInfo>("download_desktop_localization_pack", {});
 }
 
 export async function selectDesktopLocalizationPack(): Promise<string | null> {
