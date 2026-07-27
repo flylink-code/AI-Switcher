@@ -35,6 +35,7 @@ import type {
   DesktopLocalizationPackInfo,
   DesktopLocalizationPackValidation,
   DesktopLocalizationStatus,
+  LocalizationHubStatus,
   LogMaintenanceResult,
   LogMaintenancePolicy,
   LogMaintenancePreview,
@@ -414,6 +415,21 @@ export async function reportFrontendPerformance(
 export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizationStatus> {
   const invoke = await getInvoke();
   return invoke<DesktopLocalizationStatus>("get_desktop_localization_status", {});
+}
+
+export async function getLocalizationHubStatus(): Promise<LocalizationHubStatus> {
+  const invoke = await getInvoke();
+  return invoke<LocalizationHubStatus>("get_localization_hub_status", {});
+}
+
+export async function installClaudeCodeLocalization(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("install_claude_code_localization", {});
+}
+
+export async function installEditorLocalizationHelper(editor: "vscode" | "cursor"): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("install_editor_localization_helper", { editor });
 }
 
 export async function downloadDesktopLocalizationPack(): Promise<DesktopLocalizationPackInfo> {

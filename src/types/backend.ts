@@ -132,6 +132,30 @@ export interface DesktopLocalizationActionResult {
   logPath?: string | null;
 }
 
+export interface ClaudeCodeLocalizationStatus {
+  installed: boolean;
+  version?: string | null;
+  executablePath?: string | null;
+  pluginEnabled: boolean;
+  settingsConfigured: boolean;
+  message: string;
+}
+
+export interface EditorLocalizationStatus {
+  id: "vscode" | "cursor";
+  label: string;
+  editorDetected: boolean;
+  editorCliPath?: string | null;
+  claudeExtensionPath?: string | null;
+  helperInstalled: boolean;
+  message: string;
+}
+
+export interface LocalizationHubStatus {
+  claudeCode: ClaudeCodeLocalizationStatus;
+  editors: EditorLocalizationStatus[];
+}
+
 /** Result of the `get_paths` command — surfaced on the Environment page to verify P0 detection. */
 export interface PathsInfo {
   /** Resolved user home directory. */

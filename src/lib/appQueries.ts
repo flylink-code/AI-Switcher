@@ -5,6 +5,7 @@ import {
   getCloseBehavior,
   getDbInfo,
   getDesktopLocalizationStatus,
+  getLocalizationHubStatus,
   getLogMaintenancePolicy,
   getPaths,
   getProxyStatus,
@@ -109,6 +110,12 @@ export const closeBehaviorOptions = queryOptions({
 export const localizationOptions = queryOptions({
   queryKey: ["desktop-localization-status"] as const,
   queryFn: getDesktopLocalizationStatus,
+  staleTime: 60_000,
+});
+
+export const localizationHubOptions = queryOptions({
+  queryKey: ["localization-hub-status"] as const,
+  queryFn: getLocalizationHubStatus,
   staleTime: 60_000,
 });
 

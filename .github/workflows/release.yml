@@ -41,13 +41,22 @@ jobs:
           releaseBody: |-
             ## Claude Switcher v__VERSION__
 
-            - Added a read-only Claude Code session manager with filtering, full-text search, message details, and resume-command copying
-            - Added Claude Desktop capability detection and an official new-conversation entry point
-            - Added live Chinese and English tray-menu switching
-            - Renamed release executables to ClaudeSwitch.exe and unified the tested Windows build scripts
-            - Rewrote the Chinese and English documentation
+            ## What's new
+
+            - Added a unified localization page for Claude Code, the Claude Code extension in VS Code/Cursor, and Claude Desktop
+            - Added safe installation of the Claude Code Simplified Chinese plugin, including a settings backup and Chinese defaults
+            - Added detection of the official VS Code/Cursor extension and installation of its patch helper; applying a patch still requires confirmation in the editor
+            - Kept Claude Desktop localization in safe resource mode without modifying app.asar or executable files
+
+            ## 更新内容
+
+            - 新增统一中文化配置页面，可管理 Claude Code、VS Code/Cursor 中的 Claude Code 扩展与 Claude Desktop
+            - 支持安全安装 Claude Code 简体中文插件，自动备份设置并写入基础中文选项
+            - 可检测 VS Code/Cursor 官方扩展并安装中文补丁助手；实际应用补丁仍需在编辑器中确认
+            - Claude Desktop 继续采用安全资源模式，不修改 app.asar 或可执行文件
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
+            新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。
           releaseDraft: false
           prerelease: false
           args: --bundles nsis,msi

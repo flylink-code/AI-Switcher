@@ -19,12 +19,14 @@ import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   downloadDesktopLocalizationPack,
+  installClaudeCodeLocalization,
   installDesktopLocalization,
+  installEditorLocalizationHelper,
   restoreDesktopLocalization,
   selectDesktopLocalizationPack,
   validateDesktopLocalizationPack,
 } from "@/services/api";
-import { localizationOptions } from "@/lib/appQueries";
+import { localizationHubOptions, localizationOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
@@ -38,6 +40,7 @@ export default function DesktopLocalizationPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const statusQuery = useQuery(localizationOptions);
+  const hubQuery = useQuery(localizationHubOptions);
   const localization = statusQuery.data;
 
   const refreshStatus = async () => {
@@ -97,11 +100,31 @@ export default function DesktopLocalizationPage() {
     },
   });
 
+  const installClaudeCode = useMutation({
+    mutationFn: installClaudeCodeLocalization,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await queryClient.invalidateQueries({ queryKey: localizationHubOptions.queryKey });
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
+  const installEditorHelper = useMutation({
+    mutationFn: installEditorLocalizationHelper,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await queryClient.invalidateQueries({ queryKey: localizationHubOptions.queryKey });
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
   const busy =
     selectPack.isPending ||
     downloadPack.isPending ||
     install.isPending ||
-    restore.isPending;
+    restore.isPending ||
+    installClaudeCode.isPending ||
+    installEditorHelper.isPending;
   const diagnostics = useMemo(
     () => localization?.diagnostics.filter(Boolean).join("\n") ?? "",
     [localization?.diagnostics],
@@ -109,6 +132,79 @@ export default function DesktopLocalizationPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Alert
+        type="info"
+        showIcon
+        message={t("env.localization.hubTitle")}
+        description={t("env.localization.hubDescription")}
+      />
+      <Card
+        size="small"
+        title={t("env.localization.claudeCodeTitle")}
+        extra={<Button size="small" icon={<ReloadOutlined spin={hubQuery.isFetching} />} disabled={busy} onClick={() => void hubQuery.refetch()}>{t("common.refresh")}</Button>}
+      >
+        {hubQuery.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : hubQuery.error ? (
+          <Alert type="error" showIcon message={errorMessage(hubQuery.error)} />
+        ) : (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label={t("env.localization.status")}>
+              <Tag color={hubQuery.data?.claudeCode.pluginEnabled ? "green" : "default"}>
+                {hubQuery.data?.claudeCode.pluginEnabled ? t("env.localization.configured") : t("env.localization.notConfigured")}
+              </Tag>
+              <Text type="secondary"> {hubQuery.data?.claudeCode.message}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.version")}>{hubQuery.data?.claudeCode.version ?? "—"}</Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.installPath")}><PathValue value={hubQuery.data?.claudeCode.executablePath} /></Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.actions")}>
+              <Popconfirm
+                title={t("env.localization.confirmCodeInstall")}
+                description={t("env.localization.confirmCodeInstallDescription")}
+                onConfirm={() => installClaudeCode.mutate()}
+              >
+                <Button type="primary" loading={installClaudeCode.isPending} disabled={busy || !hubQuery.data?.claudeCode.installed}>
+                  {t("env.localization.installCode")}
+                </Button>
+              </Popconfirm>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Card>
+      <Card size="small" title={t("env.localization.editorTitle")}>
+        {hubQuery.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            {hubQuery.data?.editors.map((editor) => (
+              <Card
+                key={editor.id}
+                type="inner"
+                size="small"
+                title={editor.label}
+                extra={
+                  <Popconfirm
+                    title={t("env.localization.confirmEditorInstall", { editor: editor.label })}
+                    description={t("env.localization.confirmEditorInstallDescription")}
+                    onConfirm={() => installEditorHelper.mutate(editor.id)}
+                  >
+                    <Button
+                      loading={installEditorHelper.isPending && installEditorHelper.variables === editor.id}
+                      disabled={busy || !editor.claudeExtensionPath}
+                    >
+                      {editor.helperInstalled ? t("env.localization.reinstallHelper") : t("env.localization.installHelper")}
+                    </Button>
+                  </Popconfirm>
+                }
+              >
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label={t("env.localization.status")}>
+                    <Tag color={editor.claudeExtensionPath ? "green" : "default"}>{editor.claudeExtensionPath ? t("env.localization.detected") : t("env.localization.notDetected")}</Tag>
+                    <Text type="secondary"> {editor.message}</Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t("env.localization.extensionPath")}><PathValue value={editor.claudeExtensionPath} /></Descriptions.Item>
+                </Descriptions>
+              </Card>
+            ))}
+          </Space>
+        )}
+      </Card>
       <Alert
         type="info"
         showIcon

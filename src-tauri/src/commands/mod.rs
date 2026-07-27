@@ -4,6 +4,7 @@ pub mod backend;
 pub mod backup;
 pub mod db;
 pub mod desktop_localization;
+pub mod localization;
 pub mod mcp;
 pub mod paths;
 pub mod prompts;
@@ -24,6 +25,10 @@ pub use desktop_localization::{
     install_desktop_localization,
     restore_desktop_localization, select_desktop_localization_pack,
     validate_desktop_localization_pack,
+};
+pub use localization::{
+    get_localization_hub_status, install_claude_code_localization,
+    install_editor_localization_helper,
 };
 pub use mcp::{
     delete_mcp_server, import_mcp_servers, install_mcp_registry_server, list_mcp_servers,
