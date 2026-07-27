@@ -185,6 +185,7 @@ export interface ProxyStatusUpdated {
 }
 
 export type AutostartMode = "off" | "silent" | "window";
+export type CloseBehavior = "ask" | "tray" | "quit";
 
 export interface AutostartConfig {
   enabled: boolean;
@@ -238,6 +239,12 @@ export interface Skill {
   name: string;
   path: string;
   enabled: boolean;
+  description: string;
+}
+
+export interface RepositorySkill {
+  name: string;
+  path: string;
   description: string;
 }
 

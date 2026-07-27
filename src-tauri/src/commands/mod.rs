@@ -44,12 +44,15 @@ pub use providers::{
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{
-    delete_skill, install_github_skill, install_zip_skill, list_skills, set_skill_enabled,
+    delete_skill, get_skill_repository, install_github_repository_skills, install_github_skill,
+    install_zip_skill, list_github_repository_skills, list_skills, set_skill_enabled,
+    set_skill_repository,
 };
 pub use system::{
-    get_autostart_config, get_autostart_enabled, report_frontend_performance,
-    report_frontend_startup,
-    set_app_language, set_autostart_config, set_autostart_enabled,
+    get_autostart_config, get_autostart_enabled, get_close_behavior,
+    report_frontend_performance, report_frontend_startup, resolve_close_request,
+    restart_app, set_app_language, set_autostart_config, set_autostart_enabled,
+    set_close_behavior,
 };
 pub use tools::{get_claude_code_version, run_claude_code_update};
 pub use usage::{

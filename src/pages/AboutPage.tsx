@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
-import { runClaudeCodeUpdate } from "@/services/api";
+import { restartApp, runClaudeCodeUpdate } from "@/services/api";
 import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
 
 const { Text, Paragraph } = Typography;
@@ -55,11 +55,23 @@ export default function AboutPage() {
         okText: t("about.appUpdateInstall"),
         cancelText: t("providers.cancel"),
         onOk: async () => {
-          await update.downloadAndInstall();
+          try {
+            await update.downloadAndInstall();
+            await restartApp();
+          } catch (error) {
+            console.error("Application update installation failed", error);
+            void message.error(
+              t("about.appUpdateFailedDetail", { error: errMsg(error) }),
+            );
+            throw error;
+          }
         },
       });
-    } catch {
-      void message.error(t("about.appUpdateFailed"));
+    } catch (error) {
+      console.error("Application update check failed", error);
+      void message.error(
+        t("about.appUpdateFailedDetail", { error: errMsg(error) }),
+      );
     } finally {
       setCheckingApp(false);
     }
@@ -216,4 +228,8 @@ export default function AboutPage() {
       </Space>
     </>
   );
+}
+
+function errMsg(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

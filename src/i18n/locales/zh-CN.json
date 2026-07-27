@@ -1,7 +1,12 @@
 {
   "app": {
     "name": "Claude Switcher",
-    "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具"
+    "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具",
+    "closeDialogTitle": "关闭 Claude Switcher",
+    "closeDialogDescription": "请选择直接退出应用，或隐藏到系统托盘继续运行。",
+    "closeToTray": "最小化到系统托盘",
+    "quitDirectly": "直接退出",
+    "rememberCloseChoice": "记住本次选择，可在“环境检测”页面修改"
   },
   "startup": {
     "preparing": "正在准备应用数据…",
@@ -333,7 +338,13 @@
   },
   "skills": {
     "title": "Skills 管理",
-    "description": "管理 Claude Code 的本地 Skills。安装来源仅限公开 GitHub 仓库或本地 ZIP；安装包必须包含 SKILL.md。",
+    "description": "从公开 GitHub 仓库扫描并选择安装 Claude Code Skills，也可导入本地 ZIP。安装包必须包含 SKILL.md。",
+    "repositoryTitle": "Skill 仓库",
+    "repositoryHelp": "保存后扫描公开 GitHub 仓库；默认仓库为 anthropics/skills。可勾选一个或多个 Skill 后安装。",
+    "scanRepository": "保存并扫描",
+    "installSelected": "安装已选（{{count}}）",
+    "installedCount": "已安装 {{count}} 个 Skill",
+    "repositoryEmpty": "填写仓库地址后点击“保存并扫描”以查看可安装 Skills",
     "installedTitle": "已安装 Skills",
     "installGithub": "从 GitHub 安装",
     "installZip": "从 ZIP 安装",
@@ -341,6 +352,7 @@
     "zipHelp": "请输入本地 ZIP 文件的完整路径。压缩包必须包含 SKILL.md。",
     "name": "名称",
     "descriptionLabel": "描述",
+    "path": "仓库路径",
     "enabled": "启用",
     "actions": "操作",
     "delete": "删除",
@@ -382,7 +394,8 @@
       "backupDir": "备份目录",
       "schemaVersion": "Schema 版本",
       "providerCount": "供应商数量",
-      "autostart": "开机自启"
+      "autostart": "开机自启",
+      "closeBehavior": "点击 X 时"
     },
     "localization": {
       "title": "Claude Desktop 简体中文",
@@ -430,6 +443,12 @@
       "silent": "静默启动到托盘",
       "window": "启动并显示窗口"
     },
+    "closeBehaviorUpdated": "关闭行为设置已更新",
+    "closeBehaviors": {
+      "ask": "每次询问",
+      "tray": "隐藏到系统托盘",
+      "quit": "直接退出"
+    },
     "noConfigBackups": "尚无供应商配置备份；切换或恢复配置后会出现在此处。",
     "previewBackup": "预览（已脱敏）",
     "restoreBackup": "恢复",
@@ -454,6 +473,7 @@
     "appUpdatePrompt": "将下载并安装更新，应用会随后重启。",
     "appUpdateInstall": "下载并安装",
     "appUpdateFailed": "无法检查或安装更新，请稍后重试",
+    "appUpdateFailedDetail": "无法检查或安装更新：{{error}}",
     "claudeCodeSection": "Claude Code",
     "claudeCurrentVersion": "当前版本",
     "claudeLatestVersion": "最新版本",

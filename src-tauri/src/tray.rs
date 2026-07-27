@@ -2,7 +2,7 @@
 
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    tray::TrayIconBuilder,
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, Runtime,
 };
 
@@ -55,6 +55,17 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
                     }
                 }
                 _ => {}
+            }
+        })
+        .on_tray_icon_event(|tray, event| {
+            if matches!(
+                event,
+                TrayIconEvent::DoubleClick {
+                    button: MouseButton::Left,
+                    ..
+                }
+            ) {
+                show_main_window(tray.app_handle());
             }
         })
         .build(app)

@@ -4,6 +4,7 @@ examples/
 
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Build output
 dist/

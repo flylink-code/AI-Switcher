@@ -20,7 +20,12 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { ConfigBackup, ProviderTarget, AutostartMode } from "@/types/backend";
+import type {
+  AutostartMode,
+  CloseBehavior,
+  ConfigBackup,
+  ProviderTarget,
+} from "@/types/backend";
 import {
   backupNow,
   listConfigBackups,
@@ -28,8 +33,13 @@ import {
   previewConfigBackup,
   restoreConfigBackup,
   setAutostartConfig,
+  setCloseBehavior,
 } from "@/services/api";
-import { autostartOptions, environmentOptions } from "@/lib/appQueries";
+import {
+  autostartOptions,
+  closeBehaviorOptions,
+  environmentOptions,
+} from "@/lib/appQueries";
 
 const { Text } = Typography;
 
@@ -51,6 +61,7 @@ export default function EnvironmentPage() {
   const queryClient = useQueryClient();
   const environmentQuery = useQuery(environmentOptions);
   const autostartQuery = useQuery(autostartOptions);
+  const closeBehaviorQuery = useQuery(closeBehaviorOptions);
   const paths = environmentQuery.data?.paths ?? null;
   const db = environmentQuery.data?.db ?? null;
   const error = environmentQuery.error
@@ -61,6 +72,7 @@ export default function EnvironmentPage() {
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [autostartChanging, setAutostartChanging] = useState(false);
+  const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [backupPreview, setBackupPreview] = useState<string | null>(null);
@@ -105,6 +117,19 @@ export default function EnvironmentPage() {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
       setAutostartChanging(false);
+    }
+  }, [queryClient, t]);
+
+  const onCloseBehaviorChange = useCallback(async (behavior: CloseBehavior) => {
+    setCloseBehaviorChanging(true);
+    try {
+      await setCloseBehavior(behavior);
+      queryClient.setQueryData(closeBehaviorOptions.queryKey, behavior);
+      void message.success(t("env.closeBehaviorUpdated"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCloseBehaviorChanging(false);
     }
   }, [queryClient, t]);
 
@@ -229,6 +254,20 @@ export default function EnvironmentPage() {
                   { value: "window", label: t("env.autostartModes.window") },
                 ]}
                 onChange={(mode) => void onAutostartChange(mode)}
+              />
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.fields.closeBehavior")}>
+              <Select<CloseBehavior>
+                value={closeBehaviorQuery.data ?? "ask"}
+                loading={closeBehaviorQuery.isPending || closeBehaviorChanging}
+                disabled={closeBehaviorChanging}
+                style={{ width: 220 }}
+                options={[
+                  { value: "ask", label: t("env.closeBehaviors.ask") },
+                  { value: "tray", label: t("env.closeBehaviors.tray") },
+                  { value: "quit", label: t("env.closeBehaviors.quit") },
+                ]}
+                onChange={(behavior) => void onCloseBehaviorChange(behavior)}
               />
             </Descriptions.Item>
           </Descriptions>

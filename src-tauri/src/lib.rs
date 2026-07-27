@@ -22,7 +22,7 @@ mod tray;
 
 use std::sync::Arc;
 
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
@@ -32,7 +32,8 @@ use crate::commands::{
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
-    install_desktop_localization, install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
+    install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
+    get_skill_repository, list_github_repository_skills, set_skill_repository, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
     report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
@@ -43,6 +44,8 @@ use crate::commands::{
     validate_desktop_localization_pack, get_claude_code_version, run_claude_code_update,
     load_session_messages, scan_sessions, search_session_contents,
     set_app_language,
+    restart_app,
+    get_close_behavior, resolve_close_request, set_close_behavior,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -129,6 +132,10 @@ pub fn run() {
             stop_proxy,
             set_proxy_port,
             list_skills,
+            get_skill_repository,
+            set_skill_repository,
+            list_github_repository_skills,
+            install_github_repository_skills,
             install_github_skill,
             install_zip_skill,
             set_skill_enabled,
@@ -154,6 +161,10 @@ pub fn run() {
             search_session_contents,
             load_session_messages,
             set_app_language,
+            restart_app,
+            get_close_behavior,
+            set_close_behavior,
+            resolve_close_request,
         ]);
     let builder = add_single_instance(builder);
     if let Err(error) = builder.run(tauri::generate_context!()) {
@@ -286,11 +297,27 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Minimize-to-tray on close (kept simple for P0; a setting will toggle this in P5).
 fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
     if let WindowEvent::CloseRequested { api, .. } = event {
-        window.hide().ok();
         api.prevent_close();
+        let app = window.app_handle();
+        let state = app.state::<AppState>();
+        let behavior = commands::system::read_close_behavior(&state.db)
+            .unwrap_or(commands::system::CloseBehavior::Ask);
+        match behavior {
+            commands::system::CloseBehavior::Ask => {
+                if let Err(error) = window.emit("close-choice-requested", ()) {
+                    log::error!("发送关闭选择事件失败: {error}");
+                    window.hide().ok();
+                }
+            }
+            commands::system::CloseBehavior::Tray => {
+                window.hide().ok();
+            }
+            commands::system::CloseBehavior::Quit => {
+                app.exit(0);
+            }
+        }
     }
 }
 

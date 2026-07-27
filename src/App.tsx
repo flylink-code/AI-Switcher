@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Alert, App as AntApp, Button, ConfigProvider, theme as antdTheme } from "antd";
+import {
+  Alert,
+  App as AntApp,
+  Button,
+  Checkbox,
+  ConfigProvider,
+  Modal,
+  Typography,
+  theme as antdTheme,
+} from "antd";
 import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
 import { useTranslation } from "react-i18next";
+import { listen } from "@tauri-apps/api/event";
 import { AppLayout } from "@/components/AppLayout";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import { StartupScreen } from "@/components/StartupScreen";
 import { runStartupWarmup, type StartupProgress } from "@/lib/startupWarmup";
-import { reportFrontendPerformance, reportFrontendStartup } from "@/services/api";
+import {
+  reportFrontendPerformance,
+  reportFrontendStartup,
+  resolveCloseRequest,
+} from "@/services/api";
 import {
   getLoadedPage,
   preloadPage,
@@ -16,13 +30,17 @@ import {
 } from "@/lib/pageRegistry";
 
 export default function App() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const resolved = useThemeStore((s) => s.resolved);
   const language = useAppStore((s) => s.language);
 
   // Default to the Providers page now that it's functional (P1).
   const [activeKey, setActiveKey] = useState<PageKey>("providers");
   const [startupReady, setStartupReady] = useState(false);
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [rememberCloseChoice, setRememberCloseChoice] = useState(false);
+  const [resolvingClose, setResolvingClose] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const [startupProgress, setStartupProgress] = useState<StartupProgress>({
     completed: 0,
     total: 1,
@@ -62,6 +80,28 @@ export default function App() {
     };
   }, [finishStartup]);
 
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    const hasTauri =
+      typeof window !== "undefined" &&
+      Boolean((window as unknown as Record<string, unknown>).__TAURI_INTERNALS__);
+    if (!hasTauri) return;
+    void listen("close-choice-requested", () => {
+      setCloseError(null);
+      setCloseDialogOpen(true);
+    }).then((dispose) => {
+      if (active) unlisten = dispose;
+      else dispose();
+    }).catch((error: unknown) => {
+      console.error("Failed to register close-choice listener", error);
+    });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
   // Keep i18next in sync with the persisted language.
   useEffect(() => {
     if (i18n.language !== language) void i18n.changeLanguage(language);
@@ -94,6 +134,22 @@ export default function App() {
       );
     }
   }, []);
+  const handleCloseChoice = useCallback(
+    async (action: "tray" | "quit") => {
+      setResolvingClose(true);
+      try {
+        await resolveCloseRequest(action, rememberCloseChoice);
+        setCloseDialogOpen(false);
+        setRememberCloseChoice(false);
+        setCloseError(null);
+      } catch (error) {
+        setCloseError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setResolvingClose(false);
+      }
+    },
+    [rememberCloseChoice],
+  );
 
   return (
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
@@ -105,6 +161,48 @@ export default function App() {
             <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
           </AppLayout>
         )}
+        <Modal
+          open={closeDialogOpen}
+          title={t("app.closeDialogTitle")}
+          closable={false}
+          maskClosable={false}
+          keyboard={false}
+          footer={[
+            <Button
+              key="tray"
+              type="primary"
+              loading={resolvingClose}
+              onClick={() => void handleCloseChoice("tray")}
+            >
+              {t("app.closeToTray")}
+            </Button>,
+            <Button
+              key="quit"
+              danger
+              disabled={resolvingClose}
+              onClick={() => void handleCloseChoice("quit")}
+            >
+              {t("app.quitDirectly")}
+            </Button>,
+          ]}
+        >
+          {closeError && (
+            <Alert
+              type="error"
+              showIcon
+              message={closeError}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <Typography.Paragraph>{t("app.closeDialogDescription")}</Typography.Paragraph>
+          <Checkbox
+            checked={rememberCloseChoice}
+            disabled={resolvingClose}
+            onChange={(event) => setRememberCloseChoice(event.target.checked)}
+          >
+            {t("app.rememberCloseChoice")}
+          </Checkbox>
+        </Modal>
       </AntApp>
     </ConfigProvider>
   );

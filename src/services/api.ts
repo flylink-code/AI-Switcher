@@ -26,6 +26,7 @@ import type {
   ProviderTarget,
   ProxyStatus,
   Skill,
+  RepositorySkill,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -41,6 +42,7 @@ import type {
   ClaudeCodeVersionInfo,
   AutostartConfig,
   AutostartMode,
+  CloseBehavior,
   SessionMessage,
   SessionProvider,
   SessionScanResult,
@@ -62,6 +64,11 @@ async function getInvoke() {
 export async function ping(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("ping", {});
+}
+
+export async function restartApp(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("restart_app", {});
 }
 
 export async function getPaths(): Promise<PathsInfo> {
@@ -283,6 +290,26 @@ export async function listSkills(): Promise<Skill[]> {
   return invoke<Skill[]>("list_skills", {});
 }
 
+export async function getSkillRepository(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("get_skill_repository", {});
+}
+
+export async function setSkillRepository(url: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("set_skill_repository", { url });
+}
+
+export async function listGithubRepositorySkills(url: string): Promise<RepositorySkill[]> {
+  const invoke = await getInvoke();
+  return invoke<RepositorySkill[]>("list_github_repository_skills", { url });
+}
+
+export async function installGithubRepositorySkills(url: string, paths: string[]): Promise<Skill[]> {
+  const invoke = await getInvoke();
+  return invoke<Skill[]>("install_github_repository_skills", { url, paths });
+}
+
 export async function installGithubSkill(url: string): Promise<Skill> {
   const invoke = await getInvoke();
   return invoke<Skill>("install_github_skill", { url });
@@ -323,6 +350,24 @@ export async function getAutostartConfig(): Promise<AutostartConfig> {
 export async function setAutostartConfig(mode: AutostartMode): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_autostart_config", { mode });
+}
+
+export async function getCloseBehavior(): Promise<CloseBehavior> {
+  const invoke = await getInvoke();
+  return invoke<CloseBehavior>("get_close_behavior", {});
+}
+
+export async function setCloseBehavior(behavior: CloseBehavior): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_close_behavior", { behavior });
+}
+
+export async function resolveCloseRequest(
+  action: Exclude<CloseBehavior, "ask">,
+  remember: boolean,
+): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("resolve_close_request", { action, remember });
 }
 
 export async function reportFrontendStartup(

@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   getAutostartConfig,
   getClaudeCodeVersion,
+  getCloseBehavior,
   getDbInfo,
   getDesktopLocalizationStatus,
   getLogMaintenancePolicy,
@@ -14,6 +15,7 @@ import {
   listProviders,
   listProxyRequestLogs,
   listSkills,
+  getSkillRepository,
   readLivePrompt,
 } from "@/services/api";
 import type { ProviderTarget } from "@/types/backend";
@@ -54,6 +56,11 @@ export const skillsOptions = queryOptions({
   staleTime: 30_000,
 });
 
+export const skillRepositoryOptions = queryOptions({
+  queryKey: ["skillRepository"] as const,
+  queryFn: getSkillRepository,
+});
+
 export const usageOverviewOptions = (
   days: number,
   logPage: number,
@@ -91,6 +98,12 @@ export const autostartOptions = queryOptions({
   queryKey: ["environment", "autostart"] as const,
   queryFn: getAutostartConfig,
   staleTime: 60_000,
+});
+
+export const closeBehaviorOptions = queryOptions({
+  queryKey: ["environment", "close-behavior"] as const,
+  queryFn: getCloseBehavior,
+  staleTime: Number.POSITIVE_INFINITY,
 });
 
 export const localizationOptions = queryOptions({

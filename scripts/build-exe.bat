@@ -30,7 +30,9 @@ if /I "%~1"=="debug" (
 
 :parse_options
 if "%~1"=="" goto run
-if /I "%~1"=="skip-tests" (
+if "%~1"=="--" (
+  REM pnpm forwards its conventional argument separator to batch scripts.
+) else if /I "%~1"=="skip-tests" (
   set "PS_ARGS=%PS_ARGS% -SkipTests"
 ) else if /I "%~1"=="clean" (
   set "PS_ARGS=%PS_ARGS% -Clean"

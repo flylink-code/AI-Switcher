@@ -1,6 +1,7 @@
 //! Commands for launch-at-login settings.
 
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -11,6 +12,7 @@ use crate::store::AppState;
 const AUTOSTART_MODE_KEY: &str = "autostart_launch_mode";
 const AUTOSTART_ARGS_MIGRATED_KEY: &str = "autostart_args_migrated_v1";
 const APP_LANGUAGE_KEY: &str = "app.language";
+const CLOSE_BEHAVIOR_KEY: &str = "app.close_behavior";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -18,6 +20,79 @@ pub enum AutostartMode {
     Off,
     Silent,
     Window,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CloseBehavior {
+    Ask,
+    Tray,
+    Quit,
+}
+
+impl CloseBehavior {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Ask => "ask",
+            Self::Tray => "tray",
+            Self::Quit => "quit",
+        }
+    }
+}
+
+pub(crate) fn read_close_behavior(db: &Database) -> AppResult<CloseBehavior> {
+    Ok(db
+        .with_conn(|conn| get_setting(conn, CLOSE_BEHAVIOR_KEY))?
+        .and_then(|value| match value.as_str() {
+            "ask" => Some(CloseBehavior::Ask),
+            "tray" => Some(CloseBehavior::Tray),
+            "quit" => Some(CloseBehavior::Quit),
+            _ => None,
+        })
+        .unwrap_or(CloseBehavior::Ask))
+}
+
+#[tauri::command]
+pub fn get_close_behavior(state: tauri::State<'_, AppState>) -> AppResult<CloseBehavior> {
+    read_close_behavior(&state.db)
+}
+
+#[tauri::command]
+pub fn set_close_behavior(
+    behavior: CloseBehavior,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    set_setting_value(&state.db, CLOSE_BEHAVIOR_KEY, behavior.as_str())
+}
+
+#[tauri::command]
+pub fn resolve_close_request(
+    action: CloseBehavior,
+    remember: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    if action == CloseBehavior::Ask {
+        return Err(AppError::Config("关闭操作必须为系统托盘或直接退出".to_string()));
+    }
+    if remember {
+        set_setting_value(&state.db, CLOSE_BEHAVIOR_KEY, action.as_str())?;
+    }
+    match action {
+        CloseBehavior::Tray => {
+            let window = app
+                .get_webview_window("main")
+                .ok_or_else(|| AppError::Tauri("找不到主窗口".to_string()))?;
+            window
+                .hide()
+                .map_err(|error| AppError::Tauri(format!("隐藏主窗口失败: {error}")))
+        }
+        CloseBehavior::Quit => {
+            app.exit(0);
+            Ok(())
+        }
+        CloseBehavior::Ask => unreachable!(),
+    }
 }
 
 pub(crate) fn read_app_language(db: &Database) -> AppResult<String> {
@@ -36,6 +111,11 @@ pub fn set_app_language(
     validate_app_language(&language)?;
     set_setting_value(&state.db, APP_LANGUAGE_KEY, &language)?;
     crate::tray::refresh_tray_menu(&app, &language)
+}
+
+#[tauri::command]
+pub fn restart_app(app: tauri::AppHandle) {
+    app.request_restart();
 }
 
 fn validate_app_language(language: &str) -> AppResult<()> {
@@ -242,6 +322,13 @@ mod tests {
             serde_json::to_string(&AutostartMode::Window).unwrap(),
             "\"window\""
         );
+    }
+
+    #[test]
+    fn close_behaviors_use_stable_wire_values() {
+        assert_eq!(serde_json::to_string(&CloseBehavior::Ask).unwrap(), "\"ask\"");
+        assert_eq!(serde_json::to_string(&CloseBehavior::Tray).unwrap(), "\"tray\"");
+        assert_eq!(serde_json::to_string(&CloseBehavior::Quit).unwrap(), "\"quit\"");
     }
 
     #[test]

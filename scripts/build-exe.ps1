@@ -15,6 +15,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# This script is a non-interactive build entry point. pnpm may otherwise abort
+# when it needs to refresh node_modules without a TTY.
+$env:CI = "true"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
@@ -29,17 +32,18 @@ $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCommand) {
     throw "node not found. Install Node.js 20+."
 }
-$pnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
 $packageManagerPrefix = @()
-if ($pnpmCommand) {
-    $packageManagerCommand = $pnpmCommand
+$corepackCommand = Get-Command corepack -ErrorAction SilentlyContinue
+if ($corepackCommand) {
+    $packageManagerCommand = $corepackCommand
+    $packageManagerPrefix = @("pnpm")
+    Write-Host "[build-exe] Using Corepack pnpm from packageManager"
 } else {
-    $packageManagerCommand = Get-Command corepack -ErrorAction SilentlyContinue
+    $packageManagerCommand = Get-Command pnpm -ErrorAction SilentlyContinue
     if (-not $packageManagerCommand) {
         throw "Neither pnpm nor corepack was found. Install Node.js 20+ with Corepack."
     }
-    $packageManagerPrefix = @("pnpm")
-    Write-Host "[build-exe] pnpm shim not found; using corepack pnpm"
+    Write-Host "[build-exe] Corepack not found; using pnpm from PATH"
 }
 $packageManagerPath = $packageManagerCommand.Path
 $cargoCommand = Get-Command cargo -ErrorAction SilentlyContinue

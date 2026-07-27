@@ -1,7 +1,12 @@
 {
   "app": {
     "name": "Claude Switcher",
-    "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code"
+    "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code",
+    "closeDialogTitle": "Close Claude Switcher",
+    "closeDialogDescription": "Quit the app, or hide it in the system tray and keep it running.",
+    "closeToTray": "Minimize to system tray",
+    "quitDirectly": "Quit",
+    "rememberCloseChoice": "Remember this choice; change it later on the Environment page"
   },
   "startup": {
     "preparing": "Preparing application data…",
@@ -333,7 +338,13 @@
   },
   "skills": {
     "title": "Skills",
-    "description": "Manage local Claude Code Skills. Only public GitHub repositories and local ZIP archives are accepted; a package must include SKILL.md.",
+    "description": "Scan public GitHub repositories and select Claude Code Skills to install, or import a local ZIP. Packages must contain SKILL.md.",
+    "repositoryTitle": "Skill repository",
+    "repositoryHelp": "Save and scan a public GitHub repository. The default is anthropics/skills; select one or more Skills to install.",
+    "scanRepository": "Save and scan",
+    "installSelected": "Install selected ({{count}})",
+    "installedCount": "Installed {{count}} Skills",
+    "repositoryEmpty": "Enter a repository URL and select Save and scan to browse available Skills",
     "installedTitle": "Installed Skills",
     "installGithub": "Install from GitHub",
     "installZip": "Install from ZIP",
@@ -341,6 +352,7 @@
     "zipHelp": "Enter the full local path to a ZIP file. The archive must include SKILL.md.",
     "name": "Name",
     "descriptionLabel": "Description",
+    "path": "Repository path",
     "enabled": "Enabled",
     "actions": "Actions",
     "delete": "Delete",
@@ -382,7 +394,8 @@
       "backupDir": "Backup dir",
       "schemaVersion": "Schema version",
       "providerCount": "Provider count",
-      "autostart": "Launch at login"
+      "autostart": "Launch at login",
+      "closeBehavior": "When clicking X"
     },
     "localization": {
       "title": "Claude Desktop Simplified Chinese",
@@ -430,6 +443,12 @@
       "silent": "Start silently in tray",
       "window": "Start and show window"
     },
+    "closeBehaviorUpdated": "Close behavior updated",
+    "closeBehaviors": {
+      "ask": "Ask every time",
+      "tray": "Hide in system tray",
+      "quit": "Quit immediately"
+    },
     "noConfigBackups": "No provider configuration backups yet. They appear after a configuration change.",
     "previewBackup": "Preview (redacted)",
     "restoreBackup": "Restore",
@@ -454,6 +473,7 @@
     "appUpdatePrompt": "The update will be downloaded and installed, then the app will restart.",
     "appUpdateInstall": "Download and install",
     "appUpdateFailed": "Unable to check for or install updates. Try again later.",
+    "appUpdateFailedDetail": "Unable to check for or install updates: {{error}}",
     "claudeCodeSection": "Claude Code",
     "claudeCurrentVersion": "Current version",
     "claudeLatestVersion": "Latest version",
