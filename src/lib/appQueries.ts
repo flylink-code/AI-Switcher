@@ -29,7 +29,8 @@ export const proxyStatusOptions = (target: ProviderTarget) =>
   queryOptions({
     queryKey: ["proxy-status", target] as const,
     queryFn: () => getProxyStatus(target),
-    staleTime: 5_000,
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnMount: false,
   });
 
 export const mcpServersOptions = queryOptions({

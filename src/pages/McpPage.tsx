@@ -54,6 +54,7 @@ export default function McpPage() {
   const serversQuery = useQuery(mcpServersOptions);
   const servers = serversQuery.data ?? [];
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<McpServer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [form] = Form.useForm<FormValues>();
@@ -165,6 +166,15 @@ export default function McpPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await serversQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const columns: TableColumnsType<McpServer> = [
     {
       title: t("mcp.colName"),
@@ -252,8 +262,8 @@ export default function McpPage() {
               <Button
                 icon={<SyncOutlined />}
                 disabled={busy}
-                loading={serversQuery.isFetching}
-                onClick={() => void serversQuery.refetch()}
+                loading={refreshing}
+                onClick={() => void handleRefresh()}
               >
                 {t("common.refresh")}
               </Button>

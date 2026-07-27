@@ -15,7 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Write `data` to `path` atomically: create a temp file beside the target,
 /// flush, then rename into place.
-#[allow(dead_code)] // foundational helper — wired in from P1 (settings.json writers)
 pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
     let parent = path
         .parent()
@@ -71,7 +70,6 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
 
 /// Recursively sort the keys of a JSON value so equivalent configs serialize
 /// to identical bytes (useful for diffs and stability).
-#[allow(dead_code)] // used by write_json_file, exercised in tests
 pub fn sort_json_keys(value: &mut Value) {
     match value {
         Value::Object(map) => {
@@ -91,7 +89,6 @@ pub fn sort_json_keys(value: &mut Value) {
 }
 
 /// Serialize `value` to pretty JSON (sorted keys) and write atomically.
-#[allow(dead_code)] // foundational helper — wired in from P1
 pub fn write_json_file<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
     let mut json = serde_json::to_value(value)?;
     sort_json_keys(&mut json);
@@ -100,7 +97,6 @@ pub fn write_json_file<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
 }
 
 /// Read and deserialize a JSON file. Returns `Ok(None)` if the file does not exist.
-#[allow(dead_code)] // foundational helper — wired in from P1
 pub fn read_json_file<T: serde::de::DeserializeOwned>(path: &Path) -> AppResult<Option<T>> {
     if !path.exists() {
         return Ok(None);

@@ -137,37 +137,6 @@ fn sha256_file(path: &Path) -> AppResult<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-/// Remove the oldest files in `dir` (by mtime) until at most `keep` remain.
-/// Only files whose name ends with `.bak` are considered.
-pub fn prune_backups(dir: &Path, keep: usize) -> AppResult<()> {
-    if !dir.exists() {
-        return Ok(());
-    }
-
-    let mut entries: Vec<(PathBuf, std::time::SystemTime)> = fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().ends_with(".bak"))
-        .filter_map(|e| {
-            let path = e.path();
-            let mtime = e.metadata().ok()?.modified().ok()?;
-            Some((path, mtime))
-        })
-        .collect();
-
-    if entries.len() <= keep {
-        return Ok(());
-    }
-
-    // Newest first.
-    entries.sort_by(|a, b| b.1.cmp(&a.1));
-    for (path, _) in entries.into_iter().skip(keep) {
-        if let Err(e) = fs::remove_file(&path) {
-            log::warn!("删除过期备份失败 {}: {e}", path.display());
-        }
-    }
-    Ok(())
-}
-
 /// Rotate one backup category without allowing a busy source (for example,
 /// database migration backups) to evict unrelated configuration backups.
 pub fn prune_backups_for_category(dir: &Path, category: &str, keep: usize) -> AppResult<()> {
@@ -209,19 +178,6 @@ pub fn prune_backups_for_category(dir: &Path, category: &str, keep: usize) -> Ap
     Ok(())
 }
 
-/// Count current `.bak` files in the backup directory (handy for diagnostics).
-#[allow(dead_code)]
-pub fn count_backups() -> AppResult<usize> {
-    let dir = get_backup_dir();
-    if !dir.exists() {
-        return Ok(0);
-    }
-    Ok(fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().ends_with(".bak"))
-        .count())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,9 +186,9 @@ mod tests {
     use std::time::Duration;
     use tempfile::tempdir;
 
-    /// `prune_backups` keeps the newest `keep` `.bak` files and removes the rest.
+    /// Category rotation keeps the newest `keep` matching `.bak` files.
     #[test]
-    fn prune_keeps_newest_n() {
+    fn category_prune_keeps_newest_n() {
         let dir = tempdir().unwrap();
         // Create 12 backups with monotonically increasing mtimes (1s apart so the
         // 1s mtime granularity on some filesystems distinguishes them).
@@ -245,7 +201,7 @@ mod tests {
             let _ = filetime::set_file_mtime(&p, filetime::FileTime::from_system_time(time));
             sleep(Duration::from_millis(5));
         }
-        prune_backups(dir.path(), 10).unwrap();
+        prune_backups_for_category(dir.path(), "app", 10).unwrap();
         let remaining = count_baks_in(dir.path());
         assert_eq!(remaining, 10, "should keep exactly 10 after pruning 12");
         // The oldest two (app_00, app_01) should be gone; app_11 retained.

@@ -16,11 +16,12 @@ import { useTranslation } from "react-i18next";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import { languages } from "@/i18n";
+import type { PageKey } from "@/lib/pageRegistry";
 
 const { Sider, Header, Content } = Layout;
 
 export interface NavItem {
-  key: string;
+  key: PageKey;
   icon: React.ReactNode;
 }
 
@@ -37,8 +38,8 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 interface AppLayoutProps {
-  activeKey: string;
-  onNavigate: (key: string) => void;
+  activeKey: PageKey;
+  onNavigate: (key: PageKey) => void;
   children: React.ReactNode;
 }
 
@@ -97,7 +98,7 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
           mode="inline"
           selectedKeys={[activeKey]}
           items={menuItems}
-          onClick={({ key }) => onNavigate(key)}
+          onClick={({ key }) => onNavigate(key as PageKey)}
           style={{ borderInlineEnd: "none", background: "transparent" }}
         />
       </Sider>

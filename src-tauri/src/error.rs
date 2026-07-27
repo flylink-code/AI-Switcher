@@ -8,10 +8,7 @@ use std::fmt;
 /// A stringy error variant that serializes to its display string, allowing
 /// arbitrary error sources to cross the IPC boundary.
 ///
-/// Some variants are reserved for phases that haven't been wired yet; they're
-/// allowed to be dead code during scaffolding.
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)]
 pub enum AppError {
     #[error("IO error: {0}")]
     Io(String),

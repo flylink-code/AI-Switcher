@@ -181,6 +181,25 @@ pub fn report_frontend_startup(
     );
 }
 
+#[tauri::command]
+pub fn report_frontend_performance(kind: String, name: String, duration_ms: u64) {
+    let safe_kind = sanitize_performance_label(&kind, 32);
+    let safe_name = sanitize_performance_label(&name, 64);
+    log::info!(
+        "前端性能阶段: kind={safe_kind}, name={safe_name}, duration_ms={duration_ms}"
+    );
+}
+
+fn sanitize_performance_label(value: &str, limit: usize) -> String {
+    value
+        .chars()
+        .filter(|character| {
+            character.is_ascii_alphanumeric() || matches!(*character, '_' | '-')
+        })
+        .take(limit)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,5 +224,14 @@ mod tests {
         assert!(!should_launch_silently(true, Some(AutostartMode::Window)));
         assert!(!should_launch_silently(true, Some(AutostartMode::Off)));
         assert!(!should_launch_silently(true, None));
+    }
+
+    #[test]
+    fn performance_labels_drop_sensitive_punctuation() {
+        assert_eq!(
+            sanitize_performance_label("proxy/status?api_key=secret", 64),
+            "proxystatusapi_keysecret"
+        );
+        assert_eq!(sanitize_performance_label("page-module", 8), "page-mod");
     }
 }

@@ -44,7 +44,8 @@ pub use skills::{
     delete_skill, install_github_skill, install_zip_skill, list_skills, set_skill_enabled,
 };
 pub use system::{
-    get_autostart_config, get_autostart_enabled, report_frontend_startup,
+    get_autostart_config, get_autostart_enabled, report_frontend_performance,
+    report_frontend_startup,
     set_autostart_config, set_autostart_enabled,
 };
 pub use tools::{get_claude_code_version, run_claude_code_update};

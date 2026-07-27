@@ -286,28 +286,6 @@ pub fn reorder_providers(conn: &Connection, ordered_ids: &[String], target: Prov
     Ok(())
 }
 
-/// Insert an already-formed provider (used by migration/import).
-pub fn insert_provider_direct(conn: &Connection, provider: &Provider) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name, base_url = excluded.base_url, api_key = excluded.api_key,
-            model = excluded.model, protocol_type = excluded.protocol_type,
-            target_app = excluded.target_app, notes = excluded.notes,
-            sort_index = excluded.sort_index, is_current = excluded.is_current,
-            model_mapping_json = excluded.model_mapping_json;",
-        params![
-            provider.id, provider.name, provider.base_url, provider.api_key, provider.model,
-            provider.protocol_type.as_str(), provider.target_app.as_str(), provider.notes,
-            provider.sort_index, provider.is_current as i64, provider.created_at,
-            serde_json::to_string(&provider.model_mapping)?,
-        ],
-    )?;
-    Ok(())
-}
-
 fn next_sort_index(conn: &Connection, target: ProviderTarget) -> AppResult<i64> {
     let max: Option<i64> = conn.query_row(
         "SELECT MAX(sort_index) FROM providers WHERE target_app = ?;",

@@ -45,22 +45,27 @@ import {
   saveLogMaintenancePolicy,
 } from "@/services/api";
 import { usageOverviewOptions } from "@/lib/appQueries";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text } = Typography;
 
 export default function UsagePage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [days, setDays] = useState(30);
+  const days = usePagePreferencesStore((state) => state.usageDays);
+  const setDays = usePagePreferencesStore((state) => state.setUsageDays);
+  const logPage = usePagePreferencesStore((state) => state.usageLogPage);
+  const setLogPage = usePagePreferencesStore((state) => state.setUsageLogPage);
+  const logTargetApp = usePagePreferencesStore((state) => state.usageLogTarget);
+  const setLogTargetApp = usePagePreferencesStore((state) => state.setUsageLogTarget);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [maintaining, setMaintaining] = useState(false);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [maintenancePolicy, setMaintenancePolicy] = useState<LogMaintenancePolicy | null>(null);
   const [maintenancePreview, setMaintenancePreview] = useState<LogMaintenancePreview | null>(null);
   const [form] = Form.useForm<ModelPricingInput>();
-  const [logPage, setLogPage] = useState(0);
-  const [logTargetApp, setLogTargetApp] = useState<ProviderTarget | "all">("all");
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const overviewQuery = useQuery({
     ...usageOverviewOptions(days, logPage, logTargetApp),
@@ -75,10 +80,6 @@ export default function UsagePage() {
       setMaintenancePolicy(overviewQuery.data.maintenancePolicy);
     }
   }, [maintenanceOpen, overviewQuery.data?.maintenancePolicy]);
-
-  useEffect(() => {
-    setLogPage(0);
-  }, [days, logTargetApp]);
 
   useEffect(() => {
     if (!maintenanceOpen || !maintenancePolicy) return;
@@ -135,6 +136,15 @@ export default function UsagePage() {
     finally { setMaintaining(false); }
   };
 
+  const refreshOverview = async () => {
+    setRefreshing(true);
+    try {
+      await overviewQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const summary = dashboard?.summary;
   const totalTokens =
     (summary?.inputTokens ?? 0) +
@@ -158,13 +168,16 @@ export default function UsagePage() {
                 value,
                 label: t("usage.lastDays", { days: value }),
               }))}
-              onChange={setDays}
+              onChange={(value) => {
+                setDays(value);
+                setLogPage(0);
+              }}
             />
           </Space>
           <Button
             icon={<ReloadOutlined />}
-            loading={overviewQuery.isFetching}
-            onClick={() => void overviewQuery.refetch()}
+            loading={refreshing}
+            onClick={() => void refreshOverview()}
           >
             {t("common.refresh")}
           </Button>
@@ -222,7 +235,10 @@ export default function UsagePage() {
               size="small"
               value={logTargetApp}
               style={{ width: 160 }}
-              onChange={(value: ProviderTarget | "all") => setLogTargetApp(value)}
+              onChange={(value: ProviderTarget | "all") => {
+                setLogTargetApp(value);
+                setLogPage(0);
+              }}
               options={[
                 { value: "all", label: t("usage.allApps") },
                 { value: "claude_code", label: t("providers.claudeCode") },

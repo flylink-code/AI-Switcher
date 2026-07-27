@@ -130,8 +130,7 @@ export default function AboutPage() {
           extra={
             <Button
               size="small"
-              icon={<ReloadOutlined />}
-              loading={claudeQuery.isFetching}
+              icon={<ReloadOutlined spin={claudeQuery.isFetching} />}
               onClick={() => void claudeQuery.refetch()}
             >
               {t("common.refresh")}

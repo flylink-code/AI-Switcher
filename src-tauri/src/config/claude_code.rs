@@ -8,7 +8,7 @@
 //!
 //! See task.md §2: "切换前自动备份原配置".
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::{Map, Value};
 
@@ -228,20 +228,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     }))
 }
 
-/// Resolve the settings path. Public so commands can show it in the UI.
-#[allow(dead_code)]
-pub fn settings_path() -> PathBuf {
-    get_claude_settings_path()
-}
-
 // ---- internals -------------------------------------------------------------
-
-/// Read existing `settings.json` (as a JSON object) or start from an empty object.
-fn read_or_init_settings() -> AppResult<(Value, PathBuf)> {
-    let path = get_claude_settings_path();
-    let value = read_or_init_settings_at(&path)?;
-    Ok((value, path))
-}
 
 /// Path-injected reader. Returns an empty object when the file does not exist.
 fn read_or_init_settings_at(path: &Path) -> AppResult<Value> {

@@ -29,6 +29,7 @@ export default function SkillsPage() {
   const skillsQuery = useQuery(skillsOptions);
   const skills = skillsQuery.data ?? [];
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
   const [githubUrl, setGithubUrl] = useState("");
@@ -93,6 +94,15 @@ export default function SkillsPage() {
     }
   };
 
+  const refreshSkills = async () => {
+    setRefreshing(true);
+    try {
+      await skillsQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return <>
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Alert type="info" showIcon message={t("skills.title")} description={t("skills.description")} />
@@ -102,8 +112,8 @@ export default function SkillsPage() {
         extra={<Space>
           <Button
             icon={<ReloadOutlined />}
-            loading={skillsQuery.isFetching}
-            onClick={() => void skillsQuery.refetch()}
+            loading={refreshing}
+            onClick={() => void refreshSkills()}
           >
             {t("common.refresh")}
           </Button>

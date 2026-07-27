@@ -25,6 +25,7 @@ import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined"
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { exportProviders, importProvidersJson, testProviderConnection } from "@/services/api";
 
@@ -34,7 +35,8 @@ export default function ProvidersPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const store = useProvidersStore();
-  const [target, setTarget] = useState<ProviderTarget>("claude_code");
+  const target = usePagePreferencesStore((state) => state.providersTarget);
+  const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);

@@ -7,6 +7,9 @@
     "preparing": "正在准备应用数据…",
     "skip": "立即进入",
     "backgroundPending": "{{count}} 项将在后台继续加载",
+    "pageRecovering": "页面模块正在恢复，请稍候…",
+    "pageLoadFailed": "页面模块加载失败",
+    "retry": "重试",
     "tasks": {
       "starting": "正在初始化",
       "done": "准备完成",
@@ -160,7 +163,8 @@
     "fieldPort": "端口",
     "fieldTarget": "当前目标供应商",
     "fieldEndpoint": "代理端点",
-    "noTarget": "未选择供应商"
+    "noTarget": "未选择供应商",
+    "statusUnavailable": "代理状态暂不可用，可点击刷新重试"
   },
   "mcp": {
     "title": "MCP 服务器",

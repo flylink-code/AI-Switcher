@@ -1,12 +1,15 @@
 //! Commands for controlling and inspecting the local proxy.
 
+use std::collections::HashMap;
+
 use serde::Serialize;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 use crate::database::dao::providers::get_current_provider;
 use crate::database::dao::settings::{get_setting, set_setting};
+use crate::database::Database;
 use crate::error::AppResult;
-use crate::proxy::ProxyStatus;
+use crate::proxy::{ProxyLifecycleEvent, ProxyStatus};
 use crate::store::AppState;
 
 const DEFAULT_PORT: u16 = 15821;
@@ -22,8 +25,14 @@ struct ProxyStatusUpdated {
 
 #[tauri::command]
 pub async fn get_proxy_status(target: Option<crate::provider::ProviderTarget>, state: tauri::State<'_, AppState>) -> AppResult<ProxyStatusInfo> {
+    let started = std::time::Instant::now();
     let target = target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop);
-    Ok(status_snapshot(&state, target).await)
+    let status = status_snapshot(&state, target).await;
+    log::info!(
+        "代理状态快照读取完成: target={target:?}, duration_us={}",
+        started.elapsed().as_micros()
+    );
+    Ok(status)
 }
 
 #[tauri::command]
@@ -110,13 +119,61 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
 }
 
 fn get_saved_port(state: &AppState, target: crate::provider::ProviderTarget) -> u16 {
-    state
-        .db
+    get_saved_port_from_db(&state.db, target)
+}
+
+fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget) -> u16 {
+    db
         .with_conn(|conn| get_setting(conn, port_key(target)))
         .ok()
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
         .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1 })
+}
+
+pub fn initial_proxy_statuses(
+    db: &Database,
+) -> HashMap<crate::provider::ProviderTarget, ProxyStatus> {
+    [
+        crate::provider::ProviderTarget::ClaudeCode,
+        crate::provider::ProviderTarget::ClaudeDesktop,
+    ]
+    .into_iter()
+    .map(|target| {
+        let status = ProxyStatus {
+            running: false,
+            port: get_saved_port_from_db(db, target),
+            target_provider: db
+                .with_conn(|conn| get_current_provider(conn, target))
+                .ok()
+                .flatten()
+                .map(|provider| provider.name),
+            phase: "stopped".to_string(),
+            last_error: None,
+            checked_at: chrono::Utc::now().timestamp_millis(),
+        };
+        (target, status)
+    })
+    .collect()
+}
+
+pub fn spawn_proxy_lifecycle_listener(
+    app: tauri::AppHandle,
+    mut receiver: tokio::sync::mpsc::UnboundedReceiver<ProxyLifecycleEvent>,
+) {
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = receiver.recv().await {
+            let state = app.state::<AppState>();
+            let status = status_value(
+                &state,
+                event.target,
+                get_saved_port(&state, event.target),
+                "error",
+                Some(sanitize_status_error(&event.error)),
+            );
+            publish_status(&app, &state, event.target, status).await;
+        }
+    });
 }
 
 fn status_value(

@@ -1,23 +1,19 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { App as AntApp, ConfigProvider, theme as antdTheme } from "antd";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Alert, App as AntApp, Button, ConfigProvider, theme as antdTheme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
 import { useTranslation } from "react-i18next";
-import { AppLayout, NAV_ITEMS } from "@/components/AppLayout";
+import { AppLayout } from "@/components/AppLayout";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import { StartupScreen } from "@/components/StartupScreen";
 import { runStartupWarmup, type StartupProgress } from "@/lib/startupWarmup";
-import { reportFrontendStartup } from "@/services/api";
-const ProvidersPage = lazy(() => import("@/pages/ProvidersPage"));
-const ProxyPage = lazy(() => import("@/pages/ProxyPage"));
-const McpPage = lazy(() => import("@/pages/McpPage"));
-const PromptsPage = lazy(() => import("@/pages/PromptsPage"));
-const SkillsPage = lazy(() => import("@/pages/SkillsPage"));
-const UsagePage = lazy(() => import("@/pages/UsagePage"));
-const EnvironmentPage = lazy(() => import("@/pages/EnvironmentPage"));
-const DesktopLocalizationPage = lazy(() => import("@/pages/DesktopLocalizationPage"));
-const AboutPage = lazy(() => import("@/pages/AboutPage"));
+import { reportFrontendPerformance, reportFrontendStartup } from "@/services/api";
+import {
+  getLoadedPage,
+  preloadPage,
+  type PageKey,
+} from "@/lib/pageRegistry";
 
 export default function App() {
   const { i18n } = useTranslation();
@@ -25,8 +21,7 @@ export default function App() {
   const language = useAppStore((s) => s.language);
 
   // Default to the Providers page now that it's functional (P1).
-  const [activeKey, setActiveKey] = useState<string>("providers");
-  const [visitedKeys, setVisitedKeys] = useState<Set<string>>(() => new Set(["providers"]));
+  const [activeKey, setActiveKey] = useState<PageKey>("providers");
   const [startupReady, setStartupReady] = useState(false);
   const [startupProgress, setStartupProgress] = useState<StartupProgress>({
     completed: 0,
@@ -37,6 +32,7 @@ export default function App() {
   const startupStartedAt = useRef(performance.now());
   const startupFinished = useRef(false);
   const progressRef = useRef(startupProgress);
+  const navigationStartedAt = useRef<{ key: PageKey; startedAt: number } | null>(null);
   const finishStartup = useCallback((reason: "completed" | "timeout" | "skipped") => {
     if (startupFinished.current) return;
     startupFinished.current = true;
@@ -66,15 +62,6 @@ export default function App() {
     };
   }, [finishStartup]);
 
-  useEffect(() => {
-    setVisitedKeys((current) => {
-      if (current.has(activeKey)) return current;
-      const next = new Set(current);
-      next.add(activeKey);
-      return next;
-    });
-  }, [activeKey]);
-
   // Keep i18next in sync with the persisted language.
   useEffect(() => {
     if (i18n.language !== language) void i18n.changeLanguage(language);
@@ -91,34 +78,22 @@ export default function App() {
   );
 
   const antdLocale = language === "en-US" ? enUS : zhCN;
-
-  const renderPage = (key: string) => {
-    switch (key) {
-      case "providers":
-        return <ProvidersPage />;
-      case "proxy":
-        return <ProxyPage />;
-      case "mcp":
-        return <McpPage />;
-      case "prompts":
-        return <PromptsPage />;
-      case "skills":
-        return <SkillsPage />;
-      case "usage":
-        return <UsagePage />;
-      case "environment":
-        return <EnvironmentPage />;
-      case "localization":
-        return <DesktopLocalizationPage />;
-      case "about":
-        return <AboutPage />;
-      default:
-        return <AboutPage />;
+  const handleNavigate = useCallback((key: PageKey) => {
+    if (key === activeKey) return;
+    navigationStartedAt.current = { key, startedAt: performance.now() };
+    setActiveKey(key);
+  }, [activeKey]);
+  const handlePagePaint = useCallback((key: PageKey) => {
+    const navigation = navigationStartedAt.current;
+    if (!navigation || navigation.key !== key) return;
+    navigationStartedAt.current = null;
+    const durationMs = performance.now() - navigation.startedAt;
+    if (durationMs > 50) {
+      void reportFrontendPerformance("navigation_slow", key, durationMs).catch(
+        () => undefined,
+      );
     }
-  };
-
-  // Validate active key against nav items.
-  const validKey = NAV_ITEMS.some((n) => n.key === activeKey) ? activeKey : "environment";
+  }, []);
 
   return (
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
@@ -126,21 +101,79 @@ export default function App() {
         {!startupReady ? (
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
-          <AppLayout activeKey={validKey} onNavigate={setActiveKey}>
-            {NAV_ITEMS.filter((item) => visitedKeys.has(item.key)).map((item) => (
-                <div
-                  key={item.key}
-                  hidden={item.key !== validKey}
-                  aria-hidden={item.key !== validKey}
-                >
-                  <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
-                    {renderPage(item.key)}
-                  </Suspense>
-                </div>
-              ))}
+          <AppLayout activeKey={activeKey} onNavigate={handleNavigate}>
+            <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
           </AppLayout>
         )}
       </AntApp>
     </ConfigProvider>
   );
+}
+
+function ActivePage({
+  pageKey,
+  onPaint,
+}: {
+  pageKey: PageKey;
+  onPaint: (key: PageKey) => void;
+}) {
+  const { t } = useTranslation();
+  const [, rerender] = useReducer((value: number) => value + 1, 0);
+  const [loadAttempt, retryLoad] = useReducer((value: number) => value + 1, 0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const Page = getLoadedPage(pageKey);
+  const renderStartedAt = performance.now();
+
+  useEffect(() => {
+    if (Page) return;
+    let active = true;
+    void preloadPage(pageKey)
+      .then(() => {
+        if (active) {
+          setLoadError(null);
+          rerender();
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setLoadError(error instanceof Error ? error.message : String(error));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [Page, loadAttempt, pageKey]);
+
+  useEffect(() => {
+    if (!Page) return;
+    const frame = window.requestAnimationFrame(() => {
+      void reportFrontendPerformance(
+        "page_mount",
+        pageKey,
+        performance.now() - renderStartedAt,
+      ).catch(() => undefined);
+      onPaint(pageKey);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [Page, onPaint, pageKey]);
+
+  if (!Page) {
+    return (
+      <div style={{ padding: 24 }}>
+        {loadError ? (
+          <Alert
+            type="error"
+            showIcon
+            message={t("startup.pageLoadFailed")}
+            description={loadError}
+            action={<Button onClick={retryLoad}>{t("startup.retry")}</Button>}
+          />
+        ) : (
+          t("startup.pageRecovering")
+        )}
+      </div>
+    );
+  }
+
+  return <Page />;
 }

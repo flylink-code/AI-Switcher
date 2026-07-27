@@ -179,8 +179,17 @@ export async function restoreConfigBackup(target: ProviderTarget, name: string):
 // ---- Local proxy ------------------------------------------------------------
 
 export async function getProxyStatus(target?: ProviderTarget): Promise<ProxyStatus> {
+  const startedAt = performance.now();
   const invoke = await getInvoke();
-  return invoke<ProxyStatus>("get_proxy_status", { target });
+  try {
+    return await invoke<ProxyStatus>("get_proxy_status", { target });
+  } finally {
+    void reportFrontendPerformance(
+      "proxy_status_ipc",
+      target ?? "claude_desktop",
+      Math.round(performance.now() - startedAt),
+    ).catch(() => undefined);
+  }
 }
 
 export async function startProxy(port?: number, target?: ProviderTarget): Promise<ProxyStatus> {
@@ -323,6 +332,19 @@ export async function reportFrontendStartup(
 ): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("report_frontend_startup", { durationMs, reason, failures });
+}
+
+export async function reportFrontendPerformance(
+  kind: string,
+  name: string,
+  durationMs: number,
+): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("report_frontend_performance", {
+    kind,
+    name,
+    durationMs: Math.max(0, Math.round(durationMs)),
+  });
 }
 
 export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizationStatus> {

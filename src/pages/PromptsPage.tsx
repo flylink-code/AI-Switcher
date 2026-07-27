@@ -51,6 +51,7 @@ export default function PromptsPage() {
   const prompts = promptsQuery.data?.items ?? [];
   const live = promptsQuery.data?.livePrompt ?? null;
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<PromptDetail | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -141,6 +142,15 @@ export default function PromptsPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await promptsQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -188,8 +198,8 @@ export default function PromptsPage() {
               <Button
                 icon={<ReloadOutlined />}
                 disabled={busy}
-                loading={promptsQuery.isFetching}
-                onClick={() => void promptsQuery.refetch()}
+                loading={refreshing}
+                onClick={() => void handleRefresh()}
               >
                 {t("common.refresh")}
               </Button>

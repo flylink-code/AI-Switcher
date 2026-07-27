@@ -11,6 +11,8 @@ import {
   skillsOptions,
   usageOverviewOptions,
 } from "@/lib/appQueries";
+import { PAGE_KEYS, preloadPage } from "@/lib/pageRegistry";
+import { reportFrontendPerformance } from "@/services/api";
 
 export interface StartupProgress {
   completed: number;
@@ -24,17 +26,10 @@ type StartupTask = {
   run: () => Promise<unknown>;
 };
 
-const pageTasks: StartupTask[] = [
-  { id: "providersPage", run: () => import("@/pages/ProvidersPage") },
-  { id: "proxyPage", run: () => import("@/pages/ProxyPage") },
-  { id: "mcpPage", run: () => import("@/pages/McpPage") },
-  { id: "promptsPage", run: () => import("@/pages/PromptsPage") },
-  { id: "skillsPage", run: () => import("@/pages/SkillsPage") },
-  { id: "usagePage", run: () => import("@/pages/UsagePage") },
-  { id: "environmentPage", run: () => import("@/pages/EnvironmentPage") },
-  { id: "localizationPage", run: () => import("@/pages/DesktopLocalizationPage") },
-  { id: "aboutPage", run: () => import("@/pages/AboutPage") },
-];
+const pageTasks: StartupTask[] = PAGE_KEYS.map((key) => ({
+  id: `${key}Page`,
+  run: () => preloadPage(key),
+}));
 
 const criticalTasks: StartupTask[] = [
   {
@@ -70,16 +65,15 @@ const localDataTasks: StartupTask[] = [
 const slowTasks: StartupTask[] = [
   {
     id: "localizationData",
-    run: () => continueAfterTimeout(queryClient.fetchQuery(localizationOptions), 1_500),
+    run: () => queryClient.fetchQuery(localizationOptions),
   },
   {
     id: "versionData",
-    run: () => continueAfterTimeout(queryClient.fetchQuery(localClaudeVersionOptions), 1_500),
+    run: () => queryClient.fetchQuery(localClaudeVersionOptions),
   },
 ];
 
-const TOTAL_TASKS =
-  criticalTasks.length + localDataTasks.length + pageTasks.length + slowTasks.length;
+const TOTAL_TASKS = pageTasks.length + criticalTasks.length;
 
 export async function runStartupWarmup(
   onProgress: (progress: StartupProgress) => void,
@@ -93,13 +87,37 @@ export async function runStartupWarmup(
   const report = () => onProgress({ ...state, failures: [...state.failures] });
   report();
 
-  await runTasks(criticalTasks, 2, state, report);
-  await runTasks(localDataTasks, 3, state, report);
+  const pageModulesStartedAt = performance.now();
   await runTasks(pageTasks, 2, state, report);
-  await runTasks(slowTasks, 1, state, report);
+  void reportFrontendPerformance(
+    "startup_phase",
+    "page_modules",
+    performance.now() - pageModulesStartedAt,
+  ).catch(() => undefined);
+
+  const criticalDataStartedAt = performance.now();
+  await runTasks(criticalTasks, 2, state, report);
+  void reportFrontendPerformance(
+    "startup_phase",
+    "critical_data",
+    performance.now() - criticalDataStartedAt,
+  ).catch(() => undefined);
   state.current = "done";
   report();
+  void runBackgroundWarmup();
   return state;
+}
+
+async function runBackgroundWarmup(): Promise<void> {
+  const backgroundState: StartupProgress = {
+    completed: 0,
+    total: localDataTasks.length + slowTasks.length,
+    current: "background",
+    failures: [],
+  };
+  const silentReport = () => undefined;
+  await runTasks(localDataTasks, 3, backgroundState, silentReport);
+  await runTasks(slowTasks, 2, backgroundState, silentReport);
 }
 
 async function runTasks(
@@ -127,11 +145,4 @@ async function runTasks(
   await Promise.all(
     Array.from({ length: Math.min(concurrency, tasks.length) }, () => worker()),
   );
-}
-
-async function continueAfterTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), timeoutMs)),
-  ]);
 }

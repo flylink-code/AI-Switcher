@@ -21,6 +21,8 @@ const LOCALIZATION_LOCALE: &str = "zh-CN";
 const MAX_PACK_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_HARDCODED_REPLACEMENTS: usize = 5_000;
 const BACKUPS_TO_KEEP: usize = 3;
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const FRONTEND_FILE: &str = "frontend-zh-CN.json";
 const DESKTOP_FILE: &str = "desktop-zh-CN.json";
@@ -166,7 +168,6 @@ pub fn select_desktop_localization_pack() -> AppResult<Option<String>> {
 
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
         let script = concat!(
             "Add-Type -AssemblyName System.Windows.Forms;",
             "$d=New-Object System.Windows.Forms.FolderBrowserDialog;",
@@ -175,9 +176,10 @@ pub fn select_desktop_localization_pack() -> AppResult<Option<String>> {
             "if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)",
             "{[Console]::OutputEncoding=[Text.Encoding]::UTF8;[Console]::Out.Write($d.SelectedPath)}"
         );
-        let output = Command::new(windows_powershell())
-            .args(["-NoProfile", "-STA", "-Command", script])
-            .creation_flags(0x0800_0000)
+        let mut command = Command::new(windows_powershell());
+        command.args(["-NoProfile", "-STA", "-Command", script]);
+        hide_console_window(&mut command);
+        let output = command
             .output()
             .map_err(|error| AppError::Other(format!("无法打开目录选择器: {error}")))?;
         if !output.status.success() {
@@ -452,9 +454,10 @@ fn detect_install_with_diagnostics() -> AppResult<InstallDetection> {
         "Sort-Object Version -Descending);$p=$all|Select-Object -First 1;",
         "if($p){[Console]::Out.Write($p.InstallLocation+'|'+$p.Version+'|'+$all.Count)}"
     );
-    let output = Command::new(windows_powershell())
-        .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .output()?;
+    let mut command = Command::new(windows_powershell());
+    command.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    hide_console_window(&mut command);
+    let output = command.output()?;
     if !output.status.success() {
         diagnostics.push(format!(
             "AppX 查询失败: {}",
@@ -601,8 +604,6 @@ fn launch_elevated_worker(
     job_path: &Path,
     result_path: &Path,
 ) -> AppResult<DesktopLocalizationActionResult> {
-    use std::os::windows::process::CommandExt;
-
     let executable = std::env::current_exe()?;
     let executable_quoted = executable.to_string_lossy().replace('\'', "''");
     let encoded_job = hex::encode(job_path.to_string_lossy().as_bytes());
@@ -611,9 +612,10 @@ fn launch_elevated_worker(
          -ArgumentList '--desktop-localization-worker-hex','{encoded_job}' \
          -Verb RunAs -Wait -PassThru -ErrorAction Stop; exit $p.ExitCode"
     );
-    let status = Command::new(windows_powershell())
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .creation_flags(0x0800_0000)
+    let mut command = Command::new(windows_powershell());
+    command.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+    hide_console_window(&mut command);
+    let status = command
         .status()
         .map_err(|error| AppError::Other(format!("无法请求管理员权限: {error}")))?;
     if !result_path.is_file() {
@@ -1233,7 +1235,6 @@ fn safe_component(value: &str) -> String {
 fn ensure_write_access(path: &Path) -> AppResult<()> {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
         let username = std::env::var("USERNAME")
             .map_err(|_| AppError::Config("无法确定 Windows 用户名".to_string()))?;
         let identity = std::env::var("USERDOMAIN")
@@ -1242,11 +1243,10 @@ fn ensure_write_access(path: &Path) -> AppResult<()> {
             .map(|domain| format!("{domain}\\{username}"))
             .unwrap_or(username);
         let grant = format!("{identity}:(OI)(CI)F");
-        let output = Command::new(windows_system_executable("icacls.exe"))
-            .arg(path)
-            .args(["/grant", &grant, "/T", "/C", "/Q"])
-            .creation_flags(0x0800_0000)
-            .output()?;
+        let mut command = Command::new(windows_system_executable("icacls.exe"));
+        command.arg(path).args(["/grant", &grant, "/T", "/C", "/Q"]);
+        hide_console_window(&mut command);
+        let output = command.output()?;
         if !output.status.success() {
             return Err(AppError::Config(format!(
                 "无法取得 Claude Desktop 资源目录写入权限: {}",
@@ -1262,11 +1262,10 @@ fn ensure_write_access(path: &Path) -> AppResult<()> {
 fn stop_claude() {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        let _ = Command::new(windows_system_executable("taskkill.exe"))
-            .args(["/IM", "Claude.exe", "/T", "/F"])
-            .creation_flags(0x0800_0000)
-            .status();
+        let mut command = Command::new(windows_system_executable("taskkill.exe"));
+        command.args(["/IM", "Claude.exe", "/T", "/F"]);
+        hide_console_window(&mut command);
+        let _ = command.status();
     }
 }
 
@@ -1292,6 +1291,12 @@ fn windows_powershell() -> PathBuf {
     windows_system_executable("WindowsPowerShell")
         .join("v1.0")
         .join("powershell.exe")
+}
+
+#[cfg(windows)]
+fn hide_console_window(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    command.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[cfg(test)]

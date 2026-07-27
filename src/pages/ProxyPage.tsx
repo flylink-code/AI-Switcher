@@ -5,7 +5,6 @@ import {
   Card,
   Descriptions,
   InputNumber,
-  Skeleton,
   Space,
   Segmented,
   Tag,
@@ -17,11 +16,12 @@ import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { ProviderTarget } from "@/types/backend";
 import { setProxyPort, startProxy, stopProxy } from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text } = Typography;
 
@@ -30,11 +30,10 @@ export default function ProxyPage() {
   const queryClient = useQueryClient();
   const [port, setPort] = useState<number>(15821);
   const [busy, setBusy] = useState(false);
-  const [target, setTarget] = useState<ProviderTarget>("claude_desktop");
-  const statusQuery = useQuery({
-    ...proxyStatusOptions(target),
-    placeholderData: keepPreviousData,
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const target = usePagePreferencesStore((state) => state.proxyTarget);
+  const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
+  const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
 
   useEffect(() => {
@@ -68,6 +67,15 @@ export default function ProxyPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await statusQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Alert
@@ -76,6 +84,9 @@ export default function ProxyPage() {
           message={t("proxy.title")}
           description={t("proxy.description")}
         />
+        {statusQuery.error && (
+          <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
+        )}
 
         <Segmented<ProviderTarget>
           value={target}
@@ -97,15 +108,15 @@ export default function ProxyPage() {
           extra={
             <Button
               icon={<ReloadOutlined />}
-              loading={statusQuery.isFetching}
-              onClick={() => void statusQuery.refetch()}
+              loading={refreshing}
+              onClick={() => void handleRefresh()}
             >
               {t("proxy.refresh")}
             </Button>
           }
         >
           {!status ? (
-            <Skeleton active paragraph={{ rows: 3 }} />
+            <Text type="secondary">{t("proxy.statusUnavailable")}</Text>
           ) : (
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label={t("proxy.fieldRunning")}>

@@ -23,7 +23,7 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc::UnboundedSender, oneshot};
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
@@ -57,6 +57,7 @@ struct UsageCounts {
 /// Runtime handle for the local proxy.
 pub struct ProxyManager {
     db: Arc<Database>,
+    lifecycle_tx: UnboundedSender<ProxyLifecycleEvent>,
     code: Option<ProxyRuntime>,
     desktop: Option<ProxyRuntime>,
 }
@@ -68,39 +69,15 @@ struct ProxyRuntime {
 }
 
 impl ProxyManager {
-    pub fn new(db: Arc<Database>) -> Self {
+    pub fn new(
+        db: Arc<Database>,
+        lifecycle_tx: UnboundedSender<ProxyLifecycleEvent>,
+    ) -> Self {
         Self {
             db,
+            lifecycle_tx,
             code: None,
             desktop: None,
-        }
-    }
-
-    /// Whether the server is currently running.
-    pub fn status(&self) -> ProxyStatus {
-        let mut active = Vec::new();
-        for (target, runtime) in [(ProviderTarget::ClaudeCode, &self.code), (ProviderTarget::ClaudeDesktop, &self.desktop)] {
-            if let Some(runtime) = runtime.as_ref().filter(|runtime| !runtime.handle.is_finished()) {
-                let provider = self.db.with_conn(|conn| get_current_provider(conn, target))
-                    .ok()
-                    .flatten()
-                    .map(|provider| provider.name);
-                active.push((runtime.port, provider));
-            }
-        }
-        let running = !active.is_empty();
-        let port = active.first().map(|(port, _)| *port).unwrap_or(DEFAULT_PORT);
-        let target_provider = active.into_iter()
-            .filter_map(|(_, provider)| provider)
-            .collect::<Vec<_>>();
-        let target_provider = (!target_provider.is_empty()).then(|| target_provider.join(" / "));
-        ProxyStatus {
-            running,
-            port,
-            target_provider,
-            phase: if running { "running" } else { "stopped" }.to_string(),
-            last_error: None,
-            checked_at: chrono::Utc::now().timestamp_millis(),
         }
     }
 
@@ -177,9 +154,14 @@ impl ProxyManager {
             let _ = shutdown_rx.await;
         });
 
+        let lifecycle_tx = self.lifecycle_tx.clone();
         let handle = tokio::spawn(async move {
             if let Err(e) = server.await {
                 log::error!("本地代理服务异常退出: {e}");
+                let _ = lifecycle_tx.send(ProxyLifecycleEvent {
+                    target,
+                    error: e.to_string(),
+                });
             }
         });
 
@@ -251,6 +233,12 @@ pub struct ProxyStatus {
     pub phase: String,
     pub last_error: Option<String>,
     pub checked_at: i64,
+}
+
+#[derive(Debug)]
+pub struct ProxyLifecycleEvent {
+    pub target: ProviderTarget,
+    pub error: String,
 }
 
 #[derive(Clone)]

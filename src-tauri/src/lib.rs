@@ -13,7 +13,6 @@ mod error;
 mod mcp;
 mod prompts;
 mod provider;
-mod provider_presets;
 mod proxy;
 mod secrets;
 mod skills;
@@ -32,7 +31,7 @@ use crate::commands::{
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_skill, install_zip_skill, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
-    report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_port,
+    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     get_log_maintenance_policy, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
@@ -132,6 +131,7 @@ pub fn run() {
             set_autostart_enabled,
             get_autostart_config,
             set_autostart_config,
+            report_frontend_performance,
             report_frontend_startup,
             get_usage_dashboard,
             list_model_pricing,
@@ -214,11 +214,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         log::error!("供应商初始化/导入失败: {e}");
     }
 
+    let initial_proxy_status = commands::proxy::initial_proxy_statuses(&db);
+    let (proxy_lifecycle_tx, proxy_lifecycle_rx) =
+        tokio::sync::mpsc::unbounded_channel();
     app.manage(AppState {
         db: Arc::clone(&db),
-        proxy: tokio::sync::Mutex::new(ProxyManager::new(Arc::clone(&db))),
-        proxy_status: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+        proxy: tokio::sync::Mutex::new(ProxyManager::new(
+            Arc::clone(&db),
+            proxy_lifecycle_tx,
+        )),
+        proxy_status: tokio::sync::RwLock::new(initial_proxy_status),
     });
+    commands::proxy::spawn_proxy_lifecycle_listener(
+        app.handle().clone(),
+        proxy_lifecycle_rx,
+    );
 
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {

@@ -7,6 +7,9 @@
     "preparing": "Preparing application data…",
     "skip": "Enter now",
     "backgroundPending": "{{count}} items will continue loading in the background",
+    "pageRecovering": "Restoring the page module, please wait…",
+    "pageLoadFailed": "Failed to load the page module",
+    "retry": "Retry",
     "tasks": {
       "starting": "Initializing",
       "done": "Ready",
@@ -160,7 +163,8 @@
     "fieldPort": "Port",
     "fieldTarget": "Current target provider",
     "fieldEndpoint": "Proxy endpoint",
-    "noTarget": "No provider selected"
+    "noTarget": "No provider selected",
+    "statusUnavailable": "Proxy status is unavailable. Refresh to try again."
   },
   "mcp": {
     "title": "MCP Servers",
