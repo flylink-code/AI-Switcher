@@ -219,6 +219,15 @@ export interface McpImportSummary {
   updated: number;
 }
 
+export interface RegistryMcpServer {
+  name: string;
+  title: string;
+  description: string;
+  version: string;
+  installable: boolean;
+  supportNote: string;
+}
+
 /** A stored CLAUDE.md prompt preset. */
 export interface PromptInfo {
   name: string;

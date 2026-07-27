@@ -13,6 +13,7 @@ import type {
   McpImportSummary,
   McpServer,
   McpServerInput,
+  RegistryMcpServer,
   McpTarget,
   PathsInfo,
   PromptDetail,
@@ -243,6 +244,24 @@ export async function toggleMcpServer(
 export async function importMcpServers(): Promise<McpImportSummary> {
   const invoke = await getInvoke();
   return invoke<McpImportSummary>("import_mcp_servers", {});
+}
+
+export async function searchMcpRegistry(query: string): Promise<RegistryMcpServer[]> {
+  const invoke = await getInvoke();
+  return invoke<RegistryMcpServer[]>("search_mcp_registry", { query });
+}
+
+export async function installMcpRegistryServer(
+  name: string,
+  enabledClaudeCode: boolean,
+  enabledClaudeDesktop: boolean,
+): Promise<McpServer> {
+  const invoke = await getInvoke();
+  return invoke<McpServer>("install_mcp_registry_server", {
+    name,
+    enabledClaudeCode,
+    enabledClaudeDesktop,
+  });
 }
 
 // ---- Prompt presets ---------------------------------------------------------

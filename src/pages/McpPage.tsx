@@ -18,17 +18,20 @@ import {
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { McpServer, McpServerInput, McpTarget } from "@/types/backend";
+import type { McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
 import {
   deleteMcpServer,
   importMcpServers,
+  installMcpRegistryServer,
   saveMcpServer,
+  searchMcpRegistry,
   toggleMcpServer,
 } from "@/services/api";
 import { mcpServersOptions } from "@/lib/appQueries";
@@ -57,6 +60,12 @@ export default function McpPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<McpServer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [registryOpen, setRegistryOpen] = useState(false);
+  const [registryQuery, setRegistryQuery] = useState("");
+  const [registryResults, setRegistryResults] = useState<RegistryMcpServer[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryCode, setRegistryCode] = useState(true);
+  const [registryDesktop, setRegistryDesktop] = useState(false);
   const [form] = Form.useForm<FormValues>();
 
   const openCreate = () => {
@@ -175,6 +184,35 @@ export default function McpPage() {
     }
   };
 
+  const searchRegistry = async () => {
+    setRegistryLoading(true);
+    try {
+      setRegistryResults(await searchMcpRegistry(registryQuery));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRegistryLoading(false);
+    }
+  };
+
+  const openRegistry = () => {
+    setRegistryOpen(true);
+    if (!registryResults.length) void searchRegistry();
+  };
+
+  const installRegistryServer = async (server: RegistryMcpServer) => {
+    setBusy(true);
+    try {
+      await installMcpRegistryServer(server.name, registryCode, registryDesktop);
+      void message.success(t("mcp.registryInstalled", { name: server.title }));
+      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const columns: TableColumnsType<McpServer> = [
     {
       title: t("mcp.colName"),
@@ -256,6 +294,9 @@ export default function McpPage() {
           title={t("mcp.title")}
           extra={
             <Space>
+              <Button icon={<GlobalOutlined />} disabled={busy} onClick={openRegistry}>
+                {t("mcp.registryBrowse")}
+              </Button>
               <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
                 {t("mcp.import")}
               </Button>
@@ -320,6 +361,58 @@ export default function McpPage() {
             <SaveOutlined /> {t("mcp.syncNote")}
           </Paragraph>
         </Form>
+      </Modal>
+
+      <Modal
+        title={t("mcp.registryTitle")}
+        open={registryOpen}
+        onCancel={() => setRegistryOpen(false)}
+        footer={null}
+        width={920}
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Alert type="info" showIcon message={t("mcp.registryNotice")} />
+          <Input.Search
+            value={registryQuery}
+            onChange={(e) => setRegistryQuery(e.target.value)}
+            onSearch={() => void searchRegistry()}
+            placeholder={t("mcp.registrySearchPlaceholder")}
+            loading={registryLoading}
+            enterButton={t("mcp.registrySearch")}
+          />
+          <Space>
+            <Checkbox checked={registryCode} disabled={busy} onChange={(e) => setRegistryCode(e.target.checked)}>{t("mcp.enableCode")}</Checkbox>
+            <Checkbox checked={registryDesktop} disabled={busy} onChange={(e) => setRegistryDesktop(e.target.checked)}>{t("mcp.enableDesktop")}</Checkbox>
+          </Space>
+          <Table<RegistryMcpServer>
+            size="small"
+            rowKey="name"
+            dataSource={registryResults}
+            loading={registryLoading}
+            pagination={{ pageSize: 10, hideOnSinglePage: true }}
+            locale={{ emptyText: t("mcp.registryEmpty") }}
+            columns={[
+              {
+                title: t("mcp.colName"),
+                dataIndex: "title",
+                render: (_: string, server) => <Space direction="vertical" size={0}><Text strong>{server.title}</Text><Text type="secondary" code>{server.name}</Text></Space>,
+              },
+              { title: t("mcp.registryVersion"), dataIndex: "version", width: 100, render: (value: string) => value || "—" },
+              {
+                title: t("mcp.description"),
+                dataIndex: "description",
+                render: (value: string, server) => value || <Text type="secondary">{server.supportNote || "—"}</Text>,
+              },
+              {
+                title: t("mcp.colActions"),
+                width: 120,
+                render: (_: unknown, server) => <Button type="link" disabled={!server.installable || busy} loading={busy} onClick={() => void installRegistryServer(server)}>
+                  {server.installable ? t("mcp.registryInstall") : t("mcp.registryManual")}
+                </Button>,
+              },
+            ]}
+          />
+        </Space>
       </Modal>
     </>
   );

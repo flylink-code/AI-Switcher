@@ -26,8 +26,8 @@ pub use desktop_localization::{
     validate_desktop_localization_pack,
 };
 pub use mcp::{
-    delete_mcp_server, import_mcp_servers, list_mcp_servers, save_mcp_server,
-    toggle_mcp_server,
+    delete_mcp_server, import_mcp_servers, install_mcp_registry_server, list_mcp_servers,
+    save_mcp_server, search_mcp_registry, toggle_mcp_server,
 };
 pub use paths::get_paths;
 pub use prompts::{

@@ -11,6 +11,7 @@ mod config;
 mod database;
 mod error;
 mod mcp;
+mod mcp_registry;
 mod prompts;
 mod provider;
 mod proxy;
@@ -33,8 +34,10 @@ use crate::commands::{
     get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
+    install_mcp_registry_server,
     get_skill_repository, list_github_repository_skills, set_skill_repository, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
+    search_mcp_registry,
     report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
@@ -120,6 +123,8 @@ pub fn run() {
             delete_mcp_server,
             toggle_mcp_server,
             import_mcp_servers,
+            search_mcp_registry,
+            install_mcp_registry_server,
             list_prompts,
             read_prompt,
             save_prompt,

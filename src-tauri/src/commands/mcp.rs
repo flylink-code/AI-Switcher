@@ -5,6 +5,9 @@ use crate::error::AppResult;
 use crate::mcp::{
     self, McpImportSummary, McpServer, McpServerInput, McpTarget,
 };
+use crate::mcp_registry::{
+    resolve_mcp_registry_server, search_mcp_registry as search_registry, RegistryMcpServer,
+};
 use crate::store::AppState;
 
 /// List all unified MCP servers.
@@ -82,8 +85,36 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
     })
 }
 
+/// Search the public official MCP Registry. Results are read-only metadata;
+/// unsupported entries are returned with an explanation instead of a guessed config.
+#[tauri::command]
+pub async fn search_mcp_registry(query: String) -> AppResult<Vec<RegistryMcpServer>> {
+    search_registry(&query).await
+}
+
+/// Add one supported Registry entry to the unified local MCP database and sync it.
+#[tauri::command]
+pub async fn install_mcp_registry_server(
+    name: String,
+    enabled_claude_code: bool,
+    enabled_claude_desktop: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<McpServer> {
+    let server_config = resolve_mcp_registry_server(&name).await?;
+    let input = McpServerInput {
+        id: None,
+        name: name.trim().to_string(),
+        server_config,
+        enabled_claude_code,
+        enabled_claude_desktop,
+    };
+    let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
+    sync_all(&state)?;
+    Ok(saved)
+}
+
 /// Load all servers from the DB and write the enabled subsets to both apps.
-fn sync_all(state: &AppState) -> AppResult<()> {
+pub fn sync_all(state: &AppState) -> AppResult<()> {
     let servers = state.db.with_conn(|conn| dao::list_mcp_servers(conn))?;
     mcp::sync_to_files(&servers)
 }
