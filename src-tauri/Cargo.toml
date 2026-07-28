@@ -1,6 +1,6 @@
 [package]
 name = "claude-switcher"
-version = "0.2.9"
+version = "0.3.0"
 description = "Unified third-party API configuration manager for Claude Desktop & Claude Code"
 authors = ["Claude Switcher"]
 edition = "2021"
@@ -51,6 +51,9 @@ thiserror = "1"
 log = "0.4"
 sha2 = "0.10"
 hex = "0.4"
+url = "2"
+calamine = "0.26"
+rust_xlsxwriter = "0.79"
 
 # Credential storage (Windows Credential Manager / macOS Keychain / Linux Secret Service).
 # P7 fails closed when the OS backend is unavailable.

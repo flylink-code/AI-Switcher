@@ -24,7 +24,7 @@ import {
   restartApp,
   resolveCloseRequest,
 } from "@/services/api";
-import { checkForAppUpdate, type AppUpdate } from "@/lib/appUpdater";
+import { checkForAppUpdate, installAvailableAppUpdate, type AppUpdate } from "@/lib/appUpdater";
 import {
   getLoadedPage,
   preloadPage,
@@ -187,7 +187,7 @@ export default function App() {
     if (!availableUpdate) return;
     setInstallingUpdate(true);
     try {
-      await availableUpdate.downloadAndInstall();
+      await installAvailableAppUpdate(availableUpdate.version);
       await restartApp();
     } catch (error) {
       console.error("Application update installation failed", error);

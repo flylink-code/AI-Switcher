@@ -393,6 +393,22 @@ export interface ModelPricingInput {
   currency: string;
 }
 
+export interface UpdateMirrorSettings {
+  useMirror: boolean;
+  mirrorBase: string;
+}
+
+export interface AppUpdateInfo {
+  version: string;
+}
+
+export interface PricingImportPreview {
+  newModels: string[];
+  updatedModels: string[];
+  errors: string[];
+  validRows: number;
+}
+
 export interface PricingCatalog {
   version: string;
   entries: ModelPricing[];

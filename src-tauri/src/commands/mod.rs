@@ -1,6 +1,7 @@
 //! Tauri command handlers exposed to the frontend.
 
 pub mod backend;
+pub mod app_update;
 pub mod backup;
 pub mod db;
 pub mod data_root;
@@ -20,6 +21,7 @@ pub mod tools;
 pub mod usage;
 
 pub use backend::ping;
+pub use app_update::{check_app_update, install_app_update};
 pub use backup::{backup_now, export_library_backup, preview_library_backup};
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
@@ -66,7 +68,7 @@ pub use system::{
     get_dismissed_onboarding_tips,
     report_frontend_performance, report_frontend_startup, resolve_close_request,
     restart_app, restore_onboarding_tips, set_app_language, set_autostart_config, set_autostart_enabled,
-    set_close_behavior,
+    set_close_behavior, get_update_mirror_settings, set_update_mirror_settings,
 };
 pub use sync::{
     delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync,
@@ -74,7 +76,7 @@ pub use sync::{
 };
 pub use tools::{get_claude_code_version, run_claude_code_update};
 pub use usage::{
-    delete_model_pricing, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, list_model_pricing,
+    delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, import_model_pricing_xlsx, list_model_pricing,
     list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,
-    save_log_maintenance_policy, save_model_pricing,
+    preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
 };

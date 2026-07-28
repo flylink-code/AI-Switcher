@@ -1,13 +1,14 @@
-import { check } from "@tauri-apps/plugin-updater";
+import { checkAppUpdate, installAppUpdate } from "@/services/api";
+import type { AppUpdateInfo } from "@/types/backend";
 
-export type AppUpdate = NonNullable<Awaited<ReturnType<typeof check>>>;
+export type AppUpdate = AppUpdateInfo;
 
 export async function checkForAppUpdate(timeoutMessage: string): Promise<AppUpdate | null> {
   const attempts = 2;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await withTimeout(check(), 60_000, timeoutMessage);
+      return await withTimeout(checkAppUpdate(), 60_000, timeoutMessage);
     } catch (error) {
       if (attempt === attempts) throw error;
       console.warn("Application update check failed; retrying once", error);
@@ -15,6 +16,10 @@ export async function checkForAppUpdate(timeoutMessage: string): Promise<AppUpda
   }
 
   throw new Error(timeoutMessage);
+}
+
+export async function installAvailableAppUpdate(version: string): Promise<void> {
+  await installAppUpdate(version);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {

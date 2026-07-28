@@ -14,6 +14,8 @@ const AUTOSTART_ARGS_MIGRATED_KEY: &str = "autostart_args_migrated_v1";
 const APP_LANGUAGE_KEY: &str = "app.language";
 const CLOSE_BEHAVIOR_KEY: &str = "app.close_behavior";
 const DISMISSED_ONBOARDING_TIPS_KEY: &str = "ui.dismissed_onboarding_tips";
+const UPDATE_MIRROR_SETTINGS_KEY: &str = "app.update_mirror_settings";
+const DEFAULT_UPDATE_MIRROR_BASE: &str = "https://gh-proxy.com/";
 const ONBOARDING_TIP_KEYS: &[&str] = &[
     "proxy",
     "mcp",
@@ -40,6 +42,13 @@ pub enum CloseBehavior {
     Ask,
     Tray,
     Quit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMirrorSettings {
+    pub use_mirror: bool,
+    pub mirror_base: String,
 }
 
 impl CloseBehavior {
@@ -128,6 +137,51 @@ pub fn set_app_language(
 #[tauri::command]
 pub fn restart_app(app: tauri::AppHandle) {
     app.request_restart();
+}
+
+#[tauri::command]
+pub fn get_update_mirror_settings(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<UpdateMirrorSettings> {
+    let configured = state.db.with_conn(|conn| get_setting(conn, UPDATE_MIRROR_SETTINGS_KEY))?
+        .and_then(|value| serde_json::from_str::<UpdateMirrorSettings>(&value).ok());
+    Ok(configured.unwrap_or_else(|| default_update_mirror_settings(&state.db)))
+}
+
+#[tauri::command]
+pub fn set_update_mirror_settings(
+    settings: UpdateMirrorSettings,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<UpdateMirrorSettings> {
+    let settings = normalize_update_mirror_settings(settings)?;
+    set_setting_value(
+        &state.db,
+        UPDATE_MIRROR_SETTINGS_KEY,
+        &serde_json::to_string(&settings)?,
+    )?;
+    Ok(settings)
+}
+
+fn default_update_mirror_settings(db: &Database) -> UpdateMirrorSettings {
+    UpdateMirrorSettings {
+        use_mirror: read_app_language(db).unwrap_or_else(|_| "zh-CN".to_string()) == "zh-CN",
+        mirror_base: DEFAULT_UPDATE_MIRROR_BASE.to_string(),
+    }
+}
+
+fn normalize_update_mirror_settings(settings: UpdateMirrorSettings) -> AppResult<UpdateMirrorSettings> {
+    let mirror_base = settings.mirror_base.trim();
+    let parsed = url::Url::parse(mirror_base)
+        .map_err(|error| AppError::Config(format!("GitHub 镜像地址无效: {error}")))?;
+    if parsed.scheme() != "https" || parsed.host_str().is_none()
+        || !parsed.username().is_empty() || parsed.password().is_some()
+        || parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(AppError::Config("GitHub 镜像地址必须是无凭据、无参数的 HTTPS 前缀".to_string()));
+    }
+    Ok(UpdateMirrorSettings {
+        use_mirror: settings.use_mirror,
+        mirror_base: format!("{}/", mirror_base.trim_end_matches('/')),
+    })
 }
 
 #[tauri::command]
@@ -402,6 +456,23 @@ mod tests {
         assert!(validate_app_language("zh-CN").is_ok());
         assert!(validate_app_language("en-US").is_ok());
         assert!(validate_app_language("ja-JP").is_err());
+    }
+
+    #[test]
+    fn update_mirror_requires_a_safe_https_prefix() {
+        let normalized = normalize_update_mirror_settings(UpdateMirrorSettings {
+            use_mirror: true,
+            mirror_base: "https://gh-proxy.com".to_string(),
+        }).unwrap();
+        assert_eq!(normalized.mirror_base, "https://gh-proxy.com/");
+        assert!(normalize_update_mirror_settings(UpdateMirrorSettings {
+            use_mirror: true,
+            mirror_base: "http://gh-proxy.com/".to_string(),
+        }).is_err());
+        assert!(normalize_update_mirror_settings(UpdateMirrorSettings {
+            use_mirror: true,
+            mirror_base: "https://user@example.com/".to_string(),
+        }).is_err());
     }
 
     #[test]

@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  Descriptions,
   Drawer,
   Empty,
   Form,
@@ -19,6 +20,7 @@ import {
   Tag,
   Typography,
   message,
+  theme,
 } from "antd";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
@@ -29,19 +31,24 @@ import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined"
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import type {
   LogMaintenancePolicy,
   LogMaintenancePreview,
   ModelPricing,
   ModelPricingInput,
+  PricingImportPreview,
   PaginatedProxyLogs,
   ProviderTarget,
   UsageDashboard,
 } from "@/types/backend";
 import {
   deleteModelPricing,
+  exportModelPricingXlsx,
+  importModelPricingXlsx,
   maintainProxyLogs,
   previewProxyLogMaintenance,
+  previewModelPricingXlsx,
   saveModelPricing,
   saveLogMaintenancePolicy,
 } from "@/services/api";
@@ -62,6 +69,9 @@ export default function UsagePage() {
   const setLogTargetApp = usePagePreferencesStore((state) => state.setUsageLogTarget);
   const [pricingManagerOpen, setPricingManagerOpen] = useState(false);
   const [pricingFormOpen, setPricingFormOpen] = useState(false);
+  const [pricingImportPath, setPricingImportPath] = useState<string | null>(null);
+  const [pricingImportPreview, setPricingImportPreview] = useState<PricingImportPreview | null>(null);
+  const [pricingImportOpen, setPricingImportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [maintaining, setMaintaining] = useState(false);
@@ -128,6 +138,50 @@ export default function UsagePage() {
       await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
     } catch (e) {
       void message.error(errMsg(e));
+    }
+  };
+
+  const exportPricing = async () => {
+    try {
+      const destination = await save({
+        defaultPath: "AI-Switcher-model-pricing.xlsx",
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+      });
+      if (!destination) return;
+      const path = await exportModelPricingXlsx(destination);
+      void message.success(t("usage.pricingExported", { path }));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const selectPricingImport = async () => {
+    try {
+      const selected = await open({ multiple: false, filters: [{ name: "Excel", extensions: ["xlsx"] }] });
+      if (!selected || Array.isArray(selected)) return;
+      const preview = await previewModelPricingXlsx(selected);
+      setPricingImportPath(selected);
+      setPricingImportPreview(preview);
+      setPricingImportOpen(true);
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const applyPricingImport = async () => {
+    if (!pricingImportPath || !pricingImportPreview || pricingImportPreview.errors.length) return;
+    setSaving(true);
+    try {
+      const result = await importModelPricingXlsx(pricingImportPath);
+      setPricingImportOpen(false);
+      setPricingImportPath(null);
+      setPricingImportPreview(null);
+      void message.success(t("usage.pricingImported", { count: result.validRows }));
+      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -346,9 +400,11 @@ export default function UsagePage() {
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <Space style={{ justifyContent: "space-between", width: "100%" }}>
             <Text type="secondary">{t("usage.cachePricingIncluded")}</Text>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setPricingFormOpen(true)}>
-              {t("usage.addPricing")}
-            </Button>
+            <Space wrap>
+              <Button onClick={() => void exportPricing()}>{t("usage.exportPricing")}</Button>
+              <Button onClick={() => void selectPricingImport()}>{t("usage.importPricing")}</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setPricingFormOpen(true)}>{t("usage.addPricing")}</Button>
+            </Space>
           </Space>
           {pricingFormOpen && <Card size="small" title={t("usage.addPricing")}>
             <Form form={form} layout="vertical" initialValues={{ currency: "USD", inputPricePerMillion: 0, cacheReadPricePerMillion: 0, cacheWritePricePerMillion: 0, outputPricePerMillion: 0, batchInputPricePerMillion: 0, batchOutputPricePerMillion: 0 }}>
@@ -391,6 +447,28 @@ export default function UsagePage() {
               { title: t("usage.actions"), render: (_, row: ModelPricing) => <Button danger type="link" onClick={() => void removePricing(row.model)}>{t("usage.delete")}</Button> },
             ]}
           />
+        </Space>
+      </Modal>
+
+      <Modal
+        title={t("usage.importPricing")}
+        open={pricingImportOpen}
+        okText={t("usage.confirmImportPricing")}
+        okButtonProps={{ disabled: !pricingImportPreview || pricingImportPreview.errors.length > 0 }}
+        confirmLoading={saving}
+        onOk={() => void applyPricingImport()}
+        onCancel={() => { setPricingImportOpen(false); setPricingImportPath(null); setPricingImportPreview(null); }}
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Text type="secondary" style={{ wordBreak: "break-all" }}>{pricingImportPath}</Text>
+          {pricingImportPreview && <>
+            <Descriptions size="small" column={1} bordered>
+              <Descriptions.Item label={t("usage.importValidRows")}>{pricingImportPreview.validRows}</Descriptions.Item>
+              <Descriptions.Item label={t("usage.importNewModels")}>{pricingImportPreview.newModels.join(", ") || "—"}</Descriptions.Item>
+              <Descriptions.Item label={t("usage.importUpdatedModels")}>{pricingImportPreview.updatedModels.join(", ") || "—"}</Descriptions.Item>
+            </Descriptions>
+            {pricingImportPreview.errors.length > 0 && <Alert type="error" showIcon message={t("usage.importPricingErrors")} description={pricingImportPreview.errors.join("\n")} />}
+          </>}
         </Space>
       </Modal>
 
@@ -450,6 +528,7 @@ export default function UsagePage() {
 }
 
 function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["trend"]; t: (key: string) => string; expanded?: boolean }) {
+  const { token } = theme.useToken();
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(720);
   useEffect(() => {
@@ -475,11 +554,11 @@ function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["
     color: string;
     cost?: boolean;
   }> = [
-    { key: "inputTokens", label: t("usage.inputTokens"), color: "#34cfa0" },
-    { key: "outputTokens", label: t("usage.outputTokens"), color: "#5b9cf6" },
-    { key: "cacheCreationInputTokens", label: t("usage.cacheWriteTokens"), color: "#f5bd23" },
-    { key: "cacheReadInputTokens", label: t("usage.cacheReadTokens"), color: "#38bdf8" },
-    { key: "estimatedCost", label: t("usage.estimatedCost"), color: "#f97316", cost: true },
+    { key: "inputTokens", label: t("usage.inputTokens"), color: token.colorSuccess },
+    { key: "outputTokens", label: t("usage.outputTokens"), color: token.colorInfo },
+    { key: "cacheCreationInputTokens", label: t("usage.cacheWriteTokens"), color: token.colorWarning },
+    { key: "cacheReadInputTokens", label: t("usage.cacheReadTokens"), color: token.colorPrimary },
+    { key: "estimatedCost", label: t("usage.estimatedCost"), color: token.colorError, cost: true },
   ];
   const width = containerWidth;
   const height = expanded

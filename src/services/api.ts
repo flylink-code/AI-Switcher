@@ -60,6 +60,9 @@ import type {
   SyncTarget,
   SessionProvider,
   SessionScanResult,
+  AppUpdateInfo,
+  UpdateMirrorSettings,
+  PricingImportPreview,
 } from "@/types/backend";
 
 async function getInvoke() {
@@ -587,6 +590,21 @@ export async function deleteModelPricing(model: string): Promise<void> {
   return invoke<void>("delete_model_pricing", { model });
 }
 
+export async function exportModelPricingXlsx(destinationPath: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("export_model_pricing_xlsx", { destinationPath });
+}
+
+export async function previewModelPricingXlsx(sourcePath: string): Promise<PricingImportPreview> {
+  const invoke = await getInvoke();
+  return invoke<PricingImportPreview>("preview_model_pricing_xlsx", { sourcePath });
+}
+
+export async function importModelPricingXlsx(sourcePath: string): Promise<PricingImportPreview> {
+  const invoke = await getInvoke();
+  return invoke<PricingImportPreview>("import_model_pricing_xlsx", { sourcePath });
+}
+
 export async function getLogMaintenancePolicy(): Promise<LogMaintenancePolicy> {
   const invoke = await getInvoke();
   return invoke<LogMaintenancePolicy>("get_log_maintenance_policy");
@@ -699,6 +717,26 @@ export async function listTrashedClaudeCodeSessions(): Promise<SessionArchiveInf
 export async function setAppLanguage(language: "zh-CN" | "en-US"): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_app_language", { language });
+}
+
+export async function getUpdateMirrorSettings(): Promise<UpdateMirrorSettings> {
+  const invoke = await getInvoke();
+  return invoke<UpdateMirrorSettings>("get_update_mirror_settings", {});
+}
+
+export async function setUpdateMirrorSettings(settings: UpdateMirrorSettings): Promise<UpdateMirrorSettings> {
+  const invoke = await getInvoke();
+  return invoke<UpdateMirrorSettings>("set_update_mirror_settings", { settings });
+}
+
+export async function checkAppUpdate(): Promise<AppUpdateInfo | null> {
+  const invoke = await getInvoke();
+  return invoke<AppUpdateInfo | null>("check_app_update", {});
+}
+
+export async function installAppUpdate(version: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("install_app_update", { version });
 }
 
 export async function getDismissedOnboardingTips(): Promise<string[]> {

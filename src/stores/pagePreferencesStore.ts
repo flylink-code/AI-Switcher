@@ -17,7 +17,7 @@ interface PagePreferencesState {
 export const usePagePreferencesStore = create<PagePreferencesState>((set) => ({
   providersTarget: "claude_code",
   proxyTarget: "claude_desktop",
-  usageDays: 30,
+  usageDays: 365,
   usageLogPage: 0,
   usageLogTarget: "all",
   setProvidersTarget: (providersTarget) => set({ providersTarget }),

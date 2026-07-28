@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Improved the responsive GitHub-style usage heatmap with keyboard-accessible daily details
-            - Moved model pricing into a compact configuration dialog instead of the usage page
-            - Prevented localization checks from showing command windows and added more dismissible tips
+            - Added a fully labeled yearly usage heatmap with dark-theme support
+            - Added configurable GitHub mirror updates with direct fallback and signature verification
+            - Added Excel import/export for model pricing and clearer Skill repository controls
 
             ## 更新内容
 
-            - 优化 GitHub 风格日期热力图的自适应显示，并支持键盘访问每日详情
-            - 模型定价已收纳为紧凑配置弹窗，不再占用用量页面主体
-            - 中文化检测不再显示命令窗口，并扩展可关闭的新手提示
+            - 年度日期热力图新增完整强度图例，并修复深色主题显示
+            - 更新支持可配置 GitHub 镜像、直连回退与签名验证
+            - 模型定价支持 Excel 导入导出，Skill 仓库配置更清晰
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

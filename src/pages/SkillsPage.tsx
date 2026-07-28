@@ -27,12 +27,14 @@ import {
   installGithubRepositorySkills,
   installZipSkill,
   refreshGithubRepositorySkills,
+  setSkillRepository,
   setSkillEnabled,
   updateGithubSkills,
 } from "@/services/api";
 import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
+const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
 
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
@@ -67,6 +69,23 @@ export default function SkillsPage() {
       setRepositoryUrl(snapshot.repositoryUrl);
       setRepositorySkills(snapshot.skills);
       setSelectedPaths([]);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const restoreDefaultRepository = async () => {
+    setScanning(true);
+    try {
+      const repositoryUrl = await setSkillRepository(DEFAULT_SKILL_REPOSITORY);
+      const snapshot = { repositoryUrl, fetchedAt: null, revision: null, skills: [] };
+      queryClient.setQueryData(skillRepositoryOptions.queryKey, snapshot);
+      setRepositoryUrl(repositoryUrl);
+      setRepositorySkills([]);
+      setSelectedPaths([]);
+      void message.success(t("skills.defaultRepositoryRestored"));
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -201,6 +220,7 @@ export default function SkillsPage() {
       size="small"
       title={t("skills.repositoryTitle")}
       extra={<Space>
+        <Button disabled={scanning || busy} onClick={() => void restoreDefaultRepository()}>{t("skills.restoreDefaultRepository")}</Button>
         <Button icon={<ReloadOutlined />} loading={scanning} disabled={!repositoryUrl.trim() || busy} onClick={() => void scanRepository()}>
           {t("skills.scanRepository")}
         </Button>
@@ -218,6 +238,7 @@ export default function SkillsPage() {
           onPressEnter={() => void scanRepository()}
         />
         <Text type="secondary">{t("skills.repositoryHelp")}</Text>
+        <Text type="secondary">{t("skills.savedRepository", { repository: repositoryQuery.data?.repositoryUrl ?? DEFAULT_SKILL_REPOSITORY })}</Text>
         {repositoryQuery.data?.fetchedAt && <Text type="secondary">{t("skills.repositoryLastUpdated", { time: new Date(repositoryQuery.data.fetchedAt).toLocaleString() })}</Text>}
         <Table
           size="small"

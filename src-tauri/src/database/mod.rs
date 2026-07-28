@@ -93,4 +93,13 @@ impl Database {
         let conn = lock_conn!(self.conn);
         f(&conn)
     }
+
+    /// Run a mutable closure while holding the database lock.
+    pub fn with_conn_mut<F, T>(&self, f: F) -> AppResult<T>
+    where
+        F: FnOnce(&mut Connection) -> AppResult<T>,
+    {
+        let mut conn = lock_conn!(self.conn);
+        f(&mut conn)
+    }
 }

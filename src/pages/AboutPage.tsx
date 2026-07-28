@@ -9,6 +9,8 @@ import {
   Typography,
   message,
   Modal,
+  Input,
+  Switch,
 } from "antd";
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
@@ -17,9 +19,10 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { restartApp, restoreOnboardingTips, runClaudeCodeUpdate } from "@/services/api";
+import { getUpdateMirrorSettings, restartApp, restoreOnboardingTips, runClaudeCodeUpdate, setUpdateMirrorSettings } from "@/services/api";
 import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
-import { checkForAppUpdate } from "@/lib/appUpdater";
+import { checkForAppUpdate, installAvailableAppUpdate } from "@/lib/appUpdater";
+import type { UpdateMirrorSettings } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text, Paragraph } = Typography;
@@ -31,6 +34,8 @@ export default function AboutPage() {
   const [checkingApp, setCheckingApp] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [restoringTips, setRestoringTips] = useState(false);
+  const [updateMirrorSettings, setUpdateMirrorSettingsState] = useState<UpdateMirrorSettings | null>(null);
+  const [savingUpdateMirrorSettings, setSavingUpdateMirrorSettings] = useState(false);
   const localClaudeQuery = useQuery(localClaudeVersionOptions);
   const claudeQuery = useQuery({
     ...claudeVersionOptions,
@@ -40,6 +45,12 @@ export default function AboutPage() {
 
   useEffect(() => {
     void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
+
+  useEffect(() => {
+    void getUpdateMirrorSettings().then(setUpdateMirrorSettingsState).catch((error) => {
+      console.warn("Failed to load update mirror settings", error);
+    });
   }, []);
 
   const checkAppUpdate = async () => {
@@ -57,7 +68,7 @@ export default function AboutPage() {
         cancelText: t("providers.cancel"),
         onOk: async () => {
           try {
-            await update.downloadAndInstall();
+            await installAvailableAppUpdate(update.version);
             await restartApp();
           } catch (error) {
             console.error("Application update installation failed", error);
@@ -88,6 +99,20 @@ export default function AboutPage() {
       void message.error(errMsg(error));
     } finally {
       setRestoringTips(false);
+    }
+  };
+
+  const saveUpdateSettings = async () => {
+    if (!updateMirrorSettings) return;
+    setSavingUpdateMirrorSettings(true);
+    try {
+      const saved = await setUpdateMirrorSettings(updateMirrorSettings);
+      setUpdateMirrorSettingsState(saved);
+      void message.success(t("about.updateMirrorSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setSavingUpdateMirrorSettings(false);
     }
   };
 
@@ -140,6 +165,33 @@ export default function AboutPage() {
             >
               {t("about.checkAppUpdate")}
             </Button>
+            <Card size="small" type="inner" title={t("about.updateMirrorTitle")}>
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Space wrap>
+                  <Switch
+                    checked={updateMirrorSettings?.useMirror ?? false}
+                    disabled={!updateMirrorSettings}
+                    onChange={(useMirror) => setUpdateMirrorSettingsState((current) => current ? { ...current, useMirror } : current)}
+                  />
+                  <Text>{t("about.useUpdateMirror")}</Text>
+                </Space>
+                <Input
+                  disabled={!updateMirrorSettings?.useMirror}
+                  value={updateMirrorSettings?.mirrorBase ?? ""}
+                  placeholder="https://gh-proxy.com/"
+                  onChange={(event) => setUpdateMirrorSettingsState((current) => current ? { ...current, mirrorBase: event.target.value } : current)}
+                />
+                <Text type="secondary">{t("about.updateMirrorHint")}</Text>
+                <Text code copyable={Boolean(updateMirrorSettings?.useMirror)} style={{ wordBreak: "break-all" }}>
+                  {updateMirrorSettings?.useMirror
+                    ? `${updateMirrorSettings.mirrorBase.replace(/\/$/, "")}/https://github.com/flylink-code/AI-Switcher/releases/latest/download/latest-mirror.json`
+                    : "https://github.com/flylink-code/AI-Switcher/releases/latest/download/latest.json"}
+                </Text>
+                <Button loading={savingUpdateMirrorSettings} disabled={!updateMirrorSettings} onClick={() => void saveUpdateSettings()}>
+                  {t("common.save")}
+                </Button>
+              </Space>
+            </Card>
             <Button loading={restoringTips} onClick={() => void restoreTips()}>
               {t("about.restoreOnboardingTips")}
             </Button>

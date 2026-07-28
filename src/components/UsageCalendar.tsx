@@ -29,7 +29,13 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
   const columns = Math.ceil((leading.length + daily.length) / 7);
   const cellSize = calendarCellSize(containerWidth, columns);
   const cellGap = Math.max(4, Math.min(8, Math.round(cellSize * 0.22)));
-  const colors = [token.colorFillQuaternary, "#9be9a8", "#40c463", "#30a14e", "#216e39"];
+  const levels = [
+    { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
+    { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
+    { color: token.colorSuccessBgHover, label: t("usage.calendarLevelTwo") },
+    { color: token.colorSuccessBorder, label: t("usage.calendarLevelThree") },
+    { color: token.colorSuccess, label: t("usage.calendarLevelFour") },
+  ];
 
   useEffect(() => {
     const element = containerRef.current;
@@ -81,7 +87,7 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
                     padding: 0,
                     border: `1px solid ${token.colorBorderSecondary}`,
                     borderRadius: Math.max(4, Math.round(cellSize * 0.18)),
-                    background: colors[level],
+                    background: levels[level].color,
                     cursor: "default",
                   }}
                 />
@@ -90,12 +96,14 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
           })}
         </div>
       </div>
-      <Space size={6} align="center" style={{ alignSelf: "flex-end" }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLess")}</Text>
-        {colors.map((color, index) => (
-          <span key={index} style={{ width: 12, height: 12, borderRadius: 2, background: color, outline: `1px solid ${token.colorBorderSecondary}` }} />
+      <Space wrap size={[10, 6]} align="center" style={{ alignSelf: "flex-end", justifyContent: "flex-end" }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLegend")}</Text>
+        {levels.map((level) => (
+          <Space key={level.label} size={4} align="center">
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: level.color, outline: `1px solid ${token.colorBorderSecondary}` }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>{level.label}</Text>
+          </Space>
         ))}
-        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarMore")}</Text>
       </Space>
     </Space>
   );

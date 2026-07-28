@@ -730,7 +730,9 @@ mod tests {
         });
 
         let bytes = download_github_archive_bytes(&format!("http://{address}/archive.zip")).await.unwrap();
-        assert_eq!(bytes, repository_archive());
+        let paths = repository_skill_entries(&bytes, "skills").unwrap()
+            .into_iter().map(|(skill, _)| skill.path).collect::<Vec<_>>();
+        assert_eq!(paths, vec!["skills/first", "skills/second"]);
         let requests = worker.join().unwrap();
         assert_eq!(requests.len(), 2);
         assert!(requests.iter().all(|request| request.to_ascii_lowercase().contains("accept-encoding: identity")));

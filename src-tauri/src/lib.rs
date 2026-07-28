@@ -27,6 +27,7 @@ use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
+    check_app_update, install_app_update,
     activate_prompt, backup_now, export_library_backup, preview_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
@@ -42,8 +43,8 @@ use crate::commands::{
     report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_failover_enabled, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
-    get_log_maintenance_policy, get_pricing_catalog, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
-    preview_proxy_log_maintenance, restore_desktop_localization, save_log_maintenance_policy,
+    export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
+    preview_model_pricing_xlsx, preview_proxy_log_maintenance, restore_desktop_localization, save_log_maintenance_policy,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, run_claude_code_update,
     backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
@@ -51,7 +52,7 @@ use crate::commands::{
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
     trash_claude_code_session,
     delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync, push_sync_archive, save_sync_target,
-    set_app_language,
+    set_app_language, get_update_mirror_settings, set_update_mirror_settings,
     restart_app,
     dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
     resolve_close_request, restore_onboarding_tips, set_close_behavior,
@@ -97,6 +98,10 @@ pub fn run() {
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             ping,
+            check_app_update,
+            install_app_update,
+            get_update_mirror_settings,
+            set_update_mirror_settings,
             get_paths,
             get_db_info,
             get_data_root,
@@ -174,6 +179,9 @@ pub fn run() {
             report_frontend_startup,
             get_usage_dashboard,
             list_model_pricing,
+            export_model_pricing_xlsx,
+            preview_model_pricing_xlsx,
+            import_model_pricing_xlsx,
             get_pricing_catalog,
             save_model_pricing,
             delete_model_pricing,
