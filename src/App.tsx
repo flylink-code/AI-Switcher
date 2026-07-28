@@ -21,8 +21,10 @@ import { runStartupWarmup, type StartupProgress } from "@/lib/startupWarmup";
 import {
   reportFrontendPerformance,
   reportFrontendStartup,
+  restartApp,
   resolveCloseRequest,
 } from "@/services/api";
+import { checkForAppUpdate, type AppUpdate } from "@/lib/appUpdater";
 import {
   getLoadedPage,
   preloadPage,
@@ -41,6 +43,10 @@ export default function App() {
   const [rememberCloseChoice, setRememberCloseChoice] = useState(false);
   const [resolvingClose, setResolvingClose] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<AppUpdate | null>(null);
+  const [updatePromptOpen, setUpdatePromptOpen] = useState(false);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [startupProgress, setStartupProgress] = useState<StartupProgress>({
     completed: 0,
     total: 1,
@@ -49,6 +55,7 @@ export default function App() {
   });
   const startupStartedAt = useRef(performance.now());
   const startupFinished = useRef(false);
+  const startupLanguage = useRef(language);
   const progressRef = useRef(startupProgress);
   const navigationStartedAt = useRef<{ key: PageKey; startedAt: number } | null>(null);
   const finishStartup = useCallback((reason: "completed" | "timeout" | "skipped") => {
@@ -64,7 +71,7 @@ export default function App() {
     const timeout = window.setTimeout(() => {
       if (active) finishStartup("timeout");
     }, 5_000);
-    void runStartupWarmup((progress) => {
+    void runStartupWarmup(startupLanguage.current, (progress) => {
       if (active) {
         progressRef.current = progress;
         setStartupProgress(progress);
@@ -79,6 +86,31 @@ export default function App() {
       window.clearTimeout(timeout);
     };
   }, [finishStartup]);
+
+  useEffect(() => {
+    if (language !== "zh-CN" && activeKey === "localization") {
+      setActiveKey("providers");
+    }
+  }, [activeKey, language]);
+
+  useEffect(() => {
+    if (!startupReady) return;
+    let active = true;
+    const checkForUpdate = async () => {
+      try {
+        const update = await checkForAppUpdate(t("about.appUpdateTimedOut"));
+        if (active && update) setAvailableUpdate(update);
+      } catch (error) {
+        console.warn("Automatic application update check failed", error);
+      }
+    };
+    void checkForUpdate();
+    const interval = window.setInterval(() => void checkForUpdate(), 6 * 60 * 60 * 1000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [startupReady, t]);
 
   useEffect(() => {
     let active = true;
@@ -151,13 +183,35 @@ export default function App() {
     [rememberCloseChoice],
   );
 
+  const installAvailableUpdate = useCallback(async () => {
+    if (!availableUpdate) return;
+    setInstallingUpdate(true);
+    try {
+      await availableUpdate.downloadAndInstall();
+      await restartApp();
+    } catch (error) {
+      console.error("Application update installation failed", error);
+      setUpdateError(t("about.appUpdateFailedDetail", { error: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      setInstallingUpdate(false);
+    }
+  }, [availableUpdate, t]);
+
   return (
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <AntApp>
         {!startupReady ? (
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
-          <AppLayout activeKey={activeKey} onNavigate={handleNavigate}>
+          <AppLayout
+            activeKey={activeKey}
+            onNavigate={handleNavigate}
+            updateVersion={availableUpdate?.version}
+            onOpenUpdate={() => {
+              setUpdateError(null);
+              setUpdatePromptOpen(true);
+            }}
+          >
             <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
           </AppLayout>
         )}
@@ -202,6 +256,21 @@ export default function App() {
           >
             {t("app.rememberCloseChoice")}
           </Checkbox>
+        </Modal>
+        <Modal
+          open={updatePromptOpen}
+          title={t("about.appUpdateAvailable", { version: availableUpdate?.version })}
+          okText={t("about.appUpdateInstall")}
+          cancelText={t("providers.cancel")}
+          confirmLoading={installingUpdate}
+          onOk={() => void installAvailableUpdate()}
+          onCancel={() => {
+            setUpdateError(null);
+            setUpdatePromptOpen(false);
+          }}
+        >
+          {updateError && <Alert type="error" showIcon message={updateError} style={{ marginBottom: 16 }} />}
+          {t("about.appUpdatePrompt")}
         </Modal>
       </AntApp>
     </ConfigProvider>

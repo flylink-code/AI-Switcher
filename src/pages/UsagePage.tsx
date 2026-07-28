@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -23,6 +23,7 @@ import {
   theme,
 } from "antd";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
+import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -69,6 +70,7 @@ export default function UsagePage() {
   const [maintenancePreview, setMaintenancePreview] = useState<LogMaintenancePreview | null>(null);
   const [form] = Form.useForm<ModelPricingInput>();
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
+  const [trendExpanded, setTrendExpanded] = useState(false);
   const overviewQuery = useQuery({
     ...usageOverviewOptions(days, logPage, logTargetApp),
     placeholderData: keepPreviousData,
@@ -89,6 +91,19 @@ export default function UsagePage() {
       .then(setMaintenancePreview)
       .catch((e) => void message.error(errMsg(e)));
   }, [maintenanceOpen, maintenancePolicy]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (
+        document.visibilityState === "visible" &&
+        !saving &&
+        !maintaining
+      ) {
+        void overviewQuery.refetch();
+      }
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [maintaining, overviewQuery.refetch, saving]);
 
   const savePricing = async () => {
     try {
@@ -160,6 +175,7 @@ export default function UsagePage() {
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <Alert type="info" showIcon message={t("usage.title")} description={t("usage.description")} />
         <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
+        <Alert type="info" showIcon message={t("usage.cachePricingIncluded")} />
 
         <Space wrap style={{ justifyContent: "space-between", width: "100%" }}>
           <Space>
@@ -194,7 +210,11 @@ export default function UsagePage() {
           <Metric title={t("usage.estimatedCost")} value={summary?.estimatedCost ?? 0} precision={4} prefix="$" icon={<DollarOutlined />} />
         </Row>
 
-        <Card size="small" title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}>
+        <Card
+          size="small"
+          title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}
+          extra={<Button size="small" icon={<ExpandOutlined />} onClick={() => setTrendExpanded(true)}>{t("usage.expandChart")}</Button>}
+        >
           <UsageTrendChart data={dashboard?.trend ?? []} t={t} />
         </Card>
 
@@ -295,7 +315,9 @@ export default function UsagePage() {
               {
                 title: t("usage.logTokens"),
                 render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                  `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`,
+                  row.usageAvailable
+                    ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
+                    : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
               },
               {
                 title: t("usage.logDuration"),
@@ -415,11 +437,33 @@ export default function UsagePage() {
       >
         <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{detailDiagnostic}</pre>
       </Drawer>
+
+      <Modal
+        title={t("usage.trendChart")}
+        open={trendExpanded}
+        onCancel={() => setTrendExpanded(false)}
+        footer={null}
+        width="96vw"
+        styles={{ body: { minHeight: "70vh" } }}
+      >
+        <UsageTrendChart data={dashboard?.trend ?? []} t={t} expanded />
+      </Modal>
     </>
   );
 }
 
-function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: string) => string }) {
+function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["trend"]; t: (key: string) => string; expanded?: boolean }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(720);
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+    const updateSize = () => setContainerWidth(Math.max(element.clientWidth, 520));
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const values = useMemo(() => data.map((row) => ({
     date: row.date,
     inputTokens: row.inputTokens,
@@ -440,8 +484,10 @@ function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: 
     { key: "cacheReadInputTokens", label: t("usage.cacheReadTokens"), color: "#38bdf8" },
     { key: "estimatedCost", label: t("usage.estimatedCost"), color: "#f97316", cost: true },
   ];
-  const width = 720;
-  const height = 260;
+  const width = containerWidth;
+  const height = expanded
+    ? Math.min(720, Math.max(480, containerWidth * 0.62))
+    : Math.min(500, Math.max(330, containerWidth * 0.42));
   const padding = { top: 26, right: 68, bottom: 52, left: 64 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
@@ -470,8 +516,8 @@ function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: 
           </Space>
         ))}
       </Space>
-      <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("usage.trendChart")} style={{ display: "block", minWidth: 620, width: "100%", height: 260 }} preserveAspectRatio="xMidYMid meet">
+      <div ref={containerRef} style={{ width: "100%", minWidth: 0 }}>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("usage.trendChart")} style={{ display: "block", width: "100%", height }} preserveAspectRatio="xMidYMid meet">
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = padding.top + plotHeight * ratio;
             const tokenValue = tokenScaleMax * (1 - ratio);

@@ -26,11 +26,6 @@ type StartupTask = {
   run: () => Promise<unknown>;
 };
 
-const pageTasks: StartupTask[] = PAGE_KEYS.map((key) => ({
-  id: `${key}Page`,
-  run: () => preloadPage(key),
-}));
-
 const criticalTasks: StartupTask[] = [
   {
     id: "codeProviders",
@@ -73,14 +68,19 @@ const slowTasks: StartupTask[] = [
   },
 ];
 
-const TOTAL_TASKS = pageTasks.length + criticalTasks.length;
-
 export async function runStartupWarmup(
+  language: string,
   onProgress: (progress: StartupProgress) => void,
 ): Promise<StartupProgress> {
+  const pageTasks = PAGE_KEYS
+    .filter((key) => key !== "localization" || language === "zh-CN")
+    .map((key) => ({ id: `${key}Page`, run: () => preloadPage(key) }));
+  const enabledSlowTasks = slowTasks.filter(
+    (task) => task.id !== "localizationData" || language === "zh-CN",
+  );
   const state: StartupProgress = {
     completed: 0,
-    total: TOTAL_TASKS,
+    total: pageTasks.length + criticalTasks.length,
     current: "starting",
     failures: [],
   };
@@ -104,20 +104,20 @@ export async function runStartupWarmup(
   ).catch(() => undefined);
   state.current = "done";
   report();
-  void runBackgroundWarmup();
+  void runBackgroundWarmup(enabledSlowTasks);
   return state;
 }
 
-async function runBackgroundWarmup(): Promise<void> {
+async function runBackgroundWarmup(enabledSlowTasks: StartupTask[]): Promise<void> {
   const backgroundState: StartupProgress = {
     completed: 0,
-    total: localDataTasks.length + slowTasks.length,
+    total: localDataTasks.length + enabledSlowTasks.length,
     current: "background",
     failures: [],
   };
   const silentReport = () => undefined;
   await runTasks(localDataTasks, 3, backgroundState, silentReport);
-  await runTasks(slowTasks, 2, backgroundState, silentReport);
+  await runTasks(enabledSlowTasks, 2, backgroundState, silentReport);
 }
 
 async function runTasks(

@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from "react";
-import { App as AntApp, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
+import { App as AntApp, Badge, Button, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
+import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
@@ -43,6 +44,8 @@ export const NAV_ITEMS: NavItem[] = [
 interface AppLayoutProps {
   activeKey: PageKey;
   onNavigate: (key: PageKey) => void;
+  updateVersion?: string | null;
+  onOpenUpdate?: () => void;
   children: React.ReactNode;
 }
 
@@ -52,7 +55,7 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
   system: <LaptopOutlined />,
 };
 
-export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
+export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, children }: AppLayoutProps) {
   const { t, i18n } = useTranslation();
   const themeMode = useThemeStore((s) => s.mode);
   const resolvedTheme = useThemeStore((s) => s.resolved);
@@ -70,12 +73,12 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
 
   const menuItems = useMemo(
     () =>
-      NAV_ITEMS.map((it) => ({
+      NAV_ITEMS.filter((it) => it.key !== "localization" || language === "zh-CN").map((it) => ({
         key: it.key,
         icon: it.icon,
         label: t(`nav.${it.key}`),
       })),
-    [t],
+    [language, t],
   );
 
   return (
@@ -102,7 +105,13 @@ export function AppLayout({ activeKey, onNavigate, children }: AppLayoutProps) {
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          {t("app.name")}
+          {updateVersion ? (
+            <Badge dot offset={[-2, 3]}>
+              <Button type="link" size="small" icon={<CloudDownloadOutlined />} onClick={onOpenUpdate}>
+                {t("app.name")}
+              </Button>
+            </Badge>
+          ) : t("app.name")}
         </div>
         <Menu
           mode="inline"

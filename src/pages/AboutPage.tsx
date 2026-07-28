@@ -18,9 +18,9 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { check } from "@tauri-apps/plugin-updater";
 import { restartApp, runClaudeCodeUpdate } from "@/services/api";
 import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
+import { checkForAppUpdate } from "@/lib/appUpdater";
 
 const { Text, Paragraph } = Typography;
 
@@ -232,29 +232,4 @@ export default function AboutPage() {
 
 function errMsg(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer !== undefined) clearTimeout(timer);
-  });
-}
-
-async function checkForAppUpdate(timeoutMessage: string) {
-  const attempts = 2;
-
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await withTimeout(check(), 60_000, timeoutMessage);
-    } catch (error) {
-      if (attempt === attempts) throw error;
-      console.warn("Application update check failed; retrying once", error);
-    }
-  }
-
-  throw new Error(timeoutMessage);
 }

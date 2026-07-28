@@ -1143,19 +1143,27 @@ fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
 }
 
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
-    let usage = value.get("usage")?;
+    let usage = value.get("usage").or_else(|| value.pointer("/response/usage"))?;
+    let anthropic_input = usage.get("input_tokens").and_then(Value::as_i64);
+    let total_input = anthropic_input
+        .or_else(|| usage.get("prompt_tokens").and_then(Value::as_i64))?;
+    let cache_read = usage
+        .get("cache_read_input_tokens")
+        .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
+        .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
+        .or_else(|| usage.get("cached_tokens"))
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        .clamp(0, total_input);
     Some(UsageCounts {
-        input_tokens: usage.get("input_tokens")?.as_i64()?,
-        cache_read_input_tokens: usage
-            .get("cache_read_input_tokens")
-            .and_then(Value::as_i64)
-            .unwrap_or(0),
+        input_tokens: anthropic_input.unwrap_or_else(|| total_input.saturating_sub(cache_read)),
+        cache_read_input_tokens: cache_read,
         cache_creation_input_tokens: usage
             .get("cache_creation_input_tokens")
             .and_then(Value::as_i64)
             .unwrap_or(0),
-        output_tokens: usage
-            .get("output_tokens")
+        output_tokens: usage.get("output_tokens")
+            .or_else(|| usage.get("completion_tokens"))
             .and_then(Value::as_i64)
             .unwrap_or(0),
     })
@@ -1313,5 +1321,33 @@ mod tests {
         assert!(!explicitly_rejects_stream_options(
             br#"{"error":{"message":"Unknown model"}}"#
         ));
+    }
+
+    #[test]
+    fn usage_parser_preserves_anthropic_input_and_supports_openai_usage() {
+        let anthropic = serde_json::json!({
+            "usage": {
+                "input_tokens": 100,
+                "cache_read_input_tokens": 40,
+                "cache_creation_input_tokens": 5,
+                "output_tokens": 20
+            }
+        });
+        let parsed = usage_from_value(&anthropic).expect("anthropic usage");
+        assert_eq!(parsed.input_tokens, 100);
+        assert_eq!(parsed.cache_read_input_tokens, 40);
+        assert_eq!(parsed.output_tokens, 20);
+
+        let openai = serde_json::json!({
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 20,
+                "prompt_tokens_details": { "cached_tokens": 40 }
+            }
+        });
+        let parsed = usage_from_value(&openai).expect("OpenAI-compatible usage");
+        assert_eq!(parsed.input_tokens, 60);
+        assert_eq!(parsed.cache_read_input_tokens, 40);
+        assert_eq!(parsed.output_tokens, 20);
     }
 }

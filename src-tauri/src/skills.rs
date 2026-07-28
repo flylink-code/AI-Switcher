@@ -57,7 +57,7 @@ pub struct SkillUpdateStatus {
     pub remote_revision: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositorySkill {
     pub name: String,
@@ -69,6 +69,21 @@ pub struct RepositorySkill {
 #[serde(rename_all = "camelCase")]
 struct SkillRepositoryConfig {
     repository_url: String,
+    #[serde(default)]
+    fetched_at: Option<i64>,
+    #[serde(default)]
+    revision: Option<String>,
+    #[serde(default)]
+    skills: Vec<RepositorySkill>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillRepositorySnapshot {
+    pub repository_url: String,
+    pub fetched_at: Option<i64>,
+    pub revision: Option<String>,
+    pub skills: Vec<RepositorySkill>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -115,11 +130,21 @@ pub fn list_skills() -> AppResult<Vec<Skill>> {
 }
 
 pub fn get_skill_repository() -> AppResult<String> {
+    Ok(get_skill_repository_snapshot()?.repository_url)
+}
+
+pub fn get_skill_repository_snapshot() -> AppResult<SkillRepositorySnapshot> {
     let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
-    let repository_url = read_json_file::<SkillRepositoryConfig>(&path)?
-        .map(|config| config.repository_url)
-        .unwrap_or_else(|| DEFAULT_SKILL_REPOSITORY.to_string());
-    normalize_github_url(&repository_url)
+    let config = read_json_file::<SkillRepositoryConfig>(&path)?;
+    let repository_url = normalize_github_url(
+        &config.as_ref().map(|value| value.repository_url.as_str()).unwrap_or(DEFAULT_SKILL_REPOSITORY),
+    )?;
+    Ok(SkillRepositorySnapshot {
+        repository_url,
+        fetched_at: config.as_ref().and_then(|value| value.fetched_at),
+        revision: config.as_ref().and_then(|value| value.revision.clone()),
+        skills: config.map(|value| value.skills).unwrap_or_default(),
+    })
 }
 
 pub fn set_skill_repository(url: &str) -> AppResult<String> {
@@ -127,8 +152,37 @@ pub fn set_skill_repository(url: &str) -> AppResult<String> {
     let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
     write_json_file(&path, &SkillRepositoryConfig {
         repository_url: repository_url.clone(),
+        fetched_at: None,
+        revision: None,
+        skills: Vec::new(),
     })?;
     Ok(repository_url)
+}
+
+pub async fn refresh_github_repository_skills(url: &str) -> AppResult<SkillRepositorySnapshot> {
+    let repository_url = normalize_github_url(url)?;
+    let (archive, repo) = download_github_archive(&repository_url).await?;
+    let mut skills: Vec<_> = repository_skill_entries(&archive, &repo)?
+        .into_iter()
+        .map(|(skill, _)| skill)
+        .collect();
+    skills.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    let snapshot = SkillRepositorySnapshot {
+        repository_url: repository_url.clone(),
+        fetched_at: Some(Utc::now().timestamp_millis()),
+        revision: archive_revision(&archive),
+        skills,
+    };
+    write_json_file(
+        &get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE),
+        &SkillRepositoryConfig {
+            repository_url,
+            fetched_at: snapshot.fetched_at,
+            revision: snapshot.revision.clone(),
+            skills: snapshot.skills.clone(),
+        },
+    )?;
+    Ok(snapshot)
 }
 
 pub async fn list_github_repository_skills(url: &str) -> AppResult<Vec<RepositorySkill>> {
@@ -291,6 +345,42 @@ pub async fn check_skill_update(name: &str) -> AppResult<SkillUpdateStatus> {
         local_revision: source.revision,
         remote_revision,
     })
+}
+
+pub async fn check_skill_updates() -> AppResult<Vec<SkillUpdateStatus>> {
+    let names = list_skills()?.into_iter().map(|skill| skill.name).collect::<Vec<_>>();
+    let mut statuses = Vec::with_capacity(names.len());
+    for name in names {
+        statuses.push(check_skill_update(&name).await?);
+    }
+    Ok(statuses)
+}
+
+pub async fn update_github_skills(names: &[String]) -> AppResult<Vec<Skill>> {
+    if names.is_empty() {
+        return Err(AppError::Config("请至少选择一个可更新的 Skill".to_string()));
+    }
+    let installed = list_skills()?;
+    let mut updated = Vec::with_capacity(names.len());
+    for name in names {
+        let skill = installed.iter().find(|skill| skill.name == *name)
+            .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
+        let status = check_skill_update(name).await?;
+        if status.status != "update_available" {
+            return Err(AppError::Config(format!("Skill 不可安全更新: {name}（{}）", status.message)));
+        }
+        let source = skill.source.as_ref()
+            .ok_or_else(|| AppError::Config(format!("Skill 缺少来源记录: {name}")))?;
+        let source_url = source.source_url.as_deref()
+            .ok_or_else(|| AppError::Config(format!("Skill 来源记录缺少地址: {name}")))?;
+        if let Some(repository_path) = source.repository_path.as_ref() {
+            let mut skills = install_github_repository_skills(source_url, &[repository_path.clone()]).await?;
+            updated.append(&mut skills);
+        } else {
+            updated.push(install_github_skill(source_url).await?);
+        }
+    }
+    Ok(updated)
 }
 
 fn record_github_source(skill: Skill, url: &str, revision: Option<String>, repository_path: Option<String>) -> AppResult<Skill> {

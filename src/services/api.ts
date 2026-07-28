@@ -32,6 +32,7 @@ import type {
   Skill,
   SkillUpdateStatus,
   RepositorySkill,
+  SkillRepositorySnapshot,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -388,6 +389,11 @@ export async function getSkillRepository(): Promise<string> {
   return invoke<string>("get_skill_repository", {});
 }
 
+export async function getSkillRepositorySnapshot(): Promise<SkillRepositorySnapshot> {
+  const invoke = await getInvoke();
+  return invoke<SkillRepositorySnapshot>("get_skill_repository_snapshot", {});
+}
+
 export async function setSkillRepository(url: string): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("set_skill_repository", { url });
@@ -396,6 +402,11 @@ export async function setSkillRepository(url: string): Promise<string> {
 export async function listGithubRepositorySkills(url: string): Promise<RepositorySkill[]> {
   const invoke = await getInvoke();
   return invoke<RepositorySkill[]>("list_github_repository_skills", { url });
+}
+
+export async function refreshGithubRepositorySkills(url: string): Promise<SkillRepositorySnapshot> {
+  const invoke = await getInvoke();
+  return invoke<SkillRepositorySnapshot>("refresh_github_repository_skills", { url });
 }
 
 export async function installGithubRepositorySkills(url: string, paths: string[]): Promise<Skill[]> {
@@ -411,6 +422,16 @@ export async function installGithubSkill(url: string): Promise<Skill> {
 export async function checkSkillUpdate(name: string): Promise<SkillUpdateStatus> {
   const invoke = await getInvoke();
   return invoke<SkillUpdateStatus>("check_skill_update", { name });
+}
+
+export async function checkSkillUpdates(): Promise<SkillUpdateStatus[]> {
+  const invoke = await getInvoke();
+  return invoke<SkillUpdateStatus[]>("check_skill_updates", {});
+}
+
+export async function updateGithubSkills(names: string[]): Promise<Skill[]> {
+  const invoke = await getInvoke();
+  return invoke<Skill[]>("update_github_skills", { names });
 }
 
 export async function installZipSkill(path: string): Promise<Skill> {

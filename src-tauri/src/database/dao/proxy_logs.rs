@@ -169,7 +169,7 @@ pub fn update_proxy_log_usage(
     conn.execute(
         "UPDATE proxy_request_logs
          SET input_tokens = ?, cache_read_input_tokens = ?,
-             cache_creation_input_tokens = ?, output_tokens = ?
+             cache_creation_input_tokens = ?, output_tokens = ?, usage_available = 1
          WHERE id = ?;",
         params![
             input_tokens,
@@ -366,6 +366,7 @@ pub struct ProxyRequestLog {
     pub cache_read_input_tokens: i64,
     pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
+    pub usage_available: bool,
     pub duration_ms: i64,
     pub target_app: Option<String>,
     pub protocol: Option<String>,
@@ -430,7 +431,7 @@ pub fn list_proxy_request_logs(
     let data_sql = format!(
         "SELECT id, created_at, provider_id, provider_name, model, status_code,
                 input_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                output_tokens, duration_ms, target_app, protocol, route,
+                output_tokens, usage_available, duration_ms, target_app, protocol, route,
                 is_stream, error_category, diagnostic
          FROM proxy_request_logs
          {where_clause}
@@ -454,13 +455,14 @@ pub fn list_proxy_request_logs(
             cache_read_input_tokens: row.get(7)?,
             cache_creation_input_tokens: row.get(8)?,
             output_tokens: row.get(9)?,
-            duration_ms: row.get(10)?,
-            target_app: row.get(11)?,
-            protocol: row.get(12)?,
-            route: row.get(13)?,
-            is_stream: row.get::<_, i64>(14)? != 0,
-            error_category: row.get(15)?,
-            diagnostic: row.get(16)?,
+            usage_available: row.get::<_, i64>(10)? != 0,
+            duration_ms: row.get(11)?,
+            target_app: row.get(12)?,
+            protocol: row.get(13)?,
+            route: row.get(14)?,
+            is_stream: row.get::<_, i64>(15)? != 0,
+            error_category: row.get(16)?,
+            diagnostic: row.get(17)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;

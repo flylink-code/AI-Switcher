@@ -43,15 +43,17 @@ jobs:
 
             ## What's new
 
-            - Made application update checks more resilient with a 60-second timeout and one automatic retry
-            - Enhanced usage curves with input, output, cache-read, cache-write, and estimated-cost series on dual axes
-            - Kept daily token activity statistics before provider and model breakdowns for a clearer reading order
+            - Added automatic app-update checks with a badge prompt and a six-hour refresh interval
+            - Made usage analytics responsive, refresh automatically, and distinguish missing upstream usage from real zero values
+            - Added persistent Skill repository snapshots plus protected single and bulk GitHub Skill updates
+            - Hide the Chinese localization hub while the application is in English
 
             ## 更新内容
 
-            - 应用更新检查延长至 60 秒，并在首次失败后自动重试一次
-            - 用量曲线升级为输入、输出、缓存读取、缓存写入及预估成本的双轴多曲线展示
-            - 按日期 Token 活跃度统计保持在供应商和模型汇总之前，便于优先查看时间分布
+            - 新增自动应用更新检测、左上角更新提示及每 6 小时复查
+            - 用量统计支持自适应放大、自动刷新，并区分上游未提供的用量与真实零 Token
+            - Skill 仓库清单会持久化保存，支持安全的单项和批量 GitHub Skill 更新
+            - 英文模式下隐藏中文化配置入口
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

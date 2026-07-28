@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -81,6 +81,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
             cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
             output_tokens INTEGER NOT NULL DEFAULT 0,
+            usage_available BOOLEAN NOT NULL DEFAULT 0,
             duration_ms  INTEGER NOT NULL DEFAULT 0,
             target_app   TEXT,
             protocol     TEXT,
@@ -152,6 +153,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 9 {
         migrate_v8_to_v9(conn)?;
+    }
+    if current < 10 {
+        migrate_v9_to_v10(conn)?;
     }
     Ok(())
 }
@@ -338,6 +342,24 @@ fn migrate_v8_to_v9(conn: &Connection) -> AppResult<()> {
         }
     }
     set_user_version(conn, 9)
+}
+
+/// Distinguish a real zero-token response from an upstream response that did
+/// not return usage details. Existing records remain unavailable because their
+/// original response body is no longer available for reliable backfill.
+fn migrate_v9_to_v10(conn: &Connection) -> AppResult<()> {
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'usage_available';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE proxy_request_logs
+             ADD COLUMN usage_available BOOLEAN NOT NULL DEFAULT 0;",
+        )?;
+    }
+    set_user_version(conn, 10)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

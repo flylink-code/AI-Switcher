@@ -7,7 +7,11 @@ use crate::skills::{
     install_github_skill as install_from_github, install_zip_skill as install_from_zip,
     list_github_repository_skills as list_repository_skills, list_skills as list_local_skills,
     set_skill_enabled as set_enabled, set_skill_repository as set_repository,
-    check_skill_update as check_update, RepositorySkill, Skill, SkillUpdateStatus,
+    check_skill_update as check_update, check_skill_updates as check_updates,
+    get_skill_repository_snapshot as get_repository_snapshot,
+    refresh_github_repository_skills as refresh_repository_skills,
+    update_github_skills as update_skills,
+    RepositorySkill, Skill, SkillRepositorySnapshot, SkillUpdateStatus,
 };
 use crate::store::AppState;
 
@@ -22,6 +26,11 @@ pub fn get_skill_repository() -> AppResult<String> {
 }
 
 #[tauri::command]
+pub fn get_skill_repository_snapshot() -> AppResult<SkillRepositorySnapshot> {
+    get_repository_snapshot()
+}
+
+#[tauri::command]
 pub fn set_skill_repository(url: String) -> AppResult<String> {
     set_repository(&url)
 }
@@ -29,6 +38,11 @@ pub fn set_skill_repository(url: String) -> AppResult<String> {
 #[tauri::command]
 pub async fn list_github_repository_skills(url: String, _state: tauri::State<'_, AppState>) -> AppResult<Vec<RepositorySkill>> {
     list_repository_skills(&url).await
+}
+
+#[tauri::command]
+pub async fn refresh_github_repository_skills(url: String, _state: tauri::State<'_, AppState>) -> AppResult<SkillRepositorySnapshot> {
+    refresh_repository_skills(&url).await
 }
 
 #[tauri::command]
@@ -63,4 +77,14 @@ pub fn delete_skill(name: String) -> AppResult<()> {
 #[tauri::command]
 pub async fn check_skill_update(name: String, _state: tauri::State<'_, AppState>) -> AppResult<SkillUpdateStatus> {
     check_update(&name).await
+}
+
+#[tauri::command]
+pub async fn check_skill_updates(_state: tauri::State<'_, AppState>) -> AppResult<Vec<SkillUpdateStatus>> {
+    check_updates().await
+}
+
+#[tauri::command]
+pub async fn update_github_skills(names: Vec<String>, _state: tauri::State<'_, AppState>) -> AppResult<Vec<Skill>> {
+    update_skills(&names).await
 }

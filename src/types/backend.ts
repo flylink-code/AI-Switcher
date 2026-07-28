@@ -322,6 +322,13 @@ export interface RepositorySkill {
   description: string;
 }
 
+export interface SkillRepositorySnapshot {
+  repositoryUrl: string;
+  fetchedAt?: number | null;
+  revision?: string | null;
+  skills: RepositorySkill[];
+}
+
 export interface UsageSummary {
   requestCount: number;
   successfulRequestCount: number;
@@ -462,6 +469,7 @@ export interface ProxyRequestLog {
   cacheReadInputTokens: number;
   cacheCreationInputTokens: number;
   outputTokens: number;
+  usageAvailable: boolean;
   durationMs: number;
   targetApp: string | null;
   protocol: string | null;

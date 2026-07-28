@@ -7,6 +7,7 @@ import {
   Modal,
   Space,
   Switch,
+  Tag,
   Table,
   Typography,
   message,
@@ -18,15 +19,16 @@ import InboxOutlined from "@ant-design/icons/es/icons/InboxOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { RepositorySkill, Skill } from "@/types/backend";
+import type { RepositorySkill, Skill, SkillUpdateStatus } from "@/types/backend";
 import {
   deleteSkill,
   checkSkillUpdate,
+  checkSkillUpdates,
   installGithubRepositorySkills,
   installZipSkill,
-  listGithubRepositorySkills,
+  refreshGithubRepositorySkills,
   setSkillEnabled,
-  setSkillRepository,
+  updateGithubSkills,
 } from "@/services/api";
 import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
 
@@ -47,19 +49,23 @@ export default function SkillsPage() {
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [repositorySkills, setRepositorySkills] = useState<RepositorySkill[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [updateStatuses, setUpdateStatuses] = useState<Record<string, SkillUpdateStatus>>({});
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   useEffect(() => {
-    if (repositoryQuery.data) setRepositoryUrl(repositoryQuery.data);
+    if (!repositoryQuery.data) return;
+    setRepositoryUrl(repositoryQuery.data.repositoryUrl);
+    setRepositorySkills(repositoryQuery.data.skills);
   }, [repositoryQuery.data]);
 
   const scanRepository = async () => {
     if (!repositoryUrl.trim()) return;
     setScanning(true);
     try {
-      const savedUrl = await setSkillRepository(repositoryUrl);
-      queryClient.setQueryData(skillRepositoryOptions.queryKey, savedUrl);
-      setRepositoryUrl(savedUrl);
-      setRepositorySkills(await listGithubRepositorySkills(savedUrl));
+      const snapshot = await refreshGithubRepositorySkills(repositoryUrl);
+      queryClient.setQueryData(skillRepositoryOptions.queryKey, snapshot);
+      setRepositoryUrl(snapshot.repositoryUrl);
+      setRepositorySkills(snapshot.skills);
       setSelectedPaths([]);
     } catch (e) {
       void message.error(errMsg(e));
@@ -139,6 +145,7 @@ export default function SkillsPage() {
     setCheckingSkill(skill.name);
     try {
       const status = await checkSkillUpdate(skill.name);
+      setUpdateStatuses((current) => ({ ...current, [skill.name]: status }));
       void message.info(status.message);
     } catch (e) {
       void message.error(errMsg(e));
@@ -146,6 +153,47 @@ export default function SkillsPage() {
       setCheckingSkill(null);
     }
   };
+
+  const checkAllUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      const statuses = await checkSkillUpdates();
+      setUpdateStatuses(Object.fromEntries(statuses.map((status) => [status.name, status])));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
+  const applyUpdates = async (names: string[]) => {
+    if (!names.length) return;
+    setBusy(true);
+    try {
+      const updated = await updateGithubSkills(names);
+      void message.success(t("skills.updatedCount", { count: updated.length }));
+      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
+      setUpdateStatuses((current) => Object.fromEntries(
+        Object.entries(current).map(([name, status]) => [name, names.includes(name) ? { ...status, status: "up_to_date" } : status]),
+      ));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmUpdates = (names: string[]) => {
+    Modal.confirm({
+      title: t("skills.confirmUpdateTitle", { count: names.length }),
+      content: t("skills.confirmUpdateContent"),
+      okText: t("skills.updateSelected", { count: names.length }),
+      cancelText: t("providers.cancel"),
+      onOk: () => applyUpdates(names),
+    });
+  };
+
+  const updateAvailableNames = skills.filter((skill) => updateStatuses[skill.name]?.status === "update_available").map((skill) => skill.name);
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <Alert type="info" showIcon message={t("skills.title")} description={t("skills.description")} />
@@ -170,6 +218,7 @@ export default function SkillsPage() {
           onPressEnter={() => void scanRepository()}
         />
         <Text type="secondary">{t("skills.repositoryHelp")}</Text>
+        {repositoryQuery.data?.fetchedAt && <Text type="secondary">{t("skills.repositoryLastUpdated", { time: new Date(repositoryQuery.data.fetchedAt).toLocaleString() })}</Text>}
         <Table
           size="small"
           rowKey="path"
@@ -193,6 +242,8 @@ export default function SkillsPage() {
       size="small"
       title={t("skills.installedTitle")}
       extra={<Space>
+        <Button loading={checkingUpdates} disabled={busy || scanning} onClick={() => void checkAllUpdates()}>{t("skills.checkAllUpdates")}</Button>
+        <Button type="primary" disabled={!updateAvailableNames.length || busy || scanning} onClick={() => confirmUpdates(updateAvailableNames)}>{t("skills.updateSelected", { count: updateAvailableNames.length })}</Button>
         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void refreshSkills()}>{t("common.refresh")}</Button>
         <Button icon={<InboxOutlined />} onClick={() => setZipOpen(true)} disabled={busy || scanning}>{t("skills.installZip")}</Button>
       </Space>}
@@ -209,7 +260,8 @@ export default function SkillsPage() {
           { title: t("skills.descriptionLabel"), render: (_: unknown, skill: Skill) => (i18n.language === "zh-CN" ? skill.descriptionZh ?? skill.description : skill.description) || <Text type="secondary">—</Text> },
           { title: t("skills.source"), render: (_: unknown, skill: Skill) => skill.source?.sourceUrl ? <Text copyable={{ text: skill.source.sourceUrl }} ellipsis style={{ maxWidth: 220 }}>{skill.source.sourceUrl}</Text> : <Text type="secondary">—</Text> },
           { title: t("skills.enabled"), render: (_: unknown, skill: Skill) => <Switch checked={skill.enabled} disabled={busy || scanning} onChange={(checked) => void toggle(skill, checked)} /> },
-          { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Space size="small"><Button type="link" loading={checkingSkill === skill.name} disabled={busy || scanning || !skill.source} onClick={() => void checkUpdate(skill)}>{t("skills.checkUpdate")}</Button><Button danger type="link" icon={<DeleteOutlined />} disabled={busy || scanning} onClick={() => void remove(skill)}>{t("skills.delete")}</Button></Space> },
+          { title: t("skills.updateStatus"), render: (_: unknown, skill: Skill) => <SkillStatus status={updateStatuses[skill.name]} t={t} /> },
+          { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Space size="small"><Button type="link" loading={checkingSkill === skill.name} disabled={busy || scanning || !skill.source} onClick={() => void checkUpdate(skill)}>{t("skills.checkUpdate")}</Button>{updateStatuses[skill.name]?.status === "update_available" && <Button type="link" disabled={busy || scanning} onClick={() => confirmUpdates([skill.name])}>{t("skills.updateSelected", { count: 1 })}</Button>}<Button danger type="link" icon={<DeleteOutlined />} disabled={busy || scanning} onClick={() => void remove(skill)}>{t("skills.delete")}</Button></Space> },
         ]}
       />
     </Card>
@@ -224,4 +276,11 @@ export default function SkillsPage() {
 
 function errMsg(e: unknown) {
   return e instanceof Error ? e.message : String(e);
+}
+
+function SkillStatus({ status, t }: { status?: SkillUpdateStatus; t: (key: string) => string }) {
+  if (!status) return <Text type="secondary">—</Text>;
+  const color = status.status === "update_available" ? "orange" : status.status === "up_to_date" ? "green" : "default";
+  const label = status.status === "update_available" ? t("skills.updateAvailable") : status.status === "up_to_date" ? t("skills.upToDate") : status.message;
+  return <Text title={status.message}><Tag color={color}>{label}</Tag></Text>;
 }

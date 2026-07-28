@@ -17,7 +17,7 @@ import {
   listProviders,
   listProxyRequestLogs,
   listSkills,
-  getSkillRepository,
+  getSkillRepositorySnapshot,
   readLivePrompt,
 } from "@/services/api";
 import type { ProviderTarget } from "@/types/backend";
@@ -60,7 +60,7 @@ export const skillsOptions = queryOptions({
 
 export const skillRepositoryOptions = queryOptions({
   queryKey: ["skillRepository"] as const,
-  queryFn: getSkillRepository,
+  queryFn: getSkillRepositorySnapshot,
 });
 
 export const usageOverviewOptions = (
