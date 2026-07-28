@@ -19,6 +19,9 @@ const SUMMARY_LIMIT: usize = 160;
 const SESSION_ARCHIVE_VERSION: u8 = 1;
 const SESSION_ARCHIVE_MANIFEST: &str = "manifest.json";
 const SESSION_ARCHIVE_CONTENT: &str = "session.jsonl";
+const SESSION_BATCH_ARCHIVE_VERSION: u8 = 1;
+const SESSION_BATCH_ARCHIVE_MANIFEST: &str = "batch-manifest.json";
+const SESSION_BATCH_ARCHIVE_PREFIX: &str = "sessions";
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -89,6 +92,28 @@ pub struct SessionArchiveInfo {
     pub archive_path: String,
     pub session_id: String,
     pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBatchBackupInfo {
+    pub archives: Vec<SessionArchiveInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBatchExportInfo {
+    pub archive_path: String,
+    pub session_count: usize,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionBatchArchiveManifest {
+    version: u8,
+    created_at: i64,
+    sessions: Vec<SessionArchiveManifest>,
 }
 
 pub fn scan_sessions(provider: Option<SessionProvider>) -> AppResult<SessionScanResult> {
@@ -172,7 +197,57 @@ pub fn export_claude_code_session(source_path: &str) -> AppResult<SessionArchive
     Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
 }
 
+/// Store each selected session as an independently restorable local archive.
+/// The source session files are only read and remain untouched.
+pub fn backup_claude_code_sessions(source_paths: &[String]) -> AppResult<SessionBatchBackupInfo> {
+    let source_paths = unique_session_paths(source_paths)?;
+    let mut archives = Vec::with_capacity(source_paths.len());
+    for source_path in source_paths {
+        archives.push(export_claude_code_session(&source_path)?);
+    }
+    Ok(SessionBatchBackupInfo { archives })
+}
+
+/// Create one portable ZIP containing every selected session and its integrity
+/// metadata. Unlike the backup operation this produces a single file that can
+/// be moved and imported on another machine.
+pub fn export_claude_code_sessions(source_paths: &[String]) -> AppResult<SessionBatchExportInfo> {
+    let source_paths = unique_session_paths(source_paths)?;
+    let mut sessions = Vec::with_capacity(source_paths.len());
+    for source_path in source_paths {
+        let (source, relative) = validated_code_session(&source_path)?;
+        let content = fs::read(&source)?;
+        let meta = parse_claude_code_session(&source)?
+            .ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+        sessions.push((
+            SessionArchiveManifest {
+                version: SESSION_ARCHIVE_VERSION,
+                session_id: meta.session_id,
+                relative_path: relative.to_string_lossy().replace('\\', "/"),
+                created_at: chrono::Utc::now().timestamp_millis(),
+                content_sha256: hex::encode(Sha256::digest(&content)),
+            },
+            content,
+        ));
+    }
+
+    let created_at = chrono::Utc::now().timestamp_millis();
+    let dir = config::get_app_config_dir().join("session-exports");
+    fs::create_dir_all(&dir)?;
+    let archive_path = dir.join(format!("claude-code-sessions-{created_at}.zip"));
+    write_batch_session_archive(&archive_path, created_at, &sessions)?;
+    Ok(SessionBatchExportInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_count: sessions.len(),
+        created_at,
+    })
+}
+
 pub fn import_claude_code_session(archive_path: &str) -> AppResult<SessionMeta> {
+    if is_batch_session_archive(Path::new(archive_path))? {
+        let sessions = import_claude_code_sessions(archive_path)?;
+        return sessions.into_iter().next().ok_or_else(|| AppError::Config("会话批量归档为空".to_string()));
+    }
     let (manifest, content) = read_session_archive(Path::new(archive_path))?;
     let root = claude_code_session_root();
     let relative = safe_archive_relative_path(&manifest.relative_path)?;
@@ -187,6 +262,38 @@ pub fn import_claude_code_session(archive_path: &str) -> AppResult<SessionMeta> 
     if let Some(parent) = target.parent() { fs::create_dir_all(parent)?; }
     crate::config::atomic_write(&target, &content)?;
     parse_claude_code_session(&target)?.ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))
+}
+
+pub fn import_claude_code_sessions(archive_path: &str) -> AppResult<Vec<SessionMeta>> {
+    let (batch, contents) = read_batch_session_archive(Path::new(archive_path))?;
+    let root = claude_code_session_root();
+    let mut targets = Vec::with_capacity(batch.sessions.len());
+    let mut target_paths = std::collections::HashSet::new();
+    for (manifest, content) in batch.sessions.iter().zip(contents.iter()) {
+        let relative = safe_archive_relative_path(&manifest.relative_path)?;
+        let target = root.join(relative);
+        if !target_paths.insert(target.clone()) {
+            return Err(AppError::Config("会话批量归档包含重复的目标路径".to_string()));
+        }
+        if target.exists() {
+            let existing = fs::read(&target)?;
+            if hex::encode(Sha256::digest(existing)) != manifest.content_sha256 {
+                return Err(AppError::Config("目标位置已有不同的会话，已拒绝覆盖".to_string()));
+            }
+        }
+        targets.push((target, content));
+    }
+
+    let mut imported = Vec::with_capacity(targets.len());
+    for (target, content) in targets {
+        if !target.exists() {
+            if let Some(parent) = target.parent() { fs::create_dir_all(parent)?; }
+            crate::config::atomic_write(&target, content)?;
+        }
+        imported.push(parse_claude_code_session(&target)?
+            .ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))?);
+    }
+    Ok(imported)
 }
 
 pub fn trash_claude_code_session(source_path: &str) -> AppResult<SessionArchiveInfo> {
@@ -248,6 +355,31 @@ fn write_session_archive(path: &Path, manifest: &SessionArchiveManifest, content
     Ok(())
 }
 
+fn write_batch_session_archive(
+    path: &Path,
+    created_at: i64,
+    sessions: &[(SessionArchiveManifest, Vec<u8>)],
+) -> AppResult<()> {
+    let manifest = SessionBatchArchiveManifest {
+        version: SESSION_BATCH_ARCHIVE_VERSION,
+        created_at,
+        sessions: sessions.iter().map(|(manifest, _)| manifest.clone()).collect(),
+    };
+    let file = File::create(path)?;
+    let mut archive = ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    archive.start_file(SESSION_BATCH_ARCHIVE_MANIFEST, options)
+        .map_err(|error| AppError::Other(format!("创建会话批量归档失败: {error}")))?;
+    archive.write_all(&serde_json::to_vec_pretty(&manifest)?)?;
+    for (index, (_, content)) in sessions.iter().enumerate() {
+        archive.start_file(format!("{SESSION_BATCH_ARCHIVE_PREFIX}/{index}/session.jsonl"), options)
+            .map_err(|error| AppError::Other(format!("创建会话批量归档失败: {error}")))?;
+        archive.write_all(content)?;
+    }
+    archive.finish().map_err(|error| AppError::Other(format!("完成会话批量归档失败: {error}")))?;
+    Ok(())
+}
+
 fn read_session_archive(path: &Path) -> AppResult<(SessionArchiveManifest, Vec<u8>)> {
     let file = File::open(path)?;
     let mut archive = ZipArchive::new(file).map_err(|_| AppError::Config("会话归档格式无效".to_string()))?;
@@ -259,6 +391,47 @@ fn read_session_archive(path: &Path) -> AppResult<(SessionArchiveManifest, Vec<u
     archive.by_name(SESSION_ARCHIVE_CONTENT).map_err(|_| AppError::Config("会话归档缺少内容".to_string()))?.read_to_end(&mut content)?;
     if hex::encode(Sha256::digest(&content)) != manifest.content_sha256 { return Err(AppError::Config("会话归档校验失败".to_string())); }
     Ok((manifest, content))
+}
+
+fn is_batch_session_archive(path: &Path) -> AppResult<bool> {
+    let file = File::open(path)?;
+    let mut archive = ZipArchive::new(file).map_err(|_| AppError::Config("会话归档格式无效".to_string()))?;
+    Ok(archive.by_name(SESSION_BATCH_ARCHIVE_MANIFEST).is_ok())
+}
+
+fn read_batch_session_archive(path: &Path) -> AppResult<(SessionBatchArchiveManifest, Vec<Vec<u8>>)> {
+    let file = File::open(path)?;
+    let mut archive = ZipArchive::new(file).map_err(|_| AppError::Config("会话归档格式无效".to_string()))?;
+    let mut raw_manifest = Vec::new();
+    archive.by_name(SESSION_BATCH_ARCHIVE_MANIFEST)
+        .map_err(|_| AppError::Config("会话批量归档缺少清单".to_string()))?
+        .read_to_end(&mut raw_manifest)?;
+    let manifest = serde_json::from_slice::<SessionBatchArchiveManifest>(&raw_manifest)?;
+    if manifest.version != SESSION_BATCH_ARCHIVE_VERSION || manifest.sessions.is_empty() {
+        return Err(AppError::Config("不支持或为空的会话批量归档".to_string()));
+    }
+    let mut contents = Vec::with_capacity(manifest.sessions.len());
+    for (index, item) in manifest.sessions.iter().enumerate() {
+        if item.version != SESSION_ARCHIVE_VERSION { return Err(AppError::Config("会话批量归档包含不支持的会话版本".to_string())); }
+        let mut content = Vec::new();
+        archive.by_name(&format!("{SESSION_BATCH_ARCHIVE_PREFIX}/{index}/session.jsonl"))
+            .map_err(|_| AppError::Config("会话批量归档缺少内容".to_string()))?
+            .read_to_end(&mut content)?;
+        if hex::encode(Sha256::digest(&content)) != item.content_sha256 {
+            return Err(AppError::Config("会话批量归档校验失败".to_string()));
+        }
+        contents.push(content);
+    }
+    Ok((manifest, contents))
+}
+
+fn unique_session_paths(source_paths: &[String]) -> AppResult<Vec<String>> {
+    let mut unique = std::collections::BTreeSet::new();
+    for path in source_paths {
+        if !path.trim().is_empty() { unique.insert(path.clone()); }
+    }
+    if unique.is_empty() { return Err(AppError::Config("请至少选择一个 Claude Code 会话".to_string())); }
+    Ok(unique.into_iter().collect())
 }
 
 fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {

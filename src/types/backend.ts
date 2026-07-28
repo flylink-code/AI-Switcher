@@ -538,3 +538,13 @@ export interface SessionArchiveInfo {
   sessionId: string;
   createdAt: number;
 }
+
+export interface SessionBatchBackupInfo {
+  archives: SessionArchiveInfo[];
+}
+
+export interface SessionBatchExportInfo {
+  archivePath: string;
+  sessionCount: number;
+  createdAt: number;
+}

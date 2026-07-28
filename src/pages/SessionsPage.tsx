@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Col,
   Empty,
   Input,
@@ -26,6 +27,8 @@ import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import {
+  backupClaudeCodeSessions,
+  exportClaudeCodeSessions,
   loadSessionMessages,
   exportClaudeCodeSession,
   importClaudeCodeSession,
@@ -72,6 +75,7 @@ export default function SessionsPage() {
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashedArchives, setTrashedArchives] = useState<SessionArchiveInfo[]>([]);
   const [sessionAction, setSessionAction] = useState(false);
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -85,6 +89,10 @@ export default function SessionsPage() {
           ? next.sessions.find((session) => session.sourcePath === current.sourcePath) ?? null
           : null,
       );
+      setSelectedPaths((current) => {
+        const valid = new Set(next.sessions.filter((item) => item.provider === "claude_code").map((item) => item.sourcePath));
+        return new Set([...current].filter((path) => valid.has(path)));
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -149,6 +157,50 @@ export default function SessionsPage() {
       return sort === "oldest" ? leftTime - rightTime : rightTime - leftTime;
     });
   }, [contentSearch, directory, provider, query, result.sessions, sort, time]);
+
+  const batchableSessions = useMemo(
+    () => visibleSessions.filter((session) => session.provider === "claude_code"),
+    [visibleSessions],
+  );
+  const allBatchableSelected = batchableSessions.length > 0 && batchableSessions.every((session) => selectedPaths.has(session.sourcePath));
+
+  const toggleSelectedPath = (sourcePath: string, checked: boolean) => {
+    setSelectedPaths((current) => {
+      const next = new Set(current);
+      if (checked) next.add(sourcePath); else next.delete(sourcePath);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = () => {
+    setSelectedPaths((current) => {
+      const next = new Set(current);
+      batchableSessions.forEach((session) => {
+        if (allBatchableSelected) next.delete(session.sourcePath); else next.add(session.sourcePath);
+      });
+      return next;
+    });
+  };
+
+  const backupSelected = async () => {
+    if (!selectedPaths.size) return;
+    setSessionAction(true);
+    try {
+      const result = await backupClaudeCodeSessions([...selectedPaths]);
+      void toast.success(t("sessions.batchBackedUp", { count: result.archives.length }));
+    } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
+
+  const exportSelected = async () => {
+    if (!selectedPaths.size) return;
+    setSessionAction(true);
+    try {
+      const archive = await exportClaudeCodeSessions([...selectedPaths]);
+      void toast.success(t("sessions.batchExported", { count: archive.sessionCount, path: archive.archivePath }));
+    } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
 
   const selectSession = async (session: SessionMeta) => {
     setSelected(session);
@@ -311,6 +363,15 @@ export default function SessionsPage() {
           <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
             {t("common.refresh")}
           </Button>
+          <Button disabled={!batchableSessions.length} onClick={toggleAllVisible}>
+            {allBatchableSelected ? t("sessions.clearSelection") : t("sessions.selectVisible")}
+          </Button>
+          <Button loading={sessionAction} disabled={!selectedPaths.size} onClick={() => void backupSelected()}>
+            {t("sessions.backupSelected", { count: selectedPaths.size })}
+          </Button>
+          <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size} onClick={() => void exportSelected()}>
+            {t("sessions.exportSelected", { count: selectedPaths.size })}
+          </Button>
           <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
           <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
         </Space>
@@ -338,6 +399,15 @@ export default function SessionsPage() {
                           ? token.colorFillSecondary
                           : undefined,
                     }}
+                    actions={session.provider === "claude_code" ? [
+                      <Checkbox
+                        key="select"
+                        checked={selectedPaths.has(session.sourcePath)}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => toggleSelectedPath(session.sourcePath, event.target.checked)}
+                        aria-label={t("sessions.selectSession", { title: session.title || session.sessionId })}
+                      />,
+                    ] : undefined}
                   >
                     <List.Item.Meta
                       title={

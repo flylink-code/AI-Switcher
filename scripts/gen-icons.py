@@ -1,49 +1,29 @@
 #!/usr/bin/env python3
-"""Generate placeholder icons for Claude Switcher.
-
-Creates a simple branded square (gradient + "CS" monogram) and emits the full
-Tauri icon set. Run once during scaffolding; output is committed.
-"""
+"""Generate the AI-Switcher icon set from the approved high-resolution mark."""
 import sys
 from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 except ImportError:
     print("Pillow is required: pip install Pillow", file=sys.stderr)
     sys.exit(1)
 
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("src-tauri/icons")
 OUT.mkdir(parents=True, exist_ok=True)
+SOURCE = OUT / "brand-mark.png"
 
 
 def make(size: int) -> Image.Image:
-    """Render a square icon of the given size with a CS monogram."""
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    # Rounded square background — a calm indigo gradient look (solid for simplicity).
-    bg = (88, 101, 242)  # Discord-blurple-ish indigo
-    radius = int(size * 0.18)
-    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=bg)
-
-    # "CS" monogram centered.
-    font = None
-    for candidate in ["arial.ttf", "DejaVuSans-Bold.ttf", "Arial.ttf"]:
-        try:
-            font = ImageFont.truetype(candidate, int(size * 0.5))
-            break
-        except OSError:
-            continue
-    if font is None:
-        font = ImageFont.load_default()
-
-    text = "CS"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    x = (size - tw) / 2 - bbox[0]
-    y = (size - th) / 2 - bbox[1]
-    draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+    """Resize the canonical mark and apply transparent rounded corners."""
+    if not SOURCE.is_file():
+        raise FileNotFoundError(f"Missing source icon: {SOURCE}")
+    img = Image.open(SOURCE).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        [0, 0, size - 1, size - 1], radius=round(size * 0.18), fill=255
+    )
+    img.putalpha(mask)
     return img
 
 

@@ -52,6 +52,8 @@ import type {
   SessionMessage,
   SessionMeta,
   SessionArchiveInfo,
+  SessionBatchBackupInfo,
+  SessionBatchExportInfo,
   SyncPreview,
   SyncPushResult,
   SyncTarget,
@@ -635,6 +637,16 @@ export async function loadSessionMessages(
 export async function exportClaudeCodeSession(sourcePath: string): Promise<SessionArchiveInfo> {
   const invoke = await getInvoke();
   return invoke<SessionArchiveInfo>("export_claude_code_session", { sourcePath });
+}
+
+export async function backupClaudeCodeSessions(sourcePaths: string[]): Promise<SessionBatchBackupInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionBatchBackupInfo>("backup_claude_code_sessions", { sourcePaths });
+}
+
+export async function exportClaudeCodeSessions(sourcePaths: string[]): Promise<SessionBatchExportInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionBatchExportInfo>("export_claude_code_sessions", { sourcePaths });
 }
 
 export async function importClaudeCodeSession(archivePath: string): Promise<SessionMeta> {

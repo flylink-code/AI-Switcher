@@ -43,19 +43,15 @@ jobs:
 
             ## What's new
 
-            - Added a portable managed-library archive with manifest and hash verification, plus a safer data-root migration using SQLite snapshots
-            - Added Claude Code session export/import, managed trash, restore, and archive validation
-            - Added WSL/SSH sync-target setup, safe preview, and explicit sanitized archive push without credentials
-            - Updated the built-in model-price catalog and preserved user-customized prices during catalog updates
-            - Added optional local-proxy automatic failover with a 60-second circuit breaker; it remains disabled by default
+            - Added multi-select Claude Code session backup and a portable, integrity-checked batch export ZIP
+            - Added token, request, and cost usage curves alongside the daily usage statistics table
+            - Refreshed the Windows application icon set
 
             ## 更新内容
 
-            - 新增可迁移资料库归档的清单与哈希校验，并使用 SQLite 快照提升资料库迁移安全性
-            - 新增 Claude Code 会话导出、导入、资料库回收站、恢复与归档校验
-            - 新增 WSL/SSH 同步目标配置、安全预览和显式推送脱敏归档，不传递凭据
-            - 更新内置模型价格目录，目录更新不会覆盖用户自定义价格
-            - 新增本地代理可选自动故障切换与 60 秒熔断；默认保持关闭
+            - 新增 Claude Code 会话多选备份与带完整性校验的可移植批量导出 ZIP
+            - 新增 Token、请求数和预估成本用量曲线，并保留每日统计明细表
+            - 更新 Windows 应用图标套件
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -192,7 +192,11 @@ export default function UsagePage() {
           <Metric title={t("usage.estimatedCost")} value={summary?.estimatedCost ?? 0} precision={4} prefix="$" icon={<DollarOutlined />} />
         </Row>
 
-        <Card size="small" title={<Space><LineChartOutlined />{t("usage.trend")}</Space>}>
+        <Card size="small" title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}>
+          <UsageTrendChart data={dashboard?.trend ?? []} t={t} />
+        </Card>
+
+        <Card size="small" title={t("usage.dailyStatistics")}>
           {dashboard?.trend.length ? (
             <Table
               size="small"
@@ -433,6 +437,62 @@ export default function UsagePage() {
         <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{detailDiagnostic}</pre>
       </Drawer>
     </>
+  );
+}
+
+type TrendMetric = "requests" | "tokens" | "cost";
+
+function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: string) => string }) {
+  const [metric, setMetric] = useState<TrendMetric>("tokens");
+  const values = useMemo(() => data.map((row) => ({
+    date: row.date,
+    requests: row.requestCount,
+    tokens: row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens,
+    cost: row.estimatedCost,
+  })), [data]);
+  const max = Math.max(...values.map((item) => item[metric]), 1);
+  const points = values.map((item, index) => {
+    const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
+    const y = 8 + (62 * (1 - item[metric] / max));
+    return `${x},${y}`;
+  }).join(" ");
+  const labelIndexes = values.length <= 5
+    ? values.map((_, index) => index)
+    : [...new Set([0, Math.round((values.length - 1) / 4), Math.round((values.length - 1) / 2), Math.round((values.length - 1) * 3 / 4), values.length - 1])];
+
+  if (!values.length) return <Empty description={t("usage.noData")} />;
+
+  return (
+    <Space direction="vertical" size="small" style={{ width: "100%" }}>
+      <Select<TrendMetric>
+        size="small"
+        value={metric}
+        style={{ width: 160 }}
+        onChange={setMetric}
+        options={[
+          { value: "tokens", label: t("usage.trendTokens") },
+          { value: "requests", label: t("usage.trendRequests") },
+          { value: "cost", label: t("usage.trendCost") },
+        ]}
+      />
+      <div style={{ width: "100%", overflowX: "auto" }}>
+        <svg viewBox="0 0 100 100" role="img" aria-label={t(`usage.trend${metric[0].toUpperCase()}${metric.slice(1)}`)} style={{ display: "block", minWidth: 420, width: "100%", height: 240 }} preserveAspectRatio="none">
+          {[8, 23.5, 39, 54.5, 70].map((y) => <line key={y} x1="8" x2="92" y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" vectorEffect="non-scaling-stroke" />)}
+          <polyline points={points} fill="none" stroke="var(--ant-color-primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+          {values.map((item, index) => {
+            const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
+            const y = 8 + (62 * (1 - item[metric] / max));
+            return <circle key={item.date} cx={x} cy={y} r="1.25" fill="var(--ant-color-primary)"><title>{`${item.date}: ${metric === "cost" ? formatCost(item[metric]) : formatNumber(item[metric])}`}</title></circle>;
+          })}
+          <text x="8" y="78" fontSize="4" fill="currentColor" opacity="0.65">0</text>
+          <text x="8" y="6" fontSize="4" fill="currentColor" opacity="0.65">{metric === "cost" ? formatCost(max) : formatNumber(max)}</text>
+          {labelIndexes.map((index) => {
+            const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
+            return <text key={values[index].date} x={x} y="88" textAnchor="middle" fontSize="3.5" fill="currentColor" opacity="0.65">{values[index].date.slice(5)}</text>;
+          })}
+        </svg>
+      </div>
+    </Space>
   );
 }
 
