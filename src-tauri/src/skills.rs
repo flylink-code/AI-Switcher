@@ -522,27 +522,52 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
 async fn download_github_archive(url: &str) -> AppResult<(Vec<u8>, String)> {
     let (owner, repo) = parse_github_url(url)?;
     let archive_url = format!("https://api.github.com/repos/{owner}/{repo}/zipball/HEAD");
-    let response = reqwest::Client::builder()
+    Ok((download_github_archive_bytes(&archive_url).await?, repo.to_string()))
+}
+
+async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> {
+    let mut last_error = None;
+    for attempt in 1..=2 {
+        match download_github_archive_once(archive_url).await {
+            Ok(archive) => return Ok(archive),
+            Err(error) => last_error = Some((attempt, error)),
+        }
+    }
+    let (attempts, error) = last_error.expect("download attempts are non-empty");
+    Err(AppError::Other(format!("GitHub Skill 下载失败（已重试 {attempts} 次）: {error}")))
+}
+
+async fn download_github_archive_once(archive_url: &str) -> AppResult<Vec<u8>> {
+    let mut response = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::limited(5))
         .build()
         .map_err(|e| AppError::Other(format!("创建 GitHub 请求客户端失败: {e}")))?
-        .get(&archive_url)
+        .get(archive_url)
         .header("User-Agent", "Claude-Switcher")
+        // Some proxies add a Content-Encoding header that this minimal client does not
+        // decode. Asking for identity keeps the GitHub ZIP bytes intact end-to-end.
+        .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("下载 GitHub Skill 失败: {e}")))?;
+        .map_err(|e| AppError::Other(format!("GitHub 请求阶段失败: {e}")))?;
     if !response.status().is_success() {
         return Err(AppError::Config(format!("GitHub 下载失败（HTTP {}）", response.status())));
     }
     if response.content_length().is_some_and(|size| size > MAX_ARCHIVE_BYTES) {
         return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
     }
-    let archive = response.bytes().await
-        .map_err(|e| AppError::Other(format!("读取 GitHub Skill 下载内容失败: {e}")))?;
-    if archive.len() as u64 > MAX_ARCHIVE_BYTES {
-        return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
+    let mut archive = Vec::new();
+    while let Some(chunk) = response.chunk().await
+        .map_err(|e| AppError::Other(format!("GitHub 响应体读取失败: {e}")))?
+    {
+        let next_len = archive.len() as u64 + chunk.len() as u64;
+        if next_len > MAX_ARCHIVE_BYTES {
+            return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
+        }
+        archive.extend_from_slice(&chunk);
     }
-    Ok((archive.to_vec(), repo.to_string()))
+    Ok(archive)
 }
 
 fn repository_skill_entries(bytes: &[u8], fallback_name: &str) -> AppResult<Vec<(RepositorySkill, usize)>> {
@@ -646,6 +671,8 @@ fn frontmatter_value(content: &str, key: &str) -> Option<String> {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::net::TcpListener;
+    use std::thread;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
 
@@ -677,5 +704,35 @@ mod tests {
             "https://github.com/anthropics/skills",
         );
         assert!(normalize_github_url("https://github.com/anthropics/skills/tree/main").is_err());
+    }
+
+    #[tokio::test]
+    async fn github_download_requests_identity_encoding_and_retries() {
+        let archive = repository_archive();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let mut requests = Vec::new();
+            for attempt in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 2048];
+                let length = stream.read(&mut request).unwrap();
+                requests.push(String::from_utf8_lossy(&request[..length]).into_owned());
+                if attempt == 0 {
+                    stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                } else {
+                    let headers = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", archive.len());
+                    stream.write_all(headers.as_bytes()).unwrap();
+                    stream.write_all(&archive).unwrap();
+                }
+            }
+            requests
+        });
+
+        let bytes = download_github_archive_bytes(&format!("http://{address}/archive.zip")).await.unwrap();
+        assert_eq!(bytes, repository_archive());
+        let requests = worker.join().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert!(requests.iter().all(|request| request.to_ascii_lowercase().contains("accept-encoding: identity")));
     }
 }

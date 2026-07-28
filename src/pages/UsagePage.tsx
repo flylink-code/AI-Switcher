@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  Divider,
   Drawer,
   Empty,
   Form,
@@ -218,13 +219,12 @@ export default function UsagePage() {
           <UsageTrendChart data={dashboard?.trend ?? []} t={t} />
         </Card>
 
-        <Card size="small" title={t("usage.dailyStatistics")}>
-          <UsageCalendar data={dashboard?.trend ?? []} days={days} t={t} />
-        </Card>
-
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12}>
-            <BreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} t={t} />
+            <BreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} t={t}>
+              <Divider style={{ margin: "4px 0 0" }}>{t("usage.dailyStatistics")}</Divider>
+              <UsageCalendar data={dashboard?.trend ?? []} days={days} t={t} />
+            </BreakdownCard>
           </Col>
           <Col xs={24} lg={12}>
             <BreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} t={t} />
@@ -508,14 +508,18 @@ function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["
 
   return (
     <Space direction="vertical" size="small" style={{ width: "100%" }}>
-      <Space wrap size={[16, 8]}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} aria-label={t("usage.trendChart")}>
         {series.map((metric) => (
-          <Space key={metric.key} size={6}>
-            <span style={{ width: 12, height: 3, borderRadius: 2, background: metric.color }} />
-            <Text type="secondary" style={{ fontSize: 12 }}>{metric.label}</Text>
-          </Space>
+          <span
+            key={metric.key}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 8px", border: "1px solid var(--ant-color-border-secondary)", borderRadius: 6 }}
+          >
+            <span style={{ width: 16, height: 4, borderRadius: 3, background: metric.color }} />
+            <Text style={{ fontSize: 12 }}>{metric.label}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>{metric.cost ? "USD" : "Token"}</Text>
+          </span>
         ))}
-      </Space>
+      </div>
       <div ref={containerRef} style={{ width: "100%", minWidth: 0 }}>
         <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("usage.trendChart")} style={{ display: "block", width: "100%", height }} preserveAspectRatio="xMidYMid meet">
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -583,10 +587,10 @@ function UsageCalendar({ data, days, t }: { data: UsageDashboard["trend"]; days:
         <div
           style={{
             display: "grid",
-            gridTemplateRows: "repeat(7, 15px)",
+            gridTemplateRows: "repeat(7, 22px)",
             gridAutoFlow: "column",
-            gridAutoColumns: "15px",
-            gap: 4,
+            gridAutoColumns: "22px",
+            gap: 6,
             width: "max-content",
           }}
         >
@@ -601,7 +605,7 @@ function UsageCalendar({ data, days, t }: { data: UsageDashboard["trend"]; days:
               <Tooltip key={item.key} title={tooltip}>
                 <span
                   aria-label={tooltip}
-                  style={{ width: 15, height: 15, borderRadius: 3, background: colors[level], outline: `1px solid ${token.colorBorderSecondary}` }}
+                  style={{ width: 22, height: 22, borderRadius: 4, background: colors[level], outline: `1px solid ${token.colorBorderSecondary}` }}
                 />
               </Tooltip>
             );
@@ -630,30 +634,33 @@ function Metric({ title, value, suffix, prefix, precision, icon }: { title: stri
   return <Col xs={24} sm={12} xl={6}><Card size="small"><Statistic title={title} value={value} suffix={suffix} prefix={prefix ?? icon} precision={precision} /></Card></Col>;
 }
 
-function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string }) {
+function BreakdownCard({ title, data, t, children }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string; children?: ReactNode }) {
   return <Card size="small" title={title}>
-    <Table
-      size="small"
-      pagination={false}
-      rowKey="key"
-      locale={{ emptyText: t("usage.noData") }}
-      dataSource={data}
-      columns={[
-        { title: t("usage.name"), dataIndex: "key", ellipsis: true },
-        { title: t("usage.requests"), dataIndex: "requestCount" },
-        {
-          title: t("usage.totalTokens"),
-          render: (_: unknown, row: UsageDashboard["byModel"][number]) =>
-            formatNumber(
-              row.inputTokens +
-                row.cacheReadInputTokens +
-                row.cacheCreationInputTokens +
-                row.outputTokens,
-            ),
-        },
-        { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
-      ]}
-    />
+    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Table
+        size="small"
+        pagination={false}
+        rowKey="key"
+        locale={{ emptyText: t("usage.noData") }}
+        dataSource={data}
+        columns={[
+          { title: t("usage.name"), dataIndex: "key", ellipsis: true },
+          { title: t("usage.requests"), dataIndex: "requestCount" },
+          {
+            title: t("usage.totalTokens"),
+            render: (_: unknown, row: UsageDashboard["byModel"][number]) =>
+              formatNumber(
+                row.inputTokens +
+                  row.cacheReadInputTokens +
+                  row.cacheCreationInputTokens +
+                  row.outputTokens,
+              ),
+          },
+          { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
+        ]}
+      />
+      {children}
+    </Space>
   </Card>;
 }
 

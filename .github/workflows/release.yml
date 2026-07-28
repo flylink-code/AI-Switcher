@@ -43,17 +43,15 @@ jobs:
 
             ## What's new
 
-            - Added automatic app-update checks with a badge prompt and a six-hour refresh interval
-            - Made usage analytics responsive, refresh automatically, and distinguish missing upstream usage from real zero values
-            - Added persistent Skill repository snapshots plus protected single and bulk GitHub Skill updates
-            - Hide the Chinese localization hub while the application is in English
+            - Clarified every usage trend line with a fixed color legend and unit label
+            - Moved the enlarged daily usage heatmap into the provider summary area
+            - Made GitHub Skill ZIP downloads resilient to encoded responses and transient failures
 
             ## 更新内容
 
-            - 新增自动应用更新检测、左上角更新提示及每 6 小时复查
-            - 用量统计支持自适应放大、自动刷新，并区分上游未提供的用量与真实零 Token
-            - Skill 仓库清单会持久化保存，支持安全的单项和批量 GitHub Skill 更新
-            - 英文模式下隐藏中文化配置入口
+            - 用量曲线新增固定颜色图例与单位标注，清楚对应每条曲线
+            - 放大后的按日期统计热力图已整合到供应商汇总区域
+            - GitHub Skill ZIP 下载支持未压缩响应、流式读取与一次重试，提升稳定性
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。
