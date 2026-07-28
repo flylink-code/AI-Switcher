@@ -13,6 +13,8 @@ const AUTOSTART_MODE_KEY: &str = "autostart_launch_mode";
 const AUTOSTART_ARGS_MIGRATED_KEY: &str = "autostart_args_migrated_v1";
 const APP_LANGUAGE_KEY: &str = "app.language";
 const CLOSE_BEHAVIOR_KEY: &str = "app.close_behavior";
+const DISMISSED_ONBOARDING_TIPS_KEY: &str = "ui.dismissed_onboarding_tips";
+const ONBOARDING_TIP_KEYS: &[&str] = &["proxy", "mcp", "prompts", "skills", "sessions", "usage"];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -118,11 +120,55 @@ pub fn restart_app(app: tauri::AppHandle) {
     app.request_restart();
 }
 
+#[tauri::command]
+pub fn get_dismissed_onboarding_tips(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let value = state.db.with_conn(|conn| get_setting(conn, DISMISSED_ONBOARDING_TIPS_KEY))?;
+    Ok(value
+        .and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|key| ONBOARDING_TIP_KEYS.contains(&key.as_str()))
+        .collect())
+}
+
+#[tauri::command]
+pub fn dismiss_onboarding_tip(
+    tip_key: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    validate_onboarding_tip_key(&tip_key)?;
+    let mut dismissed = get_dismissed_onboarding_tips(state.clone())?;
+    if !dismissed.contains(&tip_key) {
+        dismissed.push(tip_key);
+        set_setting_value(
+            &state.db,
+            DISMISSED_ONBOARDING_TIPS_KEY,
+            &serde_json::to_string(&dismissed)?,
+        )?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn restore_onboarding_tips(state: tauri::State<'_, AppState>) -> AppResult<()> {
+    set_setting_value(&state.db, DISMISSED_ONBOARDING_TIPS_KEY, "[]")
+}
+
 fn validate_app_language(language: &str) -> AppResult<()> {
     if matches!(language, "zh-CN" | "en-US") {
         Ok(())
     } else {
         Err(AppError::Config(format!("不支持的界面语言: {language}")))
+    }
+}
+
+fn validate_onboarding_tip_key(tip_key: &str) -> AppResult<()> {
+    if ONBOARDING_TIP_KEYS.contains(&tip_key) {
+        Ok(())
+    } else {
+        Err(AppError::Config(format!("不支持的新手提示标识: {tip_key}")))
     }
 }
 
@@ -329,6 +375,13 @@ mod tests {
         assert_eq!(serde_json::to_string(&CloseBehavior::Ask).unwrap(), "\"ask\"");
         assert_eq!(serde_json::to_string(&CloseBehavior::Tray).unwrap(), "\"tray\"");
         assert_eq!(serde_json::to_string(&CloseBehavior::Quit).unwrap(), "\"quit\"");
+    }
+
+    #[test]
+    fn onboarding_tip_keys_are_allowlisted() {
+        assert!(validate_onboarding_tip_key("proxy").is_ok());
+        assert!(validate_onboarding_tip_key("usage").is_ok());
+        assert!(validate_onboarding_tip_key("anything-else").is_err());
     }
 
     #[test]

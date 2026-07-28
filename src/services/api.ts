@@ -700,3 +700,18 @@ export async function setAppLanguage(language: "zh-CN" | "en-US"): Promise<void>
   const invoke = await getInvoke();
   return invoke<void>("set_app_language", { language });
 }
+
+export async function getDismissedOnboardingTips(): Promise<string[]> {
+  const invoke = await getInvoke();
+  return invoke<string[]>("get_dismissed_onboarding_tips", {});
+}
+
+export async function dismissOnboardingTip(tipKey: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("dismiss_onboarding_tip", { tipKey });
+}
+
+export async function restoreOnboardingTips(): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("restore_onboarding_tips", {});
+}

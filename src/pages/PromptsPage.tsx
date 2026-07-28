@@ -25,6 +25,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import type { PromptDetail, PromptInfo } from "@/types/backend";
 import {
   activatePrompt,
@@ -155,7 +156,7 @@ export default function PromptsPage() {
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {promptsQuery.error && <Alert type="error" showIcon message={errMsg(promptsQuery.error)} />}
-        <Alert type="info" showIcon message={t("prompts.title")} description={t("prompts.description")} />
+        <OnboardingTip tipKey="prompts" message={t("prompts.title")} description={t("prompts.description")} />
 
         <Card
           size="small"

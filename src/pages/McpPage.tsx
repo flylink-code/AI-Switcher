@@ -25,6 +25,7 @@ import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import type { McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
 import {
   deleteMcpServer,
@@ -288,7 +289,7 @@ export default function McpPage() {
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {serversQuery.error && <Alert type="error" showIcon message={errMsg(serversQuery.error)} />}
-        <Alert type="info" showIcon message={t("mcp.title")} description={t("mcp.description")} />
+        <OnboardingTip tipKey="mcp" message={t("mcp.title")} description={t("mcp.description")} />
         <Card
           size="small"
           title={t("mcp.title")}

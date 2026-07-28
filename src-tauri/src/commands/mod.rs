@@ -62,9 +62,10 @@ pub use skills::{
     list_skills, refresh_github_repository_skills, set_skill_enabled, set_skill_repository, update_github_skills,
 };
 pub use system::{
-    get_autostart_config, get_autostart_enabled, get_close_behavior,
+    dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,
+    get_dismissed_onboarding_tips,
     report_frontend_performance, report_frontend_startup, resolve_close_request,
-    restart_app, set_app_language, set_autostart_config, set_autostart_enabled,
+    restart_app, restore_onboarding_tips, set_app_language, set_autostart_config, set_autostart_enabled,
     set_close_behavior,
 };
 pub use sync::{

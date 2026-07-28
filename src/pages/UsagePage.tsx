@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Col,
-  Divider,
   Drawer,
   Empty,
   Form,
@@ -18,10 +17,8 @@ import {
   Switch,
   Table,
   Tag,
-  Tooltip,
   Typography,
   message,
-  theme,
 } from "antd";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
@@ -50,6 +47,7 @@ import {
 } from "@/services/api";
 import { usageOverviewOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text } = Typography;
 
@@ -174,7 +172,7 @@ export default function UsagePage() {
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
-        <Alert type="info" showIcon message={t("usage.title")} description={t("usage.description")} />
+        <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
         <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
         <Alert type="info" showIcon message={t("usage.cachePricingIncluded")} />
 
@@ -221,10 +219,7 @@ export default function UsagePage() {
 
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12}>
-            <BreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} t={t}>
-              <Divider style={{ margin: "4px 0 0" }}>{t("usage.dailyStatistics")}</Divider>
-              <UsageCalendar data={dashboard?.trend ?? []} days={days} t={t} />
-            </BreakdownCard>
+            <BreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} t={t} />
           </Col>
           <Col xs={24} lg={12}>
             <BreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} t={t} />
@@ -555,89 +550,13 @@ function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["
   );
 }
 
-function UsageCalendar({ data, days, t }: { data: UsageDashboard["trend"]; days: number; t: (key: string) => string }) {
-  const { token } = theme.useToken();
-  const byDate = new Map(data.map((row) => [row.date, row]));
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - days + 1);
-  const daily = Array.from({ length: days }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
-    const key = localDateKey(date);
-    const row = byDate.get(key);
-    const tokens = row ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens : 0;
-    return { date, key, row, tokens };
-  });
-  const max = Math.max(...daily.map((item) => item.tokens), 0);
-  const activeDays = daily.filter((item) => item.tokens > 0).length;
-  const total = daily.reduce((sum, item) => sum + item.tokens, 0);
-  const leading = Array.from({ length: daily[0]?.date.getDay() ?? 0 });
-
-  if (!data.length) return <Empty description={t("usage.noData")} />;
-
-  return (
-    <Space direction="vertical" size={14} style={{ width: "100%" }}>
-      <Space wrap size={24}>
-        <Statistic title={t("usage.activeDays")} value={activeDays} suffix={`/ ${days}`} />
-        <Statistic title={t("usage.dailyPeak")} value={max} formatter={(value) => formatNumber(Number(value))} />
-        <Statistic title={t("usage.calendarTotal")} value={total} formatter={(value) => formatNumber(Number(value))} />
-      </Space>
-      <div style={{ overflowX: "auto", paddingBottom: 2 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateRows: "repeat(7, 22px)",
-            gridAutoFlow: "column",
-            gridAutoColumns: "22px",
-            gap: 6,
-            width: "max-content",
-          }}
-        >
-          {leading.map((_, index) => <span key={`leading-${index}`} />)}
-          {daily.map((item) => {
-            const level = item.tokens === 0 ? 0 : Math.min(4, Math.ceil((item.tokens / Math.max(max, 1)) * 4));
-            const colors = [token.colorFillQuaternary, "#9be9a8", "#40c463", "#30a14e", "#216e39"];
-            const tooltip = item.row
-              ? `${item.key}: ${formatNumber(item.tokens)} Token · ${item.row.requestCount} ${t("usage.requests")}`
-              : `${item.key}: 0 Token`;
-            return (
-              <Tooltip key={item.key} title={tooltip}>
-                <span
-                  aria-label={tooltip}
-                  style={{ width: 22, height: 22, borderRadius: 4, background: colors[level], outline: `1px solid ${token.colorBorderSecondary}` }}
-                />
-              </Tooltip>
-            );
-          })}
-        </div>
-      </div>
-      <Space size={6} align="center" style={{ alignSelf: "flex-end" }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLess")}</Text>
-        {[token.colorFillQuaternary, "#9be9a8", "#40c463", "#30a14e", "#216e39"].map((color, index) => (
-          <span key={index} style={{ width: 12, height: 12, borderRadius: 2, background: color, outline: `1px solid ${token.colorBorderSecondary}` }} />
-        ))}
-        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarMore")}</Text>
-      </Space>
-    </Space>
-  );
-}
-
-function localDateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function Metric({ title, value, suffix, prefix, precision, icon }: { title: string; value: number; suffix?: string; prefix?: string; precision?: number; icon?: ReactNode }) {
   return <Col xs={24} sm={12} xl={6}><Card size="small"><Statistic title={title} value={value} suffix={suffix} prefix={prefix ?? icon} precision={precision} /></Card></Col>;
 }
 
-function BreakdownCard({ title, data, t, children }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string; children?: ReactNode }) {
+function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string }) {
   return <Card size="small" title={title}>
-    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-      <Table
+    <Table
         size="small"
         pagination={false}
         rowKey="key"
@@ -658,9 +577,7 @@ function BreakdownCard({ title, data, t, children }: { title: string; data: Usag
           },
           { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
         ]}
-      />
-      {children}
-    </Space>
+    />
   </Card>;
 }
 

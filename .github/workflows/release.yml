@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Clarified every usage trend line with a fixed color legend and unit label
-            - Moved the enlarged daily usage heatmap into the provider summary area
-            - Made GitHub Skill ZIP downloads resilient to encoded responses and transient failures
+            - Moved daily usage heatmaps into the Providers page and added dismissible onboarding tips
+            - Confirmed Kimi Anthropic usage parsing, including the final streaming usage frame
+            - Added gh-proxy mirrored update metadata with direct GitHub fallback
 
             ## 更新内容
 
-            - 用量曲线新增固定颜色图例与单位标注，清楚对应每条曲线
-            - 放大后的按日期统计热力图已整合到供应商汇总区域
-            - GitHub Skill ZIP 下载支持未压缩响应、流式读取与一次重试，提升稳定性
+            - 按日期统计热力图已移至供应商页面，并支持关闭和恢复各功能的新手提示
+            - Kimi Anthropic 协议用量采集已覆盖普通响应和流式最终 usage
+            - 新增 gh-proxy 镜像更新元数据，直连 GitHub 自动回退
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。
@@ -59,3 +59,21 @@ jobs:
           prerelease: false
           args: --bundles nsis,msi
           updaterJsonKeepUniversal: true
+
+      - name: Publish mirrored updater manifest
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $env:RUNNER_TEMP "ai-switcher-release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          gh release download "${{ github.ref_name }}" --repo "$env:GITHUB_REPOSITORY" --pattern latest.json --dir $releaseDir
+          $source = Join-Path $releaseDir "latest.json"
+          $mirror = Get-Content -Raw -Path $source | ConvertFrom-Json
+          foreach ($platform in $mirror.platforms.PSObject.Properties) {
+            $url = $platform.Value.url
+            if ($url -and -not $url.StartsWith("https://gh-proxy.com/")) {
+              $platform.Value.url = "https://gh-proxy.com/$url"
+            }
+          }
+          $target = Join-Path $releaseDir "latest-mirror.json"
+          $mirror | ConvertTo-Json -Depth 10 | Set-Content -NoNewline -Path $target
+          gh release upload "${{ github.ref_name }}" $target --repo "$env:GITHUB_REPOSITORY" --clobber

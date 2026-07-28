@@ -53,7 +53,8 @@ use crate::commands::{
     delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync, push_sync_archive, save_sync_target,
     set_app_language,
     restart_app,
-    get_close_behavior, migrate_data_root, resolve_close_request, set_close_behavior,
+    dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
+    resolve_close_request, restore_onboarding_tips, set_close_behavior,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -201,6 +202,9 @@ pub fn run() {
             push_sync_archive,
             set_app_language,
             restart_app,
+            get_dismissed_onboarding_tips,
+            dismiss_onboarding_tip,
+            restore_onboarding_tips,
             get_close_behavior,
             set_close_behavior,
             resolve_close_request,

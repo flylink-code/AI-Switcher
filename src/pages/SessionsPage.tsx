@@ -27,6 +27,7 @@ import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import {
   backupClaudeCodeSessions,
   exportClaudeCodeSessions,
@@ -301,9 +302,8 @@ export default function SessionsPage() {
       </div>
 
       {desktopStatus && (
-        <Alert
-          type="info"
-          showIcon
+        <OnboardingTip
+          tipKey="sessions"
           message={t("sessions.desktopLimited")}
           description={t(`sessions.desktopStatus.${desktopStatus.status}`, {
             defaultValue: desktopStatus.detail,

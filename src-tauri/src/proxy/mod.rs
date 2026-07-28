@@ -1139,7 +1139,8 @@ fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
     text.lines()
         .filter_map(|line| line.strip_prefix("data: "))
         .filter_map(|data| serde_json::from_str::<Value>(data).ok())
-        .find_map(|value| usage_from_value(&value))
+        .filter_map(|value| usage_from_value(&value))
+        .last()
 }
 
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
@@ -1349,5 +1350,24 @@ mod tests {
         assert_eq!(parsed.input_tokens, 60);
         assert_eq!(parsed.cache_read_input_tokens, 40);
         assert_eq!(parsed.output_tokens, 20);
+    }
+
+    #[test]
+    fn kimi_anthropic_usage_and_final_stream_frame_are_preserved() {
+        let kimi = br#"{"usage":{"input_tokens":321,"cache_read_input_tokens":12,"output_tokens":45}}"#;
+        let parsed = extract_usage_from_json(kimi).expect("Kimi Anthropic usage");
+        assert_eq!(parsed.input_tokens, 321);
+        assert_eq!(parsed.cache_read_input_tokens, 12);
+        assert_eq!(parsed.output_tokens, 45);
+
+        let stream = br#"data: {"type":"content_block_delta"}
+
+data: {"type":"message_delta","usage":{"input_tokens":321,"output_tokens":45}}
+
+data: {"type":"message_delta","usage":{"input_tokens":321,"output_tokens":67}}
+"#;
+        let parsed = extract_usage_from_sse(stream).expect("final Kimi stream usage");
+        assert_eq!(parsed.input_tokens, 321);
+        assert_eq!(parsed.output_tokens, 67);
     }
 }

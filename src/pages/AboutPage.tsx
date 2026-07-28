@@ -18,7 +18,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { restartApp, runClaudeCodeUpdate } from "@/services/api";
+import { restartApp, restoreOnboardingTips, runClaudeCodeUpdate } from "@/services/api";
 import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
 import { checkForAppUpdate } from "@/lib/appUpdater";
 
@@ -30,6 +30,7 @@ export default function AboutPage() {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [checkingApp, setCheckingApp] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
+  const [restoringTips, setRestoringTips] = useState(false);
   const localClaudeQuery = useQuery(localClaudeVersionOptions);
   const claudeQuery = useQuery({
     ...claudeVersionOptions,
@@ -74,6 +75,19 @@ export default function AboutPage() {
       );
     } finally {
       setCheckingApp(false);
+    }
+  };
+
+  const restoreTips = async () => {
+    setRestoringTips(true);
+    try {
+      await restoreOnboardingTips();
+      queryClient.setQueryData(["dismissed-onboarding-tips"], []);
+      void message.success(t("about.onboardingTipsRestored"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setRestoringTips(false);
     }
   };
 
@@ -127,6 +141,9 @@ export default function AboutPage() {
               onClick={() => void checkAppUpdate()}
             >
               {t("about.checkAppUpdate")}
+            </Button>
+            <Button loading={restoringTips} onClick={() => void restoreTips()}>
+              {t("about.restoreOnboardingTips")}
             </Button>
           </Space>
         </Card>

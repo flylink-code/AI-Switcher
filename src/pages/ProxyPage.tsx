@@ -23,6 +23,7 @@ import type { ProviderTarget } from "@/types/backend";
 import { getProxyFailoverEnabled, setProxyFailoverEnabled, setProxyPort, startProxy, stopProxy } from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text } = Typography;
 
@@ -94,9 +95,8 @@ export default function ProxyPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Alert
-          type="info"
-          showIcon
+        <OnboardingTip
+          tipKey="proxy"
           message={t("proxy.title")}
           description={t("proxy.description")}
         />

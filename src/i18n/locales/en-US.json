@@ -597,6 +597,8 @@
     "appUpdateFailed": "Unable to check for or install updates. Try again later.",
     "appUpdateFailedDetail": "Unable to check for or install updates: {{error}}",
     "appUpdateTimedOut": "Update check timed out. Check your network connection or try again later.",
+    "restoreOnboardingTips": "Restore onboarding tips",
+    "onboardingTipsRestored": "All onboarding tips have been restored",
     "claudeCodeSection": "Claude Code",
     "claudeCurrentVersion": "Current version",
     "claudeLatestVersion": "Latest version",

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Input,
@@ -19,6 +18,7 @@ import InboxOutlined from "@ant-design/icons/es/icons/InboxOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import type { RepositorySkill, Skill, SkillUpdateStatus } from "@/types/backend";
 import {
   deleteSkill,
@@ -196,7 +196,7 @@ export default function SkillsPage() {
   const updateAvailableNames = skills.filter((skill) => updateStatuses[skill.name]?.status === "update_available").map((skill) => skill.name);
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-    <Alert type="info" showIcon message={t("skills.title")} description={t("skills.description")} />
+    <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
     <Card
       size="small"
       title={t("skills.repositoryTitle")}

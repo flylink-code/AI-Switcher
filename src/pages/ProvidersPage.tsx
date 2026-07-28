@@ -6,6 +6,7 @@ import {
   Card,
   Popconfirm,
   Segmented,
+  Select,
   Space,
   Table,
   Tag,
@@ -13,6 +14,7 @@ import {
   Typography,
   type TableColumnsType,
 } from "antd";
+import { useQuery } from "@tanstack/react-query";
 import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
@@ -27,7 +29,9 @@ import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
+import { UsageCalendar } from "@/components/UsageCalendar";
 import { exportProviders, importProvidersJson, testProviderConnection } from "@/services/api";
+import { usageOverviewOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
@@ -37,10 +41,13 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const usageDays = usePagePreferencesStore((state) => state.usageDays);
+  const setUsageDays = usePagePreferencesStore((state) => state.setUsageDays);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
+  const usageQuery = useQuery(usageOverviewOptions(usageDays, 0, "all"));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
 
@@ -253,6 +260,24 @@ export default function ProvidersPage() {
         scroll={{ x: 1100 }}
         locale={{ emptyText: t("providers.empty") }}
       />
+    </Card>
+    <Card
+      size="small"
+      title={t("usage.dailyStatistics")}
+      extra={
+        <Select
+          value={usageDays}
+          style={{ width: 130 }}
+          options={[7, 30, 90, 365].map((value) => ({ value, label: t("usage.lastDays", { days: value }) }))}
+          onChange={setUsageDays}
+        />
+      }
+    >
+      {usageQuery.error ? (
+        <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
+      ) : (
+        <UsageCalendar data={usageQuery.data?.dashboard.trend ?? []} days={usageDays} />
+      )}
     </Card>
     <ProviderForm
       open={formOpen}
