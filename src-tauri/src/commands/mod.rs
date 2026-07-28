@@ -44,7 +44,8 @@ pub use prompts::{
 };
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use sessions::{
-    export_claude_code_session, import_claude_code_session, load_session_messages,
+    backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
+    import_claude_code_session, load_session_messages,
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
     trash_claude_code_session,
 };

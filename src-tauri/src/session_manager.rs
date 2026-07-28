@@ -396,7 +396,8 @@ fn read_session_archive(path: &Path) -> AppResult<(SessionArchiveManifest, Vec<u
 fn is_batch_session_archive(path: &Path) -> AppResult<bool> {
     let file = File::open(path)?;
     let mut archive = ZipArchive::new(file).map_err(|_| AppError::Config("会话归档格式无效".to_string()))?;
-    Ok(archive.by_name(SESSION_BATCH_ARCHIVE_MANIFEST).is_ok())
+    let contains_batch_manifest = archive.by_name(SESSION_BATCH_ARCHIVE_MANIFEST).is_ok();
+    Ok(contains_batch_manifest)
 }
 
 fn read_batch_session_archive(path: &Path) -> AppResult<(SessionBatchArchiveManifest, Vec<Vec<u8>>)> {
