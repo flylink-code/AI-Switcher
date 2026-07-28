@@ -186,6 +186,13 @@ export interface PathsInfo {
   claudeDesktopThreepConfigPath: string | null;
 }
 
+export interface DataRootInfo {
+  activePath: string;
+  legacyPath: string;
+  migrated: boolean;
+  restartRequired: boolean;
+}
+
 /** Basic database info returned by `get_db_info`. */
 export interface DbInfo {
   path: string;
@@ -273,6 +280,26 @@ export interface Skill {
   path: string;
   enabled: boolean;
   description: string;
+  descriptionZh?: string | null;
+  source?: InstalledSkillSource | null;
+}
+
+export interface InstalledSkillSource {
+  kind: "github" | "zip" | string;
+  sourceUrl?: string | null;
+  revision?: string | null;
+  repositoryPath?: string | null;
+  installedAt: number;
+  contentSha256: string;
+}
+
+export interface SkillUpdateStatus {
+  name: string;
+  status: "untracked" | "unsupported" | "local_modified" | "up_to_date" | "update_available" | string;
+  message: string;
+  localModified: boolean;
+  localRevision?: string | null;
+  remoteRevision?: string | null;
 }
 
 export interface RepositorySkill {

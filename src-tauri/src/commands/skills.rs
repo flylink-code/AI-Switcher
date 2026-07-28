@@ -7,7 +7,7 @@ use crate::skills::{
     install_github_skill as install_from_github, install_zip_skill as install_from_zip,
     list_github_repository_skills as list_repository_skills, list_skills as list_local_skills,
     set_skill_enabled as set_enabled, set_skill_repository as set_repository,
-    RepositorySkill, Skill,
+    check_skill_update as check_update, RepositorySkill, Skill, SkillUpdateStatus,
 };
 use crate::store::AppState;
 
@@ -58,4 +58,9 @@ pub fn set_skill_enabled(name: String, enabled: bool) -> AppResult<()> {
 #[tauri::command]
 pub fn delete_skill(name: String) -> AppResult<()> {
     remove_skill(&name)
+}
+
+#[tauri::command]
+pub async fn check_skill_update(name: String, _state: tauri::State<'_, AppState>) -> AppResult<SkillUpdateStatus> {
+    check_update(&name).await
 }

@@ -9,6 +9,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   DbInfo,
+  DataRootInfo,
   LivePrompt,
   McpImportSummary,
   McpServer,
@@ -27,6 +28,7 @@ import type {
   ProviderTarget,
   ProxyStatus,
   Skill,
+  SkillUpdateStatus,
   RepositorySkill,
   UsageDashboard,
   ModelPricing,
@@ -81,6 +83,16 @@ export async function getPaths(): Promise<PathsInfo> {
 export async function getDbInfo(): Promise<DbInfo> {
   const invoke = await getInvoke();
   return invoke<DbInfo>("get_db_info", {});
+}
+
+export async function getDataRoot(): Promise<DataRootInfo> {
+  const invoke = await getInvoke();
+  return invoke<DataRootInfo>("get_data_root", {});
+}
+
+export async function migrateDataRoot(targetPath: string): Promise<DataRootInfo> {
+  const invoke = await getInvoke();
+  return invoke<DataRootInfo>("migrate_data_root", { targetPath });
 }
 
 export async function backupNow(): Promise<string> {
@@ -333,6 +345,11 @@ export async function installGithubRepositorySkills(url: string, paths: string[]
 export async function installGithubSkill(url: string): Promise<Skill> {
   const invoke = await getInvoke();
   return invoke<Skill>("install_github_skill", { url });
+}
+
+export async function checkSkillUpdate(name: string): Promise<SkillUpdateStatus> {
+  const invoke = await getInvoke();
+  return invoke<SkillUpdateStatus>("check_skill_update", { name });
 }
 
 export async function installZipSkill(path: string): Promise<Skill> {

@@ -1,10 +1,10 @@
-# Claude Switcher
+# AI-Switcher
 
 > 面向 Claude Code 与 Claude Desktop 的本地配置、供应商和辅助工具管理器。
 
 [English](README_en.md)
 
-Claude Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它把分散在配置文件、系统凭据库和本地目录中的常用能力整合到一个界面中，并让 Claude Code 与 Claude Desktop 的供应商和当前配置保持相互独立。
+AI-Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它把分散在配置文件、系统凭据库和本地目录中的常用能力整合到一个界面中，并让 Claude Code 与 Claude Desktop 的供应商和当前配置保持相互独立。
 
 项目默认在本机工作。API 密钥保存到操作系统凭据库，配置写入前会备份，会话管理器只读取本地 Claude Code 会话文件。
 
@@ -12,9 +12,9 @@ Claude Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用�
 
 - **供应商管理**：分别管理 Claude Code 和 Claude Desktop 的第三方 API、模型映射、导入导出、连接测试、模型发现和官方登录恢复。
 - **本地代理**：提供 Anthropic Messages 兼容代理、模型映射、密钥注入、流式转发、运行状态和请求日志。
-- **MCP、Prompts 与 Skills**：统一维护 MCP 服务，管理 `CLAUDE.md` 预设，并从 GitHub 或本地 ZIP 安装 Skills。
+- **MCP、Prompts 与 Skills**：统一维护 MCP 服务，管理 `CLAUDE.md` 预设；Skills 会记录安装来源、版本摘要并支持手动检查更新。
 - **会话管理**：浏览、筛选和搜索 `~/.claude/projects` 下的 Claude Code 会话，查看消息时间线，复制恢复命令与工作目录。
-- **Claude Desktop 中文化**：检测、下载、校验、安装和还原本地语言包。
+- **中文化中心**：分别管理 Claude Code CLI、VS Code/Cursor 扩展补丁助手及 Claude Desktop 语言包；补丁应用始终需要在编辑器中确认。
 - **用量统计**：按供应商和模型统计请求、Token、趋势与估算成本，并提供日志维护策略。
 - **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、浅色/深色主题和开机自启。
 - **环境与更新**：查看配置路径、Claude Code 版本和应用更新状态。
@@ -33,7 +33,7 @@ Claude Desktop 没有公开稳定的本地会话枚举格式。当前版本仅�
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest) 下载 NSIS 安装程序。安装后的主程序文件名为 `ClaudeSwitch.exe`。
+从 [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) 下载 NSIS 安装程序。安装后的主程序文件名为 `AISwitcher.exe`。
 
 运行环境：
 
@@ -94,9 +94,9 @@ scripts\build-exe.bat release skip-tests
 
 | 产物 | 路径 |
 |---|---|
-| Tauri 正式版 | `src-tauri\target\release\ClaudeSwitch.exe` |
-| 正式版测试副本 | `release\ClaudeSwitch.exe` |
-| 调试版测试副本 | `release\ClaudeSwitch-debug.exe` |
+| Tauri 正式版 | `src-tauri\target\release\AISwitcher.exe` |
+| 正式版测试副本 | `release\AISwitcher.exe` |
+| 调试版测试副本 | `release\AISwitcher-debug.exe` |
 | 安装包 | `src-tauri\target\release\bundle\` |
 
 ## 数据与配置
@@ -108,11 +108,9 @@ scripts\build-exe.bat release skip-tests
 | `~/.claude/projects/` | Claude Code 本地会话，只读 |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方网关配置 |
 | `~/.claude/skills/` | Claude Code Skills |
-| `~/.claude-switcher/app.db` | 应用 SQLite 数据库 |
-| `~/.claude-switcher/backups/` | 配置备份 |
-| `~/.claude-switcher/logs/` | 本地运行日志 |
+| `~/.claude-switcher/`（默认）或“环境”页选择的目录 | AI-Switcher 自有资料库：数据库、备份、下载资源与日志 |
 
-应用的产品名、安装标识和数据目录仍为 Claude Switcher；仅可执行文件简化为 `ClaudeSwitch.exe`，升级不会迁移或重置原有数据。
+应用已更名为 AI-Switcher，但保留原应用标识、签名密钥和默认资料库位置，以兼容既有用户。资料库可迁移至其他盘；迁移复制原有数据、不删除旧副本，并在重启后生效。Claude 的活动配置仍保留在官方读取目录。
 
 ## 安全与隐私
 
@@ -135,7 +133,7 @@ scripts/                     Windows 开发和构建脚本
 
 ## 参考与致谢
 
-本项目在产品设计和实现思路上参考了以下开源工程。Claude Switcher 是独立项目，与这些项目及 Anthropic 均无隶属或官方关系。
+本项目在产品设计和实现思路上参考了以下开源工程。AI-Switcher 是独立项目，与这些项目及 Anthropic 均无隶属或官方关系。
 
 | 项目 | 参考方向 | 上游与许可证 |
 |---|---|---|

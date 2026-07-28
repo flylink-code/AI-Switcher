@@ -28,8 +28,8 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     activate_prompt, backup_now, create_provider, delete_mcp_server, delete_prompt,
-    delete_provider, delete_skill, discover_provider_models, discover_provider_models_input,
-    download_desktop_localization_pack, export_providers, get_autostart_config,
+    delete_provider, delete_skill, check_skill_update, discover_provider_models, discover_provider_models_input,
+    download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
@@ -49,7 +49,7 @@ use crate::commands::{
     load_session_messages, scan_sessions, search_session_contents,
     set_app_language,
     restart_app,
-    get_close_behavior, resolve_close_request, set_close_behavior,
+    get_close_behavior, migrate_data_root, resolve_close_request, set_close_behavior,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -93,6 +93,8 @@ pub fn run() {
             ping,
             get_paths,
             get_db_info,
+            get_data_root,
+            migrate_data_root,
             backup_now,
             get_desktop_localization_status,
             get_localization_hub_status,
@@ -149,6 +151,7 @@ pub fn run() {
             install_zip_skill,
             set_skill_enabled,
             delete_skill,
+            check_skill_update,
             get_autostart_enabled,
             set_autostart_enabled,
             get_autostart_config,
@@ -192,7 +195,7 @@ fn report_startup_failure(error: &str) {
     let _ = std::fs::create_dir_all(&directory);
     let path = directory.join("startup-error.log");
     let report = format!(
-        "Claude Switcher failed to start.\n\n{error}\n\nSee: {}\n",
+        "AI-Switcher failed to start.\n\n{error}\n\nSee: {}\n",
         path.display()
     );
     let _ = std::fs::write(&path, &report);
@@ -226,7 +229,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_config_dir = config::get_app_config_dir();
     std::fs::create_dir_all(&app_config_dir)?;
     std::fs::create_dir_all(config::get_backup_dir())?;
-    log::info!("Claude Switcher starting; data directory: {}", app_config_dir.display());
+    log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
 
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);

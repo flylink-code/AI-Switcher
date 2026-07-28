@@ -186,7 +186,7 @@ export default function DesktopLocalizationPage() {
                   >
                     <Button
                       loading={installEditorHelper.isPending && installEditorHelper.variables === editor.id}
-                      disabled={busy || !editor.claudeExtensionPath}
+                      disabled={busy || !editor.claudeExtensionPath || !editor.editorCliPath}
                     >
                       {editor.helperInstalled ? t("env.localization.reinstallHelper") : t("env.localization.installHelper")}
                     </Button>
@@ -199,6 +199,7 @@ export default function DesktopLocalizationPage() {
                     <Text type="secondary"> {editor.message}</Text>
                   </Descriptions.Item>
                   <Descriptions.Item label={t("env.localization.extensionPath")}><PathValue value={editor.claudeExtensionPath} /></Descriptions.Item>
+                  <Descriptions.Item label={t("env.localization.editorCliPath")}><PathValue value={editor.editorCliPath} /></Descriptions.Item>
                 </Descriptions>
               </Card>
             ))}

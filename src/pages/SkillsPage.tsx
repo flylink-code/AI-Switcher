@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import type { RepositorySkill, Skill } from "@/types/backend";
 import {
   deleteSkill,
+  checkSkillUpdate,
   installGithubRepositorySkills,
   installZipSkill,
   listGithubRepositorySkills,
@@ -32,13 +33,14 @@ import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
 const { Text } = Typography;
 
 export default function SkillsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const skillsQuery = useQuery(skillsOptions);
   const repositoryQuery = useQuery(skillRepositoryOptions);
   const skills = skillsQuery.data ?? [];
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [checkingSkill, setCheckingSkill] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
   const [zipPath, setZipPath] = useState("");
@@ -133,6 +135,18 @@ export default function SkillsPage() {
     }
   };
 
+  const checkUpdate = async (skill: Skill) => {
+    setCheckingSkill(skill.name);
+    try {
+      const status = await checkSkillUpdate(skill.name);
+      void message.info(status.message);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setCheckingSkill(null);
+    }
+  };
+
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <Alert type="info" showIcon message={t("skills.title")} description={t("skills.description")} />
     <Card
@@ -192,9 +206,10 @@ export default function SkillsPage() {
         locale={{ emptyText: t("skills.empty") }}
         columns={[
           { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
-          { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
+          { title: t("skills.descriptionLabel"), render: (_: unknown, skill: Skill) => (i18n.language === "zh-CN" ? skill.descriptionZh ?? skill.description : skill.description) || <Text type="secondary">—</Text> },
+          { title: t("skills.source"), render: (_: unknown, skill: Skill) => skill.source?.sourceUrl ? <Text copyable={{ text: skill.source.sourceUrl }} ellipsis style={{ maxWidth: 220 }}>{skill.source.sourceUrl}</Text> : <Text type="secondary">—</Text> },
           { title: t("skills.enabled"), render: (_: unknown, skill: Skill) => <Switch checked={skill.enabled} disabled={busy || scanning} onChange={(checked) => void toggle(skill, checked)} /> },
-          { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Button danger type="link" icon={<DeleteOutlined />} disabled={busy || scanning} onClick={() => void remove(skill)}>{t("skills.delete")}</Button> },
+          { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Space size="small"><Button type="link" loading={checkingSkill === skill.name} disabled={busy || scanning || !skill.source} onClick={() => void checkUpdate(skill)}>{t("skills.checkUpdate")}</Button><Button danger type="link" icon={<DeleteOutlined />} disabled={busy || scanning} onClick={() => void remove(skill)}>{t("skills.delete")}</Button></Space> },
         ]}
       />
     </Card>

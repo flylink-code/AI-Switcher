@@ -1,10 +1,10 @@
-# Claude Switcher
+# AI-Switcher
 
 > A local configuration, provider, and utility manager for Claude Code and Claude Desktop.
 
 [中文](README.md)
 
-Claude Switcher is a desktop application built with Tauri 2, Rust, and React. It brings together configuration files, operating-system credentials, and local tooling in one interface while keeping Claude Code and Claude Desktop providers and active configurations independent.
+AI-Switcher is a desktop application built with Tauri 2, Rust, and React. It brings together configuration files, operating-system credentials, and local tooling in one interface while keeping Claude Code and Claude Desktop providers and active configurations independent.
 
 The application works locally by default. API keys are stored in the operating system credential store, configuration writes are backed up, and the Session Manager only reads local Claude Code session files.
 
@@ -12,9 +12,9 @@ The application works locally by default. API keys are stored in the operating s
 
 - **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code and Claude Desktop.
 - **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs.
-- **MCP, Prompts, and Skills**: Maintain MCP servers, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files.
+- **MCP, Prompts, and Skills**: Maintain MCP servers, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
 - **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`, inspect message timelines, and copy resume commands or working directories.
-- **Claude Desktop localization**: Detect, download, validate, install, and restore local language packs.
+- **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
 - **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies.
 - **System integration**: Provider switching from the system tray, tray labels that follow the selected language, light/dark themes, and launch at login.
 - **Environment and updates**: Inspect configuration paths, the installed Claude Code version, and application updates.
@@ -33,7 +33,7 @@ Claude Desktop does not publish a stable local session-enumeration format. This 
 
 ## Installation
 
-Download the NSIS installer from [GitHub Releases](https://github.com/flylink-code/claude-desktop-config/releases/latest). The installed executable is named `ClaudeSwitch.exe`.
+Download the NSIS installer from [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest). The installed executable is named `AISwitcher.exe`.
 
 Requirements:
 
@@ -94,9 +94,9 @@ Main outputs:
 
 | Artifact | Path |
 |---|---|
-| Tauri release executable | `src-tauri\target\release\ClaudeSwitch.exe` |
-| Release test copy | `release\ClaudeSwitch.exe` |
-| Debug test copy | `release\ClaudeSwitch-debug.exe` |
+| Tauri release executable | `src-tauri\target\release\AISwitcher.exe` |
+| Release test copy | `release\AISwitcher.exe` |
+| Debug test copy | `release\AISwitcher-debug.exe` |
 | Installers | `src-tauri\target\release\bundle\` |
 
 ## Data and configuration
@@ -108,11 +108,9 @@ Main outputs:
 | `~/.claude/projects/` | Local Claude Code sessions, read-only |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party gateway profiles |
 | `~/.claude/skills/` | Claude Code Skills |
-| `~/.claude-switcher/app.db` | Application SQLite database |
-| `~/.claude-switcher/backups/` | Configuration backups |
-| `~/.claude-switcher/logs/` | Local runtime logs |
+| `~/.claude-switcher/` (default) or a directory selected on Environment | AI-Switcher-managed data library: database, backups, downloaded resources, and logs |
 
-The product name, application identifier, and data directory remain Claude Switcher. Only the executable is shortened to `ClaudeSwitch.exe`, so upgrades do not move or reset existing data.
+The product is now AI-Switcher while the application identifier, signing key, and default data location are retained for compatibility. The data library can be copied to another drive; the old copy is retained and the new location is used after restart. Claude live configuration remains at its official location.
 
 ## Security and privacy
 
@@ -135,7 +133,7 @@ scripts/                     Windows development and build scripts
 
 ## References and acknowledgements
 
-This project drew product and implementation ideas from the following open-source projects. Claude Switcher is independent and is not affiliated with these projects or with Anthropic.
+This project drew product and implementation ideas from the following open-source projects. AI-Switcher is independent and is not affiliated with these projects or with Anthropic.
 
 | Project | Area referenced | Upstream and license |
 |---|---|---|

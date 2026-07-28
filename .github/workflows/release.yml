@@ -37,9 +37,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           tagName: v__VERSION__
-          releaseName: Claude Switcher v__VERSION__
+          releaseName: AI-Switcher v__VERSION__
           releaseBody: |-
-            ## Claude Switcher v__VERSION__
+            ## AI-Switcher v__VERSION__
 
             ## What's new
 

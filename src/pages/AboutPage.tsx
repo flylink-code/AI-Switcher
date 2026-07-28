@@ -44,7 +44,7 @@ export default function AboutPage() {
   const checkAppUpdate = async () => {
     setCheckingApp(true);
     try {
-      const update = await check();
+      const update = await withTimeout(check(), 15_000, t("about.appUpdateTimedOut"));
       if (!update) {
         void message.info(t("about.appUpToDate"));
         return;
@@ -232,4 +232,14 @@ export default function AboutPage() {
 
 function errMsg(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
 }

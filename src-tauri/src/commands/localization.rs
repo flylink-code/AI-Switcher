@@ -57,6 +57,7 @@ struct EditorDefinition {
     id: &'static str,
     label: &'static str,
     extension_dir: PathBuf,
+    command_name: &'static str,
     cli_candidates: Vec<PathBuf>,
 }
 
@@ -179,6 +180,7 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             id: "vscode",
             label: "VS Code",
             extension_dir: home.join(".vscode").join("extensions"),
+            command_name: "code",
             cli_candidates: vec![
                 local.join("Programs").join("Microsoft VS Code").join("bin").join("code.cmd"),
                 PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"),
@@ -188,6 +190,7 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             id: "cursor",
             label: "Cursor",
             extension_dir: home.join(".cursor").join("extensions"),
+            command_name: "cursor",
             cli_candidates: vec![
                 local.join("Programs").join("Cursor").join("resources").join("app").join("bin").join("cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\Cursor\resources\app\bin\cursor.cmd"),
@@ -199,10 +202,12 @@ fn editor_definitions() -> Vec<EditorDefinition> {
 fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
     let claude_extension = find_extension(&definition.extension_dir, CLAUDE_EXTENSION_PREFIX);
     let helper_installed = find_extension(&definition.extension_dir, PATCH_HELPER_PREFIX).is_some();
-    let cli = definition.cli_candidates.iter().find(|path| path.is_file()).cloned();
+    let cli = resolve_editor_cli(&definition);
     let editor_detected = cli.is_some() || definition.extension_dir.is_dir();
     let message = if claude_extension.is_none() {
         "未检测到 Claude Code for VS Code 扩展".to_string()
+    } else if cli.is_none() {
+        format!("已检测到 Claude Code for VS Code 扩展，但未找到 {} 命令行工具；请在编辑器命令面板安装 Shell Command，或将命令加入 PATH", definition.label)
     } else if helper_installed {
         "中文补丁助手已安装；请在编辑器命令面板确认应用补丁".to_string()
     } else {
@@ -217,6 +222,32 @@ fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
         helper_installed,
         message,
     }
+}
+
+/// Resolve an editor command from its normal installation locations first and
+/// then from PATH.  Cursor commonly installs only its user-level command, so
+/// treating the extension directory as proof of a CLI used to produce a
+/// misleading patch-helper error.
+fn resolve_editor_cli(definition: &EditorDefinition) -> Option<PathBuf> {
+    definition.cli_candidates.iter().find(|path| path.is_file()).cloned()
+        .or_else(|| find_command_on_path(definition.command_name))
+}
+
+#[cfg(windows)]
+fn find_command_on_path(command: &str) -> Option<PathBuf> {
+    let output = Command::new("where.exe").arg(format!("{command}.cmd")).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout).lines()
+        .map(str::trim)
+        .map(PathBuf::from)
+        .find(|path| path.is_file())
+}
+
+#[cfg(not(windows))]
+fn find_command_on_path(_command: &str) -> Option<PathBuf> {
+    None
 }
 
 fn find_extension(root: &Path, prefix: &str) -> Option<PathBuf> {

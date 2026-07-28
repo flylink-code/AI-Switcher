@@ -1,8 +1,8 @@
 {
   "app": {
-    "name": "Claude Switcher",
+    "name": "AI-Switcher",
     "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code",
-    "closeDialogTitle": "Close Claude Switcher",
+    "closeDialogTitle": "Close AI-Switcher",
     "closeDialogDescription": "Quit the app, or hide it in the system tray and keep it running.",
     "closeToTray": "Minimize to system tray",
     "quitDirectly": "Quit",
@@ -348,6 +348,8 @@
     "logDetail": "Request detail"
   },
   "skills": {
+    "source": "Source",
+    "checkUpdate": "Check update",
     "title": "Skills",
     "description": "Scan public GitHub repositories and select Claude Code Skills to install, or import a local ZIP. Packages must contain SKILL.md.",
     "repositoryTitle": "Skill repository",
@@ -372,6 +374,15 @@
     "deleted": "Skill deleted"
   },
   "env": {
+    "dataRootDescription": "Move AI-Switcher-owned data (database, backups, downloaded resources, and future archives) to another drive. Claude's live configuration stays in its official location.",
+    "dataRootActive": "Managed data library",
+    "dataRootPlaceholder": "Absolute empty folder path, e.g. D:\\AI-Switcher",
+    "dataRootMove": "Move library",
+    "dataRootConfirm": "Move the managed data library?",
+    "dataRootConfirmDescription": "The selected folder must be empty. Existing data is copied, never deleted; restart afterwards to use the new location.",
+    "dataRootMigrated": "Managed data library copied successfully",
+    "dataRootRestartTitle": "Restart required",
+    "dataRootRestartDescription": "Restart AI-Switcher to begin using the new data library. The previous copy is retained as a rollback option.",
     "title": "Environment (P0 detection check)",
     "description": "These paths are detected live by the Rust backend, verifying the config-directory discovery logic.",
     "refresh": "Refresh",
@@ -385,7 +396,7 @@
       "claude": "Claude Code config",
       "claudeDesktop": "Claude Desktop config",
       "system": "System",
-      "app": "Claude Switcher data dir",
+      "app": "AI-Switcher data dir",
       "db": "Database",
       "recovery": "Configuration backup and recovery"
     },
@@ -502,6 +513,7 @@
     "appUpdateInstall": "Download and install",
     "appUpdateFailed": "Unable to check for or install updates. Try again later.",
     "appUpdateFailedDetail": "Unable to check for or install updates: {{error}}",
+    "appUpdateTimedOut": "Update check timed out. Check your network connection or try again later.",
     "claudeCodeSection": "Claude Code",
     "claudeCurrentVersion": "Current version",
     "claudeLatestVersion": "Latest version",

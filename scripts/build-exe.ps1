@@ -22,7 +22,7 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
 $mode = if ($Debug) { "debug" } elseif ($Bundle) { "bundle" } else { "release" }
-Write-Host "[build-exe] Claude Switcher local build ($mode)"
+Write-Host "[build-exe] AI-Switcher local build ($mode)"
 Write-Host "[build-exe] Project: $root"
 
 # vcvars64.bat appends several toolchain directories to PATH.  CMD cannot process
@@ -178,14 +178,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 $sw.Stop()
 
-$exeSrc = Join-Path $targetDir "$profile\ClaudeSwitch.exe"
+$exeSrc = Join-Path $targetDir "$profile\AISwitcher.exe"
 if (-not (Test-Path $exeSrc)) {
     throw "Expected binary not found: $exeSrc"
 }
 
 $releaseDir = Join-Path $root "release"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-$outputName = if ($mode -eq "debug") { "ClaudeSwitch-debug.exe" } else { "ClaudeSwitch.exe" }
+$outputName = if ($mode -eq "debug") { "AISwitcher-debug.exe" } else { "AISwitcher.exe" }
 $exeDst = Join-Path $releaseDir $outputName
 $copiedPath = $exeDst
 $targetProcesses = @()
@@ -203,7 +203,7 @@ if (Test-Path -LiteralPath $exeDst) {
 
 if ($targetProcesses.Count -gt 0) {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $copiedPath = Join-Path $releaseDir "ClaudeSwitch-$mode-$timestamp.exe"
+    $copiedPath = Join-Path $releaseDir "AISwitcher-$mode-$timestamp.exe"
     Copy-Item -LiteralPath $exeSrc -Destination $copiedPath
 
     $processSummary = ($targetProcesses | ForEach-Object {
@@ -237,7 +237,7 @@ if ($targetProcesses.Count -gt 0) {
         }
 
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $copiedPath = Join-Path $releaseDir "ClaudeSwitch-$mode-$timestamp.exe"
+        $copiedPath = Join-Path $releaseDir "AISwitcher-$mode-$timestamp.exe"
         Copy-Item -LiteralPath $exeSrc -Destination $copiedPath
         Write-Warning "The existing output is locked by another process: $exeDst"
         Write-Warning "The new build was copied to: $copiedPath"

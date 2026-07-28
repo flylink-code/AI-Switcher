@@ -26,7 +26,7 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("missing icon"))
-        .tooltip("Claude Switcher")
+        .tooltip("AI-Switcher")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -113,13 +113,13 @@ struct TrayLabels {
 fn tray_labels(language: &str) -> TrayLabels {
     if language == "en-US" {
         TrayLabels {
-            show: "Open Claude Switcher",
+            show: "Open AI-Switcher",
             official: "Official login",
             quit: "Quit",
         }
     } else {
         TrayLabels {
-            show: "打开 Claude Switcher",
+            show: "打开 AI-Switcher",
             official: "官方登录",
             quit: "退出",
         }

@@ -3,6 +3,7 @@
 pub mod backend;
 pub mod backup;
 pub mod db;
+pub mod data_root;
 pub mod desktop_localization;
 pub mod localization;
 pub mod mcp;
@@ -20,6 +21,7 @@ pub mod usage;
 pub use backend::ping;
 pub use backup::backup_now;
 pub use db::get_db_info;
+pub use data_root::{get_data_root, migrate_data_root};
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
     install_desktop_localization,
@@ -49,7 +51,7 @@ pub use providers::{
 };
 pub use proxy::{get_proxy_status, set_proxy_port, start_proxy, stop_proxy};
 pub use skills::{
-    delete_skill, get_skill_repository, install_github_repository_skills, install_github_skill,
+    check_skill_update, delete_skill, get_skill_repository, install_github_repository_skills, install_github_skill,
     install_zip_skill, list_github_repository_skills, list_skills, set_skill_enabled,
     set_skill_repository,
 };

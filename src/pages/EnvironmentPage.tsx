@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Input,
   List,
   Modal,
   Popconfirm,
@@ -28,6 +29,7 @@ import type {
 } from "@/types/backend";
 import {
   backupNow,
+  migrateDataRoot,
   listConfigBackups,
   ping,
   previewConfigBackup,
@@ -64,6 +66,7 @@ export default function EnvironmentPage() {
   const closeBehaviorQuery = useQuery(closeBehaviorOptions);
   const paths = environmentQuery.data?.paths ?? null;
   const db = environmentQuery.data?.db ?? null;
+  const dataRoot = environmentQuery.data?.dataRoot ?? null;
   const error = environmentQuery.error
     ? environmentQuery.error instanceof Error
       ? environmentQuery.error.message
@@ -76,6 +79,8 @@ export default function EnvironmentPage() {
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [backupPreview, setBackupPreview] = useState<string | null>(null);
+  const [dataRootPath, setDataRootPath] = useState("");
+  const [migratingDataRoot, setMigratingDataRoot] = useState(false);
 
   const onPing = useCallback(async () => {
     setRunning(true);
@@ -154,6 +159,23 @@ export default function EnvironmentPage() {
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, [backupTarget, loadConfigBackups, t]);
+
+  const migrateLibrary = useCallback(async () => {
+    if (!dataRootPath.trim()) return;
+    setMigratingDataRoot(true);
+    try {
+      const result = await migrateDataRoot(dataRootPath);
+      void message.success(t("env.dataRootMigrated"));
+      if (result.restartRequired) {
+        Modal.info({ title: t("env.dataRootRestartTitle"), content: t("env.dataRootRestartDescription") });
+      }
+      await environmentQuery.refetch();
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setMigratingDataRoot(false);
+    }
+  }, [dataRootPath, environmentQuery, t]);
 
   const claudeRows: PathRow[] = paths
     ? [
@@ -286,6 +308,18 @@ export default function EnvironmentPage() {
                 <PathValue value={paths.backupDir} />
               </Descriptions.Item>
             </Descriptions>
+            <Space direction="vertical" style={{ width: "100%", marginTop: 16 }}>
+              <Text type="secondary">{t("env.dataRootDescription")}</Text>
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label={t("env.dataRootActive")}><PathValue value={dataRoot?.activePath ?? paths.appConfigDir} /></Descriptions.Item>
+              </Descriptions>
+              <Space.Compact style={{ width: "100%" }}>
+                <Input value={dataRootPath} onChange={(event) => setDataRootPath(event.target.value)} placeholder={t("env.dataRootPlaceholder")} />
+                <Popconfirm title={t("env.dataRootConfirm")} description={t("env.dataRootConfirmDescription")} onConfirm={() => void migrateLibrary()} disabled={!dataRootPath.trim()}>
+                  <Button loading={migratingDataRoot} disabled={!dataRootPath.trim()}>{t("env.dataRootMove")}</Button>
+                </Popconfirm>
+              </Space.Compact>
+            </Space>
           </Card>
         )}
 

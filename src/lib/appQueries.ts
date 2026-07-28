@@ -4,6 +4,7 @@ import {
   getClaudeCodeVersion,
   getCloseBehavior,
   getDbInfo,
+  getDataRoot,
   getDesktopLocalizationStatus,
   getLocalizationHubStatus,
   getLogMaintenancePolicy,
@@ -89,8 +90,8 @@ export const usageOverviewOptions = (
 export const environmentOptions = queryOptions({
   queryKey: ["environment", "paths-db"] as const,
   queryFn: async () => {
-    const [paths, db] = await Promise.all([getPaths(), getDbInfo()]);
-    return { paths, db };
+    const [paths, db, dataRoot] = await Promise.all([getPaths(), getDbInfo(), getDataRoot()]);
+    return { paths, db, dataRoot };
   },
   staleTime: 5 * 60_000,
 });
