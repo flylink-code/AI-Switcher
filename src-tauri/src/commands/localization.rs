@@ -21,6 +21,8 @@ const CLAUDE_MARKETPLACE_REPOSITORY: &str = "https://github.com/taekchef/claude-
 const PATCH_HELPER_EXTENSION: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper";
 const CLAUDE_EXTENSION_PREFIX: &str = "anthropic.claude-code-";
 const PATCH_HELPER_PREFIX: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper-";
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -155,8 +157,16 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        let mut command = Command::new("cmd.exe");
-        command.arg("/c").arg(program).args(args).creation_flags(0x0800_0000);
+        let mut command = if requires_command_shell(program) {
+            let mut command = Command::new("cmd.exe");
+            command.args(["/D", "/S", "/C"]).arg(program).args(args);
+            command
+        } else {
+            let mut command = Command::new(program);
+            command.args(args);
+            command
+        };
+        command.creation_flags(CREATE_NO_WINDOW);
         command.output().map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
     }
     #[cfg(not(windows))]
@@ -164,6 +174,12 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
         Command::new(program).args(args).output()
             .map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
     }
+}
+
+fn requires_command_shell(program: &Path) -> bool {
+    program.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat"))
 }
 
 fn command_detail(output: &std::process::Output) -> String {
@@ -235,7 +251,12 @@ fn resolve_editor_cli(definition: &EditorDefinition) -> Option<PathBuf> {
 
 #[cfg(windows)]
 fn find_command_on_path(command: &str) -> Option<PathBuf> {
-    let output = Command::new("where.exe").arg(format!("{command}.cmd")).output().ok()?;
+    use std::os::windows::process::CommandExt;
+    let mut where_command = Command::new("where.exe");
+    where_command
+        .arg(format!("{command}.cmd"))
+        .creation_flags(CREATE_NO_WINDOW);
+    let output = where_command.output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -264,6 +285,13 @@ fn find_extension(root: &Path, prefix: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn command_shell_is_only_used_for_command_scripts() {
+        assert!(requires_command_shell(Path::new("C:/tools/code.cmd")));
+        assert!(requires_command_shell(Path::new("C:/tools/install.BAT")));
+        assert!(!requires_command_shell(Path::new("C:/tools/claude.exe")));
+    }
 
     #[test]
     fn finds_only_expected_extension_prefix() {

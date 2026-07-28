@@ -357,6 +357,7 @@
     "name": "名称",
     "noData": "当前范围内暂无代理请求日志",
     "pricing": "模型定价（每百万 Token）",
+    "configurePricing": "模型定价配置",
     "addPricing": "新增定价",
     "model": "模型名",
     "pricingProvider": "供应商",

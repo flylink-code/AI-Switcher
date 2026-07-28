@@ -14,7 +14,17 @@ const AUTOSTART_ARGS_MIGRATED_KEY: &str = "autostart_args_migrated_v1";
 const APP_LANGUAGE_KEY: &str = "app.language";
 const CLOSE_BEHAVIOR_KEY: &str = "app.close_behavior";
 const DISMISSED_ONBOARDING_TIPS_KEY: &str = "ui.dismissed_onboarding_tips";
-const ONBOARDING_TIP_KEYS: &[&str] = &["proxy", "mcp", "prompts", "skills", "sessions", "usage"];
+const ONBOARDING_TIP_KEYS: &[&str] = &[
+    "proxy",
+    "mcp",
+    "prompts",
+    "skills",
+    "sessions",
+    "usage",
+    "localization",
+    "environment",
+    "about",
+];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -381,6 +391,9 @@ mod tests {
     fn onboarding_tip_keys_are_allowlisted() {
         assert!(validate_onboarding_tip_key("proxy").is_ok());
         assert!(validate_onboarding_tip_key("usage").is_ok());
+        assert!(validate_onboarding_tip_key("localization").is_ok());
+        assert!(validate_onboarding_tip_key("environment").is_ok());
+        assert!(validate_onboarding_tip_key("about").is_ok());
         assert!(validate_onboarding_tip_key("anything-else").is_err());
     }
 

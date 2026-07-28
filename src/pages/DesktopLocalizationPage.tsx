@@ -27,6 +27,7 @@ import {
   validateDesktopLocalizationPack,
 } from "@/services/api";
 import { localizationHubOptions, localizationOptions } from "@/lib/appQueries";
+import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text } = Typography;
 
@@ -132,9 +133,8 @@ export default function DesktopLocalizationPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-      <Alert
-        type="info"
-        showIcon
+      <OnboardingTip
+        tipKey="localization"
         message={t("env.localization.hubTitle")}
         description={t("env.localization.hubDescription")}
       />

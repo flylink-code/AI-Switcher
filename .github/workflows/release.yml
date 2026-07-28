@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Moved daily usage heatmaps into the Providers page and added dismissible onboarding tips
-            - Confirmed Kimi Anthropic usage parsing, including the final streaming usage frame
-            - Added gh-proxy mirrored update metadata with direct GitHub fallback
+            - Improved the responsive GitHub-style usage heatmap with keyboard-accessible daily details
+            - Moved model pricing into a compact configuration dialog instead of the usage page
+            - Prevented localization checks from showing command windows and added more dismissible tips
 
             ## 更新内容
 
-            - 按日期统计热力图已移至供应商页面，并支持关闭和恢复各功能的新手提示
-            - Kimi Anthropic 协议用量采集已覆盖普通响应和流式最终 usage
-            - 新增 gh-proxy 镜像更新元数据，直连 GitHub 自动回退
+            - 优化 GitHub 风格日期热力图的自适应显示，并支持键盘访问每日详情
+            - 模型定价已收纳为紧凑配置弹窗，不再占用用量页面主体
+            - 中文化检测不再显示命令窗口，并扩展可关闭的新手提示
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

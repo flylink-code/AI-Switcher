@@ -357,6 +357,7 @@
     "name": "Name",
     "noData": "No proxy request logs in this period",
     "pricing": "Model pricing (per million tokens)",
+    "configurePricing": "Configure model pricing",
     "addPricing": "Add pricing",
     "model": "Model",
     "pricingProvider": "Provider",

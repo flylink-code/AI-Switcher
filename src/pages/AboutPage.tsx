@@ -13,7 +13,6 @@ import {
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
-import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -21,6 +20,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { restartApp, restoreOnboardingTips, runClaudeCodeUpdate } from "@/services/api";
 import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
 import { checkForAppUpdate } from "@/lib/appUpdater";
+import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text, Paragraph } = Typography;
 
@@ -116,10 +116,8 @@ export default function AboutPage() {
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Alert
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
+        <OnboardingTip
+          tipKey="about"
           message={t("about.title")}
           description={t("about.description")}
         />

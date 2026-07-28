@@ -60,7 +60,8 @@ export default function UsagePage() {
   const setLogPage = usePagePreferencesStore((state) => state.setUsageLogPage);
   const logTargetApp = usePagePreferencesStore((state) => state.usageLogTarget);
   const setLogTargetApp = usePagePreferencesStore((state) => state.setUsageLogTarget);
-  const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingManagerOpen, setPricingManagerOpen] = useState(false);
+  const [pricingFormOpen, setPricingFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [maintaining, setMaintaining] = useState(false);
@@ -109,7 +110,7 @@ export default function UsagePage() {
       const values = await form.validateFields();
       setSaving(true);
       await saveModelPricing(values);
-      setPricingOpen(false);
+      setPricingFormOpen(false);
       form.resetFields();
       void message.success(t("usage.pricingSaved"));
       await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
@@ -198,6 +199,9 @@ export default function UsagePage() {
             onClick={() => void refreshOverview()}
           >
             {t("common.refresh")}
+          </Button>
+          <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
+            {t("usage.configurePricing")}
           </Button>
           <Button loading={maintaining} onClick={() => void openMaintenance()}>{t("usage.maintainLogs")}</Button>
         </Space>
@@ -330,16 +334,46 @@ export default function UsagePage() {
           />
         </Card>
 
-        <Card
-          size="small"
-          title={t("usage.pricing")}
-          extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setPricingOpen(true)}>{t("usage.addPricing")}</Button>}
-        >
+      </Space>
+
+      <Modal
+        title={t("usage.pricing")}
+        open={pricingManagerOpen}
+        width="min(1100px, calc(100vw - 32px))"
+        footer={<Button onClick={() => setPricingManagerOpen(false)}>{t("common.cancel")}</Button>}
+        onCancel={() => { setPricingManagerOpen(false); setPricingFormOpen(false); form.resetFields(); }}
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space style={{ justifyContent: "space-between", width: "100%" }}>
+            <Text type="secondary">{t("usage.cachePricingIncluded")}</Text>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setPricingFormOpen(true)}>
+              {t("usage.addPricing")}
+            </Button>
+          </Space>
+          {pricingFormOpen && <Card size="small" title={t("usage.addPricing")}>
+            <Form form={form} layout="vertical" initialValues={{ currency: "USD", inputPricePerMillion: 0, cacheReadPricePerMillion: 0, cacheWritePricePerMillion: 0, outputPricePerMillion: 0, batchInputPricePerMillion: 0, batchOutputPricePerMillion: 0 }}>
+              <Row gutter={12}>
+                <Col xs={24} md={12}><Form.Item name="model" label={t("usage.model")} rules={[{ required: true, message: t("usage.requiredModel") }]}><Input placeholder="claude-sonnet-4" /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="provider" label={t("usage.pricingProvider")}><Input placeholder="Anthropic" /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="inputPricePerMillion" label={t("usage.inputPrice")} rules={[{ required: true }]}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="outputPricePerMillion" label={t("usage.outputPrice")} rules={[{ required: true }]}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="cacheReadPricePerMillion" label={t("usage.cacheReadPrice")}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="cacheWritePricePerMillion" label={t("usage.cacheWritePrice")}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="batchInputPricePerMillion" label={t("usage.batchInputPrice")}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="batchOutputPricePerMillion" label={t("usage.batchOutputPrice")}><InputNumber min={0} precision={6} style={{ width: "100%" }} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="currency" label={t("usage.currency")} rules={[{ required: true }]}><Input maxLength={12} /></Form.Item></Col>
+              </Row>
+              <Space>
+                <Button type="primary" loading={saving} onClick={() => void savePricing()}>{t("common.save")}</Button>
+                <Button onClick={() => { setPricingFormOpen(false); form.resetFields(); }}>{t("common.cancel")}</Button>
+              </Space>
+            </Form>
+          </Card>}
           <Table
             size="small"
             rowKey="model"
             pagination={false}
-            scroll={{ x: 1300 }}
+            scroll={{ x: 1050 }}
             locale={{ emptyText: t("usage.noPricing") }}
             dataSource={pricing}
             loading={overviewQuery.isPending}
@@ -357,39 +391,7 @@ export default function UsagePage() {
               { title: t("usage.actions"), render: (_, row: ModelPricing) => <Button danger type="link" onClick={() => void removePricing(row.model)}>{t("usage.delete")}</Button> },
             ]}
           />
-        </Card>
-      </Space>
-
-      <Modal title={t("usage.addPricing")} open={pricingOpen} confirmLoading={saving} onOk={() => void savePricing()} onCancel={() => { setPricingOpen(false); form.resetFields(); }}>
-        <Form form={form} layout="vertical" initialValues={{ currency: "USD", inputPricePerMillion: 0, cacheReadPricePerMillion: 0, cacheWritePricePerMillion: 0, outputPricePerMillion: 0, batchInputPricePerMillion: 0, batchOutputPricePerMillion: 0 }}>
-          <Form.Item name="model" label={t("usage.model")} rules={[{ required: true, message: t("usage.requiredModel") }]}>
-            <Input placeholder="claude-sonnet-4" />
-          </Form.Item>
-          <Form.Item name="provider" label={t("usage.pricingProvider")}>
-            <Input placeholder="Anthropic" />
-          </Form.Item>
-          <Form.Item name="inputPricePerMillion" label={t("usage.inputPrice")} rules={[{ required: true }]}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="cacheReadPricePerMillion" label={t("usage.cacheReadPrice")}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="cacheWritePricePerMillion" label={t("usage.cacheWritePrice")}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="outputPricePerMillion" label={t("usage.outputPrice")} rules={[{ required: true }]}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="batchInputPricePerMillion" label={t("usage.batchInputPrice")}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="batchOutputPricePerMillion" label={t("usage.batchOutputPrice")}>
-            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item name="currency" label={t("usage.currency")} rules={[{ required: true }]}>
-            <Input maxLength={12} />
-          </Form.Item>
-        </Form>
+        </Space>
       </Modal>
 
       <Modal

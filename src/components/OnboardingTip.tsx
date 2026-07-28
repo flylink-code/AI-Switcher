@@ -3,7 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { dismissOnboardingTip, getDismissedOnboardingTips } from "@/services/api";
 
-export type OnboardingTipKey = "proxy" | "mcp" | "prompts" | "skills" | "sessions" | "usage";
+export type OnboardingTipKey =
+  | "proxy"
+  | "mcp"
+  | "prompts"
+  | "skills"
+  | "sessions"
+  | "usage"
+  | "localization"
+  | "environment"
+  | "about";
 
 export function OnboardingTip({
   tipKey,

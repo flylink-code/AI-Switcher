@@ -21,6 +21,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import type {
   AutostartMode,
   CloseBehavior,
@@ -292,9 +293,8 @@ export default function EnvironmentPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Alert
-          type="info"
-          showIcon
+        <OnboardingTip
+          tipKey="environment"
           message={t("env.title")}
           description={t("env.description")}
         />
