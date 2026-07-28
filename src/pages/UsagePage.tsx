@@ -419,31 +419,41 @@ export default function UsagePage() {
   );
 }
 
-type TrendMetric = "requests" | "tokens" | "cost";
-
 function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: string) => string }) {
-  const [metric, setMetric] = useState<TrendMetric>("tokens");
   const values = useMemo(() => data.map((row) => ({
     date: row.date,
-    requests: row.requestCount,
-    tokens: row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens,
-    cost: row.estimatedCost,
+    inputTokens: row.inputTokens,
+    outputTokens: row.outputTokens,
+    cacheCreationInputTokens: row.cacheCreationInputTokens,
+    cacheReadInputTokens: row.cacheReadInputTokens,
+    estimatedCost: row.estimatedCost,
   })), [data]);
+  const series: Array<{
+    key: "inputTokens" | "outputTokens" | "cacheCreationInputTokens" | "cacheReadInputTokens" | "estimatedCost";
+    label: string;
+    color: string;
+    cost?: boolean;
+  }> = [
+    { key: "inputTokens", label: t("usage.inputTokens"), color: "#34cfa0" },
+    { key: "outputTokens", label: t("usage.outputTokens"), color: "#5b9cf6" },
+    { key: "cacheCreationInputTokens", label: t("usage.cacheWriteTokens"), color: "#f5bd23" },
+    { key: "cacheReadInputTokens", label: t("usage.cacheReadTokens"), color: "#38bdf8" },
+    { key: "estimatedCost", label: t("usage.estimatedCost"), color: "#f97316", cost: true },
+  ];
   const width = 720;
   const height = 260;
-  const padding = { top: 26, right: 28, bottom: 52, left: 58 };
+  const padding = { top: 26, right: 68, bottom: 52, left: 64 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const rawMax = Math.max(...values.map((item) => item[metric]), 0);
-  const scaleMax = rawMax ? rawMax * 1.15 : 1;
-  const pointAt = (item: typeof values[number], index: number) => ({
+  const tokenScaleMax = Math.max(
+    ...values.flatMap((item) => series.filter((item) => !item.cost).map((metric) => item[metric.key])),
+    0,
+  ) * 1.15 || 1;
+  const costScaleMax = Math.max(...values.map((item) => item.estimatedCost), 0) * 1.15 || 1;
+  const pointAt = (value: number, index: number, scaleMax: number) => ({
     x: values.length === 1 ? padding.left + plotWidth / 2 : padding.left + (plotWidth * index) / (values.length - 1),
-    y: padding.top + plotHeight * (1 - item[metric] / scaleMax),
+    y: padding.top + plotHeight * (1 - value / scaleMax),
   });
-  const points = values.map(pointAt);
-  const linePath = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-  const lastPoint = points[points.length - 1];
-  const areaPath = `${linePath} L${lastPoint?.x ?? padding.left},${padding.top + plotHeight} L${points[0]?.x ?? padding.left},${padding.top + plotHeight} Z`;
   const labelIndexes = values.length <= 5
     ? values.map((_, index) => index)
     : [...new Set([0, Math.round((values.length - 1) / 4), Math.round((values.length - 1) / 2), Math.round((values.length - 1) * 3 / 4), values.length - 1])];
@@ -452,41 +462,42 @@ function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: 
 
   return (
     <Space direction="vertical" size="small" style={{ width: "100%" }}>
-      <Select<TrendMetric>
-        size="small"
-        value={metric}
-        style={{ width: 160 }}
-        onChange={setMetric}
-        options={[
-          { value: "tokens", label: t("usage.trendTokens") },
-          { value: "requests", label: t("usage.trendRequests") },
-          { value: "cost", label: t("usage.trendCost") },
-        ]}
-      />
+      <Space wrap size={[16, 8]}>
+        {series.map((metric) => (
+          <Space key={metric.key} size={6}>
+            <span style={{ width: 12, height: 3, borderRadius: 2, background: metric.color }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>{metric.label}</Text>
+          </Space>
+        ))}
+      </Space>
       <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t(`usage.trend${metric[0].toUpperCase()}${metric.slice(1)}`)} style={{ display: "block", minWidth: 620, width: "100%", height: 260 }} preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <linearGradient id="usage-trend-fill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--ant-color-primary)" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="var(--ant-color-primary)" stopOpacity="0.02" />
-            </linearGradient>
-          </defs>
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("usage.trendChart")} style={{ display: "block", minWidth: 620, width: "100%", height: 260 }} preserveAspectRatio="xMidYMid meet">
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = padding.top + plotHeight * ratio;
-            const value = scaleMax * (1 - ratio);
+            const tokenValue = tokenScaleMax * (1 - ratio);
+            const costValue = costScaleMax * (1 - ratio);
             return <g key={ratio}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" />
-              <text x={padding.left - 12} y={y + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.62">{metric === "cost" ? formatCost(value) : formatNumber(Math.round(value))}</text>
+              <text x={padding.left - 12} y={y + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.62">{formatNumber(Math.round(tokenValue))}</text>
+              <text x={width - padding.right + 12} y={y + 4} fontSize="12" fill="currentColor" opacity="0.62">{formatCost(costValue)}</text>
             </g>;
           })}
-          <path d={areaPath} fill="url(#usage-trend-fill)" />
-          <path d={linePath} fill="none" stroke="var(--ant-color-primary)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-          {values.map((item, index) => {
-            const point = points[index];
-            return <circle key={item.date} cx={point.x} cy={point.y} r="4" fill="var(--ant-color-bg-container)" stroke="var(--ant-color-primary)" strokeWidth="2.5"><title>{`${item.date}: ${metric === "cost" ? formatCost(item[metric]) : formatNumber(item[metric])}`}</title></circle>;
+          {series.map((metric) => {
+            const scaleMax = metric.cost ? costScaleMax : tokenScaleMax;
+            const points = values.map((item, index) => pointAt(item[metric.key], index, scaleMax));
+            const linePath = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
+            return <g key={metric.key}>
+              <path d={linePath} fill="none" stroke={metric.color} strokeWidth={metric.cost ? 3 : 2.25} strokeLinejoin="round" strokeLinecap="round" />
+              {values.map((item, index) => {
+                const point = points[index];
+                const value = item[metric.key];
+                return <circle key={`${metric.key}-${item.date}`} cx={point.x} cy={point.y} r={metric.cost ? 3.5 : 2.75} fill="var(--ant-color-bg-container)" stroke={metric.color} strokeWidth="2"><title>{`${item.date}: ${metric.label} ${metric.cost ? formatCost(value) : formatNumber(value)}`}</title></circle>;
+              })}
+            </g>;
           })}
           {labelIndexes.map((index) => {
-            return <text key={values[index].date} x={points[index].x} y={height - 20} textAnchor="middle" fontSize="12" fill="currentColor" opacity="0.62">{values[index].date.slice(5)}</text>;
+            const x = pointAt(0, index, 1).x;
+            return <text key={values[index].date} x={x} y={height - 20} textAnchor="middle" fontSize="12" fill="currentColor" opacity="0.62">{values[index].date.slice(5)}</text>;
           })}
         </svg>
       </div>

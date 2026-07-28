@@ -332,6 +332,8 @@
     "totalTokens": "总 Token",
     "inputTokens": "输入 Token",
     "cacheTokens": "缓存输入 Token",
+    "cacheReadTokens": "缓存读取",
+    "cacheWriteTokens": "缓存写入",
     "cached": "缓存",
     "outputTokens": "输出 Token",
     "estimatedCost": "预估成本",

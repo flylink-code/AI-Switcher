@@ -332,6 +332,8 @@
     "totalTokens": "Total tokens",
     "inputTokens": "Input tokens",
     "cacheTokens": "Cached input tokens",
+    "cacheReadTokens": "Cache read",
+    "cacheWriteTokens": "Cache write",
     "cached": "cached",
     "outputTokens": "Output tokens",
     "estimatedCost": "Estimated cost",

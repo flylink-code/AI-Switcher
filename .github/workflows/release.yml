@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Refined usage curves and added a GitHub-style daily token activity calendar
-            - Added native archive-file and export-folder pickers for Claude Code sessions
-            - Reduced provider-switch work on the UI path and skipped duplicate switches
+            - Made application update checks more resilient with a 60-second timeout and one automatic retry
+            - Enhanced usage curves with input, output, cache-read, cache-write, and estimated-cost series on dual axes
+            - Kept daily token activity statistics before provider and model breakdowns for a clearer reading order
 
             ## 更新内容
 
-            - 优化 Token、请求数与预估成本曲线，并新增 GitHub 提交日期表风格的每日 Token 活跃度日历
-            - Claude Code 会话导入支持原生文件选择，导出支持原生目录选择
-            - 降低供应商切换前台阻塞，并跳过重复切换
+            - 应用更新检查延长至 60 秒，并在首次失败后自动重试一次
+            - 用量曲线升级为输入、输出、缓存读取、缓存写入及预估成本的双轴多曲线展示
+            - 按日期 Token 活跃度统计保持在供应商和模型汇总之前，便于优先查看时间分布
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

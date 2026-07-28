@@ -44,7 +44,7 @@ export default function AboutPage() {
   const checkAppUpdate = async () => {
     setCheckingApp(true);
     try {
-      const update = await withTimeout(check(), 15_000, t("about.appUpdateTimedOut"));
+      const update = await checkForAppUpdate(t("about.appUpdateTimedOut"));
       if (!update) {
         void message.info(t("about.appUpToDate"));
         return;
@@ -242,4 +242,19 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   return Promise.race([promise, timeout]).finally(() => {
     if (timer !== undefined) clearTimeout(timer);
   });
+}
+
+async function checkForAppUpdate(timeoutMessage: string) {
+  const attempts = 2;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await withTimeout(check(), 60_000, timeoutMessage);
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      console.warn("Application update check failed; retrying once", error);
+    }
+  }
+
+  throw new Error(timeoutMessage);
 }
