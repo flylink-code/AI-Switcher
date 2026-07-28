@@ -7,6 +7,7 @@ import {
   InputNumber,
   Space,
   Segmented,
+  Switch,
   Tag,
   Typography,
   message,
@@ -19,7 +20,7 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { ProviderTarget } from "@/types/backend";
-import { setProxyPort, startProxy, stopProxy } from "@/services/api";
+import { getProxyFailoverEnabled, setProxyFailoverEnabled, setProxyPort, startProxy, stopProxy } from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
@@ -31,10 +32,12 @@ export default function ProxyPage() {
   const [port, setPort] = useState<number>(15821);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [failoverSaving, setFailoverSaving] = useState(false);
   const target = usePagePreferencesStore((state) => state.proxyTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
+  const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
 
   useEffect(() => {
     if (status) setPort(status.port);
@@ -73,6 +76,19 @@ export default function ProxyPage() {
       await statusQuery.refetch();
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleFailoverChange = async (enabled: boolean) => {
+    setFailoverSaving(true);
+    try {
+      await setProxyFailoverEnabled(enabled);
+      queryClient.setQueryData(["proxy-failover-enabled"], enabled);
+      void message.success(t(enabled ? "proxy.failoverEnabled" : "proxy.failoverDisabled"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setFailoverSaving(false);
     }
   };
 
@@ -153,6 +169,20 @@ export default function ProxyPage() {
               message={status.lastError}
             />
           )}
+        </Card>
+
+        <Card size="small" title={t("proxy.failoverTitle")}>
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Text type="secondary">{t("proxy.failoverDescription")}</Text>
+            <Switch
+              checked={failoverQuery.data ?? false}
+              loading={failoverQuery.isPending || failoverSaving}
+              disabled={failoverSaving}
+              checkedChildren={t("common.enabled")}
+              unCheckedChildren={t("common.disabled")}
+              onChange={(enabled) => void handleFailoverChange(enabled)}
+            />
+          </Space>
         </Card>
 
         <Card

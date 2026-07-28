@@ -4,8 +4,164 @@
 //! applications. Third-party providers are only added explicitly by the user or
 //! through the per-application import action.
 
+use rusqlite::{params, params_from_iter};
+
 use crate::error::AppResult;
 
-pub fn run_seed(_conn: &rusqlite::Connection) -> AppResult<()> {
+/// The catalog is intentionally embedded in the release: it never calls a
+/// third party service and only inserts models that are not already present.
+/// Updating an application therefore cannot overwrite a user-modified price.
+const CATALOG_VERSION: &str = "2026-07-28";
+
+struct DefaultPricing {
+    provider: &'static str,
+    model: &'static str,
+    input: f64,
+    cache_read: f64,
+    cache_write: f64,
+    output: f64,
+    batch_input: f64,
+    batch_output: f64,
+    currency: &'static str,
+    source_url: &'static str,
+}
+
+const DEFAULT_PRICING: &[DefaultPricing] = &[
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.5", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 30.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.6-sol", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 30.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.4", input: 2.5, cache_read: 0.0, cache_write: 0.0, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.6-terra", input: 2.5, cache_read: 0.0, cache_write: 0.0, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.6-luna", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5-mini", input: 0.25, cache_read: 0.0, cache_write: 0.0, output: 2.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.4-mini", input: 0.75, cache_read: 0.0, cache_write: 0.0, output: 4.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "OpenAI", model: "gpt-5.4-nano", input: 0.2, cache_read: 0.0, cache_write: 0.0, output: 1.25, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
+    DefaultPricing { provider: "Anthropic", model: "claude-fable-5", input: 10.0, cache_read: 0.0, cache_write: 0.0, output: 50.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-4.8", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-5", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-4.6", input: 3.0, cache_read: 0.0, cache_write: 0.0, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-5", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 10.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-haiku-4.5", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 5.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.1-pro", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.5-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 9.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.6-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.5-flash-lite", input: 0.3, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-2.5-flash-lite", input: 0.1, cache_read: 0.0, cache_write: 0.0, output: 0.4, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-v4-pro", input: 3.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-v4-flash", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 2.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
+    DefaultPricing { provider: "Alibaba Qwen", model: "qwen3.7-max", input: 12.0, cache_read: 0.0, cache_write: 0.0, output: 36.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://www.alibabacloud.com/help/en/model-studio/models" },
+    DefaultPricing { provider: "Alibaba Qwen", model: "qwen3.6-plus", input: 0.5, cache_read: 0.0, cache_write: 0.0, output: 3.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://www.alibabacloud.com/help/en/model-studio/models" },
+    DefaultPricing { provider: "ByteDance Doubao", model: "doubao-seed-2.1-pro", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 30.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://www.volcengine.com/docs/82379" },
+    DefaultPricing { provider: "Zhipu GLM", model: "glm-5.2", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 24.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://open.bigmodel.cn/pricing" },
+    DefaultPricing { provider: "Zhipu GLM", model: "glm-5.1", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 24.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://open.bigmodel.cn/pricing" },
+    DefaultPricing { provider: "Moonshot/Kimi", model: "kimi-k3", input: 20.0, cache_read: 0.0, cache_write: 0.0, output: 100.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.kimi.com/" },
+    DefaultPricing { provider: "Moonshot/Kimi", model: "kimi-k2.6", input: 6.5, cache_read: 0.0, cache_write: 0.0, output: 27.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.kimi.com/" },
+    DefaultPricing { provider: "MiniMax", model: "minimax-m3", input: 4.0, cache_read: 0.0, cache_write: 0.0, output: 16.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.minimax.io/docs" },
+    DefaultPricing { provider: "xAI", model: "grok-4.3", input: 1.25, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.x.ai/docs/models" },
+    DefaultPricing { provider: "xAI", model: "grok-4.1-fast", input: 0.2, cache_read: 0.0, cache_write: 0.0, output: 0.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.x.ai/docs/models" },
+    DefaultPricing { provider: "Mistral", model: "mistral-large-3", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.mistral.ai/platform/pricing/" },
+    DefaultPricing { provider: "Mistral", model: "mistral-small-4", input: 0.15, cache_read: 0.0, cache_write: 0.0, output: 0.6, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.mistral.ai/platform/pricing/" },
+];
+
+pub fn run_seed(conn: &rusqlite::Connection) -> AppResult<()> {
+    for item in DEFAULT_PRICING {
+        conn.execute(
+            "INSERT INTO model_pricing
+                (model, provider, input_price_per_million, cache_read_price_per_million,
+                 cache_write_price_per_million, output_price_per_million,
+                 batch_input_price_per_million, batch_output_price_per_million,
+                 currency, source_url, effective_date, is_default)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+             ON CONFLICT(model) DO UPDATE SET
+                 provider = excluded.provider,
+                 input_price_per_million = excluded.input_price_per_million,
+                 cache_read_price_per_million = excluded.cache_read_price_per_million,
+                 cache_write_price_per_million = excluded.cache_write_price_per_million,
+                 output_price_per_million = excluded.output_price_per_million,
+                 batch_input_price_per_million = excluded.batch_input_price_per_million,
+                 batch_output_price_per_million = excluded.batch_output_price_per_million,
+                 currency = excluded.currency,
+                 source_url = excluded.source_url,
+                 effective_date = excluded.effective_date
+             WHERE model_pricing.is_default = 1;",
+            params![
+                item.model, item.provider, item.input, item.cache_read, item.cache_write,
+                item.output, item.batch_input, item.batch_output, item.currency,
+                item.source_url, CATALOG_VERSION,
+            ],
+        )?;
+    }
+    let placeholders = std::iter::repeat_n("?", DEFAULT_PRICING.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    conn.execute(
+        &format!("DELETE FROM model_pricing WHERE is_default = 1 AND model NOT IN ({placeholders})"),
+        params_from_iter(DEFAULT_PRICING.iter().map(|item| item.model)),
+    )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::schema::create_tables;
+
+    #[test]
+    fn seed_adds_catalog_without_overwriting_a_user_rate() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        create_tables(&conn).unwrap();
+        run_seed(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM model_pricing", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, DEFAULT_PRICING.len() as i64);
+
+        conn.execute(
+            "UPDATE model_pricing SET input_price_per_million = 9 WHERE model = 'gpt-5.6-sol'",
+            [],
+        )
+        .unwrap();
+        run_seed(&conn).unwrap();
+        let default_price: f64 = conn
+            .query_row(
+                "SELECT input_price_per_million FROM model_pricing WHERE model = 'gpt-5.6-sol'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(default_price, 5.0, "shipped rates may update between releases");
+
+        conn.execute(
+            "UPDATE model_pricing SET input_price_per_million = 99, is_default = 0 WHERE model = 'gpt-5.6-sol'",
+            [],
+        )
+        .unwrap();
+        run_seed(&conn).unwrap();
+        let price: f64 = conn
+            .query_row(
+                "SELECT input_price_per_million FROM model_pricing WHERE model = 'gpt-5.6-sol'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(price, 99.0);
+    }
+
+    #[test]
+    fn seed_removes_only_stale_default_rows() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        create_tables(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO model_pricing (model, input_price_per_million, output_price_per_million, is_default) VALUES ('retired-default', 1, 1, 1)",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO model_pricing (model, input_price_per_million, output_price_per_million, is_default) VALUES ('custom-legacy', 1, 1, 0)",
+            [],
+        ).unwrap();
+        run_seed(&conn).unwrap();
+        let retired: i64 = conn.query_row("SELECT COUNT(*) FROM model_pricing WHERE model = 'retired-default'", [], |row| row.get(0)).unwrap();
+        let custom: i64 = conn.query_row("SELECT COUNT(*) FROM model_pricing WHERE model = 'custom-legacy'", [], |row| row.get(0)).unwrap();
+        assert_eq!(retired, 0);
+        assert_eq!(custom, 1);
+    }
 }

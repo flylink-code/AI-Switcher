@@ -11,9 +11,9 @@ The application works locally by default. API keys are stored in the operating s
 ## Features
 
 - **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code and Claude Desktop.
-- **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs.
+- **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs. Opt-in automatic failover temporarily opens a provider circuit for 60 seconds after two consecutive transient failures; it is disabled by default.
 - **MCP, Prompts, and Skills**: Maintain MCP servers, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
-- **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`, inspect message timelines, and copy resume commands or working directories.
+- **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`; export, validated import, move to the managed trash, and restore are supported.
 - **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
 - **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies.
 - **System integration**: Provider switching from the system tray, tray labels that follow the selected language, light/dark themes, and launch at login.
@@ -27,7 +27,7 @@ Claude Code sessions are scanned read-only:
 - The list view extracts only session ID, summary, working directory, and timestamps
 - Message contents are read only when details or full-content search are requested
 - Every source path is validated against the allowed session root
-- Original sessions are never modified, deleted, cached, or uploaded
+- Browsing and search never modify original sessions; users may explicitly export one or move it to the AI-Switcher trash for restoration
 
 Claude Desktop does not publish a stable local session-enumeration format. This release only detects its local data directory and provides the official `claude://claude.ai/new` entry point; it does not parse Chromium caches or call private APIs. A known conversation ID can be opened with Anthropic's documented [Claude Desktop deep-link format](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
 
@@ -110,7 +110,9 @@ Main outputs:
 | `~/.claude/skills/` | Claude Code Skills |
 | `~/.claude-switcher/` (default) or a directory selected on Environment | AI-Switcher-managed data library: database, backups, downloaded resources, and logs |
 
-The product is now AI-Switcher while the application identifier, signing key, and default data location are retained for compatibility. The data library can be copied to another drive; the old copy is retained and the new location is used after restart. Claude live configuration remains at its official location.
+The product is now AI-Switcher while the application identifier, signing key, and default data location are retained for compatibility. The data library can be copied to another drive; every copied file is SHA-256 verified, the old copy is retained, and the new location is used after restart. Claude live configuration remains at its official location.
+
+Environment can export a versioned portable-library ZIP containing a sanitized database snapshot, Skills, Skill provenance, and session archives with a SHA-256 manifest. API keys, OS credentials, Claude sign-in state, passwords, and private keys are excluded from both export and WSL/SSH pushes. Sync always shows a preview first; confirmation writes only an archive to the target's `incoming/` directory and never overwrites its live configuration.
 
 ## Security and privacy
 
@@ -118,7 +120,7 @@ The product is now AI-Switcher while the application identifier, signing key, an
 - Configuration files use atomic writes with rotating pre-write backups.
 - The Session Manager reads local JSONL files only, creates no full-text database, and rejects paths outside the session root.
 - Sessions may contain source code, credentials, or other sensitive data. Review content before copying or sharing it.
-- Except for provider tests, model discovery, update checks, and user-requested downloads, the application does not upload local session content.
+- Except for provider tests, model discovery, update checks, user-requested downloads, and a user-confirmed WSL/SSH archive push, the application does not upload local content.
 
 ## Project layout
 
@@ -147,7 +149,7 @@ When quoting, porting, or redistributing code from these projects, follow the co
 
 ## Current limitations
 
-- Session resume copies a command; it does not launch a terminal or execute commands.
-- Session deletion, cloud synchronization, and team sharing are not included.
+- Session resume copies a command; it does not launch a terminal or execute commands. Moving to trash first creates a verified archive.
+- Remote archives are not auto-imported, remote conflicts are not merged, and team sharing is not included.
 - Claude Desktop history is not parsed through private formats while no stable official interface exists.
 - Claude Code and Claude Desktop provider lists, active selections, and live configurations remain independent.

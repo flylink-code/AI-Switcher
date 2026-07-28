@@ -22,8 +22,10 @@ import type {
   Provider,
   ConnectionTestResult,
   ModelDiscoveryResult,
-  ProviderImportResult,
-  ConfigBackup,
+    ProviderImportResult,
+    ConfigBackup,
+    LibraryBackupInfo,
+    LibraryArchivePreview,
   ProviderInput,
   ProviderTarget,
   ProxyStatus,
@@ -48,6 +50,11 @@ import type {
   AutostartMode,
   CloseBehavior,
   SessionMessage,
+  SessionMeta,
+  SessionArchiveInfo,
+  SyncPreview,
+  SyncPushResult,
+  SyncTarget,
   SessionProvider,
   SessionScanResult,
 } from "@/types/backend";
@@ -98,6 +105,48 @@ export async function migrateDataRoot(targetPath: string): Promise<DataRootInfo>
 export async function backupNow(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("backup_now", {});
+}
+
+export async function exportLibraryBackup(): Promise<LibraryBackupInfo> {
+  const invoke = await getInvoke();
+  return invoke<LibraryBackupInfo>("export_library_backup", {});
+}
+
+export async function previewLibraryBackup(archivePath: string): Promise<LibraryArchivePreview> {
+  const invoke = await getInvoke();
+  return invoke<LibraryArchivePreview>("preview_library_backup", { archivePath });
+}
+
+// ---- Cross-environment sync -------------------------------------------------
+
+export async function listSyncTargets(): Promise<SyncTarget[]> {
+  const invoke = await getInvoke();
+  return invoke<SyncTarget[]>("list_sync_targets", {});
+}
+
+export async function saveSyncTarget(target: SyncTarget): Promise<SyncTarget> {
+  const invoke = await getInvoke();
+  return invoke<SyncTarget>("save_sync_target", { target });
+}
+
+export async function deleteSyncTarget(id: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_sync_target", { id });
+}
+
+export async function discoverWslDistributions(): Promise<string[]> {
+  const invoke = await getInvoke();
+  return invoke<string[]>("discover_wsl_distributions", {});
+}
+
+export async function previewSync(targetId: string): Promise<SyncPreview> {
+  const invoke = await getInvoke();
+  return invoke<SyncPreview>("preview_sync", { targetId });
+}
+
+export async function pushSyncArchive(targetId: string): Promise<SyncPushResult> {
+  const invoke = await getInvoke();
+  return invoke<SyncPushResult>("push_sync_archive", { targetId });
 }
 
 // ---- Providers -------------------------------------------------------------
@@ -226,6 +275,16 @@ export async function stopProxy(target?: ProviderTarget): Promise<ProxyStatus> {
 export async function setProxyPort(port: number, target?: ProviderTarget): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_proxy_port", { port, target });
+}
+
+export async function getProxyFailoverEnabled(): Promise<boolean> {
+  const invoke = await getInvoke();
+  return invoke<boolean>("get_proxy_failover_enabled", {});
+}
+
+export async function setProxyFailoverEnabled(enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_proxy_failover_enabled", { enabled });
 }
 
 // ---- MCP --------------------------------------------------------------------
@@ -571,6 +630,31 @@ export async function loadSessionMessages(
     provider,
     sourcePath,
   });
+}
+
+export async function exportClaudeCodeSession(sourcePath: string): Promise<SessionArchiveInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo>("export_claude_code_session", { sourcePath });
+}
+
+export async function importClaudeCodeSession(archivePath: string): Promise<SessionMeta> {
+  const invoke = await getInvoke();
+  return invoke<SessionMeta>("import_claude_code_session", { archivePath });
+}
+
+export async function trashClaudeCodeSession(sourcePath: string): Promise<SessionArchiveInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo>("trash_claude_code_session", { sourcePath });
+}
+
+export async function restoreTrashedClaudeCodeSession(archivePath: string): Promise<SessionMeta> {
+  const invoke = await getInvoke();
+  return invoke<SessionMeta>("restore_trashed_claude_code_session", { archivePath });
+}
+
+export async function listTrashedClaudeCodeSessions(): Promise<SessionArchiveInfo[]> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo[]>("list_trashed_claude_code_sessions", {});
 }
 
 export async function setAppLanguage(language: "zh-CN" | "en-US"): Promise<void> {

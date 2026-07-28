@@ -8,7 +8,7 @@
 mod convert;
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::convert::Infallible;
 
@@ -31,7 +31,7 @@ use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
     update_proxy_log_usage,
 };
-use crate::database::dao::providers::{get_current_provider, resolve_api_key};
+use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -44,7 +44,10 @@ const DEFAULT_PORT: u16 = 15821;
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
 const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
 const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";
+pub const PROXY_FAILOVER_ENABLED_KEY: &str = "proxy_failover_enabled";
 const MAX_UPSTREAM_ERROR_BYTES: usize = 16 * 1024;
+const CIRCUIT_FAILURE_THRESHOLD: u8 = 2;
+const CIRCUIT_OPEN_SECONDS: u64 = 60;
 
 #[derive(Debug, Clone, Copy, Default)]
 struct UsageCounts {
@@ -123,6 +126,7 @@ impl ProxyManager {
                 .timeout(std::time::Duration::from_secs(300))
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
+            circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
             target,
             port,
             started_at: Instant::now(),
@@ -245,9 +249,125 @@ pub struct ProxyLifecycleEvent {
 struct ProxyState {
     db: Arc<Database>,
     client: Client,
+    circuits: Arc<Mutex<std::collections::HashMap<String, ProviderCircuit>>>,
     target: ProviderTarget,
     port: u16,
     started_at: Instant,
+}
+
+#[derive(Debug, Clone)]
+struct ProviderCircuit {
+    failures: u8,
+    open_until: Option<Instant>,
+}
+
+struct PreparedUpstreamRequest {
+    builder: reqwest::RequestBuilder,
+    outgoing_body: Bytes,
+    translated: bool,
+}
+
+fn circuit_is_open(state: &ProxyState, provider_id: &str) -> bool {
+    let Ok(mut circuits) = state.circuits.lock() else { return false; };
+    let Some(circuit) = circuits.get(provider_id) else { return false; };
+    match circuit.open_until {
+        Some(until) if until > Instant::now() => true,
+        Some(_) => {
+            circuits.remove(provider_id);
+            false
+        }
+        None => false,
+    }
+}
+
+fn record_provider_success(state: &ProxyState, provider_id: &str) {
+    if let Ok(mut circuits) = state.circuits.lock() {
+        circuits.remove(provider_id);
+    }
+}
+
+fn record_provider_failure(state: &ProxyState, provider_id: &str) {
+    if let Ok(mut circuits) = state.circuits.lock() {
+        let circuit = circuits.entry(provider_id.to_string()).or_insert(ProviderCircuit {
+            failures: 0,
+            open_until: None,
+        });
+        circuit.failures = circuit.failures.saturating_add(1);
+        if circuit.failures >= CIRCUIT_FAILURE_THRESHOLD {
+            circuit.open_until = Some(Instant::now() + std::time::Duration::from_secs(CIRCUIT_OPEN_SECONDS));
+        }
+    }
+}
+
+fn next_failover_provider(state: &ProxyState, current_id: &str) -> AppResult<Option<Provider>> {
+    let enabled = state.db.with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
+        .as_deref() == Some("true");
+    if !enabled { return Ok(None); }
+    let candidates = state.db.with_conn(|conn| list_providers(conn, state.target))?;
+    for mut candidate in candidates {
+        if candidate.id == current_id || candidate.base_url.trim().is_empty() || circuit_is_open(state, &candidate.id) {
+            continue;
+        }
+        match state.db.with_conn(|conn| resolve_api_key(conn, &candidate.id)) {
+            Ok(Some(key)) if !key.trim().is_empty() => {
+                candidate.api_key = key;
+                return Ok(Some(candidate));
+            }
+            Ok(_) | Err(_) => continue,
+        }
+    }
+    Ok(None)
+}
+
+fn prepare_upstream_request(
+    state: &ProxyState,
+    provider: &mut Provider,
+    method: &Method,
+    headers: &HeaderMap,
+    incoming: &Value,
+    body_bytes: &Bytes,
+    incoming_stream: bool,
+) -> AppResult<PreparedUpstreamRequest> {
+    let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("");
+    provider.model = resolve_upstream_model(provider, requested_model);
+    let target_url = api_endpoint_url(&provider.base_url, protocol_endpoint_path(provider.protocol_type))?;
+    let (outgoing_body, translated) = encode_upstream_request(provider, incoming, body_bytes, incoming_stream);
+    let mut builder = state.client.request(method.clone(), target_url).header(header::CONTENT_TYPE, "application/json");
+    for (name, value) in headers.iter() {
+        let name_str = name.as_str();
+        if is_hop_by_hop_header(name_str)
+            || name_str.eq_ignore_ascii_case("host")
+            || name_str.eq_ignore_ascii_case("content-length")
+            || name_str.eq_ignore_ascii_case("content-type")
+            || name_str.eq_ignore_ascii_case("authorization")
+            || name_str.eq_ignore_ascii_case("x-api-key")
+        {
+            continue;
+        }
+        builder = builder.header(name, value);
+    }
+    let key = provider.api_key.trim();
+    builder = builder.header(header::AUTHORIZATION, format!("Bearer {key}"));
+    builder = builder.header("x-api-key", key);
+    Ok(PreparedUpstreamRequest { builder, outgoing_body, translated })
+}
+
+fn compatible_stream_retry(provider: &Provider, prepared: &PreparedUpstreamRequest, incoming_stream: bool) -> Option<reqwest::RequestBuilder> {
+    if !prepared.translated || !incoming_stream || !matches!(provider.protocol_type, ProtocolType::OpenAiChat | ProtocolType::Proxy) {
+        return None;
+    }
+    serde_json::from_slice::<Value>(&prepared.outgoing_body)
+        .ok()
+        .and_then(|mut value| {
+            value.as_object_mut()?.remove("stream_options")?;
+            serde_json::to_vec(&value).ok()
+        })
+        .and_then(|body| prepared.builder.try_clone().map(|builder| builder.body(body)))
+}
+
+fn is_retryable_upstream_status(status: StatusCode) -> bool {
+    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS)
+        || status.is_server_error()
 }
 
 async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
@@ -366,22 +486,8 @@ async fn proxy_handler(
             return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON");
         }
     };
-    let requested_model = incoming
-        .get("model")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    provider.model = resolve_upstream_model(&provider, requested_model);
     let incoming_stream = convert::wants_stream(&incoming);
-    let upstream_request: AppResult<(String, Bytes, bool)> = api_endpoint_url(
-            &provider.base_url,
-            protocol_endpoint_path(provider.protocol_type),
-        )
-        .map(|url| {
-            let (body, translated) =
-                encode_upstream_request(&provider, &incoming, &body_bytes, incoming_stream);
-            (url, body, translated)
-        });
-    let (target_url, outgoing_body, translated) = match upstream_request {
+    let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream) {
         Ok(request) => request,
         Err(error) => {
             log_request(
@@ -396,62 +502,70 @@ async fn proxy_handler(
             return json_error(StatusCode::BAD_REQUEST, error.to_string());
         }
     };
-
-    // Forward the request.
-    let mut req_builder = state
-        .client
-        .request(method.clone(), &target_url)
-        .header(header::CONTENT_TYPE, "application/json");
-
-    for (name, value) in headers.iter() {
-        let name_str = name.as_str();
-        if is_hop_by_hop_header(name_str)
-            || name_str.eq_ignore_ascii_case("host")
-            || name_str.eq_ignore_ascii_case("content-length")
-            || name_str.eq_ignore_ascii_case("content-type")
-            || name_str.eq_ignore_ascii_case("authorization")
-            || name_str.eq_ignore_ascii_case("x-api-key")
-        {
-            continue;
-        }
-        req_builder = req_builder.header(name, value);
-    }
-
-    if !provider.api_key.trim().is_empty() {
-        let key = provider.api_key.trim();
-        req_builder = req_builder.header(header::AUTHORIZATION, format!("Bearer {key}"));
-        req_builder = req_builder.header("x-api-key", key);
-    }
-
-    let retry_without_stream_options = if translated
-        && incoming_stream
-        && matches!(
-            provider.protocol_type,
-            ProtocolType::OpenAiChat | ProtocolType::Proxy
-        )
-    {
-        serde_json::from_slice::<Value>(&outgoing_body)
-            .ok()
-            .and_then(|mut value| {
-                value.as_object_mut()?.remove("stream_options")?;
-                serde_json::to_vec(&value).ok()
-            })
-            .and_then(|body| req_builder.try_clone().map(|builder| builder.body(body)))
-    } else {
-        None
-    };
-
-    let mut upstream_resp = match req_builder.body(outgoing_body).send().await {
+    let mut translated = prepared.translated;
+    let mut retry_without_stream_options = compatible_stream_retry(&provider, &prepared, incoming_stream);
+    let mut upstream_resp = match prepared.builder.body(prepared.outgoing_body).send().await {
         Ok(r) => r,
         Err(e) => {
-            log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
-            if translated {
-                log::warn!("转发到 OpenAI 兼容上游失败: {e}");
-                return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+            record_provider_failure(&state, &provider.id);
+            let fallback = next_failover_provider(&state, &provider.id).ok().flatten();
+            let Some(mut fallback) = fallback else {
+                log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
+                if translated {
+                    log::warn!("转发到 OpenAI 兼容上游失败: {e}");
+                    return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+                }
+                return json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {e}"));
+            };
+            log::warn!("供应商 {} 网络请求失败，尝试故障切换到 {}", provider.id, fallback.id);
+            let fallback_prepared = match prepare_upstream_request(&state, &mut fallback, &method, &headers, &incoming, &body_bytes, incoming_stream) {
+                Ok(request) => request,
+                Err(_) => {
+                    log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
+                    return json_error(StatusCode::BAD_GATEWAY, "首选供应商不可用，备用供应商配置无效");
+                }
+            };
+            translated = fallback_prepared.translated;
+            retry_without_stream_options = compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
+            match fallback_prepared.builder.body(fallback_prepared.outgoing_body).send().await {
+                Ok(response) => {
+                    provider = fallback;
+                    response
+                }
+                Err(fallback_error) => {
+                    record_provider_failure(&state, &fallback.id);
+                    log_request(&state, &fallback, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
+                    if translated {
+                        return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+                    }
+                    return json_error(StatusCode::BAD_GATEWAY, format!("首选与备用供应商均无法连接: {fallback_error}"));
+                }
             }
-            return json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {e}"));
         }
     };
+
+    if is_retryable_upstream_status(upstream_resp.status()) {
+        record_provider_failure(&state, &provider.id);
+        if let Ok(Some(mut fallback)) = next_failover_provider(&state, &provider.id) {
+            log::warn!("供应商 {} 返回 {}，尝试故障切换到 {}", provider.id, upstream_resp.status(), fallback.id);
+            if let Ok(fallback_prepared) = prepare_upstream_request(&state, &mut fallback, &method, &headers, &incoming, &body_bytes, incoming_stream) {
+                let fallback_translated = fallback_prepared.translated;
+                let fallback_retry = compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
+                match fallback_prepared.builder.body(fallback_prepared.outgoing_body).send().await {
+                    Ok(response) => {
+                        provider = fallback;
+                        translated = fallback_translated;
+                        retry_without_stream_options = fallback_retry;
+                        upstream_resp = response;
+                    }
+                    Err(error) => {
+                        record_provider_failure(&state, &fallback.id);
+                        log::warn!("备用供应商 {} 连接失败: {error}", fallback.id);
+                    }
+                }
+            }
+        }
+    }
 
     if let Some(retry_request) = retry_without_stream_options {
         let rejected_status = upstream_resp.status();
@@ -538,6 +652,9 @@ async fn proxy_handler(
     }
 
     let status = upstream_resp.status();
+    if status.is_success() {
+        record_provider_success(&state, &provider.id);
+    }
     let duration_ms = started.elapsed().as_millis() as i64;
     let error_category = (!status.is_success()).then(|| "upstream");
     let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms, uri.path(), incoming_stream, error_category);
@@ -1079,6 +1196,7 @@ fn is_hop_by_hop_header(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::Database;
     use crate::provider::{ClaudeModelMapping, ProviderTarget};
 
     fn provider(protocol_type: ProtocolType) -> Provider {
@@ -1099,6 +1217,28 @@ mod tests {
             health_status: None,
             health_checked_at: None,
         }
+    }
+
+    fn circuit_test_state() -> ProxyState {
+        ProxyState {
+            db: Arc::new(Database::memory().unwrap()),
+            client: Client::new(),
+            circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            target: ProviderTarget::ClaudeCode,
+            port: DEFAULT_PORT,
+            started_at: Instant::now(),
+        }
+    }
+
+    #[test]
+    fn provider_circuit_opens_after_two_failures_and_resets_on_success() {
+        let state = circuit_test_state();
+        record_provider_failure(&state, "provider-a");
+        assert!(!circuit_is_open(&state, "provider-a"));
+        record_provider_failure(&state, "provider-a");
+        assert!(circuit_is_open(&state, "provider-a"));
+        record_provider_success(&state, "provider-a");
+        assert!(!circuit_is_open(&state, "provider-a"));
     }
 
     #[test]

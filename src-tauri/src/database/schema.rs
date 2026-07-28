@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 8;
+pub const SCHEMA_VERSION: u32 = 9;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -98,9 +98,17 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS model_pricing (
             model              TEXT PRIMARY KEY,
+            provider           TEXT NOT NULL DEFAULT '',
             input_price_per_million  REAL NOT NULL DEFAULT 0,
+            cache_read_price_per_million REAL NOT NULL DEFAULT 0,
+            cache_write_price_per_million REAL NOT NULL DEFAULT 0,
             output_price_per_million REAL NOT NULL DEFAULT 0,
-            currency           TEXT NOT NULL DEFAULT 'USD'
+            batch_input_price_per_million REAL NOT NULL DEFAULT 0,
+            batch_output_price_per_million REAL NOT NULL DEFAULT 0,
+            currency           TEXT NOT NULL DEFAULT 'USD',
+            source_url         TEXT NOT NULL DEFAULT '',
+            effective_date     TEXT NOT NULL DEFAULT '',
+            is_default         BOOLEAN NOT NULL DEFAULT 0
         );",
     )?;
 
@@ -141,6 +149,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 8 {
         migrate_v7_to_v8(conn)?;
+    }
+    if current < 9 {
+        migrate_v8_to_v9(conn)?;
     }
     Ok(())
 }
@@ -284,6 +295,49 @@ fn migrate_v7_to_v8(conn: &Connection) -> AppResult<()> {
         }
     }
     set_user_version(conn, 8)
+}
+
+/// Add versioned pricing dimensions without modifying any existing user rates.
+fn migrate_v8_to_v9(conn: &Connection) -> AppResult<()> {
+    // Some very early/incomplete databases reached v8 without the optional
+    // pricing table. Create it first so this forward migration remains
+    // recoverable instead of failing on `pragma_table_info`/ALTER TABLE.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS model_pricing (
+            model TEXT PRIMARY KEY,
+            provider TEXT NOT NULL DEFAULT '',
+            input_price_per_million REAL NOT NULL DEFAULT 0,
+            cache_read_price_per_million REAL NOT NULL DEFAULT 0,
+            cache_write_price_per_million REAL NOT NULL DEFAULT 0,
+            output_price_per_million REAL NOT NULL DEFAULT 0,
+            batch_input_price_per_million REAL NOT NULL DEFAULT 0,
+            batch_output_price_per_million REAL NOT NULL DEFAULT 0,
+            currency TEXT NOT NULL DEFAULT 'USD',
+            source_url TEXT NOT NULL DEFAULT '',
+            effective_date TEXT NOT NULL DEFAULT '',
+            is_default BOOLEAN NOT NULL DEFAULT 0
+        );",
+    )?;
+    for (name, definition) in [
+        ("provider", "TEXT NOT NULL DEFAULT ''"),
+        ("cache_read_price_per_million", "REAL NOT NULL DEFAULT 0"),
+        ("cache_write_price_per_million", "REAL NOT NULL DEFAULT 0"),
+        ("batch_input_price_per_million", "REAL NOT NULL DEFAULT 0"),
+        ("batch_output_price_per_million", "REAL NOT NULL DEFAULT 0"),
+        ("source_url", "TEXT NOT NULL DEFAULT ''"),
+        ("effective_date", "TEXT NOT NULL DEFAULT ''"),
+        ("is_default", "BOOLEAN NOT NULL DEFAULT 0"),
+    ] {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('model_pricing') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            conn.execute_batch(&format!("ALTER TABLE model_pricing ADD COLUMN {name} {definition};"))?;
+        }
+    }
+    set_user_version(conn, 9)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

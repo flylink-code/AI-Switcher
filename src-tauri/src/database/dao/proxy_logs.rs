@@ -47,9 +47,17 @@ pub struct UsageTrendPoint {
 #[serde(rename_all = "camelCase")]
 pub struct ModelPricing {
     pub model: String,
+    pub provider: String,
     pub input_price_per_million: f64,
+    pub cache_read_price_per_million: f64,
+    pub cache_write_price_per_million: f64,
     pub output_price_per_million: f64,
+    pub batch_input_price_per_million: f64,
+    pub batch_output_price_per_million: f64,
     pub currency: String,
+    pub source_url: String,
+    pub effective_date: String,
+    pub is_default: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -197,9 +205,12 @@ pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummar
                 COALESCE(SUM(cache_read_input_tokens), 0),
                 COALESCE(SUM(cache_creation_input_tokens), 0),
                 COALESCE(SUM(output_tokens), 0),
-                COALESCE(SUM((input_tokens + cache_read_input_tokens + cache_creation_input_tokens)
-                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                    + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
+                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
+                    input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+                    + cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
+                    + cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
+                    + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
+                    ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE created_at >= ?;",
         params![since],
@@ -230,9 +241,12 @@ fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<V
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM((l.input_tokens + l.cache_read_input_tokens + l.cache_creation_input_tokens)
-                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                  + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
+                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
+                    l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+                    + l.cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
+                    + l.cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
+                    + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
+                    ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= ? GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
     );
@@ -258,9 +272,12 @@ pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTren
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM((l.input_tokens + l.cache_read_input_tokens + l.cache_creation_input_tokens)
-                    * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                  + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0), 0)
+                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
+                    l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
+                    + l.cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
+                    + l.cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
+                    + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
+                    ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= ? GROUP BY 1 ORDER BY 1 ASC;",
     )?;
@@ -280,15 +297,26 @@ pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTren
 
 pub fn list_model_pricing(conn: &Connection) -> AppResult<Vec<ModelPricing>> {
     let mut stmt = conn.prepare(
-        "SELECT model, input_price_per_million, output_price_per_million, currency
+        "SELECT model, provider, input_price_per_million, cache_read_price_per_million,
+                cache_write_price_per_million, output_price_per_million,
+                batch_input_price_per_million, batch_output_price_per_million,
+                currency, source_url, effective_date, is_default
          FROM model_pricing ORDER BY model COLLATE NOCASE;",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(ModelPricing {
             model: row.get(0)?,
-            input_price_per_million: row.get(1)?,
-            output_price_per_million: row.get(2)?,
-            currency: row.get(3)?,
+            provider: row.get(1)?,
+            input_price_per_million: row.get(2)?,
+            cache_read_price_per_million: row.get(3)?,
+            cache_write_price_per_million: row.get(4)?,
+            output_price_per_million: row.get(5)?,
+            batch_input_price_per_million: row.get(6)?,
+            batch_output_price_per_million: row.get(7)?,
+            currency: row.get(8)?,
+            source_url: row.get(9)?,
+            effective_date: row.get(10)?,
+            is_default: row.get(11)?,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -296,11 +324,26 @@ pub fn list_model_pricing(conn: &Connection) -> AppResult<Vec<ModelPricing>> {
 
 pub fn save_model_pricing(conn: &Connection, pricing: &ModelPricing) -> AppResult<()> {
     conn.execute(
-        "INSERT INTO model_pricing (model, input_price_per_million, output_price_per_million, currency)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(model) DO UPDATE SET input_price_per_million = excluded.input_price_per_million,
-             output_price_per_million = excluded.output_price_per_million, currency = excluded.currency;",
-        params![pricing.model, pricing.input_price_per_million, pricing.output_price_per_million, pricing.currency],
+        "INSERT INTO model_pricing
+            (model, provider, input_price_per_million, cache_read_price_per_million,
+             cache_write_price_per_million, output_price_per_million,
+             batch_input_price_per_million, batch_output_price_per_million, currency,
+             source_url, effective_date, is_default)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', 0)
+         ON CONFLICT(model) DO UPDATE SET provider = excluded.provider,
+             input_price_per_million = excluded.input_price_per_million,
+             cache_read_price_per_million = excluded.cache_read_price_per_million,
+             cache_write_price_per_million = excluded.cache_write_price_per_million,
+             output_price_per_million = excluded.output_price_per_million,
+             batch_input_price_per_million = excluded.batch_input_price_per_million,
+             batch_output_price_per_million = excluded.batch_output_price_per_million,
+             currency = excluded.currency, source_url = '', effective_date = '', is_default = 0;",
+        params![
+            pricing.model, pricing.provider, pricing.input_price_per_million,
+            pricing.cache_read_price_per_million, pricing.cache_write_price_per_million,
+            pricing.output_price_per_million, pricing.batch_input_price_per_million,
+            pricing.batch_output_price_per_million, pricing.currency,
+        ],
     )?;
     Ok(())
 }

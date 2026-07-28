@@ -157,6 +157,7 @@ export default function UsagePage() {
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <Alert type="info" showIcon message={t("usage.title")} description={t("usage.description")} />
+        <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
 
         <Space wrap style={{ justifyContent: "space-between", width: "100%" }}>
           <Space>
@@ -338,14 +339,21 @@ export default function UsagePage() {
             size="small"
             rowKey="model"
             pagination={false}
+            scroll={{ x: 1300 }}
             locale={{ emptyText: t("usage.noPricing") }}
             dataSource={pricing}
             loading={overviewQuery.isPending}
             columns={[
               { title: t("usage.model"), dataIndex: "model" },
+              { title: t("usage.pricingProvider"), dataIndex: "provider", render: (v: string) => v || "-" },
               { title: t("usage.inputPrice"), dataIndex: "inputPricePerMillion", render: (v: number) => formatCost(v) },
+              { title: t("usage.cacheReadPrice"), dataIndex: "cacheReadPricePerMillion", render: (v: number) => formatCost(v) },
+              { title: t("usage.cacheWritePrice"), dataIndex: "cacheWritePricePerMillion", render: (v: number) => formatCost(v) },
               { title: t("usage.outputPrice"), dataIndex: "outputPricePerMillion", render: (v: number) => formatCost(v) },
+              { title: t("usage.batchInputPrice"), dataIndex: "batchInputPricePerMillion", render: (v: number) => formatCost(v) },
+              { title: t("usage.batchOutputPrice"), dataIndex: "batchOutputPricePerMillion", render: (v: number) => formatCost(v) },
               { title: t("usage.currency"), dataIndex: "currency", render: (v: string) => <Tag>{v}</Tag> },
+              { title: t("usage.priceSource"), dataIndex: "effectiveDate", render: (v: string, row: ModelPricing) => row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{v || t("usage.priceSource")}</a> : "-" },
               { title: t("usage.actions"), render: (_, row: ModelPricing) => <Button danger type="link" onClick={() => void removePricing(row.model)}>{t("usage.delete")}</Button> },
             ]}
           />
@@ -353,14 +361,29 @@ export default function UsagePage() {
       </Space>
 
       <Modal title={t("usage.addPricing")} open={pricingOpen} confirmLoading={saving} onOk={() => void savePricing()} onCancel={() => { setPricingOpen(false); form.resetFields(); }}>
-        <Form form={form} layout="vertical" initialValues={{ currency: "USD", inputPricePerMillion: 0, outputPricePerMillion: 0 }}>
+        <Form form={form} layout="vertical" initialValues={{ currency: "USD", inputPricePerMillion: 0, cacheReadPricePerMillion: 0, cacheWritePricePerMillion: 0, outputPricePerMillion: 0, batchInputPricePerMillion: 0, batchOutputPricePerMillion: 0 }}>
           <Form.Item name="model" label={t("usage.model")} rules={[{ required: true, message: t("usage.requiredModel") }]}>
             <Input placeholder="claude-sonnet-4" />
+          </Form.Item>
+          <Form.Item name="provider" label={t("usage.pricingProvider")}>
+            <Input placeholder="Anthropic" />
           </Form.Item>
           <Form.Item name="inputPricePerMillion" label={t("usage.inputPrice")} rules={[{ required: true }]}>
             <InputNumber min={0} precision={6} style={{ width: "100%" }} />
           </Form.Item>
+          <Form.Item name="cacheReadPricePerMillion" label={t("usage.cacheReadPrice")}>
+            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="cacheWritePricePerMillion" label={t("usage.cacheWritePrice")}>
+            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
+          </Form.Item>
           <Form.Item name="outputPricePerMillion" label={t("usage.outputPrice")} rules={[{ required: true }]}>
+            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="batchInputPricePerMillion" label={t("usage.batchInputPrice")}>
+            <InputNumber min={0} precision={6} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="batchOutputPricePerMillion" label={t("usage.batchOutputPrice")}>
             <InputNumber min={0} precision={6} style={{ width: "100%" }} />
           </Form.Item>
           <Form.Item name="currency" label={t("usage.currency")} rules={[{ required: true }]}>

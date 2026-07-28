@@ -29,9 +29,29 @@ pub struct UsageDashboard {
 #[serde(rename_all = "camelCase")]
 pub struct ModelPricingInput {
     pub model: String,
+    #[serde(default)]
+    pub provider: String,
     pub input_price_per_million: f64,
+    #[serde(default)]
+    pub cache_read_price_per_million: f64,
+    #[serde(default)]
+    pub cache_write_price_per_million: f64,
     pub output_price_per_million: f64,
+    #[serde(default)]
+    pub batch_input_price_per_million: f64,
+    #[serde(default)]
+    pub batch_output_price_per_million: f64,
     pub currency: String,
+}
+
+/// Stable, release-bundled catalog metadata. The individual entries are
+/// returned by `list_model_pricing`; this keeps source and date information
+/// available without querying a third-party pricing endpoint at runtime.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PricingCatalog {
+    pub version: String,
+    pub entries: Vec<ModelPricing>,
 }
 
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
@@ -101,20 +121,43 @@ pub fn list_model_pricing(state: tauri::State<'_, AppState>) -> AppResult<Vec<Mo
 }
 
 #[tauri::command]
+pub fn get_pricing_catalog(state: tauri::State<'_, AppState>) -> AppResult<PricingCatalog> {
+    state.db.with_conn(|conn| Ok(PricingCatalog {
+        version: "2026-07-28".to_string(),
+        entries: list_pricing(conn)?,
+    }))
+}
+
+#[tauri::command]
 pub fn save_model_pricing(input: ModelPricingInput, state: tauri::State<'_, AppState>) -> AppResult<()> {
     let model = input.model.trim();
     if model.is_empty() {
         return Err(AppError::Config("模型名不能为空".to_string()));
     }
-    if input.input_price_per_million < 0.0 || input.output_price_per_million < 0.0 {
+    if [
+        input.input_price_per_million,
+        input.cache_read_price_per_million,
+        input.cache_write_price_per_million,
+        input.output_price_per_million,
+        input.batch_input_price_per_million,
+        input.batch_output_price_per_million,
+    ].iter().any(|price| !price.is_finite() || *price < 0.0) {
         return Err(AppError::Config("模型价格不能为负数".to_string()));
     }
     state.db.with_conn(|conn| {
         save_pricing(conn, &ModelPricing {
             model: model.to_string(),
+            provider: input.provider.trim().to_string(),
             input_price_per_million: input.input_price_per_million,
+            cache_read_price_per_million: input.cache_read_price_per_million,
+            cache_write_price_per_million: input.cache_write_price_per_million,
             output_price_per_million: input.output_price_per_million,
+            batch_input_price_per_million: input.batch_input_price_per_million,
+            batch_output_price_per_million: input.batch_output_price_per_million,
             currency: if input.currency.trim().is_empty() { "USD".to_string() } else { input.currency },
+            source_url: String::new(),
+            effective_date: String::new(),
+            is_default: false,
         })
     })
 }

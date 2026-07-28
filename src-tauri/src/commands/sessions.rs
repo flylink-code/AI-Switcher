@@ -2,7 +2,7 @@
 
 use crate::error::{AppError, AppResult};
 use crate::session_manager::{
-    self, SessionMessage, SessionProvider, SessionScanResult,
+    self, SessionArchiveInfo, SessionMessage, SessionMeta, SessionProvider, SessionScanResult,
 };
 
 #[tauri::command]
@@ -37,4 +37,34 @@ pub async fn load_session_messages(
     })
     .await
     .map_err(|error| AppError::Tauri(format!("会话加载任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn export_claude_code_session(source_path: String) -> AppResult<SessionArchiveInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::export_claude_code_session(&source_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话导出任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn import_claude_code_session(archive_path: String) -> AppResult<SessionMeta> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::import_claude_code_session(&archive_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话导入任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn trash_claude_code_session(source_path: String) -> AppResult<SessionArchiveInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::trash_claude_code_session(&source_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话删除任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn restore_trashed_claude_code_session(archive_path: String) -> AppResult<SessionMeta> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::restore_trashed_claude_code_session(&archive_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话恢复任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn list_trashed_claude_code_sessions() -> AppResult<Vec<SessionArchiveInfo>> {
+    tauri::async_runtime::spawn_blocking(session_manager::list_trashed_claude_code_sessions)
+        .await.map_err(|error| AppError::Tauri(format!("会话回收站读取失败: {error}")))?
 }

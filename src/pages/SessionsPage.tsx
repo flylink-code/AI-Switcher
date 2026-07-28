@@ -7,6 +7,8 @@ import {
   Empty,
   Input,
   List,
+  Modal,
+  Popconfirm,
   Row,
   Select,
   Space,
@@ -25,11 +27,17 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import {
   loadSessionMessages,
+  exportClaudeCodeSession,
+  importClaudeCodeSession,
+  listTrashedClaudeCodeSessions,
+  restoreTrashedClaudeCodeSession,
   scanSessions,
   searchSessionContents,
+  trashClaudeCodeSession,
 } from "@/services/api";
 import type {
   SessionMessage,
+  SessionArchiveInfo,
   SessionMeta,
   SessionProvider,
   SessionScanResult,
@@ -59,6 +67,11 @@ export default function SessionsPage() {
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageQuery, setMessageQuery] = useState("");
+  const [importPath, setImportPath] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [trashedArchives, setTrashedArchives] = useState<SessionArchiveInfo[]>([]);
+  const [sessionAction, setSessionAction] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -158,6 +171,42 @@ export default function SessionsPage() {
     } catch {
       void toast.error(t("sessions.copyFailed"));
     }
+  };
+
+  const exportSession = async (session: SessionMeta) => {
+    setSessionAction(true);
+    try { const archive = await exportClaudeCodeSession(session.sourcePath); void toast.success(t("sessions.exported", { path: archive.archivePath })); }
+    catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
+  const trashSession = async (session: SessionMeta) => {
+    setSessionAction(true);
+    try { await trashClaudeCodeSession(session.sourcePath); void toast.success(t("sessions.trashed")); await refresh(); }
+    catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
+  const importSession = async () => {
+    if (!importPath.trim()) return;
+    setSessionAction(true);
+    try { await importClaudeCodeSession(importPath); setImportOpen(false); setImportPath(""); void toast.success(t("sessions.imported")); await refresh(); }
+    catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
+  const openTrash = async () => {
+    setSessionAction(true);
+    try { setTrashedArchives(await listTrashedClaudeCodeSessions()); setTrashOpen(true); }
+    catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
+  };
+  const restoreArchive = async (archive: SessionArchiveInfo) => {
+    setSessionAction(true);
+    try {
+      await restoreTrashedClaudeCodeSession(archive.archivePath);
+      setTrashedArchives(await listTrashedClaudeCodeSessions());
+      await refresh();
+      void toast.success(t("sessions.restored"));
+    } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setSessionAction(false); }
   };
 
   const desktopStatus = result.providers.find(
@@ -262,6 +311,8 @@ export default function SessionsPage() {
           <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
             {t("common.refresh")}
           </Button>
+          <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
+          <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
         </Space>
       </Card>
 
@@ -321,11 +372,33 @@ export default function SessionsPage() {
               query={messageQuery}
               onQueryChange={setMessageQuery}
               onCopy={copyText}
+              onExport={exportSession}
+              onTrash={trashSession}
+              actionPending={sessionAction}
               locale={locale}
             />
           </Col>
         </Row>
       </Spin>
+      <Modal title={t("sessions.import")} open={importOpen} confirmLoading={sessionAction} onOk={() => void importSession()} onCancel={() => setImportOpen(false)}>
+        <Input value={importPath} onChange={(event) => setImportPath(event.target.value)} placeholder={t("sessions.importPlaceholder")} onPressEnter={() => void importSession()} />
+      </Modal>
+      <Modal title={t("sessions.trashBin")} open={trashOpen} footer={null} onCancel={() => setTrashOpen(false)}>
+        <List
+          dataSource={trashedArchives}
+          locale={{ emptyText: <Empty description={t("sessions.emptyTrash")} /> }}
+          renderItem={(archive) => (
+            <List.Item actions={[
+              <Button key="restore" type="link" loading={sessionAction} onClick={() => void restoreArchive(archive)}>{t("sessions.restore")}</Button>,
+            ]}>
+              <List.Item.Meta
+                title={archive.sessionId}
+                description={formatTime(archive.createdAt, locale)}
+              />
+            </List.Item>
+          )}
+        />
+      </Modal>
     </Space>
   );
 }
@@ -337,6 +410,9 @@ function SessionDetail({
   query,
   onQueryChange,
   onCopy,
+  onExport,
+  onTrash,
+  actionPending,
   locale,
 }: {
   session: SessionMeta | null;
@@ -345,6 +421,9 @@ function SessionDetail({
   query: string;
   onQueryChange: (value: string) => void;
   onCopy: (value: string, successKey: string) => Promise<void>;
+  onExport: (session: SessionMeta) => Promise<void>;
+  onTrash: (session: SessionMeta) => Promise<void>;
+  actionPending: boolean;
   locale: string;
 }) {
   const { t } = useTranslation();
@@ -394,6 +473,10 @@ function SessionDetail({
               {t("sessions.copyDirectory")}
             </Button>
           </Tooltip>
+          <Button size="small" loading={actionPending} onClick={() => void onExport(session)}>{t("sessions.export")}</Button>
+          <Popconfirm title={t("sessions.confirmTrash")} onConfirm={() => void onTrash(session)}>
+            <Button size="small" danger loading={actionPending}>{t("sessions.trash")}</Button>
+          </Popconfirm>
         </Space>
       }
       styles={{ body: { maxHeight: "62vh", overflow: "auto" } }}

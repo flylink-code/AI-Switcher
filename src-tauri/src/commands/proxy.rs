@@ -111,6 +111,19 @@ pub fn set_proxy_port(port: u16, target: Option<crate::provider::ProviderTarget>
     persist_port(&state, target.unwrap_or(crate::provider::ProviderTarget::ClaudeDesktop), port)
 }
 
+/// Automatic failover is deliberately opt-in so existing proxy configurations
+/// keep routing every request to their selected provider.
+#[tauri::command]
+pub fn get_proxy_failover_enabled(state: tauri::State<'_, AppState>) -> AppResult<bool> {
+    Ok(state.db.with_conn(|conn| get_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY))?
+        .as_deref() == Some("true"))
+}
+
+#[tauri::command]
+pub fn set_proxy_failover_enabled(enabled: bool, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    state.db.with_conn(|conn| set_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY, if enabled { "true" } else { "false" }))
+}
+
 fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
     match target {
         crate::provider::ProviderTarget::ClaudeCode => "proxy_port_claude_code",

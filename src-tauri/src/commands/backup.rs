@@ -1,6 +1,6 @@
 //! Backup trigger command.
 
-use crate::backup::{backup_file, DEFAULT_BACKUP_KEEP};
+use crate::backup::{backup_file, export_library_backup as export_library, preview_library_backup as preview_library, LibraryArchivePreview, LibraryBackupInfo, DEFAULT_BACKUP_KEEP};
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
 
@@ -22,4 +22,18 @@ pub fn backup_now() -> AppResult<String> {
             src.display()
         ))),
     }
+}
+
+/// Export a versioned, portable managed-library ZIP. The archive excludes API
+/// keys, OS credentials, Claude sign-in state, and private keys by design.
+#[tauri::command]
+pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
+    export_library()
+}
+
+/// Verify a portable library ZIP before any restore workflow is allowed to
+/// stage it.  This command never extracts or changes local files.
+#[tauri::command]
+pub fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchivePreview> {
+    preview_library(std::path::Path::new(&archive_path))
 }

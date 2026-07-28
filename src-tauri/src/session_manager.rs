@@ -1,18 +1,24 @@
 //! Read-only local session discovery for Claude Code and Claude Desktop.
 
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use zip::{ZipArchive, ZipWriter};
+use zip::write::SimpleFileOptions;
 
 use crate::config;
 use crate::error::{AppError, AppResult};
 
 const SEARCH_RESULT_LIMIT: usize = 200;
 const SUMMARY_LIMIT: usize = 160;
+const SESSION_ARCHIVE_VERSION: u8 = 1;
+const SESSION_ARCHIVE_MANIFEST: &str = "manifest.json";
+const SESSION_ARCHIVE_CONTENT: &str = "session.jsonl";
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -65,6 +71,24 @@ pub struct SessionMessage {
 pub struct SessionScanResult {
     pub sessions: Vec<SessionMeta>,
     pub providers: Vec<SessionProviderStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionArchiveManifest {
+    pub version: u8,
+    pub session_id: String,
+    pub relative_path: String,
+    pub created_at: i64,
+    pub content_sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionArchiveInfo {
+    pub archive_path: String,
+    pub session_id: String,
+    pub created_at: i64,
 }
 
 pub fn scan_sessions(provider: Option<SessionProvider>) -> AppResult<SessionScanResult> {
@@ -129,6 +153,123 @@ pub fn load_session_messages(
         )),
     }
 }
+
+pub fn export_claude_code_session(source_path: &str) -> AppResult<SessionArchiveInfo> {
+    let (source, relative) = validated_code_session(source_path)?;
+    let content = fs::read(&source)?;
+    let meta = parse_claude_code_session(&source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+    let manifest = SessionArchiveManifest {
+        version: SESSION_ARCHIVE_VERSION,
+        session_id: meta.session_id.clone(),
+        relative_path: relative.to_string_lossy().replace('\\', "/"),
+        created_at: chrono::Utc::now().timestamp_millis(),
+        content_sha256: hex::encode(Sha256::digest(&content)),
+    };
+    let dir = config::get_app_config_dir().join("session-archives");
+    fs::create_dir_all(&dir)?;
+    let archive_path = dir.join(format!("{}-{}.zip", safe_session_name(&manifest.session_id), manifest.created_at));
+    write_session_archive(&archive_path, &manifest, &content)?;
+    Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
+}
+
+pub fn import_claude_code_session(archive_path: &str) -> AppResult<SessionMeta> {
+    let (manifest, content) = read_session_archive(Path::new(archive_path))?;
+    let root = claude_code_session_root();
+    let relative = safe_archive_relative_path(&manifest.relative_path)?;
+    let target = root.join(relative);
+    if target.exists() {
+        let existing = fs::read(&target)?;
+        if hex::encode(Sha256::digest(existing)) == manifest.content_sha256 {
+            return parse_claude_code_session(&target)?.ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()));
+        }
+        return Err(AppError::Config("目标位置已有不同的会话，已拒绝覆盖".to_string()));
+    }
+    if let Some(parent) = target.parent() { fs::create_dir_all(parent)?; }
+    crate::config::atomic_write(&target, &content)?;
+    parse_claude_code_session(&target)?.ok_or_else(|| AppError::Config("导入的会话内容无效".to_string()))
+}
+
+pub fn trash_claude_code_session(source_path: &str) -> AppResult<SessionArchiveInfo> {
+    let (source, relative) = validated_code_session(source_path)?;
+    let content = fs::read(&source)?;
+    let meta = parse_claude_code_session(&source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+    let manifest = SessionArchiveManifest { version: SESSION_ARCHIVE_VERSION, session_id: meta.session_id.clone(), relative_path: relative.to_string_lossy().replace('\\', "/"), created_at: chrono::Utc::now().timestamp_millis(), content_sha256: hex::encode(Sha256::digest(&content)) };
+    let dir = config::get_app_config_dir().join("session-trash");
+    fs::create_dir_all(&dir)?;
+    let archive_path = dir.join(format!("{}-{}.zip", safe_session_name(&manifest.session_id), manifest.created_at));
+    write_session_archive(&archive_path, &manifest, &content)?;
+    fs::remove_file(source)?;
+    Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
+}
+
+pub fn restore_trashed_claude_code_session(archive_path: &str) -> AppResult<SessionMeta> {
+    let trash = config::get_app_config_dir().join("session-trash").canonicalize()
+        .map_err(|_| AppError::Config("会话回收站为空".to_string()))?;
+    let archive = Path::new(archive_path).canonicalize()
+        .map_err(|_| AppError::Config("找不到会话回收站归档".to_string()))?;
+    if !archive.starts_with(trash) || archive.extension().and_then(|value| value.to_str()) != Some("zip") {
+        return Err(AppError::Path("只能恢复资料库回收站中的会话归档".to_string()));
+    }
+    import_claude_code_session(&archive.to_string_lossy())
+}
+
+pub fn list_trashed_claude_code_sessions() -> AppResult<Vec<SessionArchiveInfo>> {
+    let dir = config::get_app_config_dir().join("session-trash");
+    if !dir.is_dir() { return Ok(Vec::new()); }
+    let mut archives = Vec::new();
+    for entry in fs::read_dir(&dir)? {
+        let path = entry?.path();
+        if path.extension().and_then(|value| value.to_str()) != Some("zip") { continue; }
+        if let Ok((manifest, _)) = read_session_archive(&path) {
+            archives.push(SessionArchiveInfo { archive_path: path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at });
+        }
+    }
+    archives.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    Ok(archives)
+}
+
+fn validated_code_session(source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
+    let root = claude_code_session_root();
+    let source = validate_session_path_in_root(&root, Path::new(source_path))?;
+    let root = root.canonicalize()?;
+    let relative = source.strip_prefix(root).map_err(|_| AppError::Path("会话相对路径无效".to_string()))?.to_path_buf();
+    Ok((source, relative))
+}
+
+fn write_session_archive(path: &Path, manifest: &SessionArchiveManifest, content: &[u8]) -> AppResult<()> {
+    let file = File::create(path)?;
+    let mut archive = ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    archive.start_file(SESSION_ARCHIVE_MANIFEST, options).map_err(|error| AppError::Other(format!("创建会话归档失败: {error}")))?;
+    archive.write_all(&serde_json::to_vec_pretty(manifest)?)?;
+    archive.start_file(SESSION_ARCHIVE_CONTENT, options).map_err(|error| AppError::Other(format!("创建会话归档失败: {error}")))?;
+    archive.write_all(content)?;
+    archive.finish().map_err(|error| AppError::Other(format!("完成会话归档失败: {error}")))?;
+    Ok(())
+}
+
+fn read_session_archive(path: &Path) -> AppResult<(SessionArchiveManifest, Vec<u8>)> {
+    let file = File::open(path)?;
+    let mut archive = ZipArchive::new(file).map_err(|_| AppError::Config("会话归档格式无效".to_string()))?;
+    let mut manifest = Vec::new();
+    archive.by_name(SESSION_ARCHIVE_MANIFEST).map_err(|_| AppError::Config("会话归档缺少清单".to_string()))?.read_to_end(&mut manifest)?;
+    let manifest = serde_json::from_slice::<SessionArchiveManifest>(&manifest)?;
+    if manifest.version != SESSION_ARCHIVE_VERSION { return Err(AppError::Config("不支持的会话归档版本".to_string())); }
+    let mut content = Vec::new();
+    archive.by_name(SESSION_ARCHIVE_CONTENT).map_err(|_| AppError::Config("会话归档缺少内容".to_string()))?.read_to_end(&mut content)?;
+    if hex::encode(Sha256::digest(&content)) != manifest.content_sha256 { return Err(AppError::Config("会话归档校验失败".to_string())); }
+    Ok((manifest, content))
+}
+
+fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {
+    let path = Path::new(value);
+    if path.is_absolute() || path.components().any(|component| matches!(component, std::path::Component::ParentDir | std::path::Component::Prefix(_) | std::path::Component::RootDir)) || path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
+        return Err(AppError::Config("会话归档中的路径不安全".to_string()));
+    }
+    Ok(path.to_path_buf())
+}
+
+fn safe_session_name(value: &str) -> String { value.chars().filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_')).collect::<String>() }
 
 fn scan_claude_code_sessions() -> AppResult<(Vec<SessionMeta>, SessionProviderStatus)> {
     let root = claude_code_session_root();

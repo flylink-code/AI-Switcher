@@ -81,6 +81,7 @@ impl Database {
             }
         }
         schema::migrate(&conn)?;
+        seed::run_seed(&conn)?;
         Ok(())
     }
 

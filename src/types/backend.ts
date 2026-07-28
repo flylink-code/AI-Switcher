@@ -87,6 +87,20 @@ export interface ConfigBackup {
   sourceName?: string | null;
 }
 
+export interface LibraryBackupInfo {
+  archivePath: string;
+  createdAt: number;
+  entries: number;
+}
+
+export interface LibraryArchivePreview {
+  archivePath: string;
+  createdAt: number;
+  schemaVersion: number;
+  entries: number;
+  totalBytes: number;
+}
+
 export interface DesktopLocalizationStatus {
   platformSupported: boolean;
   installDetected: boolean;
@@ -347,16 +361,75 @@ export interface UsageDashboard {
 
 export interface ModelPricing {
   model: string;
+  provider: string;
   inputPricePerMillion: number;
+  cacheReadPricePerMillion: number;
+  cacheWritePricePerMillion: number;
   outputPricePerMillion: number;
+  batchInputPricePerMillion: number;
+  batchOutputPricePerMillion: number;
   currency: string;
+  sourceUrl: string;
+  effectiveDate: string;
+  isDefault: boolean;
 }
 
 export interface ModelPricingInput {
   model: string;
+  provider?: string;
   inputPricePerMillion: number;
+  cacheReadPricePerMillion?: number;
+  cacheWritePricePerMillion?: number;
   outputPricePerMillion: number;
+  batchInputPricePerMillion?: number;
+  batchOutputPricePerMillion?: number;
   currency: string;
+}
+
+export interface PricingCatalog {
+  version: string;
+  entries: ModelPricing[];
+}
+
+export type SyncTargetKind = "wsl" | "ssh";
+export type SyncItem = "provider_presets" | "mcp" | "prompts" | "skills" | "session_archives";
+
+export interface PathMapping {
+  windowsPath: string;
+  remotePath: string;
+}
+
+export interface SyncTarget {
+  id: string;
+  name: string;
+  kind: SyncTargetKind;
+  wslDistribution?: string | null;
+  sshHost?: string | null;
+  sshPort?: number | null;
+  remoteRoot: string;
+  pathMappings: PathMapping[];
+  items: SyncItem[];
+  lastSyncedAt?: number | null;
+}
+
+export interface SyncPreviewChange {
+  item: SyncItem;
+  sourcePath: string;
+  remotePath: string;
+  status: string;
+}
+
+export interface SyncPreview {
+  target: SyncTarget;
+  changes: SyncPreviewChange[];
+  warnings: string[];
+}
+
+export interface SyncPushResult {
+  targetId: string;
+  archivePath: string;
+  remotePath: string;
+  bytes: number;
 }
 
 export interface LogMaintenanceResult {
@@ -458,4 +531,10 @@ export interface SessionMessage {
 export interface SessionScanResult {
   sessions: SessionMeta[];
   providers: SessionProviderStatus[];
+}
+
+export interface SessionArchiveInfo {
+  archivePath: string;
+  sessionId: string;
+  createdAt: number;
 }

@@ -43,17 +43,19 @@ jobs:
 
             ## What's new
 
-            - Added a unified localization page for Claude Code, the Claude Code extension in VS Code/Cursor, and Claude Desktop
-            - Added safe installation of the Claude Code Simplified Chinese plugin, including a settings backup and Chinese defaults
-            - Added detection of the official VS Code/Cursor extension and installation of its patch helper; applying a patch still requires confirmation in the editor
-            - Kept Claude Desktop localization in safe resource mode without modifying app.asar or executable files
+            - Added a portable managed-library archive with manifest and hash verification, plus a safer data-root migration using SQLite snapshots
+            - Added Claude Code session export/import, managed trash, restore, and archive validation
+            - Added WSL/SSH sync-target setup, safe preview, and explicit sanitized archive push without credentials
+            - Updated the built-in model-price catalog and preserved user-customized prices during catalog updates
+            - Added optional local-proxy automatic failover with a 60-second circuit breaker; it remains disabled by default
 
             ## 更新内容
 
-            - 新增统一中文化配置页面，可管理 Claude Code、VS Code/Cursor 中的 Claude Code 扩展与 Claude Desktop
-            - 支持安全安装 Claude Code 简体中文插件，自动备份设置并写入基础中文选项
-            - 可检测 VS Code/Cursor 官方扩展并安装中文补丁助手；实际应用补丁仍需在编辑器中确认
-            - Claude Desktop 继续采用安全资源模式，不修改 app.asar 或可执行文件
+            - 新增可迁移资料库归档的清单与哈希校验，并使用 SQLite 快照提升资料库迁移安全性
+            - 新增 Claude Code 会话导出、导入、资料库回收站、恢复与归档校验
+            - 新增 WSL/SSH 同步目标配置、安全预览和显式推送脱敏归档，不传递凭据
+            - 更新内置模型价格目录，目录更新不会覆盖用户自定义价格
+            - 新增本地代理可选自动故障切换与 60 秒熔断；默认保持关闭
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。
