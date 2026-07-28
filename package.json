@@ -1,6 +1,6 @@
 {
   "name": "ai-switcher",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "Unified third-party API configuration manager for Claude Desktop & Claude Code",
   "type": "module",
@@ -21,6 +21,7 @@
     "@tanstack/react-query": "^5.90.3",
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-autostart": "^2.5.0",
+    "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2.5.3",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "antd": "^6.4.3",

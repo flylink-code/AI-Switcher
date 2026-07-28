@@ -24,6 +24,7 @@ import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import {
@@ -192,11 +193,32 @@ export default function SessionsPage() {
     finally { setSessionAction(false); }
   };
 
+  const selectExportDirectory = async (): Promise<string | null> => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: t("sessions.selectExportDirectory"),
+    });
+    return typeof selected === "string" ? selected : null;
+  };
+
+  const selectImportArchive = async () => {
+    const selected = await open({
+      directory: false,
+      multiple: false,
+      title: t("sessions.selectImportArchive"),
+      filters: [{ name: "ZIP", extensions: ["zip"] }],
+    });
+    if (typeof selected === "string") setImportPath(selected);
+  };
+
   const exportSelected = async () => {
     if (!selectedPaths.size) return;
+    const destinationDir = await selectExportDirectory();
+    if (!destinationDir) return;
     setSessionAction(true);
     try {
-      const archive = await exportClaudeCodeSessions([...selectedPaths]);
+      const archive = await exportClaudeCodeSessions([...selectedPaths], destinationDir);
       void toast.success(t("sessions.batchExported", { count: archive.sessionCount, path: archive.archivePath }));
     } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
@@ -226,8 +248,10 @@ export default function SessionsPage() {
   };
 
   const exportSession = async (session: SessionMeta) => {
+    const destinationDir = await selectExportDirectory();
+    if (!destinationDir) return;
     setSessionAction(true);
-    try { const archive = await exportClaudeCodeSession(session.sourcePath); void toast.success(t("sessions.exported", { path: archive.archivePath })); }
+    try { const archive = await exportClaudeCodeSession(session.sourcePath, destinationDir); void toast.success(t("sessions.exported", { path: archive.archivePath })); }
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
@@ -450,8 +474,11 @@ export default function SessionsPage() {
           </Col>
         </Row>
       </Spin>
-      <Modal title={t("sessions.import")} open={importOpen} confirmLoading={sessionAction} onOk={() => void importSession()} onCancel={() => setImportOpen(false)}>
-        <Input value={importPath} onChange={(event) => setImportPath(event.target.value)} placeholder={t("sessions.importPlaceholder")} onPressEnter={() => void importSession()} />
+      <Modal title={t("sessions.import")} open={importOpen} confirmLoading={sessionAction} onOk={() => void importSession()} onCancel={() => { setImportOpen(false); setImportPath(""); }}>
+        <Space.Compact style={{ width: "100%" }}>
+          <Input readOnly value={importPath} placeholder={t("sessions.importPlaceholder")} onPressEnter={() => void importSession()} />
+          <Button onClick={() => void selectImportArchive()}>{t("sessions.chooseArchive")}</Button>
+        </Space.Compact>
       </Modal>
       <Modal title={t("sessions.trashBin")} open={trashOpen} footer={null} onCancel={() => setTrashOpen(false)}>
         <List

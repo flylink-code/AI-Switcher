@@ -634,9 +634,12 @@ export async function loadSessionMessages(
   });
 }
 
-export async function exportClaudeCodeSession(sourcePath: string): Promise<SessionArchiveInfo> {
+export async function exportClaudeCodeSession(
+  sourcePath: string,
+  destinationDir?: string,
+): Promise<SessionArchiveInfo> {
   const invoke = await getInvoke();
-  return invoke<SessionArchiveInfo>("export_claude_code_session", { sourcePath });
+  return invoke<SessionArchiveInfo>("export_claude_code_session", { sourcePath, destinationDir });
 }
 
 export async function backupClaudeCodeSessions(sourcePaths: string[]): Promise<SessionBatchBackupInfo> {
@@ -644,9 +647,12 @@ export async function backupClaudeCodeSessions(sourcePaths: string[]): Promise<S
   return invoke<SessionBatchBackupInfo>("backup_claude_code_sessions", { sourcePaths });
 }
 
-export async function exportClaudeCodeSessions(sourcePaths: string[]): Promise<SessionBatchExportInfo> {
+export async function exportClaudeCodeSessions(
+  sourcePaths: string[],
+  destinationDir?: string,
+): Promise<SessionBatchExportInfo> {
   const invoke = await getInvoke();
-  return invoke<SessionBatchExportInfo>("export_claude_code_sessions", { sourcePaths });
+  return invoke<SessionBatchExportInfo>("export_claude_code_sessions", { sourcePaths, destinationDir });
 }
 
 export async function importClaudeCodeSession(archivePath: string): Promise<SessionMeta> {

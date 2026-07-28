@@ -17,6 +17,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from "antd";
@@ -197,30 +198,7 @@ export default function UsagePage() {
         </Card>
 
         <Card size="small" title={t("usage.dailyStatistics")}>
-          {dashboard?.trend.length ? (
-            <Table
-              size="small"
-              pagination={false}
-              rowKey="date"
-              dataSource={dashboard.trend}
-              columns={[
-                { title: t("usage.date"), dataIndex: "date" },
-                { title: t("usage.requests"), dataIndex: "requestCount" },
-                {
-                  title: t("usage.inputTokens"),
-                  render: (_: unknown, row: UsageDashboard["trend"][number]) =>
-                    formatNumber(
-                      row.inputTokens +
-                        row.cacheReadInputTokens +
-                        row.cacheCreationInputTokens,
-                    ),
-                },
-                { title: t("usage.cacheTokens"), dataIndex: "cacheReadInputTokens", render: formatNumber },
-                { title: t("usage.outputTokens"), dataIndex: "outputTokens", render: formatNumber },
-                { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
-              ]}
-            />
-          ) : <Empty description={t("usage.noData")} />}
+          <UsageCalendar data={dashboard?.trend ?? []} days={days} t={t} />
         </Card>
 
         <Row gutter={[16, 16]}>
@@ -450,12 +428,21 @@ function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: 
     tokens: row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens,
     cost: row.estimatedCost,
   })), [data]);
-  const max = Math.max(...values.map((item) => item[metric]), 1);
-  const points = values.map((item, index) => {
-    const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
-    const y = 8 + (62 * (1 - item[metric] / max));
-    return `${x},${y}`;
-  }).join(" ");
+  const width = 720;
+  const height = 260;
+  const padding = { top: 26, right: 28, bottom: 52, left: 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const rawMax = Math.max(...values.map((item) => item[metric]), 0);
+  const scaleMax = rawMax ? rawMax * 1.15 : 1;
+  const pointAt = (item: typeof values[number], index: number) => ({
+    x: values.length === 1 ? padding.left + plotWidth / 2 : padding.left + (plotWidth * index) / (values.length - 1),
+    y: padding.top + plotHeight * (1 - item[metric] / scaleMax),
+  });
+  const points = values.map(pointAt);
+  const linePath = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
+  const lastPoint = points[points.length - 1];
+  const areaPath = `${linePath} L${lastPoint?.x ?? padding.left},${padding.top + plotHeight} L${points[0]?.x ?? padding.left},${padding.top + plotHeight} Z`;
   const labelIndexes = values.length <= 5
     ? values.map((_, index) => index)
     : [...new Set([0, Math.round((values.length - 1) / 4), Math.round((values.length - 1) / 2), Math.round((values.length - 1) * 3 / 4), values.length - 1])];
@@ -476,24 +463,109 @@ function UsageTrendChart({ data, t }: { data: UsageDashboard["trend"]; t: (key: 
         ]}
       />
       <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox="0 0 100 100" role="img" aria-label={t(`usage.trend${metric[0].toUpperCase()}${metric.slice(1)}`)} style={{ display: "block", minWidth: 420, width: "100%", height: 240 }} preserveAspectRatio="none">
-          {[8, 23.5, 39, 54.5, 70].map((y) => <line key={y} x1="8" x2="92" y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" vectorEffect="non-scaling-stroke" />)}
-          <polyline points={points} fill="none" stroke="var(--ant-color-primary)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-          {values.map((item, index) => {
-            const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
-            const y = 8 + (62 * (1 - item[metric] / max));
-            return <circle key={item.date} cx={x} cy={y} r="1.25" fill="var(--ant-color-primary)"><title>{`${item.date}: ${metric === "cost" ? formatCost(item[metric]) : formatNumber(item[metric])}`}</title></circle>;
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t(`usage.trend${metric[0].toUpperCase()}${metric.slice(1)}`)} style={{ display: "block", minWidth: 620, width: "100%", height: 260 }} preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="usage-trend-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="var(--ant-color-primary)" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="var(--ant-color-primary)" stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const y = padding.top + plotHeight * ratio;
+            const value = scaleMax * (1 - ratio);
+            return <g key={ratio}>
+              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" />
+              <text x={padding.left - 12} y={y + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.62">{metric === "cost" ? formatCost(value) : formatNumber(Math.round(value))}</text>
+            </g>;
           })}
-          <text x="8" y="78" fontSize="4" fill="currentColor" opacity="0.65">0</text>
-          <text x="8" y="6" fontSize="4" fill="currentColor" opacity="0.65">{metric === "cost" ? formatCost(max) : formatNumber(max)}</text>
+          <path d={areaPath} fill="url(#usage-trend-fill)" />
+          <path d={linePath} fill="none" stroke="var(--ant-color-primary)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+          {values.map((item, index) => {
+            const point = points[index];
+            return <circle key={item.date} cx={point.x} cy={point.y} r="4" fill="var(--ant-color-bg-container)" stroke="var(--ant-color-primary)" strokeWidth="2.5"><title>{`${item.date}: ${metric === "cost" ? formatCost(item[metric]) : formatNumber(item[metric])}`}</title></circle>;
+          })}
           {labelIndexes.map((index) => {
-            const x = values.length === 1 ? 50 : 8 + (84 * index) / (values.length - 1);
-            return <text key={values[index].date} x={x} y="88" textAnchor="middle" fontSize="3.5" fill="currentColor" opacity="0.65">{values[index].date.slice(5)}</text>;
+            return <text key={values[index].date} x={points[index].x} y={height - 20} textAnchor="middle" fontSize="12" fill="currentColor" opacity="0.62">{values[index].date.slice(5)}</text>;
           })}
         </svg>
       </div>
     </Space>
   );
+}
+
+function UsageCalendar({ data, days, t }: { data: UsageDashboard["trend"]; days: number; t: (key: string) => string }) {
+  const { token } = theme.useToken();
+  const byDate = new Map(data.map((row) => [row.date, row]));
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - days + 1);
+  const daily = Array.from({ length: days }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const key = localDateKey(date);
+    const row = byDate.get(key);
+    const tokens = row ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens : 0;
+    return { date, key, row, tokens };
+  });
+  const max = Math.max(...daily.map((item) => item.tokens), 0);
+  const activeDays = daily.filter((item) => item.tokens > 0).length;
+  const total = daily.reduce((sum, item) => sum + item.tokens, 0);
+  const leading = Array.from({ length: daily[0]?.date.getDay() ?? 0 });
+
+  if (!data.length) return <Empty description={t("usage.noData")} />;
+
+  return (
+    <Space direction="vertical" size={14} style={{ width: "100%" }}>
+      <Space wrap size={24}>
+        <Statistic title={t("usage.activeDays")} value={activeDays} suffix={`/ ${days}`} />
+        <Statistic title={t("usage.dailyPeak")} value={max} formatter={(value) => formatNumber(Number(value))} />
+        <Statistic title={t("usage.calendarTotal")} value={total} formatter={(value) => formatNumber(Number(value))} />
+      </Space>
+      <div style={{ overflowX: "auto", paddingBottom: 2 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateRows: "repeat(7, 15px)",
+            gridAutoFlow: "column",
+            gridAutoColumns: "15px",
+            gap: 4,
+            width: "max-content",
+          }}
+        >
+          {leading.map((_, index) => <span key={`leading-${index}`} />)}
+          {daily.map((item) => {
+            const level = item.tokens === 0 ? 0 : Math.min(4, Math.ceil((item.tokens / Math.max(max, 1)) * 4));
+            const colors = [token.colorFillQuaternary, "#9be9a8", "#40c463", "#30a14e", "#216e39"];
+            const tooltip = item.row
+              ? `${item.key}: ${formatNumber(item.tokens)} Token · ${item.row.requestCount} ${t("usage.requests")}`
+              : `${item.key}: 0 Token`;
+            return (
+              <Tooltip key={item.key} title={tooltip}>
+                <span
+                  aria-label={tooltip}
+                  style={{ width: 15, height: 15, borderRadius: 3, background: colors[level], outline: `1px solid ${token.colorBorderSecondary}` }}
+                />
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
+      <Space size={6} align="center" style={{ alignSelf: "flex-end" }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLess")}</Text>
+        {[token.colorFillQuaternary, "#9be9a8", "#40c463", "#30a14e", "#216e39"].map((color, index) => (
+          <span key={index} style={{ width: 12, height: 12, borderRadius: 2, background: color, outline: `1px solid ${token.colorBorderSecondary}` }} />
+        ))}
+        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarMore")}</Text>
+      </Space>
+    </Space>
+  );
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function Metric({ title, value, suffix, prefix, precision, icon }: { title: string; value: number; suffix?: string; prefix?: string; precision?: number; icon?: ReactNode }) {

@@ -86,6 +86,14 @@ pub async fn switch_provider_for_target(
     if provider.target_app != target {
         return Err(AppError::Config("供应商不属于此应用".to_string()));
     }
+    if provider.is_current {
+        log::debug!(
+            "跳过重复供应商切换: target={} provider={}",
+            target.as_str(),
+            id
+        );
+        return Ok(provider);
+    }
     let started = Instant::now();
     let snapshot = apply_target_provider(&provider, state).await?;
     let applied_ms = started.elapsed().as_millis();
@@ -492,10 +500,17 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
                 )?;
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
-                    claude_code::apply_provider_to_settings_via_proxy(&runtime_provider, proxy_port)?;
-                } else {
-                    claude_code::apply_provider_to_settings(&runtime_provider)?;
                 }
+                let provider = runtime_provider.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if uses_proxy {
+                        claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
+                    } else {
+                        claude_code::apply_provider_to_settings(&provider)
+                    }
+                })
+                .await
+                .map_err(|error| AppError::Tauri(format!("Claude Code 配置写入任务失败: {error}")))??;
                 commit_code_ownership(state, ownership)?;
             }
             ProviderTarget::ClaudeDesktop => {
@@ -503,7 +518,12 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
                 }
-                claude_desktop::apply_provider(&runtime_provider, proxy_port)?;
+                let provider = runtime_provider.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    claude_desktop::apply_provider(&provider, proxy_port)
+                })
+                .await
+                .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;
                 commit_desktop_ownership(state, original_applied_id)?;
             }
         }

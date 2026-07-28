@@ -41,8 +41,13 @@ pub async fn load_session_messages(
 }
 
 #[tauri::command]
-pub async fn export_claude_code_session(source_path: String) -> AppResult<SessionArchiveInfo> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::export_claude_code_session(&source_path))
+pub async fn export_claude_code_session(
+    source_path: String,
+    destination_dir: Option<String>,
+) -> AppResult<SessionArchiveInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::export_claude_code_session(&source_path, destination_dir.as_deref())
+    })
         .await.map_err(|error| AppError::Tauri(format!("会话导出任务失败: {error}")))?
 }
 
@@ -53,8 +58,13 @@ pub async fn backup_claude_code_sessions(source_paths: Vec<String>) -> AppResult
 }
 
 #[tauri::command]
-pub async fn export_claude_code_sessions(source_paths: Vec<String>) -> AppResult<SessionBatchExportInfo> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::export_claude_code_sessions(&source_paths))
+pub async fn export_claude_code_sessions(
+    source_paths: Vec<String>,
+    destination_dir: Option<String>,
+) -> AppResult<SessionBatchExportInfo> {
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::export_claude_code_sessions(&source_paths, destination_dir.as_deref())
+    })
         .await.map_err(|error| AppError::Tauri(format!("会话批量导出任务失败: {error}")))?
 }
 

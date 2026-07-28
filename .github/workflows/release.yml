@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Added multi-select Claude Code session backup and a portable, integrity-checked batch export ZIP
-            - Added token, request, and cost usage curves alongside the daily usage statistics table
-            - Refreshed the Windows application icon set
+            - Refined usage curves and added a GitHub-style daily token activity calendar
+            - Added native archive-file and export-folder pickers for Claude Code sessions
+            - Reduced provider-switch work on the UI path and skipped duplicate switches
 
             ## 更新内容
 
-            - 新增 Claude Code 会话多选备份与带完整性校验的可移植批量导出 ZIP
-            - 新增 Token、请求数和预估成本用量曲线，并保留每日统计明细表
-            - 更新 Windows 应用图标套件
+            - 优化 Token、请求数与预估成本曲线，并新增 GitHub 提交日期表风格的每日 Token 活跃度日历
+            - Claude Code 会话导入支持原生文件选择，导出支持原生目录选择
+            - 降低供应商切换前台阻塞，并跳过重复切换
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

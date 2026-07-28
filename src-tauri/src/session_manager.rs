@@ -179,7 +179,10 @@ pub fn load_session_messages(
     }
 }
 
-pub fn export_claude_code_session(source_path: &str) -> AppResult<SessionArchiveInfo> {
+pub fn export_claude_code_session(
+    source_path: &str,
+    destination_dir: Option<&str>,
+) -> AppResult<SessionArchiveInfo> {
     let (source, relative) = validated_code_session(source_path)?;
     let content = fs::read(&source)?;
     let meta = parse_claude_code_session(&source)?.ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
@@ -190,8 +193,7 @@ pub fn export_claude_code_session(source_path: &str) -> AppResult<SessionArchive
         created_at: chrono::Utc::now().timestamp_millis(),
         content_sha256: hex::encode(Sha256::digest(&content)),
     };
-    let dir = config::get_app_config_dir().join("session-archives");
-    fs::create_dir_all(&dir)?;
+    let dir = resolve_export_dir(destination_dir, "session-archives")?;
     let archive_path = dir.join(format!("{}-{}.zip", safe_session_name(&manifest.session_id), manifest.created_at));
     write_session_archive(&archive_path, &manifest, &content)?;
     Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
@@ -203,7 +205,7 @@ pub fn backup_claude_code_sessions(source_paths: &[String]) -> AppResult<Session
     let source_paths = unique_session_paths(source_paths)?;
     let mut archives = Vec::with_capacity(source_paths.len());
     for source_path in source_paths {
-        archives.push(export_claude_code_session(&source_path)?);
+        archives.push(export_claude_code_session(&source_path, None)?);
     }
     Ok(SessionBatchBackupInfo { archives })
 }
@@ -211,7 +213,10 @@ pub fn backup_claude_code_sessions(source_paths: &[String]) -> AppResult<Session
 /// Create one portable ZIP containing every selected session and its integrity
 /// metadata. Unlike the backup operation this produces a single file that can
 /// be moved and imported on another machine.
-pub fn export_claude_code_sessions(source_paths: &[String]) -> AppResult<SessionBatchExportInfo> {
+pub fn export_claude_code_sessions(
+    source_paths: &[String],
+    destination_dir: Option<&str>,
+) -> AppResult<SessionBatchExportInfo> {
     let source_paths = unique_session_paths(source_paths)?;
     let mut sessions = Vec::with_capacity(source_paths.len());
     for source_path in source_paths {
@@ -232,8 +237,7 @@ pub fn export_claude_code_sessions(source_paths: &[String]) -> AppResult<Session
     }
 
     let created_at = chrono::Utc::now().timestamp_millis();
-    let dir = config::get_app_config_dir().join("session-exports");
-    fs::create_dir_all(&dir)?;
+    let dir = resolve_export_dir(destination_dir, "session-exports")?;
     let archive_path = dir.join(format!("claude-code-sessions-{created_at}.zip"));
     write_batch_session_archive(&archive_path, created_at, &sessions)?;
     Ok(SessionBatchExportInfo {
@@ -433,6 +437,31 @@ fn unique_session_paths(source_paths: &[String]) -> AppResult<Vec<String>> {
     }
     if unique.is_empty() { return Err(AppError::Config("请至少选择一个 Claude Code 会话".to_string())); }
     Ok(unique.into_iter().collect())
+}
+
+/// Resolve a user-selected directory for portable exports. The default keeps
+/// backwards compatibility with previous releases, while explicit paths must
+/// already be directories so an arbitrary file path can never be overwritten.
+fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> AppResult<PathBuf> {
+    match destination_dir.map(str::trim).filter(|path| !path.is_empty()) {
+        Some(path) => {
+            let path = PathBuf::from(path);
+            let metadata = fs::metadata(&path).map_err(|error| {
+                AppError::Path(format!("无法访问导出目录 {}: {error}", path.display()))
+            })?;
+            if !metadata.is_dir() {
+                return Err(AppError::Path(format!("导出位置不是目录: {}", path.display())));
+            }
+            path.canonicalize().map_err(|error| {
+                AppError::Path(format!("无法解析导出目录 {}: {error}", path.display()))
+            })
+        }
+        None => {
+            let dir = config::get_app_config_dir().join(default_subdir);
+            fs::create_dir_all(&dir)?;
+            Ok(dir)
+        }
+    }
 }
 
 fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {
