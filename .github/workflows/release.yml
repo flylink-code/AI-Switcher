@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Fixed dark theme backgrounds, borders, and text across all content cards and controls
-            - Redesigned the yearly usage heatmap to fill the available width without tiny circular cells
-            - Kept shorter heatmap ranges compact while preserving tooltips and intensity levels
+            - Fixed the CSS cascade-layer ordering that kept content cards white in dark mode
+            - Verified production rendering for both light and dark themes
+            - Retained the responsive yearly usage heatmap and high-contrast navigation palette
 
             ## 更新内容
 
-            - 修复全部内容卡片和控件在深色模式下的背景、边框与文字颜色
-            - 重构年度用量热力图，自适应铺满可用宽度且不再显示为过小圆点
-            - 保持短周期热力图紧凑，并保留提示信息和强度等级
+            - 修复 CSS 级联层顺序，解决深色模式下内容卡片仍为白底的问题
+            - 完成浅色与深色主题的生产渲染验证
+            - 保留响应式年度用量热力图与高对比度导航配色
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

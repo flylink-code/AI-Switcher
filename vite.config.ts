@@ -11,6 +11,8 @@ const host = process.env.TAURI_DEV_HOST;
  * in an arbitrary application tree, leaving most component declarations with
  * unresolved variables. Normalize global variables onto :root and component
  * variables onto their stable `.ant-*` selectors during the Vite build.
+ * Keep the precompiled rules in Ant Design's own cascade layer so runtime
+ * theme rules in `@layer antd` can override the light defaults.
  */
 const normalizeAntdStaticCss = {
   name: "normalize-antd-static-css",
@@ -19,10 +21,12 @@ const normalizeAntdStaticCss = {
     const moduleId = id.split("?", 1)[0].replaceAll("\\", "/");
     if (!moduleId.endsWith("/antd/dist/antd.css")) return null;
 
-    return {
-      code: code
+    const normalizedCss = code
         .replace(/\.css-var-[\w-]+(?=\.[\w-])/g, "")
-        .replace(/\.css-var-[\w-]+(?=\s*\{)/g, ":root"),
+        .replace(/\.css-var-[\w-]+(?=\s*\{)/g, ":root");
+
+    return {
+      code: `@layer antd {\n${normalizedCss}\n}`,
       map: null,
     };
   },
