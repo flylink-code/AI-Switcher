@@ -1,4 +1,4 @@
-//! Commands for discovering and managing Claude Code Skills.
+//! Commands for discovering and managing Claude Code and Codex Skills.
 
 use crate::error::AppResult;
 use crate::skills::{
@@ -11,13 +11,13 @@ use crate::skills::{
     get_skill_repository_snapshot as get_repository_snapshot,
     refresh_github_repository_skills as refresh_repository_skills,
     update_github_skills as update_skills,
-    RepositorySkill, Skill, SkillRepositorySnapshot, SkillUpdateStatus,
+    RepositorySkill, Skill, SkillRepositorySnapshot, SkillTarget, SkillUpdateStatus,
 };
 use crate::store::AppState;
 
 #[tauri::command]
-pub fn list_skills() -> AppResult<Vec<Skill>> {
-    list_local_skills()
+pub fn list_skills(target: Option<SkillTarget>) -> AppResult<Vec<Skill>> {
+    list_local_skills(target.unwrap_or_default())
 }
 
 #[tauri::command]
@@ -49,42 +49,43 @@ pub async fn refresh_github_repository_skills(url: String, _state: tauri::State<
 pub async fn install_github_repository_skills(
     url: String,
     paths: Vec<String>,
+    target: Option<SkillTarget>,
     _state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<Skill>> {
-    install_from_repository(&url, &paths).await
+    install_from_repository(&url, &paths, target.unwrap_or_default()).await
 }
 
 #[tauri::command]
-pub async fn install_github_skill(url: String, _state: tauri::State<'_, AppState>) -> AppResult<Skill> {
-    install_from_github(&url).await
+pub async fn install_github_skill(url: String, target: Option<SkillTarget>, _state: tauri::State<'_, AppState>) -> AppResult<Skill> {
+    install_from_github(&url, target.unwrap_or_default()).await
 }
 
 #[tauri::command]
-pub fn install_zip_skill(path: String) -> AppResult<Skill> {
-    install_from_zip(std::path::Path::new(&path))
+pub fn install_zip_skill(path: String, target: Option<SkillTarget>) -> AppResult<Skill> {
+    install_from_zip(std::path::Path::new(&path), target.unwrap_or_default())
 }
 
 #[tauri::command]
-pub fn set_skill_enabled(name: String, enabled: bool) -> AppResult<()> {
-    set_enabled(&name, enabled)
+pub fn set_skill_enabled(name: String, enabled: bool, target: Option<SkillTarget>) -> AppResult<()> {
+    set_enabled(&name, enabled, target.unwrap_or_default())
 }
 
 #[tauri::command]
-pub fn delete_skill(name: String) -> AppResult<()> {
-    remove_skill(&name)
+pub fn delete_skill(name: String, target: Option<SkillTarget>) -> AppResult<()> {
+    remove_skill(&name, target.unwrap_or_default())
 }
 
 #[tauri::command]
-pub async fn check_skill_update(name: String, _state: tauri::State<'_, AppState>) -> AppResult<SkillUpdateStatus> {
-    check_update(&name).await
+pub async fn check_skill_update(name: String, target: Option<SkillTarget>, _state: tauri::State<'_, AppState>) -> AppResult<SkillUpdateStatus> {
+    check_update(&name, target.unwrap_or_default()).await
 }
 
 #[tauri::command]
-pub async fn check_skill_updates(_state: tauri::State<'_, AppState>) -> AppResult<Vec<SkillUpdateStatus>> {
-    check_updates().await
+pub async fn check_skill_updates(target: Option<SkillTarget>, _state: tauri::State<'_, AppState>) -> AppResult<Vec<SkillUpdateStatus>> {
+    check_updates(target.unwrap_or_default()).await
 }
 
 #[tauri::command]
-pub async fn update_github_skills(names: Vec<String>, _state: tauri::State<'_, AppState>) -> AppResult<Vec<Skill>> {
-    update_skills(&names).await
+pub async fn update_github_skills(names: Vec<String>, target: Option<SkillTarget>, _state: tauri::State<'_, AppState>) -> AppResult<Vec<Skill>> {
+    update_skills(&names, target.unwrap_or_default()).await
 }

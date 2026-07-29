@@ -10,6 +10,7 @@ import {
   List,
   Modal,
   Popconfirm,
+  Segmented,
   Space,
   Tooltip,
   Typography,
@@ -26,7 +27,7 @@ import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import type { PromptDetail, PromptInfo } from "@/types/backend";
+import type { PromptDetail, PromptInfo, PromptTarget } from "@/types/backend";
 import {
   activatePrompt,
   deletePrompt,
@@ -48,7 +49,8 @@ export default function PromptsPage() {
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const queryClient = useQueryClient();
-  const promptsQuery = useQuery(promptsOverviewOptions);
+  const [target, setTarget] = useState<PromptTarget>("claude_code");
+  const promptsQuery = useQuery(promptsOverviewOptions(target));
   const prompts = promptsQuery.data?.items ?? [];
   const live = promptsQuery.data?.livePrompt ?? null;
   const [busy, setBusy] = useState(false);
@@ -61,14 +63,17 @@ export default function PromptsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    form.setFieldsValue({ name: "", content: "# Project Instructions\n\n" });
+    form.setFieldsValue({
+      name: "",
+      content: target === "codex" ? "# Global Instructions\n\n" : "# Project Instructions\n\n",
+    });
     setFormOpen(true);
   };
 
   const openEdit = async (info: PromptInfo) => {
     setBusy(true);
     try {
-      const detail = await readPrompt(info.name);
+      const detail = await readPrompt(info.name, target);
       setEditing(detail);
       form.setFieldsValue({ name: detail.name, content: detail.content });
       setFormOpen(true);
@@ -87,10 +92,10 @@ export default function PromptsPage() {
     }
     setBusy(true);
     try {
-      await savePrompt(name, values.content);
+      await savePrompt(name, values.content, target);
       void message.success(t(editing ? "prompts.updated" : "prompts.created"));
       setFormOpen(false);
-      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -101,9 +106,9 @@ export default function PromptsPage() {
   const handleActivate = async (info: PromptInfo) => {
     setBusy(true);
     try {
-      await activatePrompt(info.name);
+      await activatePrompt(info.name, target);
       void message.success(t("prompts.activated", { name: info.name }));
-      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -114,9 +119,9 @@ export default function PromptsPage() {
   const handleDelete = async (info: PromptInfo) => {
     setBusy(true);
     try {
-      await deletePrompt(info.name);
+      await deletePrompt(info.name, target);
       void message.success(t("prompts.deleted"));
-      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -132,10 +137,10 @@ export default function PromptsPage() {
   const handleImportLive = async ({ name }: { name: string }) => {
     setBusy(true);
     try {
-      await importLivePrompt(name.trim());
+      await importLivePrompt(name.trim(), target);
       void message.success(t("prompts.imported"));
       setImportOpen(false);
-      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -157,6 +162,14 @@ export default function PromptsPage() {
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {promptsQuery.error && <Alert type="error" showIcon message={errMsg(promptsQuery.error)} />}
         <OnboardingTip tipKey="prompts" message={t("prompts.title")} description={t("prompts.description")} />
+        <Segmented<PromptTarget>
+          value={target}
+          onChange={setTarget}
+          options={[
+            { value: "claude_code", label: "Claude Code" },
+            { value: "codex", label: "Codex" },
+          ]}
+        />
 
         <Card
           size="small"

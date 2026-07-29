@@ -1,7 +1,7 @@
 //! Request-log persistence and usage-statistic queries for the local proxy.
 
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::{named_params, params, Connection};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -197,7 +197,11 @@ pub fn update_proxy_log_diagnostic(
     Ok(())
 }
 
-pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummary> {
+pub fn get_usage_summary_for_target(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+) -> AppResult<UsageSummary> {
     conn.query_row(
         "SELECT COUNT(*),
                 COALESCE(SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END), 0),
@@ -212,8 +216,9 @@ pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummar
                     + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
                     ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
-         WHERE created_at >= ?;",
-        params![since],
+         WHERE created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app);",
+        named_params! { ":since": since, ":target_app": target_app },
         |row| Ok(UsageSummary {
             request_count: row.get(0)?,
             successful_request_count: row.get(1)?,
@@ -227,15 +232,28 @@ pub fn get_usage_summary(conn: &Connection, since: i64) -> AppResult<UsageSummar
     .map_err(Into::into)
 }
 
-pub fn get_usage_by_provider(conn: &Connection, since: i64) -> AppResult<Vec<UsageBreakdown>> {
-    usage_breakdown(conn, since, "COALESCE(l.provider_name, 'Unknown')")
+pub fn get_usage_by_provider_for_target(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+) -> AppResult<Vec<UsageBreakdown>> {
+    usage_breakdown(conn, since, target_app, "COALESCE(l.provider_name, 'Unknown')")
 }
 
-pub fn get_usage_by_model(conn: &Connection, since: i64) -> AppResult<Vec<UsageBreakdown>> {
-    usage_breakdown(conn, since, "COALESCE(l.model, 'Unknown')")
+pub fn get_usage_by_model_for_target(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+) -> AppResult<Vec<UsageBreakdown>> {
+    usage_breakdown(conn, since, target_app, "COALESCE(l.model, 'Unknown')")
 }
 
-fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<Vec<UsageBreakdown>> {
+fn usage_breakdown(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+    grouping: &str,
+) -> AppResult<Vec<UsageBreakdown>> {
     let sql = format!(
         "SELECT {grouping}, COUNT(*), COALESCE(SUM(l.input_tokens), 0),
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
@@ -248,10 +266,12 @@ fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<V
                     + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
                     ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
-         WHERE l.created_at >= ? GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
+         WHERE l.created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app)
+         GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params![since], |row| {
+    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
         Ok(UsageBreakdown {
             key: row.get(0)?,
             request_count: row.get(1)?,
@@ -265,7 +285,11 @@ fn usage_breakdown(conn: &Connection, since: i64, grouping: &str) -> AppResult<V
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
-pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTrendPoint>> {
+pub fn get_usage_trend_for_target(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+) -> AppResult<Vec<UsageTrendPoint>> {
     let mut stmt = conn.prepare(
         "SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime'), COUNT(*),
                 COALESCE(SUM(l.input_tokens), 0),
@@ -279,9 +303,11 @@ pub fn get_usage_trend(conn: &Connection, since: i64) -> AppResult<Vec<UsageTren
                     + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
                     ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
-         WHERE l.created_at >= ? GROUP BY 1 ORDER BY 1 ASC;",
+         WHERE l.created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app)
+         GROUP BY 1 ORDER BY 1 ASC;",
     )?;
-    let rows = stmt.query_map(params![since], |row| {
+    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
         Ok(UsageTrendPoint {
             date: row.get(0)?,
             request_count: row.get(1)?,

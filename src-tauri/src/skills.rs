@@ -15,7 +15,7 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 
-use crate::config::{get_app_config_dir, get_claude_skills_dir, read_json_file, write_json_file};
+use crate::config::{get_app_config_dir, get_claude_skills_dir, get_codex_skills_dir, read_json_file, write_json_file};
 use crate::error::{AppError, AppResult};
 
 const SKILL_FILE: &str = "SKILL.md";
@@ -23,6 +23,29 @@ const MAX_ARCHIVE_BYTES: u64 = 100 * 1024 * 1024;
 const DEFAULT_SKILL_REPOSITORY: &str = "https://github.com/anthropics/skills";
 const SKILL_REPOSITORY_CONFIG_FILE: &str = "skills.json";
 const SKILL_SOURCES_CONFIG_FILE: &str = "skill-sources.json";
+const CODEX_SKILL_SOURCES_CONFIG_FILE: &str = "codex-skill-sources.json";
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillTarget {
+    #[default]
+    ClaudeCode,
+    Codex,
+}
+
+fn skill_root(target: SkillTarget) -> PathBuf {
+    match target {
+        SkillTarget::ClaudeCode => get_claude_skills_dir(),
+        SkillTarget::Codex => get_codex_skills_dir(),
+    }
+}
+
+fn skill_sources_file(target: SkillTarget) -> &'static str {
+    match target {
+        SkillTarget::ClaudeCode => SKILL_SOURCES_CONFIG_FILE,
+        SkillTarget::Codex => CODEX_SKILL_SOURCES_CONFIG_FILE,
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,12 +120,12 @@ struct SkillSourcesConfig {
 
 fn skill_sources_version() -> u8 { 1 }
 
-pub fn list_skills() -> AppResult<Vec<Skill>> {
-    let root = get_claude_skills_dir();
+pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
+    let root = skill_root(target);
     if !root.exists() {
         return Ok(Vec::new());
     }
-    let sources = skill_sources()?;
+    let sources = skill_sources(target)?;
     let mut skills = Vec::new();
     for entry in fs::read_dir(&root)? {
         let entry = entry?;
@@ -195,7 +218,7 @@ pub async fn list_github_repository_skills(url: &str) -> AppResult<Vec<Repositor
     Ok(skills)
 }
 
-pub async fn install_github_repository_skills(url: &str, paths: &[String]) -> AppResult<Vec<Skill>> {
+pub async fn install_github_repository_skills(url: &str, paths: &[String], target: SkillTarget) -> AppResult<Vec<Skill>> {
     if paths.is_empty() {
         return Err(AppError::Config("请至少选择一个 Skill".to_string()));
     }
@@ -226,30 +249,30 @@ pub async fn install_github_repository_skills(url: &str, paths: &[String]) -> Ap
         let path = entry_map.iter()
             .find_map(|(path, (_, entry_index))| (*entry_index == index).then_some(path.clone()))
             .unwrap_or_default();
-        let skill = install_archive_skill_at(&archive, index, Some(&repo))?;
-        installed.push(record_github_source(skill, url, archive_revision(&archive), Some(path))?);
+        let skill = install_archive_skill_at(&archive, index, Some(&repo), target)?;
+        installed.push(record_github_source(skill, url, archive_revision(&archive), Some(path), target)?);
     }
     Ok(installed)
 }
 
 /// Install a skill from a public GitHub repository. The repo must include one
 /// `SKILL.md`, either at its root or under a skill subdirectory.
-pub async fn install_github_skill(url: &str) -> AppResult<Skill> {
+pub async fn install_github_skill(url: &str, target: SkillTarget) -> AppResult<Skill> {
     let (archive, repo) = download_github_archive(url).await?;
-    let skill = install_archive(&archive, Some(&repo))?;
-    record_github_source(skill, url, archive_revision(&archive), None)
+    let skill = install_archive(&archive, Some(&repo), target)?;
+    record_github_source(skill, url, archive_revision(&archive), None, target)
 }
 
 /// Install from a user-selected ZIP archive. Archives are protected from path
 /// traversal and must contain a SKILL.md file.
-pub fn install_zip_skill(path: &Path) -> AppResult<Skill> {
+pub fn install_zip_skill(path: &Path, target: SkillTarget) -> AppResult<Skill> {
     let metadata = fs::metadata(path)?;
     if metadata.len() > MAX_ARCHIVE_BYTES {
         return Err(AppError::Config("Skill ZIP 超过 100 MB 限制".to_string()));
     }
     let archive = fs::read(path)?;
     let fallback = path.file_stem().and_then(|n| n.to_str());
-    let skill = install_archive(&archive, fallback)?;
+    let skill = install_archive(&archive, fallback, target)?;
     record_source(skill, InstalledSkillSource {
         kind: "zip".to_string(),
         source_url: Some(path.to_string_lossy().into_owned()),
@@ -257,11 +280,11 @@ pub fn install_zip_skill(path: &Path) -> AppResult<Skill> {
         repository_path: None,
         installed_at: Utc::now().timestamp_millis(),
         content_sha256: String::new(),
-    })
+    }, target)
 }
 
-pub fn set_skill_enabled(name: &str, enabled: bool) -> AppResult<()> {
-    let path = skill_path(name)?;
+pub fn set_skill_enabled(name: &str, enabled: bool, target: SkillTarget) -> AppResult<()> {
+    let path = skill_path(name, target)?;
     let skill_file = path.join(SKILL_FILE);
     let disabled = path.join("SKILL.md.disabled");
     if enabled {
@@ -286,17 +309,17 @@ pub fn set_skill_enabled(name: &str, enabled: bool) -> AppResult<()> {
     Ok(())
 }
 
-pub fn delete_skill(name: &str) -> AppResult<()> {
-    let path = skill_path(name)?;
+pub fn delete_skill(name: &str, target: SkillTarget) -> AppResult<()> {
+    let path = skill_path(name, target)?;
     fs::remove_dir_all(path)?;
-    let mut sources = skill_sources()?;
+    let mut sources = skill_sources(target)?;
     sources.skills.remove(name);
-    write_skill_sources(&sources)?;
+    write_skill_sources(&sources, target)?;
     Ok(())
 }
 
-pub async fn check_skill_update(name: &str) -> AppResult<SkillUpdateStatus> {
-    let skill = list_skills()?.into_iter().find(|skill| skill.name == name)
+pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<SkillUpdateStatus> {
+    let skill = list_skills(target)?.into_iter().find(|skill| skill.name == name)
         .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
     let Some(source) = skill.source else {
         return Ok(SkillUpdateStatus {
@@ -347,25 +370,25 @@ pub async fn check_skill_update(name: &str) -> AppResult<SkillUpdateStatus> {
     })
 }
 
-pub async fn check_skill_updates() -> AppResult<Vec<SkillUpdateStatus>> {
-    let names = list_skills()?.into_iter().map(|skill| skill.name).collect::<Vec<_>>();
+pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpdateStatus>> {
+    let names = list_skills(target)?.into_iter().map(|skill| skill.name).collect::<Vec<_>>();
     let mut statuses = Vec::with_capacity(names.len());
     for name in names {
-        statuses.push(check_skill_update(&name).await?);
+        statuses.push(check_skill_update(&name, target).await?);
     }
     Ok(statuses)
 }
 
-pub async fn update_github_skills(names: &[String]) -> AppResult<Vec<Skill>> {
+pub async fn update_github_skills(names: &[String], target: SkillTarget) -> AppResult<Vec<Skill>> {
     if names.is_empty() {
         return Err(AppError::Config("请至少选择一个可更新的 Skill".to_string()));
     }
-    let installed = list_skills()?;
+    let installed = list_skills(target)?;
     let mut updated = Vec::with_capacity(names.len());
     for name in names {
         let skill = installed.iter().find(|skill| skill.name == *name)
             .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
-        let status = check_skill_update(name).await?;
+        let status = check_skill_update(name, target).await?;
         if status.status != "update_available" {
             return Err(AppError::Config(format!("Skill 不可安全更新: {name}（{}）", status.message)));
         }
@@ -374,16 +397,16 @@ pub async fn update_github_skills(names: &[String]) -> AppResult<Vec<Skill>> {
         let source_url = source.source_url.as_deref()
             .ok_or_else(|| AppError::Config(format!("Skill 来源记录缺少地址: {name}")))?;
         if let Some(repository_path) = source.repository_path.as_ref() {
-            let mut skills = install_github_repository_skills(source_url, &[repository_path.clone()]).await?;
+            let mut skills = install_github_repository_skills(source_url, &[repository_path.clone()], target).await?;
             updated.append(&mut skills);
         } else {
-            updated.push(install_github_skill(source_url).await?);
+            updated.push(install_github_skill(source_url, target).await?);
         }
     }
     Ok(updated)
 }
 
-fn record_github_source(skill: Skill, url: &str, revision: Option<String>, repository_path: Option<String>) -> AppResult<Skill> {
+fn record_github_source(skill: Skill, url: &str, revision: Option<String>, repository_path: Option<String>, target: SkillTarget) -> AppResult<Skill> {
     record_source(skill, InstalledSkillSource {
         kind: "github".to_string(),
         source_url: Some(normalize_github_url(url)?),
@@ -391,16 +414,16 @@ fn record_github_source(skill: Skill, url: &str, revision: Option<String>, repos
         repository_path,
         installed_at: Utc::now().timestamp_millis(),
         content_sha256: String::new(),
-    })
+    }, target)
 }
 
-fn record_source(mut skill: Skill, mut source: InstalledSkillSource) -> AppResult<Skill> {
+fn record_source(mut skill: Skill, mut source: InstalledSkillSource, target: SkillTarget) -> AppResult<Skill> {
     let skill_file = PathBuf::from(&skill.path).join(SKILL_FILE);
     let disabled = PathBuf::from(&skill.path).join("SKILL.md.disabled");
     source.content_sha256 = skill_content_hash_from_files(&skill_file, &disabled)?;
-    let mut sources = skill_sources()?;
+    let mut sources = skill_sources(target)?;
     sources.skills.insert(skill.name.clone(), source.clone());
-    write_skill_sources(&sources)?;
+    write_skill_sources(&sources, target)?;
     skill.source = Some(source);
     Ok(skill)
 }
@@ -432,13 +455,13 @@ fn archive_skill_hash(bytes: &[u8], repository_path: Option<&str>, fallback_name
     Ok(hex::encode(Sha256::digest(content)))
 }
 
-fn skill_sources() -> AppResult<SkillSourcesConfig> {
-    let path = get_app_config_dir().join(SKILL_SOURCES_CONFIG_FILE);
+fn skill_sources(target: SkillTarget) -> AppResult<SkillSourcesConfig> {
+    let path = get_app_config_dir().join(skill_sources_file(target));
     Ok(read_json_file::<SkillSourcesConfig>(&path)?.unwrap_or_default())
 }
 
-fn write_skill_sources(sources: &SkillSourcesConfig) -> AppResult<()> {
-    write_json_file(&get_app_config_dir().join(SKILL_SOURCES_CONFIG_FILE), sources)
+fn write_skill_sources(sources: &SkillSourcesConfig, target: SkillTarget) -> AppResult<()> {
+    write_json_file(&get_app_config_dir().join(skill_sources_file(target)), sources)
 }
 
 fn archive_revision(bytes: &[u8]) -> Option<String> {
@@ -450,7 +473,7 @@ fn archive_revision(bytes: &[u8]) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn install_archive(bytes: &[u8], fallback_name: Option<&str>) -> AppResult<Skill> {
+fn install_archive(bytes: &[u8], fallback_name: Option<&str>, target: SkillTarget) -> AppResult<Skill> {
     let cursor = std::io::Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
@@ -462,14 +485,14 @@ fn install_archive(bytes: &[u8], fallback_name: Option<&str>) -> AppResult<Skill
         })
     }).ok_or_else(|| AppError::Config("ZIP 中未找到 SKILL.md".to_string()))?;
     drop(archive);
-    install_archive_skill_at(bytes, skill_index, fallback_name)
+    install_archive_skill_at(bytes, skill_index, fallback_name, target)
 }
 
-fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Option<&str>) -> AppResult<Skill> {
+fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Option<&str>, target: SkillTarget) -> AppResult<Skill> {
     let cursor = std::io::Cursor::new(bytes);
     let mut archive = ZipArchive::new(cursor)
         .map_err(|e| AppError::Config(format!("无效的 Skill ZIP 文件: {e}")))?;
-    let root = get_claude_skills_dir();
+    let root = skill_root(target);
     fs::create_dir_all(&root)?;
 
     let skill_path_in_archive = archive.by_index(skill_index)
@@ -485,11 +508,11 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
         .or(fallback_name)
         .unwrap_or("skill");
     let name = sanitize_skill_name(candidate)?;
-    let target = root.join(&name);
-    if target.exists() {
-        fs::remove_dir_all(&target)?;
+    let target_dir = root.join(&name);
+    if target_dir.exists() {
+        fs::remove_dir_all(&target_dir)?;
     }
-    fs::create_dir_all(&target)?;
+    fs::create_dir_all(&target_dir)?;
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index)
@@ -504,7 +527,7 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
         if relative.as_os_str().is_empty() {
             continue;
         }
-        let destination = target.join(relative);
+        let destination = target_dir.join(relative);
         if entry.is_dir() {
             fs::create_dir_all(destination)?;
         } else {
@@ -515,7 +538,7 @@ fn install_archive_skill_at(bytes: &[u8], skill_index: usize, fallback_name: Opt
             std::io::copy(&mut entry, &mut output)?;
         }
     }
-    list_skills()?.into_iter().find(|skill| skill.name == name)
+    list_skills(target)?.into_iter().find(|skill| skill.name == name)
         .ok_or_else(|| AppError::Other("Skill 安装后未能读取".to_string()))
 }
 
@@ -635,9 +658,9 @@ fn normalize_github_url(url: &str) -> AppResult<String> {
     Ok(format!("https://github.com/{owner}/{repo}"))
 }
 
-fn skill_path(name: &str) -> AppResult<PathBuf> {
+fn skill_path(name: &str, target: SkillTarget) -> AppResult<PathBuf> {
     let clean = sanitize_skill_name(name)?;
-    let path = get_claude_skills_dir().join(clean);
+    let path = skill_root(target).join(clean);
     if !path.is_dir() {
         return Err(AppError::Config(format!("Skill 不存在: {name}")));
     }
@@ -704,6 +727,14 @@ mod tests {
             "https://github.com/anthropics/skills",
         );
         assert!(normalize_github_url("https://github.com/anthropics/skills/tree/main").is_err());
+    }
+
+    #[test]
+    fn codex_skill_metadata_is_kept_separate_from_claude_code() {
+        assert_eq!(skill_sources_file(SkillTarget::ClaudeCode), SKILL_SOURCES_CONFIG_FILE);
+        assert_eq!(skill_sources_file(SkillTarget::Codex), CODEX_SKILL_SOURCES_CONFIG_FILE);
+        assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Codex));
+        assert_eq!(SkillTarget::default(), SkillTarget::ClaudeCode);
     }
 
     #[tokio::test]

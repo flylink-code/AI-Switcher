@@ -91,6 +91,27 @@ impl ProtocolType {
     }
 }
 
+/// Codex accepts direct OpenAI-compatible model providers only. Claude model
+/// roles have no meaning for this target.
+pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) -> AppResult<()> {
+    if target == ProviderTarget::Codex
+        && !matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses)
+    {
+        return Err(AppError::Config(
+            "Codex 供应商仅支持 OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
+    if target == ProviderTarget::Codex {
+        ClaudeModelMapping::default()
+    } else {
+        mapping
+    }
+}
+
 /// Normalize and validate a provider Base URL.
 ///
 /// Provider URLs are HTTPS origins or gateway path prefixes. Known request
@@ -428,7 +449,7 @@ pub struct LiveProviderInfo {
 mod tests {
     use super::{
         api_endpoint_url, normalize_base_url, protocol_endpoint_path, resolve_upstream_model,
-        ClaudeModelMapping, ProtocolType, Provider, ProviderTarget,
+        normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType, Provider, ProviderTarget,
     };
 
     #[test]
@@ -499,6 +520,15 @@ mod tests {
             serde_json::to_string(&ProtocolType::OpenAiChat).unwrap(),
             "\"openai_chat\""
         );
+    }
+
+    #[test]
+    fn codex_rejects_non_openai_protocols_and_clears_claude_mapping() {
+        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Anthropic).is_err());
+        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Proxy).is_err());
+        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::OpenAiResponses).is_ok());
+        let mapping = ClaudeModelMapping { sonnet: "claude-sonnet".into(), ..Default::default() };
+        assert!(!normalized_model_mapping(ProviderTarget::Codex, mapping).has_explicit_roles());
     }
 
     fn provider_with_mapping() -> Provider {

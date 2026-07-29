@@ -6,28 +6,28 @@
 
 AI-Switcher is a desktop application built with Tauri 2, Rust, and React. It brings together configuration files, operating-system credentials, and local tooling in one interface while keeping Claude Code and Claude Desktop providers and active configurations independent.
 
-The application works locally by default. API keys are stored in the operating system credential store, configuration writes are backed up, and the Session Manager only reads local Claude Code session files.
+The application works locally by default. API keys are stored in the operating system credential store, configuration writes are backed up, and the Session Manager handles only local Claude Code and Codex JSONL data.
 
 ## Features
 
 - **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code, Claude Desktop, and Codex. Codex providers are written directly to `~/.codex/config.toml` and do not use the Claude local proxy.
 - **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs. Opt-in automatic failover temporarily opens a provider circuit for 60 seconds after two consecutive transient failures; it is disabled by default.
-- **MCP, Prompts, and Skills**: Maintain MCP servers, including Codex synchronization, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
-- **Session Manager**: Browse, filter, and search local JSONL sessions for Claude Code and Codex; Codex sessions are discovered under `~/.codex/sessions`.
+- **MCP, Prompts, and Skills**: Maintain MCP servers, including Codex synchronization, manage `CLAUDE.md` presets, and install, enable, disable, update, and remove Claude Code or Codex Skills from GitHub or local ZIP files with recorded provenance.
+- **Session Manager**: Browse, filter, and search local JSONL sessions for Claude Code and Codex. Both sources support single/batch export, import, backup, trash, and restore.
 - **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
-- **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies. The yearly heatmap scales to the window width and always shows the full year.
+- **Usage dashboard**: Merges proxy logs with Codex local-event models, tokens, and trends. Codex local response counts are not HTTP requests or account billing; estimated cost remains proxy-log only.
 - **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark/system themes, and launch at login. Cards, tables, form controls, and overlays use dynamic theme colors in the desktop app.
 - **Environment and updates**: Inspect configuration paths, the installed Claude Code version, and application updates.
 
 ## Session Manager
 
-Claude Code sessions are scanned read-only:
+Claude Code and Codex sessions are scanned from local JSONL files:
 
-- Source: `~/.claude/projects/**/*.jsonl`
+- Sources: `~/.claude/projects/**/*.jsonl` and `$CODEX_HOME/sessions/**/*.jsonl` (or `~/.codex/sessions/**/*.jsonl` when unset)
 - The list view extracts only session ID, summary, working directory, and timestamps
 - Message contents are read only when details or full-content search are requested
 - Every source path is validated against the allowed session root
-- Browsing and search never modify original sessions; users may explicitly export one or move it to the AI-Switcher trash for restoration
+- Browsing and search never modify original sessions; users may explicitly export, import, back up, or move a session to its AI-Switcher trash for restoration
 
 Claude Desktop does not publish a stable local session-enumeration format. This release only detects its local data directory and provides the official `claude://claude.ai/new` entry point; it does not parse Chromium caches or call private APIs. A known conversation ID can be opened with Anthropic's documented [Claude Desktop deep-link format](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
 
@@ -105,9 +105,12 @@ Main outputs:
 |---|---|
 | `~/.claude/settings.json` | Active Claude Code provider configuration |
 | `~/.claude.json` | Claude Code MCP and project configuration |
-| `~/.claude/projects/` | Local Claude Code sessions, read-only |
+| `~/.claude/projects/` | Local Claude Code sessions |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party gateway profiles |
 | `~/.claude/skills/` | Claude Code Skills |
+| `$CODEX_HOME` or `~/.codex/` | Codex configuration, sessions, and Skills root |
+| `~/.codex/sessions/` | Local Codex sessions |
+| `~/.codex/skills/` | Codex Skills |
 | `~/.claude-switcher/` (default) or a directory selected on Environment | AI-Switcher-managed data library: database, backups, downloaded resources, and logs |
 
 The product is now AI-Switcher while the application identifier, signing key, and default data location are retained for compatibility. The data library can be copied to another drive; every copied file is SHA-256 verified, the old copy is retained, and the new location is used after restart. Claude live configuration remains at its official location.
@@ -118,7 +121,7 @@ Environment can export a versioned portable-library ZIP containing a sanitized d
 
 - API keys are stored through Windows Credential Manager, macOS Keychain, or Linux Secret Service.
 - Configuration files use atomic writes with rotating pre-write backups.
-- The Session Manager reads local JSONL files only, creates no full-text database, and rejects paths outside the session root.
+- The Session Manager creates no full-text database and rejects paths outside the session root; import, export, and trash operations validate session roots, archive-relative paths, and symlinks.
 - Sessions may contain source code, credentials, or other sensitive data. Review content before copying or sharing it.
 - Except for provider tests, model discovery, update checks, user-requested downloads, and a user-confirmed WSL/SSH archive push, the application does not upload local content.
 

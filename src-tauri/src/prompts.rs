@@ -1,4 +1,4 @@
-//! Prompt (CLAUDE.md) preset management.
+//! Prompt preset management for Claude Code and Codex global instructions.
 //!
 //! Presets are plain Markdown files stored in `~/.claude-switcher/prompts/`.
 //! "Activating" a preset copies its content over the live Claude Code prompt
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use crate::backup::backup_file_named;
-use crate::config::{atomic_write, get_app_config_dir, get_claude_config_dir};
+use crate::config::{atomic_write, get_app_config_dir, get_claude_config_dir, get_codex_config_dir};
 use crate::error::{AppError, AppResult};
 
 /// Subdirectory of the app data dir holding prompt presets.
@@ -23,6 +23,18 @@ const PROMPTS_DIR_NAME: &str = "prompts";
 const LIVE_BACKUP_KEEP: usize = 10;
 /// Live file name inside `~/.claude`.
 const LIVE_FILE_NAME: &str = "CLAUDE.md";
+const CODEX_LIVE_FILE_NAME: &str = "AGENTS.md";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PromptTarget {
+    ClaudeCode,
+    Codex,
+}
+
+impl Default for PromptTarget {
+    fn default() -> Self { Self::ClaudeCode }
+}
 
 /// One preset in the library (list view; no content).
 #[derive(Debug, Clone, Serialize)]
@@ -53,17 +65,24 @@ pub struct LivePrompt {
 
 // ---- paths ------------------------------------------------------------------
 
-pub fn prompts_dir() -> PathBuf {
-    get_app_config_dir().join(PROMPTS_DIR_NAME)
+pub fn prompts_dir(target: PromptTarget) -> PathBuf {
+    let base = get_app_config_dir().join(PROMPTS_DIR_NAME);
+    match target {
+        PromptTarget::ClaudeCode => base,
+        PromptTarget::Codex => base.join("codex"),
+    }
 }
 
-pub fn live_prompt_path() -> PathBuf {
-    get_claude_config_dir().join(LIVE_FILE_NAME)
+pub fn live_prompt_path(target: PromptTarget) -> PathBuf {
+    match target {
+        PromptTarget::ClaudeCode => get_claude_config_dir().join(LIVE_FILE_NAME),
+        PromptTarget::Codex => get_codex_config_dir().join(CODEX_LIVE_FILE_NAME),
+    }
 }
 
-fn preset_path(name: &str) -> AppResult<PathBuf> {
+fn preset_path(target: PromptTarget, name: &str) -> AppResult<PathBuf> {
     validate_name(name)?;
-    Ok(prompts_dir().join(format!("{name}.md")))
+    Ok(prompts_dir(target).join(format!("{name}.md")))
 }
 
 /// Reject names that would escape the prompts dir or produce odd files.
@@ -87,8 +106,8 @@ fn validate_name(name: &str) -> AppResult<()> {
 // ---- CRUD -------------------------------------------------------------------
 
 /// List all presets sorted by name.
-pub fn list_prompts() -> AppResult<Vec<PromptInfo>> {
-    let dir = prompts_dir();
+pub fn list_prompts(target: PromptTarget) -> AppResult<Vec<PromptInfo>> {
+    let dir = prompts_dir(target);
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -112,8 +131,8 @@ pub fn list_prompts() -> AppResult<Vec<PromptInfo>> {
 }
 
 /// Read one preset's content.
-pub fn read_prompt(name: &str) -> AppResult<PromptDetail> {
-    let path = preset_path(name)?;
+pub fn read_prompt(target: PromptTarget, name: &str) -> AppResult<PromptDetail> {
+    let path = preset_path(target, name)?;
     if !path.exists() {
         return Err(AppError::Config(format!("Prompt 不存在: {name}")));
     }
@@ -126,15 +145,15 @@ pub fn read_prompt(name: &str) -> AppResult<PromptDetail> {
 }
 
 /// Create or overwrite a preset.
-pub fn save_prompt(name: &str, content: &str) -> AppResult<()> {
-    let path = preset_path(name)?;
-    fs::create_dir_all(prompts_dir())?;
+pub fn save_prompt(target: PromptTarget, name: &str, content: &str) -> AppResult<()> {
+    let path = preset_path(target, name)?;
+    fs::create_dir_all(prompts_dir(target))?;
     atomic_write(&path, content.as_bytes())
 }
 
 /// Delete a preset. Missing file is not an error (idempotent for the UI).
-pub fn delete_prompt(name: &str) -> AppResult<()> {
-    let path = preset_path(name)?;
+pub fn delete_prompt(target: PromptTarget, name: &str) -> AppResult<()> {
+    let path = preset_path(target, name)?;
     if path.exists() {
         fs::remove_file(&path)?;
     }
@@ -145,11 +164,15 @@ pub fn delete_prompt(name: &str) -> AppResult<()> {
 
 /// Activate a preset: back up the live `CLAUDE.md` (if any), then overwrite it
 /// with the preset content.
-pub fn activate_prompt(name: &str) -> AppResult<()> {
-    let detail = read_prompt(name)?;
-    let live = live_prompt_path();
+pub fn activate_prompt(target: PromptTarget, name: &str) -> AppResult<()> {
+    let detail = read_prompt(target, name)?;
+    let live = live_prompt_path(target);
     if live.exists() {
-        backup_file_named(&live, LIVE_FILE_NAME, LIVE_BACKUP_KEEP)?;
+        let backup_name = match target {
+            PromptTarget::ClaudeCode => LIVE_FILE_NAME,
+            PromptTarget::Codex => CODEX_LIVE_FILE_NAME,
+        };
+        backup_file_named(&live, backup_name, LIVE_BACKUP_KEEP)?;
     }
     if let Some(parent) = live.parent() {
         fs::create_dir_all(parent)?;
@@ -158,8 +181,8 @@ pub fn activate_prompt(name: &str) -> AppResult<()> {
 }
 
 /// Read the current live `CLAUDE.md`, or `None` when absent.
-pub fn read_live_prompt() -> AppResult<Option<LivePrompt>> {
-    let live = live_prompt_path();
+pub fn read_live_prompt(target: PromptTarget) -> AppResult<Option<LivePrompt>> {
+    let live = live_prompt_path(target);
     if !live.exists() {
         return Ok(None);
     }
@@ -172,13 +195,13 @@ pub fn read_live_prompt() -> AppResult<Option<LivePrompt>> {
 }
 
 /// Copy the current live `CLAUDE.md` into the preset library under `name`.
-pub fn import_live_prompt(name: &str) -> AppResult<()> {
-    let Some(live) = read_live_prompt()? else {
+pub fn import_live_prompt(target: PromptTarget, name: &str) -> AppResult<()> {
+    let Some(live) = read_live_prompt(target)? else {
         return Err(AppError::Config(
             "未检测到 live CLAUDE.md，无法导入".to_string(),
         ));
     };
-    save_prompt(name, &live.content)
+    save_prompt(target, name, &live.content)
 }
 
 fn mtime_millis(path: &std::path::Path) -> i64 {

@@ -5,7 +5,8 @@ use rusqlite::{params, Connection};
 
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    normalize_base_url, ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderTarget,
+    normalize_base_url, normalized_model_mapping, validate_target_protocol, ClaudeModelMapping,
+    ProtocolType, Provider, ProviderInput, ProviderTarget,
 };
 use crate::secrets;
 
@@ -89,8 +90,12 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     if input.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空".to_string()));
     }
+    validate_target_protocol(input.target_app, input.protocol_type)?;
     let base_url = normalize_base_url(&input.base_url)?;
-    let model_mapping_json = serde_json::to_string(&input.model_mapping)?;
+    let model_mapping_json = serde_json::to_string(&normalized_model_mapping(
+        input.target_app,
+        input.model_mapping.clone(),
+    ))?;
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {

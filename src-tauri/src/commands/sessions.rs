@@ -41,6 +41,48 @@ pub async fn load_session_messages(
 }
 
 #[tauri::command]
+pub async fn export_session(provider: SessionProvider, source_path: String, destination_dir: Option<String>) -> AppResult<SessionArchiveInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::export_session(provider, &source_path, destination_dir.as_deref()))
+        .await.map_err(|error| AppError::Tauri(format!("会话导出任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn backup_sessions(provider: SessionProvider, source_paths: Vec<String>) -> AppResult<SessionBatchBackupInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::backup_sessions(provider, &source_paths))
+        .await.map_err(|error| AppError::Tauri(format!("会话批量备份任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn export_sessions(provider: SessionProvider, source_paths: Vec<String>, destination_dir: Option<String>) -> AppResult<SessionBatchExportInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::export_sessions(provider, &source_paths, destination_dir.as_deref()))
+        .await.map_err(|error| AppError::Tauri(format!("会话批量导出任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn import_session(provider: SessionProvider, archive_path: String) -> AppResult<SessionMeta> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::import_session(provider, &archive_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话导入任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn trash_session(provider: SessionProvider, source_path: String) -> AppResult<SessionArchiveInfo> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::trash_session(provider, &source_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话删除任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn restore_trashed_session(provider: SessionProvider, archive_path: String) -> AppResult<SessionMeta> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::restore_trashed_session(provider, &archive_path))
+        .await.map_err(|error| AppError::Tauri(format!("会话恢复任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn list_trashed_sessions(provider: SessionProvider) -> AppResult<Vec<SessionArchiveInfo>> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::list_trashed_sessions(provider))
+        .await.map_err(|error| AppError::Tauri(format!("会话回收站读取失败: {error}")))?
+}
+
+#[tauri::command]
 pub async fn export_claude_code_session(
     source_path: String,
     destination_dir: Option<String>,

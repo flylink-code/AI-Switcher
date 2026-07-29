@@ -6,28 +6,28 @@
 
 AI-Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它把分散在配置文件、系统凭据库和本地目录中的常用能力整合到一个界面中，并让 Claude Code 与 Claude Desktop 的供应商和当前配置保持相互独立。
 
-项目默认在本机工作。API 密钥保存到操作系统凭据库，配置写入前会备份，会话管理器只读取本地 Claude Code 会话文件。
+项目默认在本机工作。API 密钥保存到操作系统凭据库，配置写入前会备份；会话管理器仅处理 Claude Code 与 Codex 的本地 JSONL 数据。
 
 ## 主要功能
 
 - **供应商管理**：分别管理 Claude Code、Claude Desktop 与 Codex 的第三方 API、模型映射、导入导出、连接测试、模型发现和官方登录恢复。Codex 使用 `~/.codex/config.toml` 的直连模型提供方，不经过 Claude 本地代理。
 - **本地代理**：提供 Anthropic Messages 兼容代理、模型映射、密钥注入、流式转发、运行状态和请求日志；可显式启用自动故障切换，连续两次临时失败会在本次代理运行期间熔断 60 秒。该开关默认关闭。
-- **MCP、Prompts 与 Skills**：统一维护 MCP 服务（可同步到 Codex），管理 `CLAUDE.md` 预设；Skills 会记录安装来源、版本摘要并支持手动检查更新。
-- **会话管理**：浏览、筛选和搜索 Claude Code 与 Codex 的本地 JSONL 会话；Codex 会话位于 `~/.codex/sessions`。
+- **MCP、Prompts 与 Skills**：统一维护 MCP 服务（可同步到 Codex），管理 `CLAUDE.md` 预设；Claude Code 与 Codex Skills 均支持 GitHub/ZIP 安装、来源追踪、启停、更新检查、更新与删除。
+- **会话管理**：浏览、筛选和搜索 Claude Code 与 Codex 的本地 JSONL 会话；两个来源均支持单个/批量导出、导入、备份、回收站删除与恢复。
 - **中文化中心**：分别管理 Claude Code CLI、VS Code/Cursor 扩展补丁助手及 Claude Desktop 语言包；补丁应用始终需要在编辑器中确认。
-- **用量统计**：按供应商和模型统计请求、Token、趋势与估算成本；年度热力图会随窗口宽度缩放，完整显示全年数据。
+- **用量统计**：合并代理日志与 Codex 本地事件的模型、Token 和趋势；Codex 本地响应次数不是 HTTP 请求或账户账单，预估成本仅来自代理日志。
 - **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、高对比度浅色/深色/跟随系统主题和开机自启。桌面端会为卡片、表格、表单控件与弹层应用动态主题配色。
 - **环境与更新**：查看配置路径、Claude Code 版本和应用更新状态。
 
 ## 会话管理说明
 
-Claude Code 会话以只读方式扫描：
+Claude Code 与 Codex 会话均从本地 JSONL 扫描：
 
-- 数据源：`~/.claude/projects/**/*.jsonl`
+- 数据源：`~/.claude/projects/**/*.jsonl` 与 `$CODEX_HOME/sessions/**/*.jsonl`（未设置时 `~/.codex/sessions/**/*.jsonl`）
 - 列表阶段只提取会话 ID、摘要、工作目录和时间等元数据
 - 打开详情或执行全文搜索时才读取消息内容
 - 所有文件路径都会校验在允许的会话根目录内
-- 浏览和搜索不修改原始会话；用户可明确选择导出，或移入 AI-Switcher 回收站后恢复
+- 浏览和搜索不修改原始会话；用户可明确选择导出、导入、备份，或移入对应来源的 AI-Switcher 回收站后恢复
 
 Claude Desktop 没有公开稳定的本地会话枚举格式。当前版本仅检测其本地数据目录并提供 `claude://claude.ai/new` 官方入口，不读取 Chromium 缓存或调用私有接口。已知会话 ID 可使用 Anthropic 公布的 [Claude Desktop 深链格式](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link) 打开。
 
@@ -105,9 +105,12 @@ scripts\build-exe.bat release skip-tests
 |---|---|
 | `~/.claude/settings.json` | Claude Code 当前供应商配置 |
 | `~/.claude.json` | Claude Code MCP 与项目配置 |
-| `~/.claude/projects/` | Claude Code 本地会话，只读 |
+| `~/.claude/projects/` | Claude Code 本地会话 |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方网关配置 |
 | `~/.claude/skills/` | Claude Code Skills |
+| `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话与 Skills 根目录 |
+| `~/.codex/sessions/` | Codex 本地会话 |
+| `~/.codex/skills/` | Codex Skills |
 | `~/.claude-switcher/`（默认）或“环境”页选择的目录 | AI-Switcher 自有资料库：数据库、备份、下载资源与日志 |
 
 应用已更名为 AI-Switcher，但保留原应用标识、签名密钥和默认资料库位置，以兼容既有用户。资料库可迁移至其他盘；迁移会逐文件校验 SHA-256、保留旧副本，并在重启后生效。Claude 的活动配置仍保留在官方读取目录。
@@ -118,7 +121,7 @@ scripts\build-exe.bat release skip-tests
 
 - API 密钥通过 Windows Credential Manager、macOS Keychain 或 Linux Secret Service 保存。
 - 配置文件使用原子写入，并在修改前创建轮换备份。
-- 会话管理器只读本地 JSONL，不建立全文数据库，不访问任意用户路径。
+- 会话管理器不建立全文数据库，不访问任意用户路径；导入、导出和回收站操作均校验会话根目录、归档相对路径与符号链接。
 - 会话可能包含源代码、密钥或其他敏感信息，复制命令和内容前请自行确认。
 - 除供应商连接测试、模型发现、更新检查、用户主动下载与用户确认的 WSL/SSH 归档推送外，应用不会上传本地内容。
 

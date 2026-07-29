@@ -19,6 +19,7 @@ import type {
   PathsInfo,
   PromptDetail,
   PromptInfo,
+  PromptTarget,
   Provider,
   ConnectionTestResult,
   ModelDiscoveryResult,
@@ -31,6 +32,7 @@ import type {
   CodexAuthStatus,
   ProxyStatus,
   Skill,
+  SkillTarget,
   SkillUpdateStatus,
   RepositorySkill,
   SkillRepositorySnapshot,
@@ -350,47 +352,47 @@ export async function installMcpRegistryServer(
 
 // ---- Prompt presets ---------------------------------------------------------
 
-export async function listPrompts(): Promise<PromptInfo[]> {
+export async function listPrompts(target: PromptTarget = "claude_code"): Promise<PromptInfo[]> {
   const invoke = await getInvoke();
-  return invoke<PromptInfo[]>("list_prompts", {});
+  return invoke<PromptInfo[]>("list_prompts", { target });
 }
 
-export async function readPrompt(name: string): Promise<PromptDetail> {
+export async function readPrompt(name: string, target: PromptTarget = "claude_code"): Promise<PromptDetail> {
   const invoke = await getInvoke();
-  return invoke<PromptDetail>("read_prompt", { name });
+  return invoke<PromptDetail>("read_prompt", { name, target });
 }
 
-export async function savePrompt(name: string, content: string): Promise<void> {
+export async function savePrompt(name: string, content: string, target: PromptTarget = "claude_code"): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("save_prompt", { name, content });
+  return invoke<void>("save_prompt", { name, content, target });
 }
 
-export async function deletePrompt(name: string): Promise<void> {
+export async function deletePrompt(name: string, target: PromptTarget = "claude_code"): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("delete_prompt", { name });
+  return invoke<void>("delete_prompt", { name, target });
 }
 
-export async function activatePrompt(name: string): Promise<void> {
+export async function activatePrompt(name: string, target: PromptTarget = "claude_code"): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("activate_prompt", { name });
+  return invoke<void>("activate_prompt", { name, target });
 }
 
-export async function readLivePrompt(): Promise<LivePrompt | null> {
+export async function readLivePrompt(target: PromptTarget = "claude_code"): Promise<LivePrompt | null> {
   const invoke = await getInvoke();
-  return invoke<LivePrompt | null>("read_live_prompt", {});
+  return invoke<LivePrompt | null>("read_live_prompt", { target });
 }
 
 
-export async function importLivePrompt(name: string): Promise<void> {
+export async function importLivePrompt(name: string, target: PromptTarget = "claude_code"): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("import_live_prompt", { name });
+  return invoke<void>("import_live_prompt", { name, target });
 }
 
 // ---- Skills -----------------------------------------------------------------
 
-export async function listSkills(): Promise<Skill[]> {
+export async function listSkills(target?: SkillTarget): Promise<Skill[]> {
   const invoke = await getInvoke();
-  return invoke<Skill[]>("list_skills", {});
+  return invoke<Skill[]>("list_skills", { target });
 }
 
 export async function getSkillRepository(): Promise<string> {
@@ -418,44 +420,44 @@ export async function refreshGithubRepositorySkills(url: string): Promise<SkillR
   return invoke<SkillRepositorySnapshot>("refresh_github_repository_skills", { url });
 }
 
-export async function installGithubRepositorySkills(url: string, paths: string[]): Promise<Skill[]> {
+export async function installGithubRepositorySkills(url: string, paths: string[], target?: SkillTarget): Promise<Skill[]> {
   const invoke = await getInvoke();
-  return invoke<Skill[]>("install_github_repository_skills", { url, paths });
+  return invoke<Skill[]>("install_github_repository_skills", { url, paths, target });
 }
 
-export async function installGithubSkill(url: string): Promise<Skill> {
+export async function installGithubSkill(url: string, target?: SkillTarget): Promise<Skill> {
   const invoke = await getInvoke();
-  return invoke<Skill>("install_github_skill", { url });
+  return invoke<Skill>("install_github_skill", { url, target });
 }
 
-export async function checkSkillUpdate(name: string): Promise<SkillUpdateStatus> {
+export async function checkSkillUpdate(name: string, target?: SkillTarget): Promise<SkillUpdateStatus> {
   const invoke = await getInvoke();
-  return invoke<SkillUpdateStatus>("check_skill_update", { name });
+  return invoke<SkillUpdateStatus>("check_skill_update", { name, target });
 }
 
-export async function checkSkillUpdates(): Promise<SkillUpdateStatus[]> {
+export async function checkSkillUpdates(target?: SkillTarget): Promise<SkillUpdateStatus[]> {
   const invoke = await getInvoke();
-  return invoke<SkillUpdateStatus[]>("check_skill_updates", {});
+  return invoke<SkillUpdateStatus[]>("check_skill_updates", { target });
 }
 
-export async function updateGithubSkills(names: string[]): Promise<Skill[]> {
+export async function updateGithubSkills(names: string[], target?: SkillTarget): Promise<Skill[]> {
   const invoke = await getInvoke();
-  return invoke<Skill[]>("update_github_skills", { names });
+  return invoke<Skill[]>("update_github_skills", { names, target });
 }
 
-export async function installZipSkill(path: string): Promise<Skill> {
+export async function installZipSkill(path: string, target?: SkillTarget): Promise<Skill> {
   const invoke = await getInvoke();
-  return invoke<Skill>("install_zip_skill", { path });
+  return invoke<Skill>("install_zip_skill", { path, target });
 }
 
-export async function setSkillEnabled(name: string, enabled: boolean): Promise<void> {
+export async function setSkillEnabled(name: string, enabled: boolean, target?: SkillTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("set_skill_enabled", { name, enabled });
+  return invoke<void>("set_skill_enabled", { name, enabled, target });
 }
 
-export async function deleteSkill(name: string): Promise<void> {
+export async function deleteSkill(name: string, target?: SkillTarget): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("delete_skill", { name });
+  return invoke<void>("delete_skill", { name, target });
 }
 
 // ---- System -----------------------------------------------------------------
@@ -576,9 +578,15 @@ export async function restoreDesktopLocalization(): Promise<DesktopLocalizationA
 
 // ---- Usage ------------------------------------------------------------------
 
-export async function getUsageDashboard(days = 30): Promise<UsageDashboard> {
+export async function getUsageDashboard(
+  days = 30,
+  source: ProviderTarget | "all" = "all",
+): Promise<UsageDashboard> {
   const invoke = await getInvoke();
-  return invoke<UsageDashboard>("get_usage_dashboard", { days });
+  return invoke<UsageDashboard>("get_usage_dashboard", {
+    days,
+    source: source === "all" ? undefined : source,
+  });
 }
 
 export async function listModelPricing(): Promise<ModelPricing[]> {
@@ -677,6 +685,41 @@ export async function loadSessionMessages(
     provider,
     sourcePath,
   });
+}
+
+export async function exportSession(provider: SessionProvider, sourcePath: string, destinationDir?: string): Promise<SessionArchiveInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo>("export_session", { provider, sourcePath, destinationDir });
+}
+
+export async function backupSessions(provider: SessionProvider, sourcePaths: string[]): Promise<SessionBatchBackupInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionBatchBackupInfo>("backup_sessions", { provider, sourcePaths });
+}
+
+export async function exportSessions(provider: SessionProvider, sourcePaths: string[], destinationDir?: string): Promise<SessionBatchExportInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionBatchExportInfo>("export_sessions", { provider, sourcePaths, destinationDir });
+}
+
+export async function importSession(provider: SessionProvider, archivePath: string): Promise<SessionMeta> {
+  const invoke = await getInvoke();
+  return invoke<SessionMeta>("import_session", { provider, archivePath });
+}
+
+export async function trashSession(provider: SessionProvider, sourcePath: string): Promise<SessionArchiveInfo> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo>("trash_session", { provider, sourcePath });
+}
+
+export async function restoreTrashedSession(provider: SessionProvider, archivePath: string): Promise<SessionMeta> {
+  const invoke = await getInvoke();
+  return invoke<SessionMeta>("restore_trashed_session", { provider, archivePath });
+}
+
+export async function listTrashedSessions(provider: SessionProvider): Promise<SessionArchiveInfo[]> {
+  const invoke = await getInvoke();
+  return invoke<SessionArchiveInfo[]>("list_trashed_sessions", { provider });
 }
 
 export async function exportClaudeCodeSession(

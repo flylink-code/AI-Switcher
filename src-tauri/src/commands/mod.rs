@@ -52,6 +52,8 @@ pub use sessions::{
     import_claude_code_session, load_session_messages,
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
     trash_claude_code_session,
+    backup_sessions, export_session, export_sessions, import_session, list_trashed_sessions,
+    restore_trashed_session, trash_session,
 };
 pub use providers::{
     create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,

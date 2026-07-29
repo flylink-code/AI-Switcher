@@ -7,7 +7,8 @@ use crate::error::{AppError, AppResult};
 use crate::provider::{
     api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
     LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
-    ProviderImportResult, ProviderInput, ProviderTarget, ProtocolType,
+    normalized_model_mapping, validate_target_protocol, ProviderImportResult, ProviderInput,
+    ProviderTarget, ProtocolType,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -1027,6 +1028,7 @@ fn persist_provider_health(
 }
 
 fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Provider> {
+    validate_target_protocol(input.target_app, input.protocol_type)?;
     let key = if !input.api_key.trim().is_empty() {
         input.api_key.clone()
     } else if let Some(id) = input.id.as_deref() {
@@ -1038,7 +1040,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         id: input.id.clone().unwrap_or_else(|| "temporary-form-provider".to_string()),
         name: input.name.clone(), base_url: normalize_base_url(&input.base_url)?, api_key: key,
         api_key_set: !input.api_key.trim().is_empty(), model: input.model.clone(),
-        model_mapping: input.model_mapping.clone(),
+        model_mapping: normalized_model_mapping(input.target_app, input.model_mapping.clone()),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
         sort_index: 0, is_current: false, created_at: 0,
         health_status: None, health_checked_at: None,

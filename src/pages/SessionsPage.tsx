@@ -11,6 +11,7 @@ import {
   Modal,
   Popconfirm,
   Row,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -21,24 +22,21 @@ import {
   theme,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
-import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
-import { OnboardingTip } from "@/components/OnboardingTip";
 import {
-  backupClaudeCodeSessions,
-  exportClaudeCodeSessions,
+  backupSessions,
+  exportSessions,
   loadSessionMessages,
-  exportClaudeCodeSession,
-  importClaudeCodeSession,
-  listTrashedClaudeCodeSessions,
-  restoreTrashedClaudeCodeSession,
+  exportSession as exportSessionArchive,
+  importSession as importSessionArchive,
+  listTrashedSessions,
+  restoreTrashedSession,
   scanSessions,
   searchSessionContents,
-  trashClaudeCodeSession,
+  trashSession as trashSessionArchive,
 } from "@/services/api";
 import type {
   SessionMessage,
@@ -48,7 +46,6 @@ import type {
   SessionScanResult,
 } from "@/types/backend";
 
-type ProviderFilter = "all" | SessionProvider;
 type DirectoryFilter = "all" | "yes" | "no";
 type TimeFilter = "all" | "day" | "week" | "month";
 type SortMode = "recent" | "oldest" | "directory";
@@ -64,7 +61,7 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
-  const [provider, setProvider] = useState<ProviderFilter>("all");
+  const [provider, setProvider] = useState<SessionProvider>("claude_code");
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
@@ -84,7 +81,7 @@ export default function SessionsPage() {
     setError(null);
     setContentSearch(false);
     try {
-      const next = await scanSessions();
+      const next = await scanSessions(provider);
       setResult(next);
       setSelected((current) =>
         current
@@ -92,7 +89,7 @@ export default function SessionsPage() {
           : null,
       );
       setSelectedPaths((current) => {
-        const valid = new Set(next.sessions.filter((item) => item.provider === "claude_code").map((item) => item.sourcePath));
+        const valid = new Set(next.sessions.map((item) => item.sourcePath));
         return new Set([...current].filter((path) => valid.has(path)));
       });
     } catch (reason) {
@@ -100,7 +97,7 @@ export default function SessionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [provider]);
 
   useEffect(() => {
     void refresh();
@@ -117,7 +114,7 @@ export default function SessionsPage() {
     try {
       const next = await searchSessionContents(
         trimmed,
-        provider === "all" ? undefined : provider,
+        provider,
       );
       setResult(next);
       setSelected(null);
@@ -140,7 +137,7 @@ export default function SessionsPage() {
     };
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const sessions = result.sessions.filter((session) => {
-      if (provider !== "all" && session.provider !== provider) return false;
+      if (session.provider !== provider) return false;
       if (directory === "yes" && !session.projectDir) return false;
       if (directory === "no" && session.projectDir) return false;
       const activeAt = session.lastActiveAt ?? session.createdAt ?? 0;
@@ -161,9 +158,13 @@ export default function SessionsPage() {
   }, [contentSearch, directory, provider, query, result.sessions, sort, time]);
 
   const batchableSessions = useMemo(
-    () => visibleSessions.filter((session) => session.provider === "claude_code"),
+    () => visibleSessions,
     [visibleSessions],
   );
+  const selectedSessions = batchableSessions.filter((session) => selectedPaths.has(session.sourcePath));
+  const selectedProvider = selectedSessions[0]?.provider;
+  const mixedSelection = false;
+  const archiveProvider = provider;
   const allBatchableSelected = batchableSessions.length > 0 && batchableSessions.every((session) => selectedPaths.has(session.sourcePath));
 
   const toggleSelectedPath = (sourcePath: string, checked: boolean) => {
@@ -188,7 +189,8 @@ export default function SessionsPage() {
     if (!selectedPaths.size) return;
     setSessionAction(true);
     try {
-      const result = await backupClaudeCodeSessions([...selectedPaths]);
+      if (!selectedProvider || mixedSelection) return;
+      const result = await backupSessions(selectedProvider, [...selectedPaths]);
       void toast.success(t("sessions.batchBackedUp", { count: result.archives.length }));
     } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
@@ -219,7 +221,8 @@ export default function SessionsPage() {
     if (!destinationDir) return;
     setSessionAction(true);
     try {
-      const archive = await exportClaudeCodeSessions([...selectedPaths], destinationDir);
+      if (!selectedProvider || mixedSelection) return;
+      const archive = await exportSessions(selectedProvider, [...selectedPaths], destinationDir);
       void toast.success(t("sessions.batchExported", { count: archive.sessionCount, path: archive.archivePath }));
     } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
@@ -252,43 +255,40 @@ export default function SessionsPage() {
     const destinationDir = await selectExportDirectory();
     if (!destinationDir) return;
     setSessionAction(true);
-    try { const archive = await exportClaudeCodeSession(session.sourcePath, destinationDir); void toast.success(t("sessions.exported", { path: archive.archivePath })); }
+    try { const archive = await exportSessionArchive(session.provider, session.sourcePath, destinationDir); void toast.success(t("sessions.exported", { path: archive.archivePath })); }
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
   const trashSession = async (session: SessionMeta) => {
     setSessionAction(true);
-    try { await trashClaudeCodeSession(session.sourcePath); void toast.success(t("sessions.trashed")); await refresh(); }
+    try { await trashSessionArchive(session.provider, session.sourcePath); void toast.success(t("sessions.trashed")); await refresh(); }
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
   const importSession = async () => {
     if (!importPath.trim()) return;
     setSessionAction(true);
-    try { await importClaudeCodeSession(importPath); setImportOpen(false); setImportPath(""); void toast.success(t("sessions.imported")); await refresh(); }
+    try { await importSessionArchive(archiveProvider, importPath); setImportOpen(false); setImportPath(""); void toast.success(t("sessions.imported")); await refresh(); }
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
   const openTrash = async () => {
     setSessionAction(true);
-    try { setTrashedArchives(await listTrashedClaudeCodeSessions()); setTrashOpen(true); }
+    try { setTrashedArchives(await listTrashedSessions(archiveProvider)); setTrashOpen(true); }
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
   const restoreArchive = async (archive: SessionArchiveInfo) => {
     setSessionAction(true);
     try {
-      await restoreTrashedClaudeCodeSession(archive.archivePath);
-      setTrashedArchives(await listTrashedClaudeCodeSessions());
+      await restoreTrashedSession(archiveProvider, archive.archivePath);
+      setTrashedArchives(await listTrashedSessions(archiveProvider));
       await refresh();
       void toast.success(t("sessions.restored"));
     } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
 
-  const desktopStatus = result.providers.find(
-    (item) => item.provider === "claude_desktop",
-  );
   const locale = i18n.language === "en-US" ? "en-US" : "zh-CN";
 
   return (
@@ -300,29 +300,6 @@ export default function SessionsPage() {
         </Typography.Title>
         <Typography.Text type="secondary">{t("sessions.subtitle")}</Typography.Text>
       </div>
-
-      {desktopStatus && (
-        <OnboardingTip
-          tipKey="sessions"
-          message={t("sessions.desktopLimited")}
-          description={t(`sessions.desktopStatus.${desktopStatus.status}`, {
-            defaultValue: desktopStatus.detail,
-          })}
-          action={
-            <Button
-              size="small"
-              icon={<DesktopOutlined />}
-              onClick={() =>
-                void openUrl("claude://claude.ai/new").catch(() => {
-                  void toast.error(t("sessions.openDesktopFailed"));
-                })
-              }
-            >
-              {t("sessions.openDesktop")}
-            </Button>
-          }
-        />
-      )}
 
       {error && <Alert type="error" showIcon message={t("sessions.loadFailed")} description={error} />}
 
@@ -343,14 +320,11 @@ export default function SessionsPage() {
           <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
             {t("sessions.searchContents")}
           </Button>
-          <Select<ProviderFilter>
+          <Segmented<SessionProvider>
             value={provider}
             onChange={setProvider}
-            style={{ width: 150 }}
             options={[
-              { value: "all", label: t("sessions.allProviders") },
               { value: "claude_code", label: "Claude Code" },
-              { value: "claude_desktop", label: "Claude Desktop" },
               { value: "codex", label: "Codex" },
             ]}
           />
@@ -391,10 +365,10 @@ export default function SessionsPage() {
           <Button disabled={!batchableSessions.length} onClick={toggleAllVisible}>
             {allBatchableSelected ? t("sessions.clearSelection") : t("sessions.selectVisible")}
           </Button>
-          <Button loading={sessionAction} disabled={!selectedPaths.size} onClick={() => void backupSelected()}>
+          <Button loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void backupSelected()}>
             {t("sessions.backupSelected", { count: selectedPaths.size })}
           </Button>
-          <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size} onClick={() => void exportSelected()}>
+          <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void exportSelected()}>
             {t("sessions.exportSelected", { count: selectedPaths.size })}
           </Button>
           <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
@@ -424,7 +398,7 @@ export default function SessionsPage() {
                           ? token.colorFillSecondary
                           : undefined,
                     }}
-                    actions={session.provider === "claude_code" ? [
+                    actions={[
                       <Checkbox
                         key="select"
                         checked={selectedPaths.has(session.sourcePath)}
@@ -432,7 +406,7 @@ export default function SessionsPage() {
                         onChange={(event) => toggleSelectedPath(session.sourcePath, event.target.checked)}
                         aria-label={t("sessions.selectSession", { title: session.title || session.sessionId })}
                       />,
-                    ] : undefined}
+                    ]}
                   >
                     <List.Item.Meta
                       title={

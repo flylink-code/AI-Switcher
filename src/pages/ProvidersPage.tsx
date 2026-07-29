@@ -172,6 +172,9 @@ export default function ProvidersPage() {
       width: 210,
       ellipsis: true,
       render: (_: string, row) => {
+        if (row.targetApp === "codex") {
+          return <Text ellipsis={{ tooltip: row.model }}>{row.model}</Text>;
+        }
         const count = Object.entries(row.modelMapping)
           .filter(([key]) => key !== "subagent" || row.targetApp === "claude_code")
           .filter(([, value]) => value.trim()).length;

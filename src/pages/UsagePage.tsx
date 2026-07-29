@@ -228,6 +228,14 @@ export default function UsagePage() {
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
+        <Alert
+          type={dashboard?.localCodex.available ? "info" : "warning"}
+          showIcon
+          message={t("usage.codexLocalTitle")}
+          description={dashboard?.localCodex.available
+            ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
+            : t("usage.codexLocalUnavailable")}
+        />
         <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
         <Alert type="info" showIcon message={t("usage.cachePricingIncluded")} />
 
@@ -245,6 +253,20 @@ export default function UsagePage() {
                 setDays(value);
                 setLogPage(0);
               }}
+            />
+            <Select
+              value={logTargetApp}
+              style={{ width: 160 }}
+              onChange={(value: ProviderTarget | "all") => {
+                setLogTargetApp(value);
+                setLogPage(0);
+              }}
+              options={[
+                { value: "all", label: t("usage.allApps") },
+                { value: "claude_code", label: t("providers.claudeCode") },
+                { value: "claude_desktop", label: t("providers.claudeDesktop") },
+                { value: "codex", label: "Codex" },
+              ]}
             />
           </Space>
           <Button
@@ -287,23 +309,6 @@ export default function UsagePage() {
         <Card
           size="small"
           title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
-          extra={
-            <Select
-              size="small"
-              value={logTargetApp}
-              style={{ width: 160 }}
-              onChange={(value: ProviderTarget | "all") => {
-                setLogTargetApp(value);
-                setLogPage(0);
-              }}
-              options={[
-                { value: "all", label: t("usage.allApps") },
-                { value: "claude_code", label: t("providers.claudeCode") },
-                { value: "claude_desktop", label: t("providers.claudeDesktop") },
-                { value: "codex", label: "Codex" },
-              ]}
-            />
-          }
         >
           <Table
             size="small"

@@ -4,6 +4,7 @@ import {
   Card,
   Input,
   Modal,
+  Segmented,
   Space,
   Switch,
   Tag,
@@ -19,7 +20,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import type { RepositorySkill, Skill, SkillUpdateStatus } from "@/types/backend";
+import type { RepositorySkill, Skill, SkillTarget, SkillUpdateStatus } from "@/types/backend";
 import {
   deleteSkill,
   checkSkillUpdate,
@@ -39,7 +40,8 @@ const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const skillsQuery = useQuery(skillsOptions);
+  const [target, setTarget] = useState<SkillTarget>("claude_code");
+  const skillsQuery = useQuery(skillsOptions(target));
   const repositoryQuery = useQuery(skillRepositoryOptions);
   const skills = skillsQuery.data ?? [];
   const [busy, setBusy] = useState(false);
@@ -97,10 +99,10 @@ export default function SkillsPage() {
     if (!selectedPaths.length) return;
     setBusy(true);
     try {
-      const installed = await installGithubRepositorySkills(repositoryUrl, selectedPaths);
+      const installed = await installGithubRepositorySkills(repositoryUrl, selectedPaths, target);
       void message.success(t("skills.installedCount", { count: installed.length }));
       setSelectedPaths([]);
-      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -112,11 +114,11 @@ export default function SkillsPage() {
     if (!zipPath.trim()) return;
     setBusy(true);
     try {
-      await installZipSkill(zipPath);
+      await installZipSkill(zipPath, target);
       setZipOpen(false);
       setZipPath("");
       void message.success(t("skills.installed"));
-      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -127,8 +129,8 @@ export default function SkillsPage() {
   const toggle = async (skill: Skill, enabled: boolean) => {
     setBusy(true);
     try {
-      await setSkillEnabled(skill.name, enabled);
-      queryClient.setQueryData<Skill[]>(skillsOptions.queryKey, (current = []) =>
+      await setSkillEnabled(skill.name, enabled, target);
+      queryClient.setQueryData<Skill[]>(["skills", target], (current = []) =>
         current.map((item) => (item.name === skill.name ? { ...item, enabled } : item)),
       );
     } catch (e) {
@@ -141,9 +143,9 @@ export default function SkillsPage() {
   const remove = async (skill: Skill) => {
     setBusy(true);
     try {
-      await deleteSkill(skill.name);
+      await deleteSkill(skill.name, target);
       void message.success(t("skills.deleted"));
-      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -163,7 +165,7 @@ export default function SkillsPage() {
   const checkUpdate = async (skill: Skill) => {
     setCheckingSkill(skill.name);
     try {
-      const status = await checkSkillUpdate(skill.name);
+      const status = await checkSkillUpdate(skill.name, target);
       setUpdateStatuses((current) => ({ ...current, [skill.name]: status }));
       void message.info(status.message);
     } catch (e) {
@@ -176,7 +178,7 @@ export default function SkillsPage() {
   const checkAllUpdates = async () => {
     setCheckingUpdates(true);
     try {
-      const statuses = await checkSkillUpdates();
+      const statuses = await checkSkillUpdates(target);
       setUpdateStatuses(Object.fromEntries(statuses.map((status) => [status.name, status])));
     } catch (e) {
       void message.error(errMsg(e));
@@ -189,9 +191,9 @@ export default function SkillsPage() {
     if (!names.length) return;
     setBusy(true);
     try {
-      const updated = await updateGithubSkills(names);
+      const updated = await updateGithubSkills(names, target);
       void message.success(t("skills.updatedCount", { count: updated.length }));
-      await queryClient.invalidateQueries({ queryKey: skillsOptions.queryKey });
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
       setUpdateStatuses((current) => Object.fromEntries(
         Object.entries(current).map(([name, status]) => [name, names.includes(name) ? { ...status, status: "up_to_date" } : status]),
       ));
@@ -216,6 +218,18 @@ export default function SkillsPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
+    <Segmented
+      value={target}
+      options={[
+        { value: "claude_code", label: t("providers.claudeCode") },
+        { value: "codex", label: "Codex" },
+      ]}
+      onChange={(value) => {
+        setTarget(value as SkillTarget);
+        setUpdateStatuses({});
+        setSelectedPaths([]);
+      }}
+    />
     <Card
       size="small"
       title={t("skills.repositoryTitle")}

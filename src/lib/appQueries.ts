@@ -20,7 +20,7 @@ import {
   getSkillRepositorySnapshot,
   readLivePrompt,
 } from "@/services/api";
-import type { ProviderTarget } from "@/types/backend";
+import type { PromptTarget, ProviderTarget, SkillTarget } from "@/types/backend";
 
 export const providerListOptions = (target: ProviderTarget) =>
   queryOptions({
@@ -43,18 +43,18 @@ export const mcpServersOptions = queryOptions({
   staleTime: 30_000,
 });
 
-export const promptsOverviewOptions = queryOptions({
-  queryKey: ["prompts-overview"] as const,
+export const promptsOverviewOptions = (target: PromptTarget = "claude_code") => queryOptions({
+  queryKey: ["prompts-overview", target] as const,
   queryFn: async () => {
-    const [items, livePrompt] = await Promise.all([listPrompts(), readLivePrompt()]);
+    const [items, livePrompt] = await Promise.all([listPrompts(target), readLivePrompt(target)]);
     return { items, livePrompt };
   },
   staleTime: 30_000,
 });
 
-export const skillsOptions = queryOptions({
-  queryKey: ["skills"] as const,
-  queryFn: listSkills,
+export const skillsOptions = (target: SkillTarget = "claude_code") => queryOptions({
+  queryKey: ["skills", target] as const,
+  queryFn: () => listSkills(target),
   staleTime: 30_000,
 });
 
@@ -72,7 +72,7 @@ export const usageOverviewOptions = (
     queryKey: ["usage-overview", days, logPage, target] as const,
     queryFn: async () => {
       const [dashboard, pricing, maintenancePolicy, requestLogs] = await Promise.all([
-        getUsageDashboard(days),
+        getUsageDashboard(days, target),
         listModelPricing(),
         getLogMaintenancePolicy(),
         listProxyRequestLogs({

@@ -13,7 +13,7 @@ use toml_edit::{value, Array, DocumentMut, Item, Table};
 
 use crate::config::{atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_path};
 use crate::error::{AppError, AppResult};
-use crate::provider::{ClaudeModelMapping, LiveProviderInfo, ProtocolType, Provider};
+use crate::provider::{validate_target_protocol, ClaudeModelMapping, LiveProviderInfo, ProtocolType, Provider, ProviderTarget};
 use crate::mcp::McpServer;
 
 const MANAGED_PROVIDER_PREFIX: &str = "ai_switcher_";
@@ -85,6 +85,7 @@ fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
 /// Apply a direct Codex model provider. The API key remains in the OS keyring
 /// at rest; Codex needs its selected runtime key in auth.json while active.
 pub fn apply_provider(provider: &Provider, api_key: &str) -> AppResult<()> {
+    validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
     let auth_path = get_codex_auth_path();
     backup_once(&config_path, CONFIG_BACKUP)?;

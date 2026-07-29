@@ -44,6 +44,8 @@ const protocolEndpoints: Record<ProtocolType, string> = {
   openai_responses: "/v1/responses",
 };
 
+const codexModelSuggestions = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"];
+
 /** Validate and convert a pasted request endpoint into a reusable HTTPS Base URL. */
 function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim();
@@ -133,7 +135,7 @@ export function ProviderForm({
       setModels([]);
       form.resetFields();
       form.setFieldsValue({
-        protocolType: "anthropic" as ProtocolType,
+        protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
         targetApp: target,
         modelMapping: {
           sonnet: "",
@@ -153,6 +155,7 @@ export function ProviderForm({
 
   useEffect(() => {
     if (!open) return;
+    if (isCodex) return;
     const model = watchedDefaultModel?.trim() ?? "";
     if (skipModelSyncRef.current) {
       skipModelSyncRef.current = false;
@@ -169,7 +172,7 @@ export function ProviderForm({
       fable: model,
       subagent: isCode ? model : "",
     });
-  }, [open, watchedDefaultModel, editing, target, form]);
+  }, [open, watchedDefaultModel, editing, target, form, isCodex]);
 
   const handleOk = async () => {
     try {
@@ -251,7 +254,8 @@ export function ProviderForm({
   const visibleRoleFields = roleFields.filter(
     (role) => !role.codeOnly || (editing?.targetApp ?? target) === "claude_code",
   );
-  const modelOptions = models.map((model) => ({ value: model }));
+  const modelOptions = [...new Set(isCodex ? [...codexModelSuggestions, ...models] : models)]
+    .map((model) => ({ value: model }));
   const modelCacheText = modelResult
     ? modelResult.source === "cache"
       ? t(modelResult.stale ? "providers.modelCacheStale" : "providers.modelCacheFresh", {
@@ -316,11 +320,16 @@ export function ProviderForm({
           rules={[{ required: true }]}
         >
           <Select
-            options={[
-              { value: "anthropic", label: t("providers.protocolAnthropic") },
-              { value: "openai_chat", label: t("providers.protocolOpenAiChat") },
-              { value: "openai_responses", label: t("providers.protocolOpenAiResponses") },
-            ]}
+            options={isCodex
+              ? [
+                  { value: "openai_responses", label: t("providers.protocolOpenAiResponses") },
+                  { value: "openai_chat", label: t("providers.protocolOpenAiChat") },
+                ]
+              : [
+                  { value: "anthropic", label: t("providers.protocolAnthropic") },
+                  { value: "openai_chat", label: t("providers.protocolOpenAiChat") },
+                  { value: "openai_responses", label: t("providers.protocolOpenAiResponses") },
+                ]}
           />
         </Form.Item>
 
@@ -381,7 +390,7 @@ export function ProviderForm({
               <Space size="small" wrap>
                 <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
                 <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
-                <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>
+                {!isCodex && <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>}
               </Space>
               {modelCacheText && (
                 <Typography.Text type={modelResult?.stale || modelResult?.error ? "warning" : "secondary"}>
@@ -423,7 +432,7 @@ export function ProviderForm({
             />
           </Form.Item>
         ))}</>}
-        <Typography.Paragraph type="secondary">
+        {!isCodex && <Typography.Paragraph type="secondary">
           {visibleRoleFields.map((role) => {
             const mapped = watchedMapping?.[role.key]?.trim() || watchedDefaultModel || "—";
             return (
@@ -432,7 +441,7 @@ export function ProviderForm({
               </Typography.Text>
             );
           })}
-        </Typography.Paragraph>
+        </Typography.Paragraph>}
 
         <Form.Item name="notes" label={t("providers.fieldNotes")}>
           <Input.TextArea rows={2} />

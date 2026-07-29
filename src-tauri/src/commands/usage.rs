@@ -1,17 +1,21 @@
 //! Usage dashboard commands backed by proxy request logs.
 
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
-use std::collections::BTreeSet;
-use std::path::Path;
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use calamine::{open_workbook_auto, Reader};
 use rust_xlsxwriter::Workbook;
 
 use crate::database::dao::proxy_logs::{
-    delete_model_pricing as delete_pricing, get_usage_by_model, get_usage_by_provider,
-    get_usage_summary, get_usage_trend, list_model_pricing as list_pricing,
+    delete_model_pricing as delete_pricing, get_usage_by_model_for_target,
+    get_usage_by_provider_for_target, get_usage_summary_for_target,
+    get_usage_trend_for_target, list_model_pricing as list_pricing,
     list_proxy_request_logs, save_model_pricing as save_pricing, ModelPricing, PaginatedProxyLogs,
     ProxyLogFilters, UsageBreakdown, UsageSummary, UsageTrendPoint, LogMaintenancePreview,
     LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
@@ -21,6 +25,41 @@ use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::store::AppState;
 
+const CODEX_LOCAL_PROVIDER_KEY: &str = "Codex local events";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UsageSource {
+    All,
+    ClaudeCode,
+    ClaudeDesktop,
+    Codex,
+}
+
+impl UsageSource {
+    fn parse(value: Option<&str>) -> AppResult<Self> {
+        match value.unwrap_or("all") {
+            "all" => Ok(Self::All),
+            "claude_code" => Ok(Self::ClaudeCode),
+            "claude_desktop" => Ok(Self::ClaudeDesktop),
+            "codex" => Ok(Self::Codex),
+            _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
+        }
+    }
+
+    fn proxy_target(self) -> Option<Option<&'static str>> {
+        match self {
+            Self::All => Some(None),
+            Self::ClaudeCode => Some(Some("claude_code")),
+            Self::ClaudeDesktop => Some(Some("claude_desktop")),
+            Self::Codex => None,
+        }
+    }
+
+    fn includes_local_codex(self) -> bool {
+        matches!(self, Self::All | Self::Codex)
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageDashboard {
@@ -28,6 +67,16 @@ pub struct UsageDashboard {
     pub by_provider: Vec<UsageBreakdown>,
     pub by_model: Vec<UsageBreakdown>,
     pub trend: Vec<UsageTrendPoint>,
+    pub local_codex: LocalCodexUsage,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalCodexUsage {
+    pub available: bool,
+    pub session_count: i64,
+    pub event_count: i64,
+    pub message: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -122,17 +171,167 @@ pub fn list_proxy_request_logs_cmd(
 }
 
 #[tauri::command]
-pub fn get_usage_dashboard(days: Option<u32>, state: tauri::State<'_, AppState>) -> AppResult<UsageDashboard> {
+pub fn get_usage_dashboard(
+    days: Option<u32>,
+    source: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<UsageDashboard> {
     let days = days.unwrap_or(365).clamp(1, 365);
     let since = (Utc::now() - Duration::days(i64::from(days))).timestamp_millis();
+    let source = UsageSource::parse(source.as_deref())?;
+    let local_codex = source.includes_local_codex().then(|| collect_codex_local_usage(since));
     state.db.with_conn(|conn| {
-        Ok(UsageDashboard {
-            summary: get_usage_summary(conn, since)?,
-            by_provider: get_usage_by_provider(conn, since)?,
-            by_model: get_usage_by_model(conn, since)?,
-            trend: get_usage_trend(conn, since)?,
-        })
+        let target = source.proxy_target();
+        let mut dashboard = if let Some(target) = target {
+            UsageDashboard {
+                summary: get_usage_summary_for_target(conn, since, target)?,
+                by_provider: get_usage_by_provider_for_target(conn, since, target)?,
+                by_model: get_usage_by_model_for_target(conn, since, target)?,
+                trend: get_usage_trend_for_target(conn, since, target)?,
+                local_codex: local_codex.as_ref().map(|item| item.status.clone()).unwrap_or_else(local_codex_not_selected),
+            }
+        } else {
+            UsageDashboard {
+                summary: empty_summary(), by_provider: Vec::new(), by_model: Vec::new(), trend: Vec::new(),
+                local_codex: local_codex.as_ref().map(|item| item.status.clone()).unwrap_or_else(local_codex_not_selected),
+            }
+        };
+        if let Some(local_codex) = local_codex { merge_local_codex_usage(&mut dashboard, local_codex); }
+        Ok(dashboard)
     })
+}
+
+#[derive(Debug)]
+struct LocalCodexAggregation {
+    status: LocalCodexUsage,
+    summary: UsageSummary,
+    by_model: BTreeMap<String, UsageBreakdown>,
+    trend: BTreeMap<String, UsageTrendPoint>,
+}
+
+#[derive(Default, Clone, Copy)]
+struct TokenTotals { input: i64, cached: i64, output: i64 }
+
+fn collect_codex_local_usage(since: i64) -> LocalCodexAggregation {
+    let root = crate::config::get_codex_config_dir().join("sessions");
+    collect_codex_local_usage_from_root(&root, since)
+}
+
+fn collect_codex_local_usage_from_root(root: &Path, since: i64) -> LocalCodexAggregation {
+    let mut aggregation = LocalCodexAggregation {
+        status: LocalCodexUsage { available: false, session_count: 0, event_count: 0, message: "No parseable local Codex token events".to_string() },
+        summary: empty_summary(), by_model: BTreeMap::new(), trend: BTreeMap::new(),
+    };
+    if !root.is_dir() {
+        aggregation.status.message = "Codex local session directory was not found".to_string();
+        return aggregation;
+    }
+    let mut files = Vec::new();
+    collect_codex_jsonl_files(root, &mut files);
+    aggregation.status.session_count = files.len() as i64;
+    for path in files { collect_codex_file_usage(&path, since, &mut aggregation); }
+    aggregation.status.available = aggregation.status.event_count > 0;
+    if aggregation.status.available {
+        aggregation.status.message = "Token totals are reconstructed from local Codex session events, not HTTP or billing records".to_string();
+    }
+    aggregation
+}
+
+fn collect_codex_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(kind) = entry.file_type() else { continue };
+        if kind.is_symlink() { continue; }
+        if kind.is_dir() { collect_codex_jsonl_files(&path, files); }
+        else if path.extension().and_then(|value| value.to_str()) == Some("jsonl") { files.push(path); }
+    }
+}
+
+fn collect_codex_file_usage(path: &Path, since: i64, aggregation: &mut LocalCodexAggregation) {
+    let Ok(file) = File::open(path) else { return };
+    let mut model = "unknown".to_string();
+    let mut previous = TokenTotals::default();
+    for line in BufReader::new(file).lines().map_while(Result::ok) {
+        let Ok(value) = serde_json::from_str::<Value>(&line) else { continue };
+        if value.get("type").and_then(Value::as_str) == Some("turn_context") {
+            if let Some(next) = value.pointer("/payload/model").and_then(Value::as_str) { model = next.to_string(); }
+            continue;
+        }
+        if value.get("type").and_then(Value::as_str) != Some("event_msg")
+            || value.pointer("/payload/type").and_then(Value::as_str) != Some("token_count") { continue; }
+        let timestamp = value.get("timestamp").and_then(parse_event_timestamp).unwrap_or(0);
+        let Some(totals) = value.pointer("/payload/info/total_token_usage")
+            .or_else(|| value.pointer("/payload/info/last_token_usage"))
+            .and_then(read_token_totals) else { continue; };
+        let delta = TokenTotals {
+            input: totals.input.saturating_sub(previous.input),
+            cached: totals.cached.saturating_sub(previous.cached),
+            output: totals.output.saturating_sub(previous.output),
+        };
+        previous = totals;
+        if timestamp < since || (delta.input == 0 && delta.cached == 0 && delta.output == 0) { continue; }
+        let input = delta.input.saturating_sub(delta.cached);
+        aggregation.status.event_count += 1;
+        aggregation.summary.request_count += 1;
+        aggregation.summary.input_tokens += input;
+        aggregation.summary.cache_read_input_tokens += delta.cached;
+        aggregation.summary.output_tokens += delta.output;
+        let model_item = aggregation.by_model.entry(model.clone()).or_insert_with(|| empty_breakdown(model.clone()));
+        add_breakdown(model_item, input, delta.cached, delta.output);
+        let date = DateTime::from_timestamp_millis(timestamp).unwrap_or_else(Utc::now).format("%Y-%m-%d").to_string();
+        let trend = aggregation.trend.entry(date.clone()).or_insert_with(|| empty_trend(date));
+        add_trend(trend, input, delta.cached, delta.output);
+    }
+}
+
+fn parse_event_timestamp(value: &Value) -> Option<i64> {
+    value.as_i64().or_else(|| value.as_str().and_then(|text| DateTime::parse_from_rfc3339(text).ok().map(|time| time.timestamp_millis())))
+}
+
+fn read_token_totals(value: &Value) -> Option<TokenTotals> {
+    Some(TokenTotals {
+        input: token_number(value, &["input_tokens", "inputTokens"] )?,
+        output: token_number(value, &["output_tokens", "outputTokens"] )?,
+        cached: token_number(value, &["cached_input_tokens", "cachedInputTokens"]).unwrap_or(0),
+    })
+}
+
+fn token_number(value: &Value, names: &[&str]) -> Option<i64> {
+    names.iter().find_map(|name| value.get(*name).and_then(Value::as_i64))
+}
+
+fn empty_summary() -> UsageSummary { UsageSummary { request_count: 0, successful_request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
+fn local_codex_not_selected() -> LocalCodexUsage { LocalCodexUsage { available: false, session_count: 0, event_count: 0, message: "Codex local events are excluded by the current source filter".to_string() } }
+fn empty_breakdown(key: String) -> UsageBreakdown { UsageBreakdown { key, request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
+fn empty_trend(date: String) -> UsageTrendPoint { UsageTrendPoint { date, request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
+fn add_breakdown(item: &mut UsageBreakdown, input: i64, cached: i64, output: i64) { item.request_count += 1; item.input_tokens += input; item.cache_read_input_tokens += cached; item.output_tokens += output; }
+fn add_trend(item: &mut UsageTrendPoint, input: i64, cached: i64, output: i64) { item.request_count += 1; item.input_tokens += input; item.cache_read_input_tokens += cached; item.output_tokens += output; }
+
+fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggregation) {
+    dashboard.summary.request_count += local.summary.request_count;
+    dashboard.summary.input_tokens += local.summary.input_tokens;
+    dashboard.summary.cache_read_input_tokens += local.summary.cache_read_input_tokens;
+    dashboard.summary.output_tokens += local.summary.output_tokens;
+    if local.status.available {
+        let mut provider = empty_breakdown(CODEX_LOCAL_PROVIDER_KEY.to_string());
+        provider.request_count = local.summary.request_count;
+        provider.input_tokens = local.summary.input_tokens;
+        provider.cache_read_input_tokens = local.summary.cache_read_input_tokens;
+        provider.output_tokens = local.summary.output_tokens;
+        dashboard.by_provider.push(provider);
+    }
+    for (key, item) in local.by_model {
+        if let Some(existing) = dashboard.by_model.iter_mut().find(|existing| existing.key == key) {
+            existing.request_count += item.request_count; existing.input_tokens += item.input_tokens; existing.cache_read_input_tokens += item.cache_read_input_tokens; existing.output_tokens += item.output_tokens;
+        } else { dashboard.by_model.push(item); }
+    }
+    for (date, item) in local.trend {
+        if let Some(existing) = dashboard.trend.iter_mut().find(|existing| existing.date == date) {
+            existing.request_count += item.request_count; existing.input_tokens += item.input_tokens; existing.cache_read_input_tokens += item.cache_read_input_tokens; existing.output_tokens += item.output_tokens;
+        } else { dashboard.trend.push(item); }
+    }
+    dashboard.trend.sort_by(|left, right| left.date.cmp(&right.date));
 }
 
 #[tauri::command]
@@ -336,6 +535,47 @@ fn normalize_log_maintenance_policy(mut policy: LogMaintenancePolicy) -> LogMain
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn codex_local_usage_uses_token_deltas_and_current_model() {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("2026").join("session.jsonl");
+        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
+        std::fs::write(&session, concat!(
+            "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":10,\"output_tokens\":20}}}}\n",
+            "{invalid json}\n",
+            "{\"type\":\"turn_context\",\"payload\":{\"model\":\"o4-mini\"}}\n",
+            "{\"timestamp\":\"2026-07-02T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"inputTokens\":150,\"cachedInputTokens\":40,\"outputTokens\":30}}}}\n",
+        )).unwrap();
+
+        let usage = collect_codex_local_usage_from_root(root.path(), 0);
+        assert!(usage.status.available);
+        assert_eq!(usage.status.session_count, 1);
+        assert_eq!(usage.status.event_count, 2);
+        assert_eq!(usage.summary.request_count, 2);
+        assert_eq!(usage.summary.input_tokens, 110);
+        assert_eq!(usage.summary.cache_read_input_tokens, 40);
+        assert_eq!(usage.summary.output_tokens, 30);
+        assert_eq!(usage.by_model["gpt-5"].input_tokens, 90);
+        assert_eq!(usage.by_model["o4-mini"].input_tokens, 20);
+        assert_eq!(usage.trend.len(), 2);
+    }
+
+    #[test]
+    fn codex_local_usage_reports_empty_or_missing_data() {
+        let missing = tempfile::tempdir().unwrap();
+        let usage = collect_codex_local_usage_from_root(&missing.path().join("missing"), 0);
+        assert!(!usage.status.available);
+        assert_eq!(usage.status.session_count, 0);
+
+        let empty = tempfile::tempdir().unwrap();
+        std::fs::write(empty.path().join("session.jsonl"), "{not json}\n").unwrap();
+        let usage = collect_codex_local_usage_from_root(empty.path(), 0);
+        assert!(!usage.status.available);
+        assert_eq!(usage.status.session_count, 1);
+        assert_eq!(usage.status.event_count, 0);
+    }
 
     fn row(values: &[&str]) -> Vec<String> {
         values.iter().map(|value| (*value).to_string()).collect()

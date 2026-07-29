@@ -182,7 +182,10 @@ export interface PathsInfo {
   claudeJsonPath: string;
   codexConfigDir: string;
   codexConfigPath: string;
+  codexAuthPath: string;
   codexSkillsDir: string;
+  codexSessionsDir: string;
+  codexAgentsPath: string;
   /** Application data directory (`~/.claude-switcher`). */
   appConfigDir: string;
   /** Main SQLite database path. */
@@ -292,6 +295,8 @@ export interface PromptInfo {
   updatedAt: number;
 }
 
+export type PromptTarget = "claude_code" | "codex";
+
 export interface PromptDetail extends PromptInfo {
   content: string;
 }
@@ -310,6 +315,8 @@ export interface Skill {
   descriptionZh?: string | null;
   source?: InstalledSkillSource | null;
 }
+
+export type SkillTarget = "claude_code" | "codex";
 
 export interface InstalledSkillSource {
   kind: "github" | "zip" | string;
@@ -377,6 +384,14 @@ export interface UsageDashboard {
   byProvider: UsageBreakdown[];
   byModel: UsageBreakdown[];
   trend: UsageTrendPoint[];
+  localCodex: LocalCodexUsage;
+}
+
+export interface LocalCodexUsage {
+  available: boolean;
+  sessionCount: number;
+  eventCount: number;
+  message: string;
 }
 
 export interface ModelPricing {
@@ -538,11 +553,11 @@ export interface ClaudeCodeVersionInfo {
   wslDistro: string | null;
 }
 
-export type SessionProvider = "claude_code" | "claude_desktop" | "codex";
+export type SessionProvider = "claude_code" | "codex";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;
-  status: "available" | "not_found" | "unsupported_format";
+  status: "available" | "not_found";
   detail: string;
   rootPath?: string;
 }

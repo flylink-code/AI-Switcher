@@ -291,6 +291,17 @@ export default function EnvironmentPage() {
       ]
     : [];
 
+  const codexRows: PathRow[] = paths
+    ? [
+        { key: "codexConfigDir", value: paths.codexConfigDir },
+        { key: "codexConfigPath", value: paths.codexConfigPath },
+        { key: "codexAuthPath", value: paths.codexAuthPath },
+        { key: "codexSkillsDir", value: paths.codexSkillsDir },
+        { key: "codexSessionsDir", value: paths.codexSessionsDir },
+        { key: "codexAgentsPath", value: paths.codexAgentsPath },
+      ]
+    : [];
+
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <OnboardingTip
@@ -351,6 +362,18 @@ export default function EnvironmentPage() {
           <Card size="small" title={t("env.sections.claudeDesktop")}>
             <Descriptions column={1} size="small" bordered>
               {desktopRows.map((r) => (
+                <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                  <PathValue value={r.value} />
+                </Descriptions.Item>
+              ))}
+            </Descriptions>
+          </Card>
+        )}
+
+        {paths && (
+          <Card size="small" title={t("env.sections.codex")}>
+            <Descriptions column={1} size="small" bordered>
+              {codexRows.map((r) => (
                 <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
                   <PathValue value={r.value} />
                 </Descriptions.Item>
@@ -423,6 +446,7 @@ export default function EnvironmentPage() {
         <Card size="small" title={t("env.sections.recovery")} extra={<Space>
           <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
           <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
+          <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
         </Space>}>
           <List
             size="small"

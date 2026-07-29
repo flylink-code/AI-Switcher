@@ -47,8 +47,8 @@ const criticalTasks: StartupTask[] = [
 
 const localDataTasks: StartupTask[] = [
   { id: "mcpData", run: () => queryClient.fetchQuery(mcpServersOptions) },
-  { id: "promptsData", run: () => queryClient.fetchQuery(promptsOverviewOptions) },
-  { id: "skillsData", run: () => queryClient.fetchQuery(skillsOptions) },
+  { id: "promptsData", run: () => queryClient.fetchQuery(promptsOverviewOptions("claude_code")) },
+  { id: "skillsData", run: () => queryClient.fetchQuery(skillsOptions("claude_code")) },
   {
     id: "usageData",
     run: () => queryClient.fetchQuery(usageOverviewOptions(30, 0, "all")),
