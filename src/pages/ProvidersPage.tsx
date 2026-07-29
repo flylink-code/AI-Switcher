@@ -30,7 +30,7 @@ import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
-import { exportProviders, importProvidersJson, testProviderConnection } from "@/services/api";
+import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
 import { usageOverviewOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
@@ -46,10 +46,15 @@ export default function ProvidersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
+  const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
   const usageQuery = useQuery(usageOverviewOptions(usageDays, 0, "all"));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
+  useEffect(() => {
+    if (target !== "codex") return;
+    void getCodexAuthStatus().then(setCodexAuth).catch(() => setCodexAuth(null));
+  }, [target]);
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (provider: Provider) => { setEditing(provider); setFormOpen(true); };
@@ -203,6 +208,7 @@ export default function ProvidersPage() {
         options={[
           { value: "claude_code", label: t("providers.claudeCode") },
           { value: "claude_desktop", label: t("providers.claudeDesktop") },
+          { value: "codex", label: "Codex" },
         ]}
       />
       <Space wrap size={[8, 8]}>
@@ -212,6 +218,14 @@ export default function ProvidersPage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t("providers.create")}</Button>
       </Space>
     </Space>
+    {target === "codex" && (
+      <Alert
+        type={codexAuth?.loggedIn ? "success" : "info"}
+        showIcon
+        message={codexAuth?.loggedIn ? "已检测到 Codex 登录配置" : "使用官方 Codex 前请先在终端登录"}
+        description={<Space wrap><Text code>{codexAuth?.loginCommand ?? "codex login"}</Text><Button size="small" onClick={() => void navigator.clipboard?.writeText(codexAuth?.loginCommand ?? "codex login")}>复制命令</Button></Space>}
+      />
+    )}
     <Card
       size="small"
       title={
@@ -244,7 +258,7 @@ export default function ProvidersPage() {
           <GlobalOutlined />
           {t("providers.title")}
           <Text type="secondary" style={{ fontWeight: "normal", fontSize: 12 }}>
-            {t(target === "claude_code" ? "providers.codeSubtitle" : "providers.desktopSubtitle")}
+            {target === "claude_code" ? t("providers.codeSubtitle") : target === "claude_desktop" ? t("providers.desktopSubtitle") : "管理 ~/.codex/config.toml 中的直连模型提供方"}
           </Text>
         </Space>
       }

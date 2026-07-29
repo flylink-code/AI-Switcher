@@ -28,6 +28,7 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     check_app_update, install_app_update,
+    get_codex_auth_status,
     activate_prompt, backup_now, export_library_backup, preview_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
@@ -98,6 +99,7 @@ pub fn run() {
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             ping,
+            get_codex_auth_status,
             check_app_update,
             install_app_update,
             get_update_mirror_settings,

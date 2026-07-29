@@ -28,6 +28,7 @@ const SESSION_BATCH_ARCHIVE_PREFIX: &str = "sessions";
 pub enum SessionProvider {
     ClaudeCode,
     ClaudeDesktop,
+    Codex,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -128,6 +129,11 @@ pub fn scan_sessions(provider: Option<SessionProvider>) -> AppResult<SessionScan
     if provider.is_none() || provider == Some(SessionProvider::ClaudeDesktop) {
         providers.push(claude_desktop_status());
     }
+    if provider.is_none() || provider == Some(SessionProvider::Codex) {
+        let (mut codex_sessions, status) = scan_codex_sessions()?;
+        sessions.append(&mut codex_sessions);
+        providers.push(status);
+    }
 
     sessions.sort_by(|left, right| {
         let left_time = left.last_active_at.or(left.created_at).unwrap_or(0);
@@ -176,6 +182,11 @@ pub fn load_session_messages(
         SessionProvider::ClaudeDesktop => Err(AppError::Config(
             "Claude Desktop 未公开稳定的本地会话格式，当前版本不读取其私有缓存".to_string(),
         )),
+        SessionProvider::Codex => {
+            let root = codex_session_root();
+            let source = validate_session_path_in_root(&root, Path::new(source_path))?;
+            load_claude_code_messages(&source)
+        }
     }
 }
 
@@ -538,8 +549,41 @@ fn claude_desktop_status() -> SessionProviderStatus {
     }
 }
 
+fn scan_codex_sessions() -> AppResult<(Vec<SessionMeta>, SessionProviderStatus)> {
+    let root = codex_session_root();
+    if !root.is_dir() {
+        return Ok((Vec::new(), SessionProviderStatus {
+            provider: SessionProvider::Codex,
+            status: "not_found".to_string(),
+            detail: "未发现 Codex 本地会话目录".to_string(),
+            root_path: Some(root.display().to_string()),
+        }));
+    }
+    let mut paths = Vec::new();
+    collect_jsonl_files(&root, &mut paths)?;
+    let mut sessions = Vec::new();
+    for path in paths {
+        let path = match validate_session_path_in_root(&root, &path) { Ok(path) => path, Err(_) => continue };
+        match parse_codex_session(&path) {
+            Ok(Some(session)) => sessions.push(session),
+            Ok(None) => {},
+            Err(error) => log::warn!("跳过无法解析的 Codex 会话 {}: {error}", path.display()),
+        }
+    }
+    Ok((sessions, SessionProviderStatus {
+        provider: SessionProvider::Codex,
+        status: "available".to_string(),
+        detail: "Codex 本地会话可用".to_string(),
+        root_path: Some(root.display().to_string()),
+    }))
+}
+
 fn claude_code_session_root() -> PathBuf {
     config::get_claude_config_dir().join("projects")
+}
+
+fn codex_session_root() -> PathBuf {
+    config::get_codex_config_dir().join("sessions")
 }
 
 fn claude_desktop_roots() -> Vec<PathBuf> {
@@ -651,6 +695,15 @@ fn parse_claude_code_session(path: &Path) -> AppResult<Option<SessionMeta>> {
         source_path: path.display().to_string(),
         resume_command: resume_command(&session_id),
     }))
+}
+
+fn parse_codex_session(path: &Path) -> AppResult<Option<SessionMeta>> {
+    let mut session = parse_claude_code_session(path)?;
+    if let Some(session) = &mut session {
+        session.provider = SessionProvider::Codex;
+        session.resume_command = Some(format!("codex resume {}", session.session_id));
+    }
+    Ok(session)
 }
 
 fn load_claude_code_messages(path: &Path) -> AppResult<Vec<SessionMessage>> {

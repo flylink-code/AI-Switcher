@@ -1,6 +1,6 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
-use crate::config::{claude_code, claude_desktop};
+use crate::config::{claude_code, claude_desktop, codex};
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
@@ -23,6 +23,7 @@ use tauri::Emitter;
 const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
 const MAX_MODEL_NAME_CHARS: usize = 256;
+const CODEX_OWNERSHIP_KEY: &str = "v040.codex_managed";
 
 #[tauri::command]
 pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
@@ -394,8 +395,11 @@ pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppSt
     match target {
         ProviderTarget::ClaudeCode => restore_code_ownership(state)?,
         ProviderTarget::ClaudeDesktop => restore_desktop_ownership(state)?,
+        ProviderTarget::Codex => codex::restore_official()?,
     }
-    state.proxy.lock().await.stop_target(target);
+    if target != ProviderTarget::Codex {
+        state.proxy.lock().await.stop_target(target);
+    }
     state.db.with_conn(|conn| dao::clear_current_provider(conn, target))
 }
 
@@ -410,6 +414,7 @@ pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppSta
     let live = match target {
         ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
         ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
+        ProviderTarget::Codex => codex::read_current_live_provider()?,
     };
     let Some(live) = live else {
         return Ok(());
@@ -526,6 +531,9 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
                 .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;
                 commit_desktop_ownership(state, original_applied_id)?;
             }
+            ProviderTarget::Codex => {
+                codex::apply_provider(&runtime_provider, &runtime_provider.api_key)?;
+            }
         }
         Ok(())
     }.await;
@@ -588,11 +596,13 @@ impl SwitchSnapshot {
                 }
                 files
             }
+            ProviderTarget::Codex => vec![crate::config::get_codex_config_path(), crate::config::get_codex_auth_path()],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
             ProviderTarget::ClaudeCode => CODE_OWNERSHIP_KEY,
             ProviderTarget::ClaudeDesktop => DESKTOP_OWNERSHIP_KEY,
+            ProviderTarget::Codex => CODEX_OWNERSHIP_KEY,
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {
@@ -1115,13 +1125,14 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
     let key = match target {
         ProviderTarget::ClaudeCode => "proxy_port_claude_code",
         ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
+        ProviderTarget::Codex => "proxy_port_codex",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
         .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
-        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822 })
+        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 0 })
 }
 
 #[cfg(test)]

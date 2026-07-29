@@ -4,7 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
-export type ProviderTarget = "claude_code" | "claude_desktop";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex";
 
 export interface ClaudeModelMapping {
   sonnet: string;
@@ -180,6 +180,9 @@ export interface PathsInfo {
   claudeSettingsPath: string;
   /** `~/.claude.json` (MCP + project roots). */
   claudeJsonPath: string;
+  codexConfigDir: string;
+  codexConfigPath: string;
+  codexSkillsDir: string;
   /** Application data directory (`~/.claude-switcher`). */
   appConfigDir: string;
   /** Main SQLite database path. */
@@ -245,6 +248,7 @@ export interface McpServer {
   serverConfig: Record<string, unknown>;
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
+  enabledCodex: boolean;
   createdAt: number;
 }
 
@@ -255,9 +259,18 @@ export interface McpServerInput {
   serverConfig: Record<string, unknown>;
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
+  enabledCodex: boolean;
 }
 
-export type McpTarget = "claude_code" | "claude_desktop";
+export type McpTarget = "claude_code" | "claude_desktop" | "codex";
+
+export interface CodexAuthStatus {
+  configPath: string;
+  authPath: string;
+  configExists: boolean;
+  loggedIn: boolean;
+  loginCommand: string;
+}
 
 export interface McpImportSummary {
   imported: number;
@@ -525,7 +538,7 @@ export interface ClaudeCodeVersionInfo {
   wslDistro: string | null;
 }
 
-export type SessionProvider = "claude_code" | "claude_desktop";
+export type SessionProvider = "claude_code" | "claude_desktop" | "codex";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;

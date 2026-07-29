@@ -44,6 +44,7 @@ interface FormValues {
   serverConfig: string;
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
+  enabledCodex: boolean;
 }
 
 const EXAMPLE_CONFIG = `{
@@ -76,6 +77,7 @@ export default function McpPage() {
       serverConfig: EXAMPLE_CONFIG,
       enabledClaudeCode: true,
       enabledClaudeDesktop: false,
+      enabledCodex: false,
     });
     setFormOpen(true);
   };
@@ -87,6 +89,7 @@ export default function McpPage() {
       serverConfig: JSON.stringify(server.serverConfig, null, 2),
       enabledClaudeCode: server.enabledClaudeCode,
       enabledClaudeDesktop: server.enabledClaudeDesktop,
+      enabledCodex: server.enabledCodex,
     });
     setFormOpen(true);
   };
@@ -112,6 +115,7 @@ export default function McpPage() {
         serverConfig,
         enabledClaudeCode: values.enabledClaudeCode,
         enabledClaudeDesktop: values.enabledClaudeDesktop,
+        enabledCodex: values.enabledCodex,
       };
       await saveMcpServer(input);
       void message.success(t(editing ? "mcp.updated" : "mcp.created"));
@@ -137,6 +141,7 @@ export default function McpPage() {
                   target === "claude_code" ? enabled : item.enabledClaudeCode,
                 enabledClaudeDesktop:
                   target === "claude_desktop" ? enabled : item.enabledClaudeDesktop,
+                enabledCodex: target === "codex" ? enabled : item.enabledCodex,
               }
             : item,
         ),
@@ -261,6 +266,16 @@ export default function McpPage() {
       ),
     },
     {
+      title: "Codex",
+      dataIndex: "enabledCodex",
+      width: 110,
+      render: (enabled: boolean, server) => (
+        <Switch size="small" checked={enabled} disabled={busy}
+          checkedChildren={t("common.enabled")} unCheckedChildren={t("common.disabled")}
+          onChange={(value) => void handleToggle(server, "codex", value)} />
+      ),
+    },
+    {
       title: t("mcp.colActions"),
       key: "actions",
       width: 120,
@@ -355,6 +370,9 @@ export default function McpPage() {
               </Form.Item>
               <Form.Item name="enabledClaudeDesktop" valuePropName="checked" noStyle>
                 <Checkbox disabled={busy}>{t("mcp.enableDesktop")}</Checkbox>
+              </Form.Item>
+              <Form.Item name="enabledCodex" valuePropName="checked" noStyle>
+                <Checkbox disabled={busy}>启用 Codex</Checkbox>
               </Form.Item>
             </Space>
           </Form.Item>

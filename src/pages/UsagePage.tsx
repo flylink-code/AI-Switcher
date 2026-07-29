@@ -300,6 +300,7 @@ export default function UsagePage() {
                 { value: "all", label: t("usage.allApps") },
                 { value: "claude_code", label: t("providers.claudeCode") },
                 { value: "claude_desktop", label: t("providers.claudeDesktop") },
+                { value: "codex", label: "Codex" },
               ]}
             />
           }

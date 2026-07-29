@@ -33,12 +33,14 @@ const MCP_BACKUP_KEEP: usize = 10;
 pub enum McpTarget {
     ClaudeCode,
     ClaudeDesktop,
+    Codex,
 }
 
 impl McpTarget {
     pub fn from_str_lossy(s: &str) -> Self {
         match s {
             "claude_desktop" => McpTarget::ClaudeDesktop,
+            "codex" => McpTarget::Codex,
             _ => McpTarget::ClaudeCode,
         }
     }
@@ -55,6 +57,7 @@ pub struct McpServer {
     pub server_config: Value,
     pub enabled_claude_code: bool,
     pub enabled_claude_desktop: bool,
+    pub enabled_codex: bool,
     pub created_at: i64,
 }
 
@@ -71,6 +74,8 @@ pub struct McpServerInput {
     pub enabled_claude_code: bool,
     #[serde(default)]
     pub enabled_claude_desktop: bool,
+    #[serde(default)]
+    pub enabled_codex: bool,
 }
 
 /// Result of importing the live configs from both applications.
@@ -147,6 +152,7 @@ fn enabled_map(servers: &[McpServer], target: McpTarget) -> Map<String, Value> {
         .filter(|s| match target {
             McpTarget::ClaudeCode => s.enabled_claude_code,
             McpTarget::ClaudeDesktop => s.enabled_claude_desktop,
+            McpTarget::Codex => s.enabled_codex,
         })
         .map(|s| (s.name.as_str(), &s.server_config))
         .collect();
@@ -209,6 +215,7 @@ mod tests {
             server_config: json!({"command": "npx", "args": ["-y", name]}),
             enabled_claude_code: code,
             enabled_claude_desktop: desktop,
+            enabled_codex: false,
             created_at: 0,
         }
     }

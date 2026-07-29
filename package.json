@@ -1,8 +1,8 @@
 {
   "name": "ai-switcher",
-  "version": "0.3.6",
+  "version": "0.4.0",
   "private": true,
-  "description": "Unified third-party API configuration manager for Claude Desktop & Claude Code",
+  "description": "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex",
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {

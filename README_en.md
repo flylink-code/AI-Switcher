@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> A local configuration, provider, and utility manager for Claude Code and Claude Desktop.
+> A local configuration, provider, and utility manager for Claude Code, Claude Desktop, and Codex.
 
 [中文](README.md)
 
@@ -10,10 +10,10 @@ The application works locally by default. API keys are stored in the operating s
 
 ## Features
 
-- **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code and Claude Desktop.
+- **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code, Claude Desktop, and Codex. Codex providers are written directly to `~/.codex/config.toml` and do not use the Claude local proxy.
 - **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs. Opt-in automatic failover temporarily opens a provider circuit for 60 seconds after two consecutive transient failures; it is disabled by default.
-- **MCP, Prompts, and Skills**: Maintain MCP servers, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
-- **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`; export, validated import, move to the managed trash, and restore are supported.
+- **MCP, Prompts, and Skills**: Maintain MCP servers, including Codex synchronization, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
+- **Session Manager**: Browse, filter, and search local JSONL sessions for Claude Code and Codex; Codex sessions are discovered under `~/.codex/sessions`.
 - **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
 - **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies. The yearly heatmap scales to the window width and always shows the full year.
 - **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark/system themes, and launch at login. Cards, tables, form controls, and overlays use dynamic theme colors in the desktop app.

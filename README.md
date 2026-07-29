@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 Claude Code 与 Claude Desktop 的本地配置、供应商和辅助工具管理器。
+> 面向 Claude Code、Claude Desktop 与 Codex 的本地配置、供应商和辅助工具管理器。
 
 [English](README_en.md)
 
@@ -10,10 +10,10 @@ AI-Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它
 
 ## 主要功能
 
-- **供应商管理**：分别管理 Claude Code 和 Claude Desktop 的第三方 API、模型映射、导入导出、连接测试、模型发现和官方登录恢复。
+- **供应商管理**：分别管理 Claude Code、Claude Desktop 与 Codex 的第三方 API、模型映射、导入导出、连接测试、模型发现和官方登录恢复。Codex 使用 `~/.codex/config.toml` 的直连模型提供方，不经过 Claude 本地代理。
 - **本地代理**：提供 Anthropic Messages 兼容代理、模型映射、密钥注入、流式转发、运行状态和请求日志；可显式启用自动故障切换，连续两次临时失败会在本次代理运行期间熔断 60 秒。该开关默认关闭。
-- **MCP、Prompts 与 Skills**：统一维护 MCP 服务，管理 `CLAUDE.md` 预设；Skills 会记录安装来源、版本摘要并支持手动检查更新。
-- **会话管理**：浏览、筛选和搜索 `~/.claude/projects` 下的 Claude Code 会话，支持导出、校验导入、移入资料库回收站与恢复。
+- **MCP、Prompts 与 Skills**：统一维护 MCP 服务（可同步到 Codex），管理 `CLAUDE.md` 预设；Skills 会记录安装来源、版本摘要并支持手动检查更新。
+- **会话管理**：浏览、筛选和搜索 Claude Code 与 Codex 的本地 JSONL 会话；Codex 会话位于 `~/.codex/sessions`。
 - **中文化中心**：分别管理 Claude Code CLI、VS Code/Cursor 扩展补丁助手及 Claude Desktop 语言包；补丁应用始终需要在编辑器中确认。
 - **用量统计**：按供应商和模型统计请求、Token、趋势与估算成本；年度热力图会随窗口宽度缩放，完整显示全年数据。
 - **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、高对比度浅色/深色/跟随系统主题和开机自启。桌面端会为卡片、表格、表单控件与弹层应用动态主题配色。

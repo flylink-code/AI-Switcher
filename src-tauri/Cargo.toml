@@ -1,7 +1,7 @@
 [package]
 name = "claude-switcher"
-version = "0.3.6"
-description = "Unified third-party API configuration manager for Claude Desktop & Claude Code"
+version = "0.4.0"
+description = "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex"
 authors = ["Claude Switcher"]
 edition = "2021"
 rust-version = "1.77"
@@ -26,6 +26,7 @@ tauri-plugin-updater = "2"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+toml_edit = "0.22"
 
 # Storage
 rusqlite = { version = "0.31", features = ["bundled", "backup"] }

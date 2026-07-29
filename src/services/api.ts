@@ -28,6 +28,7 @@ import type {
     LibraryArchivePreview,
   ProviderInput,
   ProviderTarget,
+  CodexAuthStatus,
   ProxyStatus,
   Skill,
   SkillUpdateStatus,
@@ -160,6 +161,11 @@ export async function pushSyncArchive(targetId: string): Promise<SyncPushResult>
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
   const invoke = await getInvoke();
   return invoke<Provider[]>("list_providers", { target });
+}
+
+export async function getCodexAuthStatus(): Promise<CodexAuthStatus> {
+  const invoke = await getInvoke();
+  return invoke<CodexAuthStatus>("get_codex_auth_status");
 }
 
 export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {

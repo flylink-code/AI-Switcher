@@ -96,6 +96,7 @@ export function ProviderForm({
   let nameRef: InputRef | null = null;
 
   const isEdit = editing !== null;
+  const isCodex = (editing?.targetApp ?? target) === "codex";
   const prevModelRef = useRef<string | null>(null);
   const skipModelSyncRef = useRef(true);
 
@@ -399,7 +400,7 @@ export function ProviderForm({
           />
         </Form.Item>
 
-        <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
+        {!isCodex && <><Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
           {t("providers.modelMapping")}
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
@@ -421,7 +422,7 @@ export function ProviderForm({
               }
             />
           </Form.Item>
-        ))}
+        ))}</>}
         <Typography.Paragraph type="secondary">
           {visibleRoleFields.map((role) => {
             const mapped = watchedMapping?.[role.key]?.trim() || watchedDefaultModel || "—";

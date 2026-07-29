@@ -10,7 +10,7 @@ use crate::mcp::{validate_server_input, McpServer, McpServerInput, McpTarget};
 /// List all MCP servers ordered by name.
 pub fn list_mcp_servers(conn: &Connection) -> AppResult<Vec<McpServer>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, created_at
+        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
          FROM mcp_servers ORDER BY name ASC;",
     )?;
     let rows = stmt.query_map([], row_to_server)?;
@@ -24,7 +24,7 @@ pub fn list_mcp_servers(conn: &Connection) -> AppResult<Vec<McpServer>> {
 /// Fetch a single server by id.
 pub fn get_mcp_server(conn: &Connection, id: &str) -> AppResult<Option<McpServer>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, created_at
+        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
          FROM mcp_servers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -49,13 +49,14 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
         }
         let changed = conn.execute(
             "UPDATE mcp_servers SET
-                name = ?, server_config = ?, enabled_claude_code = ?, enabled_claude_desktop = ?
+                name = ?, server_config = ?, enabled_claude_code = ?, enabled_claude_desktop = ?, enabled_codex = ?
              WHERE id = ?;",
             params![
                 name,
                 config_str,
                 input.enabled_claude_code as i64,
                 input.enabled_claude_desktop as i64,
+                input.enabled_codex as i64,
                 id,
             ],
         )?;
@@ -74,14 +75,15 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
     let now = Utc::now().timestamp_millis();
     conn.execute(
         "INSERT INTO mcp_servers
-            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, created_at)
-         VALUES (?, ?, ?, ?, ?, ?);",
+            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?);",
         params![
             id,
             name,
             config_str,
             input.enabled_claude_code as i64,
             input.enabled_claude_desktop as i64,
+            input.enabled_codex as i64,
             now,
         ],
     )?;
@@ -107,6 +109,7 @@ pub fn set_mcp_enabled(
     let column = match target {
         McpTarget::ClaudeCode => "enabled_claude_code",
         McpTarget::ClaudeDesktop => "enabled_claude_desktop",
+        McpTarget::Codex => "enabled_codex",
     };
     let changed = conn.execute(
         &format!("UPDATE mcp_servers SET {column} = ? WHERE id = ?;"),
@@ -130,6 +133,7 @@ pub fn import_mcp_entry(
     config: &Value,
     in_code: bool,
     in_desktop: bool,
+    in_codex: bool,
 ) -> AppResult<bool> {
     if let Some(existing) = get_by_name(conn, name)? {
         if in_code {
@@ -137,6 +141,9 @@ pub fn import_mcp_entry(
         }
         if in_desktop {
             set_mcp_enabled(conn, &existing.id, McpTarget::ClaudeDesktop, true)?;
+        }
+        if in_codex {
+            set_mcp_enabled(conn, &existing.id, McpTarget::Codex, true)?;
         }
         return Ok(false);
     }
@@ -146,6 +153,7 @@ pub fn import_mcp_entry(
         server_config: config.clone(),
         enabled_claude_code: in_code,
         enabled_claude_desktop: in_desktop,
+        enabled_codex: in_codex,
     };
     upsert_mcp_server(conn, &input)?;
     Ok(true)
@@ -153,7 +161,7 @@ pub fn import_mcp_entry(
 
 fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<McpServer>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, created_at
+        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
          FROM mcp_servers WHERE name = ?;",
     )?;
     let mut rows = stmt.query(params![name])?;
@@ -173,7 +181,8 @@ fn row_to_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<McpServer> {
         server_config,
         enabled_claude_code: row.get::<_, i64>(3)? != 0,
         enabled_claude_desktop: row.get::<_, i64>(4)? != 0,
-        created_at: row.get(5)?,
+        enabled_codex: row.get::<_, i64>(5)? != 0,
+        created_at: row.get(6)?,
     })
 }
 
@@ -197,6 +206,7 @@ mod tests {
             server_config: json!({"command": "npx", "args": ["-y", name]}),
             enabled_claude_code: true,
             enabled_claude_desktop: false,
+            enabled_codex: false,
         }
     }
 
@@ -235,9 +245,9 @@ mod tests {
         db.with_conn(|conn| {
             let cfg = json!({"url": "http://x"});
             // First seen in Claude Code only.
-            assert!(import_mcp_entry(conn, "svc", &cfg, true, false)?);
+            assert!(import_mcp_entry(conn, "svc", &cfg, true, false, false)?);
             // Later seen in Desktop too: not a new row, flag raised.
-            assert!(!import_mcp_entry(conn, "svc", &cfg, false, true)?);
+            assert!(!import_mcp_entry(conn, "svc", &cfg, false, true, false)?);
             let s = list_mcp_servers(conn)?.pop().unwrap();
             assert!(s.enabled_claude_code && s.enabled_claude_desktop);
             Ok(())

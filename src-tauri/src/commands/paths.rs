@@ -6,6 +6,7 @@ use crate::config::{
     claude_desktop::detect_claude_desktop,
     get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_config_dir,
     get_claude_json_path, get_claude_settings_path, get_home_dir,
+    get_codex_config_dir, get_codex_config_path, get_codex_skills_dir,
 };
 
 #[derive(Debug, Serialize)]
@@ -15,6 +16,9 @@ pub struct PathsInfo {
     pub claude_config_dir: String,
     pub claude_settings_path: String,
     pub claude_json_path: String,
+    pub codex_config_dir: String,
+    pub codex_config_path: String,
+    pub codex_skills_dir: String,
     pub app_config_dir: String,
     pub app_db_path: String,
     pub backup_dir: String,
@@ -39,6 +43,9 @@ pub fn get_paths() -> PathsInfo {
         claude_config_dir: s(&get_claude_config_dir()),
         claude_settings_path: s(&get_claude_settings_path()),
         claude_json_path: s(&get_claude_json_path()),
+        codex_config_dir: s(&get_codex_config_dir()),
+        codex_config_path: s(&get_codex_config_path()),
+        codex_skills_dir: s(&get_codex_skills_dir()),
         app_config_dir: s(&get_app_config_dir()),
         app_db_path: s(&get_app_db_path()),
         backup_dir: s(&get_backup_dir()),

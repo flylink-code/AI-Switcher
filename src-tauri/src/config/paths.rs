@@ -101,6 +101,27 @@ pub fn get_claude_skills_dir() -> PathBuf {
     get_claude_config_dir().join("skills")
 }
 
+/// Codex's configuration root. Respect CODEX_HOME so test and portable
+/// installations never accidentally modify the user's default profile.
+pub fn get_codex_config_dir() -> PathBuf {
+    std::env::var_os("CODEX_HOME")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| get_home_dir().join(".codex"))
+}
+
+pub fn get_codex_config_path() -> PathBuf {
+    get_codex_config_dir().join("config.toml")
+}
+
+pub fn get_codex_auth_path() -> PathBuf {
+    get_codex_config_dir().join("auth.json")
+}
+
+pub fn get_codex_skills_dir() -> PathBuf {
+    get_codex_config_dir().join("skills")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

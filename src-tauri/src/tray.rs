@@ -137,6 +137,7 @@ fn build_provider_menu<R: Runtime>(
     let (prefix, official_id) = match target {
         ProviderTarget::ClaudeCode => (CODE_PROVIDER_PREFIX, CODE_OFFICIAL_ID),
         ProviderTarget::ClaudeDesktop => (DESKTOP_PROVIDER_PREFIX, DESKTOP_OFFICIAL_ID),
+        ProviderTarget::Codex => return Err(AppError::Config("Codex 不显示在 Claude 供应商托盘菜单中".to_string())),
     };
     let official = MenuItem::with_id(app, official_id, official_label, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;

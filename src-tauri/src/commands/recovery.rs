@@ -78,6 +78,7 @@ pub async fn restore_config_backup(
         match target {
             ProviderTarget::ClaudeCode => set_setting(conn, "p7.code_config_ownership", "")?,
             ProviderTarget::ClaudeDesktop => set_setting(conn, "p7.desktop_original_applied_id", "")?,
+            ProviderTarget::Codex => set_setting(conn, "v040.codex_managed", "")?,
         }
         Ok(())
     })?;
@@ -88,6 +89,7 @@ fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
     name.ends_with(".bak") && match target {
         ProviderTarget::ClaudeCode => name.starts_with("settings.json_"),
         ProviderTarget::ClaudeDesktop => name.starts_with("_meta.json_") || name.starts_with("claude-switcher.json_"),
+        ProviderTarget::Codex => name.starts_with("codex-"),
     }
 }
 
@@ -114,6 +116,7 @@ fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<std::
                 Ok(library.join("claude-switcher.json"))
             }
         }
+        ProviderTarget::Codex => Err(AppError::Config("Codex 仅支持通过“切换官方配置”恢复原始文件".to_string())),
     }
 }
 

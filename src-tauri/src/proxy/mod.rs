@@ -88,6 +88,7 @@ impl ProxyManager {
         let runtime = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
+            ProviderTarget::Codex => None,
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -95,6 +96,7 @@ impl ProxyManager {
             port: runtime.map(|runtime| runtime.port).unwrap_or(match target {
                 ProviderTarget::ClaudeCode => DEFAULT_PORT,
                 ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
+                ProviderTarget::Codex => 0,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -110,6 +112,7 @@ impl ProxyManager {
         let current = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
+            ProviderTarget::Codex => return Err(AppError::Config("Codex 不使用 Claude 本地代理".to_string())),
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -173,6 +176,7 @@ impl ProxyManager {
         let previous = match target {
             ProviderTarget::ClaudeCode => self.code.replace(runtime),
             ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
+            ProviderTarget::Codex => None,
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -194,6 +198,7 @@ impl ProxyManager {
         let runtime = match target {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
+            ProviderTarget::Codex => None,
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());

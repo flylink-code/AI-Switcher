@@ -128,6 +128,7 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
     match target {
         crate::provider::ProviderTarget::ClaudeCode => "proxy_port_claude_code",
         crate::provider::ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
+        crate::provider::ProviderTarget::Codex => "proxy_port_codex",
     }
 }
 
@@ -141,7 +142,7 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
         .ok()
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1 })
+        .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1, crate::provider::ProviderTarget::Codex => 0 })
 }
 
 pub fn initial_proxy_statuses(

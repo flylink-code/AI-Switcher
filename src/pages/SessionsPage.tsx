@@ -351,6 +351,7 @@ export default function SessionsPage() {
               { value: "all", label: t("sessions.allProviders") },
               { value: "claude_code", label: "Claude Code" },
               { value: "claude_desktop", label: "Claude Desktop" },
+              { value: "codex", label: "Codex" },
             ]}
           />
           <Select<DirectoryFilter>
@@ -436,7 +437,7 @@ export default function SessionsPage() {
                     <List.Item.Meta
                       title={
                         <Space>
-                          <Tag color="purple">Claude Code</Tag>
+                          <Tag color={session.provider === "codex" ? "green" : "purple"}>{session.provider === "codex" ? "Codex" : "Claude Code"}</Tag>
                           <Typography.Text ellipsis style={{ maxWidth: 230 }}>
                             {session.title || session.sessionId}
                           </Typography.Text>
