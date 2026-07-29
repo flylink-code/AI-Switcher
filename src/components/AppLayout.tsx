@@ -115,6 +115,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
         </div>
         <Menu
           mode="inline"
+          theme={resolvedTheme === "dark" ? "dark" : "light"}
           selectedKeys={[activeKey]}
           items={menuItems}
           onClick={({ key }) => onNavigate(key as PageKey)}

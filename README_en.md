@@ -15,8 +15,8 @@ The application works locally by default. API keys are stored in the operating s
 - **MCP, Prompts, and Skills**: Maintain MCP servers, manage `CLAUDE.md` presets, and install Skills from GitHub or local ZIP files with recorded provenance and manual update checks.
 - **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`; export, validated import, move to the managed trash, and restore are supported.
 - **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
-- **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies.
-- **System integration**: Provider switching from the system tray, tray labels that follow the selected language, light/dark themes, and launch at login.
+- **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies. The yearly heatmap scales to the window width and always shows the full year.
+- **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark themes, and launch at login.
 - **Environment and updates**: Inspect configuration paths, the installed Claude Code version, and application updates.
 
 ## Session Manager

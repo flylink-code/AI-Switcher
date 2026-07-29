@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Fixed the VS Code Dark-style theme across the navigation and all content pages
-            - Added visible color swatches to every yearly usage heatmap intensity label
-            - Clarified the update-network save action
+            - Fixed the complete dark theme, including content pages, tables, popups, and readable navigation text
+            - Redesigned the dark palette with higher contrast for improved readability
+            - Made the yearly usage heatmap fit the available width without a horizontal scrollbar
 
             ## 更新内容
 
-            - 深色主题改为 VS Code 风格，并覆盖导航与全部内容页
-            - 年度日期热力图的每个强度标签均显示对应色块
-            - 优化更新网络保存按钮文案
+            - 修复深色主题，覆盖内容页、表格、弹层及侧栏文字对比度
+            - 调整为更高对比度的深色配色，提升可读性
+            - 优化年度用量热力图，按可用宽度完整显示且不再出现横向滚动条
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

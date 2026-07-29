@@ -27,8 +27,7 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
   const total = daily.reduce((sum, item) => sum + item.tokens, 0);
   const leading = Array.from({ length: daily[0]?.date.getDay() ?? 0 });
   const columns = Math.ceil((leading.length + daily.length) / 7);
-  const cellSize = calendarCellSize(containerWidth, columns);
-  const cellGap = Math.max(4, Math.min(8, Math.round(cellSize * 0.22)));
+  const { cellSize, cellGap } = calendarCellMetrics(containerWidth, columns);
   const levels = [
     { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
     { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
@@ -56,7 +55,7 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
         <Statistic title={t("usage.dailyPeak")} value={max} formatter={(value) => formatNumber(Number(value))} />
         <Statistic title={t("usage.calendarTotal")} value={total} formatter={(value) => formatNumber(Number(value))} />
       </Space>
-      <div ref={containerRef} style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <div ref={containerRef} style={{ overflow: "hidden" }}>
         <div
           role="grid"
           aria-label={t("usage.dailyStatistics")}
@@ -120,13 +119,27 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
   );
 }
 
-function calendarCellSize(containerWidth: number, columns: number) {
-  const minCellSize = 20;
+function calendarCellMetrics(containerWidth: number, columns: number) {
+  const minCellSize = 8;
   const maxCellSize = 36;
-  if (!containerWidth || !columns) return minCellSize;
-  const minimumGap = 4;
-  const available = Math.floor((containerWidth - minimumGap * (columns - 1)) / columns);
-  return Math.max(minCellSize, Math.min(maxCellSize, available));
+  const minGap = 2;
+  const maxGap = 8;
+  if (!containerWidth || !columns) return { cellSize: minCellSize, cellGap: minGap };
+  const cellSize = Math.max(
+    minCellSize,
+    Math.min(
+      maxCellSize,
+      Math.floor((containerWidth - minGap * (columns - 1)) / columns),
+    ),
+  );
+  const cellGap = Math.max(
+    minGap,
+    Math.min(
+      maxGap,
+      Math.floor((containerWidth - cellSize * columns) / Math.max(columns - 1, 1)),
+    ),
+  );
+  return { cellSize, cellGap };
 }
 
 function localDateKey(value: Date) {

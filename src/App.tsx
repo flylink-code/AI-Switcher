@@ -139,39 +139,44 @@ export default function App() {
     if (i18n.language !== language) void i18n.changeLanguage(language);
   }, [language, i18n]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.style.colorScheme = resolved;
+  }, [resolved]);
+
   const themeConfig = useMemo(
     () => ({
       algorithm:
         resolved === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
       token: resolved === "dark" ? {
-        colorPrimary: "#0078d4",
-        colorBgBase: "#1e1e1e",
-        colorBgLayout: "#1e1e1e",
-        colorBgContainer: "#252526",
-        colorBgElevated: "#252526",
-        colorFillSecondary: "#2a2d2e",
-        colorBorder: "#3c3c3c",
-        colorBorderSecondary: "#333333",
-        colorText: "#cccccc",
-        colorTextSecondary: "#9d9d9d",
+        colorPrimary: "#58a6ff",
+        colorBgBase: "#010409",
+        colorBgLayout: "#0d1117",
+        colorBgContainer: "#161b22",
+        colorBgElevated: "#161b22",
+        colorFillSecondary: "#21262d",
+        colorBorder: "#30363d",
+        colorBorderSecondary: "#21262d",
+        colorText: "#e6edf3",
+        colorTextSecondary: "#8b949e",
         borderRadius: 8,
       } : { colorPrimary: "#5865f2", borderRadius: 8 },
       components: resolved === "dark" ? {
         Layout: {
-          bodyBg: "#1e1e1e",
-          headerBg: "#181818",
-          headerColor: "#cccccc",
-          siderBg: "#181818",
+          bodyBg: "#0d1117",
+          headerBg: "#161b22",
+          headerColor: "#e6edf3",
+          siderBg: "#0d1117",
         },
         Menu: {
-          darkItemBg: "#181818",
-          darkSubMenuItemBg: "#181818",
-          darkItemColor: "#cccccc",
-          darkItemHoverColor: "#ffffff",
-          darkItemHoverBg: "#2a2d2e",
-          darkItemSelectedColor: "#ffffff",
-          darkItemSelectedBg: "#094771",
-          darkGroupTitleColor: "#9d9d9d",
+          darkItemBg: "#0d1117",
+          darkSubMenuItemBg: "#0d1117",
+          darkItemColor: "#8b949e",
+          darkItemHoverColor: "#e6edf3",
+          darkItemHoverBg: "#21262d",
+          darkItemSelectedColor: "#e6edf3",
+          darkItemSelectedBg: "#1f6feb",
+          darkGroupTitleColor: "#8b949e",
         },
       } : undefined,
     }),
