@@ -173,7 +173,7 @@ async fn switch_provider<R: Runtime>(
         crate::commands::providers::switch_provider_for_target(id, target, &state).await?;
     crate::commands::providers::schedule_provider_health_check(
         app.clone(),
-        provider,
+        provider.provider,
         std::sync::Arc::clone(&state.db),
     );
     Ok(())

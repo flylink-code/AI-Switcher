@@ -36,6 +36,7 @@ import {
   restoreTrashedSession,
   scanSessions,
   searchSessionContents,
+  syncCodexSessionProviders,
   trashSession as trashSessionArchive,
 } from "@/services/api";
 import type {
@@ -75,6 +76,7 @@ export default function SessionsPage() {
   const [trashedArchives, setTrashedArchives] = useState<SessionArchiveInfo[]>([]);
   const [sessionAction, setSessionAction] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
+  const [repairingCodex, setRepairingCodex] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -194,6 +196,35 @@ export default function SessionsPage() {
       void toast.success(t("sessions.batchBackedUp", { count: result.archives.length }));
     } catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
+  };
+
+  const repairCodexSessions = async () => {
+    setRepairingCodex(true);
+    try {
+      const result = await syncCodexSessionProviders();
+      if (result.status === "warning") {
+        void toast.warning(result.message);
+      } else if (result.changedSessionFiles > 0 || result.sqliteRowsUpdated > 0) {
+        void toast.success(
+          t("sessions.codexRepairSummary", {
+            files: result.changedSessionFiles,
+            rows: result.sqliteRowsUpdated,
+          }),
+        );
+      } else {
+        void toast.success(t("sessions.codexRepairUpToDate"));
+      }
+      if (result.skippedLockedFiles.length > 0) {
+        void toast.warning(
+          t("sessions.codexRepairSkipped", { count: result.skippedLockedFiles.length }),
+        );
+      }
+      await refresh();
+    } catch (reason) {
+      void toast.error(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRepairingCodex(false);
+    }
   };
 
   const selectExportDirectory = async (): Promise<string | null> => {
@@ -373,6 +404,13 @@ export default function SessionsPage() {
           </Button>
           <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
           <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
+          {provider === "codex" ? (
+            <Tooltip title={t("sessions.codexRepairHint")}>
+              <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
+                {t("sessions.codexRepair")}
+              </Button>
+            </Tooltip>
+          ) : null}
         </Space>
       </Card>
 

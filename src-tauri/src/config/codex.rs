@@ -16,7 +16,11 @@ use crate::error::{AppError, AppResult};
 use crate::provider::{validate_target_protocol, ClaudeModelMapping, LiveProviderInfo, ProtocolType, Provider, ProviderTarget};
 use crate::mcp::McpServer;
 
-const MANAGED_PROVIDER_PREFIX: &str = "ai_switcher_";
+/// Stable Codex model_provider id for every AI-Switcher managed third-party
+/// provider. Keeping this fixed prevents Codex from hiding historical sessions
+/// when the user switches between our providers.
+pub const MANAGED_PROVIDER_ID: &str = "ai_switcher";
+const LEGACY_MANAGED_PROVIDER_PREFIX: &str = "ai_switcher_";
 const CONFIG_BACKUP: &str = "codex-original-config.toml";
 const AUTH_BACKUP: &str = "codex-original-auth.json";
 
@@ -43,13 +47,12 @@ pub fn auth_status() -> CodexAuthStatus {
     }
 }
 
-fn managed_provider_id(provider: &Provider) -> String {
-    let suffix: String = provider
-        .id
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-        .collect();
-    format!("{MANAGED_PROVIDER_PREFIX}{suffix}")
+pub fn managed_provider_id() -> &'static str {
+    MANAGED_PROVIDER_ID
+}
+
+pub fn is_managed_provider_id(provider_id: &str) -> bool {
+    provider_id == MANAGED_PROVIDER_ID || provider_id.starts_with(LEGACY_MANAGED_PROVIDER_PREFIX)
 }
 
 fn wire_api(protocol: ProtocolType) -> &'static str {
@@ -84,6 +87,11 @@ fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
 
 /// Apply a direct Codex model provider. The API key remains in the OS keyring
 /// at rest; Codex needs its selected runtime key in auth.json while active.
+///
+/// Pure-API shape matches CodexPlusPlus / cc-switch:
+/// - `requires_openai_auth = true` so Codex reads `~/.codex/auth.json`
+/// - never set `env_key` (that forces a process env var and yields
+///   `Missing environment variable: OPENAI_API_KEY` when unset)
 pub fn apply_provider(provider: &Provider, api_key: &str) -> AppResult<()> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
@@ -91,27 +99,50 @@ pub fn apply_provider(provider: &Provider, api_key: &str) -> AppResult<()> {
     backup_once(&config_path, CONFIG_BACKUP)?;
     backup_once(&auth_path, AUTH_BACKUP)?;
 
-    let provider_id = managed_provider_id(provider);
     let mut doc = load_document(&config_path)?;
-    doc["model"] = value(provider.model.trim());
-    doc["model_provider"] = value(provider_id.as_str());
-    if !doc["model_providers"].is_table() {
-        doc["model_providers"] = Item::Table(Table::new());
-    }
-    let entry = &mut doc["model_providers"][provider_id.as_str()];
-    if !entry.is_table() {
-        *entry = Item::Table(Table::new());
-    }
-    entry["name"] = value(provider.name.trim());
-    entry["base_url"] = value(provider.base_url.trim());
-    entry["wire_api"] = value(wire_api(provider.protocol_type));
-    entry["env_key"] = value("OPENAI_API_KEY");
+    write_managed_provider(&mut doc, provider);
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
     // Keep the foreign file intentionally minimal. Do not merge or expose a
     // previous OAuth document; `switch_to_official` restores its byte backup.
     let auth = serde_json::json!({ "OPENAI_API_KEY": api_key });
     atomic_write(&auth_path, serde_json::to_string_pretty(&auth)?.as_bytes())
+}
+
+fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider) {
+    let provider_id = MANAGED_PROVIDER_ID;
+    doc["model"] = value(provider.model.trim());
+    doc["model_provider"] = value(provider_id);
+    if !doc["model_providers"].is_table() {
+        doc["model_providers"] = Item::Table(Table::new());
+    }
+    remove_legacy_managed_providers(doc);
+    let entry = &mut doc["model_providers"][provider_id];
+    if !entry.is_table() {
+        *entry = Item::Table(Table::new());
+    }
+    entry["name"] = value(provider.name.trim());
+    entry["base_url"] = value(provider.base_url.trim());
+    entry["wire_api"] = value(wire_api(provider.protocol_type));
+    entry["requires_openai_auth"] = value(true);
+    // Drop the legacy mistaken field so re-switching heals old config.toml.
+    if let Some(table) = entry.as_table_mut() {
+        table.remove("env_key");
+    }
+}
+
+fn remove_legacy_managed_providers(doc: &mut DocumentMut) {
+    let Some(providers) = doc["model_providers"].as_table_mut() else {
+        return;
+    };
+    let legacy_keys: Vec<String> = providers
+        .iter()
+        .map(|(key, _)| key.to_string())
+        .filter(|key| key.starts_with(LEGACY_MANAGED_PROVIDER_PREFIX) && key != MANAGED_PROVIDER_ID)
+        .collect();
+    for key in legacy_keys {
+        providers.remove(&key);
+    }
 }
 
 pub fn restore_official() -> AppResult<()> {
@@ -131,7 +162,7 @@ pub fn restore_official() -> AppResult<()> {
 pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     let doc = load_document(&get_codex_config_path())?;
     let provider_id = doc["model_provider"].as_str().unwrap_or_default();
-    if !provider_id.starts_with(MANAGED_PROVIDER_PREFIX) {
+    if !is_managed_provider_id(provider_id) {
         return Ok(None);
     }
     let entry = &doc["model_providers"][provider_id];
@@ -203,11 +234,69 @@ pub fn read_mcp_servers() -> AppResult<BTreeMap<String, Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::{ClaudeModelMapping, ProtocolType, Provider, ProviderTarget};
+
+    fn sample_codex_provider() -> Provider {
+        Provider {
+            id: "p1".into(),
+            name: "ThirdParty".into(),
+            base_url: "https://api.example.com/v1".into(),
+            api_key: String::new(),
+            api_key_set: true,
+            model: "gpt-5".into(),
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::OpenAiResponses,
+            target_app: ProviderTarget::Codex,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: true,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        }
+    }
 
     #[test]
     fn selects_expected_wire_api() {
         assert_eq!(wire_api(ProtocolType::OpenAiResponses), "responses");
         assert_eq!(wire_api(ProtocolType::OpenAiChat), "chat");
         assert_eq!(wire_api(ProtocolType::Anthropic), "anthropic");
+    }
+
+    #[test]
+    fn pure_api_provider_uses_stable_id_without_env_key() {
+        let provider = sample_codex_provider();
+        let mut doc = DocumentMut::new();
+        doc["model_providers"] = Item::Table(Table::new());
+        doc["model_providers"]["ai_switcher_old"] = Item::Table(Table::new());
+        doc["model_providers"]["ai_switcher_old"]["env_key"] = value("OPENAI_API_KEY");
+        doc["model_providers"]["ai_switcher"] = Item::Table(Table::new());
+        doc["model_providers"]["ai_switcher"]["env_key"] = value("OPENAI_API_KEY");
+
+        write_managed_provider(&mut doc, &provider);
+
+        let text = doc.to_string();
+        assert!(text.contains("requires_openai_auth = true"));
+        assert!(!text.contains("env_key"));
+        assert!(!text.contains("[model_providers.ai_switcher_old]"));
+        assert_eq!(doc["model"].as_str(), Some("gpt-5"));
+        assert_eq!(doc["model_provider"].as_str(), Some(MANAGED_PROVIDER_ID));
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        assert_eq!(entry.get("name").and_then(Item::as_str), Some("ThirdParty"));
+        assert_eq!(
+            entry.get("base_url").and_then(Item::as_str),
+            Some("https://api.example.com/v1")
+        );
+        assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
+        assert_eq!(entry.get("requires_openai_auth").and_then(Item::as_bool), Some(true));
+        assert!(entry.get("env_key").is_none());
+    }
+
+    #[test]
+    fn recognizes_stable_and_legacy_managed_ids() {
+        assert!(is_managed_provider_id("ai_switcher"));
+        assert!(is_managed_provider_id("ai_switcher_p1"));
+        assert!(!is_managed_provider_id("openai"));
+        assert!(!is_managed_provider_id("custom"));
     }
 }

@@ -1,6 +1,7 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
-use crate::config::{claude_code, claude_desktop, codex};
+use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync};
+use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
@@ -48,7 +49,7 @@ pub async fn update_provider(input: ProviderInput, state: tauri::State<'_, AppSt
     }
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
     if provider.is_current {
-        apply_target_provider(&provider, &state).await?;
+        let _ = apply_target_provider(&provider, &state).await?;
     }
     Ok(provider)
 }
@@ -58,20 +59,27 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
     state.db.with_conn(|conn| dao::delete_provider(conn, &id))
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchProviderResult {
+    pub provider: Provider,
+    pub session_sync: Option<CodexProviderSyncResult>,
+}
+
 /// Activate a provider only for the application that owns it.
 #[tauri::command]
 pub async fn switch_provider(
     id: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-) -> AppResult<Provider> {
+) -> AppResult<SwitchProviderResult> {
     let target = state.db.with_conn(|conn| {
         dao::get_provider(conn, &id)?.map(|provider| provider.target_app)
             .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
-    let provider = switch_provider_for_target(&id, target, &state).await?;
-    schedule_provider_health_check(app, provider.clone(), Arc::clone(&state.db));
-    Ok(provider)
+    let result = switch_provider_for_target(&id, target, &state).await?;
+    schedule_provider_health_check(app, result.provider.clone(), Arc::clone(&state.db));
+    Ok(result)
 }
 
 /// Shared provider switching service used by both IPC and tray actions.
@@ -81,7 +89,7 @@ pub async fn switch_provider_for_target(
     id: &str,
     target: ProviderTarget,
     state: &AppState,
-) -> AppResult<Provider> {
+) -> AppResult<SwitchProviderResult> {
     let provider = state.db.with_conn(|conn| {
         dao::get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
@@ -94,10 +102,13 @@ pub async fn switch_provider_for_target(
             target.as_str(),
             id
         );
-        return Ok(provider);
+        return Ok(SwitchProviderResult {
+            provider,
+            session_sync: None,
+        });
     }
     let started = Instant::now();
-    let snapshot = apply_target_provider(&provider, state).await?;
+    let (snapshot, session_sync) = apply_target_provider(&provider, state).await?;
     let applied_ms = started.elapsed().as_millis();
     if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, id)) {
         return rollback_switch(snapshot, state, error).await;
@@ -109,7 +120,10 @@ pub async fn switch_provider_for_target(
         applied_ms,
         started.elapsed().as_millis()
     );
-    Ok(provider)
+    Ok(SwitchProviderResult {
+        provider,
+        session_sync,
+    })
 }
 
 #[derive(Clone, Serialize)]
@@ -480,7 +494,10 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     Ok(ProviderImportResult { imported, skipped })
 }
 
-async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResult<SwitchSnapshot> {
+async fn apply_target_provider(
+    provider: &Provider,
+    state: &AppState,
+) -> AppResult<(SwitchSnapshot, Option<CodexProviderSyncResult>)> {
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
     // for config writing; it is never serialized or persisted.
     let mut runtime_provider = provider.clone();
@@ -495,7 +512,7 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
     let uses_proxy = runtime_provider.requires_local_proxy();
-    let result: AppResult<()> = async {
+    let result: AppResult<Option<CodexProviderSyncResult>> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
                 let ownership = prepare_code_ownership(
@@ -518,6 +535,7 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Code 配置写入任务失败: {error}")))??;
                 commit_code_ownership(state, ownership)?;
+                Ok(None)
             }
             ProviderTarget::ClaudeDesktop => {
                 let original_applied_id = prepare_desktop_ownership(state)?;
@@ -531,26 +549,55 @@ async fn apply_target_provider(provider: &Provider, state: &AppState) -> AppResu
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;
                 commit_desktop_ownership(state, original_applied_id)?;
+                Ok(None)
             }
             ProviderTarget::Codex => {
                 codex::apply_provider(&runtime_provider, &runtime_provider.api_key)?;
+                // Config write succeeded. Session rewrite failures must not roll
+                // back the provider switch; surface them as a warning instead.
+                let session_sync = match codex_provider_sync::sync_to_managed_provider() {
+                    Ok(result) => {
+                        log::info!(
+                            "Codex 历史会话同步完成: changed={} sqlite={} status={}",
+                            result.changed_session_files,
+                            result.sqlite_rows_updated,
+                            result.status
+                        );
+                        result
+                    }
+                    Err(error) => {
+                        log::warn!("Codex 历史会话同步失败（配置已切换）: {error}");
+                        CodexProviderSyncResult {
+                            status: "warning".into(),
+                            message: format!("供应商已切换，但历史会话同步失败：{error}"),
+                            target_provider: codex::managed_provider_id().into(),
+                            backup_dir: None,
+                            changed_session_files: 0,
+                            sqlite_rows_updated: 0,
+                            skipped_locked_files: Vec::new(),
+                        }
+                    }
+                };
+                Ok(Some(session_sync))
             }
         }
-        Ok(())
     }.await;
-    if let Err(error) = result {
-        if let Err(mark_error) = snapshot.capture_last_written_files() {
-            return rollback_switch(snapshot, state, AppError::Config(format!("{error}；无法安全确认配置写入状态：{mark_error}"))).await;
+    let session_sync = match result {
+        Ok(session_sync) => session_sync,
+        Err(error) => {
+            if let Err(mark_error) = snapshot.capture_last_written_files() {
+                return rollback_switch(snapshot, state, AppError::Config(format!("{error}；无法安全确认配置写入状态：{mark_error}"))).await;
+            }
+            return rollback_switch(snapshot, state, error).await;
         }
-        return rollback_switch(snapshot, state, error).await;
-    }
+    };
     if let Err(error) = snapshot.capture_last_written_files() {
         return rollback_switch(snapshot, state, error).await;
     }
     if !uses_proxy {
         state.proxy.lock().await.stop_target(runtime_provider.target_app);
     }
-    Ok(snapshot)
+    Ok((snapshot, session_sync))
 }
 
 struct SwitchSnapshot {

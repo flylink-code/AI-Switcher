@@ -82,8 +82,21 @@ export default function ProvidersPage() {
     }
     setBusy(true);
     try {
-      await store.switchTo(provider.id);
+      const result = await store.switchTo(provider.id);
       void message.success(t("providers.switched", { name: provider.name }));
+      const sync = result.sessionSync;
+      if (sync) {
+        if (sync.status === "warning") {
+          void message.warning(sync.message);
+        } else if (sync.changedSessionFiles > 0 || sync.sqliteRowsUpdated > 0) {
+          void message.success(
+            t("providers.sessionSyncSummary", {
+              files: sync.changedSessionFiles,
+              rows: sync.sqliteRowsUpdated,
+            }),
+          );
+        }
+      }
     } catch (e) {
       void message.error(errMsg(e));
     } finally { setBusy(false); }

@@ -30,6 +30,8 @@ import type {
   ProviderInput,
   ProviderTarget,
   CodexAuthStatus,
+  CodexProviderSyncResult,
+  SwitchProviderResult,
   ProxyStatus,
   Skill,
   SkillTarget,
@@ -190,9 +192,9 @@ export async function deleteProvider(id: string): Promise<void> {
   return invoke<void>("delete_provider", { id });
 }
 
-export async function switchProvider(id: string): Promise<Provider> {
+export async function switchProvider(id: string): Promise<SwitchProviderResult> {
   const invoke = await getInvoke();
-  return invoke<Provider>("switch_provider", { id });
+  return invoke<SwitchProviderResult>("switch_provider", { id });
 }
 
 export async function switchToOfficial(target: ProviderTarget): Promise<void> {
@@ -661,6 +663,15 @@ export async function scanSessions(
 ): Promise<SessionScanResult> {
   const invoke = await getInvoke();
   return invoke<SessionScanResult>("scan_sessions", { provider });
+}
+
+export async function syncCodexSessionProviders(
+  targetProvider?: string,
+): Promise<CodexProviderSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexProviderSyncResult>("sync_codex_session_providers", {
+    targetProvider: targetProvider ?? null,
+  });
 }
 
 export async function searchSessionContents(

@@ -65,6 +65,21 @@ export interface ProviderHealthUpdated {
   checkedAt: number;
 }
 
+export interface CodexProviderSyncResult {
+  status: string;
+  message: string;
+  targetProvider: string;
+  backupDir?: string | null;
+  changedSessionFiles: number;
+  sqliteRowsUpdated: number;
+  skippedLockedFiles: string[];
+}
+
+export interface SwitchProviderResult {
+  provider: Provider;
+  sessionSync?: CodexProviderSyncResult | null;
+}
+
 export interface ModelDiscoveryResult {
   models: string[];
   message: string;

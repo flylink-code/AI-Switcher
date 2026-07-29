@@ -5,6 +5,7 @@ import type {
   ProviderHealthUpdated,
   ProviderInput,
   ProviderTarget,
+  SwitchProviderResult,
 } from "@/types/backend";
 import {
   createProvider,
@@ -28,7 +29,7 @@ interface ProvidersState {
   create: (input: ProviderInput) => Promise<void>;
   update: (input: ProviderInput) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  switchTo: (id: string) => Promise<void>;
+  switchTo: (id: string) => Promise<SwitchProviderResult>;
   useOfficial: () => Promise<void>;
   move: (id: string, direction: -1 | 1) => Promise<void>;
   importLive: () => Promise<void>;
@@ -77,7 +78,8 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
   },
 
   switchTo: async (id) => {
-    const provider = await switchProvider(id);
+    const result = await switchProvider(id);
+    const provider = result.provider;
     set({
       providers: get().providers.map((item) => ({
         ...item,
@@ -89,6 +91,7 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
       (current = []) =>
         current.map((item) => ({ ...item, isCurrent: item.id === provider.id })),
     );
+    return result;
   },
 
   useOfficial: async () => {
