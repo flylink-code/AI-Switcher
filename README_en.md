@@ -16,7 +16,7 @@ The application works locally by default. API keys are stored in the operating s
 - **Session Manager**: Browse, filter, and search Claude Code sessions under `~/.claude/projects`; export, validated import, move to the managed trash, and restore are supported.
 - **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
 - **Usage dashboard**: Requests, tokens, trends, estimated cost, provider/model breakdowns, and log maintenance policies. The yearly heatmap scales to the window width and always shows the full year.
-- **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark themes, and launch at login.
+- **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark/system themes, and launch at login. Cards, tables, form controls, and overlays use dynamic theme colors in the desktop app.
 - **Environment and updates**: Inspect configuration paths, the installed Claude Code version, and application updates.
 
 ## Session Manager
@@ -142,6 +142,8 @@ This project drew product and implementation ideas from the following open-sourc
 | AI Toolbox | Multi-tool configuration, sessions, and desktop information architecture | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox), MIT |
 | cc Proxy | Claude Desktop local proxying and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy), subject to its repository license terms |
 | CC Switch | Provider switching, Tauri architecture, session parsing, and tray interactions | [farion1231/cc-switch](https://github.com/farion1231/cc-switch), MIT |
+| Claude Code for VS Code Chinese Pack | VS Code extension discovery, localization rules, backup, and restoration | Local reference: `examples/claude-code-vscode-zh-cn`; [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn), MIT |
+| Claude Code Chinese Localization Plugin | Claude Code CLI localization installation, update, and restoration | Local reference: `examples/claude-code-zh-cn`; [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn), subject to its repository license terms |
 | Claude Desktop Chinese Patch | Desktop discovery, language-pack validation, and recovery | Localization repository: [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn), subject to its repository terms |
 | Code Switch | Local proxying, failover, and Claude Code/Codex configuration | [daodao97/code-swtich](https://github.com/daodao97/code-swtich), Apache-2.0 |
 

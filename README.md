@@ -16,7 +16,7 @@ AI-Switcher 是一款基于 Tauri 2、Rust 与 React 构建的桌面应用。它
 - **会话管理**：浏览、筛选和搜索 `~/.claude/projects` 下的 Claude Code 会话，支持导出、校验导入、移入资料库回收站与恢复。
 - **中文化中心**：分别管理 Claude Code CLI、VS Code/Cursor 扩展补丁助手及 Claude Desktop 语言包；补丁应用始终需要在编辑器中确认。
 - **用量统计**：按供应商和模型统计请求、Token、趋势与估算成本；年度热力图会随窗口宽度缩放，完整显示全年数据。
-- **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、高对比度浅色/深色主题和开机自启。
+- **系统集成**：系统托盘快捷切换、跟随界面语言的中英文菜单、高对比度浅色/深色/跟随系统主题和开机自启。桌面端会为卡片、表格、表单控件与弹层应用动态主题配色。
 - **环境与更新**：查看配置路径、Claude Code 版本和应用更新状态。
 
 ## 会话管理说明
@@ -142,6 +142,8 @@ scripts/                     Windows 开发和构建脚本
 | AI Toolbox | 多工具配置管理、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox)，MIT |
 | cc Proxy | Claude Desktop 本地代理和模型替换思路 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy)，以其仓库许可证声明为准 |
 | CC Switch | Provider 切换、Tauri 架构、会话解析与托盘交互 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch)，MIT |
+| Claude Code for VS Code 中文包 | VS Code 扩展定位、汉化规则、备份与恢复流程 | 本地参考：`examples/claude-code-vscode-zh-cn`；[zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn)，MIT |
+| Claude Code 中文本地化插件 | Claude Code CLI 的中文化安装、更新与恢复流程 | 本地参考：`examples/claude-code-zh-cn`；[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn)，以其仓库许可证声明为准 |
 | Claude Desktop 中文补丁 | Desktop 安装发现、语言包校验与恢复流程 | 汉化仓库：[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)，以其仓库声明为准 |
 | Code Switch | 本地代理、故障切换与 Claude Code/Codex 配置管理 | [daodao97/code-swtich](https://github.com/daodao97/code-swtich)，Apache-2.0 |
 
