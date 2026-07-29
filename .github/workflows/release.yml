@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Fixed the complete dark theme, including content pages, tables, popups, and readable navigation text
-            - Redesigned the dark palette with higher contrast for improved readability
-            - Made the yearly usage heatmap fit the available width without a horizontal scrollbar
+            - Restored Ant Design component styling for the full desktop interface
+            - Fixed the CSS variable theme configuration for reliable light and dark mode switching
+            - Retained the high-contrast dark palette and responsive yearly usage heatmap
 
             ## 更新内容
 
-            - 修复深色主题，覆盖内容页、表格、弹层及侧栏文字对比度
-            - 调整为更高对比度的深色配色，提升可读性
-            - 优化年度用量热力图，按可用宽度完整显示且不再出现横向滚动条
+            - 恢复 Ant Design 完整组件样式，修复界面退化问题
+            - 修复 CSS 变量主题配置，确保浅色和深色模式可靠切换
+            - 保留高对比度深色配色与自适应年度用量热力图
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

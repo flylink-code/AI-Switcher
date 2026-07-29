@@ -148,6 +148,8 @@ export default function App() {
     () => ({
       algorithm:
         resolved === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+      cssVar: { key: "ai-switcher" },
+      zeroRuntime: true,
       token: resolved === "dark" ? {
         colorPrimary: "#58a6ff",
         colorBgBase: "#010409",
