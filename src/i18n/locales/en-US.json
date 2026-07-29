@@ -611,6 +611,7 @@
     "useUpdateMirror": "Use GitHub mirror",
     "updateMirrorHint": "The mirror only delivers update metadata and installers; release signatures are still verified before installation. Disable it to use GitHub directly.",
     "updateMirrorSaved": "Update network settings saved",
+    "saveUpdateMirror": "Save",
     "appUpToDate": "You are on the latest version",
     "appUpdateAvailable": "Version {{version}} is available",
     "appUpdatePrompt": "The update will be downloaded and installed, then the app will restart.",

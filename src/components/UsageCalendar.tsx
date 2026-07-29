@@ -100,7 +100,18 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
         <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLegend")}</Text>
         {levels.map((level) => (
           <Space key={level.label} size={4} align="center">
-            <span style={{ width: 12, height: 12, borderRadius: 2, background: level.color, outline: `1px solid ${token.colorBorderSecondary}` }} />
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                flex: "0 0 12px",
+                width: 12,
+                height: 12,
+                borderRadius: 2,
+                background: level.color,
+                border: `1px solid ${token.colorBorderSecondary}`,
+              }}
+            />
             <Text type="secondary" style={{ fontSize: 12 }}>{level.label}</Text>
           </Space>
         ))}

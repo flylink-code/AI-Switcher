@@ -611,6 +611,7 @@
     "useUpdateMirror": "使用 GitHub 镜像",
     "updateMirrorHint": "镜像仅用于下载更新元数据与安装包；安装前仍会验证发布签名。关闭后仅直连 GitHub。",
     "updateMirrorSaved": "更新网络设置已保存",
+    "saveUpdateMirror": "保存",
     "appUpToDate": "当前已是最新版本",
     "appUpdateAvailable": "发现新版本 {{version}}",
     "appUpdatePrompt": "将下载并安装更新，应用会随后重启。",

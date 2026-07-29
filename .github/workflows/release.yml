@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Added a fully labeled yearly usage heatmap with dark-theme support
-            - Added configurable GitHub mirror updates with direct fallback and signature verification
-            - Added Excel import/export for model pricing and clearer Skill repository controls
+            - Fixed the VS Code Dark-style theme across the navigation and all content pages
+            - Added visible color swatches to every yearly usage heatmap intensity label
+            - Clarified the update-network save action
 
             ## 更新内容
 
-            - 年度日期热力图新增完整强度图例，并修复深色主题显示
-            - 更新支持可配置 GitHub 镜像、直连回退与签名验证
-            - 模型定价支持 Excel 导入导出，Skill 仓库配置更清晰
+            - 深色主题改为 VS Code 风格，并覆盖导航与全部内容页
+            - 年度日期热力图的每个强度标签均显示对应色块
+            - 优化更新网络保存按钮文案
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

@@ -188,7 +188,7 @@ export default function AboutPage() {
                     : "https://github.com/flylink-code/AI-Switcher/releases/latest/download/latest.json"}
                 </Text>
                 <Button loading={savingUpdateMirrorSettings} disabled={!updateMirrorSettings} onClick={() => void saveUpdateSettings()}>
-                  {t("common.save")}
+                  {t("about.saveUpdateMirror")}
                 </Button>
               </Space>
             </Card>

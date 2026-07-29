@@ -141,10 +141,39 @@ export default function App() {
 
   const themeConfig = useMemo(
     () => ({
-      zeroRuntime: true,
       algorithm:
         resolved === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-      token: { colorPrimary: "#5865f2", borderRadius: 8 },
+      token: resolved === "dark" ? {
+        colorPrimary: "#0078d4",
+        colorBgBase: "#1e1e1e",
+        colorBgLayout: "#1e1e1e",
+        colorBgContainer: "#252526",
+        colorBgElevated: "#252526",
+        colorFillSecondary: "#2a2d2e",
+        colorBorder: "#3c3c3c",
+        colorBorderSecondary: "#333333",
+        colorText: "#cccccc",
+        colorTextSecondary: "#9d9d9d",
+        borderRadius: 8,
+      } : { colorPrimary: "#5865f2", borderRadius: 8 },
+      components: resolved === "dark" ? {
+        Layout: {
+          bodyBg: "#1e1e1e",
+          headerBg: "#181818",
+          headerColor: "#cccccc",
+          siderBg: "#181818",
+        },
+        Menu: {
+          darkItemBg: "#181818",
+          darkSubMenuItemBg: "#181818",
+          darkItemColor: "#cccccc",
+          darkItemHoverColor: "#ffffff",
+          darkItemHoverBg: "#2a2d2e",
+          darkItemSelectedColor: "#ffffff",
+          darkItemSelectedBg: "#094771",
+          darkGroupTitleColor: "#9d9d9d",
+        },
+      } : undefined,
     }),
     [resolved],
   );

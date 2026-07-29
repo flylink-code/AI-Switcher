@@ -168,7 +168,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             </Tooltip>
           </Space>
         </Header>
-        <Content style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24 }}>
+        <Content style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24, background: token.colorBgLayout }}>
           {children}
         </Content>
       </Layout>
