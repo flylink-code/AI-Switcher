@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { Empty, Space, Statistic, Tooltip, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import type { UsageDashboard } from "@/types/backend";
@@ -8,8 +7,6 @@ const { Text } = Typography;
 export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; days: number }) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
   const byDate = new Map(data.map((row) => [row.date, row]));
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -27,7 +24,8 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
   const total = daily.reduce((sum, item) => sum + item.tokens, 0);
   const leading = Array.from({ length: daily[0]?.date.getDay() ?? 0 });
   const columns = Math.ceil((leading.length + daily.length) / 7);
-  const { cellSize, cellGap } = calendarCellMetrics(containerWidth, columns);
+  const columnGaps = Math.max(columns - 1, 0);
+  const gridMaxWidth = columns * 36 + columnGaps * 6;
   const levels = [
     { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
     { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
@@ -35,16 +33,6 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
     { color: token.colorSuccessBorder, label: t("usage.calendarLevelThree") },
     { color: token.colorSuccess, label: t("usage.calendarLevelFour") },
   ];
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-    const updateWidth = () => setContainerWidth(element.clientWidth);
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
 
   if (!data.length) return <Empty description={t("usage.noData")} />;
 
@@ -55,17 +43,18 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
         <Statistic title={t("usage.dailyPeak")} value={max} formatter={(value) => formatNumber(Number(value))} />
         <Statistic title={t("usage.calendarTotal")} value={total} formatter={(value) => formatNumber(Number(value))} />
       </Space>
-      <div ref={containerRef} style={{ overflow: "hidden" }}>
+      <div style={{ width: "100%", minWidth: 0, overflow: "hidden" }}>
         <div
           role="grid"
           aria-label={t("usage.dailyStatistics")}
           style={{
             display: "grid",
-            gridTemplateRows: `repeat(7, ${cellSize}px)`,
+            gridTemplateRows: "repeat(7, auto)",
+            gridTemplateColumns: `repeat(${columns}, minmax(8px, 1fr))`,
             gridAutoFlow: "column",
-            gridAutoColumns: `${cellSize}px`,
-            gap: cellGap,
-            width: "max-content",
+            gap: "clamp(2px, 0.35vw, 6px)",
+            width: "100%",
+            maxWidth: gridMaxWidth,
           }}
         >
           {leading.map((_, index) => <span key={`leading-${index}`} />)}
@@ -81,11 +70,13 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
                   role="gridcell"
                   aria-label={tooltip}
                   style={{
-                    width: cellSize,
-                    height: cellSize,
+                    display: "block",
+                    width: "100%",
+                    height: "auto",
+                    aspectRatio: "1 / 1",
                     padding: 0,
                     border: `1px solid ${token.colorBorderSecondary}`,
-                    borderRadius: Math.max(4, Math.round(cellSize * 0.18)),
+                    borderRadius: 3,
                     background: levels[level].color,
                     cursor: "default",
                   }}
@@ -117,29 +108,6 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
       </Space>
     </Space>
   );
-}
-
-function calendarCellMetrics(containerWidth: number, columns: number) {
-  const minCellSize = 8;
-  const maxCellSize = 36;
-  const minGap = 2;
-  const maxGap = 8;
-  if (!containerWidth || !columns) return { cellSize: minCellSize, cellGap: minGap };
-  const cellSize = Math.max(
-    minCellSize,
-    Math.min(
-      maxCellSize,
-      Math.floor((containerWidth - minGap * (columns - 1)) / columns),
-    ),
-  );
-  const cellGap = Math.max(
-    minGap,
-    Math.min(
-      maxGap,
-      Math.floor((containerWidth - cellSize * columns) / Math.max(columns - 1, 1)),
-    ),
-  );
-  return { cellSize, cellGap };
 }
 
 function localDateKey(value: Date) {
