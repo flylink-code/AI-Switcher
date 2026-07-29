@@ -43,15 +43,15 @@ jobs:
 
             ## What's new
 
-            - Fixed the CSS cascade-layer ordering that kept content cards white in dark mode
-            - Verified production rendering for both light and dark themes
-            - Retained the responsive yearly usage heatmap and high-contrast navigation palette
+            - Fixed Tauri CSP blocking Ant Design runtime theme styles in production
+            - Propagated Tauri's per-document nonce to all Ant Design dynamic styles
+            - Verified real WebView2 rendering for both light and dark themes
 
             ## 更新内容
 
-            - 修复 CSS 级联层顺序，解决深色模式下内容卡片仍为白底的问题
-            - 完成浅色与深色主题的生产渲染验证
-            - 保留响应式年度用量热力图与高对比度导航配色
+            - 修复 Tauri CSP 在生产环境中阻止 Ant Design 运行时主题样式的问题
+            - 将 Tauri 每个页面生成的 nonce 传递给全部 Ant Design 动态样式
+            - 完成真实 WebView2 环境下的浅色与深色主题验证
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

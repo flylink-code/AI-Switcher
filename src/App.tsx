@@ -184,6 +184,13 @@ export default function App() {
     }),
     [resolved],
   );
+  const csp = useMemo(() => {
+    // Tauri adds a per-document nonce to bundled inline styles. Reuse it for
+    // Ant Design's runtime styles; otherwise WebView2 blocks the generated
+    // dark-theme variables even though the <style> elements exist in the DOM.
+    const nonce = document.querySelector<HTMLStyleElement>("style[nonce]")?.nonce;
+    return nonce ? { nonce } : undefined;
+  }, []);
 
   const antdLocale = language === "en-US" ? enUS : zhCN;
   const handleNavigate = useCallback((key: PageKey) => {
@@ -234,7 +241,7 @@ export default function App() {
   }, [availableUpdate, t]);
 
   return (
-    <ConfigProvider locale={antdLocale} theme={themeConfig}>
+    <ConfigProvider csp={csp} locale={antdLocale} theme={themeConfig}>
       <AntApp>
         {!startupReady ? (
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
