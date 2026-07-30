@@ -30,6 +30,11 @@ import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
+import {
+  USAGE_SOURCE_FILTER_OPTIONS,
+  usageSourceIcon,
+  type UsageSourceFilter,
+} from "@/components/UsageSourceIcons";
 import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
 import { usageTrendOptions } from "@/lib/appQueries";
 
@@ -43,12 +48,14 @@ export default function ProvidersPage() {
   const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const usageDays = usePagePreferencesStore((state) => state.usageDays);
   const setUsageDays = usePagePreferencesStore((state) => state.setUsageDays);
+  const usageSource = usePagePreferencesStore((state) => state.usageLogTarget);
+  const setUsageSource = usePagePreferencesStore((state) => state.setUsageLogTarget);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-  const usageQuery = useQuery(usageTrendOptions(usageDays));
+  const usageQuery = useQuery(usageTrendOptions(usageDays, usageSource));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -295,12 +302,30 @@ export default function ProvidersPage() {
       size="small"
       title={t("usage.dailyStatistics")}
       extra={
-        <Select
-          value={usageDays}
-          style={{ width: 130 }}
-          options={[7, 30, 90, 365].map((value) => ({ value, label: t("usage.lastDays", { days: value }) }))}
-          onChange={setUsageDays}
-        />
+        <Space wrap size={8}>
+          <Select
+            value={usageDays}
+            style={{ width: 130 }}
+            options={[7, 30, 90, 365].map((value) => ({ value, label: t("usage.lastDays", { days: value }) }))}
+            onChange={setUsageDays}
+          />
+          <Segmented<UsageSourceFilter>
+            value={usageSource}
+            onChange={setUsageSource}
+            options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
+              const label = t(option.labelKey);
+              return {
+                value: option.value,
+                icon: usageSourceIcon(option.value),
+                label: (
+                  <Tooltip title={label}>
+                    <span>{label}</span>
+                  </Tooltip>
+                ),
+              };
+            })}
+          />
+        </Space>
       }
     >
       {usageQuery.error ? (

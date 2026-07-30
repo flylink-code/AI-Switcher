@@ -24,15 +24,11 @@ import {
   message,
   theme,
 } from "antd";
-import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
-import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
-import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
-import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,7 +51,6 @@ import type {
   ModelPricingInput,
   PricingImportPreview,
   PaginatedProxyLogs,
-  ProviderTarget,
   UsageDashboard,
 } from "@/types/backend";
 import {
@@ -73,21 +68,13 @@ import {
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import {
+  USAGE_SOURCE_FILTER_OPTIONS,
+  usageSourceIcon,
+  type UsageSourceFilter,
+} from "@/components/UsageSourceIcons";
 
 const { Text } = Typography;
-
-type UsageSourceFilter = ProviderTarget | "all";
-
-const SOURCE_FILTER_OPTIONS: Array<{
-  value: UsageSourceFilter;
-  icon: ReactNode;
-  labelKey: string;
-}> = [
-  { value: "all", icon: <AppstoreOutlined />, labelKey: "usage.sourceAll" },
-  { value: "claude_code", icon: <CodeOutlined />, labelKey: "usage.sourceClaudeCode" },
-  { value: "claude_desktop", icon: <DesktopOutlined />, labelKey: "usage.sourceClaudeDesktop" },
-  { value: "codex", icon: <RobotOutlined />, labelKey: "usage.sourceCodex" },
-];
 
 function invalidateUsageQueries(queryClient: ReturnType<typeof useQueryClient>) {
   return Promise.all([
@@ -362,11 +349,11 @@ export default function UsagePage() {
                   setLogTargetApp(value);
                   setLogPage(0);
                 }}
-                options={SOURCE_FILTER_OPTIONS.map((option) => {
+                options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
                   const label = t(option.labelKey);
                   return {
                     value: option.value,
-                    icon: option.icon,
+                    icon: usageSourceIcon(option.value),
                     label: (
                       <Tooltip title={label}>
                         <span>{label}</span>

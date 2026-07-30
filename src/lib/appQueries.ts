@@ -128,10 +128,13 @@ export const usageOverviewOptions = (
   });
 
 /** Lightweight trend-only fetch for Providers calendar (no logs/pricing). */
-export const usageTrendOptions = (days: number) =>
+export const usageTrendOptions = (
+  days: number,
+  target: ProviderTarget | "all" = "all",
+) =>
   queryOptions({
-    queryKey: ["usage-trend", days] as const,
-    queryFn: () => getUsageDashboard(days, "all"),
+    queryKey: ["usage-trend", days, target] as const,
+    queryFn: () => getUsageDashboard(days, target),
     staleTime: 60_000,
     refetchOnMount: false,
   });
