@@ -1,6 +1,6 @@
 [package]
 name = "claude-switcher"
-version = "0.5.1"
+version = "0.5.2"
 description = "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex"
 authors = ["Claude Switcher"]
 edition = "2021"

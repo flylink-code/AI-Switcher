@@ -67,17 +67,11 @@ jobs:
 
             ## What's new
 
-            - Fix Windows autostart: self-managed HKCU Run + StartupApproved (`AI-Switcher`, quoted path)
-            - Move Launch & close settings to the top of Environment page for discoverability
-            - Verify registry after enable; show registered command / Task Manager disabled status
-            - Startup migration cleans legacy names and re-registers when DB says on but OS is off
+            - Linux: default `WEBKIT_DISABLE_DMABUF_RENDERER=1` to fix Wayland UI smears / ghost icons (Ubuntu 22.04+)
 
             ## 更新内容
 
-            - 修复 Windows 开机自启：自管 HKCU Run + StartupApproved（固定名 AI-Switcher，路径加引号）
-            - 「启动与关闭」卡片置顶到环境信息页首屏，文案统一
-            - 启用后回读注册表；展示已注册命令 / 任务管理器禁用状态
-            - 启动迁移清理旧名，并在 DB 已开但系统未注册时尝试重注册
+            - Linux：默认启用 `WEBKIT_DISABLE_DMABUF_RENDERER=1`，修复 Ubuntu 22.04+ Wayland 下界面拖影/鬼影图标
 
             ### Windows
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
