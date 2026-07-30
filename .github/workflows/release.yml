@@ -67,11 +67,17 @@ jobs:
 
             ## What's new
 
-            - Linux: default `WEBKIT_DISABLE_DMABUF_RENDERER=1` to fix Wayland UI smears / ghost icons (Ubuntu 22.04+)
+            - Fix Linux app icon white edges (transparent corners)
+            - SSH sync: optional one-shot password, username ↔ `/home/<user>/.ai-switcher` linkage, clearer pipe errors
+            - Compact token display (k / M) on heatmap and usage stats
+            - Linux autostart status: surface XDG Exec and stop false “not registered” when enabled
 
             ## 更新内容
 
-            - Linux：默认启用 `WEBKIT_DISABLE_DMABUF_RENDERER=1`，修复 Ubuntu 22.04+ Wayland 下界面拖影/鬼影图标
+            - 修复 Linux 应用图标白边（透明圆角）
+            - SSH 同步：支持推送时临时输入密码；填写用户名自动联动 `/home/<user>/.ai-switcher`；管道关闭错误附带远端详情
+            - 热力图与用量统计 Token 显示为 k / M
+            - Linux 开机自启：回填 XDG Exec，已启用时不再误报「未写入启动项」
 
             ### Windows
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.

@@ -51,6 +51,12 @@ import {
   setCloseBehavior,
 } from "@/services/api";
 import {
+  defaultRemoteRootForUser,
+  joinSshEndpoint,
+  nextRemoteRootForUser,
+  splitSshEndpoint,
+} from "@/utils/syncRemoteRoot";
+import {
   autostartOptions,
   closeBehaviorOptions,
   environmentOptions,
@@ -102,9 +108,12 @@ export default function EnvironmentPage() {
   const [syncName, setSyncName] = useState("");
   const [syncDistribution, setSyncDistribution] = useState<string | undefined>();
   const [syncHost, setSyncHost] = useState("");
-  const [syncRoot, setSyncRoot] = useState("/home/user/.ai-switcher");
+  const [syncUser, setSyncUser] = useState("");
+  const [syncRoot, setSyncRoot] = useState(defaultRemoteRootForUser("user"));
   const [wslDistributions, setWslDistributions] = useState<string[]>([]);
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  const [syncPassword, setSyncPassword] = useState("");
+  const [syncPasswordOpen, setSyncPasswordOpen] = useState(false);
 
   const onPing = useCallback(async () => {
     setRunning(true);
@@ -238,19 +247,22 @@ export default function EnvironmentPage() {
   const saveSync = useCallback(async () => {
     setRunning(true);
     try {
+      const sshHost =
+        syncKind === "ssh" ? joinSshEndpoint(syncUser, syncHost) || null : null;
       await saveSyncTarget({
         id: "", name: syncName, kind: syncKind,
         wslDistribution: syncKind === "wsl" ? syncDistribution ?? null : null,
-        sshHost: syncKind === "ssh" ? syncHost : null,
+        sshHost,
         sshPort: null, remoteRoot: syncRoot, pathMappings: [],
         items: ["provider_presets", "mcp", "prompts", "skills", "session_archives"], lastSyncedAt: null,
       });
-      setSyncModalOpen(false); setSyncName(""); setSyncHost("");
+      setSyncModalOpen(false); setSyncName(""); setSyncHost(""); setSyncUser("");
+      setSyncRoot(defaultRemoteRootForUser("user"));
       await syncTargetsQuery.refetch();
       void message.success(t("env.syncSaved"));
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [syncDistribution, syncHost, syncKind, syncName, syncRoot, syncTargetsQuery, t]);
+  }, [syncDistribution, syncHost, syncKind, syncName, syncRoot, syncTargetsQuery, syncUser, t]);
 
   const openSyncPreview = useCallback(async (target: SyncTarget) => {
     setRunning(true);
@@ -266,17 +278,46 @@ export default function EnvironmentPage() {
     finally { setRunning(false); }
   }, [syncTargetsQuery]);
 
-  const pushSync = useCallback(async () => {
+  const pushSync = useCallback(async (password: string | null) => {
     if (!syncPreview) return;
     setRunning(true);
     try {
-      const result = await pushSyncArchive(syncPreview.target.id);
+      const result = await pushSyncArchive(syncPreview.target.id, password);
       void message.success(t("env.syncPushed", { path: result.remotePath }));
       setSyncPreview(null);
+      setSyncPassword("");
+      setSyncPasswordOpen(false);
       await syncTargetsQuery.refetch();
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, [syncPreview, syncTargetsQuery, t]);
+
+  const requestPushSync = useCallback(() => {
+    if (!syncPreview) return;
+    if (syncPreview.target.kind === "ssh") {
+      setSyncPassword("");
+      setSyncPasswordOpen(true);
+      return;
+    }
+    void pushSync(null);
+  }, [pushSync, syncPreview]);
+
+  const onSyncUserChange = useCallback((value: string) => {
+    setSyncUser((previous) => {
+      setSyncRoot((root) => nextRemoteRootForUser(root, previous, value));
+      return value;
+    });
+  }, []);
+
+  const onSyncHostChange = useCallback((value: string) => {
+    if (value.includes("@")) {
+      const parsed = splitSshEndpoint(value);
+      setSyncHost(parsed.host);
+      if (parsed.user) onSyncUserChange(parsed.user);
+      return;
+    }
+    setSyncHost(value);
+  }, [onSyncUserChange]);
 
   const claudeRows: PathRow[] = paths
     ? [
@@ -377,6 +418,8 @@ export default function EnvironmentPage() {
                 <Typography.Text copyable code style={{ whiteSpace: "pre-wrap" }}>
                   {autostartQuery.data.command}
                 </Typography.Text>
+              ) : autostartQuery.data?.enabled ? (
+                <Text type="secondary">{t("env.autostartEnabledNoCommand")}</Text>
               ) : (
                 <Text type="secondary">{t("env.autostartNotInRegistry")}</Text>
               )}
@@ -528,15 +571,53 @@ export default function EnvironmentPage() {
         <Space direction="vertical" style={{ width: "100%" }}>
           <Select value={syncKind} onChange={setSyncKind} options={[{ value: "wsl", label: "WSL" }, { value: "ssh", label: "SSH" }]} />
           <Input value={syncName} onChange={(event) => setSyncName(event.target.value)} placeholder={t("env.syncNamePlaceholder")} />
-          {syncKind === "wsl" ? <Select value={syncDistribution} onChange={setSyncDistribution} options={wslDistributions.map((value) => ({ value, label: value }))} placeholder={t("env.syncWslPlaceholder")} /> : <Input value={syncHost} onChange={(event) => setSyncHost(event.target.value)} placeholder={t("env.syncHostPlaceholder")} />}
+          {syncKind === "wsl" ? (
+            <Select value={syncDistribution} onChange={setSyncDistribution} options={wslDistributions.map((value) => ({ value, label: value }))} placeholder={t("env.syncWslPlaceholder")} />
+          ) : (
+            <>
+              <Input value={syncUser} onChange={(event) => onSyncUserChange(event.target.value)} placeholder={t("env.syncUserPlaceholder")} />
+              <Input value={syncHost} onChange={(event) => onSyncHostChange(event.target.value)} placeholder={t("env.syncHostPlaceholder")} />
+            </>
+          )}
           <Input value={syncRoot} onChange={(event) => setSyncRoot(event.target.value)} placeholder={t("env.syncRootPlaceholder")} />
         </Space>
       </Modal>
-      <Modal open={syncPreview !== null} footer={syncPreview ? <Space><Button onClick={() => setSyncPreview(null)}>{t("common.cancel")}</Button><Popconfirm title={t("env.confirmPushSync")} description={t("env.confirmPushSyncDescription")} onConfirm={() => void pushSync()}><Button type="primary" loading={running}>{t("env.pushSync")}</Button></Popconfirm></Space> : null} onCancel={() => setSyncPreview(null)} title={t("env.previewSync")} width={720}>
+      <Modal
+        open={syncPreview !== null}
+        footer={syncPreview ? (
+          <Space>
+            <Button onClick={() => setSyncPreview(null)}>{t("common.cancel")}</Button>
+            <Popconfirm title={t("env.confirmPushSync")} description={t("env.confirmPushSyncDescription")} onConfirm={() => requestPushSync()}>
+              <Button type="primary" loading={running}>{t("env.pushSync")}</Button>
+            </Popconfirm>
+          </Space>
+        ) : null}
+        onCancel={() => setSyncPreview(null)}
+        title={t("env.previewSync")}
+        width={720}
+      >
         {syncPreview && <Space direction="vertical" style={{ width: "100%" }}>
           {syncPreview.warnings.map((warning) => <Alert key={warning} type="warning" showIcon message={warning} />)}
           <List dataSource={syncPreview.changes} locale={{ emptyText: t("env.noSyncChanges") }} renderItem={(change) => <List.Item><Text>{change.sourcePath} → {change.remotePath}</Text></List.Item>} />
         </Space>}
+      </Modal>
+      <Modal
+        open={syncPasswordOpen}
+        title={t("env.syncPasswordTitle")}
+        confirmLoading={running}
+        okText={t("env.pushSync")}
+        onOk={() => void pushSync(syncPassword.trim() ? syncPassword : null)}
+        onCancel={() => { setSyncPasswordOpen(false); setSyncPassword(""); }}
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Alert type="info" showIcon message={t("env.syncPasswordHint")} />
+          <Input.Password
+            value={syncPassword}
+            onChange={(event) => setSyncPassword(event.target.value)}
+            placeholder={t("env.syncPasswordPlaceholder")}
+            autoComplete="new-password"
+          />
+        </Space>
       </Modal>
     </Space>
   );

@@ -2,12 +2,16 @@
 //!
 //! Target records never contain a remote password, private key, API key, or
 //! Claude login state. A user must inspect a preview before a future push is
-//! allowed to execute.
+//! allowed to execute. Optional SSH passwords are accepted only for the
+//! duration of `push_sync_archive` and are never written to disk.
 
 use std::fs;
-use std::io::copy;
+use std::io::{copy, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -175,7 +179,7 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
     }
     Ok(SyncPreview { target, changes, warnings: vec![
         "预览只列出 Windows 端应用管理数据；不会读取或传递 API Key、Claude 登录状态、远程密码或私钥。".to_string(),
-        "执行同步前仍需显式确认；SSH 将使用系统 SSH Agent 或用户选择的密钥并校验主机指纹。".to_string(),
+        "执行同步前仍需显式确认；SSH 可使用系统 SSH Agent/密钥，或在推送时临时输入密码（不会保存）。".to_string(),
     ]})
 }
 
@@ -183,8 +187,13 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
 /// `incoming/` directory. This is intentionally non-destructive: it never
 /// replaces the remote active configuration or merges conflicts. A remote user
 /// can inspect and import the archive explicitly after transfer.
+///
+/// Optional `password` is used only for this SSH session and is never persisted.
 #[tauri::command]
-pub fn push_sync_archive(target_id: String) -> AppResult<SyncPushResult> {
+pub fn push_sync_archive(
+    target_id: String,
+    password: Option<String>,
+) -> AppResult<SyncPushResult> {
     let mut config = load_targets()?;
     let index = config.targets.iter().position(|target| target.id == target_id)
         .ok_or_else(|| AppError::Config("未找到同步目标".to_string()))?;
@@ -198,7 +207,11 @@ pub fn push_sync_archive(target_id: String) -> AppResult<SyncPushResult> {
         return Err(AppError::Path("同步归档文件名不安全".to_string()));
     }
     let remote_path = format!("{}/incoming/{filename}", target.remote_root.trim_end_matches('/'));
-    stream_to_target(&target, &archive_path, &remote_path)?;
+    let password = password.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() { None } else { Some(trimmed) }
+    });
+    stream_to_target(&target, &archive_path, &remote_path, password.as_deref())?;
     config.targets[index].last_synced_at = Some(chrono::Utc::now().timestamp_millis());
     write_json_file(&config_path(), &config)?;
     Ok(SyncPushResult {
@@ -209,7 +222,12 @@ pub fn push_sync_archive(target_id: String) -> AppResult<SyncPushResult> {
     })
 }
 
-fn stream_to_target(target: &SyncTarget, archive: &Path, remote_path: &str) -> AppResult<()> {
+fn stream_to_target(
+    target: &SyncTarget,
+    archive: &Path,
+    remote_path: &str,
+    password: Option<&str>,
+) -> AppResult<()> {
     let remote_parent = Path::new(remote_path).parent()
         .ok_or_else(|| AppError::Path("远端同步路径无效".to_string()))?
         .to_string_lossy().replace('\\', "/");
@@ -219,6 +237,7 @@ fn stream_to_target(target: &SyncTarget, archive: &Path, remote_path: &str) -> A
         shell_quote(remote_path),
         shell_quote(remote_path),
     );
+    let mut askpass_cleanup: Option<AskpassArtifacts> = None;
     let mut command = match target.kind {
         SyncTargetKind::Wsl => {
             let distro = target.wsl_distribution.as_deref().unwrap_or_default();
@@ -234,23 +253,148 @@ fn stream_to_target(target: &SyncTarget, archive: &Path, remote_path: &str) -> A
             }
             let port = target.ssh_port.unwrap_or(22).to_string();
             let mut command = Command::new("ssh");
-            command.args(["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-p", &port, host, "sh", "-lc", &script]);
+            command.args([
+                "-o", "StrictHostKeyChecking=yes",
+                "-o", "NumberOfPasswordPrompts=1",
+                "-p", &port,
+            ]);
+            if let Some(password) = password {
+                let artifacts = prepare_ssh_askpass(password)?;
+                command.env("SSH_ASKPASS", &artifacts.helper_path);
+                command.env("SSH_ASKPASS_REQUIRE", "force");
+                if std::env::var_os("DISPLAY").is_none() {
+                    command.env("DISPLAY", "localhost:0");
+                }
+                command.args([
+                    "-o", "PreferredAuthentications=password,keyboard-interactive,publickey",
+                    "-o", "PubkeyAuthentication=yes",
+                ]);
+                askpass_cleanup = Some(artifacts);
+            } else {
+                command.args(["-o", "BatchMode=yes"]);
+            }
+            command.args([host, "sh", "-lc", &script]);
             apply_no_window(&mut command);
             command
         }
     };
-    let mut child = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
-        .spawn().map_err(|error| AppError::Other(format!("无法启动同步传输: {error}")))?;
-    let mut input = child.stdin.take().ok_or_else(|| AppError::Other("无法打开同步传输输入流".to_string()))?;
-    let mut file = fs::File::open(archive)?;
-    copy(&mut file, &mut input).map_err(|error| AppError::Other(format!("写入同步归档失败: {error}")))?;
-    drop(input);
-    let output = child.wait_with_output().map_err(|error| AppError::Other(format!("等待同步传输失败: {error}")))?;
-    if !output.status.success() {
-        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(AppError::Config(format!("同步传输失败: {}", if detail.is_empty() { "远端命令返回错误" } else { &detail })));
+    let result = run_stream_copy(&mut command, archive);
+    if let Some(artifacts) = askpass_cleanup {
+        artifacts.cleanup();
+    }
+    result
+}
+
+fn run_stream_copy(command: &mut Command, archive: &Path) -> AppResult<()> {
+    let mut child = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| AppError::Other(format!("无法启动同步传输: {error}")))?;
+
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AppError::Other("无法打开同步传输错误流".to_string()))?;
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
+    let stderr_thread = thread::spawn(move || {
+        let mut buffer = Vec::new();
+        let mut reader = stderr;
+        let _ = reader.read_to_end(&mut buffer);
+        let _ = tx.send(buffer);
+    });
+
+    let copy_result = (|| -> AppResult<()> {
+        let mut input = child
+            .stdin
+            .take()
+            .ok_or_else(|| AppError::Other("无法打开同步传输输入流".to_string()))?;
+        let mut file = fs::File::open(archive)?;
+        copy(&mut file, &mut input)
+            .map_err(|error| AppError::Other(format!("写入同步归档失败: {error}")))?;
+        drop(input);
+        Ok(())
+    })();
+
+    let status = child
+        .wait()
+        .map_err(|error| AppError::Other(format!("等待同步传输失败: {error}")))?;
+    let stderr_bytes = rx.recv().unwrap_or_default();
+    let _ = stderr_thread.join();
+    let detail = String::from_utf8_lossy(&stderr_bytes).trim().to_string();
+
+    if let Err(error) = copy_result {
+        if !detail.is_empty() {
+            return Err(AppError::Other(format!("{error}；远端详情: {detail}")));
+        }
+        return Err(error);
+    }
+    if !status.success() {
+        return Err(AppError::Config(format!(
+            "同步传输失败: {}",
+            if detail.is_empty() { "远端命令返回错误" } else { &detail }
+        )));
     }
     Ok(())
+}
+
+struct AskpassArtifacts {
+    helper_path: PathBuf,
+    password_path: PathBuf,
+}
+
+impl AskpassArtifacts {
+    fn cleanup(self) {
+        let _ = fs::remove_file(&self.helper_path);
+        let _ = fs::remove_file(&self.password_path);
+    }
+}
+
+fn prepare_ssh_askpass(password: &str) -> AppResult<AskpassArtifacts> {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let dir = std::env::temp_dir();
+    let password_path = dir.join(format!("ai-switcher-ssh-pass-{stamp}.tmp"));
+    let helper_path = if cfg!(windows) {
+        dir.join(format!("ai-switcher-ssh-askpass-{stamp}.cmd"))
+    } else {
+        dir.join(format!("ai-switcher-ssh-askpass-{stamp}.sh"))
+    };
+
+    fs::write(&password_path, password.as_bytes())
+        .map_err(|error| AppError::Other(format!("无法创建临时密码文件: {error}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&password_path, fs::Permissions::from_mode(0o600));
+    }
+
+    let helper_body = if cfg!(windows) {
+        format!(
+            "@echo off\r\ntype \"{}\"\r\n",
+            password_path.to_string_lossy().replace('"', "")
+        )
+    } else {
+        format!(
+            "#!/bin/sh\ncat -- {}\n",
+            shell_quote(&password_path.to_string_lossy())
+        )
+    };
+    fs::write(&helper_path, helper_body)
+        .map_err(|error| AppError::Other(format!("无法创建 SSH_ASKPASS 助手: {error}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&helper_path, fs::Permissions::from_mode(0o700));
+    }
+
+    Ok(AskpassArtifacts {
+        helper_path,
+        password_path,
+    })
 }
 
 fn shell_quote(value: &str) -> String {
@@ -281,5 +425,12 @@ mod tests {
     #[test]
     fn shell_quote_keeps_single_quote_inside_one_argument() {
         assert_eq!(shell_quote("/tmp/a'b"), "'/tmp/a'\\\"'\\\"'b'");
+    }
+
+    #[test]
+    fn safe_ssh_host_allows_user_at_host() {
+        assert!(safe_ssh_host("alice@example.com"));
+        assert!(!safe_ssh_host("-evil"));
+        assert!(!safe_ssh_host("alice example.com"));
     }
 }

@@ -67,6 +67,7 @@ import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
+import { formatCompactNumber } from "@/utils/formatCompact";
 
 const { Text } = Typography;
 
@@ -379,7 +380,7 @@ export default function UsagePage() {
         <Row gutter={[16, 16]}>
           <Metric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
           <Metric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
-          <Metric title={t("usage.totalTokens")} value={totalTokens} />
+          <Metric title={t("usage.totalTokens")} value={totalTokens} compact />
           <Metric title={t("usage.estimatedCost")} value={summary?.estimatedCost ?? 0} precision={4} prefix="$" icon={<DollarOutlined />} />
         </Row>
 
@@ -480,7 +481,7 @@ export default function UsagePage() {
                 title: t("usage.logTokens"),
                 render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
                   row.usageAvailable
-                    ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
+                    ? `${formatCompactNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatCompactNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatCompactNumber(row.cacheReadInputTokens)})` : ""}`
                     : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
               },
               {
@@ -711,9 +712,7 @@ function UsageTrendChart({
             axisLine={false}
             tickLine={false}
             tick={{ fill: colors.axis, fontSize: 12 }}
-            tickFormatter={(value: number) =>
-              Math.abs(value) >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)
-            }
+            tickFormatter={(value: number) => formatCompactNumber(value)}
             width={48}
           />
           <YAxis
@@ -740,7 +739,7 @@ function UsageTrendChart({
               if (name === t("usage.estimatedCost")) {
                 return [formatCost(numeric), name];
               }
-              return [formatNumber(numeric), name];
+              return [formatCompactNumber(numeric), name];
             }}
           />
           <Legend />
@@ -796,8 +795,21 @@ function UsageTrendChart({
   );
 }
 
-function Metric({ title, value, suffix, prefix, precision, icon }: { title: string; value: number; suffix?: string; prefix?: string; precision?: number; icon?: ReactNode }) {
-  return <Col xs={24} sm={12} xl={6}><Card size="small"><Statistic title={title} value={value} suffix={suffix} prefix={prefix ?? icon} precision={precision} /></Card></Col>;
+function Metric({ title, value, suffix, prefix, precision, icon, compact }: { title: string; value: number; suffix?: string; prefix?: string; precision?: number; icon?: ReactNode; compact?: boolean }) {
+  return (
+    <Col xs={24} sm={12} xl={6}>
+      <Card size="small">
+        <Statistic
+          title={title}
+          value={value}
+          suffix={suffix}
+          prefix={prefix ?? icon}
+          precision={precision}
+          formatter={compact ? (v) => formatCompactNumber(Number(v)) : undefined}
+        />
+      </Card>
+    </Col>
+  );
 }
 
 function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string }) {
@@ -814,7 +826,7 @@ function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard
           {
             title: t("usage.totalTokens"),
             render: (_: unknown, row: UsageDashboard["byModel"][number]) =>
-              formatNumber(
+              formatCompactNumber(
                 row.inputTokens +
                   row.cacheReadInputTokens +
                   row.cacheCreationInputTokens +
@@ -830,6 +842,5 @@ function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard
 function successRate(total?: number, successful?: number) {
   return total ? Number((((successful ?? 0) / total) * 100).toFixed(1)) : 0;
 }
-function formatNumber(value: number) { return new Intl.NumberFormat().format(value); }
 function formatCost(value: number) { return `$${value.toFixed(4)}`; }
 function errMsg(e: unknown): string { return e instanceof Error ? e.message : String(e); }

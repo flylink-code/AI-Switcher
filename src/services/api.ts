@@ -155,9 +155,15 @@ export async function previewSync(targetId: string): Promise<SyncPreview> {
   return invoke<SyncPreview>("preview_sync", { targetId });
 }
 
-export async function pushSyncArchive(targetId: string): Promise<SyncPushResult> {
+export async function pushSyncArchive(
+  targetId: string,
+  password?: string | null,
+): Promise<SyncPushResult> {
   const invoke = await getInvoke();
-  return invoke<SyncPushResult>("push_sync_archive", { targetId });
+  return invoke<SyncPushResult>("push_sync_archive", {
+    targetId,
+    password: password?.trim() ? password : null,
+  });
 }
 
 // ---- Providers -------------------------------------------------------------

@@ -333,13 +333,64 @@ fn autostart_status(app: &tauri::AppHandle) -> AppResult<AutostartStatus> {
             .autolaunch()
             .is_enabled()
             .map_err(|e| AppError::Other(format!("读取开机自启状态失败: {e}")))?;
+        let command = if enabled {
+            read_linux_autostart_exec()
+        } else {
+            None
+        };
         Ok(AutostartStatus {
             enabled,
             registry_name: "AI-Switcher".to_string(),
-            command: None,
+            command,
             task_manager_disabled: false,
         })
     }
+}
+
+#[cfg(not(windows))]
+fn read_linux_autostart_exec() -> Option<String> {
+    let home = dirs::home_dir()?;
+    let dir = home.join(".config").join("autostart");
+    let candidates = [
+        "AI-Switcher.desktop",
+        "ai-switcher.desktop",
+        "claude-switcher.desktop",
+        "AISwitcher.desktop",
+    ];
+    for name in candidates {
+        if let Some(exec) = read_desktop_exec(&dir.join(name)) {
+            return Some(exec);
+        }
+    }
+    let entries = std::fs::read_dir(&dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("desktop") {
+            continue;
+        }
+        if let Some(exec) = read_desktop_exec(&path) {
+            if exec.contains("AI-Switcher")
+                || exec.contains("ai-switcher")
+                || exec.contains("AISwitcher")
+                || exec.contains("--autostart")
+            {
+                return Some(exec);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(windows))]
+fn read_desktop_exec(path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    content.lines().find_map(|line| {
+        let trimmed = line.trim();
+        trimmed
+            .strip_prefix("Exec=")
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    })
 }
 
 #[tauri::command]

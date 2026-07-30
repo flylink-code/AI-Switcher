@@ -1,6 +1,7 @@
 import { Empty, Space, Statistic, Tooltip, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import type { UsageDashboard } from "@/types/backend";
+import { formatCompactNumber, formatFullNumber } from "@/utils/formatCompact";
 
 const { Text } = Typography;
 
@@ -40,8 +41,20 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
     <Space direction="vertical" size={14} style={{ width: "100%" }}>
       <Space wrap size={24}>
         <Statistic title={t("usage.activeDays")} value={activeDays} suffix={`/ ${days}`} />
-        <Statistic title={t("usage.dailyPeak")} value={max} formatter={(value) => formatNumber(Number(value))} />
-        <Statistic title={t("usage.calendarTotal")} value={total} formatter={(value) => formatNumber(Number(value))} />
+        <Statistic
+          title={t("usage.dailyPeak")}
+          value={max}
+          formatter={(value) => (
+            <Tooltip title={formatFullNumber(Number(value))}>{formatCompactNumber(Number(value))}</Tooltip>
+          )}
+        />
+        <Statistic
+          title={t("usage.calendarTotal")}
+          value={total}
+          formatter={(value) => (
+            <Tooltip title={formatFullNumber(Number(value))}>{formatCompactNumber(Number(value))}</Tooltip>
+          )}
+        />
       </Space>
       <div style={{ width: "100%", minWidth: 0, overflow: "hidden" }}>
         <div
@@ -61,7 +74,7 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
           {daily.map((item) => {
             const level = item.tokens === 0 ? 0 : Math.min(4, Math.ceil((item.tokens / Math.max(max, 1)) * 4));
             const tooltip = item.row
-              ? `${item.key}: ${formatNumber(item.tokens)} Token · ${item.row.requestCount} ${t("usage.requests")}`
+              ? `${item.key}: ${formatCompactNumber(item.tokens)} Token (${formatFullNumber(item.tokens)}) · ${item.row.requestCount} ${t("usage.requests")}`
               : `${item.key}: 0 Token`;
             return (
               <Tooltip key={item.key} title={tooltip}>
@@ -115,8 +128,4 @@ function localDateKey(value: Date) {
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat().format(value);
 }
