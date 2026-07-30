@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 13;
+pub const SCHEMA_VERSION: u32 = 14;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -23,6 +23,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             api_key       TEXT NOT NULL DEFAULT '',
             model         TEXT,
             model_mapping_json TEXT NOT NULL DEFAULT '{}',
+            model_context_window INTEGER,
             protocol_type TEXT NOT NULL DEFAULT 'anthropic',
             target_app    TEXT NOT NULL DEFAULT 'claude_code',
             notes         TEXT NOT NULL DEFAULT '',
@@ -174,6 +175,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 13 {
         migrate_v12_to_v13(conn)?;
+    }
+    if current < 14 {
+        migrate_v13_to_v14(conn)?;
     }
     Ok(())
 }
@@ -486,6 +490,30 @@ fn migrate_v12_to_v13(conn: &Connection) -> AppResult<()> {
         }
     }
     set_user_version(conn, 13)
+}
+
+/// Optional Codex model catalog context window on provider rows.
+fn migrate_v13_to_v14(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        // Incomplete fixtures may reach v13 without providers; advance version only.
+        return set_user_version(conn, 14);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'model_context_window';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN model_context_window INTEGER;",
+        )?;
+    }
+    set_user_version(conn, 14)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

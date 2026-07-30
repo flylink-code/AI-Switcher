@@ -356,8 +356,7 @@ fn run_with_timeout(command: &mut Command, timeout: Duration) -> io::Result<Outp
 
 #[cfg(windows)]
 fn configure_hidden(command: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    command.creation_flags(CREATE_NO_WINDOW);
+    crate::process_util::apply_no_window(command);
 }
 
 #[cfg(not(windows))]

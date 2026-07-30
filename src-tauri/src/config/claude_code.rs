@@ -373,6 +373,7 @@ mod tests {
             api_key: "sk-deepseek".into(),
             api_key_set: true,
             model: "deepseek-v4-pro".into(),
+            model_context_window: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "deepseek-sonnet".into(),
                 opus: "deepseek-opus".into(),

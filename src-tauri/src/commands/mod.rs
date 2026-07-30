@@ -61,7 +61,11 @@ pub use providers::{
     list_providers, reorder_providers, switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
 };
-pub use proxy::{get_proxy_failover_enabled, get_proxy_status, set_proxy_failover_enabled, set_proxy_port, start_proxy, stop_proxy};
+pub use proxy::{
+    get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,
+    get_proxy_status, set_proxy_failover_enabled, set_proxy_retryable_status_codes,
+    set_proxy_streaming_idle_timeout_secs, set_proxy_port, start_proxy, stop_proxy,
+};
 pub use skills::{
     check_skill_update, check_skill_updates, delete_skill, get_skill_repository, get_skill_repository_snapshot,
     install_github_repository_skills, install_github_skill, install_zip_skill, list_github_repository_skills,

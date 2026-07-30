@@ -6,6 +6,7 @@ import {
   Form,
   Checkbox,
   Input,
+  InputNumber,
   Modal,
   Select,
   Space,
@@ -65,6 +66,22 @@ function normalizeBaseUrl(value: string): string {
   return url.toString().replace(/\/+$/, "");
 }
 
+function needsOpenAiV1Suffix(value: string): boolean {
+  try {
+    const normalized = normalizeBaseUrl(value);
+    const url = new URL(normalized);
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    return path === "/";
+  } catch {
+    return false;
+  }
+}
+
+function ensureOpenAiV1Suffix(value: string): string {
+  const normalized = normalizeBaseUrl(value);
+  return needsOpenAiV1Suffix(normalized) ? `${normalized}/v1` : normalized;
+}
+
 function buildEndpointPreview(baseUrl: string | undefined, protocol: ProtocolType): string {
   if (!baseUrl?.trim()) return "";
   try {
@@ -117,6 +134,7 @@ export function ProviderForm({
         apiKey: "",
         clearApiKey: false,
         model: editing.model,
+        modelContextWindow: editing.modelContextWindow ?? undefined,
         modelMapping: editing.modelMapping,
         protocolType: editing.protocolType,
         notes: editing.notes,
@@ -177,11 +195,25 @@ export function ProviderForm({
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      const normalized = { ...values, baseUrl: normalizeBaseUrl(values.baseUrl) };
+      let baseUrl = normalizeBaseUrl(values.baseUrl);
+      if (isCodex && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
+        baseUrl = ensureOpenAiV1Suffix(baseUrl);
+      }
+      const normalized = { ...values, baseUrl };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       await onSubmit(normalized);
     } catch {
       // validation errors are shown inline by the form
+    }
+  };
+
+  const appendV1Suffix = () => {
+    const value = form.getFieldValue("baseUrl");
+    if (typeof value !== "string" || !value.trim()) return;
+    try {
+      form.setFieldValue("baseUrl", ensureOpenAiV1Suffix(value));
+    } catch {
+      // Keep invalid input visible so the form validator can explain it.
     }
   };
 
@@ -337,14 +369,24 @@ export function ProviderForm({
           name="baseUrl"
           label={t("providers.fieldBaseUrl")}
           extra={
-            endpointPreview ? (
-              <Space direction="vertical" size={2}>
-                <Typography.Text type="secondary">{t("providers.endpointPreview")}</Typography.Text>
-                <Typography.Text code copyable>{endpointPreview}</Typography.Text>
-              </Space>
-            ) : (
-              t("providers.baseUrlHint")
-            )
+            <Space direction="vertical" size={2}>
+              {endpointPreview ? (
+                <>
+                  <Typography.Text type="secondary">{t("providers.endpointPreview")}</Typography.Text>
+                  <Typography.Text code copyable>{endpointPreview}</Typography.Text>
+                </>
+              ) : (
+                <Typography.Text type="secondary">{t("providers.baseUrlHint")}</Typography.Text>
+              )}
+              {isCodex
+                && (watchedProtocol === "openai_chat" || watchedProtocol === "openai_responses")
+                && typeof watchedBaseUrl === "string"
+                && needsOpenAiV1Suffix(watchedBaseUrl) && (
+                <Button type="link" size="small" onClick={appendV1Suffix} style={{ paddingInline: 0 }}>
+                  {t("providers.appendV1")}
+                </Button>
+              )}
+            </Space>
           }
           rules={[
             { required: true, message: t("providers.requiredBaseUrl") },
@@ -408,6 +450,24 @@ export function ProviderForm({
             }
           />
         </Form.Item>
+
+        {isCodex && (
+          <Form.Item
+            name="modelContextWindow"
+            label={t("providers.modelContextWindow")}
+            extra={t("providers.modelContextWindowHint")}
+            rules={[
+              {
+                type: "number",
+                min: 1,
+                message: t("providers.invalidContextWindow"),
+                transform: (value) => (value === null || value === undefined || value === "" ? undefined : Number(value)),
+              },
+            ]}
+          >
+            <InputNumber style={{ width: "100%" }} min={1} step={1000} placeholder="272000" />
+          </Form.Item>
+        )}
 
         {!isCodex && <><Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
           {t("providers.modelMapping")}

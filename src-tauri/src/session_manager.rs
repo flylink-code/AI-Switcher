@@ -78,6 +78,10 @@ pub struct SessionMessage {
 pub struct SessionScanResult {
     pub sessions: Vec<SessionMeta>,
     pub providers: Vec<SessionProviderStatus>,
+    pub total: usize,
+    pub offset: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,7 +126,11 @@ struct SessionBatchArchiveManifest {
     sessions: Vec<SessionArchiveManifest>,
 }
 
-pub fn scan_sessions(provider: Option<SessionProvider>) -> AppResult<SessionScanResult> {
+pub fn scan_sessions(
+    provider: Option<SessionProvider>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> AppResult<SessionScanResult> {
     let mut sessions = Vec::new();
     let mut providers = Vec::new();
 
@@ -143,9 +151,21 @@ pub fn scan_sessions(provider: Option<SessionProvider>) -> AppResult<SessionScan
         right_time.cmp(&left_time)
     });
 
+    let total = sessions.len();
+    let offset = offset.unwrap_or(0).min(total);
+    let limit = limit.filter(|value| *value > 0);
+    let sessions = match limit {
+        Some(limit) => sessions.into_iter().skip(offset).take(limit).collect(),
+        None if offset > 0 => sessions.into_iter().skip(offset).collect(),
+        None => sessions,
+    };
+
     Ok(SessionScanResult {
         sessions,
         providers,
+        total,
+        offset,
+        limit,
     })
 }
 
@@ -159,7 +179,7 @@ pub fn search_session_contents(
         return Err(AppError::Config("搜索内容不能为空".to_string()));
     }
 
-    let mut result = scan_sessions(provider)?;
+    let mut result = scan_sessions(provider, None, None)?;
     let limit = clamp_search_limit(limit);
     result.sessions.retain(|session| {
         if session_metadata_contains(session, &query) {
@@ -167,7 +187,10 @@ pub fn search_session_contents(
         }
         file_contains(session.provider, &session.source_path, &query).unwrap_or(false)
     });
+    result.total = result.sessions.len();
     result.sessions.truncate(limit);
+    result.offset = 0;
+    result.limit = Some(limit);
     Ok(result)
 }
 
@@ -1125,5 +1148,30 @@ mod tests {
         assert_eq!(manifest.provider, SessionProvider::ClaudeCode);
         assert!(validate_manifest_provider(SessionProvider::ClaudeCode, &manifest).is_ok());
         assert!(validate_manifest_provider(SessionProvider::Codex, &manifest).is_err());
+    }
+
+    #[test]
+    fn scan_result_pagination_slice_matches_offset_limit() {
+        let sessions: Vec<_> = (0..5)
+            .map(|index| SessionMeta {
+                provider: SessionProvider::ClaudeCode,
+                session_id: format!("s-{index}"),
+                title: None,
+                summary: None,
+                project_dir: None,
+                created_at: Some(index as i64),
+                last_active_at: Some(index as i64),
+                source_path: format!("/tmp/s-{index}.jsonl"),
+                resume_command: None,
+            })
+            .collect();
+        let total = sessions.len();
+        let offset = 2usize;
+        let limit = 2usize;
+        let page: Vec<_> = sessions.into_iter().skip(offset).take(limit).collect();
+        assert_eq!(total, 5);
+        assert_eq!(page.len(), 2);
+        assert_eq!(page[0].session_id, "s-2");
+        assert_eq!(page[1].session_id, "s-3");
     }
 }

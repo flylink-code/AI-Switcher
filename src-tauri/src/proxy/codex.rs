@@ -12,7 +12,7 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 
 use crate::database::dao::providers::{get_current_provider, resolve_api_key};
-use crate::database::dao::proxy_logs::update_proxy_log_usage;
+use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
 use crate::provider::{api_endpoint_url, ProviderTarget};
 
 use super::{
@@ -199,9 +199,12 @@ pub async fn codex_proxy_handler(
         if let Some(id) = log_id.as_deref() {
             if let Some(usage) = extract_usage_from_json(&response_bytes) {
                 let _ = state.db.with_conn(|conn| {
-                    update_proxy_log_usage(
+                    update_proxy_log_usage_idempotent(
                         conn,
                         id,
+                        Some(state.target.as_str()),
+                        Some(provider.id.as_str()),
+                        usage.envelope_id.as_deref(),
                         usage.input_tokens,
                         usage.cache_read_input_tokens,
                         usage.cache_creation_input_tokens,
@@ -217,15 +220,20 @@ pub async fn codex_proxy_handler(
 
     let db = Arc::clone(&state.db);
     let mut sse_buffer = Vec::new();
+    let target_app = state.target.as_str().to_string();
+    let provider_id = provider.id.clone();
     let stream = upstream.bytes_stream().map(move |chunk| match chunk {
         Ok(bytes) => {
             if let Some(id) = log_id.as_deref() {
                 sse_buffer.extend_from_slice(&bytes);
                 if let Some(usage) = extract_usage_from_sse(&sse_buffer) {
                     let _ = db.with_conn(|conn| {
-                        update_proxy_log_usage(
+                        update_proxy_log_usage_idempotent(
                             conn,
                             id,
+                            Some(target_app.as_str()),
+                            Some(provider_id.as_str()),
+                            usage.envelope_id.as_deref(),
                             usage.input_tokens,
                             usage.cache_read_input_tokens,
                             usage.cache_creation_input_tokens,

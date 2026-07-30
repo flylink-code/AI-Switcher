@@ -125,6 +125,38 @@ pub fn set_proxy_failover_enabled(enabled: bool, state: tauri::State<'_, AppStat
     state.db.with_conn(|conn| set_setting(conn, crate::proxy::PROXY_FAILOVER_ENABLED_KEY, if enabled { "true" } else { "false" }))
 }
 
+#[tauri::command]
+pub fn get_proxy_retryable_status_codes(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    let codes = state.db.with_conn(crate::proxy::load_retryable_status_codes)?;
+    Ok(crate::proxy::format_retryable_status_codes(&codes))
+}
+
+#[tauri::command]
+pub fn set_proxy_retryable_status_codes(value: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    let codes = crate::proxy::parse_retryable_status_codes(&value)?;
+    let formatted = crate::proxy::format_retryable_status_codes(&codes);
+    state.db.with_conn(|conn| {
+        set_setting(conn, crate::proxy::PROXY_RETRYABLE_STATUS_CODES_KEY, &formatted)
+    })
+}
+
+#[tauri::command]
+pub fn get_proxy_streaming_idle_timeout_secs(state: tauri::State<'_, AppState>) -> AppResult<u64> {
+    state.db.with_conn(crate::proxy::load_streaming_idle_timeout_secs)
+}
+
+#[tauri::command]
+pub fn set_proxy_streaming_idle_timeout_secs(secs: u64, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    let secs = secs.clamp(5, 3600);
+    state.db.with_conn(|conn| {
+        set_setting(
+            conn,
+            crate::proxy::PROXY_STREAMING_IDLE_TIMEOUT_KEY,
+            &secs.to_string(),
+        )
+    })
+}
+
 fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
     match target {
         crate::provider::ProviderTarget::ClaudeCode => "proxy_port_claude_code",

@@ -213,6 +213,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
     let mut model = "unknown".to_string();
     let mut thread_id = "unknown".to_string();
     let mut prev_total: Option<TokenTotals> = None;
+    let mut fork_baseline_pending = false;
     let mut event_index = 0_i64;
     let mut inserted = 0_i64;
     let mut skipped = 0_i64;
@@ -232,6 +233,12 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             {
                 thread_id = id.to_string();
             }
+            if session_meta_is_fork(&value) {
+                // Fork/subagent rollouts replay parent token history first.
+                // Seed the cumulative baseline from the first total without inserting.
+                fork_baseline_pending = true;
+                prev_total = None;
+            }
             continue;
         }
         if value.get("type").and_then(Value::as_str) == Some("turn_context") {
@@ -248,7 +255,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         if let Some(next) = extract_model_name(info) {
             model = next;
         }
-        let Some(delta) = compute_token_delta(info, &mut prev_total) else {
+        let Some(delta) = compute_token_delta(info, &mut prev_total, &mut fork_baseline_pending) else {
             continue;
         };
         let cached = delta.cached.min(delta.input);
@@ -302,6 +309,21 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
     Ok((inserted, skipped))
 }
 
+fn session_meta_is_fork(value: &Value) -> bool {
+    value
+        .pointer("/payload/forked_from_id")
+        .and_then(Value::as_str)
+        .is_some_and(|id| !id.trim().is_empty())
+        || value
+            .pointer("/payload/source/subagent/thread_spawn/parent_thread_id")
+            .and_then(Value::as_str)
+            .is_some_and(|id| !id.trim().is_empty())
+        || value
+            .pointer("/payload/source/subagent/parent_thread_id")
+            .and_then(Value::as_str)
+            .is_some_and(|id| !id.trim().is_empty())
+}
+
 fn is_token_count_event(value: &Value) -> bool {
     value.get("type").and_then(Value::as_str) == Some("event_msg")
         && value.pointer("/payload/type").and_then(Value::as_str) == Some("token_count")
@@ -310,9 +332,16 @@ fn is_token_count_event(value: &Value) -> bool {
 fn compute_token_delta(
     info: Option<&Value>,
     prev_total: &mut Option<TokenTotals>,
+    fork_baseline_pending: &mut bool,
 ) -> Option<TokenTotals> {
     let info = info?;
     if let Some(total) = info.get("total_token_usage").and_then(read_token_totals) {
+        if *fork_baseline_pending && prev_total.is_none() {
+            // Establish the replayed parent cumulative baseline without billing it.
+            *prev_total = Some(total);
+            *fork_baseline_pending = false;
+            return Some(TokenTotals::default());
+        }
         let previous = prev_total.unwrap_or_default();
         let delta = TokenTotals {
             input: total.input.saturating_sub(previous.input),
@@ -320,8 +349,10 @@ fn compute_token_delta(
             output: total.output.saturating_sub(previous.output),
         };
         *prev_total = Some(total);
+        *fork_baseline_pending = false;
         return Some(delta);
     }
+    *fork_baseline_pending = false;
     info.get("last_token_usage").and_then(read_token_totals)
 }
 
@@ -430,6 +461,38 @@ mod tests {
                 |row| row.get(0),
             )?;
             assert_eq!(count, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn fork_session_skips_replayed_parent_totals() {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("sessions").join("fork.jsonl");
+        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
+        std::fs::write(
+            &session,
+            concat!(
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\"child\",\"forked_from_id\":\"parent\"}}\n",
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":1000,\"cached_input_tokens\":100,\"output_tokens\":200}}}}\n",
+                "{\"timestamp\":\"2026-07-01T00:01:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":1100,\"cached_input_tokens\":100,\"output_tokens\":250}}}}\n",
+            ),
+        )
+        .unwrap();
+
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let (inserted, _) = sync_one_file(conn, &session)?;
+            assert_eq!(inserted, 1);
+            let (input, output): (i64, i64) = conn.query_row(
+                "SELECT input_tokens, output_tokens FROM proxy_request_logs WHERE data_source = 'codex_session';",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            assert_eq!(input, 100);
+            assert_eq!(output, 50);
             Ok(())
         })
         .unwrap();

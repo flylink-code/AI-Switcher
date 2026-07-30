@@ -9,6 +9,7 @@ import {
   Input,
   List,
   Modal,
+  Pagination,
   Popconfirm,
   Row,
   Segmented,
@@ -51,7 +52,8 @@ type DirectoryFilter = "all" | "yes" | "no";
 type TimeFilter = "all" | "day" | "week" | "month";
 type SortMode = "recent" | "oldest" | "directory";
 
-const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [] };
+const PAGE_SIZE = 50;
+const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [], total: 0, offset: 0 };
 
 export default function SessionsPage() {
   const { t, i18n } = useTranslation();
@@ -66,6 +68,7 @@ export default function SessionsPage() {
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<SessionMeta | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -78,12 +81,20 @@ export default function SessionsPage() {
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
   const [repairingCodex, setRepairingCodex] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const needsFullScan =
+    directory !== "all" ||
+    time !== "all" ||
+    sort !== "recent" ||
+    Boolean(query.trim());
+  const pageForFetch = needsFullScan || contentSearch ? 1 : page;
+
+  const loadBrowse = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setContentSearch(false);
     try {
-      const next = await scanSessions(provider);
+      const offset = needsFullScan ? 0 : (pageForFetch - 1) * PAGE_SIZE;
+      const limit = needsFullScan ? undefined : PAGE_SIZE;
+      const next = await scanSessions(provider, offset, limit);
       setResult(next);
       setSelected((current) =>
         current
@@ -99,11 +110,21 @@ export default function SessionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [provider]);
+  }, [needsFullScan, pageForFetch, provider]);
+
+  const refresh = useCallback(async () => {
+    setContentSearch(false);
+    await loadBrowse();
+  }, [loadBrowse]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (contentSearch) return;
+    void loadBrowse();
+  }, [contentSearch, loadBrowse]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [provider, directory, time, sort, query, contentSearch]);
 
   const runContentSearch = async () => {
     const trimmed = query.trim();
@@ -122,6 +143,7 @@ export default function SessionsPage() {
       setSelected(null);
       setMessages([]);
       setContentSearch(true);
+      setPage(1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -129,7 +151,7 @@ export default function SessionsPage() {
     }
   };
 
-  const visibleSessions = useMemo(() => {
+  const filteredSessions = useMemo(() => {
     const now = Date.now();
     const cutoffs: Record<TimeFilter, number> = {
       all: 0,
@@ -158,6 +180,13 @@ export default function SessionsPage() {
       return sort === "oldest" ? leftTime - rightTime : rightTime - leftTime;
     });
   }, [contentSearch, directory, provider, query, result.sessions, sort, time]);
+
+  const listTotal = needsFullScan || contentSearch ? filteredSessions.length : result.total;
+  const visibleSessions = useMemo(() => {
+    if (!(needsFullScan || contentSearch)) return filteredSessions;
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredSessions.slice(start, start + PAGE_SIZE);
+  }, [contentSearch, filteredSessions, needsFullScan, page]);
 
   const batchableSessions = useMemo(
     () => visibleSessions,
@@ -419,7 +448,7 @@ export default function SessionsPage() {
           <Col xs={24} lg={9}>
             <Card
               size="small"
-              title={t("sessions.listTitle", { count: visibleSessions.length })}
+              title={t("sessions.listTitle", { count: listTotal })}
               styles={{ body: { padding: 0, maxHeight: "62vh", overflow: "auto" } }}
             >
               <List
@@ -469,6 +498,18 @@ export default function SessionsPage() {
                   </List.Item>
                 )}
               />
+              {listTotal > PAGE_SIZE ? (
+                <div style={{ padding: 12, display: "flex", justifyContent: "center" }}>
+                  <Pagination
+                    size="small"
+                    current={page}
+                    pageSize={PAGE_SIZE}
+                    total={listTotal}
+                    showSizeChanger={false}
+                    onChange={setPage}
+                  />
+                </div>
+              ) : null}
             </Card>
           </Col>
           <Col xs={24} lg={15}>

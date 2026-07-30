@@ -22,6 +22,8 @@ export interface Provider {
   /** API keys are never returned over IPC. */
   apiKeySet: boolean;
   model: string;
+  /** Optional Codex catalog context window; missing uses 272k. */
+  modelContextWindow?: number | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
@@ -43,6 +45,7 @@ export interface ProviderInput {
   apiKey: string;
   clearApiKey?: boolean;
   model: string;
+  modelContextWindow?: number | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
@@ -600,6 +603,9 @@ export interface SessionMessage {
 export interface SessionScanResult {
   sessions: SessionMeta[];
   providers: SessionProviderStatus[];
+  total: number;
+  offset: number;
+  limit?: number;
 }
 
 export interface SessionArchiveInfo {

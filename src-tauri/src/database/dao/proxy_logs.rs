@@ -346,6 +346,81 @@ pub fn update_proxy_log_usage(
     cache_creation_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<()> {
+    update_proxy_log_usage_idempotent(
+        conn,
+        id,
+        None,
+        None,
+        None,
+        input_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        output_tokens,
+    )
+}
+
+/// Persist usage and optionally rematerialize the log row under a stable
+/// response-scoped id so retries/replays of the same upstream response do not
+/// stack duplicate rows.
+#[allow(clippy::too_many_arguments)]
+pub fn update_proxy_log_usage_idempotent(
+    conn: &Connection,
+    id: &str,
+    target_app: Option<&str>,
+    provider_id: Option<&str>,
+    envelope_id: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<()> {
+    let stable_id = envelope_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|envelope| {
+            stable_proxy_usage_id(
+                target_app.unwrap_or("unknown"),
+                provider_id.unwrap_or("unknown"),
+                envelope,
+                input_tokens,
+                cache_read_input_tokens,
+                cache_creation_input_tokens,
+                output_tokens,
+            )
+        });
+
+    if let Some(stable) = stable_id.as_deref() {
+        if stable != id {
+            let exists: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM proxy_request_logs WHERE id = ?;",
+                params![stable],
+                |row| row.get(0),
+            )?;
+            if exists > 0 {
+                conn.execute("DELETE FROM proxy_request_logs WHERE id = ?;", params![id])?;
+                return Ok(());
+            }
+            conn.execute(
+                "UPDATE proxy_request_logs SET id = ? WHERE id = ?;",
+                params![stable, id],
+            )?;
+            conn.execute(
+                "UPDATE proxy_request_logs
+                 SET input_tokens = ?, cache_read_input_tokens = ?,
+                     cache_creation_input_tokens = ?, output_tokens = ?, usage_available = 1
+                 WHERE id = ?;",
+                params![
+                    input_tokens,
+                    cache_read_input_tokens,
+                    cache_creation_input_tokens,
+                    output_tokens,
+                    stable
+                ],
+            )?;
+            return Ok(());
+        }
+    }
+
     conn.execute(
         "UPDATE proxy_request_logs
          SET input_tokens = ?, cache_read_input_tokens = ?,
@@ -360,6 +435,54 @@ pub fn update_proxy_log_usage(
         ],
     )?;
     Ok(())
+}
+
+pub fn stable_proxy_usage_id(
+    target_app: &str,
+    provider_id: &str,
+    envelope_id: &str,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
+    output_tokens: i64,
+) -> String {
+    let envelope = envelope_id.trim();
+    if !envelope.is_empty() {
+        return format!("session:{target_app}:{provider_id}:{envelope}");
+    }
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(target_app.as_bytes());
+    hasher.update(b"|");
+    hasher.update(provider_id.as_bytes());
+    hasher.update(b"|");
+    hasher.update(input_tokens.to_string().as_bytes());
+    hasher.update(b"|");
+    hasher.update(cache_read_input_tokens.to_string().as_bytes());
+    hasher.update(b"|");
+    hasher.update(cache_creation_input_tokens.to_string().as_bytes());
+    hasher.update(b"|");
+    hasher.update(output_tokens.to_string().as_bytes());
+    format!("session:{target_app}:{provider_id}:hash:{}", hex::encode(hasher.finalize()))
+}
+
+pub fn extract_usage_envelope_id(value: &serde_json::Value) -> Option<String> {
+    value
+        .pointer("/response/id")
+        .or_else(|| value.get("id"))
+        .or_else(|| value.get("responseId"))
+        .and_then(|item| item.as_str())
+        .map(str::trim)
+        .filter(|item| !item.is_empty() && !item.eq_ignore_ascii_case("response.created"))
+        .map(str::to_string)
+        .or_else(|| {
+            value
+                .get("id")
+                .and_then(|item| item.as_str())
+                .map(str::trim)
+                .filter(|item| item.starts_with("chatcmpl-") || item.starts_with("resp_"))
+                .map(str::to_string)
+        })
 }
 
 pub fn update_proxy_log_diagnostic(

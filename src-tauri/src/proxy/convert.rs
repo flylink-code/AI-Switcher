@@ -152,6 +152,9 @@ pub fn openai_error_to_anthropic(status: u16) -> Value {
 }
 
 pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Value {
+    if let Some(error) = responses_failed_anthropic_error(value) {
+        return error;
+    }
     let mut content = Vec::new();
     for item in value.get("output").and_then(Value::as_array).into_iter().flatten() {
         if item.get("type").and_then(Value::as_str) == Some("function_call") {
@@ -200,6 +203,25 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
     })
 }
 
+/// Map a Responses `status=failed` envelope to an Anthropic error object.
+pub fn responses_failed_anthropic_error(value: &Value) -> Option<Value> {
+    if value.get("status").and_then(Value::as_str) != Some("failed") {
+        return None;
+    }
+    let message = value
+        .pointer("/error/message")
+        .and_then(Value::as_str)
+        .or_else(|| value.pointer("/error/code").and_then(Value::as_str))
+        .unwrap_or("上游 Responses 请求失败");
+    Some(json!({
+        "type": "error",
+        "error": {
+            "type": "api_error",
+            "message": message,
+        }
+    }))
+}
+
 fn anthropic_usage_from_openai_responses(value: &Value) -> Value {
     let total_input = value
         .pointer("/usage/input_tokens")
@@ -238,6 +260,8 @@ pub struct OpenAiSseConverter {
     next_block_index: usize,
     text_blocks: BTreeMap<(usize, usize), usize>,
     tool_blocks: BTreeMap<usize, usize>,
+    /// Accumulated tool-call argument text already emitted as `input_json_delta`.
+    tool_arguments_sent: BTreeMap<usize, String>,
     open_blocks: Vec<usize>,
     input_tokens: i64,
     cache_read_input_tokens: i64,
@@ -258,6 +282,7 @@ impl OpenAiSseConverter {
             next_block_index: 0,
             text_blocks: BTreeMap::new(),
             tool_blocks: BTreeMap::new(),
+            tool_arguments_sent: BTreeMap::new(),
             open_blocks: Vec::new(),
             input_tokens: 0,
             cache_read_input_tokens: 0,
@@ -303,6 +328,7 @@ impl OpenAiSseConverter {
             cache_read_input_tokens: self.cache_read_input_tokens,
             cache_creation_input_tokens: self.cache_creation_input_tokens,
             output_tokens: self.output_tokens,
+            envelope_id: None,
         })
     }
 
@@ -394,9 +420,49 @@ impl OpenAiSseConverter {
                 output,
             );
             if let Some(delta) = event.get("delta").and_then(Value::as_str).filter(|value| !value.is_empty()) {
+                self.tool_arguments_sent
+                    .entry(upstream_index)
+                    .or_default()
+                    .push_str(delta);
                 push_event(output, "content_block_delta", json!({
                     "type":"content_block_delta", "index":index,
                     "delta":{"type":"input_json_delta", "partial_json":delta}
+                }));
+            }
+        } else if event_type == "response.function_call_arguments.done" {
+            let upstream_index = event.get("output_index").and_then(Value::as_u64).unwrap_or(0) as usize;
+            let index = self.ensure_tool_block(
+                upstream_index,
+                event.get("call_id").and_then(Value::as_str),
+                event.get("name").and_then(Value::as_str),
+                output,
+            );
+            let full = event
+                .get("arguments")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let sent = self
+                .tool_arguments_sent
+                .get(&upstream_index)
+                .map(String::as_str)
+                .unwrap_or("");
+            let suffix = if full.starts_with(sent) {
+                &full[sent.len()..]
+            } else if sent.is_empty() {
+                full
+            } else {
+                // Dense streams may re-send a full snapshot that does not share a
+                // common prefix with prior deltas; emit nothing to avoid duplicates.
+                ""
+            };
+            if !suffix.is_empty() {
+                self.tool_arguments_sent
+                    .entry(upstream_index)
+                    .or_default()
+                    .push_str(suffix);
+                push_event(output, "content_block_delta", json!({
+                    "type":"content_block_delta", "index":index,
+                    "delta":{"type":"input_json_delta", "partial_json":suffix}
                 }));
             }
         }
@@ -741,6 +807,18 @@ mod tests {
     }
 
     #[test]
+    fn responses_failed_envelope_maps_to_anthropic_error() {
+        let upstream = json!({
+            "id":"resp_failed","status":"failed","error":{"code":"server_error","message":"model overloaded"}
+        });
+        let message = openai_responses_to_anthropic(&upstream, "fallback");
+        assert_eq!(message["type"], "error");
+        assert_eq!(message["error"]["type"], "api_error");
+        assert!(message["error"]["message"].as_str().unwrap().contains("overloaded"));
+        assert!(message.get("stop_reason").is_none());
+    }
+
+    #[test]
     fn responses_conversion_preserves_function_call() {
         let upstream = json!({"id":"resp_1","model":"gpt-test","output":[
             {"type":"message","content":[{"type":"output_text","text":"done"}]},
@@ -834,6 +912,46 @@ mod tests {
         assert!(first.contains("\"text\":\"Hel\""));
         assert!(done.contains("\"text\":\"lo\""));
         assert!(stop.contains("event: message_stop"));
+    }
+
+    #[test]
+    fn responses_sse_arguments_done_flushes_unsent_suffix_only() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "fallback");
+        let _ = converter.push_event(&json!({
+            "type":"response.output_item.added", "output_index":0,
+            "item":{"type":"function_call","call_id":"call_1","name":"lookup"}
+        }));
+        let delta = String::from_utf8(converter.push_event(&json!({
+            "type":"response.function_call_arguments.delta", "output_index":0,
+            "call_id":"call_1", "delta":"{\"q\":"
+        }))).unwrap();
+        let done = String::from_utf8(converter.push_event(&json!({
+            "type":"response.function_call_arguments.done", "output_index":0,
+            "call_id":"call_1", "arguments":"{\"q\":\"x\"}"
+        }))).unwrap();
+        assert!(delta.contains("input_json_delta"));
+        assert!(delta.contains("{\\\"q\\\":") || delta.contains("{\"q\":"));
+        assert!(done.contains("input_json_delta"));
+        assert!(done.contains("\\\"x\\\"}") || done.contains("\"x\"}"));
+        assert!(!done.contains("{\\\"q\\\":\\\"x\\\"}") && !done.contains("{\"q\":\"x\"}"));
+    }
+
+    #[test]
+    fn responses_sse_arguments_done_skips_full_retransmit() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "fallback");
+        let _ = converter.push_event(&json!({
+            "type":"response.output_item.added", "output_index":0,
+            "item":{"type":"function_call","call_id":"call_1","name":"lookup"}
+        }));
+        let _ = converter.push_event(&json!({
+            "type":"response.function_call_arguments.delta", "output_index":0,
+            "call_id":"call_1", "delta":"{\"q\":\"x\"}"
+        }));
+        let done = String::from_utf8(converter.push_event(&json!({
+            "type":"response.function_call_arguments.done", "output_index":0,
+            "call_id":"call_1", "arguments":"{\"q\":\"x\"}"
+        }))).unwrap();
+        assert!(!done.contains("input_json_delta"));
     }
 
     #[test]

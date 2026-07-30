@@ -303,6 +303,26 @@ export async function setProxyFailoverEnabled(enabled: boolean): Promise<void> {
   return invoke<void>("set_proxy_failover_enabled", { enabled });
 }
 
+export async function getProxyRetryableStatusCodes(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("get_proxy_retryable_status_codes", {});
+}
+
+export async function setProxyRetryableStatusCodes(value: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_proxy_retryable_status_codes", { value });
+}
+
+export async function getProxyStreamingIdleTimeoutSecs(): Promise<number> {
+  const invoke = await getInvoke();
+  return invoke<number>("get_proxy_streaming_idle_timeout_secs", {});
+}
+
+export async function setProxyStreamingIdleTimeoutSecs(secs: number): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_proxy_streaming_idle_timeout_secs", { secs });
+}
+
 // ---- MCP --------------------------------------------------------------------
 
 export async function listMcpServers(): Promise<McpServer[]> {
@@ -677,9 +697,15 @@ export async function runClaudeCodeUpdate(): Promise<string> {
 
 export async function scanSessions(
   provider?: SessionProvider,
+  offset?: number,
+  limit?: number,
 ): Promise<SessionScanResult> {
   const invoke = await getInvoke();
-  return invoke<SessionScanResult>("scan_sessions", { provider });
+  return invoke<SessionScanResult>("scan_sessions", {
+    provider,
+    offset: offset ?? null,
+    limit: limit ?? null,
+  });
 }
 
 export async function syncCodexSessionProviders(

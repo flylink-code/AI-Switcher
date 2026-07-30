@@ -15,6 +15,7 @@ use uuid::Uuid;
 use crate::config::atomic::{read_json_file, write_json_file};
 use crate::config::paths::get_app_config_dir;
 use crate::error::{AppError, AppResult};
+use crate::process_util::apply_no_window;
 
 const SYNC_TARGETS_VERSION: u8 = 1;
 const SYNC_TARGETS_FILE: &str = "sync-targets.json";
@@ -140,7 +141,10 @@ pub async fn discover_wsl_distributions() -> AppResult<Vec<String>> {
     tokio::task::spawn_blocking(|| {
         #[cfg(windows)]
         {
-            let output = Command::new("wsl.exe").args(["--list", "--quiet"]).output()
+            let mut command = Command::new("wsl.exe");
+            command.args(["--list", "--quiet"]);
+            apply_no_window(&mut command);
+            let output = command.output()
                 .map_err(|error| AppError::Other(format!("无法调用 WSL: {error}")))?;
             if !output.status.success() { return Err(AppError::Config("WSL 未安装或没有可用发行版".to_string())); }
             Ok(String::from_utf8_lossy(&output.stdout).lines()
@@ -220,6 +224,7 @@ fn stream_to_target(target: &SyncTarget, archive: &Path, remote_path: &str) -> A
             let distro = target.wsl_distribution.as_deref().unwrap_or_default();
             let mut command = Command::new("wsl.exe");
             command.args(["--distribution", distro, "--", "sh", "-lc", &script]);
+            apply_no_window(&mut command);
             command
         }
         SyncTargetKind::Ssh => {
@@ -230,6 +235,7 @@ fn stream_to_target(target: &SyncTarget, archive: &Path, remote_path: &str) -> A
             let port = target.ssh_port.unwrap_or(22).to_string();
             let mut command = Command::new("ssh");
             command.args(["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-p", &port, host, "sh", "-lc", &script]);
+            apply_no_window(&mut command);
             command
         }
     };

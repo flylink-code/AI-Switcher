@@ -11,9 +11,12 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use toml_edit::{value, Array, DocumentMut, Item, Table};
 
-use crate::config::{atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_path};
+use crate::config::{atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_dir, get_codex_config_path};
 use crate::error::{AppError, AppResult};
-use crate::provider::{validate_target_protocol, ClaudeModelMapping, LiveProviderInfo, ProtocolType, Provider, ProviderTarget};
+use crate::provider::{
+    effective_model_context_window, validate_target_protocol, ClaudeModelMapping, LiveProviderInfo,
+    ProtocolType, Provider, ProviderTarget,
+};
 use crate::mcp::McpServer;
 
 /// Stable Codex model_provider id for every AI-Switcher managed third-party
@@ -24,6 +27,7 @@ const LEGACY_MANAGED_PROVIDER_PREFIX: &str = "ai_switcher_";
 const CONFIG_BACKUP: &str = "codex-original-config.toml";
 const AUTH_BACKUP: &str = "codex-original-auth.json";
 const PROXY_MANAGED_API_KEY: &str = "PROXY_MANAGED";
+const MODEL_CATALOG_FILENAME: &str = "ai-switcher-model-catalog.json";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,7 +101,7 @@ pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16
     backup_once(&auth_path, AUTH_BACKUP)?;
 
     let mut doc = load_document(&config_path)?;
-    write_managed_provider(&mut doc, provider, proxy_port);
+    write_managed_provider(&mut doc, provider, proxy_port)?;
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
     let auth_key = if proxy_port.is_some() {
@@ -109,10 +113,15 @@ pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16
     atomic_write(&auth_path, serde_json::to_string_pretty(&auth)?.as_bytes())
 }
 
-fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) {
+fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) -> AppResult<()> {
     let provider_id = MANAGED_PROVIDER_ID;
-    doc["model"] = value(provider.model.trim());
+    let model = provider.model.trim();
+    let context_window = effective_model_context_window(provider);
+    write_model_catalog(provider)?;
+    doc["model"] = value(model);
     doc["model_provider"] = value(provider_id);
+    doc["model_context_window"] = value(context_window as i64);
+    doc["model_catalog_json"] = value(MODEL_CATALOG_FILENAME);
     if !doc["model_providers"].is_table() {
         doc["model_providers"] = Item::Table(Table::new());
     }
@@ -139,6 +148,70 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     if let Some(table) = entry.as_table_mut() {
         table.remove("env_key");
     }
+    Ok(())
+}
+
+fn write_model_catalog(provider: &Provider) -> AppResult<()> {
+    let model = provider.model.trim();
+    if model.is_empty() {
+        return Err(AppError::Config("Codex 默认模型不能为空".to_string()));
+    }
+    let context_window = effective_model_context_window(provider);
+    let catalog = serde_json::json!({
+        "models": [codex_model_catalog_entry(model, context_window)],
+    });
+    let dir = get_codex_config_dir();
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(MODEL_CATALOG_FILENAME);
+    atomic_write(&path, serde_json::to_string_pretty(&catalog)?.as_bytes())
+}
+
+/// Build a Codex ≥0.144.5-compatible catalog entry, backfilling parser-required
+/// fields when absent from a minimal model list.
+fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
+    serde_json::json!({
+        "slug": model,
+        "display_name": model,
+        "description": model,
+        "default_reasoning_level": "medium",
+        "supported_reasoning_levels": [
+            { "effort": "low", "description": "Fast responses with lighter reasoning" },
+            { "effort": "medium", "description": "Balances speed and reasoning depth" },
+            { "effort": "high", "description": "Greater reasoning depth for complex work" },
+            { "effort": "xhigh", "description": "Extra high reasoning depth" }
+        ],
+        "shell_type": "shell_command",
+        "visibility": "list",
+        "supported_in_api": true,
+        "priority": 1000,
+        "base_instructions": "You are Codex, a coding agent. Follow the user's instructions and use tools carefully.",
+        "model_messages": {
+            "instructions_template": "You are Codex, a coding agent. Follow the user's instructions and use tools carefully.",
+            "instructions_variables": {
+                "personality_default": "",
+                "personality_friendly": "",
+                "personality_pragmatic": ""
+            }
+        },
+        "supports_reasoning_summaries": true,
+        "default_reasoning_summary": "none",
+        "support_verbosity": true,
+        "default_verbosity": "low",
+        "apply_patch_tool_type": "freeform",
+        "web_search_tool_type": "text_and_image",
+        "truncation_policy": {
+            "mode": "tokens",
+            "limit": 10000
+        },
+        "supports_parallel_tool_calls": true,
+        "supports_image_detail_original": true,
+        "context_window": context_window,
+        "max_context_window": context_window,
+        "effective_context_window_percent": 95,
+        "experimental_supported_tools": [],
+        "input_modalities": ["text", "image"],
+        "supports_search_tool": true
+    })
 }
 
 fn remove_legacy_managed_providers(doc: &mut DocumentMut) {
@@ -254,6 +327,7 @@ mod tests {
             api_key: String::new(),
             api_key_set: true,
             model: "gpt-5".into(),
+            model_context_window: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiResponses,
             target_app: ProviderTarget::Codex,
@@ -283,7 +357,9 @@ mod tests {
         doc["model_providers"]["ai_switcher"] = Item::Table(Table::new());
         doc["model_providers"]["ai_switcher"]["env_key"] = value("OPENAI_API_KEY");
 
-        write_managed_provider(&mut doc, &provider, None);
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None).unwrap();
 
         let text = doc.to_string();
         assert!(text.contains("requires_openai_auth = true"));
@@ -291,6 +367,8 @@ mod tests {
         assert!(!text.contains("[model_providers.ai_switcher_old]"));
         assert_eq!(doc["model"].as_str(), Some("gpt-5"));
         assert_eq!(doc["model_provider"].as_str(), Some(MANAGED_PROVIDER_ID));
+        assert_eq!(doc["model_catalog_json"].as_str(), Some(MODEL_CATALOG_FILENAME));
+        assert_eq!(doc["model_context_window"].as_integer(), Some(272_000));
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
         assert_eq!(entry.get("name").and_then(Item::as_str), Some("ThirdParty"));
         assert_eq!(
@@ -300,6 +378,23 @@ mod tests {
         assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
         assert_eq!(entry.get("requires_openai_auth").and_then(Item::as_bool), Some(true));
         assert!(entry.get("env_key").is_none());
+
+        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+        assert_eq!(catalog["models"][0]["slug"], "gpt-5");
+        assert_eq!(catalog["models"][0]["supports_reasoning_summaries"], true);
+        assert_eq!(catalog["models"][0]["context_window"], 272_000);
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn catalog_uses_explicit_context_window() {
+        let mut provider = sample_codex_provider();
+        provider.model_context_window = Some(200_000);
+        let entry = codex_model_catalog_entry("gpt-5", effective_model_context_window(&provider));
+        assert_eq!(entry["context_window"], 200_000);
+        assert_eq!(entry["max_context_window"], 200_000);
+        assert_eq!(entry["supports_reasoning_summaries"], true);
     }
 
     #[test]

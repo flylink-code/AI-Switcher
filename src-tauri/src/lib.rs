@@ -12,6 +12,7 @@ mod database;
 mod error;
 mod mcp;
 mod mcp_registry;
+mod process_util;
 mod prompts;
 mod provider;
 mod proxy;
@@ -34,7 +35,8 @@ use crate::commands::{
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
-    get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
+    get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
+    get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
     install_mcp_registry_server,
@@ -42,7 +44,7 @@ use crate::commands::{
     get_skill_repository, get_skill_repository_snapshot, list_github_repository_skills, refresh_github_repository_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_providers,
     search_mcp_registry,
-    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_failover_enabled, set_proxy_port,
+    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
@@ -160,10 +162,14 @@ pub fn run() {
             import_live_prompt,
             get_proxy_status,
             get_proxy_failover_enabled,
+            get_proxy_retryable_status_codes,
+            get_proxy_streaming_idle_timeout_secs,
             start_proxy,
             stop_proxy,
             set_proxy_port,
             set_proxy_failover_enabled,
+            set_proxy_retryable_status_codes,
+            set_proxy_streaming_idle_timeout_secs,
             list_skills,
             get_skill_repository,
             get_skill_repository_snapshot,

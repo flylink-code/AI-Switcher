@@ -5,7 +5,7 @@ use rusqlite::{params, Connection};
 
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    normalize_base_url, normalized_model_mapping, validate_target_protocol, ClaudeModelMapping,
+    normalize_provider_base_url, normalized_model_mapping, validate_target_protocol, ClaudeModelMapping,
     ProtocolType, Provider, ProviderInput, ProviderTarget,
 };
 use crate::secrets;
@@ -33,7 +33,7 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json
+                model_mapping_json, model_context_window
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -47,7 +47,7 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json
+                model_mapping_json, model_context_window
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -64,7 +64,7 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json
+                model_mapping_json, model_context_window
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -91,7 +91,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         return Err(AppError::Config("默认模型不能为空".to_string()));
     }
     validate_target_protocol(input.target_app, input.protocol_type)?;
-    let base_url = normalize_base_url(&input.base_url)?;
+    let base_url = normalize_provider_base_url(input.target_app, input.protocol_type, &input.base_url)?;
     let model_mapping_json = serde_json::to_string(&normalized_model_mapping(
         input.target_app,
         input.model_mapping.clone(),
@@ -119,10 +119,11 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         };
         conn.execute(
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
-                protocol_type = ?, notes = ?, model_mapping_json = ? WHERE id = ?;",
+                protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
-                input.protocol_type.as_str(), input.notes, model_mapping_json, id,
+                input.protocol_type.as_str(), input.notes, model_mapping_json,
+                input.model_context_window, id,
             ],
         )?;
         if input.clear_api_key {
@@ -145,12 +146,12 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             input.protocol_type.as_str(), input.target_app.as_str(), input.notes, next_sort, now,
-            model_mapping_json,
+            model_mapping_json, input.model_context_window,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -323,6 +324,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         created_at: row.get(10)?,
         health_status: row.get(11)?,
         health_checked_at: row.get(12)?,
+        model_context_window: row.get(14)?,
     })
 }
 
@@ -345,6 +347,7 @@ mod tests {
             api_key: String::new(),
             clear_api_key: false,
             model: "test-model".to_string(),
+            model_context_window: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiChat,
             target_app: ProviderTarget::ClaudeCode,

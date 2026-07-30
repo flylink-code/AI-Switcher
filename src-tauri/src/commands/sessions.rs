@@ -9,10 +9,14 @@ use crate::session_manager::{
 #[tauri::command]
 pub async fn scan_sessions(
     provider: Option<SessionProvider>,
+    offset: Option<usize>,
+    limit: Option<usize>,
 ) -> AppResult<SessionScanResult> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::scan_sessions(provider))
-        .await
-        .map_err(|error| AppError::Tauri(format!("会话扫描任务失败: {error}")))?
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::scan_sessions(provider, offset, limit)
+    })
+    .await
+    .map_err(|error| AppError::Tauri(format!("会话扫描任务失败: {error}")))?
 }
 
 #[tauri::command]

@@ -10,7 +10,7 @@ mod codex;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::convert::Infallible;
 
 use axum::body::Body;
@@ -30,7 +30,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
-    update_proxy_log_usage,
+    update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
 use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
@@ -46,16 +46,20 @@ const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
 const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
 const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";
 pub const PROXY_FAILOVER_ENABLED_KEY: &str = "proxy_failover_enabled";
+pub const PROXY_RETRYABLE_STATUS_CODES_KEY: &str = "proxy_retryable_status_codes";
+pub const PROXY_STREAMING_IDLE_TIMEOUT_KEY: &str = "proxy_streaming_idle_timeout_secs";
+const DEFAULT_STREAMING_IDLE_TIMEOUT_SECS: u64 = 180;
 const MAX_UPSTREAM_ERROR_BYTES: usize = 16 * 1024;
 const CIRCUIT_FAILURE_THRESHOLD: u8 = 2;
 const CIRCUIT_OPEN_SECONDS: u64 = 60;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct UsageCounts {
     pub(crate) input_tokens: i64,
     pub(crate) cache_read_input_tokens: i64,
     pub(crate) cache_creation_input_tokens: i64,
     pub(crate) output_tokens: i64,
+    pub(crate) envelope_id: Option<String>,
 }
 
 /// Runtime handle for the local proxy.
@@ -382,9 +386,110 @@ fn compatible_stream_retry(provider: &Provider, prepared: &PreparedUpstreamReque
         .and_then(|body| prepared.builder.try_clone().map(|builder| builder.body(body)))
 }
 
-fn is_retryable_upstream_status(status: StatusCode) -> bool {
-    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS)
-        || status.is_server_error()
+fn is_retryable_upstream_status(state: &ProxyState, status: StatusCode) -> bool {
+    let codes = state
+        .db
+        .with_conn(|conn| load_retryable_status_codes(conn))
+        .unwrap_or_else(|_| default_retryable_status_codes());
+    codes.contains(&status.as_u16())
+}
+
+pub fn default_retryable_status_codes() -> Vec<u16> {
+    let mut codes = Vec::new();
+    codes.extend(400..=404);
+    codes.push(408);
+    codes.push(429);
+    codes.extend(500..=599);
+    codes
+}
+
+pub fn load_retryable_status_codes(conn: &rusqlite::Connection) -> AppResult<Vec<u16>> {
+    let Some(raw) = get_setting(conn, PROXY_RETRYABLE_STATUS_CODES_KEY)? else {
+        return Ok(default_retryable_status_codes());
+    };
+    parse_retryable_status_codes(&raw)
+}
+
+pub fn parse_retryable_status_codes(raw: &str) -> AppResult<Vec<u16>> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(default_retryable_status_codes());
+    }
+    let mut codes = Vec::new();
+    for part in trimmed.split(|ch: char| ch == ',' || ch.is_whitespace()) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        if let Some((start, end)) = part.split_once('-') {
+            let start: u16 = start
+                .trim()
+                .parse()
+                .map_err(|_| AppError::Config(format!("无效的重试状态码范围: {part}")))?;
+            let end: u16 = end
+                .trim()
+                .parse()
+                .map_err(|_| AppError::Config(format!("无效的重试状态码范围: {part}")))?;
+            if start > end || start < 100 || end > 599 {
+                return Err(AppError::Config(format!("无效的重试状态码范围: {part}")));
+            }
+            codes.extend(start..=end);
+        } else {
+            let code: u16 = part
+                .parse()
+                .map_err(|_| AppError::Config(format!("无效的重试状态码: {part}")))?;
+            if !(100..=599).contains(&code) {
+                return Err(AppError::Config(format!("无效的重试状态码: {part}")));
+            }
+            codes.push(code);
+        }
+    }
+    codes.sort_unstable();
+    codes.dedup();
+    if codes.is_empty() {
+        Ok(default_retryable_status_codes())
+    } else {
+        Ok(codes)
+    }
+}
+
+pub fn format_retryable_status_codes(codes: &[u16]) -> String {
+    if codes.is_empty() {
+        return String::new();
+    }
+    let mut parts = Vec::new();
+    let mut start = codes[0];
+    let mut prev = codes[0];
+    for &code in &codes[1..] {
+        if code == prev + 1 {
+            prev = code;
+            continue;
+        }
+        if start == prev {
+            parts.push(start.to_string());
+        } else {
+            parts.push(format!("{start}-{prev}"));
+        }
+        start = code;
+        prev = code;
+    }
+    if start == prev {
+        parts.push(start.to_string());
+    } else {
+        parts.push(format!("{start}-{prev}"));
+    }
+    parts.join(",")
+}
+
+pub fn load_streaming_idle_timeout_secs(conn: &rusqlite::Connection) -> AppResult<u64> {
+    let Some(raw) = get_setting(conn, PROXY_STREAMING_IDLE_TIMEOUT_KEY)? else {
+        return Ok(DEFAULT_STREAMING_IDLE_TIMEOUT_SECS);
+    };
+    let value = raw
+        .trim()
+        .parse::<u64>()
+        .map_err(|_| AppError::Config("流式空闲超时必须是正整数秒".to_string()))?;
+    Ok(value.clamp(5, 3600))
 }
 
 async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
@@ -561,7 +666,7 @@ async fn proxy_handler(
         }
     };
 
-    if is_retryable_upstream_status(upstream_resp.status()) {
+    if is_retryable_upstream_status(&state, upstream_resp.status()) {
         record_provider_failure(&state, &provider.id);
         if let Ok(Some(mut fallback)) = next_failover_provider(&state, &provider.id) {
             log::warn!("供应商 {} 返回 {}，尝试故障切换到 {}", provider.id, upstream_resp.status(), fallback.id);
@@ -686,39 +791,83 @@ async fn proxy_handler(
                 _ => convert::OpenAiStreamProtocol::Chat,
             };
             let db = Arc::clone(&state.db);
-            let mut decoder = UpstreamSseDecoder::default();
-            let mut converter = convert::OpenAiSseConverter::new(protocol, provider.model.trim());
+            let decoder = UpstreamSseDecoder::default();
+            let converter = convert::OpenAiSseConverter::new(protocol, provider.model.trim());
             let stream_log_id = log_id.clone();
-            let stream = upstream_resp.bytes_stream().map(move |chunk| {
-                let output = match chunk {
-                    Ok(bytes) => {
-                        let mut output = Vec::new();
-                        for item in decoder.push(&bytes) {
-                            match item {
-                                UpstreamSseItem::Json(event) => output.extend(converter.push_event(&event)),
-                                UpstreamSseItem::Done => output.extend(converter.finish_stream()),
+            let target_app = state.target.as_str().to_string();
+            let provider_id = provider.id.clone();
+            let idle = Duration::from_secs(
+                state
+                    .db
+                    .with_conn(load_streaming_idle_timeout_secs)
+                    .unwrap_or(DEFAULT_STREAMING_IDLE_TIMEOUT_SECS),
+            );
+            let upstream_stream = upstream_resp.bytes_stream();
+            let stream = futures_util::stream::unfold(
+                (upstream_stream, decoder, converter, false),
+                move |(mut upstream_stream, mut decoder, mut converter, done)| {
+                    let db = Arc::clone(&db);
+                    let stream_log_id = stream_log_id.clone();
+                    let target_app = target_app.clone();
+                    let provider_id = provider_id.clone();
+                    async move {
+                        if done {
+                            return None;
+                        }
+                        let next = tokio::time::timeout(idle, upstream_stream.next()).await;
+                        let (output, done) = match next {
+                            Ok(Some(Ok(bytes))) => {
+                                let mut output = Vec::new();
+                                for item in decoder.push(&bytes) {
+                                    match item {
+                                        UpstreamSseItem::Json(event) => {
+                                            output.extend(converter.push_event(&event))
+                                        }
+                                        UpstreamSseItem::Done => {
+                                            output.extend(converter.finish_stream())
+                                        }
+                                    }
+                                }
+                                (output, false)
+                            }
+                            Ok(Some(Err(_))) => {
+                                (converter.error_event("上游流式响应中断"), true)
+                            }
+                            Ok(None) => {
+                                let output = converter.finish_stream();
+                                (output, true)
+                            }
+                            Err(_) => (converter.error_event("流式响应空闲超时"), true),
+                        };
+                        if let (Some(id), Some(usage)) =
+                            (stream_log_id.as_deref(), converter.usage())
+                        {
+                            if let Err(error) = db.with_conn(|conn| {
+                                update_proxy_log_usage_idempotent(
+                                    conn,
+                                    id,
+                                    Some(target_app.as_str()),
+                                    Some(provider_id.as_str()),
+                                    usage.envelope_id.as_deref(),
+                                    usage.input_tokens,
+                                    usage.cache_read_input_tokens,
+                                    usage.cache_creation_input_tokens,
+                                    usage.output_tokens,
+                                )
+                            }) {
+                                log::error!("更新代理请求 Token 用量失败: {error}");
                             }
                         }
-                        output
+                        if output.is_empty() && done {
+                            return None;
+                        }
+                        Some((
+                            Ok::<Bytes, Infallible>(Bytes::from(output)),
+                            (upstream_stream, decoder, converter, done),
+                        ))
                     }
-                    Err(_) => converter.error_event("上游流式响应中断"),
-                };
-                if let (Some(id), Some(usage)) = (stream_log_id.as_deref(), converter.usage()) {
-                    if let Err(error) = db.with_conn(|conn| {
-                        update_proxy_log_usage(
-                            conn,
-                            id,
-                            usage.input_tokens,
-                            usage.cache_read_input_tokens,
-                            usage.cache_creation_input_tokens,
-                            usage.output_tokens,
-                        )
-                    }) {
-                        log::error!("更新代理请求 Token 用量失败: {error}");
-                    }
-                }
-                Ok::<Bytes, Infallible>(Bytes::from(output))
-            });
+                },
+            );
             return Response::builder()
                 .status(status)
                 .header(header::CONTENT_TYPE, "text/event-stream")
@@ -760,12 +909,140 @@ async fn proxy_handler(
                 return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
             }
         };
+        if provider.protocol_type == ProtocolType::OpenAiResponses {
+            if let Some(failed) = convert::responses_failed_anthropic_error(&upstream) {
+                record_provider_failure(&state, &provider.id);
+                update_log_diagnostic(
+                    &state,
+                    log_id.as_deref(),
+                    "upstream",
+                    failed
+                        .pointer("/error/message")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Responses status=failed"),
+                );
+                if let Ok(Some(mut fallback)) = next_failover_provider(&state, &provider.id) {
+                    log::warn!(
+                        "供应商 {} 返回 Responses failed envelope，尝试故障切换到 {}",
+                        provider.id,
+                        fallback.id
+                    );
+                    if let Ok(fallback_prepared) = prepare_upstream_request(
+                        &state,
+                        &mut fallback,
+                        &method,
+                        &headers,
+                        &incoming,
+                        &body_bytes,
+                        incoming_stream,
+                    ) {
+                        let fallback_translated = fallback_prepared.translated;
+                        match fallback_prepared
+                            .builder
+                            .body(fallback_prepared.outgoing_body)
+                            .send()
+                            .await
+                        {
+                            Ok(response) if response.status().is_success() => {
+                                let fallback_bytes = match response.bytes().await {
+                                    Ok(bytes) => bytes,
+                                    Err(_) => {
+                                        record_provider_failure(&state, &fallback.id);
+                                        return anthropic_error(
+                                            StatusCode::BAD_GATEWAY,
+                                            failed,
+                                        );
+                                    }
+                                };
+                                let fallback_json: Value = match serde_json::from_slice(&fallback_bytes)
+                                {
+                                    Ok(value) => value,
+                                    Err(_) => {
+                                        record_provider_failure(&state, &fallback.id);
+                                        return anthropic_error(
+                                            StatusCode::BAD_GATEWAY,
+                                            failed,
+                                        );
+                                    }
+                                };
+                                if fallback.protocol_type == ProtocolType::OpenAiResponses
+                                    && convert::responses_failed_anthropic_error(&fallback_json)
+                                        .is_some()
+                                {
+                                    record_provider_failure(&state, &fallback.id);
+                                    return anthropic_error(StatusCode::BAD_GATEWAY, failed);
+                                }
+                                provider = fallback;
+                                let _ = fallback_translated;
+                                let anthropic = match provider.protocol_type {
+                                    ProtocolType::OpenAiResponses => {
+                                        convert::openai_responses_to_anthropic(
+                                            &fallback_json,
+                                            provider.model.trim(),
+                                        )
+                                    }
+                                    _ => convert::openai_chat_to_anthropic(
+                                        &fallback_json,
+                                        provider.model.trim(),
+                                    ),
+                                };
+                                record_provider_success(&state, &provider.id);
+                                if let Some(id) = log_id.as_deref() {
+                                    update_log_usage(
+                                        &state,
+                                        &provider,
+                                        id,
+                                        extract_usage_from_json(
+                                            &serde_json::to_vec(&anthropic).unwrap_or_default(),
+                                        ),
+                                    );
+                                }
+                                if incoming_stream {
+                                    return Response::builder()
+                                        .status(StatusCode::OK)
+                                        .header(header::CONTENT_TYPE, "text/event-stream")
+                                        .header(header::CACHE_CONTROL, "no-cache")
+                                        .body(Body::from(convert::anthropic_message_to_sse(&anthropic)))
+                                        .unwrap_or_else(|_| {
+                                            json_error(
+                                                StatusCode::INTERNAL_SERVER_ERROR,
+                                                "构造流式响应失败",
+                                            )
+                                        });
+                                }
+                                return Response::builder()
+                                    .status(StatusCode::OK)
+                                    .header(header::CONTENT_TYPE, "application/json")
+                                    .body(Body::from(
+                                        serde_json::to_vec(&anthropic).unwrap_or_default(),
+                                    ))
+                                    .unwrap_or_else(|_| {
+                                        json_error(
+                                            StatusCode::INTERNAL_SERVER_ERROR,
+                                            "构造响应失败",
+                                        )
+                                    });
+                            }
+                            Ok(_) | Err(_) => {
+                                record_provider_failure(&state, &fallback.id);
+                            }
+                        }
+                    }
+                }
+                return anthropic_error(StatusCode::BAD_GATEWAY, failed);
+            }
+        }
         let anthropic = match provider.protocol_type {
             ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
             _ => convert::openai_chat_to_anthropic(&upstream, provider.model.trim()),
         };
         if let Some(id) = log_id.as_deref() {
-            update_log_usage(&state, id, extract_usage_from_json(&serde_json::to_vec(&anthropic).unwrap_or_default()));
+            update_log_usage(
+                &state,
+                &provider,
+                id,
+                extract_usage_from_json(&serde_json::to_vec(&anthropic).unwrap_or_default()),
+            );
         }
         if incoming_stream {
             return Response::builder().status(status).header(header::CONTENT_TYPE, "text/event-stream")
@@ -817,7 +1094,7 @@ async fn proxy_handler(
             );
         }
         if let Some(id) = log_id.as_deref() {
-            update_log_usage(&state, id, extract_usage_from_json(&response_bytes));
+            update_log_usage(&state, &provider, id, extract_usage_from_json(&response_bytes));
         }
         return resp_builder
             .body(Body::from(response_bytes))
@@ -825,30 +1102,77 @@ async fn proxy_handler(
     }
 
     let db = Arc::clone(&state.db);
-    let mut sse_buffer = Vec::new();
-    let stream = upstream_resp.bytes_stream().map(move |chunk| {
-        if let (Some(id), Ok(bytes)) = (log_id.as_deref(), &chunk) {
-            sse_buffer.extend_from_slice(bytes);
-            while let Some(end) = sse_buffer.windows(2).position(|window| window == b"\n\n") {
-                let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
-                if let Some(usage) = extract_usage_from_sse(&event) {
-                    if let Err(e) = db.with_conn(|conn| {
-                        update_proxy_log_usage(
-                            conn,
-                            id,
-                            usage.input_tokens,
-                            usage.cache_read_input_tokens,
-                            usage.cache_creation_input_tokens,
-                            usage.output_tokens,
+    let sse_buffer = Vec::new();
+    let target_app = state.target.as_str().to_string();
+    let provider_id = provider.id.clone();
+    let idle = Duration::from_secs(
+        state
+            .db
+            .with_conn(load_streaming_idle_timeout_secs)
+            .unwrap_or(DEFAULT_STREAMING_IDLE_TIMEOUT_SECS),
+    );
+    let upstream_stream = upstream_resp.bytes_stream();
+    let stream_log_id = log_id.clone();
+    let stream = futures_util::stream::unfold(
+        (upstream_stream, sse_buffer, false),
+        move |(mut upstream_stream, mut sse_buffer, done)| {
+            let db = Arc::clone(&db);
+            let target_app = target_app.clone();
+            let provider_id = provider_id.clone();
+            let stream_log_id = stream_log_id.clone();
+            async move {
+                if done {
+                    return None;
+                }
+                match tokio::time::timeout(idle, upstream_stream.next()).await {
+                    Ok(Some(Ok(bytes))) => {
+                        if let Some(id) = stream_log_id.as_deref() {
+                            sse_buffer.extend_from_slice(&bytes);
+                            while let Some(end) =
+                                sse_buffer.windows(2).position(|window| window == b"\n\n")
+                            {
+                                let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
+                                if let Some(usage) = extract_usage_from_sse(&event) {
+                                    if let Err(e) = db.with_conn(|conn| {
+                                        update_proxy_log_usage_idempotent(
+                                            conn,
+                                            id,
+                                            Some(target_app.as_str()),
+                                            Some(provider_id.as_str()),
+                                            usage.envelope_id.as_deref(),
+                                            usage.input_tokens,
+                                            usage.cache_read_input_tokens,
+                                            usage.cache_creation_input_tokens,
+                                            usage.output_tokens,
+                                        )
+                                    }) {
+                                        log::error!("更新代理请求 Token 用量失败: {e}");
+                                    }
+                                }
+                            }
+                        }
+                        Some((
+                            Ok::<Bytes, reqwest::Error>(bytes),
+                            (upstream_stream, sse_buffer, false),
+                        ))
+                    }
+                    Ok(Some(Err(error))) => Some((Err(error), (upstream_stream, sse_buffer, true))),
+                    Ok(None) => None,
+                    Err(_) => {
+                        let message = convert::OpenAiSseConverter::new(
+                            convert::OpenAiStreamProtocol::Chat,
+                            "proxy",
                         )
-                    }) {
-                        log::error!("更新代理请求 Token 用量失败: {e}");
+                        .error_event("流式响应空闲超时");
+                        Some((
+                            Ok(Bytes::from(message)),
+                            (upstream_stream, sse_buffer, true),
+                        ))
                     }
                 }
             }
-        }
-        chunk
-    });
+        },
+    );
     let body = Body::from_stream(stream);
 
     resp_builder
@@ -1128,14 +1452,17 @@ fn sanitize_diagnostic_text(value: &str) -> String {
     result
 }
 
-fn update_log_usage(state: &ProxyState, id: &str, usage: Option<UsageCounts>) {
+fn update_log_usage(state: &ProxyState, provider: &Provider, id: &str, usage: Option<UsageCounts>) {
     let Some(usage) = usage else {
         return;
     };
     if let Err(e) = state.db.with_conn(|conn| {
-        update_proxy_log_usage(
+        update_proxy_log_usage_idempotent(
             conn,
             id,
+            Some(state.target.as_str()),
+            Some(provider.id.as_str()),
+            usage.envelope_id.as_deref(),
             usage.input_tokens,
             usage.cache_read_input_tokens,
             usage.cache_creation_input_tokens,
@@ -1184,6 +1511,7 @@ fn usage_from_value(value: &Value) -> Option<UsageCounts> {
             .or_else(|| usage.get("completion_tokens"))
             .and_then(Value::as_i64)
             .unwrap_or(0),
+        envelope_id: extract_usage_envelope_id(value),
     })
 }
 
@@ -1233,6 +1561,7 @@ mod tests {
             api_key: "secret".into(),
             api_key_set: true,
             model: "opus-upstream".into(),
+            model_context_window: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type,
             target_app: ProviderTarget::ClaudeCode,

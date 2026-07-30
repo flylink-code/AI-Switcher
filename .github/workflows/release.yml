@@ -67,14 +67,26 @@ jobs:
 
             ## What's new
 
-            - Polished usage-source filter styling on Usage and Providers heatmap to match adjacent Select controls
-            - Shared UsageSourceFilterSegmented component for consistent height, border, and selected-state colors
-            - Kept Ubuntu/Linux AppImage + .deb release artifacts (preview)
+            - Codex model catalog fields + default 272k context window for newer Codex clients
+            - Usage idempotency for forked/subagent sessions and proxy response.id updates
+            - OpenAI-compatible Base URL `/v1` validation with one-click append
+            - Configurable proxy retry status codes and streaming idle timeout
+            - Windows CREATE_NO_WINDOW for provider switches without console flash
+            - Session list pagination (API + UI, page size 50)
+            - Responses `status=failed` mapped to Anthropic errors with failover support
+            - Stream tool-argument flush on `arguments.done` (suffix only, no full retransmit)
+            - Ubuntu/Linux AppImage + .deb release artifacts (preview)
 
             ## 更新内容
 
-            - 优化用量页与供应商热力图「统计来源」分段样式，与天数选择器对齐
-            - 抽取共用 UsageSourceFilterSegmented，统一高度、边框与选中态配色
+            - Codex 模型目录字段补齐，上下文窗口默认 272k
+            - Fork/子代理用量去重与代理 response.id 幂等更新
+            - OpenAI 兼容 Base URL `/v1` 校验与一键补全
+            - 可配置代理重试状态码与流式空闲超时
+            - Windows 切供应商统一 CREATE_NO_WINDOW，避免闪黑窗
+            - 会话列表分页（API + UI，每页 50）
+            - Responses `status=failed` 正确映射为错误并可故障切换
+            - 流式 `arguments.done` 仅冲刷未发出后缀，避免全量重发
             - 继续提供 Ubuntu/Linux AppImage 与 .deb 预览产物
 
             ### Windows
@@ -85,8 +97,7 @@ jobs:
             Prefer the `.AppImage` for a portable run (`chmod +x` then execute), or install the `.deb` on Debian/Ubuntu.
             Linux builds are best-effort: Claude Desktop localization / some Windows-only tools are unavailable.
             建议优先使用 `.AppImage`（先 `chmod +x`）；Debian/Ubuntu 也可安装 `.deb`。
-            Linux 为尽力支持：Claude Desktop 中文化等 Windows 专用能力不可用。
-          releaseDraft: false
+            Linux 为尽力支持：Claude Desktop 中文化等 Windows 专用能力不可用。 releaseDraft: false
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
           updaterJsonKeepUniversal: true

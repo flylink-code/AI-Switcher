@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Input,
   InputNumber,
   Space,
   Segmented,
@@ -20,7 +21,17 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { ProviderTarget } from "@/types/backend";
-import { getProxyFailoverEnabled, setProxyFailoverEnabled, setProxyPort, startProxy, stopProxy } from "@/services/api";
+import {
+  getProxyFailoverEnabled,
+  getProxyRetryableStatusCodes,
+  getProxyStreamingIdleTimeoutSecs,
+  setProxyFailoverEnabled,
+  setProxyRetryableStatusCodes,
+  setProxyStreamingIdleTimeoutSecs,
+  setProxyPort,
+  startProxy,
+  stopProxy,
+} from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
@@ -34,15 +45,35 @@ export default function ProxyPage() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [failoverSaving, setFailoverSaving] = useState(false);
+  const [retryCodes, setRetryCodes] = useState("400-404,408,429,500-599");
+  const [retrySaving, setRetrySaving] = useState(false);
+  const [idleTimeout, setIdleTimeout] = useState(180);
+  const [idleSaving, setIdleSaving] = useState(false);
   const target = usePagePreferencesStore((state) => state.proxyTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
   const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
+  const retryQuery = useQuery({
+    queryKey: ["proxy-retryable-status-codes"],
+    queryFn: getProxyRetryableStatusCodes,
+  });
+  const idleQuery = useQuery({
+    queryKey: ["proxy-streaming-idle-timeout"],
+    queryFn: getProxyStreamingIdleTimeoutSecs,
+  });
 
   useEffect(() => {
     if (status) setPort(status.port);
   }, [status]);
+
+  useEffect(() => {
+    if (retryQuery.data) setRetryCodes(retryQuery.data);
+  }, [retryQuery.data]);
+
+  useEffect(() => {
+    if (typeof idleQuery.data === "number") setIdleTimeout(idleQuery.data);
+  }, [idleQuery.data]);
 
   const handleStart = async () => {
     setBusy(true);
@@ -90,6 +121,36 @@ export default function ProxyPage() {
       void message.error(errMsg(e));
     } finally {
       setFailoverSaving(false);
+    }
+  };
+
+  const handleRetryCodesSave = async () => {
+    setRetrySaving(true);
+    try {
+      await setProxyRetryableStatusCodes(retryCodes);
+      const saved = await getProxyRetryableStatusCodes();
+      setRetryCodes(saved);
+      queryClient.setQueryData(["proxy-retryable-status-codes"], saved);
+      void message.success(t("proxy.retryCodesSaved"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRetrySaving(false);
+    }
+  };
+
+  const handleIdleTimeoutSave = async () => {
+    setIdleSaving(true);
+    try {
+      await setProxyStreamingIdleTimeoutSecs(idleTimeout);
+      const saved = await getProxyStreamingIdleTimeoutSecs();
+      setIdleTimeout(saved);
+      queryClient.setQueryData(["proxy-streaming-idle-timeout"], saved);
+      void message.success(t("proxy.idleTimeoutSaved"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setIdleSaving(false);
     }
   };
 
@@ -187,6 +248,29 @@ export default function ProxyPage() {
               unCheckedChildren={t("common.disabled")}
               onChange={(enabled) => void handleFailoverChange(enabled)}
             />
+            <Text type="secondary">{t("proxy.retryCodesHint")}</Text>
+            <Space.Compact style={{ width: "100%" }}>
+              <Input
+                value={retryCodes}
+                onChange={(event) => setRetryCodes(event.target.value)}
+                placeholder="400-404,408,429,500-599"
+              />
+              <Button loading={retrySaving} onClick={() => void handleRetryCodesSave()}>
+                {t("common.save")}
+              </Button>
+            </Space.Compact>
+            <Text type="secondary">{t("proxy.idleTimeoutHint")}</Text>
+            <Space>
+              <InputNumber
+                min={5}
+                max={3600}
+                value={idleTimeout}
+                onChange={(value) => value != null && setIdleTimeout(value)}
+              />
+              <Button loading={idleSaving} onClick={() => void handleIdleTimeoutSave()}>
+                {t("common.save")}
+              </Button>
+            </Space>
           </Space>
         </Card>
 

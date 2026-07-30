@@ -112,6 +112,17 @@ pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapp
     }
 }
 
+/// Codex bundled models.json uses 272000 as the default context window.
+pub const CODEX_DEFAULT_CONTEXT_WINDOW: u64 = 272_000;
+
+/// Resolve the effective Codex context window for catalog generation.
+pub fn effective_model_context_window(provider: &Provider) -> u64 {
+    provider
+        .model_context_window
+        .filter(|window| *window > 0)
+        .unwrap_or(CODEX_DEFAULT_CONTEXT_WINDOW)
+}
+
 /// Normalize and validate a provider Base URL.
 ///
 /// Provider URLs are HTTPS origins or gateway path prefixes. Known request
@@ -150,6 +161,45 @@ pub fn normalize_base_url(value: &str) -> AppResult<String> {
     url.set_path(if path.is_empty() { "/" } else { &path });
 
     Ok(url.to_string().trim_end_matches('/').to_string())
+}
+
+/// Whether an OpenAI-compatible Base URL should end with `/v1`.
+pub fn openai_compatible_base_url_needs_v1(base_url: &str) -> bool {
+    let Ok(normalized) = normalize_base_url(base_url) else {
+        return false;
+    };
+    let Ok(url) = reqwest::Url::parse(&normalized) else {
+        return false;
+    };
+    let path = url.path().trim_end_matches('/');
+    path.is_empty() || path == "/"
+}
+
+/// Append `/v1` when the OpenAI-compatible Base URL is only a host root.
+pub fn ensure_openai_v1_suffix(base_url: &str) -> AppResult<String> {
+    let normalized = normalize_base_url(base_url)?;
+    if openai_compatible_base_url_needs_v1(&normalized) {
+        Ok(format!("{normalized}/v1"))
+    } else {
+        Ok(normalized)
+    }
+}
+
+/// Normalize Base URL for persistence. Codex OpenAI providers auto-append `/v1`
+/// when the path is empty so `config.toml` base_url matches OpenAI-compatible gateways.
+pub fn normalize_provider_base_url(
+    target: ProviderTarget,
+    protocol: ProtocolType,
+    base_url: &str,
+) -> AppResult<String> {
+    let normalized = normalize_base_url(base_url)?;
+    if target == ProviderTarget::Codex
+        && matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses)
+    {
+        ensure_openai_v1_suffix(&normalized)
+    } else {
+        Ok(normalized)
+    }
 }
 
 /// Build an API endpoint URL while preserving provider-specific gateway paths.
@@ -318,6 +368,9 @@ pub struct Provider {
     /// Primary model written to `ANTHROPIC_MODEL`. May be empty.
     #[serde(default)]
     pub model: String,
+    /// Optional Codex model catalog context window. Missing/zero uses 272k.
+    #[serde(default)]
+    pub model_context_window: Option<u64>,
     #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
@@ -371,6 +424,8 @@ pub struct ProviderInput {
     #[serde(default)]
     pub model: String,
     #[serde(default)]
+    pub model_context_window: Option<u64>,
+    #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
     pub protocol_type: ProtocolType,
@@ -419,6 +474,8 @@ pub struct ProviderExportEntry {
     pub base_url: String,
     pub model: String,
     #[serde(default)]
+    pub model_context_window: Option<u64>,
+    #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     pub protocol_type: ProtocolType,
     pub target_app: ProviderTarget,
@@ -445,9 +502,39 @@ pub struct LiveProviderInfo {
 #[cfg(test)]
 mod tests {
     use super::{
-        api_endpoint_url, normalize_base_url, protocol_endpoint_path, resolve_upstream_model,
+        api_endpoint_url, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
+        openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
         normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType, Provider, ProviderTarget,
     };
+
+    #[test]
+    fn openai_compatible_base_url_appends_v1_for_host_roots() {
+        assert!(openai_compatible_base_url_needs_v1("https://api.example.test"));
+        assert!(!openai_compatible_base_url_needs_v1("https://api.example.test/v1"));
+        assert!(!openai_compatible_base_url_needs_v1("https://gateway.example.test/openai/v1"));
+        assert_eq!(
+            ensure_openai_v1_suffix("https://api.example.test").unwrap(),
+            "https://api.example.test/v1"
+        );
+        assert_eq!(
+            normalize_provider_base_url(
+                ProviderTarget::Codex,
+                ProtocolType::OpenAiResponses,
+                "https://api.example.test"
+            )
+            .unwrap(),
+            "https://api.example.test/v1"
+        );
+        assert_eq!(
+            normalize_provider_base_url(
+                ProviderTarget::ClaudeCode,
+                ProtocolType::OpenAiChat,
+                "https://api.example.test"
+            )
+            .unwrap(),
+            "https://api.example.test"
+        );
+    }
 
     #[test]
     fn endpoint_url_preserves_gateway_path_without_duplicate_v1() {
@@ -536,6 +623,7 @@ mod tests {
             api_key: String::new(),
             api_key_set: false,
             model: "default-model".into(),
+            model_context_window: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "sonnet-upstream".into(),
                 opus: "opus-upstream".into(),
