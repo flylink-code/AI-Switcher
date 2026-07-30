@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -12,26 +12,42 @@ import {
   InputNumber,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
   Statistic,
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
   theme,
 } from "antd";
+import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
+import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
+import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type {
   LogMaintenancePolicy,
   LogMaintenancePreview,
@@ -57,6 +73,19 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text } = Typography;
+
+type UsageSourceFilter = ProviderTarget | "all";
+
+const SOURCE_FILTER_OPTIONS: Array<{
+  value: UsageSourceFilter;
+  icon: ReactNode;
+  labelKey: string;
+}> = [
+  { value: "all", icon: <AppstoreOutlined />, labelKey: "usage.sourceAll" },
+  { value: "claude_code", icon: <CodeOutlined />, labelKey: "usage.sourceClaudeCode" },
+  { value: "claude_desktop", icon: <DesktopOutlined />, labelKey: "usage.sourceClaudeDesktop" },
+  { value: "codex", icon: <RobotOutlined />, labelKey: "usage.sourceCodex" },
+];
 
 export default function UsagePage() {
   const { t } = useTranslation();
@@ -231,61 +260,83 @@ export default function UsagePage() {
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
         {includesCodex && (
-          <Alert
+          <OnboardingTip
+            tipKey="usage_codex_local"
             type={dashboard?.localCodex.available ? "info" : isCodexOnly ? "warning" : "info"}
-            showIcon
             message={t("usage.codexLocalTitle")}
             description={dashboard?.localCodex.available
               ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
               : t("usage.codexLocalUnavailable")}
           />
         )}
-        <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
-        <Alert type="info" showIcon message={t("usage.cachePricingIncluded")} />
+        <OnboardingTip tipKey="usage_currency" type="warning" message={t("usage.currencyLimit")} />
+        <OnboardingTip tipKey="usage_cache_pricing" message={t("usage.cachePricingIncluded")} />
 
-        <Space wrap style={{ justifyContent: "space-between", width: "100%" }}>
-          <Space>
-            <Text>{t("usage.period")}</Text>
-            <Select
-              value={days}
-              style={{ width: 130 }}
-              options={[7, 30, 90, 365].map((value) => ({
-                value,
-                label: t("usage.lastDays", { days: value }),
-              }))}
-              onChange={(value) => {
-                setDays(value);
-                setLogPage(0);
-              }}
-            />
-            <Text>{t("usage.statsSource")}</Text>
-            <Select
-              value={logTargetApp}
-              style={{ width: 160 }}
-              onChange={(value: ProviderTarget | "all") => {
-                setLogTargetApp(value);
-                setLogPage(0);
-              }}
-              options={[
-                { value: "all", label: t("usage.allApps") },
-                { value: "claude_code", label: t("providers.claudeCode") },
-                { value: "claude_desktop", label: t("providers.claudeDesktop") },
-                { value: "codex", label: "Codex" },
-              ]}
-            />
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          <Space wrap size={[12, 8]} align="center">
+            <Space size={8} align="center">
+              <Text type="secondary">{t("usage.period")}</Text>
+              <Select
+                value={days}
+                style={{ width: 140 }}
+                options={[7, 30, 90, 365].map((value) => ({
+                  value,
+                  label: t("usage.lastDays", { days: value }),
+                }))}
+                onChange={(value) => {
+                  setDays(value);
+                  setLogPage(0);
+                }}
+              />
+            </Space>
+            <Space size={8} align="center">
+              <Text type="secondary">{t("usage.statsSource")}</Text>
+              <Segmented<UsageSourceFilter>
+                value={logTargetApp}
+                onChange={(value) => {
+                  setLogTargetApp(value);
+                  setLogPage(0);
+                }}
+                options={SOURCE_FILTER_OPTIONS.map((option) => {
+                  const label = t(option.labelKey);
+                  return {
+                    value: option.value,
+                    icon: option.icon,
+                    label: (
+                      <Tooltip title={label}>
+                        <span>{label}</span>
+                      </Tooltip>
+                    ),
+                  };
+                })}
+              />
+            </Space>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={refreshing}
+              onClick={() => void refreshOverview()}
+            >
+              {t("common.refresh")}
+            </Button>
           </Space>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={refreshing}
-            onClick={() => void refreshOverview()}
-          >
-            {t("common.refresh")}
-          </Button>
-          <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
-            {t("usage.configurePricing")}
-          </Button>
-          <Button loading={maintaining} onClick={() => void openMaintenance()}>{t("usage.maintainLogs")}</Button>
-        </Space>
+          <Space wrap size={8}>
+            <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
+              {t("usage.configurePricing")}
+            </Button>
+            <Button loading={maintaining} onClick={() => void openMaintenance()}>
+              {t("usage.maintainLogs")}
+            </Button>
+          </Space>
+        </div>
 
         <Row gutter={[16, 16]}>
           <Metric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
@@ -542,107 +593,161 @@ export default function UsagePage() {
   );
 }
 
-function UsageTrendChart({ data, t, expanded = false }: { data: UsageDashboard["trend"]; t: (key: string) => string; expanded?: boolean }) {
+function UsageTrendChart({
+  data,
+  t,
+  expanded = false,
+}: {
+  data: UsageDashboard["trend"];
+  t: (key: string) => string;
+  expanded?: boolean;
+}) {
   const { token } = theme.useToken();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(720);
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-    const updateSize = () => setContainerWidth(Math.max(element.clientWidth, 520));
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  const values = useMemo(() => data.map((row) => ({
-    date: row.date,
-    inputTokens: row.inputTokens,
-    outputTokens: row.outputTokens,
-    cacheCreationInputTokens: row.cacheCreationInputTokens,
-    cacheReadInputTokens: row.cacheReadInputTokens,
-    estimatedCost: row.estimatedCost,
-  })), [data]);
-  const series: Array<{
-    key: "inputTokens" | "outputTokens" | "cacheCreationInputTokens" | "cacheReadInputTokens" | "estimatedCost";
-    label: string;
-    color: string;
-    cost?: boolean;
-  }> = [
-    { key: "inputTokens", label: t("usage.inputTokens"), color: token.colorSuccess },
-    { key: "outputTokens", label: t("usage.outputTokens"), color: token.colorInfo },
-    { key: "cacheCreationInputTokens", label: t("usage.cacheWriteTokens"), color: token.colorWarning },
-    { key: "cacheReadInputTokens", label: t("usage.cacheReadTokens"), color: token.colorPrimary },
-    { key: "estimatedCost", label: t("usage.estimatedCost"), color: token.colorError, cost: true },
-  ];
-  const width = containerWidth;
-  const height = expanded
-    ? Math.min(720, Math.max(480, containerWidth * 0.62))
-    : Math.min(500, Math.max(330, containerWidth * 0.42));
-  const padding = { top: 26, right: 68, bottom: 52, left: 64 };
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const tokenScaleMax = Math.max(
-    ...values.flatMap((item) => series.filter((item) => !item.cost).map((metric) => item[metric.key])),
-    0,
-  ) * 1.15 || 1;
-  const costScaleMax = Math.max(...values.map((item) => item.estimatedCost), 0) * 1.15 || 1;
-  const pointAt = (value: number, index: number, scaleMax: number) => ({
-    x: values.length === 1 ? padding.left + plotWidth / 2 : padding.left + (plotWidth * index) / (values.length - 1),
-    y: padding.top + plotHeight * (1 - value / scaleMax),
-  });
-  const labelIndexes = values.length <= 5
-    ? values.map((_, index) => index)
-    : [...new Set([0, Math.round((values.length - 1) / 4), Math.round((values.length - 1) / 2), Math.round((values.length - 1) * 3 / 4), values.length - 1])];
+  const chartData = useMemo(
+    () =>
+      data.map((row) => ({
+        date: row.date,
+        label: row.date.length >= 10 ? row.date.slice(5) : row.date,
+        inputTokens: row.inputTokens,
+        outputTokens: row.outputTokens,
+        cacheCreationInputTokens: row.cacheCreationInputTokens,
+        cacheReadInputTokens: row.cacheReadInputTokens,
+        estimatedCost: row.estimatedCost,
+      })),
+    [data],
+  );
+  const colors = {
+    input: token.colorInfo,
+    output: token.colorSuccess,
+    cacheWrite: token.colorWarning,
+    cacheRead: token.colorPrimary,
+    cost: token.colorError,
+    grid: token.colorBorderSecondary,
+    axis: token.colorTextSecondary,
+    tooltipBg: token.colorBgElevated,
+    tooltipBorder: token.colorBorderSecondary,
+  };
+  const height = expanded ? 520 : 350;
 
-  if (!values.length) return <Empty description={t("usage.noData")} />;
+  if (!chartData.length) return <Empty description={t("usage.noData")} />;
 
   return (
-    <Space direction="vertical" size="small" style={{ width: "100%" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} aria-label={t("usage.trendChart")}>
-        {series.map((metric) => (
-          <span
-            key={metric.key}
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 8px", border: "1px solid var(--ant-color-border-secondary)", borderRadius: 6 }}
-          >
-            <span style={{ width: 16, height: 4, borderRadius: 3, background: metric.color }} />
-            <Text style={{ fontSize: 12 }}>{metric.label}</Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>{metric.cost ? "USD" : "Token"}</Text>
-          </span>
-        ))}
-      </div>
-      <div ref={containerRef} style={{ width: "100%", minWidth: 0 }}>
-        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("usage.trendChart")} style={{ display: "block", width: "100%", height }} preserveAspectRatio="xMidYMid meet">
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-            const y = padding.top + plotHeight * ratio;
-            const tokenValue = tokenScaleMax * (1 - ratio);
-            const costValue = costScaleMax * (1 - ratio);
-            return <g key={ratio}>
-              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" />
-              <text x={padding.left - 12} y={y + 4} textAnchor="end" fontSize="12" fill="currentColor" opacity="0.62">{formatNumber(Math.round(tokenValue))}</text>
-              <text x={width - padding.right + 12} y={y + 4} fontSize="12" fill="currentColor" opacity="0.62">{formatCost(costValue)}</text>
-            </g>;
-          })}
-          {series.map((metric) => {
-            const scaleMax = metric.cost ? costScaleMax : tokenScaleMax;
-            const points = values.map((item, index) => pointAt(item[metric.key], index, scaleMax));
-            const linePath = points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-            return <g key={metric.key}>
-              <path d={linePath} fill="none" stroke={metric.color} strokeWidth={metric.cost ? 3 : 2.25} strokeLinejoin="round" strokeLinecap="round" />
-              {values.map((item, index) => {
-                const point = points[index];
-                const value = item[metric.key];
-                return <circle key={`${metric.key}-${item.date}`} cx={point.x} cy={point.y} r={metric.cost ? 3.5 : 2.75} fill="var(--ant-color-bg-container)" stroke={metric.color} strokeWidth="2"><title>{`${item.date}: ${metric.label} ${metric.cost ? formatCost(value) : formatNumber(value)}`}</title></circle>;
-              })}
-            </g>;
-          })}
-          {labelIndexes.map((index) => {
-            const x = pointAt(0, index, 1).x;
-            return <text key={values[index].date} x={x} y={height - 20} textAnchor="middle" fontSize="12" fill="currentColor" opacity="0.62">{values[index].date.slice(5)}</text>;
-          })}
-        </svg>
-      </div>
-    </Space>
+    <div style={{ width: "100%", height }} role="img" aria-label={t("usage.trendChart")}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+          <defs>
+            <linearGradient id="usageColorInput" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colors.input} stopOpacity={0.28} />
+              <stop offset="95%" stopColor={colors.input} stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="usageColorOutput" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colors.output} stopOpacity={0.28} />
+              <stop offset="95%" stopColor={colors.output} stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="usageColorCacheWrite" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colors.cacheWrite} stopOpacity={0.22} />
+              <stop offset="95%" stopColor={colors.cacheWrite} stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="usageColorCacheRead" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={colors.cacheRead} stopOpacity={0.22} />
+              <stop offset="95%" stopColor={colors.cacheRead} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.grid} />
+          <XAxis
+            dataKey="label"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: colors.axis, fontSize: 12 }}
+            dy={8}
+          />
+          <YAxis
+            yAxisId="tokens"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: colors.axis, fontSize: 12 }}
+            tickFormatter={(value: number) =>
+              Math.abs(value) >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)
+            }
+            width={48}
+          />
+          <YAxis
+            yAxisId="cost"
+            orientation="right"
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: colors.axis, fontSize: 12 }}
+            tickFormatter={(value: number) => `$${Number(value).toFixed(2)}`}
+            width={56}
+          />
+          <RechartsTooltip
+            contentStyle={{
+              background: colors.tooltipBg,
+              border: `1px solid ${colors.tooltipBorder}`,
+              borderRadius: 8,
+            }}
+            labelFormatter={(_label, payload) => {
+              const row = payload?.[0]?.payload as { date?: string } | undefined;
+              return row?.date ?? String(_label);
+            }}
+            formatter={(value, name) => {
+              const numeric = typeof value === "number" ? value : Number(value);
+              if (name === t("usage.estimatedCost")) {
+                return [formatCost(numeric), name];
+              }
+              return [formatNumber(numeric), name];
+            }}
+          />
+          <Legend />
+          <Area
+            yAxisId="tokens"
+            type="monotone"
+            dataKey="inputTokens"
+            name={t("usage.inputTokens")}
+            stroke={colors.input}
+            fill="url(#usageColorInput)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="tokens"
+            type="monotone"
+            dataKey="outputTokens"
+            name={t("usage.outputTokens")}
+            stroke={colors.output}
+            fill="url(#usageColorOutput)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="tokens"
+            type="monotone"
+            dataKey="cacheCreationInputTokens"
+            name={t("usage.cacheWriteTokens")}
+            stroke={colors.cacheWrite}
+            fill="url(#usageColorCacheWrite)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="tokens"
+            type="monotone"
+            dataKey="cacheReadInputTokens"
+            name={t("usage.cacheReadTokens")}
+            stroke={colors.cacheRead}
+            fill="url(#usageColorCacheRead)"
+            strokeWidth={2}
+          />
+          <Area
+            yAxisId="cost"
+            type="monotone"
+            dataKey="estimatedCost"
+            name={t("usage.estimatedCost")}
+            stroke={colors.cost}
+            fill="none"
+            strokeWidth={2}
+            strokeDasharray="4 4"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 

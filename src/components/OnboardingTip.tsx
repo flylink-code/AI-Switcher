@@ -10,6 +10,9 @@ export type OnboardingTipKey =
   | "skills"
   | "sessions"
   | "usage"
+  | "usage_codex_local"
+  | "usage_currency"
+  | "usage_cache_pricing"
   | "localization"
   | "environment"
   | "about";
@@ -19,11 +22,13 @@ export function OnboardingTip({
   message,
   description,
   action,
+  type = "info",
 }: {
   tipKey: OnboardingTipKey;
   message: string;
   description?: string;
   action?: ReactNode;
+  type?: "info" | "warning" | "success" | "error";
 }) {
   const queryClient = useQueryClient();
   const tipsQuery = useQuery({
@@ -37,7 +42,7 @@ export function OnboardingTip({
 
   return (
     <Alert
-      type="info"
+      type={type}
       showIcon
       closable
       message={message}
