@@ -55,3 +55,34 @@ body {
   background: linear-gradient(145deg, #6d78f6, #4653d5);
   box-shadow: 0 16px 40px rgba(70, 83, 213, 0.28);
 }
+
+/* Providers heatmap source filter: align with adjacent Select (no floating white chip). */
+.heatmap-source-filter.ant-segmented {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.heatmap-source-filter.ant-segmented .ant-segmented-group {
+  height: 100%;
+  align-items: stretch;
+}
+
+.heatmap-source-filter.ant-segmented .ant-segmented-item,
+.heatmap-source-filter.ant-segmented .ant-segmented-thumb {
+  display: flex;
+  align-items: center;
+}
+
+.heatmap-source-filter.ant-segmented .ant-segmented-item-label {
+  min-height: 0;
+  height: 100%;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.heatmap-source-filter.ant-segmented .ant-segmented-item-selected,
+.heatmap-source-filter.ant-segmented .ant-segmented-thumb {
+  box-shadow: none;
+}

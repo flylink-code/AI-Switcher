@@ -30,11 +30,7 @@ import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
-import {
-  USAGE_SOURCE_FILTER_OPTIONS,
-  usageSourceSegmentLabel,
-  type UsageSourceFilter,
-} from "@/components/UsageSourceIcons";
+import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
 import { usageTrendOptions } from "@/lib/appQueries";
 
@@ -302,27 +298,18 @@ export default function ProvidersPage() {
       size="small"
       title={t("usage.dailyStatistics")}
       extra={
-        <Space wrap size={8}>
+        <Space wrap size={8} align="center">
           <Select
+            size="middle"
             value={usageDays}
             style={{ width: 130 }}
             options={[7, 30, 90, 365].map((value) => ({ value, label: t("usage.lastDays", { days: value }) }))}
             onChange={setUsageDays}
           />
-          <Segmented<UsageSourceFilter>
+          <UsageSourceFilterSegmented
             value={usageSource}
             onChange={setUsageSource}
-            options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
-              const label = t(option.labelKey);
-              return {
-                value: option.value,
-                label: (
-                  <Tooltip title={label}>
-                    {usageSourceSegmentLabel(option.value, label)}
-                  </Tooltip>
-                ),
-              };
-            })}
+            t={t}
           />
         </Space>
       }

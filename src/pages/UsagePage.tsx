@@ -12,14 +12,12 @@ import {
   InputNumber,
   Modal,
   Row,
-  Segmented,
   Select,
   Space,
   Statistic,
   Switch,
   Table,
   Tag,
-  Tooltip,
   Typography,
   message,
   theme,
@@ -68,11 +66,7 @@ import {
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import {
-  USAGE_SOURCE_FILTER_OPTIONS,
-  usageSourceSegmentLabel,
-  type UsageSourceFilter,
-} from "@/components/UsageSourceIcons";
+import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 
 const { Text } = Typography;
 
@@ -329,6 +323,7 @@ export default function UsagePage() {
             <Space size={8} align="center">
               <Text type="secondary">{t("usage.period")}</Text>
               <Select
+                size="middle"
                 value={days}
                 style={{ width: 140 }}
                 options={[7, 30, 90, 365].map((value) => ({
@@ -343,26 +338,17 @@ export default function UsagePage() {
             </Space>
             <Space size={8} align="center">
               <Text type="secondary">{t("usage.statsSource")}</Text>
-              <Segmented<UsageSourceFilter>
+              <UsageSourceFilterSegmented
                 value={logTargetApp}
                 onChange={(value) => {
                   setLogTargetApp(value);
                   setLogPage(0);
                 }}
-                options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
-                  const label = t(option.labelKey);
-                  return {
-                    value: option.value,
-                    label: (
-                      <Tooltip title={label}>
-                        {usageSourceSegmentLabel(option.value, label)}
-                      </Tooltip>
-                    ),
-                  };
-                })}
+                t={t}
               />
             </Space>
             <Button
+              size="middle"
               icon={<ReloadOutlined />}
               loading={refreshing}
               onClick={() => void refreshOverview()}
