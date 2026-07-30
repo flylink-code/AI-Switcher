@@ -412,9 +412,7 @@ pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppSt
         ProviderTarget::ClaudeDesktop => restore_desktop_ownership(state)?,
         ProviderTarget::Codex => codex::restore_official()?,
     }
-    if target != ProviderTarget::Codex {
-        state.proxy.lock().await.stop_target(target);
-    }
+    state.proxy.lock().await.stop_target(target);
     state.db.with_conn(|conn| dao::clear_current_provider(conn, target))
 }
 
@@ -552,7 +550,20 @@ async fn apply_target_provider(
                 Ok(None)
             }
             ProviderTarget::Codex => {
-                codex::apply_provider(&runtime_provider, &runtime_provider.api_key)?;
+                if uses_proxy {
+                    state.proxy.lock().await.start(proxy_port, ProviderTarget::Codex).await?;
+                }
+                let provider = runtime_provider.clone();
+                let api_key = runtime_provider.api_key.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    codex::apply_provider(
+                        &provider,
+                        &api_key,
+                        if uses_proxy { Some(proxy_port) } else { None },
+                    )
+                })
+                .await
+                .map_err(|error| AppError::Tauri(format!("Codex 配置写入任务失败: {error}")))??;
                 // Config write succeeded. Session rewrite failures must not roll
                 // back the provider switch; surface them as a warning instead.
                 let session_sync = match codex_provider_sync::sync_to_managed_provider() {
@@ -1181,7 +1192,7 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
         .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
-        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 0 })
+        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 15823 })
 }
 
 #[cfg(test)]

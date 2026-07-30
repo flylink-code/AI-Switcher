@@ -65,10 +65,12 @@ import {
   maintainProxyLogs,
   previewProxyLogMaintenance,
   previewModelPricingXlsx,
+  rebuildCodexSessionUsage,
   saveModelPricing,
   saveLogMaintenancePolicy,
+  syncCodexSessionUsage,
 } from "@/services/api";
-import { usageOverviewOptions } from "@/lib/appQueries";
+import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
@@ -86,6 +88,15 @@ const SOURCE_FILTER_OPTIONS: Array<{
   { value: "claude_desktop", icon: <DesktopOutlined />, labelKey: "usage.sourceClaudeDesktop" },
   { value: "codex", icon: <RobotOutlined />, labelKey: "usage.sourceCodex" },
 ];
+
+function invalidateUsageQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["usage-dashboard"] }),
+    queryClient.invalidateQueries({ queryKey: ["usage-logs"] }),
+    queryClient.invalidateQueries({ queryKey: ["usage-meta"] }),
+    queryClient.invalidateQueries({ queryKey: ["usage-trend"] }),
+  ]);
+}
 
 export default function UsagePage() {
   const { t } = useTranslation();
@@ -110,19 +121,27 @@ export default function UsagePage() {
   const [form] = Form.useForm<ModelPricingInput>();
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const [trendExpanded, setTrendExpanded] = useState(false);
-  const overviewQuery = useQuery({
-    ...usageOverviewOptions(days, logPage, logTargetApp),
+
+  const dashboardQuery = useQuery({
+    ...usageDashboardOptions(days, logTargetApp),
     placeholderData: keepPreviousData,
   });
-  const dashboard = overviewQuery.data?.dashboard ?? null;
-  const pricing = overviewQuery.data?.pricing ?? [];
-  const requestLogs = overviewQuery.data?.requestLogs ?? null;
+  const logsQuery = useQuery({
+    ...usageLogsOptions(days, logPage, logTargetApp),
+    placeholderData: keepPreviousData,
+  });
+  const metaQuery = useQuery(usageMetaOptions);
+
+  const dashboard = dashboardQuery.data ?? null;
+  const pricing = metaQuery.data?.pricing ?? [];
+  const requestLogs = logsQuery.data ?? null;
+  const pageError = dashboardQuery.error ?? logsQuery.error ?? metaQuery.error;
 
   useEffect(() => {
-    if (!maintenanceOpen && overviewQuery.data?.maintenancePolicy) {
-      setMaintenancePolicy(overviewQuery.data.maintenancePolicy);
+    if (!maintenanceOpen && metaQuery.data?.maintenancePolicy) {
+      setMaintenancePolicy(metaQuery.data.maintenancePolicy);
     }
-  }, [maintenanceOpen, overviewQuery.data?.maintenancePolicy]);
+  }, [maintenanceOpen, metaQuery.data?.maintenancePolicy]);
 
   useEffect(() => {
     if (!maintenanceOpen || !maintenancePolicy) return;
@@ -138,11 +157,12 @@ export default function UsagePage() {
         !saving &&
         !maintaining
       ) {
-        void overviewQuery.refetch();
+        void dashboardQuery.refetch();
+        void logsQuery.refetch();
       }
-    }, 30_000);
+    }, 60_000);
     return () => window.clearInterval(interval);
-  }, [maintaining, overviewQuery.refetch, saving]);
+  }, [dashboardQuery.refetch, logsQuery.refetch, maintaining, saving]);
 
   const savePricing = async () => {
     try {
@@ -152,7 +172,7 @@ export default function UsagePage() {
       setPricingFormOpen(false);
       form.resetFields();
       void message.success(t("usage.pricingSaved"));
-      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
+      await invalidateUsageQueries(queryClient);
     } catch (e) {
       if (e instanceof Error) void message.error(errMsg(e));
     } finally {
@@ -164,7 +184,7 @@ export default function UsagePage() {
     try {
       await deleteModelPricing(model);
       void message.success(t("usage.pricingDeleted"));
-      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
+      await invalidateUsageQueries(queryClient);
     } catch (e) {
       void message.error(errMsg(e));
     }
@@ -206,7 +226,7 @@ export default function UsagePage() {
       setPricingImportPath(null);
       setPricingImportPreview(null);
       void message.success(t("usage.pricingImported", { count: result.validRows }));
-      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
+      await invalidateUsageQueries(queryClient);
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -231,7 +251,7 @@ export default function UsagePage() {
       void message.success(t("usage.logsMaintained", { deleted: result.deleted }));
       if (!result.integrityOk) void message.error(t("usage.integrityFailed"));
       setMaintenanceOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["usage-overview"] });
+      await invalidateUsageQueries(queryClient);
     } catch (e) { void message.error(errMsg(e)); }
     finally { setMaintaining(false); }
   };
@@ -239,7 +259,7 @@ export default function UsagePage() {
   const refreshOverview = async () => {
     setRefreshing(true);
     try {
-      await overviewQuery.refetch();
+      await Promise.all([dashboardQuery.refetch(), logsQuery.refetch(), metaQuery.refetch()]);
     } finally {
       setRefreshing(false);
     }
@@ -254,10 +274,46 @@ export default function UsagePage() {
   const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
   const isCodexOnly = logTargetApp === "codex";
 
+  const syncCodexSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await syncCodexSessionUsage();
+      void message.success(
+        t("usage.codexSyncDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedFiles,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const rebuildCodexSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildCodexSessionUsage();
+      void message.success(
+        t("usage.codexRebuildDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedFiles,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
+        {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
         <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
         {includesCodex && (
           <OnboardingTip
@@ -329,6 +385,16 @@ export default function UsagePage() {
             </Button>
           </Space>
           <Space wrap size={8}>
+            {includesCodex && (
+              <>
+                <Button loading={refreshing} onClick={() => void syncCodexSessions()}>
+                  {t("usage.syncCodexSessions")}
+                </Button>
+                <Button loading={refreshing} onClick={() => void rebuildCodexSessions()}>
+                  {t("usage.rebuildCodexSessions")}
+                </Button>
+              </>
+            )}
             <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
               {t("usage.configurePricing")}
             </Button>
@@ -366,92 +432,99 @@ export default function UsagePage() {
           size="small"
           title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
         >
-          {isCodexOnly ? (
-            <Empty description={t("usage.codexNoProxyLogs")} />
-          ) : (
-            <Table
-              size="small"
-              rowKey="id"
-              locale={{ emptyText: t("usage.noData") }}
-              dataSource={requestLogs?.data ?? []}
-              loading={overviewQuery.isPending}
-              pagination={{
-                current: (requestLogs?.page ?? 0) + 1,
-                pageSize: requestLogs?.pageSize ?? 20,
-                total: requestLogs?.total ?? 0,
-                showSizeChanger: false,
-                onChange: (page) => setLogPage(page - 1),
-              }}
-              onRow={(row) => ({
-                onClick: () => {
-                  if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
-                },
-                style: { cursor: row.diagnostic ? "pointer" : "default" },
-              })}
-              columns={[
-                {
-                  title: t("usage.logTime"),
-                  dataIndex: "createdAt",
-                  width: 170,
-                  render: (v: number) => new Date(v).toLocaleString(),
-                },
-                {
-                  title: t("usage.logApp"),
-                  dataIndex: "targetApp",
-                  width: 120,
-                  render: (v: string | null) => v ?? "—",
-                },
-                {
-                  title: t("usage.logProvider"),
-                  dataIndex: "providerName",
-                  ellipsis: true,
-                  render: (v: string | null) => v ?? "—",
-                },
-                {
-                  title: t("usage.model"),
-                  dataIndex: "model",
-                  ellipsis: true,
-                  render: (v: string | null) => v ?? "—",
-                },
-                {
-                  title: t("usage.logStatus"),
-                  dataIndex: "statusCode",
-                  width: 80,
-                  render: (v: number | null) => {
-                    if (v === null) return "—";
-                    const color = v >= 200 && v < 300 ? "green" : "red";
-                    return <Tag color={color}>{v}</Tag>;
-                  },
-                },
-                {
-                  title: t("usage.errorSource"),
-                  dataIndex: "errorCategory",
-                  width: 105,
-                  render: (value: string | null) =>
-                    value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
-                },
-                {
-                  title: t("usage.logTokens"),
-                  render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                    row.usageAvailable
-                      ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
-                      : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
-                },
-                {
-                  title: t("usage.logDuration"),
-                  dataIndex: "durationMs",
-                  width: 90,
-                  render: (v: number) => `${v}ms`,
-                },
-                {
-                  title: t("usage.logStream"),
-                  dataIndex: "isStream",
-                  width: 70,
-                  render: (v: boolean) => (v ? t("common.enabled") : "—"),
-                },
-              ]}
+          {isCodexOnly && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={t("usage.codexRequestLogsHint")}
             />
           )}
+          <Table
+            size="small"
+            rowKey="id"
+            locale={{ emptyText: t("usage.noData") }}
+            dataSource={requestLogs?.data ?? []}
+            loading={logsQuery.isPending && !logsQuery.data}
+            pagination={{
+              current: (requestLogs?.page ?? 0) + 1,
+              pageSize: requestLogs?.pageSize ?? 20,
+              total: requestLogs?.total ?? 0,
+              showSizeChanger: false,
+              onChange: (page) => setLogPage(page - 1),
+            }}
+            onRow={(row) => ({
+              onClick: () => {
+                if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
+              },
+              style: { cursor: row.diagnostic ? "pointer" : "default" },
+            })}
+            columns={[
+              {
+                title: t("usage.logTime"),
+                dataIndex: "createdAt",
+                width: 170,
+                render: (v: number) => new Date(v).toLocaleString(),
+              },
+              {
+                title: t("usage.logApp"),
+                dataIndex: "targetApp",
+                width: 120,
+                render: (v: string | null) => v ?? "—",
+              },
+              {
+                title: t("usage.logProvider"),
+                dataIndex: "providerName",
+                ellipsis: true,
+                render: (v: string | null, row: PaginatedProxyLogs["data"][number]) =>
+                  row.dataSource === "codex_session"
+                    ? t("usage.codexSessionSource")
+                    : (v ?? "—"),
+              },
+              {
+                title: t("usage.model"),
+                dataIndex: "model",
+                ellipsis: true,
+                render: (v: string | null) => v ?? "—",
+              },
+              {
+                title: t("usage.logStatus"),
+                dataIndex: "statusCode",
+                width: 80,
+                render: (v: number | null) => {
+                  if (v === null) return "—";
+                  const color = v >= 200 && v < 300 ? "green" : "red";
+                  return <Tag color={color}>{v}</Tag>;
+                },
+              },
+              {
+                title: t("usage.errorSource"),
+                dataIndex: "errorCategory",
+                width: 105,
+                render: (value: string | null) =>
+                  value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
+              },
+              {
+                title: t("usage.logTokens"),
+                render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
+                  row.usageAvailable
+                    ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
+                    : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
+              },
+              {
+                title: t("usage.logDuration"),
+                dataIndex: "durationMs",
+                width: 90,
+                render: (v: number) => `${v}ms`,
+              },
+              {
+                title: t("usage.logStream"),
+                dataIndex: "isStream",
+                width: 70,
+                render: (v: boolean) => (v ? t("common.enabled") : "—"),
+              },
+            ]}
+          />
         </Card>
 
       </Space>
@@ -498,7 +571,7 @@ export default function UsagePage() {
             scroll={{ x: 1050 }}
             locale={{ emptyText: t("usage.noPricing") }}
             dataSource={pricing}
-            loading={overviewQuery.isPending}
+            loading={metaQuery.isPending && !metaQuery.data}
             columns={[
               { title: t("usage.model"), dataIndex: "model" },
               { title: t("usage.pricingProvider"), dataIndex: "provider", render: (v: string) => v || "-" },

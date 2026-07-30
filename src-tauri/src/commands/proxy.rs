@@ -96,6 +96,7 @@ pub async fn stop_proxy(
             for target in [
                 crate::provider::ProviderTarget::ClaudeCode,
                 crate::provider::ProviderTarget::ClaudeDesktop,
+                crate::provider::ProviderTarget::Codex,
             ] {
                 let status =
                     status_value(&state, target, get_saved_port(&state, target), "stopped", None);
@@ -142,7 +143,7 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
         .ok()
         .flatten()
         .and_then(|s| s.parse::<u16>().ok())
-        .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1, crate::provider::ProviderTarget::Codex => 0 })
+        .unwrap_or(match target { crate::provider::ProviderTarget::ClaudeCode => DEFAULT_PORT, crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1, crate::provider::ProviderTarget::Codex => DEFAULT_PORT + 2 })
 }
 
 pub fn initial_proxy_statuses(
@@ -151,6 +152,7 @@ pub fn initial_proxy_statuses(
     [
         crate::provider::ProviderTarget::ClaudeCode,
         crate::provider::ProviderTarget::ClaudeDesktop,
+        crate::provider::ProviderTarget::Codex,
     ]
     .into_iter()
     .map(|target| {
@@ -253,6 +255,7 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
     for target in [
         crate::provider::ProviderTarget::ClaudeCode,
         crate::provider::ProviderTarget::ClaudeDesktop,
+        crate::provider::ProviderTarget::Codex,
     ] {
         let needs_proxy = state
             .db

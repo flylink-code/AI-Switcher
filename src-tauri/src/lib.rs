@@ -20,6 +20,7 @@ mod session_manager;
 mod skills;
 mod store;
 mod tray;
+mod usage;
 
 use std::sync::Arc;
 
@@ -45,7 +46,8 @@ use crate::commands::{
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
-    preview_model_pricing_xlsx, preview_proxy_log_maintenance, restore_desktop_localization, save_log_maintenance_policy,
+    preview_model_pricing_xlsx, preview_proxy_log_maintenance, rebuild_codex_session_usage_cmd, restore_desktop_localization, save_log_maintenance_policy,
+    sync_codex_session_usage_cmd,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, run_claude_code_update,
     backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
@@ -183,6 +185,8 @@ pub fn run() {
             report_frontend_performance,
             report_frontend_startup,
             get_usage_dashboard,
+            sync_codex_session_usage_cmd,
+            rebuild_codex_session_usage_cmd,
             list_model_pricing,
             export_model_pricing_xlsx,
             preview_model_pricing_xlsx,
@@ -340,6 +344,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         );
     });
 
+    spawn_codex_session_usage_sync(Arc::clone(&db));
+
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {
         log::error!("托盘初始化失败: {e}");
@@ -358,6 +364,47 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+/// Background Codex session JSONL → DB sync: first run after ~8s, then every 60s.
+/// Skips overlapping runs so a slow sync cannot stack with the next tick.
+/// Each file uses a short DB lock so UI queries can interleave.
+fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+        loop {
+            let db = Arc::clone(&db);
+            let sync_result = tokio::task::spawn_blocking(move || {
+                usage::session_usage_codex::try_sync_codex_session_usage_db(&db)
+            })
+            .await;
+            match sync_result {
+                Ok(Ok(result)) => {
+                    if result.inserted_rows > 0 {
+                        log::info!(
+                            "Codex session usage sync: scanned={}, inserted={}, skipped={}",
+                            result.scanned_files,
+                            result.inserted_rows,
+                            result.skipped_rows
+                        );
+                    } else {
+                        log::debug!(
+                            "Codex session usage sync: scanned={}, message={}",
+                            result.scanned_files,
+                            result.message
+                        );
+                    }
+                }
+                Ok(Err(error)) => {
+                    log::warn!("Codex session usage sync failed: {error}");
+                }
+                Err(error) => {
+                    log::warn!("Codex session usage sync task join failed: {error}");
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    });
 }
 
 fn on_window_event(window: &tauri::Window, event: &WindowEvent) {

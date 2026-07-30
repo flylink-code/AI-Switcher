@@ -23,6 +23,7 @@ pub const MANAGED_PROVIDER_ID: &str = "ai_switcher";
 const LEGACY_MANAGED_PROVIDER_PREFIX: &str = "ai_switcher_";
 const CONFIG_BACKUP: &str = "codex-original-config.toml";
 const AUTH_BACKUP: &str = "codex-original-auth.json";
+const PROXY_MANAGED_API_KEY: &str = "PROXY_MANAGED";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,14 +86,10 @@ fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
     atomic_write(&backup, &bytes)
 }
 
-/// Apply a direct Codex model provider. The API key remains in the OS keyring
-/// at rest; Codex needs its selected runtime key in auth.json while active.
-///
-/// Pure-API shape matches CodexPlusPlus / cc-switch:
-/// - `requires_openai_auth = true` so Codex reads `~/.codex/auth.json`
-/// - never set `env_key` (that forces a process env var and yields
-///   `Missing environment variable: OPENAI_API_KEY` when unset)
-pub fn apply_provider(provider: &Provider, api_key: &str) -> AppResult<()> {
+/// Apply a Codex model provider. When `proxy_port` is set, rewrite live
+/// `base_url` to the local OpenAI-compatible proxy; the real upstream URL stays
+/// on the DB provider row for the forwarder.
+pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16>) -> AppResult<()> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
     let auth_path = get_codex_auth_path();
@@ -100,16 +97,19 @@ pub fn apply_provider(provider: &Provider, api_key: &str) -> AppResult<()> {
     backup_once(&auth_path, AUTH_BACKUP)?;
 
     let mut doc = load_document(&config_path)?;
-    write_managed_provider(&mut doc, provider);
+    write_managed_provider(&mut doc, provider, proxy_port);
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
-    // Keep the foreign file intentionally minimal. Do not merge or expose a
-    // previous OAuth document; `switch_to_official` restores its byte backup.
-    let auth = serde_json::json!({ "OPENAI_API_KEY": api_key });
+    let auth_key = if proxy_port.is_some() {
+        PROXY_MANAGED_API_KEY
+    } else {
+        api_key
+    };
+    let auth = serde_json::json!({ "OPENAI_API_KEY": auth_key });
     atomic_write(&auth_path, serde_json::to_string_pretty(&auth)?.as_bytes())
 }
 
-fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider) {
+fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) {
     let provider_id = MANAGED_PROVIDER_ID;
     doc["model"] = value(provider.model.trim());
     doc["model_provider"] = value(provider_id);
@@ -122,10 +122,20 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider) {
         *entry = Item::Table(Table::new());
     }
     entry["name"] = value(provider.name.trim());
-    entry["base_url"] = value(provider.base_url.trim());
-    entry["wire_api"] = value(wire_api(provider.protocol_type));
+    let base_url = if let Some(port) = proxy_port {
+        format!("http://127.0.0.1:{port}/v1")
+    } else {
+        provider.base_url.trim().to_string()
+    };
+    entry["base_url"] = value(base_url);
+    // Local proxy always speaks Responses to Codex clients; upstream conversion
+    // is handled by the forwarder based on the DB protocol.
+    entry["wire_api"] = value(if proxy_port.is_some() {
+        "responses"
+    } else {
+        wire_api(provider.protocol_type)
+    });
     entry["requires_openai_auth"] = value(true);
-    // Drop the legacy mistaken field so re-switching heals old config.toml.
     if let Some(table) = entry.as_table_mut() {
         table.remove("env_key");
     }
@@ -273,7 +283,7 @@ mod tests {
         doc["model_providers"]["ai_switcher"] = Item::Table(Table::new());
         doc["model_providers"]["ai_switcher"]["env_key"] = value("OPENAI_API_KEY");
 
-        write_managed_provider(&mut doc, &provider);
+        write_managed_provider(&mut doc, &provider, None);
 
         let text = doc.to_string();
         assert!(text.contains("requires_openai_auth = true"));

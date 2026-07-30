@@ -63,6 +63,46 @@ export const skillRepositoryOptions = queryOptions({
   queryFn: getSkillRepositorySnapshot,
 });
 
+export const usageDashboardOptions = (
+  days: number,
+  target: ProviderTarget | "all",
+) =>
+  queryOptions({
+    queryKey: ["usage-dashboard", days, target] as const,
+    queryFn: () => getUsageDashboard(days, target),
+    staleTime: 30_000,
+  });
+
+export const usageLogsOptions = (
+  days: number,
+  logPage: number,
+  target: ProviderTarget | "all",
+) =>
+  queryOptions({
+    queryKey: ["usage-logs", days, logPage, target] as const,
+    queryFn: () =>
+      listProxyRequestLogs({
+        days,
+        page: logPage,
+        pageSize: 20,
+        targetApp: target === "all" ? undefined : target,
+      }),
+    staleTime: 15_000,
+  });
+
+export const usageMetaOptions = queryOptions({
+  queryKey: ["usage-meta"] as const,
+  queryFn: async () => {
+    const [pricing, maintenancePolicy] = await Promise.all([
+      listModelPricing(),
+      getLogMaintenancePolicy(),
+    ]);
+    return { pricing, maintenancePolicy };
+  },
+  staleTime: 60_000,
+});
+
+/** @deprecated Prefer usageDashboardOptions + usageLogsOptions + usageMetaOptions */
 export const usageOverviewOptions = (
   days: number,
   logPage: number,
@@ -75,23 +115,25 @@ export const usageOverviewOptions = (
         getUsageDashboard(days, target),
         listModelPricing(),
         getLogMaintenancePolicy(),
-        target === "codex"
-          ? Promise.resolve({
-              data: [],
-              page: logPage,
-              pageSize: 20,
-              total: 0,
-            })
-          : listProxyRequestLogs({
-              days,
-              page: logPage,
-              pageSize: 20,
-              targetApp: target === "all" ? undefined : target,
-            }),
+        listProxyRequestLogs({
+          days,
+          page: logPage,
+          pageSize: 20,
+          targetApp: target === "all" ? undefined : target,
+        }),
       ]);
       return { dashboard, pricing, maintenancePolicy, requestLogs };
     },
     staleTime: 10_000,
+  });
+
+/** Lightweight trend-only fetch for Providers calendar (no logs/pricing). */
+export const usageTrendOptions = (days: number) =>
+  queryOptions({
+    queryKey: ["usage-trend", days] as const,
+    queryFn: () => getUsageDashboard(days, "all"),
+    staleTime: 60_000,
+    refetchOnMount: false,
   });
 
 export const environmentOptions = queryOptions({

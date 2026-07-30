@@ -340,9 +340,6 @@ pub struct Provider {
 
 impl Provider {
     pub fn requires_local_proxy(&self) -> bool {
-        if self.target_app == ProviderTarget::Codex {
-            return false;
-        }
         self.protocol_type.uses_proxy()
             || (self.target_app == ProviderTarget::ClaudeDesktop
                 && (self.model_mapping.has_explicit_roles()

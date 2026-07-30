@@ -7,6 +7,35 @@ use uuid::Uuid;
 
 use crate::error::AppResult;
 
+pub const DATA_SOURCE_PROXY: &str = "proxy";
+pub const DATA_SOURCE_CODEX_SESSION: &str = "codex_session";
+pub const CODEX_SESSION_PROVIDER_ID: &str = "_codex_session";
+/// Hide session rows when a matching proxy row exists within ±10 minutes.
+const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
+
+/// SQL fragment: drop `codex_session` rows that duplicate a nearby proxy row.
+/// Uses a created_at range (not ABS) so SQLite can use indexes.
+const EFFECTIVE_USAGE_FILTER: &str = "
+  AND (
+    COALESCE(l.data_source, 'proxy') != 'codex_session'
+    OR NOT EXISTS (
+      SELECT 1 FROM proxy_request_logs p
+      WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
+        AND p.target_app = 'codex'
+        AND p.status_code BETWEEN 200 AND 299
+        AND p.created_at BETWEEN l.created_at - 600000 AND l.created_at + 600000
+        AND p.input_tokens = l.input_tokens
+        AND p.output_tokens = l.output_tokens
+        AND p.cache_read_input_tokens = l.cache_read_input_tokens
+        AND (
+          lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, ''))
+          OR lower(COALESCE(l.model, '')) IN ('', 'unknown')
+          OR lower(COALESCE(p.model, '')) IN ('', 'unknown')
+        )
+    )
+  )
+";
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSummary {
@@ -132,19 +161,77 @@ pub fn insert_proxy_log(
     error_category: Option<&str>,
     diagnostic: Option<&str>,
 ) -> AppResult<String> {
-    let id = format!("log_{}", Uuid::new_v4().simple());
+    insert_proxy_log_with_source(
+        conn,
+        None,
+        Utc::now().timestamp_millis(),
+        provider_id,
+        provider_name,
+        model,
+        status_code,
+        0,
+        0,
+        0,
+        0,
+        false,
+        duration_ms,
+        target_app,
+        protocol,
+        route,
+        is_stream,
+        error_category,
+        diagnostic,
+        DATA_SOURCE_PROXY,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn insert_proxy_log_with_source(
+    conn: &Connection,
+    id: Option<&str>,
+    created_at: i64,
+    provider_id: Option<&str>,
+    provider_name: Option<&str>,
+    model: Option<&str>,
+    status_code: Option<i64>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    cache_creation_input_tokens: i64,
+    output_tokens: i64,
+    usage_available: bool,
+    duration_ms: i64,
+    target_app: Option<&str>,
+    protocol: Option<&str>,
+    route: Option<&str>,
+    is_stream: bool,
+    error_category: Option<&str>,
+    diagnostic: Option<&str>,
+    data_source: &str,
+    session_id: Option<&str>,
+) -> AppResult<String> {
+    let id = id
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("log_{}", Uuid::new_v4().simple()));
     conn.execute(
-        "INSERT INTO proxy_request_logs
-            (id, created_at, provider_id, provider_name, model, status_code, input_tokens, output_tokens, duration_ms,
-             target_app, protocol, route, is_stream, error_category, diagnostic)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?);",
+        "INSERT OR IGNORE INTO proxy_request_logs
+            (id, created_at, provider_id, provider_name, model, status_code,
+             input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens,
+             usage_available, duration_ms, target_app, protocol, route, is_stream,
+             error_category, diagnostic, data_source, session_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id,
-            Utc::now().timestamp_millis(),
+            created_at,
             provider_id,
             provider_name,
             model,
             status_code,
+            input_tokens,
+            cache_read_input_tokens,
+            cache_creation_input_tokens,
+            output_tokens,
+            usage_available,
             duration_ms,
             target_app,
             protocol,
@@ -152,9 +239,102 @@ pub fn insert_proxy_log(
             is_stream,
             error_category,
             diagnostic,
+            data_source,
+            session_id,
         ],
     )?;
     Ok(id)
+}
+
+pub fn should_skip_codex_session_insert(
+    conn: &Connection,
+    created_at: i64,
+    model: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<bool> {
+    let model = model.unwrap_or("unknown");
+    let exists: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM proxy_request_logs
+         WHERE COALESCE(data_source, 'proxy') = 'proxy'
+           AND target_app = 'codex'
+           AND status_code BETWEEN 200 AND 299
+           AND created_at BETWEEN ? AND ?
+           AND input_tokens = ?
+           AND output_tokens = ?
+           AND cache_read_input_tokens = ?
+           AND (
+             lower(COALESCE(model, '')) = lower(?)
+             OR lower(COALESCE(model, '')) IN ('', 'unknown')
+             OR lower(?) IN ('', 'unknown')
+           );",
+        params![
+            created_at - SESSION_PROXY_DEDUP_WINDOW_MS,
+            created_at + SESSION_PROXY_DEDUP_WINDOW_MS,
+            input_tokens,
+            output_tokens,
+            cache_read_input_tokens,
+            model,
+            model,
+        ],
+        |row| row.get(0),
+    )?;
+    Ok(exists > 0)
+}
+
+pub fn get_session_sync_state(
+    conn: &Connection,
+    file_path: &str,
+) -> AppResult<Option<(i64, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT last_modified, last_line_offset FROM session_log_sync WHERE file_path = ?;",
+    )?;
+    let mut rows = stmt.query(params![file_path])?;
+    if let Some(row) = rows.next()? {
+        Ok(Some((row.get(0)?, row.get(1)?)))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn update_session_sync_state(
+    conn: &Connection,
+    file_path: &str,
+    last_modified: i64,
+    last_line_offset: i64,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO session_log_sync (file_path, last_modified, last_line_offset, last_synced_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(file_path) DO UPDATE SET
+           last_modified = excluded.last_modified,
+           last_line_offset = excluded.last_line_offset,
+           last_synced_at = excluded.last_synced_at;",
+        params![
+            file_path,
+            last_modified,
+            last_line_offset,
+            Utc::now().timestamp_millis()
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn reset_codex_session_usage(conn: &Connection) -> AppResult<i64> {
+    let deleted = conn.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = ?;",
+        params![DATA_SOURCE_CODEX_SESSION],
+    )? as i64;
+    conn.execute(
+        "DELETE FROM session_log_sync WHERE file_path LIKE '%[/\\\\]sessions[/\\\\]%'
+           OR file_path LIKE '%[/\\\\]archived_sessions[/\\\\]%';",
+        [],
+    )?;
+    // SQLite LIKE with character classes is awkward; clear all cursors under known roots later.
+    // Prefer wiping all sync cursors that we manage for Codex JSONL:
+    conn.execute("DELETE FROM session_log_sync;", [])?;
+    Ok(deleted)
 }
 
 /// Fill in token counts when they become available in a completed response.
@@ -202,7 +382,7 @@ pub fn get_usage_summary_for_target(
     since: i64,
     target_app: Option<&str>,
 ) -> AppResult<UsageSummary> {
-    conn.query_row(
+    let sql = format!(
         "SELECT COUNT(*),
                 COALESCE(SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(input_tokens), 0),
@@ -216,8 +396,12 @@ pub fn get_usage_summary_for_target(
                     + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
                     ELSE 0 END), 0)
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
-         WHERE created_at >= :since
-           AND (:target_app IS NULL OR l.target_app = :target_app);",
+         WHERE l.created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {EFFECTIVE_USAGE_FILTER};"
+    );
+    conn.query_row(
+        &sql,
         named_params! { ":since": since, ":target_app": target_app },
         |row| Ok(UsageSummary {
             request_count: row.get(0)?,
@@ -268,6 +452,7 @@ fn usage_breakdown(
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
+           {EFFECTIVE_USAGE_FILTER}
          GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -290,8 +475,8 @@ pub fn get_usage_trend_for_target(
     since: i64,
     target_app: Option<&str>,
 ) -> AppResult<Vec<UsageTrendPoint>> {
-    let mut stmt = conn.prepare(
-        "SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', 'localtime'), COUNT(*),
+    let sql = format!(
+        "SELECT strftime('%Y-%m-%d', l.created_at / 1000, 'unixepoch', 'localtime'), COUNT(*),
                 COALESCE(SUM(l.input_tokens), 0),
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
@@ -305,8 +490,10 @@ pub fn get_usage_trend_for_target(
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
-         GROUP BY 1 ORDER BY 1 ASC;",
-    )?;
+           {EFFECTIVE_USAGE_FILTER}
+         GROUP BY 1 ORDER BY 1 ASC;"
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
         Ok(UsageTrendPoint {
             date: row.get(0)?,
@@ -400,6 +587,8 @@ pub struct ProxyRequestLog {
     pub is_stream: bool,
     pub error_category: Option<String>,
     pub diagnostic: Option<String>,
+    pub data_source: String,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -432,36 +621,37 @@ pub fn list_proxy_request_logs(
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     if let Some(since) = filters.since {
-        conditions.push("created_at >= ?".to_string());
+        conditions.push("l.created_at >= ?".to_string());
         params.push(Box::new(since));
     }
     if let Some(ref target_app) = filters.target_app {
-        conditions.push("target_app = ?".to_string());
+        conditions.push("l.target_app = ?".to_string());
         params.push(Box::new(target_app.clone()));
     }
     if let Some(status_code) = filters.status_code {
-        conditions.push("status_code = ?".to_string());
+        conditions.push("l.status_code = ?".to_string());
         params.push(Box::new(status_code));
     }
 
     let where_clause = if conditions.is_empty() {
-        String::new()
+        format!("WHERE 1=1 {EFFECTIVE_USAGE_FILTER}")
     } else {
-        format!("WHERE {}", conditions.join(" AND "))
+        format!("WHERE {} {EFFECTIVE_USAGE_FILTER}", conditions.join(" AND "))
     };
 
-    let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs {where_clause}");
+    let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs l {where_clause}");
     let count_params: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     let total: i64 = conn.query_row(&count_sql, count_params.as_slice(), |row| row.get(0))?;
 
     let data_sql = format!(
-        "SELECT id, created_at, provider_id, provider_name, model, status_code,
-                input_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-                output_tokens, usage_available, duration_ms, target_app, protocol, route,
-                is_stream, error_category, diagnostic
-         FROM proxy_request_logs
+        "SELECT l.id, l.created_at, l.provider_id, l.provider_name, l.model, l.status_code,
+                l.input_tokens, l.cache_read_input_tokens, l.cache_creation_input_tokens,
+                l.output_tokens, l.usage_available, l.duration_ms, l.target_app, l.protocol, l.route,
+                l.is_stream, l.error_category, l.diagnostic,
+                COALESCE(l.data_source, 'proxy'), l.session_id
+         FROM proxy_request_logs l
          {where_clause}
-         ORDER BY created_at DESC
+         ORDER BY l.created_at DESC
          LIMIT ? OFFSET ?"
     );
     params.push(Box::new(i64::from(page_size)));
@@ -489,6 +679,8 @@ pub fn list_proxy_request_logs(
             is_stream: row.get::<_, i64>(15)? != 0,
             error_category: row.get(16)?,
             diagnostic: row.get(17)?,
+            data_source: row.get(18)?,
+            session_id: row.get(19)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;

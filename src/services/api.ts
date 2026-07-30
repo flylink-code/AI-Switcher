@@ -591,6 +591,23 @@ export async function getUsageDashboard(
   });
 }
 
+export interface CodexSessionSyncResult {
+  scannedFiles: number;
+  insertedRows: number;
+  skippedRows: number;
+  message: string;
+}
+
+export async function syncCodexSessionUsage(): Promise<CodexSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexSessionSyncResult>("sync_codex_session_usage_cmd", {});
+}
+
+export async function rebuildCodexSessionUsage(): Promise<CodexSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexSessionSyncResult>("rebuild_codex_session_usage_cmd", {});
+}
+
 export async function listModelPricing(): Promise<ModelPricing[]> {
   const invoke = await getInvoke();
   return invoke<ModelPricing[]>("list_model_pricing", {});

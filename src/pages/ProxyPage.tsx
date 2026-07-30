@@ -110,6 +110,7 @@ export default function ProxyPage() {
           options={[
             { value: "claude_code", label: t("providers.claudeCode") },
             { value: "claude_desktop", label: t("providers.claudeDesktop") },
+            { value: "codex", label: "Codex" },
           ]}
         />
 
@@ -157,7 +158,11 @@ export default function ProxyPage() {
                 )}
               </Descriptions.Item>
               <Descriptions.Item label={t("proxy.fieldEndpoint")}>
-                <Text copyable code>{`http://127.0.0.1:${status.port}/v1/messages`}</Text>
+                <Text copyable code>
+                  {target === "codex"
+                    ? `http://127.0.0.1:${status.port}/v1/responses`
+                    : `http://127.0.0.1:${status.port}/v1/messages`}
+                </Text>
               </Descriptions.Item>
             </Descriptions>
           )}

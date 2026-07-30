@@ -82,5 +82,6 @@ pub use tools::{get_claude_code_version, run_claude_code_update};
 pub use usage::{
     delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, import_model_pricing_xlsx, list_model_pricing,
     list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,
+    rebuild_codex_session_usage_cmd, sync_codex_session_usage_cmd,
     preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
 };

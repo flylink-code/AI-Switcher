@@ -31,7 +31,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
-import { usageOverviewOptions } from "@/lib/appQueries";
+import { usageTrendOptions } from "@/lib/appQueries";
 
 const { Text } = Typography;
 
@@ -48,7 +48,7 @@ export default function ProvidersPage() {
   const [busy, setBusy] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-  const usageQuery = useQuery(usageOverviewOptions(usageDays, 0, "all"));
+  const usageQuery = useQuery(usageTrendOptions(usageDays));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -306,7 +306,7 @@ export default function ProvidersPage() {
       {usageQuery.error ? (
         <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
       ) : (
-        <UsageCalendar data={usageQuery.data?.dashboard.trend ?? []} days={usageDays} />
+        <UsageCalendar data={usageQuery.data?.trend ?? []} days={usageDays} />
       )}
     </Card>
     <ProviderForm

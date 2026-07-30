@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 11;
+pub const SCHEMA_VERSION: u32 = 13;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -89,11 +89,19 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             route        TEXT,
             is_stream    BOOLEAN NOT NULL DEFAULT 0,
             error_category TEXT,
-            diagnostic   TEXT
+            diagnostic   TEXT,
+            data_source  TEXT NOT NULL DEFAULT 'proxy',
+            session_id   TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
-        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);",
+        CREATE INDEX IF NOT EXISTS idx_logs_model     ON proxy_request_logs(model);
+        CREATE TABLE IF NOT EXISTS session_log_sync (
+            file_path TEXT PRIMARY KEY,
+            last_modified INTEGER NOT NULL,
+            last_line_offset INTEGER NOT NULL DEFAULT 0,
+            last_synced_at INTEGER NOT NULL
+        );",
     )?;
 
     // Custom per-model pricing for cost estimation.
@@ -160,6 +168,12 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 11 {
         migrate_v10_to_v11(conn)?;
+    }
+    if current < 12 {
+        migrate_v11_to_v12(conn)?;
+    }
+    if current < 13 {
+        migrate_v12_to_v13(conn)?;
     }
     Ok(())
 }
@@ -390,6 +404,88 @@ fn migrate_v10_to_v11(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 11)
+}
+
+/// Dual-source Codex usage: distinguish proxy HTTP rows from session JSONL sync
+/// and track incremental file cursors.
+fn migrate_v11_to_v12(conn: &Connection) -> AppResult<()> {
+    for (name, definition) in [
+        ("data_source", "TEXT NOT NULL DEFAULT 'proxy'"),
+        ("session_id", "TEXT"),
+    ] {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            conn.execute_batch(&format!(
+                "ALTER TABLE proxy_request_logs ADD COLUMN {name} {definition};"
+            ))?;
+        }
+    }
+    let has_created_at: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'created_at';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_created_at > 0 {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_logs_data_source
+                 ON proxy_request_logs(data_source, created_at);",
+        )?;
+    }
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS session_log_sync (
+            file_path TEXT PRIMARY KEY,
+            last_modified INTEGER NOT NULL,
+            last_line_offset INTEGER NOT NULL DEFAULT 0,
+            last_synced_at INTEGER NOT NULL
+         );",
+    )?;
+    set_user_version(conn, 12)
+}
+
+/// Indexes for Codex proxy↔session dedup window lookups and usage filters.
+fn migrate_v12_to_v13(conn: &Connection) -> AppResult<()> {
+    let has_target_app: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'target_app';",
+        [],
+        |row| row.get(0),
+    )?;
+    let has_data_source: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'data_source';",
+        [],
+        |row| row.get(0),
+    )?;
+    let has_created_at: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'created_at';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_target_app > 0 && has_data_source > 0 && has_created_at > 0 {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_logs_target_source_created
+                 ON proxy_request_logs(target_app, data_source, created_at);",
+        )?;
+    }
+    if has_target_app > 0 && has_created_at > 0 {
+        // Partial index used by proxy↔session dedup window queries.
+        if has_data_source > 0 {
+            conn.execute_batch(
+                "CREATE INDEX IF NOT EXISTS idx_logs_codex_proxy_tokens
+                     ON proxy_request_logs(target_app, created_at, input_tokens, output_tokens, cache_read_input_tokens)
+                     WHERE target_app = 'codex' AND COALESCE(data_source, 'proxy') = 'proxy';",
+            )?;
+        } else {
+            conn.execute_batch(
+                "CREATE INDEX IF NOT EXISTS idx_logs_codex_proxy_tokens
+                     ON proxy_request_logs(target_app, created_at, input_tokens, output_tokens, cache_read_input_tokens)
+                     WHERE target_app = 'codex';",
+            )?;
+        }
+    }
+    set_user_version(conn, 13)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

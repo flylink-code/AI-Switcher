@@ -6,6 +6,7 @@
 //! table for the usage dashboard (P4).
 
 mod convert;
+mod codex;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -50,11 +51,11 @@ const CIRCUIT_FAILURE_THRESHOLD: u8 = 2;
 const CIRCUIT_OPEN_SECONDS: u64 = 60;
 
 #[derive(Debug, Clone, Copy, Default)]
-struct UsageCounts {
-    input_tokens: i64,
-    cache_read_input_tokens: i64,
-    cache_creation_input_tokens: i64,
-    output_tokens: i64,
+pub(crate) struct UsageCounts {
+    pub(crate) input_tokens: i64,
+    pub(crate) cache_read_input_tokens: i64,
+    pub(crate) cache_creation_input_tokens: i64,
+    pub(crate) output_tokens: i64,
 }
 
 /// Runtime handle for the local proxy.
@@ -63,6 +64,7 @@ pub struct ProxyManager {
     lifecycle_tx: UnboundedSender<ProxyLifecycleEvent>,
     code: Option<ProxyRuntime>,
     desktop: Option<ProxyRuntime>,
+    codex: Option<ProxyRuntime>,
 }
 
 struct ProxyRuntime {
@@ -81,6 +83,7 @@ impl ProxyManager {
             lifecycle_tx,
             code: None,
             desktop: None,
+            codex: None,
         }
     }
 
@@ -88,7 +91,7 @@ impl ProxyManager {
         let runtime = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
-            ProviderTarget::Codex => None,
+            ProviderTarget::Codex => self.codex.as_ref(),
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -96,7 +99,7 @@ impl ProxyManager {
             port: runtime.map(|runtime| runtime.port).unwrap_or(match target {
                 ProviderTarget::ClaudeCode => DEFAULT_PORT,
                 ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
-                ProviderTarget::Codex => 0,
+                ProviderTarget::Codex => DEFAULT_PORT + 2,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -112,7 +115,7 @@ impl ProxyManager {
         let current = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
-            ProviderTarget::Codex => return Err(AppError::Config("Codex 不使用 Claude 本地代理".to_string())),
+            ProviderTarget::Codex => self.codex.as_ref(),
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -135,22 +138,30 @@ impl ProxyManager {
             started_at: Instant::now(),
         };
 
-        let mut app = Router::new()
-            .route("/health", get(health_handler))
-            .route("/v1/models", get(models_handler))
-            .route("/v1/messages", any(proxy_handler));
-
-        if target == ProviderTarget::ClaudeDesktop {
-            app = app
-                .route(
-                    &format!("{}/v1/models", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
-                    get(models_handler),
-                )
-                .route(
-                    &format!("{}/v1/messages", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
-                    any(proxy_handler),
-                );
-        }
+        let mut app = if target == ProviderTarget::Codex {
+            Router::new()
+                .route("/health", get(health_handler))
+                .route("/v1/models", get(codex::codex_models_handler))
+                .route("/v1/responses", any(codex::codex_proxy_handler))
+                .route("/v1/chat/completions", any(codex::codex_proxy_handler))
+        } else {
+            let mut app = Router::new()
+                .route("/health", get(health_handler))
+                .route("/v1/models", get(models_handler))
+                .route("/v1/messages", any(proxy_handler));
+            if target == ProviderTarget::ClaudeDesktop {
+                app = app
+                    .route(
+                        &format!("{}/v1/models", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                        get(models_handler),
+                    )
+                    .route(
+                        &format!("{}/v1/messages", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                        any(proxy_handler),
+                    );
+            }
+            app
+        };
 
         let app = app
             .layer(CorsLayer::permissive())
@@ -176,7 +187,7 @@ impl ProxyManager {
         let previous = match target {
             ProviderTarget::ClaudeCode => self.code.replace(runtime),
             ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
-            ProviderTarget::Codex => None,
+            ProviderTarget::Codex => self.codex.replace(runtime),
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -191,6 +202,7 @@ impl ProxyManager {
     pub fn stop(&mut self) {
         self.stop_target(ProviderTarget::ClaudeCode);
         self.stop_target(ProviderTarget::ClaudeDesktop);
+        self.stop_target(ProviderTarget::Codex);
         log::info!("本地代理已停止");
     }
 
@@ -198,7 +210,7 @@ impl ProxyManager {
         let runtime = match target {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
-            ProviderTarget::Codex => None,
+            ProviderTarget::Codex => self.codex.take(),
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
@@ -251,11 +263,11 @@ pub struct ProxyLifecycleEvent {
 }
 
 #[derive(Clone)]
-struct ProxyState {
-    db: Arc<Database>,
-    client: Client,
+pub(crate) struct ProxyState {
+    pub(crate) db: Arc<Database>,
+    pub(crate) client: Client,
     circuits: Arc<Mutex<std::collections::HashMap<String, ProviderCircuit>>>,
-    target: ProviderTarget,
+    pub(crate) target: ProviderTarget,
     port: u16,
     started_at: Instant,
 }
@@ -935,7 +947,7 @@ fn encode_upstream_request(
     }
 }
 
-fn log_request(
+pub(crate) fn log_request(
     state: &ProxyState,
     provider: &Provider,
     status: Option<i64>,
@@ -987,7 +999,7 @@ fn gateway_auth_error(error: AppError) -> Response {
     json_error(StatusCode::UNAUTHORIZED, error.to_string())
 }
 
-fn log_early_failure(
+pub(crate) fn log_early_failure(
     state: &ProxyState,
     route: &str,
     error_category: &str,
@@ -1134,12 +1146,12 @@ fn update_log_usage(state: &ProxyState, id: &str, usage: Option<UsageCounts>) {
     }
 }
 
-fn extract_usage_from_json(bytes: &[u8]) -> Option<UsageCounts> {
+pub(crate) fn extract_usage_from_json(bytes: &[u8]) -> Option<UsageCounts> {
     let value: Value = serde_json::from_slice(bytes).ok()?;
     usage_from_value(&value)
 }
 
-fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
+pub(crate) fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
     let text = std::str::from_utf8(bytes).ok()?;
     text.lines()
         .filter_map(|line| line.strip_prefix("data: "))
@@ -1175,7 +1187,7 @@ fn usage_from_value(value: &Value) -> Option<UsageCounts> {
     })
 }
 
-fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
+pub(crate) fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
     let body = serde_json::json!({"error": message.into()});
     Response::builder()
         .status(status)
@@ -1192,7 +1204,7 @@ fn anthropic_error(status: StatusCode, body: Value) -> Response {
         .unwrap_or_else(|_| status.into_response())
 }
 
-fn is_hop_by_hop_header(name: &str) -> bool {
+pub(crate) fn is_hop_by_hop_header(name: &str) -> bool {
     let name = name.as_bytes();
     matches!(
         name,

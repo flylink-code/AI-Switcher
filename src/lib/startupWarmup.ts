@@ -9,7 +9,6 @@ import {
   providerListOptions,
   proxyStatusOptions,
   skillsOptions,
-  usageOverviewOptions,
 } from "@/lib/appQueries";
 import { PAGE_KEYS, preloadPage } from "@/lib/pageRegistry";
 import { reportFrontendPerformance } from "@/services/api";
@@ -49,10 +48,6 @@ const localDataTasks: StartupTask[] = [
   { id: "mcpData", run: () => queryClient.fetchQuery(mcpServersOptions) },
   { id: "promptsData", run: () => queryClient.fetchQuery(promptsOverviewOptions("claude_code")) },
   { id: "skillsData", run: () => queryClient.fetchQuery(skillsOptions("claude_code")) },
-  {
-    id: "usageData",
-    run: () => queryClient.fetchQuery(usageOverviewOptions(30, 0, "all")),
-  },
   { id: "environmentData", run: () => queryClient.fetchQuery(environmentOptions) },
   { id: "autostartData", run: () => queryClient.fetchQuery(autostartOptions) },
 ];

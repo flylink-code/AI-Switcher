@@ -51,7 +51,8 @@ impl UsageSource {
             Self::All => Some(None),
             Self::ClaudeCode => Some(Some("claude_code")),
             Self::ClaudeDesktop => Some(Some("claude_desktop")),
-            Self::Codex => None,
+            // Codex rows live in proxy_request_logs (proxy HTTP + session sync).
+            Self::Codex => Some(Some("codex")),
         }
     }
 
@@ -152,7 +153,7 @@ pub struct ProxyLogListInput {
 }
 
 #[tauri::command]
-pub fn list_proxy_request_logs_cmd(
+pub async fn list_proxy_request_logs_cmd(
     input: ProxyLogListInput,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<PaginatedProxyLogs> {
@@ -165,13 +166,16 @@ pub fn list_proxy_request_logs_cmd(
         target_app: input.target_app,
         status_code: input.status_code,
     };
-    state
-        .db
-        .with_conn(|conn| list_proxy_request_logs(conn, &filters, page, page_size))
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_conn(|conn| list_proxy_request_logs(conn, &filters, page, page_size))
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("list proxy logs task failed: {e}")))?
 }
 
 #[tauri::command]
-pub fn get_usage_dashboard(
+pub async fn get_usage_dashboard(
     days: Option<u32>,
     source: Option<String>,
     state: tauri::State<'_, AppState>,
@@ -179,30 +183,83 @@ pub fn get_usage_dashboard(
     let days = days.unwrap_or(365).clamp(1, 365);
     let since = (Utc::now() - Duration::days(i64::from(days))).timestamp_millis();
     let source = UsageSource::parse(source.as_deref())?;
-    let local_codex = source.includes_local_codex().then(|| collect_codex_local_usage(since));
-    state.db.with_conn(|conn| {
-        let target = source.proxy_target();
-        let mut dashboard = if let Some(target) = target {
-            UsageDashboard {
-                summary: get_usage_summary_for_target(conn, since, target)?,
-                by_provider: get_usage_by_provider_for_target(conn, since, target)?,
-                by_model: get_usage_by_model_for_target(conn, since, target)?,
-                trend: get_usage_trend_for_target(conn, since, target)?,
-                local_codex: local_codex.as_ref().map(|item| item.status.clone()).unwrap_or_else(local_codex_not_selected),
-            }
-        } else {
-            UsageDashboard {
-                summary: empty_summary(), by_provider: Vec::new(), by_model: Vec::new(), trend: Vec::new(),
-                local_codex: local_codex.as_ref().map(|item| item.status.clone()).unwrap_or_else(local_codex_not_selected),
-            }
-        };
-        if let Some(mut local_codex) = local_codex {
-            let pricing = list_pricing(conn).unwrap_or_default();
-            apply_codex_estimated_cost(&mut local_codex, &pricing);
-            merge_local_codex_usage(&mut dashboard, local_codex);
-        }
-        Ok(dashboard)
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_conn(|conn| {
+            let local_codex = if source.includes_local_codex() {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM proxy_request_logs
+                     WHERE target_app = 'codex' AND created_at >= ?
+                       AND COALESCE(data_source, 'proxy') IN ('proxy', 'codex_session');",
+                    rusqlite::params![since],
+                    |row| row.get(0),
+                )?;
+                let session_files: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM session_log_sync;",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+                LocalCodexUsage {
+                    available: count > 0,
+                    session_count: session_files,
+                    event_count: count,
+                    message: if count > 0 {
+                        "Codex usage includes local-proxy HTTP logs and synced session token events".to_string()
+                    } else {
+                        "No Codex usage rows yet; session sync runs in the background or via Sync".to_string()
+                    },
+                }
+            } else {
+                local_codex_not_selected()
+            };
+            let target = source.proxy_target();
+            Ok(if let Some(target) = target {
+                UsageDashboard {
+                    summary: get_usage_summary_for_target(conn, since, target)?,
+                    by_provider: get_usage_by_provider_for_target(conn, since, target)?,
+                    by_model: get_usage_by_model_for_target(conn, since, target)?,
+                    trend: get_usage_trend_for_target(conn, since, target)?,
+                    local_codex,
+                }
+            } else {
+                UsageDashboard {
+                    summary: empty_summary(),
+                    by_provider: Vec::new(),
+                    by_model: Vec::new(),
+                    trend: Vec::new(),
+                    local_codex,
+                }
+            })
+        })
     })
+    .await
+    .map_err(|e| AppError::Database(format!("usage dashboard task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn sync_codex_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_codex::CodexSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_codex::try_sync_codex_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("codex session sync task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn rebuild_codex_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_codex::CodexSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_codex::rebuild_codex_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("codex session rebuild task failed: {e}")))?
 }
 
 #[derive(Debug)]

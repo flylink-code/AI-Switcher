@@ -536,6 +536,8 @@ export interface ProxyRequestLog {
   isStream: boolean;
   errorCategory: string | null;
   diagnostic: string | null;
+  dataSource: string;
+  sessionId: string | null;
 }
 
 export interface PaginatedProxyLogs {
