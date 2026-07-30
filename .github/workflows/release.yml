@@ -43,15 +43,19 @@ jobs:
 
             ## What's new
 
-            - Added direct Codex model-provider management in ~/.codex/config.toml
-            - Added Codex login detection, MCP synchronization, and local session browsing
-            - Kept Codex routing separate from the Claude protocol proxy
+            - Added Codex as a first-class target: providers, MCP, sessions, and local-proxy HTTP logging
+            - Synced Codex session JSONL token usage into the usage dashboard with background incremental sync
+            - Added usage-source filters (All / Claude Code / Claude Desktop / Codex) on Usage and Providers heatmap
+            - Used Claude / Anthropic / OpenAI brand marks for source filter icons
+            - Reduced startup and usage-page lag by keeping dashboard reads off the sync hot path
 
             ## 更新内容
 
-            - 新增 ~/.codex/config.toml 直连模型提供方管理
-            - 新增 Codex 登录状态检测、MCP 同步和本地会话浏览
-            - Codex 请求不复用 Claude 协议代理，避免协议混用
+            - Codex 成为一等目标：供应商、MCP、会话与本地代理 HTTP 日志
+            - 将 Codex 会话 JSONL Token 用量同步到用量看板，并支持后台增量同步
+            - 用量页与供应商热力图支持统计来源筛选（全部 / Claude Code / Claude Desktop / Codex）
+            - 统计来源使用 Claude / Anthropic / OpenAI 品牌图标
+            - 用量看板与同步解耦，减轻启动与用量页卡顿
 
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
             新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。

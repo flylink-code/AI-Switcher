@@ -32,7 +32,7 @@ import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import {
   USAGE_SOURCE_FILTER_OPTIONS,
-  usageSourceIcon,
+  usageSourceSegmentLabel,
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
 import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
@@ -316,10 +316,9 @@ export default function ProvidersPage() {
               const label = t(option.labelKey);
               return {
                 value: option.value,
-                icon: usageSourceIcon(option.value),
                 label: (
                   <Tooltip title={label}>
-                    <span>{label}</span>
+                    {usageSourceSegmentLabel(option.value, label)}
                   </Tooltip>
                 ),
               };

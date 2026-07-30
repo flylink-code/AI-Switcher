@@ -70,7 +70,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import {
   USAGE_SOURCE_FILTER_OPTIONS,
-  usageSourceIcon,
+  usageSourceSegmentLabel,
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
 
@@ -353,10 +353,9 @@ export default function UsagePage() {
                   const label = t(option.labelKey);
                   return {
                     value: option.value,
-                    icon: usageSourceIcon(option.value),
                     label: (
                       <Tooltip title={label}>
-                        <span>{label}</span>
+                        {usageSourceSegmentLabel(option.value, label)}
                       </Tooltip>
                     ),
                   };
