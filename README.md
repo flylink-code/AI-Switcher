@@ -149,6 +149,7 @@ scripts/                     Windows 开发和构建脚本
 | Claude Code 中文本地化插件 | Claude Code CLI 的中文化安装、更新与恢复流程 | 本地参考：`examples/claude-code-zh-cn`；[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn)，以其仓库许可证声明为准 |
 | Claude Desktop 中文补丁 | Desktop 安装发现、语言包校验与恢复流程 | 汉化仓库：[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)，以其仓库声明为准 |
 | Code Switch | 本地代理、故障切换与 Claude Code/Codex 配置管理 | [daodao97/code-swtich](https://github.com/daodao97/code-swtich)，Apache-2.0 |
+| Codex++ (CodexPlusPlus) | Codex 纯 API 写入（`auth.json` / `requires_openai_auth`）、供应商切换与历史会话同步修复 | 本地参考：`examples/CodexPlusPlus`；[BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus)，AGPL-3.0 |
 
 引用、移植或再分发对应项目代码时，请同时遵守其上游许可证和版权声明。
 

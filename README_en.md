@@ -149,6 +149,7 @@ This project drew product and implementation ideas from the following open-sourc
 | Claude Code Chinese Localization Plugin | Claude Code CLI localization installation, update, and restoration | Local reference: `examples/claude-code-zh-cn`; [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn), subject to its repository license terms |
 | Claude Desktop Chinese Patch | Desktop discovery, language-pack validation, and recovery | Localization repository: [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn), subject to its repository terms |
 | Code Switch | Local proxying, failover, and Claude Code/Codex configuration | [daodao97/code-swtich](https://github.com/daodao97/code-swtich), Apache-2.0 |
+| Codex++ (CodexPlusPlus) | Codex Pure API writes (`auth.json` / `requires_openai_auth`), provider switching, and historical session sync/repair | Local reference: `examples/CodexPlusPlus`; [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus), AGPL-3.0 |
 
 When quoting, porting, or redistributing code from these projects, follow the corresponding upstream license and copyright notices.
 
