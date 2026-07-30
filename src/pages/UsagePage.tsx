@@ -222,20 +222,24 @@ export default function UsagePage() {
     (summary?.cacheReadInputTokens ?? 0) +
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
+  const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
+  const isCodexOnly = logTargetApp === "codex";
 
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {overviewQuery.error && <Alert type="error" showIcon message={errMsg(overviewQuery.error)} />}
         <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
-        <Alert
-          type={dashboard?.localCodex.available ? "info" : "warning"}
-          showIcon
-          message={t("usage.codexLocalTitle")}
-          description={dashboard?.localCodex.available
-            ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
-            : t("usage.codexLocalUnavailable")}
-        />
+        {includesCodex && (
+          <Alert
+            type={dashboard?.localCodex.available ? "info" : isCodexOnly ? "warning" : "info"}
+            showIcon
+            message={t("usage.codexLocalTitle")}
+            description={dashboard?.localCodex.available
+              ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
+              : t("usage.codexLocalUnavailable")}
+          />
+        )}
         <Alert type="warning" showIcon message={t("usage.currencyLimit")} />
         <Alert type="info" showIcon message={t("usage.cachePricingIncluded")} />
 
@@ -254,6 +258,7 @@ export default function UsagePage() {
                 setLogPage(0);
               }}
             />
+            <Text>{t("usage.statsSource")}</Text>
             <Select
               value={logTargetApp}
               style={{ width: 160 }}
@@ -310,88 +315,92 @@ export default function UsagePage() {
           size="small"
           title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
         >
-          <Table
-            size="small"
-            rowKey="id"
-            locale={{ emptyText: t("usage.noData") }}
-            dataSource={requestLogs?.data ?? []}
-            loading={overviewQuery.isPending}
-            pagination={{
-              current: (requestLogs?.page ?? 0) + 1,
-              pageSize: requestLogs?.pageSize ?? 20,
-              total: requestLogs?.total ?? 0,
-              showSizeChanger: false,
-              onChange: (page) => setLogPage(page - 1),
-            }}
-            onRow={(row) => ({
-              onClick: () => {
-                if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
-              },
-              style: { cursor: row.diagnostic ? "pointer" : "default" },
-            })}
-            columns={[
-              {
-                title: t("usage.logTime"),
-                dataIndex: "createdAt",
-                width: 170,
-                render: (v: number) => new Date(v).toLocaleString(),
-              },
-              {
-                title: t("usage.logApp"),
-                dataIndex: "targetApp",
-                width: 120,
-                render: (v: string | null) => v ?? "—",
-              },
-              {
-                title: t("usage.logProvider"),
-                dataIndex: "providerName",
-                ellipsis: true,
-                render: (v: string | null) => v ?? "—",
-              },
-              {
-                title: t("usage.model"),
-                dataIndex: "model",
-                ellipsis: true,
-                render: (v: string | null) => v ?? "—",
-              },
-              {
-                title: t("usage.logStatus"),
-                dataIndex: "statusCode",
-                width: 80,
-                render: (v: number | null) => {
-                  if (v === null) return "—";
-                  const color = v >= 200 && v < 300 ? "green" : "red";
-                  return <Tag color={color}>{v}</Tag>;
+          {isCodexOnly ? (
+            <Empty description={t("usage.codexNoProxyLogs")} />
+          ) : (
+            <Table
+              size="small"
+              rowKey="id"
+              locale={{ emptyText: t("usage.noData") }}
+              dataSource={requestLogs?.data ?? []}
+              loading={overviewQuery.isPending}
+              pagination={{
+                current: (requestLogs?.page ?? 0) + 1,
+                pageSize: requestLogs?.pageSize ?? 20,
+                total: requestLogs?.total ?? 0,
+                showSizeChanger: false,
+                onChange: (page) => setLogPage(page - 1),
+              }}
+              onRow={(row) => ({
+                onClick: () => {
+                  if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
                 },
-              },
-              {
-                title: t("usage.errorSource"),
-                dataIndex: "errorCategory",
-                width: 105,
-                render: (value: string | null) =>
-                  value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
-              },
-              {
-                title: t("usage.logTokens"),
-                render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                  row.usageAvailable
-                    ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
-                    : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
-              },
-              {
-                title: t("usage.logDuration"),
-                dataIndex: "durationMs",
-                width: 90,
-                render: (v: number) => `${v}ms`,
-              },
-              {
-                title: t("usage.logStream"),
-                dataIndex: "isStream",
-                width: 70,
-                render: (v: boolean) => (v ? t("common.enabled") : "—"),
-              },
-            ]}
-          />
+                style: { cursor: row.diagnostic ? "pointer" : "default" },
+              })}
+              columns={[
+                {
+                  title: t("usage.logTime"),
+                  dataIndex: "createdAt",
+                  width: 170,
+                  render: (v: number) => new Date(v).toLocaleString(),
+                },
+                {
+                  title: t("usage.logApp"),
+                  dataIndex: "targetApp",
+                  width: 120,
+                  render: (v: string | null) => v ?? "—",
+                },
+                {
+                  title: t("usage.logProvider"),
+                  dataIndex: "providerName",
+                  ellipsis: true,
+                  render: (v: string | null) => v ?? "—",
+                },
+                {
+                  title: t("usage.model"),
+                  dataIndex: "model",
+                  ellipsis: true,
+                  render: (v: string | null) => v ?? "—",
+                },
+                {
+                  title: t("usage.logStatus"),
+                  dataIndex: "statusCode",
+                  width: 80,
+                  render: (v: number | null) => {
+                    if (v === null) return "—";
+                    const color = v >= 200 && v < 300 ? "green" : "red";
+                    return <Tag color={color}>{v}</Tag>;
+                  },
+                },
+                {
+                  title: t("usage.errorSource"),
+                  dataIndex: "errorCategory",
+                  width: 105,
+                  render: (value: string | null) =>
+                    value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
+                },
+                {
+                  title: t("usage.logTokens"),
+                  render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
+                    row.usageAvailable
+                      ? `${formatNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatNumber(row.cacheReadInputTokens)})` : ""}`
+                      : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
+                },
+                {
+                  title: t("usage.logDuration"),
+                  dataIndex: "durationMs",
+                  width: 90,
+                  render: (v: number) => `${v}ms`,
+                },
+                {
+                  title: t("usage.logStream"),
+                  dataIndex: "isStream",
+                  width: 70,
+                  render: (v: boolean) => (v ? t("common.enabled") : "—"),
+                },
+              ]}
+            />
+          )}
         </Card>
 
       </Space>

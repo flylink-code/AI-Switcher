@@ -196,7 +196,11 @@ pub fn get_usage_dashboard(
                 local_codex: local_codex.as_ref().map(|item| item.status.clone()).unwrap_or_else(local_codex_not_selected),
             }
         };
-        if let Some(local_codex) = local_codex { merge_local_codex_usage(&mut dashboard, local_codex); }
+        if let Some(mut local_codex) = local_codex {
+            let pricing = list_pricing(conn).unwrap_or_default();
+            apply_codex_estimated_cost(&mut local_codex, &pricing);
+            merge_local_codex_usage(&mut dashboard, local_codex);
+        }
         Ok(dashboard)
     })
 }
@@ -213,23 +217,49 @@ struct LocalCodexAggregation {
 struct TokenTotals { input: i64, cached: i64, output: i64 }
 
 fn collect_codex_local_usage(since: i64) -> LocalCodexAggregation {
-    let root = crate::config::get_codex_config_dir().join("sessions");
-    collect_codex_local_usage_from_root(&root, since)
+    let config_dir = crate::config::get_codex_config_dir();
+    collect_codex_local_usage_from_roots(
+        &[
+            config_dir.join("sessions"),
+            config_dir.join("archived_sessions"),
+        ],
+        since,
+    )
 }
 
 fn collect_codex_local_usage_from_root(root: &Path, since: i64) -> LocalCodexAggregation {
+    collect_codex_local_usage_from_roots(&[root.to_path_buf()], since)
+}
+
+fn collect_codex_local_usage_from_roots(roots: &[PathBuf], since: i64) -> LocalCodexAggregation {
     let mut aggregation = LocalCodexAggregation {
-        status: LocalCodexUsage { available: false, session_count: 0, event_count: 0, message: "No parseable local Codex token events".to_string() },
-        summary: empty_summary(), by_model: BTreeMap::new(), trend: BTreeMap::new(),
+        status: LocalCodexUsage {
+            available: false,
+            session_count: 0,
+            event_count: 0,
+            message: "No parseable local Codex token events".to_string(),
+        },
+        summary: empty_summary(),
+        by_model: BTreeMap::new(),
+        trend: BTreeMap::new(),
     };
-    if !root.is_dir() {
+    let mut files = Vec::new();
+    let mut any_root = false;
+    for root in roots {
+        if !root.is_dir() {
+            continue;
+        }
+        any_root = true;
+        collect_codex_jsonl_files(root, &mut files);
+    }
+    if !any_root {
         aggregation.status.message = "Codex local session directory was not found".to_string();
         return aggregation;
     }
-    let mut files = Vec::new();
-    collect_codex_jsonl_files(root, &mut files);
     aggregation.status.session_count = files.len() as i64;
-    for path in files { collect_codex_file_usage(&path, since, &mut aggregation); }
+    for path in files {
+        collect_codex_file_usage(&path, since, &mut aggregation);
+    }
     aggregation.status.available = aggregation.status.event_count > 0;
     if aggregation.status.available {
         aggregation.status.message = "Token totals are reconstructed from local Codex session events, not HTTP or billing records".to_string();
@@ -238,100 +268,312 @@ fn collect_codex_local_usage_from_root(root: &Path, since: i64) -> LocalCodexAgg
 }
 
 fn collect_codex_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(directory) else { return };
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
-        let Ok(kind) = entry.file_type() else { continue };
-        if kind.is_symlink() { continue; }
-        if kind.is_dir() { collect_codex_jsonl_files(&path, files); }
-        else if path.extension().and_then(|value| value.to_str()) == Some("jsonl") { files.push(path); }
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_symlink() {
+            continue;
+        }
+        if kind.is_dir() {
+            collect_codex_jsonl_files(&path, files);
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if !name.ends_with(".jsonl") || name.starts_with("agent-") {
+            continue;
+        }
+        files.push(path);
     }
 }
 
 fn collect_codex_file_usage(path: &Path, since: i64, aggregation: &mut LocalCodexAggregation) {
-    let Ok(file) = File::open(path) else { return };
+    let Ok(file) = File::open(path) else {
+        return;
+    };
     let mut model = "unknown".to_string();
-    let mut previous = TokenTotals::default();
+    let mut prev_total: Option<TokenTotals> = None;
     for line in BufReader::new(file).lines().map_while(Result::ok) {
-        let Ok(value) = serde_json::from_str::<Value>(&line) else { continue };
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
         if value.get("type").and_then(Value::as_str) == Some("turn_context") {
-            if let Some(next) = value.pointer("/payload/model").and_then(Value::as_str) { model = next.to_string(); }
+            if let Some(next) = extract_model_name(value.pointer("/payload")) {
+                model = next;
+            }
             continue;
         }
         if value.get("type").and_then(Value::as_str) != Some("event_msg")
-            || value.pointer("/payload/type").and_then(Value::as_str) != Some("token_count") { continue; }
-        let timestamp = value.get("timestamp").and_then(parse_event_timestamp).unwrap_or(0);
-        let Some(totals) = value.pointer("/payload/info/total_token_usage")
-            .or_else(|| value.pointer("/payload/info/last_token_usage"))
-            .and_then(read_token_totals) else { continue; };
-        let delta = TokenTotals {
-            input: totals.input.saturating_sub(previous.input),
-            cached: totals.cached.saturating_sub(previous.cached),
-            output: totals.output.saturating_sub(previous.output),
+            || value.pointer("/payload/type").and_then(Value::as_str) != Some("token_count")
+        {
+            continue;
+        }
+        let timestamp = value
+            .get("timestamp")
+            .and_then(parse_event_timestamp)
+            .unwrap_or(0);
+        let info = value.pointer("/payload/info");
+        if let Some(next) = extract_model_name(info) {
+            model = next;
+        }
+        let Some(delta) = compute_codex_token_delta(info, &mut prev_total) else {
+            continue;
         };
-        previous = totals;
-        if timestamp < since || (delta.input == 0 && delta.cached == 0 && delta.output == 0) { continue; }
-        let input = delta.input.saturating_sub(delta.cached);
+        if timestamp < since || (delta.input == 0 && delta.cached == 0 && delta.output == 0) {
+            continue;
+        }
+        let cached = delta.cached.min(delta.input);
+        let fresh_input = delta.input.saturating_sub(cached);
         aggregation.status.event_count += 1;
         aggregation.summary.request_count += 1;
-        aggregation.summary.input_tokens += input;
-        aggregation.summary.cache_read_input_tokens += delta.cached;
+        aggregation.summary.successful_request_count += 1;
+        aggregation.summary.input_tokens += fresh_input;
+        aggregation.summary.cache_read_input_tokens += cached;
         aggregation.summary.output_tokens += delta.output;
-        let model_item = aggregation.by_model.entry(model.clone()).or_insert_with(|| empty_breakdown(model.clone()));
-        add_breakdown(model_item, input, delta.cached, delta.output);
-        let date = DateTime::from_timestamp_millis(timestamp).unwrap_or_else(Utc::now).format("%Y-%m-%d").to_string();
-        let trend = aggregation.trend.entry(date.clone()).or_insert_with(|| empty_trend(date));
-        add_trend(trend, input, delta.cached, delta.output);
+        let model_key = normalize_model_name(&model);
+        let model_item = aggregation
+            .by_model
+            .entry(model_key.clone())
+            .or_insert_with(|| empty_breakdown(model_key));
+        add_breakdown(model_item, fresh_input, cached, delta.output);
+        let date = DateTime::from_timestamp_millis(timestamp)
+            .unwrap_or_else(Utc::now)
+            .format("%Y-%m-%d")
+            .to_string();
+        let trend = aggregation
+            .trend
+            .entry(date.clone())
+            .or_insert_with(|| empty_trend(date));
+        add_trend(trend, fresh_input, cached, delta.output);
     }
 }
 
+/// Prefer cumulative `total_token_usage` (diff vs previous total). Otherwise treat
+/// `last_token_usage` as an already-incremental turn delta and do not touch `prev_total`.
+fn compute_codex_token_delta(
+    info: Option<&Value>,
+    prev_total: &mut Option<TokenTotals>,
+) -> Option<TokenTotals> {
+    let info = info?;
+    if let Some(total) = info.get("total_token_usage").and_then(read_token_totals) {
+        let previous = prev_total.unwrap_or_default();
+        let delta = TokenTotals {
+            input: total.input.saturating_sub(previous.input),
+            cached: total.cached.saturating_sub(previous.cached),
+            output: total.output.saturating_sub(previous.output),
+        };
+        *prev_total = Some(total);
+        return Some(delta);
+    }
+    info.get("last_token_usage").and_then(read_token_totals)
+}
+
+fn extract_model_name(value: Option<&Value>) -> Option<String> {
+    let value = value?;
+    ["model", "model_name", "modelName"]
+        .iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .map(normalize_model_name)
+}
+
+fn normalize_model_name(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return "unknown".to_string();
+    }
+    trimmed.to_string()
+}
+
 fn parse_event_timestamp(value: &Value) -> Option<i64> {
-    value.as_i64().or_else(|| value.as_str().and_then(|text| DateTime::parse_from_rfc3339(text).ok().map(|time| time.timestamp_millis())))
+    value.as_i64().or_else(|| {
+        value.as_str().and_then(|text| {
+            DateTime::parse_from_rfc3339(text)
+                .ok()
+                .map(|time| time.timestamp_millis())
+        })
+    })
 }
 
 fn read_token_totals(value: &Value) -> Option<TokenTotals> {
     Some(TokenTotals {
-        input: token_number(value, &["input_tokens", "inputTokens"] )?,
-        output: token_number(value, &["output_tokens", "outputTokens"] )?,
+        input: token_number(value, &["input_tokens", "inputTokens"])?,
+        output: token_number(value, &["output_tokens", "outputTokens"])?,
         cached: token_number(value, &["cached_input_tokens", "cachedInputTokens"]).unwrap_or(0),
     })
 }
 
 fn token_number(value: &Value, names: &[&str]) -> Option<i64> {
-    names.iter().find_map(|name| value.get(*name).and_then(Value::as_i64))
+    names
+        .iter()
+        .find_map(|name| value.get(*name).and_then(Value::as_i64))
 }
 
-fn empty_summary() -> UsageSummary { UsageSummary { request_count: 0, successful_request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
-fn local_codex_not_selected() -> LocalCodexUsage { LocalCodexUsage { available: false, session_count: 0, event_count: 0, message: "Codex local events are excluded by the current source filter".to_string() } }
-fn empty_breakdown(key: String) -> UsageBreakdown { UsageBreakdown { key, request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
-fn empty_trend(date: String) -> UsageTrendPoint { UsageTrendPoint { date, request_count: 0, input_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 0, estimated_cost: 0.0 } }
-fn add_breakdown(item: &mut UsageBreakdown, input: i64, cached: i64, output: i64) { item.request_count += 1; item.input_tokens += input; item.cache_read_input_tokens += cached; item.output_tokens += output; }
-fn add_trend(item: &mut UsageTrendPoint, input: i64, cached: i64, output: i64) { item.request_count += 1; item.input_tokens += input; item.cache_read_input_tokens += cached; item.output_tokens += output; }
+fn empty_summary() -> UsageSummary {
+    UsageSummary {
+        request_count: 0,
+        successful_request_count: 0,
+        input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        output_tokens: 0,
+        estimated_cost: 0.0,
+    }
+}
+fn local_codex_not_selected() -> LocalCodexUsage {
+    LocalCodexUsage {
+        available: false,
+        session_count: 0,
+        event_count: 0,
+        message: "Codex local events are excluded by the current source filter".to_string(),
+    }
+}
+fn empty_breakdown(key: String) -> UsageBreakdown {
+    UsageBreakdown {
+        key,
+        request_count: 0,
+        input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        output_tokens: 0,
+        estimated_cost: 0.0,
+    }
+}
+fn empty_trend(date: String) -> UsageTrendPoint {
+    UsageTrendPoint {
+        date,
+        request_count: 0,
+        input_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        output_tokens: 0,
+        estimated_cost: 0.0,
+    }
+}
+fn add_breakdown(item: &mut UsageBreakdown, input: i64, cached: i64, output: i64) {
+    item.request_count += 1;
+    item.input_tokens += input;
+    item.cache_read_input_tokens += cached;
+    item.output_tokens += output;
+}
+fn add_trend(item: &mut UsageTrendPoint, input: i64, cached: i64, output: i64) {
+    item.request_count += 1;
+    item.input_tokens += input;
+    item.cache_read_input_tokens += cached;
+    item.output_tokens += output;
+}
+
+fn estimate_token_cost(
+    pricing: &ModelPricing,
+    input: i64,
+    cache_read: i64,
+    cache_write: i64,
+    output: i64,
+) -> f64 {
+    if !pricing.currency.eq_ignore_ascii_case("USD") {
+        return 0.0;
+    }
+    (input as f64) * pricing.input_price_per_million / 1_000_000.0
+        + (cache_read as f64) * pricing.cache_read_price_per_million / 1_000_000.0
+        + (cache_write as f64) * pricing.cache_write_price_per_million / 1_000_000.0
+        + (output as f64) * pricing.output_price_per_million / 1_000_000.0
+}
+
+fn find_pricing_for_model<'a>(
+    pricing: &'a [ModelPricing],
+    model: &str,
+) -> Option<&'a ModelPricing> {
+    pricing
+        .iter()
+        .find(|entry| entry.model == model)
+        .or_else(|| {
+            pricing.iter().find(|entry| {
+                model.starts_with(&entry.model) || entry.model.starts_with(model)
+            })
+        })
+}
+
+fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[ModelPricing]) {
+    let mut total_cost = 0.0;
+    for item in local.by_model.values_mut() {
+        let cost = find_pricing_for_model(pricing, &item.key)
+            .map(|entry| {
+                estimate_token_cost(
+                    entry,
+                    item.input_tokens,
+                    item.cache_read_input_tokens,
+                    item.cache_creation_input_tokens,
+                    item.output_tokens,
+                )
+            })
+            .unwrap_or(0.0);
+        item.estimated_cost = cost;
+        total_cost += cost;
+    }
+    local.summary.estimated_cost = total_cost;
+    for item in local.trend.values_mut() {
+        // Trend rows are not model-split; leave cost at 0 unless a single model covers all.
+        if local.by_model.len() == 1 {
+            if let Some(model) = local.by_model.values().next() {
+                let share = if model.request_count > 0 {
+                    item.request_count as f64 / model.request_count as f64
+                } else {
+                    0.0
+                };
+                item.estimated_cost = model.estimated_cost * share;
+            }
+        }
+    }
+}
 
 fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggregation) {
     dashboard.summary.request_count += local.summary.request_count;
+    dashboard.summary.successful_request_count += local.summary.successful_request_count;
     dashboard.summary.input_tokens += local.summary.input_tokens;
     dashboard.summary.cache_read_input_tokens += local.summary.cache_read_input_tokens;
     dashboard.summary.output_tokens += local.summary.output_tokens;
+    dashboard.summary.estimated_cost += local.summary.estimated_cost;
     if local.status.available {
         let mut provider = empty_breakdown(CODEX_LOCAL_PROVIDER_KEY.to_string());
         provider.request_count = local.summary.request_count;
         provider.input_tokens = local.summary.input_tokens;
         provider.cache_read_input_tokens = local.summary.cache_read_input_tokens;
         provider.output_tokens = local.summary.output_tokens;
+        provider.estimated_cost = local.summary.estimated_cost;
         dashboard.by_provider.push(provider);
     }
     for (key, item) in local.by_model {
-        if let Some(existing) = dashboard.by_model.iter_mut().find(|existing| existing.key == key) {
-            existing.request_count += item.request_count; existing.input_tokens += item.input_tokens; existing.cache_read_input_tokens += item.cache_read_input_tokens; existing.output_tokens += item.output_tokens;
-        } else { dashboard.by_model.push(item); }
+        if let Some(existing) = dashboard.by_model.iter_mut().find(|existing| existing.key == key)
+        {
+            existing.request_count += item.request_count;
+            existing.input_tokens += item.input_tokens;
+            existing.cache_read_input_tokens += item.cache_read_input_tokens;
+            existing.output_tokens += item.output_tokens;
+            existing.estimated_cost += item.estimated_cost;
+        } else {
+            dashboard.by_model.push(item);
+        }
     }
     for (date, item) in local.trend {
-        if let Some(existing) = dashboard.trend.iter_mut().find(|existing| existing.date == date) {
-            existing.request_count += item.request_count; existing.input_tokens += item.input_tokens; existing.cache_read_input_tokens += item.cache_read_input_tokens; existing.output_tokens += item.output_tokens;
-        } else { dashboard.trend.push(item); }
+        if let Some(existing) = dashboard.trend.iter_mut().find(|existing| existing.date == date)
+        {
+            existing.request_count += item.request_count;
+            existing.input_tokens += item.input_tokens;
+            existing.cache_read_input_tokens += item.cache_read_input_tokens;
+            existing.output_tokens += item.output_tokens;
+            existing.estimated_cost += item.estimated_cost;
+        } else {
+            dashboard.trend.push(item);
+        }
     }
-    dashboard.trend.sort_by(|left, right| left.date.cmp(&right.date));
+    dashboard
+        .trend
+        .sort_by(|left, right| left.date.cmp(&right.date));
 }
 
 #[tauri::command]
@@ -536,30 +778,119 @@ fn normalize_log_maintenance_policy(mut policy: LogMaintenancePolicy) -> LogMain
 mod tests {
     use super::*;
 
+    fn write_session(root: &Path, relative: &str, contents: &str) {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, contents).unwrap();
+    }
+
     #[test]
-    fn codex_local_usage_uses_token_deltas_and_current_model() {
+    fn codex_local_usage_diffs_consecutive_totals() {
         let root = tempfile::tempdir().unwrap();
-        let session = root.path().join("2026").join("session.jsonl");
-        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
-        std::fs::write(&session, concat!(
-            "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
-            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":10,\"output_tokens\":20}}}}\n",
-            "{invalid json}\n",
-            "{\"type\":\"turn_context\",\"payload\":{\"model\":\"o4-mini\"}}\n",
-            "{\"timestamp\":\"2026-07-02T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"inputTokens\":150,\"cachedInputTokens\":40,\"outputTokens\":30}}}}\n",
-        )).unwrap();
+        write_session(
+            root.path(),
+            "2026/session.jsonl",
+            concat!(
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":10,\"output_tokens\":20}}}}\n",
+                "{\"timestamp\":\"2026-07-01T01:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":150,\"cached_input_tokens\":40,\"output_tokens\":50}}}}\n",
+            ),
+        );
 
         let usage = collect_codex_local_usage_from_root(root.path(), 0);
         assert!(usage.status.available);
-        assert_eq!(usage.status.session_count, 1);
         assert_eq!(usage.status.event_count, 2);
         assert_eq!(usage.summary.request_count, 2);
+        assert_eq!(usage.summary.successful_request_count, 2);
+        // Turn1 fresh=90 cached=10 out=20; turn2 delta fresh=20 cached=30 out=30
         assert_eq!(usage.summary.input_tokens, 110);
         assert_eq!(usage.summary.cache_read_input_tokens, 40);
+        assert_eq!(usage.summary.output_tokens, 50);
+        assert_eq!(usage.by_model["gpt-5"].input_tokens, 110);
+    }
+
+    #[test]
+    fn codex_local_usage_adds_last_token_usage_directly() {
+        let root = tempfile::tempdir().unwrap();
+        write_session(
+            root.path(),
+            "session.jsonl",
+            concat!(
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"o4-mini\"}}\n",
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"inputTokens\":100,\"cachedInputTokens\":10,\"outputTokens\":20}}}}\n",
+                "{\"timestamp\":\"2026-07-01T01:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"inputTokens\":50,\"cachedInputTokens\":5,\"outputTokens\":10}}}}\n",
+            ),
+        );
+
+        let usage = collect_codex_local_usage_from_root(root.path(), 0);
+        assert_eq!(usage.status.event_count, 2);
+        assert_eq!(usage.summary.input_tokens, 135); // (100-10)+(50-5)
+        assert_eq!(usage.summary.cache_read_input_tokens, 15);
         assert_eq!(usage.summary.output_tokens, 30);
+    }
+
+    #[test]
+    fn codex_local_usage_total_then_last_do_not_pollute_each_other() {
+        let root = tempfile::tempdir().unwrap();
+        write_session(
+            root.path(),
+            "2026/session.jsonl",
+            concat!(
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":10,\"output_tokens\":20}}}}\n",
+                "{invalid json}\n",
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"o4-mini\"}}\n",
+                "{\"timestamp\":\"2026-07-02T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"inputTokens\":150,\"cachedInputTokens\":40,\"outputTokens\":30,\"model\":\"o4-mini\"}}}}\n",
+                "{\"timestamp\":\"2026-07-02T02:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"total_token_usage\":{\"input_tokens\":180,\"cached_input_tokens\":50,\"output_tokens\":55}}}}\n",
+            ),
+        );
+
+        let usage = collect_codex_local_usage_from_root(root.path(), 0);
+        assert_eq!(usage.status.event_count, 3);
+        // total1: fresh 90/10/20; last: fresh 110/40/30 (direct, prev_total unchanged);
+        // total2 delta from prev_total 100/10/20 → 80/40/35 → fresh 40
+        assert_eq!(usage.summary.input_tokens, 90 + 110 + 40);
+        assert_eq!(usage.summary.cache_read_input_tokens, 10 + 40 + 40);
+        assert_eq!(usage.summary.output_tokens, 20 + 30 + 35);
         assert_eq!(usage.by_model["gpt-5"].input_tokens, 90);
-        assert_eq!(usage.by_model["o4-mini"].input_tokens, 20);
+        assert_eq!(usage.by_model["o4-mini"].input_tokens, 110 + 40);
         assert_eq!(usage.trend.len(), 2);
+    }
+
+    #[test]
+    fn codex_local_usage_skips_agent_files_and_reads_archived() {
+        let home = tempfile::tempdir().unwrap();
+        let sessions = home.path().join("sessions");
+        let archived = home.path().join("archived_sessions");
+        write_session(
+            &sessions,
+            "main.jsonl",
+            concat!(
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model\":\"gpt-5\",\"last_token_usage\":{\"input_tokens\":20,\"cached_input_tokens\":0,\"output_tokens\":5}}}}\n",
+            ),
+        );
+        write_session(
+            &sessions,
+            "agent-child.jsonl",
+            concat!(
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":999,\"cached_input_tokens\":0,\"output_tokens\":999}}}}\n",
+            ),
+        );
+        write_session(
+            &archived,
+            "old.jsonl",
+            concat!(
+                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model_name\":\"o4-mini\",\"last_token_usage\":{\"input_tokens\":10,\"cached_input_tokens\":0,\"output_tokens\":2}}}}\n",
+            ),
+        );
+
+        let usage = collect_codex_local_usage_from_roots(&[sessions, archived], 0);
+        assert_eq!(usage.status.session_count, 2);
+        assert_eq!(usage.status.event_count, 2);
+        assert_eq!(usage.summary.input_tokens, 30);
+        assert_eq!(usage.summary.output_tokens, 7);
+        assert!(usage.by_model.contains_key("gpt-5"));
+        assert!(usage.by_model.contains_key("o4-mini"));
     }
 
     #[test]
@@ -575,6 +906,53 @@ mod tests {
         assert!(!usage.status.available);
         assert_eq!(usage.status.session_count, 1);
         assert_eq!(usage.status.event_count, 0);
+    }
+
+    #[test]
+    fn apply_codex_estimated_cost_uses_usd_pricing() {
+        let mut local = LocalCodexAggregation {
+            status: LocalCodexUsage {
+                available: true,
+                session_count: 1,
+                event_count: 1,
+                message: String::new(),
+            },
+            summary: empty_summary(),
+            by_model: BTreeMap::new(),
+            trend: BTreeMap::new(),
+        };
+        local.summary.request_count = 1;
+        local.summary.input_tokens = 1_000_000;
+        local.summary.output_tokens = 500_000;
+        local.by_model.insert(
+            "gpt-5".to_string(),
+            UsageBreakdown {
+                key: "gpt-5".to_string(),
+                request_count: 1,
+                input_tokens: 1_000_000,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                output_tokens: 500_000,
+                estimated_cost: 0.0,
+            },
+        );
+        let pricing = vec![ModelPricing {
+            model: "gpt-5".to_string(),
+            provider: "OpenAI".to_string(),
+            input_price_per_million: 2.0,
+            cache_read_price_per_million: 0.0,
+            cache_write_price_per_million: 0.0,
+            output_price_per_million: 8.0,
+            batch_input_price_per_million: 0.0,
+            batch_output_price_per_million: 0.0,
+            currency: "USD".to_string(),
+            source_url: String::new(),
+            effective_date: String::new(),
+            is_default: false,
+        }];
+        apply_codex_estimated_cost(&mut local, &pricing);
+        assert!((local.summary.estimated_cost - 6.0).abs() < f64::EPSILON);
+        assert!((local.by_model["gpt-5"].estimated_cost - 6.0).abs() < f64::EPSILON);
     }
 
     fn row(values: &[&str]) -> Vec<String> {

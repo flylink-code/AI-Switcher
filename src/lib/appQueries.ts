@@ -75,12 +75,19 @@ export const usageOverviewOptions = (
         getUsageDashboard(days, target),
         listModelPricing(),
         getLogMaintenancePolicy(),
-        listProxyRequestLogs({
-          days,
-          page: logPage,
-          pageSize: 20,
-          targetApp: target === "all" ? undefined : target,
-        }),
+        target === "codex"
+          ? Promise.resolve({
+              data: [],
+              page: logPage,
+              pageSize: 20,
+              total: 0,
+            })
+          : listProxyRequestLogs({
+              days,
+              page: logPage,
+              pageSize: 20,
+              targetApp: target === "all" ? undefined : target,
+            }),
       ]);
       return { dashboard, pricing, maintenancePolicy, requestLogs };
     },
