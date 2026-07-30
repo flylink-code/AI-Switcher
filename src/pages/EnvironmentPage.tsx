@@ -155,13 +155,19 @@ export default function EnvironmentPage() {
     setAutostartChanging(true);
     try {
       await setAutostartConfig(mode);
-      queryClient.setQueryData(["environment", "autostart"], {
-        enabled: mode !== "off",
-        mode,
-      });
+      const next = await queryClient.fetchQuery(autostartOptions);
+      if (mode !== "off" && !next.enabled) {
+        void message.error(
+          next.taskManagerDisabled
+            ? t("env.autostartTaskManagerDisabled")
+            : t("env.autostartNotRegistered"),
+        );
+        return;
+      }
       void message.success(t("env.autostartUpdated"));
     } catch (e) {
       void message.error(e instanceof Error ? e.message : String(e));
+      await queryClient.invalidateQueries({ queryKey: autostartOptions.queryKey });
     } finally {
       setAutostartChanging(false);
     }
@@ -336,6 +342,56 @@ export default function EnvironmentPage() {
           </Card>
         )}
 
+        <Card size="small" title={t("env.sections.system")}>
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label={t("env.fields.autostart")}>
+              <Select<AutostartMode>
+                value={autostartQuery.data?.mode ?? "off"}
+                loading={autostartQuery.isPending || autostartChanging}
+                disabled={autostartChanging}
+                style={{ width: 220 }}
+                options={[
+                  { value: "off", label: t("env.autostartModes.off") },
+                  { value: "silent", label: t("env.autostartModes.silent") },
+                  { value: "window", label: t("env.autostartModes.window") },
+                ]}
+                onChange={(mode) => void onAutostartChange(mode)}
+              />
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.fields.closeBehavior")}>
+              <Select<CloseBehavior>
+                value={closeBehaviorQuery.data ?? "ask"}
+                loading={closeBehaviorQuery.isPending || closeBehaviorChanging}
+                disabled={closeBehaviorChanging}
+                style={{ width: 220 }}
+                options={[
+                  { value: "ask", label: t("env.closeBehaviors.ask") },
+                  { value: "tray", label: t("env.closeBehaviors.tray") },
+                  { value: "quit", label: t("env.closeBehaviors.quit") },
+                ]}
+                onChange={(behavior) => void onCloseBehaviorChange(behavior)}
+              />
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.autostartRegistryCommand")}>
+              {autostartQuery.data?.command ? (
+                <Typography.Text copyable code style={{ whiteSpace: "pre-wrap" }}>
+                  {autostartQuery.data.command}
+                </Typography.Text>
+              ) : (
+                <Text type="secondary">{t("env.autostartNotInRegistry")}</Text>
+              )}
+            </Descriptions.Item>
+          </Descriptions>
+          {autostartQuery.data?.taskManagerDisabled ? (
+            <Alert
+              style={{ marginTop: 12 }}
+              type="warning"
+              showIcon
+              message={t("env.autostartTaskManagerDisabled")}
+            />
+          ) : null}
+        </Card>
+
         {paths && (
           <Card size="small" title={t("env.sections.home")}>
             <Descriptions column={1} size="small" bordered>
@@ -381,39 +437,6 @@ export default function EnvironmentPage() {
             </Descriptions>
           </Card>
         )}
-
-        <Card size="small" title={t("env.sections.system")}>
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label={t("env.fields.autostart")}>
-              <Select<AutostartMode>
-                value={autostartQuery.data?.mode ?? "off"}
-                loading={autostartQuery.isPending || autostartChanging}
-                disabled={autostartChanging}
-                style={{ width: 220 }}
-                options={[
-                  { value: "off", label: t("env.autostartModes.off") },
-                  { value: "silent", label: t("env.autostartModes.silent") },
-                  { value: "window", label: t("env.autostartModes.window") },
-                ]}
-                onChange={(mode) => void onAutostartChange(mode)}
-              />
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.fields.closeBehavior")}>
-              <Select<CloseBehavior>
-                value={closeBehaviorQuery.data ?? "ask"}
-                loading={closeBehaviorQuery.isPending || closeBehaviorChanging}
-                disabled={closeBehaviorChanging}
-                style={{ width: 220 }}
-                options={[
-                  { value: "ask", label: t("env.closeBehaviors.ask") },
-                  { value: "tray", label: t("env.closeBehaviors.tray") },
-                  { value: "quit", label: t("env.closeBehaviors.quit") },
-                ]}
-                onChange={(behavior) => void onCloseBehaviorChange(behavior)}
-              />
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
 
         {paths && (
           <Card size="small" title={t("env.sections.app")}>

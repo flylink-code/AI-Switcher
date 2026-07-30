@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+#[cfg(not(windows))]
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -254,6 +255,10 @@ impl AutostartMode {
 pub struct AutostartConfig {
     pub enabled: bool,
     pub mode: AutostartMode,
+    pub registry_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+    pub task_manager_disabled: bool,
 }
 
 #[tauri::command]
@@ -261,15 +266,20 @@ pub fn get_autostart_config(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<AutostartConfig> {
-    let enabled = autostart_enabled(&app)?;
+    let status = autostart_status(&app)?;
     let stored = read_mode(&state.db)?;
     Ok(AutostartConfig {
-        enabled,
-        mode: if enabled {
-            stored.filter(|mode| *mode != AutostartMode::Off).unwrap_or(AutostartMode::Window)
+        enabled: status.enabled,
+        mode: if status.enabled {
+            stored
+                .filter(|mode| *mode != AutostartMode::Off)
+                .unwrap_or(AutostartMode::Window)
         } else {
             AutostartMode::Off
         },
+        registry_name: status.registry_name,
+        command: status.command,
+        task_manager_disabled: status.task_manager_disabled,
     })
 }
 
@@ -280,18 +290,56 @@ pub fn set_autostart_config(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     set_setting_value(&state.db, AUTOSTART_MODE_KEY, mode.as_str())?;
-    set_autostart_registration(&app, mode != AutostartMode::Off)
+    set_autostart_registration(&app, mode != AutostartMode::Off)?;
+    if mode != AutostartMode::Off {
+        let status = autostart_status(&app)?;
+        if !status.enabled {
+            return Err(AppError::Other(
+                "开机自启未成功注册到系统启动项，请重试或检查任务管理器中的启动应用设置".to_string(),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn get_autostart_enabled(app: tauri::AppHandle) -> AppResult<bool> {
-    autostart_enabled(&app)
+    Ok(autostart_status(&app)?.enabled)
 }
 
-fn autostart_enabled(app: &tauri::AppHandle) -> AppResult<bool> {
-    app.autolaunch()
-        .is_enabled()
-        .map_err(|e| AppError::Other(format!("读取开机自启状态失败: {e}")))
+#[derive(Debug, Clone)]
+struct AutostartStatus {
+    enabled: bool,
+    registry_name: String,
+    command: Option<String>,
+    task_manager_disabled: bool,
+}
+
+fn autostart_status(app: &tauri::AppHandle) -> AppResult<AutostartStatus> {
+    #[cfg(windows)]
+    {
+        let _ = app;
+        let status = crate::autostart_windows::registration_status()?;
+        return Ok(AutostartStatus {
+            enabled: status.enabled,
+            registry_name: status.registry_name,
+            command: status.command,
+            task_manager_disabled: status.task_manager_disabled,
+        });
+    }
+    #[cfg(not(windows))]
+    {
+        let enabled = app
+            .autolaunch()
+            .is_enabled()
+            .map_err(|e| AppError::Other(format!("读取开机自启状态失败: {e}")))?;
+        Ok(AutostartStatus {
+            enabled,
+            registry_name: "AI-Switcher".to_string(),
+            command: None,
+            task_manager_disabled: false,
+        })
+    }
 }
 
 #[tauri::command]
@@ -312,17 +360,29 @@ pub fn set_autostart_enabled(
 }
 
 fn set_autostart_registration(app: &tauri::AppHandle, enabled: bool) -> AppResult<()> {
-    let autostart = app.autolaunch();
-    if enabled {
-        autostart
-            .enable()
-            .map_err(|e| AppError::Other(format!("启用开机自启失败: {e}")))?;
-    } else {
-        autostart
-            .disable()
-            .map_err(|e| AppError::Other(format!("关闭开机自启失败: {e}")))?;
+    #[cfg(windows)]
+    {
+        let _ = app;
+        if enabled {
+            crate::autostart_windows::enable()
+        } else {
+            crate::autostart_windows::disable()
+        }
     }
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        let autostart = app.autolaunch();
+        if enabled {
+            autostart
+                .enable()
+                .map_err(|e| AppError::Other(format!("启用开机自启失败: {e}")))?;
+        } else {
+            autostart
+                .disable()
+                .map_err(|e| AppError::Other(format!("关闭开机自启失败: {e}")))?;
+        }
+        Ok(())
+    }
 }
 
 fn read_mode(db: &Database) -> AppResult<Option<AutostartMode>> {
@@ -355,9 +415,26 @@ pub fn migrate_autostart_registration(
     app: &tauri::AppHandle,
     db: &Database,
 ) -> AppResult<()> {
-    if !autostart_enabled(app)? {
-        return Ok(());
+    #[cfg(windows)]
+    {
+        if let Err(error) = crate::autostart_windows::cleanup_legacy_names() {
+            log::warn!("清理旧开机自启注册项失败: {error}");
+        }
     }
+
+    let stored = read_mode(db)?;
+    let wants_enabled = matches!(
+        stored,
+        Some(AutostartMode::Silent) | Some(AutostartMode::Window)
+    );
+    let status = autostart_status(app)?;
+
+    if wants_enabled && !status.enabled {
+        if let Err(error) = set_autostart_registration(app, true) {
+            log::warn!("按已保存模式重新注册开机自启失败: {error}");
+        }
+    }
+
     let migrated = db
         .with_conn(|conn| get_setting(conn, AUTOSTART_ARGS_MIGRATED_KEY))?
         .as_deref()
@@ -365,11 +442,20 @@ pub fn migrate_autostart_registration(
     if migrated {
         return Ok(());
     }
-    if read_mode(db)?.is_none() {
+
+    if !autostart_status(app)?.enabled && !wants_enabled {
+        set_setting_value(db, AUTOSTART_ARGS_MIGRATED_KEY, "true")?;
+        return Ok(());
+    }
+
+    if stored.is_none() && autostart_status(app)?.enabled {
         set_setting_value(db, AUTOSTART_MODE_KEY, AutostartMode::Window.as_str())?;
     }
-    set_autostart_registration(app, false)?;
-    set_autostart_registration(app, true)?;
+
+    if autostart_status(app)?.enabled || wants_enabled {
+        set_autostart_registration(app, false)?;
+        set_autostart_registration(app, true)?;
+    }
     set_setting_value(db, AUTOSTART_ARGS_MIGRATED_KEY, "true")
 }
 

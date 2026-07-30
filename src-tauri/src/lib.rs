@@ -23,6 +23,9 @@ mod store;
 mod tray;
 mod usage;
 
+#[cfg(windows)]
+mod autostart_windows;
+
 use std::sync::Arc;
 
 use tauri::{Emitter, Manager, WindowEvent};
@@ -96,10 +99,12 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--autostart"]),
-        ))
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("AI-Switcher")
+                .args(["--autostart"])
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(setup)
         .on_window_event(on_window_event)

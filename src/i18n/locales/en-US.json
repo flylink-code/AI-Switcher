@@ -525,7 +525,7 @@
       "claude": "Claude Code config",
       "claudeDesktop": "Claude Desktop config",
       "codex": "Codex config",
-      "system": "System",
+      "system": "Launch & close",
       "app": "AI-Switcher data dir",
       "db": "Database",
       "recovery": "Configuration backup and recovery",
@@ -614,6 +614,10 @@
       }
     },
     "autostartUpdated": "Launch-at-login setting updated",
+    "autostartNotRegistered": "Launch at login was not registered with the system",
+    "autostartTaskManagerDisabled": "This startup entry is disabled in Task Manager; enable it there and try again",
+    "autostartRegistryCommand": "Startup command",
+    "autostartNotInRegistry": "Not registered in system startup items",
     "autostartModes": {
       "off": "Disabled",
       "silent": "Start silently in tray",

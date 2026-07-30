@@ -6,7 +6,7 @@
     "closeDialogDescription": "请选择直接退出应用，或隐藏到系统托盘继续运行。",
     "closeToTray": "最小化到系统托盘",
     "quitDirectly": "直接退出",
-    "rememberCloseChoice": "记住本次选择，可在“环境检测”页面修改"
+    "rememberCloseChoice": "记住本次选择，可在“环境信息”页面修改"
   },
   "startup": {
     "preparing": "正在准备应用数据…",
@@ -525,7 +525,7 @@
       "claude": "Claude Code 配置",
       "claudeDesktop": "Claude Desktop 配置",
       "codex": "Codex 配置",
-      "system": "系统",
+      "system": "启动与关闭",
       "app": "AI-Switcher 数据目录",
       "db": "数据库",
       "recovery": "配置备份与恢复",
@@ -614,6 +614,10 @@
       }
     },
     "autostartUpdated": "开机自启设置已更新",
+    "autostartNotRegistered": "开机自启未成功写入系统启动项",
+    "autostartTaskManagerDisabled": "任务管理器中该启动项已被禁用，请先启用后再试",
+    "autostartRegistryCommand": "系统启动命令",
+    "autostartNotInRegistry": "尚未注册到系统启动项",
     "autostartModes": {
       "off": "关闭开机自启",
       "silent": "静默启动到托盘",

@@ -259,6 +259,9 @@ export type CloseBehavior = "ask" | "tray" | "quit";
 export interface AutostartConfig {
   enabled: boolean;
   mode: AutostartMode;
+  registryName: string;
+  command?: string;
+  taskManagerDisabled: boolean;
 }
 
 /** One unified MCP server definition. */
