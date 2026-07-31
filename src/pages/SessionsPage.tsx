@@ -350,6 +350,10 @@ export default function SessionsPage() {
   };
 
   const locale = i18n.language === "en-US" ? "en-US" : "zh-CN";
+  const degradedProviders = useMemo(
+    () => result.providers.filter((item) => item.status === "degraded"),
+    [result.providers],
+  );
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
@@ -362,6 +366,15 @@ export default function SessionsPage() {
       </div>
 
       {error && <Alert type="error" showIcon message={t("sessions.loadFailed")} description={error} />}
+      {degradedProviders.map((item) => (
+        <Alert
+          key={item.provider}
+          type="warning"
+          showIcon
+          message={t("sessions.degradedTitle")}
+          description={item.detail || t("sessions.degradedHint")}
+        />
+      ))}
 
       <Card size="small">
         <Space wrap>

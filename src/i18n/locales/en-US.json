@@ -81,6 +81,8 @@
     "openDesktop": "Open Claude Desktop",
     "openDesktopFailed": "Claude Desktop could not be opened. Make sure the latest version is installed.",
     "loadFailed": "Failed to load sessions",
+    "degradedTitle": "Session scan degraded",
+    "degradedHint": "Some session files timed out or the scan was capped. Skipped stuck files; if it hangs again, close apps locking the folder or pause cloud sync, then retry.",
     "searchPlaceholder": "Search ID, summary, or working directory",
     "searchContents": "Search session contents",
     "searchRequired": "Enter text to search",

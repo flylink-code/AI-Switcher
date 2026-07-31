@@ -3,7 +3,9 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -22,6 +24,10 @@ const SESSION_ARCHIVE_CONTENT: &str = "session.jsonl";
 const SESSION_BATCH_ARCHIVE_VERSION: u8 = 1;
 const SESSION_BATCH_ARCHIVE_MANIFEST: &str = "batch-manifest.json";
 const SESSION_BATCH_ARCHIVE_PREFIX: &str = "sessions";
+/// Avoid hanging forever on cloud placeholders / antivirus-locked session files.
+const SESSION_FILE_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
+/// Soft cap so a huge session tree cannot freeze the UI indefinitely.
+const MAX_SESSION_FILES: usize = 8_000;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -131,34 +137,69 @@ pub fn scan_sessions(
     offset: Option<usize>,
     limit: Option<usize>,
 ) -> AppResult<SessionScanResult> {
-    let mut sessions = Vec::new();
+    let mut indexed: Vec<(i64, PathBuf, SessionProvider)> = Vec::new();
     let mut providers = Vec::new();
+    let mut truncated = false;
 
     if provider.is_none() || provider == Some(SessionProvider::ClaudeCode) {
-        let (mut code_sessions, status) = scan_claude_code_sessions()?;
-        sessions.append(&mut code_sessions);
+        let (paths, status, was_truncated) = collect_claude_code_session_paths()?;
+        truncated |= was_truncated;
+        for (path, mtime) in paths {
+            indexed.push((mtime, path, SessionProvider::ClaudeCode));
+        }
         providers.push(status);
     }
     if provider.is_none() || provider == Some(SessionProvider::Codex) {
-        let (mut codex_sessions, status) = scan_codex_sessions()?;
-        sessions.append(&mut codex_sessions);
+        let (paths, status, was_truncated) = collect_codex_session_paths()?;
+        truncated |= was_truncated;
+        for (path, mtime) in paths {
+            indexed.push((mtime, path, SessionProvider::Codex));
+        }
         providers.push(status);
     }
 
-    sessions.sort_by(|left, right| {
-        let left_time = left.last_active_at.or(left.created_at).unwrap_or(0);
-        let right_time = right.last_active_at.or(right.created_at).unwrap_or(0);
-        right_time.cmp(&left_time)
-    });
+    indexed.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
 
-    let total = sessions.len();
+    let total = indexed.len();
     let offset = offset.unwrap_or(0).min(total);
     let limit = limit.filter(|value| *value > 0);
-    let sessions = match limit {
-        Some(limit) => sessions.into_iter().skip(offset).take(limit).collect(),
-        None if offset > 0 => sessions.into_iter().skip(offset).collect(),
-        None => sessions,
+    let page: Vec<(i64, PathBuf, SessionProvider)> = match limit {
+        Some(limit) => indexed.into_iter().skip(offset).take(limit).collect(),
+        None if offset > 0 => indexed.into_iter().skip(offset).collect(),
+        None => indexed,
     };
+
+    let mut sessions = Vec::with_capacity(page.len());
+    let mut open_timeouts = 0usize;
+    for (_mtime, path, session_provider) in page {
+        match parse_session_with_timeout(session_provider, &path) {
+            Ok(Some(session)) => sessions.push(session),
+            Ok(None) => {}
+            Err(error) if error.to_string().contains("打开会话超时") => {
+                open_timeouts += 1;
+                log::warn!("{error}");
+            }
+            Err(error) => log::warn!("跳过无法解析的会话 {}: {error}", path.display()),
+        }
+    }
+
+    if truncated || open_timeouts > 0 {
+        for status in &mut providers {
+            let mut notes = Vec::new();
+            if truncated {
+                notes.push(format!("已限制最多扫描 {MAX_SESSION_FILES} 个会话文件"));
+            }
+            if open_timeouts > 0 {
+                notes.push(format!("{open_timeouts} 个文件打开超时（可能被占用或云同步卡住）"));
+            }
+            if !notes.is_empty() {
+                status.detail = format!("{}；{}", status.detail, notes.join("；"));
+                if status.status == "available" {
+                    status.status = "degraded".to_string();
+                }
+            }
+        }
+    }
 
     Ok(SessionScanResult {
         sessions,
@@ -681,7 +722,7 @@ fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {
 
 fn safe_session_name(value: &str) -> String { value.chars().filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_')).collect::<String>() }
 
-fn scan_claude_code_sessions() -> AppResult<(Vec<SessionMeta>, SessionProviderStatus)> {
+fn collect_claude_code_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool)> {
     let root = claude_code_session_root();
     if !root.is_dir() {
         return Ok((
@@ -692,65 +733,49 @@ fn scan_claude_code_sessions() -> AppResult<(Vec<SessionMeta>, SessionProviderSt
                 detail: "未发现 Claude Code 本地会话目录".to_string(),
                 root_path: Some(root.display().to_string()),
             },
+            false,
         ));
     }
-
     let mut paths = Vec::new();
-    collect_jsonl_files(&root, &mut paths)?;
-    let mut sessions = Vec::new();
-    for path in paths {
-        let path = match validate_session_path_in_root(&root, &path) {
-            Ok(value) => value,
-            Err(error) => {
-                log::warn!("跳过会话根目录外的文件 {}: {error}", path.display());
-                continue;
-            }
-        };
-        match parse_claude_code_session(&path) {
-            Ok(Some(session)) => sessions.push(session),
-            Ok(None) => {}
-            Err(error) => log::warn!("跳过无法解析的 Claude Code 会话 {}: {error}", path.display()),
-        }
-    }
-
+    let truncated = collect_jsonl_files_with_mtime(&root, &mut paths)?;
     Ok((
-        sessions,
+        paths,
         SessionProviderStatus {
             provider: SessionProvider::ClaudeCode,
             status: "available".to_string(),
             detail: "Claude Code 本地会话可用".to_string(),
             root_path: Some(root.display().to_string()),
         },
+        truncated,
     ))
 }
 
-fn scan_codex_sessions() -> AppResult<(Vec<SessionMeta>, SessionProviderStatus)> {
+fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool)> {
     let root = codex_session_root();
     if !root.is_dir() {
-        return Ok((Vec::new(), SessionProviderStatus {
-            provider: SessionProvider::Codex,
-            status: "not_found".to_string(),
-            detail: "未发现 Codex 本地会话目录".to_string(),
-            root_path: Some(root.display().to_string()),
-        }));
+        return Ok((
+            Vec::new(),
+            SessionProviderStatus {
+                provider: SessionProvider::Codex,
+                status: "not_found".to_string(),
+                detail: "未发现 Codex 本地会话目录".to_string(),
+                root_path: Some(root.display().to_string()),
+            },
+            false,
+        ));
     }
     let mut paths = Vec::new();
-    collect_jsonl_files(&root, &mut paths)?;
-    let mut sessions = Vec::new();
-    for path in paths {
-        let path = match validate_session_path_in_root(&root, &path) { Ok(path) => path, Err(_) => continue };
-        match parse_codex_session(&path) {
-            Ok(Some(session)) => sessions.push(session),
-            Ok(None) => {},
-            Err(error) => log::warn!("跳过无法解析的 Codex 会话 {}: {error}", path.display()),
-        }
-    }
-    Ok((sessions, SessionProviderStatus {
-        provider: SessionProvider::Codex,
-        status: "available".to_string(),
-        detail: "Codex 本地会话可用".to_string(),
-        root_path: Some(root.display().to_string()),
-    }))
+    let truncated = collect_jsonl_files_with_mtime(&root, &mut paths)?;
+    Ok((
+        paths,
+        SessionProviderStatus {
+            provider: SessionProvider::Codex,
+            status: "available".to_string(),
+            detail: "Codex 本地会话可用".to_string(),
+            root_path: Some(root.display().to_string()),
+        },
+        truncated,
+    ))
 }
 
 fn claude_code_session_root() -> PathBuf {
@@ -763,9 +788,26 @@ fn codex_session_root() -> PathBuf {
 
 
 fn collect_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) -> AppResult<()> {
+    let mut with_mtime = Vec::new();
+    let _ = collect_jsonl_files_with_mtime(directory, &mut with_mtime)?;
+    files.extend(with_mtime.into_iter().map(|(path, _)| path));
+    Ok(())
+}
+
+/// Walk session trees using metadata only (no content open). Returns true if capped.
+fn collect_jsonl_files_with_mtime(
+    directory: &Path,
+    files: &mut Vec<(PathBuf, i64)>,
+) -> AppResult<bool> {
+    if files.len() >= MAX_SESSION_FILES {
+        return Ok(true);
+    }
     let entries = fs::read_dir(directory)
         .map_err(|error| AppError::Io(format!("读取会话目录 {} 失败: {error}", directory.display())))?;
     for entry in entries {
+        if files.len() >= MAX_SESSION_FILES {
+            return Ok(true);
+        }
         let entry = match entry {
             Ok(value) => value,
             Err(error) => {
@@ -782,7 +824,7 @@ fn collect_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) -> AppResult<
             continue;
         }
         if path.is_dir() {
-            if let Err(error) = collect_jsonl_files(&path, files) {
+            if let Err(error) = collect_jsonl_files_with_mtime(&path, files) {
                 log::warn!("跳过无法扫描的会话子目录 {}: {error}", path.display());
             }
             continue;
@@ -793,15 +835,55 @@ fn collect_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) -> AppResult<
             .and_then(|value| value.to_str())
             .is_some_and(|name| name.starts_with("agent-"));
         if is_jsonl && !is_agent {
-            files.push(path);
+            let mtime = fs::metadata(&path)
+                .ok()
+                .and_then(|metadata| metadata.modified().ok())
+                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as i64)
+                .unwrap_or(0);
+            files.push((path, mtime));
         }
     }
-    Ok(())
+    Ok(false)
+}
+
+fn open_session_file(path: &Path) -> AppResult<File> {
+    let path_buf = path.to_path_buf();
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        let _ = tx.send(File::open(&path_buf));
+    });
+    match rx.recv_timeout(SESSION_FILE_OPEN_TIMEOUT) {
+        Ok(Ok(file)) => Ok(file),
+        Ok(Err(error)) => Err(AppError::Io(format!(
+            "打开会话 {} 失败: {error}",
+            path.display()
+        ))),
+        Err(_) => Err(AppError::Io(format!(
+            "打开会话超时（{}s）: {}",
+            SESSION_FILE_OPEN_TIMEOUT.as_secs(),
+            path.display()
+        ))),
+    }
+}
+
+fn parse_session_with_timeout(
+    provider: SessionProvider,
+    path: &Path,
+) -> AppResult<Option<SessionMeta>> {
+    let root = match provider {
+        SessionProvider::ClaudeCode => claude_code_session_root(),
+        SessionProvider::Codex => codex_session_root(),
+    };
+    let path = validate_session_path_in_root(&root, path)?;
+    match provider {
+        SessionProvider::ClaudeCode => parse_claude_code_session(&path),
+        SessionProvider::Codex => parse_codex_session(&path),
+    }
 }
 
 fn parse_claude_code_session(path: &Path) -> AppResult<Option<SessionMeta>> {
-    let file = File::open(path)
-        .map_err(|error| AppError::Io(format!("打开会话 {} 失败: {error}", path.display())))?;
+    let file = open_session_file(path)?;
     let reader = BufReader::new(file);
     let mut session_id = None;
     let mut project_dir = None;
@@ -873,8 +955,7 @@ fn parse_codex_session(path: &Path) -> AppResult<Option<SessionMeta>> {
 }
 
 fn load_claude_code_messages(path: &Path) -> AppResult<Vec<SessionMessage>> {
-    let file = File::open(path)
-        .map_err(|error| AppError::Io(format!("打开会话 {} 失败: {error}", path.display())))?;
+    let file = open_session_file(path)?;
     let reader = BufReader::new(file);
     let mut messages = Vec::new();
 

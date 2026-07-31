@@ -93,13 +93,13 @@ jobs:
 
             ## What's new
 
-            - Project profiles: snapshot/apply provider + MCP + Skills + Prompt per app; tray Projects menu
-            - Codex Anthropic upstream: Responses↔Messages bridge via local proxy; Anthropic protocol allowed for Codex
+            - Session manager: paginated parse, file-open timeout, scan cap; skip stuck jsonl (cloud sync / AV locks) instead of hanging
+            - Warn in UI when scan is degraded (timeouts or file-count limit)
 
             ## 更新内容
 
-            - 项目快照：按端保存/应用供应商 + MCP + Skills + Prompt；托盘 Projects 一键切换
-            - Codex Anthropic 上游：本地代理做 Responses↔Messages 桥；Codex 可选 Anthropic 协议
+            - 会话管理：分页解析、打开超时、扫描上限；跳过被云同步/杀毒卡住的 jsonl，避免进入页面卡死
+            - 扫描降级时在界面提示（超时或文件数达上限）
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

@@ -81,6 +81,8 @@
     "openDesktop": "打开 Claude Desktop",
     "openDesktopFailed": "无法打开 Claude Desktop，请确认已经安装最新版本。",
     "loadFailed": "会话加载失败",
+    "degradedTitle": "会话扫描降级",
+    "degradedHint": "部分会话文件打开超时或数量过多，已跳过卡住的文件；若再次卡顿，可关闭占用该目录的程序或暂停云同步后重试。",
     "searchPlaceholder": "搜索 ID、摘要或工作目录",
     "searchContents": "搜索会话内容",
     "searchRequired": "请输入要搜索的内容",

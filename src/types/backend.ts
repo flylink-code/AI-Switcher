@@ -625,7 +625,7 @@ export type SessionProvider = "claude_code" | "codex";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;
-  status: "available" | "not_found";
+  status: "available" | "not_found" | "degraded";
   detail: string;
   rootPath?: string;
 }
