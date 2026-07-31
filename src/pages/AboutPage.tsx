@@ -53,7 +53,18 @@ function formatCliInstallError(raw: string, t: (key: string) => string): string 
   if (raw.includes("NODE_RUNTIME_TOO_OLD:")) {
     return t("about.cliInstallNodeTooOld");
   }
+  if (raw.includes("NODE_NETWORK_OR_REGISTRY:")) {
+    return t("about.cliInstallNetworkOrRegistry");
+  }
   const lower = raw.toLowerCase();
+  if (
+    lower.includes("econnrefused")
+    || lower.includes("etimedout")
+    || lower.includes("registry")
+    || lower.includes("fetch failed")
+  ) {
+    return t("about.cliInstallNetworkOrRegistry");
+  }
   if (
     lower.includes("npm: not found")
     || lower.includes("node.js ≥22")
@@ -386,6 +397,18 @@ export default function AboutPage() {
             <Paragraph type="secondary" style={{ marginBottom: 0 }}>
               {t("about.nodeRuntimeHint")}
             </Paragraph>
+            {nodeRuntime?.meetsMinimum && nodeRuntime.npmPath && (
+              <Alert
+                type="success"
+                showIcon
+                message={t("about.nodeRuntimeReady")}
+                description={
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    npm: <Text code>{nodeRuntime.npmPath}</Text>
+                  </Text>
+                }
+              />
+            )}
             {!nodeRuntime?.meetsMinimum && (
               <Alert type="warning" showIcon message={nodeRuntime?.installHint ?? t("about.nodeRuntimeMissing")} />
             )}

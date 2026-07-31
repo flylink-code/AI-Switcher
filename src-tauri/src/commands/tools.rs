@@ -698,10 +698,10 @@ fn run_anchored_update(installation: &Installation) -> io::Result<Output> {
                         } else {
                             runtime.npm_path.clone()
                         };
-                        return crate::commands::node_runtime::run_anchored_npm(
+                        return crate::commands::node_runtime::run_anchored_npm_global_install(
                             &npm,
                             &runtime.node_path,
-                            &["i", "-g", "@anthropic-ai/claude-code@latest"],
+                            "@anthropic-ai/claude-code@latest",
                         );
                     }
                     (
@@ -816,12 +816,54 @@ fn run_claude_native_install_windows() -> AppResult<Output> {
 
 fn run_claude_npm_install() -> AppResult<Output> {
     let runtime = crate::commands::node_runtime::require_node_for_npm()?;
-    crate::commands::node_runtime::run_anchored_npm(
+    crate::commands::node_runtime::run_anchored_npm_global_install(
         &runtime.npm_path,
         &runtime.node_path,
-        &["i", "-g", "@anthropic-ai/claude-code@latest"],
+        "@anthropic-ai/claude-code@latest",
     )
     .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
+}
+
+fn output_failed(detail: &str) -> Output {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        Output {
+            status: ExitStatus::from_raw(1),
+            stdout: Vec::new(),
+            stderr: detail.as_bytes().to_vec(),
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::ExitStatusExt;
+        Output {
+            status: ExitStatus::from_raw(1),
+            stdout: Vec::new(),
+            stderr: detail.as_bytes().to_vec(),
+        }
+    }
+}
+
+fn merge_install_failures(primary: &str, secondary: &str) -> String {
+    format!("{primary}\n---\n{secondary}")
+}
+
+/// Soft-verify a freshly installed npm global CLI via absolute paths next to node.
+fn soft_verify_npm_cli_near_node(node: &Path, cli_name: &str) {
+    let Some(node_dir) = node.parent() else {
+        return;
+    };
+    for candidate in [
+        node_dir.join(cli_name),
+        node_dir.join(format!("{cli_name}.cmd")),
+        node_dir.join(format!("{cli_name}.exe")),
+    ] {
+        if candidate.is_file() {
+            let _ = run_local_tool(&candidate);
+            return;
+        }
+    }
 }
 
 fn run_claude_install_or_update() -> AppResult<Output> {
@@ -838,16 +880,76 @@ fn run_claude_install_or_update() -> AppResult<Output> {
                 .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))
         }
         Probe::NotFound(_) => {
+            // Prefer npm when Node≥22 is available (more reliable behind mirrors than install.sh).
+            if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+                match run_claude_npm_install() {
+                    Ok(output) if output.status.success() => {
+                        soft_verify_npm_cli_near_node(&runtime.node_path, "claude");
+                        return Ok(output);
+                    }
+                    Ok(npm_output) => {
+                        #[cfg(windows)]
+                        let native = run_claude_native_install_windows();
+                        #[cfg(not(windows))]
+                        let native = run_claude_native_install_unix();
+                        return match native {
+                            Ok(native_output) if native_output.status.success() => Ok(native_output),
+                            Ok(native_output) => Ok(output_failed(&merge_install_failures(
+                                &output_detail(&npm_output),
+                                &output_detail(&native_output),
+                            ))),
+                            Err(native_error) => Ok(output_failed(&merge_install_failures(
+                                &output_detail(&npm_output),
+                                &native_error.to_string(),
+                            ))),
+                        };
+                    }
+                    Err(npm_error) => {
+                        #[cfg(windows)]
+                        let native = run_claude_native_install_windows();
+                        #[cfg(not(windows))]
+                        let native = run_claude_native_install_unix();
+                        return match native {
+                            Ok(native_output) if native_output.status.success() => Ok(native_output),
+                            Ok(native_output) => Ok(output_failed(&merge_install_failures(
+                                &npm_error.to_string(),
+                                &output_detail(&native_output),
+                            ))),
+                            Err(native_error) => Ok(output_failed(&merge_install_failures(
+                                &npm_error.to_string(),
+                                &native_error.to_string(),
+                            ))),
+                        };
+                    }
+                }
+            }
+
             #[cfg(windows)]
             {
                 match run_claude_native_install_windows() {
                     Ok(output) if output.status.success() => Ok(output),
                     Ok(native_output) => match run_claude_npm_install() {
                         Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
-                        Ok(npm_output) => Ok(npm_output),
-                        Err(_) => Ok(native_output),
+                        Ok(npm_output) => Ok(output_failed(&merge_install_failures(
+                            &output_detail(&native_output),
+                            &output_detail(&npm_output),
+                        ))),
+                        Err(npm_error) => Ok(output_failed(&merge_install_failures(
+                            &output_detail(&native_output),
+                            &npm_error.to_string(),
+                        ))),
                     },
-                    Err(_) => run_claude_npm_install(),
+                    Err(native_error) => match run_claude_npm_install() {
+                        Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
+                        Ok(npm_output) => Ok(output_failed(&merge_install_failures(
+                            &native_error.to_string(),
+                            &output_detail(&npm_output),
+                        ))),
+                        Err(npm_error) => Ok(output_failed(&merge_install_failures(
+                            &native_error.to_string(),
+                            &npm_error.to_string(),
+                        ))),
+                    },
                 }
             }
             #[cfg(not(windows))]
@@ -856,10 +958,26 @@ fn run_claude_install_or_update() -> AppResult<Output> {
                     Ok(output) if output.status.success() => Ok(output),
                     Ok(native_output) => match run_claude_npm_install() {
                         Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
-                        Ok(npm_output) => Ok(npm_output),
-                        Err(_) => Ok(native_output),
+                        Ok(npm_output) => Ok(output_failed(&merge_install_failures(
+                            &output_detail(&native_output),
+                            &output_detail(&npm_output),
+                        ))),
+                        Err(npm_error) => Ok(output_failed(&merge_install_failures(
+                            &output_detail(&native_output),
+                            &npm_error.to_string(),
+                        ))),
                     },
-                    Err(_) => run_claude_npm_install(),
+                    Err(native_error) => match run_claude_npm_install() {
+                        Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
+                        Ok(npm_output) => Ok(output_failed(&merge_install_failures(
+                            &native_error.to_string(),
+                            &output_detail(&npm_output),
+                        ))),
+                        Err(npm_error) => Ok(output_failed(&merge_install_failures(
+                            &native_error.to_string(),
+                            &npm_error.to_string(),
+                        ))),
+                    },
                 }
             }
         }
@@ -1008,36 +1126,39 @@ fn codex_update_command_for(installation: Option<&Installation>) -> String {
 
 fn run_codex_npm_install() -> AppResult<Output> {
     let runtime = crate::commands::node_runtime::require_node_for_npm()?;
-    crate::commands::node_runtime::run_anchored_npm(
+    crate::commands::node_runtime::run_anchored_npm_global_install(
         &runtime.npm_path,
         &runtime.node_path,
-        &["i", "-g", "@openai/codex@latest"],
+        "@openai/codex@latest",
     )
     .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
 }
 
 fn run_codex_install_or_update() -> AppResult<Output> {
     // Codex always depends on Node/npm.
-    let _ = crate::commands::node_runtime::require_node_for_npm()?;
+    let runtime = crate::commands::node_runtime::require_node_for_npm()?;
     let probe = probe_codex_installation();
-    match probe {
+    let output = match probe {
         Probe::Found(installation) | Probe::Broken(installation, _) => {
             let program = find_command_near("npm", &installation);
-            let runtime = crate::commands::node_runtime::require_node_for_npm()?;
             let npm = if program.is_file() {
                 program
             } else {
                 runtime.npm_path.clone()
             };
-            crate::commands::node_runtime::run_anchored_npm(
+            crate::commands::node_runtime::run_anchored_npm_global_install(
                 &npm,
                 &runtime.node_path,
-                &["i", "-g", "@openai/codex@latest"],
+                "@openai/codex@latest",
             )
-            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))
+            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?
         }
-        Probe::NotFound(_) => run_codex_npm_install(),
+        Probe::NotFound(_) => run_codex_npm_install()?,
+    };
+    if output.status.success() {
+        soft_verify_npm_cli_near_node(&runtime.node_path, "codex");
     }
+    Ok(output)
 }
 
 #[tauri::command]

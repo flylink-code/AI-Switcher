@@ -10,6 +10,11 @@ use crate::error::{AppError, AppResult};
 
 const MINIMUM_NODE_MAJOR: u64 = 22;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+/// Node.js dist mirror used by fnm (same host as the CSDN Ubuntu install guide).
+pub const FNM_NODE_DIST_MIRROR: &str = "https://npmmirror.com/mirrors/node";
+/// npm registry mirror for global CLI installs.
+pub const NPM_REGISTRY_MIRROR: &str = "https://registry.npmmirror.com";
+const DEFAULT_GITHUB_MIRROR_BASE: &str = "https://gh-proxy.com/";
 #[cfg(not(windows))]
 const FNM_RELEASE_ZIP_LINUX: &str =
     "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip";
@@ -106,7 +111,44 @@ pub fn map_npm_install_error(detail: &str) -> String {
             "NODE_RUNTIME_TOO_OLD: Node.js ≥{MINIMUM_NODE_MAJOR} is required. Detail: {detail}"
         );
     }
+    if lower.contains("econnrefused")
+        || lower.contains("etimedout")
+        || lower.contains("enetunreach")
+        || lower.contains("network")
+        || lower.contains("getaddrinfo")
+        || lower.contains("certificate")
+        || (lower.contains("fetch failed") && lower.contains("registry"))
+        || lower.contains("npm err! code eai_again")
+    {
+        return format!(
+            "NODE_NETWORK_OR_REGISTRY: npm/Node download failed (network or registry). Detail: {detail}"
+        );
+    }
     detail.to_string()
+}
+
+/// Build candidate URLs for a GitHub asset: direct first, then configured/default mirrors.
+pub fn github_download_candidates(direct_url: &str, mirror_base: Option<&str>) -> Vec<String> {
+    let mut urls = vec![direct_url.to_string()];
+    let mut bases = Vec::new();
+    if let Some(base) = mirror_base.map(str::trim).filter(|value| !value.is_empty()) {
+        let normalized = if base.ends_with('/') {
+            base.to_string()
+        } else {
+            format!("{base}/")
+        };
+        bases.push(normalized);
+    }
+    if !bases.iter().any(|base| base == DEFAULT_GITHUB_MIRROR_BASE) {
+        bases.push(DEFAULT_GITHUB_MIRROR_BASE.to_string());
+    }
+    for base in bases {
+        let mirrored = format!("{base}{direct_url}");
+        if !urls.iter().any(|url| url == &mirrored) {
+            urls.push(mirrored);
+        }
+    }
+    urls
 }
 
 fn configure_hidden(command: &mut Command) {
@@ -550,9 +592,25 @@ pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Ou
     }
 }
 
+/// Global package install via PATH-anchored npm, using the npmmirror registry.
+pub fn run_anchored_npm_global_install(npm: &Path, node: &Path, package: &str) -> io::Result<Output> {
+    run_anchored_npm(
+        npm,
+        node,
+        &[
+            "i",
+            "-g",
+            package,
+            "--registry",
+            NPM_REGISTRY_MIRROR,
+            "--force",
+        ],
+    )
+}
+
 fn download_bytes(url: &str) -> AppResult<Vec<u8>> {
     let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(120))
+        .timeout(Duration::from_secs(180))
         .build()
         .map_err(|error| AppError::Other(format!("Failed to build HTTP client: {error}")))?;
     let response = client
@@ -569,6 +627,22 @@ fn download_bytes(url: &str) -> AppResult<Vec<u8>> {
         .bytes()
         .map(|bytes| bytes.to_vec())
         .map_err(|error| AppError::Other(format!("Download read failed ({url}): {error}")))
+}
+
+fn download_bytes_with_fallbacks(urls: &[String]) -> AppResult<Vec<u8>> {
+    let mut last_error = None;
+    for url in urls {
+        match download_bytes(url) {
+            Ok(bytes) => return Ok(bytes),
+            Err(error) => {
+                log::warn!("download failed for {url}: {error}");
+                last_error = Some(error);
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| {
+        AppError::Other("Download failed: no candidate URLs were provided".into())
+    }))
 }
 
 fn extract_zip_bytes(bytes: &[u8], dest_dir: &Path) -> AppResult<()> {
@@ -610,7 +684,7 @@ fn extract_zip_bytes(bytes: &[u8], dest_dir: &Path) -> AppResult<()> {
     Ok(())
 }
 
-fn install_fnm_binary() -> AppResult<PathBuf> {
+fn install_fnm_binary(github_mirror_base: Option<&str>) -> AppResult<PathBuf> {
     if let Some(existing) = find_fnm_binary() {
         return Ok(existing);
     }
@@ -641,7 +715,8 @@ fn install_fnm_binary() -> AppResult<PathBuf> {
             }
         }
 
-        let bytes = download_bytes(FNM_RELEASE_ZIP_WINDOWS)?;
+        let urls = github_download_candidates(FNM_RELEASE_ZIP_WINDOWS, github_mirror_base);
+        let bytes = download_bytes_with_fallbacks(&urls)?;
         extract_zip_bytes(&bytes, &install_dir)?;
         if let Some(path) = find_fnm_binary() {
             return Ok(path);
@@ -661,7 +736,8 @@ fn install_fnm_binary() -> AppResult<PathBuf> {
             "aarch64" => FNM_RELEASE_ZIP_LINUX_ARM64,
             _ => FNM_RELEASE_ZIP_LINUX,
         };
-        match download_bytes(zip_url) {
+        let urls = github_download_candidates(zip_url, github_mirror_base);
+        match download_bytes_with_fallbacks(&urls) {
             Ok(bytes) => {
                 extract_zip_bytes(&bytes, &install_dir)?;
                 if let Some(path) = find_fnm_binary() {
@@ -672,12 +748,17 @@ fn install_fnm_binary() -> AppResult<PathBuf> {
                     return Ok(direct);
                 }
             }
-            Err(_) => {
+            Err(zip_error) => {
+                log::warn!("fnm zip download failed, trying install script: {zip_error}");
                 // Fallback: official install script to a temp file (no curl|bash).
                 use std::io::Write;
                 use std::process::Stdio;
 
-                let script_bytes = download_bytes(FNM_INSTALL_SCRIPT)?;
+                let script_bytes = download_bytes(FNM_INSTALL_SCRIPT).map_err(|script_error| {
+                    AppError::Config(format!(
+                        "fnm download failed (zip: {zip_error}; script: {script_error})"
+                    ))
+                })?;
                 let temp = std::env::temp_dir().join(format!(
                     "fnm-install-{}.sh",
                     std::process::id()
@@ -727,10 +808,13 @@ fn install_fnm_binary() -> AppResult<PathBuf> {
     }
 }
 
-fn run_fnm(fnm: &Path, args: &[&str]) -> AppResult<Output> {
+fn run_fnm_with_env(fnm: &Path, args: &[&str], env: &[(&str, &str)]) -> AppResult<Output> {
     let output = run_output({
         let mut command = Command::new(fnm);
         command.args(args);
+        for (key, value) in env {
+            command.env(key, value);
+        }
         command
     })
     .map_err(|error| AppError::Other(format!("Failed to run fnm: {error}")))?;
@@ -751,21 +835,44 @@ fn run_fnm(fnm: &Path, args: &[&str]) -> AppResult<Output> {
     Ok(output)
 }
 
-pub fn ensure_node_runtime_via_fnm_sync() -> AppResult<NodeRuntimeStatus> {
+fn install_node_22_via_fnm(fnm: &Path) -> AppResult<()> {
+    let env = [("FNM_NODE_DIST", FNM_NODE_DIST_MIRROR)];
+    let first = run_fnm_with_env(fnm, &["install", "22"], &env);
+    if let Err(error) = first {
+        log::warn!("fnm install 22 failed once, retrying with Node mirror: {error}");
+        run_fnm_with_env(fnm, &["install", "22"], &env).map_err(|retry_error| {
+            AppError::Config(format!(
+                "NODE_NETWORK_OR_REGISTRY: fnm install Node 22 failed via {FNM_NODE_DIST_MIRROR}. {retry_error}"
+            ))
+        })?;
+    }
+    let _ = run_fnm_with_env(fnm, &["default", "22"], &env);
+    Ok(())
+}
+
+pub fn ensure_node_runtime_via_fnm_sync_with_mirror(
+    github_mirror_base: Option<&str>,
+) -> AppResult<NodeRuntimeStatus> {
     let current = probe_node_runtime();
     if current.meets_minimum {
         return Ok(current);
     }
 
-    let fnm = install_fnm_binary()?;
-    // Install Node 22 (LTS line used by Codex/Claude npm engines).
-    run_fnm(&fnm, &["install", "22"])?;
-    let _ = run_fnm(&fnm, &["default", "22"]);
+    let fnm = install_fnm_binary(github_mirror_base)?;
+    install_node_22_via_fnm(&fnm)?;
+
+    // Prefer probing through fnm env so GUI sessions see absolute node/npm paths.
+    if let Some(probe) = probe_fnm_default_node(&fnm) {
+        let status = status_from_probe(Some(probe), true);
+        if status.meets_minimum {
+            return Ok(status);
+        }
+    }
 
     let status = probe_node_runtime();
     if !status.meets_minimum {
         return Err(AppError::Config(format!(
-            "fnm installed Node, but the runtime still does not meet ≥{MINIMUM_NODE_MAJOR}. {}",
+            "fnm installed Node via mirror {FNM_NODE_DIST_MIRROR}, but the runtime still does not meet ≥{MINIMUM_NODE_MAJOR}. {}",
             status.install_hint
         )));
     }
@@ -780,10 +887,18 @@ pub async fn get_node_runtime_status() -> AppResult<NodeRuntimeStatus> {
 }
 
 #[tauri::command]
-pub async fn ensure_node_runtime_via_fnm() -> AppResult<NodeRuntimeStatus> {
-    tokio::task::spawn_blocking(ensure_node_runtime_via_fnm_sync)
-        .await
-        .map_err(|error| AppError::Other(format!("Node runtime install task failed: {error}")))?
+pub async fn ensure_node_runtime_via_fnm(
+    state: tauri::State<'_, crate::store::AppState>,
+) -> AppResult<NodeRuntimeStatus> {
+    let mirror_base = crate::commands::system::get_update_mirror_settings(state)
+        .ok()
+        .filter(|settings| settings.use_mirror)
+        .map(|settings| settings.mirror_base);
+    tokio::task::spawn_blocking(move || {
+        ensure_node_runtime_via_fnm_sync_with_mirror(mirror_base.as_deref())
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("Node runtime install task failed: {error}")))?
 }
 
 #[cfg(test)]
@@ -815,5 +930,21 @@ mod tests {
     fn maps_ebadengine_errors() {
         let mapped = map_npm_install_error("npm ERR! code EBADENGINE\nnpm ERR! engine \"node\"");
         assert!(mapped.starts_with("NODE_RUNTIME_TOO_OLD:"));
+    }
+
+    #[test]
+    fn maps_network_registry_errors() {
+        let mapped = map_npm_install_error("npm ERR! code ETIMEDOUT\nnpm ERR! network");
+        assert!(mapped.starts_with("NODE_NETWORK_OR_REGISTRY:"));
+    }
+
+    #[test]
+    fn github_candidates_include_mirror() {
+        let urls = github_download_candidates(
+            "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip",
+            Some("https://gh-proxy.com/"),
+        );
+        assert_eq!(urls[0], "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip");
+        assert!(urls.iter().any(|url| url.starts_with("https://gh-proxy.com/https://github.com/")));
     }
 }

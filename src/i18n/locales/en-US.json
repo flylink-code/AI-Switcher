@@ -732,13 +732,14 @@
     "nodeRuntimeReady": "Meets ≥22 — ready for Node-based CLIs",
     "nodeRuntimeMissing": "No usable Node.js ≥22 detected",
     "nodeRuntimeTooOld": "Node is too old; ≥22 is required",
-    "nodeRuntimeHint": "Codex CLI (and Claude’s npm install path) need Node.js ≥22. You can install it with fnm in your user directory — no sudo required.",
+    "nodeRuntimeHint": "Codex CLI (and Claude’s npm install path) need Node.js ≥22. Node is installed with fnm in your user directory using the npmmirror Node dist — no sudo required.",
     "installNodeViaFnm": "Install Node 22 via fnm",
-    "installingNodeViaFnm": "Installing Node via fnm…",
+    "installingNodeViaFnm": "Installing Node via fnm + mirror…",
     "nodeRuntimeInstallSuccess": "Node.js is ready ({{version}})",
-    "nodeRuntimeInstallFailed": "Failed to install Node: {{error}}",
+    "nodeRuntimeInstallFailed": "Failed to install Node: {{error}}. Check your network and retry; downloads prefer npmmirror / GitHub mirrors.",
     "cliInstallNeedNode": "Install Node.js ≥22 first (use the fnm button above)",
     "cliInstallNodeMissing": "npm was not found. Install Node.js ≥22 first.",
-    "cliInstallNodeTooOld": "Node.js is too old. Upgrade to ≥22 and try again."
+    "cliInstallNodeTooOld": "Node.js is too old. Upgrade to ≥22 and try again.",
+    "cliInstallNetworkOrRegistry": "npm/Node download failed (network or registry). Install already tried npmmirror — check your network and retry."
   }
 }

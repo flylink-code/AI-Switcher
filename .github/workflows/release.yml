@@ -67,17 +67,17 @@ jobs:
 
             ## What's new
 
-            - Safe library import: close SQLite before replacing `app.db` (fixes Linux `database disk image is malformed`)
-            - Import rematerializes API keys from credential-inclusive archives into the OS keyring
-            - Folder pickers default into app/sync directories so Linux can open hidden `.ai-switcher` / `.claude-switcher` paths
-            - Quick buttons for backups and sync `incoming` directories
+            - Node install via fnm uses npmmirror (`FNM_NODE_DIST`) with GitHub zip mirror fallbacks and retries
+            - npm global Claude/Codex installs use `registry.npmmirror.com` and soft-verify with absolute paths
+            - When Node ≥22 is available, Claude install prefers npm first; native installer is the fallback with merged errors
+            - About page maps network/registry failures to clearer i18n messages
 
             ## 更新内容
 
-            - 安全导入资料库：替换 `app.db` 前关闭 SQLite 连接（修复 Linux 上 `database disk image is malformed`）
-            - 含 API Key 的归档导入后会写入系统凭据库并生效
-            - 目录选择默认进入应用/同步目录，便于 Linux 打开隐藏的 `.ai-switcher` / `.claude-switcher`
-            - 增加 backups / 同步 incoming 快捷入口
+            - fnm 安装 Node 走 npmmirror（`FNM_NODE_DIST`），GitHub zip 支持镜像回退与重试
+            - Claude/Codex 的 npm 全局安装使用 `registry.npmmirror.com`，并以绝对路径软校验
+            - 已有 Node ≥22 时 Claude 优先 npm 安装；失败再回退原生安装并合并错误信息
+            - 关于页将网络/源失败映射为更清晰的中英文提示
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
