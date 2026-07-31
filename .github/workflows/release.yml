@@ -67,26 +67,28 @@ jobs:
 
             ## What's new
 
-            - About: probe Node/npm (≥22) before Codex / Claude npm installs; install Node 22 via fnm in the user directory (no sudo)
-            - PATH-anchored npm installs so GUI sessions can find fnm/system Node
-            - Claude Code: prefer native `install.sh` / `install.ps1` (download to temp file), fall back to npm
-            - Clearer install errors when npm is missing or Node is too old (`EBADENGINE`)
+            - Safe library import: close SQLite before replacing `app.db` (fixes Linux `database disk image is malformed`)
+            - Import rematerializes API keys from credential-inclusive archives into the OS keyring
+            - Folder pickers default into app/sync directories so Linux can open hidden `.ai-switcher` / `.claude-switcher` paths
+            - Quick buttons for backups and sync `incoming` directories
 
             ## 更新内容
 
-            - 关于页：安装 Codex / Claude（npm）前探测 Node/npm（≥22）；可用 fnm 在用户目录安装 Node 22（无需 sudo）
-            - npm 安装使用 PATH 锚定，避免 GUI 进程找不到 fnm/系统 Node
-            - Claude Code：优先官方原生 `install.sh` / `install.ps1`（先下载到临时文件），失败再走 npm
-            - npm 缺失或 Node 过旧（`EBADENGINE`）时给出更清晰的错误提示
+            - 安全导入资料库：替换 `app.db` 前关闭 SQLite 连接（修复 Linux 上 `database disk image is malformed`）
+            - 含 API Key 的归档导入后会写入系统凭据库并生效
+            - 目录选择默认进入应用/同步目录，便于 Linux 打开隐藏的 `.ai-switcher` / `.claude-switcher`
+            - 增加 backups / 同步 incoming 快捷入口
 
             ### Windows
-            Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.
-            新安装请下载 NSIS 安装包；应用内更新会从本 Release 获取已签名更新。
+            Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
+            In-app updates are signed and delivered from this release.
+            建议使用 NSIS `.exe`（当前用户安装，通常无需管理员）；MSI 仍会请求提升权限。
+            应用内更新会从本 Release 获取已签名更新。
 
             ### Linux (preview)
-            Prefer the `.AppImage` for a portable run (`chmod +x` then execute), or install the `.deb` on Debian/Ubuntu.
+            Prefer the `.AppImage` (`chmod +x`, no sudo). `.deb` installs/updates need administrator privileges.
             Linux builds are best-effort: Claude Desktop localization / some Windows-only tools are unavailable.
-            建议优先使用 `.AppImage`（先 `chmod +x`）；Debian/Ubuntu 也可安装 `.deb`。
+            建议优先使用 `.AppImage`（先 `chmod +x`，无需 sudo）；`.deb` 需要管理员权限。
             Linux 为尽力支持：Claude Desktop 中文化等 Windows 专用能力不可用。
           releaseDraft: false
           prerelease: false

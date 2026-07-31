@@ -54,6 +54,7 @@ import {
   saveSyncTarget,
   setAutostartConfig,
   setCloseBehavior,
+  restartApp,
 } from "@/services/api";
 import {
   defaultRemoteRootForUser,
@@ -72,6 +73,14 @@ const { Text } = Typography;
 interface PathRow {
   key: string;
   value: string | null;
+}
+
+/** Prefer opening the dialog already inside a (often hidden) archive folder. */
+function preferredArchiveDirectory(paths: { home: string; appConfigDir: string } | null): string | undefined {
+  if (!paths) return undefined;
+  const home = paths.home.replace(/[\\/]+$/, "");
+  // GTK/Linux often hides dotfolders when browsing the parent; defaultPath opens inside them.
+  return `${home}/.ai-switcher/incoming`;
 }
 
 function PathValue({ value }: { value: string | null }) {
@@ -153,10 +162,16 @@ export default function EnvironmentPage() {
   const onExportLibrary = useCallback(async () => {
     setRunning(true);
     try {
+      const home = paths?.home ?? undefined;
+      const preferred =
+        paths?.appConfigDir
+        ?? (home ? `${home}/.claude-switcher` : undefined);
       const destinationDir = await open({
         directory: true,
         multiple: false,
         title: t("env.selectExportDirectory"),
+        // Open inside the (often hidden) app data dir so Linux GTK does not hide it.
+        defaultPath: preferred,
       });
       if (typeof destinationDir !== "string" || !destinationDir.trim()) {
         return;
@@ -165,16 +180,17 @@ export default function EnvironmentPage() {
       void message.success(t("env.libraryBackupDone", { path: archive.archivePath, entries: archive.entries }));
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [t]);
+  }, [paths, t]);
 
   const pickDataRootDirectory = useCallback(async () => {
     const selected = await open({
       directory: true,
       multiple: false,
       title: t("env.selectDataRootDirectory"),
+      defaultPath: paths?.home ?? paths?.appConfigDir ?? undefined,
     });
     if (typeof selected === "string") setDataRootPath(selected);
-  }, [t]);
+  }, [paths, t]);
 
   const pickLibraryArchiveFile = useCallback(async () => {
     const selected = await open({
@@ -182,20 +198,32 @@ export default function EnvironmentPage() {
       multiple: false,
       title: t("env.selectLibraryArchive"),
       filters: [{ name: "ZIP", extensions: ["zip"] }],
+      defaultPath: preferredArchiveDirectory(paths),
     });
     if (typeof selected === "string") setLibraryArchivePath(selected);
-  }, [t]);
+  }, [paths, t]);
 
   const pickLibraryArchiveDirectory = useCallback(async () => {
     const selected = await open({
       directory: true,
       multiple: false,
       title: t("env.selectLibraryArchiveDirectory"),
+      defaultPath: preferredArchiveDirectory(paths),
     });
     if (typeof selected !== "string" || !selected.trim()) return;
     setRunning(true);
     try {
       const archivePath = await findLatestLibraryArchive(selected);
+      setLibraryArchivePath(archivePath);
+      void message.success(t("env.libraryArchivePicked", { path: archivePath }));
+    } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+    finally { setRunning(false); }
+  }, [paths, t]);
+
+  const useKnownArchiveDirectory = useCallback(async (directory: string) => {
+    setRunning(true);
+    try {
+      const archivePath = await findLatestLibraryArchive(directory);
       setLibraryArchivePath(archivePath);
       void message.success(t("env.libraryArchivePicked", { path: archivePath }));
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
@@ -216,12 +244,23 @@ export default function EnvironmentPage() {
     setRunning(true);
     try {
       const result = await restoreLibraryBackup(libraryArchivePath.trim());
-      void message.success(t("env.libraryImported"));
+      void message.success(
+        result.credentialsImported
+          ? t("env.libraryImportedWithKeys")
+          : t("env.libraryImported"),
+      );
       setLibraryArchivePreview(null);
       if (result.restartRequired) {
-        Modal.info({
+        Modal.confirm({
           title: t("env.dataRootRestartTitle"),
-          content: t("env.confirmImportLibraryDescription"),
+          content: result.credentialsImported
+            ? t("env.confirmImportLibraryRestartWithKeys")
+            : t("env.confirmImportLibraryDescription"),
+          okText: t("env.restartNow"),
+          cancelText: t("common.cancel"),
+          onOk: async () => {
+            await restartApp();
+          },
         });
       }
       await environmentQuery.refetch();
@@ -577,6 +616,16 @@ export default function EnvironmentPage() {
             <Space wrap>
               <Button onClick={() => void pickLibraryArchiveFile()}>{t("env.chooseArchiveFile")}</Button>
               <Button onClick={() => void pickLibraryArchiveDirectory()}>{t("env.chooseArchiveDirectory")}</Button>
+              {paths?.appConfigDir && (
+                <Button onClick={() => void useKnownArchiveDirectory(`${paths.appConfigDir}/backups`)}>
+                  {t("env.useBackupsDirectory")}
+                </Button>
+              )}
+              {paths?.home && (
+                <Button onClick={() => void useKnownArchiveDirectory(`${paths.home}/.ai-switcher/incoming`)}>
+                  {t("env.useSyncIncomingDirectory")}
+                </Button>
+              )}
             </Space>
             <Space.Compact style={{ width: "100%" }}>
               <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />

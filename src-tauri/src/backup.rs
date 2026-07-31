@@ -303,13 +303,18 @@ pub struct LibraryRestoreResult {
     pub restored_entries: usize,
     pub backup_db_path: Option<String>,
     pub restart_required: bool,
+    pub credentials_imported: bool,
 }
 
 /// Validate, stage, and replace local managed library files from `archive_path`.
 ///
-/// The live SQLite connection remains open, so callers must restart the app
-/// before the restored database is used. API keys are not present in archives.
-pub fn restore_library_backup(archive_path: &Path) -> AppResult<LibraryRestoreResult> {
+/// The live SQLite connection is closed before the on-disk file is replaced, then
+/// reopened. Plaintext API keys from credential-inclusive archives are rematerialized
+/// into the OS keyring. Callers should still restart for proxy/UI consistency.
+pub fn restore_library_backup(
+    archive_path: &Path,
+    db: &crate::database::Database,
+) -> AppResult<LibraryRestoreResult> {
     let preview = preview_library_backup(archive_path)?;
     if preview.schema_version > crate::database::schema::SCHEMA_VERSION {
         return Err(AppError::Config(format!(
@@ -322,24 +327,22 @@ pub fn restore_library_backup(archive_path: &Path) -> AppResult<LibraryRestoreRe
     let staging = StagingDirectory::create()?;
     let restored_entries = extract_library_archive(archive_path, &staging.0)?;
 
-    // Checkpoint then snapshot the live DB so a failed restore can be rolled back manually.
+    // Snapshot the live DB so a failed restore can be rolled back manually.
     let db_path = get_app_db_path();
-    if db_path.is_file() {
+    let backup_db_path = if db_path.is_file() {
+        // Checkpoint via a short-lived connection before file-copy backup.
         if let Ok(conn) = rusqlite::Connection::open(&db_path) {
             let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         }
-    }
-    let backup_db_path = backup_file(&db_path, DEFAULT_BACKUP_KEEP)?
-        .map(|path| path.to_string_lossy().into_owned());
+        backup_file(&db_path, DEFAULT_BACKUP_KEEP)?
+            .map(|path| path.to_string_lossy().into_owned())
+    } else {
+        None
+    };
 
     let staged_db = staging.0.join("database").join("app.db");
     if staged_db.is_file() {
-        if let Some(parent) = db_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| io_context("创建数据库目录失败", error))?;
-        }
-        remove_sqlite_sidecars(&db_path);
-        fs::copy(&staged_db, &db_path).map_err(|error| io_context("写入恢复后的数据库失败", error))?;
-        remove_sqlite_sidecars(&db_path);
+        db.replace_on_disk_and_reopen(&staged_db)?;
     }
 
     let staged_skills = staging.0.join("skills");
@@ -370,6 +373,7 @@ pub fn restore_library_backup(archive_path: &Path) -> AppResult<LibraryRestoreRe
         restored_entries,
         backup_db_path,
         restart_required: true,
+        credentials_imported: preview.credentials_included,
     })
 }
 
@@ -396,13 +400,6 @@ fn extract_library_archive(archive_path: &Path, staging_root: &Path) -> AppResul
         count += 1;
     }
     Ok(count)
-}
-
-fn remove_sqlite_sidecars(db_path: &Path) {
-    let wal = PathBuf::from(format!("{}-wal", db_path.display()));
-    let shm = PathBuf::from(format!("{}-shm", db_path.display()));
-    let _ = fs::remove_file(wal);
-    let _ = fs::remove_file(shm);
 }
 
 fn replace_directory_contents(dest: &Path, source: &Path) -> AppResult<()> {

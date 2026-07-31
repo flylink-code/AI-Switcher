@@ -125,6 +125,7 @@ export interface LibraryRestoreResult {
   restoredEntries: number;
   backupDbPath?: string | null;
   restartRequired: boolean;
+  credentialsImported: boolean;
 }
 
 export interface DesktopLocalizationStatus {

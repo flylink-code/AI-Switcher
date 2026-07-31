@@ -8,6 +8,7 @@ use crate::backup::{
 };
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
+use crate::store::AppState;
 
 /// Back up the app database now, returning the created backup path (or a message
 /// if the source was missing).
@@ -30,7 +31,7 @@ pub fn backup_now() -> AppResult<String> {
 }
 
 /// Export a versioned, portable managed-library ZIP.
-/// Optional `destination_dir` writes the ZIP into a user-chosen folder.
+/// Optional `destination_dir` writes the ZIP into that directory.
 /// Optional `include_credentials` embeds resolved API keys (opt-in only).
 #[tauri::command]
 pub fn export_library_backup(
@@ -54,8 +55,11 @@ pub fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchiveP
 /// Replace the local managed library from a verified portable ZIP.
 /// Requires an application restart before the restored database is used.
 #[tauri::command]
-pub fn restore_library_backup(archive_path: String) -> AppResult<LibraryRestoreResult> {
-    restore_library(std::path::Path::new(&archive_path))
+pub fn restore_library_backup(
+    archive_path: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LibraryRestoreResult> {
+    restore_library(std::path::Path::new(&archive_path), &state.db)
 }
 
 /// Resolve the newest `library-*.zip` inside a directory (for sync incoming folders).

@@ -102,4 +102,94 @@ impl Database {
         let mut conn = lock_conn!(self.conn);
         f(&mut conn)
     }
+
+    /// Close the live DB file, replace it with `new_db`, reopen, and rematerialize
+    /// any plaintext API keys into the OS keyring.
+    ///
+    /// Replacing `app.db` while a connection is open (especially on Linux) can leave
+    /// a malformed database. Callers must still restart for proxy/UI consistency.
+    pub fn replace_on_disk_and_reopen(&self, new_db: &std::path::Path) -> AppResult<()> {
+        if !new_db.is_file() {
+            return Err(AppError::Config(format!(
+                "恢复数据库不存在: {}",
+                new_db.display()
+            )));
+        }
+
+        // Validate the staged file before touching the live DB.
+        {
+            let probe = Connection::open(new_db)?;
+            let integrity: String = probe
+                .query_row("PRAGMA integrity_check;", [], |row| row.get(0))
+                .unwrap_or_else(|_| "failed".to_string());
+            if integrity != "ok" {
+                return Err(AppError::Database(format!(
+                    "归档内数据库损坏（integrity_check={integrity}），已取消导入"
+                )));
+            }
+        }
+
+        let path = get_app_db_path();
+        let mut guard = lock_conn!(self.conn);
+        let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        // Drop the file handle so Linux can replace the path safely.
+        *guard = Connection::open_in_memory()?;
+
+        let reopen_live = |guard: &mut Connection| -> AppResult<()> {
+            let conn = Connection::open(&path)?;
+            conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+            *guard = conn;
+            Ok(())
+        };
+
+        let swap_result = (|| -> AppResult<()> {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let wal = PathBuf::from(format!("{}-wal", path.display()));
+            let shm = PathBuf::from(format!("{}-shm", path.display()));
+            let _ = std::fs::remove_file(&wal);
+            let _ = std::fs::remove_file(&shm);
+
+            let incoming = PathBuf::from(format!("{}.incoming", path.display()));
+            let aside = PathBuf::from(format!(
+                "{}.pre-restore-{}",
+                path.display(),
+                chrono::Utc::now().format("%Y%m%d_%H%M%S_%f")
+            ));
+            std::fs::copy(new_db, &incoming)?;
+            if path.exists() {
+                std::fs::rename(&path, &aside)?;
+            }
+            if let Err(error) = std::fs::rename(&incoming, &path) {
+                // Best-effort rollback of the live path.
+                if aside.exists() {
+                    let _ = std::fs::rename(&aside, &path);
+                }
+                let _ = std::fs::remove_file(&incoming);
+                return Err(AppError::Io(format!("替换数据库失败: {error}")));
+            }
+            let _ = std::fs::remove_file(&wal);
+            let _ = std::fs::remove_file(&shm);
+            Ok(())
+        })();
+
+        if let Err(error) = swap_result {
+            let _ = reopen_live(&mut guard);
+            return Err(error);
+        }
+
+        reopen_live(&mut guard)?;
+        // Schema may already be current; still migrate plaintext keys from credential-inclusive archives.
+        schema::create_tables(&guard)?;
+        schema::migrate(&guard)?;
+        if let Err(error) = dao::migrate_plaintext_api_keys(&guard) {
+            log::warn!("导入后 API Key 迁入系统凭据失败: {error}");
+            return Err(AppError::Config(format!(
+                "数据库已导入，但 API Key 未能写入系统凭据库: {error}"
+            )));
+        }
+        seed::run_seed(&guard)?;
+        Ok(())
+    }
 }
