@@ -1,6 +1,7 @@
 //! Provider configuration backup inspection and recovery.
 
 use std::fs;
+use std::path::PathBuf;
 
 use serde::Serialize;
 use serde_json::Value;
@@ -23,12 +24,15 @@ pub struct ConfigBackup {
 }
 
 #[tauri::command]
-pub fn list_config_backups(target: ProviderTarget) -> AppResult<Vec<ConfigBackup>> {
-    let dir = get_backup_dir();
+pub fn list_config_backups(
+    target: ProviderTarget,
+    directory: Option<String>,
+) -> AppResult<Vec<ConfigBackup>> {
+    let dir = resolve_backup_directory(directory.as_deref())?;
     if !dir.exists() {
         return Ok(Vec::new());
     }
-    let mut backups = fs::read_dir(dir)?
+    let mut backups = fs::read_dir(&dir)?
         .filter_map(|entry| entry.ok())
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
@@ -51,8 +55,12 @@ pub fn list_config_backups(target: ProviderTarget) -> AppResult<Vec<ConfigBackup
 }
 
 #[tauri::command]
-pub fn preview_config_backup(target: ProviderTarget, name: String) -> AppResult<String> {
-    let path = backup_path(target, &name)?;
+pub fn preview_config_backup(
+    target: ProviderTarget,
+    name: String,
+    directory: Option<String>,
+) -> AppResult<String> {
+    let path = backup_path(target, &name, directory.as_deref())?;
     verify_backup(&path)?;
     let value: Value = serde_json::from_slice(&fs::read(path)?)
         .map_err(|_| AppError::Config("该备份不是可预览的 JSON 配置".to_string()))?;
@@ -63,9 +71,10 @@ pub fn preview_config_backup(target: ProviderTarget, name: String) -> AppResult<
 pub async fn restore_config_backup(
     target: ProviderTarget,
     name: String,
+    directory: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
-    let source = backup_path(target, &name)?;
+    let source = backup_path(target, &name, directory.as_deref())?;
     verify_backup(&source)?;
     let destination = destination_for_backup(target, &name)?;
     if destination.exists() {
@@ -85,6 +94,22 @@ pub async fn restore_config_backup(
     Ok(())
 }
 
+fn resolve_backup_directory(directory: Option<&str>) -> AppResult<PathBuf> {
+    match directory.map(str::trim).filter(|path| !path.is_empty()) {
+        Some(path) => {
+            let dir = PathBuf::from(path);
+            if !dir.is_dir() {
+                return Err(AppError::Path(format!(
+                    "备份目录不存在或不是文件夹: {}",
+                    dir.display()
+                )));
+            }
+            Ok(dir)
+        }
+        None => Ok(get_backup_dir()),
+    }
+}
+
 fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
     name.ends_with(".bak") && match target {
         ProviderTarget::ClaudeCode => name.starts_with("settings.json_"),
@@ -93,18 +118,18 @@ fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
     }
 }
 
-fn backup_path(target: ProviderTarget, name: &str) -> AppResult<std::path::PathBuf> {
+fn backup_path(target: ProviderTarget, name: &str, directory: Option<&str>) -> AppResult<PathBuf> {
     if name.contains('/') || name.contains('\\') || !is_backup_for_target(target, name) {
         return Err(AppError::Config("无效的配置备份标识".to_string()));
     }
-    let path = get_backup_dir().join(name);
+    let path = resolve_backup_directory(directory)?.join(name);
     if !path.is_file() {
         return Err(AppError::Config("配置备份不存在".to_string()));
     }
     Ok(path)
 }
 
-fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<std::path::PathBuf> {
+fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<PathBuf> {
     match target {
         ProviderTarget::ClaudeCode => Ok(get_claude_settings_path()),
         ProviderTarget::ClaudeDesktop => {
@@ -131,5 +156,31 @@ fn redact(value: Value) -> Value {
         }).collect()),
         Value::Array(values) => Value::Array(values.into_iter().map(redact).collect()),
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn list_config_backups_reads_custom_directory() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("settings.json_1.bak"), b"{}").unwrap();
+        fs::write(dir.path().join("unrelated.bak"), b"{}").unwrap();
+        let listed = list_config_backups(
+            ProviderTarget::ClaudeCode,
+            Some(dir.path().to_string_lossy().into_owned()),
+        )
+        .unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "settings.json_1.bak");
+    }
+
+    #[test]
+    fn backup_path_rejects_traversal_names() {
+        assert!(backup_path(ProviderTarget::ClaudeCode, "../settings.json_1.bak", None).is_err());
     }
 }

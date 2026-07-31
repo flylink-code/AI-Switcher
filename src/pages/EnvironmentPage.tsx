@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Descriptions,
   Input,
   List,
@@ -17,10 +18,12 @@ import {
 } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import DatabaseOutlined from "@ant-design/icons/es/icons/DatabaseOutlined";
+import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import type {
   AutostartMode,
@@ -35,6 +38,7 @@ import type {
 import {
   backupNow,
   exportLibraryBackup,
+  findLatestLibraryArchive,
   previewLibraryBackup,
   restoreLibraryBackup,
   deleteSyncTarget,
@@ -99,6 +103,7 @@ export default function EnvironmentPage() {
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
+  const [configBackupDirectory, setConfigBackupDirectory] = useState<string | null>(null);
   const [backupPreview, setBackupPreview] = useState<string | null>(null);
   const [dataRootPath, setDataRootPath] = useState("");
   const [libraryArchivePath, setLibraryArchivePath] = useState("");
@@ -113,6 +118,8 @@ export default function EnvironmentPage() {
   const [syncRoot, setSyncRoot] = useState(defaultRemoteRootForUser("user"));
   const [wslDistributions, setWslDistributions] = useState<string[]>([]);
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  const [syncIncludeApiKeys, setSyncIncludeApiKeys] = useState(false);
+  const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [syncPassword, setSyncPassword] = useState("");
   const [syncPasswordOpen, setSyncPasswordOpen] = useState(false);
 
@@ -146,8 +153,51 @@ export default function EnvironmentPage() {
   const onExportLibrary = useCallback(async () => {
     setRunning(true);
     try {
-      const archive = await exportLibraryBackup();
+      const destinationDir = await open({
+        directory: true,
+        multiple: false,
+        title: t("env.selectExportDirectory"),
+      });
+      if (typeof destinationDir !== "string" || !destinationDir.trim()) {
+        return;
+      }
+      const archive = await exportLibraryBackup(destinationDir);
       void message.success(t("env.libraryBackupDone", { path: archive.archivePath, entries: archive.entries }));
+    } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+    finally { setRunning(false); }
+  }, [t]);
+
+  const pickDataRootDirectory = useCallback(async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: t("env.selectDataRootDirectory"),
+    });
+    if (typeof selected === "string") setDataRootPath(selected);
+  }, [t]);
+
+  const pickLibraryArchiveFile = useCallback(async () => {
+    const selected = await open({
+      directory: false,
+      multiple: false,
+      title: t("env.selectLibraryArchive"),
+      filters: [{ name: "ZIP", extensions: ["zip"] }],
+    });
+    if (typeof selected === "string") setLibraryArchivePath(selected);
+  }, [t]);
+
+  const pickLibraryArchiveDirectory = useCallback(async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: t("env.selectLibraryArchiveDirectory"),
+    });
+    if (typeof selected !== "string" || !selected.trim()) return;
+    setRunning(true);
+    try {
+      const archivePath = await findLatestLibraryArchive(selected);
+      setLibraryArchivePath(archivePath);
+      void message.success(t("env.libraryArchivePicked", { path: archivePath }));
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, [t]);
@@ -214,27 +264,43 @@ export default function EnvironmentPage() {
     }
   }, [queryClient, t]);
 
-  const loadConfigBackups = useCallback(async (target = backupTarget) => {
+  const loadConfigBackups = useCallback(async (target = backupTarget, directory = configBackupDirectory) => {
     setRunning(true);
-    try { setConfigBackups(await listConfigBackups(target)); }
+    try { setConfigBackups(await listConfigBackups(target, directory)); }
     catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [backupTarget]);
+  }, [backupTarget, configBackupDirectory]);
+
+  const pickConfigBackupDirectory = useCallback(async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: t("env.selectConfigBackupDirectory"),
+    });
+    if (typeof selected !== "string" || !selected.trim()) return;
+    setConfigBackupDirectory(selected);
+    await loadConfigBackups(backupTarget, selected);
+  }, [backupTarget, loadConfigBackups, t]);
+
+  const useDefaultConfigBackupDirectory = useCallback(async () => {
+    setConfigBackupDirectory(null);
+    await loadConfigBackups(backupTarget, null);
+  }, [backupTarget, loadConfigBackups]);
 
   const previewBackup = useCallback(async (backup: ConfigBackup) => {
-    try { setBackupPreview(await previewConfigBackup(backupTarget, backup.name)); }
+    try { setBackupPreview(await previewConfigBackup(backupTarget, backup.name, configBackupDirectory)); }
     catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
-  }, [backupTarget]);
+  }, [backupTarget, configBackupDirectory]);
 
   const restoreBackup = useCallback(async (backup: ConfigBackup) => {
     setRunning(true);
     try {
-      await restoreConfigBackup(backupTarget, backup.name);
+      await restoreConfigBackup(backupTarget, backup.name, configBackupDirectory);
       void message.success(t("env.restoreDone"));
       await loadConfigBackups();
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [backupTarget, loadConfigBackups, t]);
+  }, [backupTarget, configBackupDirectory, loadConfigBackups, t]);
 
   const migrateLibrary = useCallback(async () => {
     if (!dataRootPath.trim()) return;
@@ -285,7 +351,10 @@ export default function EnvironmentPage() {
 
   const openSyncPreview = useCallback(async (target: SyncTarget) => {
     setRunning(true);
-    try { setSyncPreview(await previewSync(target.id)); }
+    try {
+      setSyncIncludeApiKeys(false);
+      setSyncPreview(await previewSync(target.id));
+    }
     catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, []);
@@ -301,7 +370,7 @@ export default function EnvironmentPage() {
     if (!syncPreview) return;
     setRunning(true);
     try {
-      const result = await pushSyncArchive(syncPreview.target.id, password);
+      const result = await pushSyncArchive(syncPreview.target.id, password, syncIncludeApiKeys);
       void message.success(t("env.syncPushed", { path: result.remotePath }));
       setSyncPreview(null);
       setSyncPassword("");
@@ -309,7 +378,7 @@ export default function EnvironmentPage() {
       await syncTargetsQuery.refetch();
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [syncPreview, syncTargetsQuery, t]);
+  }, [syncIncludeApiKeys, syncPreview, syncTargetsQuery, t]);
 
   const requestPushSync = useCallback(() => {
     if (!syncPreview) return;
@@ -387,6 +456,13 @@ export default function EnvironmentPage() {
             {t("env.exportLibrary")}
           </Button>
           <Button
+            icon={<FolderOpenOutlined />}
+            disabled={!paths}
+            onClick={() => setPathsModalOpen(true)}
+          >
+            {t("env.viewPaths")}
+          </Button>
+          <Button
             icon={<ReloadOutlined spin={environmentQuery.isFetching} />}
             onClick={() => void environmentQuery.refetch()}
           >
@@ -455,71 +531,15 @@ export default function EnvironmentPage() {
         </Card>
 
         {paths && (
-          <Card size="small" title={t("env.sections.home")}>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("env.fields.home")}>
-                <PathValue value={paths.home} />
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        )}
-
-        {paths && (
-          <Card size="small" title={t("env.sections.claude")}>
-            <Descriptions column={1} size="small" bordered>
-              {claudeRows.map((r) => (
-                <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                  <PathValue value={r.value} />
-                </Descriptions.Item>
-              ))}
-            </Descriptions>
-          </Card>
-        )}
-
-        {paths && (
-          <Card size="small" title={t("env.sections.claudeDesktop")}>
-            <Descriptions column={1} size="small" bordered>
-              {desktopRows.map((r) => (
-                <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                  <PathValue value={r.value} />
-                </Descriptions.Item>
-              ))}
-            </Descriptions>
-          </Card>
-        )}
-
-        {paths && (
-          <Card size="small" title={t("env.sections.codex")}>
-            <Descriptions column={1} size="small" bordered>
-              {codexRows.map((r) => (
-                <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                  <PathValue value={r.value} />
-                </Descriptions.Item>
-              ))}
-            </Descriptions>
-          </Card>
-        )}
-
-        {paths && (
           <Card size="small" title={t("env.sections.app")}>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("env.fields.appConfigDir")}>
-                <PathValue value={paths.appConfigDir} />
-              </Descriptions.Item>
-              <Descriptions.Item label={t("env.fields.appDbPath")}>
-                <PathValue value={paths.appDbPath} />
-              </Descriptions.Item>
-              <Descriptions.Item label={t("env.fields.backupDir")}>
-                <PathValue value={paths.backupDir} />
-              </Descriptions.Item>
-            </Descriptions>
-            <Space direction="vertical" style={{ width: "100%", marginTop: 16 }}>
+            <Space direction="vertical" style={{ width: "100%" }}>
               <Text type="secondary">{t("env.dataRootDescription")}</Text>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label={t("env.dataRootActive")}><PathValue value={dataRoot?.activePath ?? paths.appConfigDir} /></Descriptions.Item>
               </Descriptions>
               <Space.Compact style={{ width: "100%" }}>
                 <Input value={dataRootPath} onChange={(event) => setDataRootPath(event.target.value)} placeholder={t("env.dataRootPlaceholder")} />
+                <Button onClick={() => void pickDataRootDirectory()}>{t("env.chooseDirectory")}</Button>
                 <Popconfirm title={t("env.dataRootConfirm")} description={t("env.dataRootConfirmDescription")} onConfirm={() => void migrateLibrary()} disabled={!dataRootPath.trim()}>
                   <Button loading={migratingDataRoot} disabled={!dataRootPath.trim()}>{t("env.dataRootMove")}</Button>
                 </Popconfirm>
@@ -533,6 +553,17 @@ export default function EnvironmentPage() {
           <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
           <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
         </Space>}>
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Button size="small" onClick={() => void pickConfigBackupDirectory()}>{t("env.chooseBackupDirectory")}</Button>
+            {configBackupDirectory && (
+              <Button size="small" onClick={() => void useDefaultConfigBackupDirectory()}>{t("env.useDefaultBackupDirectory")}</Button>
+            )}
+          </Space>
+          {configBackupDirectory && (
+            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+              {t("env.configBackupDirectory", { path: configBackupDirectory })}
+            </Text>
+          )}
           <List
             size="small"
             dataSource={configBackups}
@@ -542,19 +573,25 @@ export default function EnvironmentPage() {
               <Popconfirm key="restore" title={t("env.confirmRestore")} onConfirm={() => void restoreBackup(backup)}><Button size="small" danger>{t("env.restoreBackup")}</Button></Popconfirm>,
             ]}>{backup.name}</List.Item>}
           />
-          <Space.Compact style={{ width: "100%" }}>
-            <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />
-            <Button loading={running} disabled={!libraryArchivePath.trim()} onClick={() => void onPreviewLibraryArchive()}>{t("env.verifyLibraryArchive")}</Button>
-            <Popconfirm
-              title={t("env.confirmImportLibrary")}
-              description={t("env.confirmImportLibraryDescription")}
-              disabled={!libraryArchivePath.trim()}
-              onConfirm={() => void onImportLibraryArchive()}
-            >
-              <Button danger loading={running} disabled={!libraryArchivePath.trim()}>{t("env.importLibraryArchive")}</Button>
-            </Popconfirm>
-          </Space.Compact>
-          <Text type="secondary">{t("env.libraryArchiveDescription")}</Text>
+          <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 12 }}>
+            <Space wrap>
+              <Button onClick={() => void pickLibraryArchiveFile()}>{t("env.chooseArchiveFile")}</Button>
+              <Button onClick={() => void pickLibraryArchiveDirectory()}>{t("env.chooseArchiveDirectory")}</Button>
+            </Space>
+            <Space.Compact style={{ width: "100%" }}>
+              <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />
+              <Button loading={running} disabled={!libraryArchivePath.trim()} onClick={() => void onPreviewLibraryArchive()}>{t("env.verifyLibraryArchive")}</Button>
+              <Popconfirm
+                title={t("env.confirmImportLibrary")}
+                description={t("env.confirmImportLibraryDescription")}
+                disabled={!libraryArchivePath.trim()}
+                onConfirm={() => void onImportLibraryArchive()}
+              >
+                <Button danger loading={running} disabled={!libraryArchivePath.trim()}>{t("env.importLibraryArchive")}</Button>
+              </Popconfirm>
+            </Space.Compact>
+            <Text type="secondary">{t("env.libraryArchiveDescription")}</Text>
+          </Space>
         </Card>
 
         <Card size="small" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
@@ -641,8 +678,76 @@ export default function EnvironmentPage() {
       >
         {syncPreview && <Space direction="vertical" style={{ width: "100%" }}>
           {syncPreview.warnings.map((warning) => <Alert key={warning} type="warning" showIcon message={warning} />)}
+          <Checkbox checked={syncIncludeApiKeys} onChange={(event) => setSyncIncludeApiKeys(event.target.checked)}>
+            {t("env.syncIncludeApiKeys")}
+          </Checkbox>
+          {syncIncludeApiKeys && (
+            <Alert type="error" showIcon message={t("env.syncIncludeApiKeysWarning")} />
+          )}
           <List dataSource={syncPreview.changes} locale={{ emptyText: t("env.noSyncChanges") }} renderItem={(change) => <List.Item><Text>{change.sourcePath} → {change.remotePath}</Text></List.Item>} />
         </Space>}
+      </Modal>
+      <Modal
+        open={pathsModalOpen}
+        onCancel={() => setPathsModalOpen(false)}
+        footer={<Button onClick={() => setPathsModalOpen(false)}>{t("common.cancel")}</Button>}
+        title={t("env.pathsModalTitle")}
+        width={760}
+      >
+        {paths && (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Card size="small" title={t("env.sections.home")}>
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label={t("env.fields.home")}>
+                  <PathValue value={paths.home} />
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+            <Card size="small" title={t("env.sections.claude")}>
+              <Descriptions column={1} size="small" bordered>
+                {claudeRows.map((r) => (
+                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                    <PathValue value={r.value} />
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+            <Card size="small" title={t("env.sections.claudeDesktop")}>
+              <Descriptions column={1} size="small" bordered>
+                {desktopRows.map((r) => (
+                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                    <PathValue value={r.value} />
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+            <Card size="small" title={t("env.sections.codex")}>
+              <Descriptions column={1} size="small" bordered>
+                {codexRows.map((r) => (
+                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                    <PathValue value={r.value} />
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+            <Card size="small" title={t("env.sections.app")}>
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label={t("env.fields.appConfigDir")}>
+                  <PathValue value={paths.appConfigDir} />
+                </Descriptions.Item>
+                <Descriptions.Item label={t("env.fields.appDbPath")}>
+                  <PathValue value={paths.appDbPath} />
+                </Descriptions.Item>
+                <Descriptions.Item label={t("env.fields.backupDir")}>
+                  <PathValue value={paths.backupDir} />
+                </Descriptions.Item>
+                <Descriptions.Item label={t("env.dataRootActive")}>
+                  <PathValue value={dataRoot?.activePath ?? paths.appConfigDir} />
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </Space>
+        )}
       </Modal>
       <Modal
         open={syncPasswordOpen}

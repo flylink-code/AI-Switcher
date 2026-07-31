@@ -46,7 +46,16 @@ struct Installation {
 }
 
 fn install_command() -> String {
-    format!("npm i -g {NPM_PACKAGE}@latest")
+    #[cfg(windows)]
+    {
+        format!("npm i -g {NPM_PACKAGE}@latest")
+    }
+    #[cfg(not(windows))]
+    {
+        format!(
+            "curl -fsSL https://claude.ai/install.sh | bash || npm i -g {NPM_PACKAGE}@latest"
+        )
+    }
 }
 
 fn parse_version(text: &str) -> Option<String> {
@@ -482,19 +491,54 @@ fn update_available(current: &str, latest: &str) -> bool {
 fn find_command_near(name: &str, installation: &Installation) -> PathBuf {
     let bin = PathBuf::from(&installation.path);
     let mut dirs = bin.parent().map(Path::to_path_buf).into_iter().collect::<Vec<_>>();
+    #[cfg(windows)]
     dirs.push(PathBuf::from(r"C:\Program Files\nodejs"));
     if let Some(path) = std::env::var_os("PATH") {
         dirs.extend(std::env::split_paths(&path));
     }
     for dir in dirs {
-        for suffix in ["cmd", "exe", "bat"] {
-            let candidate = dir.join(format!("{name}.{suffix}"));
-            if candidate.is_file() {
-                return candidate;
+        #[cfg(windows)]
+        {
+            for suffix in ["cmd", "exe", "bat"] {
+                let candidate = dir.join(format!("{name}.{suffix}"));
+                if candidate.is_file() {
+                    return candidate;
+                }
             }
         }
+        let candidate = dir.join(name);
+        if candidate.is_file() {
+            return candidate;
+        }
     }
-    PathBuf::from(name)
+    resolve_command_via_login_shell(name).unwrap_or_else(|| PathBuf::from(name))
+}
+
+/// GUI apps on Linux often lack nvm/fnm PATH; resolve via a login shell.
+fn resolve_command_via_login_shell(name: &str) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let _ = name;
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        let script = format!("command -v {}", shell_single_quote(name));
+        let output = Command::new("sh").args(["-lc", &script]).output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let path = decode_output(&output.stdout).trim().to_string();
+        if path.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(path))
+        }
+    }
+}
+
+fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 fn quoted(value: &str) -> String {
@@ -618,34 +662,73 @@ fn run_anchored_update(installation: &Installation) -> io::Result<Output> {
         return command.output();
     }
 
-    let program;
-    let args: Vec<&str>;
     match installation.source.as_str() {
         "native" => {
-            program = PathBuf::from(&installation.path);
-            args = vec!["update"];
+            #[cfg(windows)]
+            {
+                run_windows_command(Path::new(&installation.path), &["update"])
+            }
+            #[cfg(not(windows))]
+            {
+                Command::new(&installation.path).arg("update").output()
+            }
         }
-        "pnpm" => {
-            program = find_command_near("pnpm", installation);
-            args = vec!["add", "-g", "@anthropic-ai/claude-code@latest"];
-        }
-        "volta" => {
-            program = find_command_near("volta", installation);
-            args = vec!["install", "@anthropic-ai/claude-code@latest"];
-        }
-        _ => {
-            program = find_command_near("npm", installation);
-            args = vec!["i", "-g", "@anthropic-ai/claude-code@latest"];
+        source => {
+            let (program, args) = match source {
+                "pnpm" => (
+                    find_command_near("pnpm", installation),
+                    vec!["add", "-g", "@anthropic-ai/claude-code@latest"],
+                ),
+                "volta" => (
+                    find_command_near("volta", installation),
+                    vec!["install", "@anthropic-ai/claude-code@latest"],
+                ),
+                _ => (
+                    find_command_near("npm", installation),
+                    vec!["i", "-g", "@anthropic-ai/claude-code@latest"],
+                ),
+            };
+            #[cfg(windows)]
+            {
+                run_windows_command(&program, &args)
+            }
+            #[cfg(not(windows))]
+            {
+                run_unix_command_with_login_path(&program, &args, Path::new(&installation.path))
+            }
         }
     }
-    #[cfg(windows)]
-    {
-        run_windows_command(&program, &args)
+}
+
+#[cfg(not(windows))]
+fn run_unix_command_with_login_path(
+    program: &Path,
+    args: &[&str],
+    tool_path: &Path,
+) -> io::Result<Output> {
+    let tool_dir = tool_path
+        .parent()
+        .unwrap_or_else(|| Path::new("/usr/bin"))
+        .display()
+        .to_string();
+    let mut pieces = Vec::with_capacity(args.len() + 1);
+    pieces.push(shell_single_quote(&program.display().to_string()));
+    for arg in args {
+        pieces.push(shell_single_quote(arg));
     }
-    #[cfg(not(windows))]
-    {
-        Command::new(program).args(args).output()
-    }
+    let script = format!(
+        "export PATH={}:\"$PATH\"; {}",
+        shell_single_quote(&tool_dir),
+        pieces.join(" ")
+    );
+    Command::new("sh").args(["-lc", &script]).output()
+}
+
+#[cfg(not(windows))]
+fn run_unix_install_claude() -> io::Result<Output> {
+    Command::new("sh")
+        .args(["-lc", &install_command()])
+        .output()
 }
 
 #[tauri::command]
@@ -666,9 +749,7 @@ pub async fn run_claude_code_update() -> AppResult<String> {
                 }
                 #[cfg(not(windows))]
                 {
-                    Command::new("npm")
-                        .args(["i", "-g", "@anthropic-ai/claude-code@latest"])
-                        .output()
+                    run_unix_install_claude()
                 }
             }
         }
@@ -681,6 +762,216 @@ pub async fn run_claude_code_update() -> AppResult<String> {
         let stdout = decode_output(&output.stdout).trim().to_string();
         Ok(if stdout.is_empty() {
             "Claude Code 更新完成".to_string()
+        } else {
+            stdout
+        })
+    } else {
+        Err(AppError::Config(output_detail(&output)))
+    }
+}
+
+// ---- Codex CLI --------------------------------------------------------------
+
+const CODEX_NPM_PACKAGE: &str = "@openai/codex";
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexCliVersionInfo {
+    pub installed: bool,
+    pub current_version: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub install_command: String,
+    pub update_command: String,
+    pub error: Option<String>,
+    pub executable_path: Option<String>,
+    pub source: Option<String>,
+    pub environment: String,
+    pub installed_but_broken: bool,
+}
+
+fn codex_install_command() -> String {
+    format!("npm i -g {CODEX_NPM_PACKAGE}@latest")
+}
+
+fn codex_executable_candidates(dir: &Path) -> Vec<PathBuf> {
+    #[cfg(windows)]
+    {
+        vec![
+            dir.join("codex.cmd"),
+            dir.join("codex.exe"),
+            dir.join("codex.bat"),
+            dir.join("codex"),
+        ]
+    }
+    #[cfg(not(windows))]
+    {
+        vec![dir.join("codex")]
+    }
+}
+
+fn probe_codex_installation() -> Probe {
+    let mut seen = HashSet::new();
+    let mut broken: Option<(Installation, String)> = None;
+    for dir in candidate_dirs() {
+        for path in codex_executable_candidates(&dir) {
+            if !path.is_file() {
+                continue;
+            }
+            let real = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            if !seen.insert(real) {
+                continue;
+            }
+            let installation = Installation {
+                path: path.display().to_string(),
+                version: None,
+                source: infer_source(&path),
+                environment: if cfg!(windows) { "windows" } else { "native" }.to_string(),
+                wsl_distro: None,
+            };
+            match run_local_tool(&path) {
+                Ok(output) if output.status.success() => {
+                    let stdout = decode_output(&output.stdout);
+                    let stderr = decode_output(&output.stderr);
+                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    if let Some(version) = parse_version(raw) {
+                        return Probe::Found(Installation {
+                            version: Some(version),
+                            ..installation
+                        });
+                    }
+                    if broken.is_none() {
+                        broken = Some((installation, "Codex CLI returned no version".to_string()));
+                    }
+                }
+                Ok(output) if broken.is_none() => {
+                    broken = Some((installation, output_detail(&output)));
+                }
+                Err(error) if broken.is_none() => {
+                    broken = Some((installation, error.to_string()));
+                }
+                _ => {}
+            }
+        }
+    }
+    match broken {
+        Some((installation, error)) => Probe::Broken(installation, error),
+        None => Probe::NotFound("Codex CLI executable was not found".to_string()),
+    }
+}
+
+async fn fetch_codex_npm_latest() -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .ok()?;
+    let url = format!("https://registry.npmjs.org/{CODEX_NPM_PACKAGE}/latest");
+    let response = client.get(url).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let text = response.text().await.ok()?;
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()?
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+fn codex_update_command_for(installation: Option<&Installation>) -> String {
+    let Some(installation) = installation else {
+        return codex_install_command();
+    };
+    let npm = find_command_near("npm", installation);
+    format!(
+        "{} i -g {CODEX_NPM_PACKAGE}@latest",
+        quoted(&npm.display().to_string())
+    )
+}
+
+fn run_codex_anchored_update(installation: &Installation) -> io::Result<Output> {
+    let program = find_command_near("npm", installation);
+    let args = ["i", "-g", "@openai/codex@latest"];
+    #[cfg(windows)]
+    {
+        run_windows_command(&program, &args)
+    }
+    #[cfg(not(windows))]
+    {
+        run_unix_command_with_login_path(&program, &args, Path::new(&installation.path))
+    }
+}
+
+#[tauri::command]
+pub async fn get_codex_cli_version(include_latest: Option<bool>) -> AppResult<CodexCliVersionInfo> {
+    let probe_task = tokio::task::spawn_blocking(probe_codex_installation);
+    let (probe_result, latest_version) = if include_latest.unwrap_or(true) {
+        let (probe_result, latest_version) = tokio::join!(probe_task, fetch_codex_npm_latest());
+        (probe_result, latest_version)
+    } else {
+        (probe_task.await, None)
+    };
+    let probe = probe_result
+        .map_err(|error| AppError::Other(format!("Codex CLI version probe failed: {error}")))?;
+
+    let (installation, error, installed_but_broken) = match &probe {
+        Probe::Found(installation) => (Some(installation), None, false),
+        Probe::Broken(installation, error) => (Some(installation), Some(error.clone()), true),
+        Probe::NotFound(error) => (None, Some(error.clone()), false),
+    };
+    let current_version = installation.and_then(|value| value.version.clone());
+    let has_update = current_version
+        .as_deref()
+        .zip(latest_version.as_deref())
+        .is_some_and(|(current, latest)| update_available(current, latest));
+
+    Ok(CodexCliVersionInfo {
+        installed: installation.is_some(),
+        current_version,
+        latest_version,
+        update_available: has_update,
+        install_command: codex_install_command(),
+        update_command: codex_update_command_for(installation),
+        error,
+        executable_path: installation.map(|value| value.path.clone()),
+        source: installation.map(|value| value.source.clone()),
+        environment: installation
+            .map(|value| value.environment.clone())
+            .unwrap_or_else(|| if cfg!(windows) { "windows" } else { "native" }.to_string()),
+        installed_but_broken,
+    })
+}
+
+#[tauri::command]
+pub async fn run_codex_cli_update() -> AppResult<String> {
+    let result = tokio::task::spawn_blocking(|| {
+        let probe = probe_codex_installation();
+        match probe {
+            Probe::Found(installation) | Probe::Broken(installation, _) => {
+                run_codex_anchored_update(&installation)
+            }
+            Probe::NotFound(_) => {
+                #[cfg(windows)]
+                {
+                    run_windows_command(Path::new("npm"), &["i", "-g", "@openai/codex@latest"])
+                }
+                #[cfg(not(windows))]
+                {
+                    Command::new("sh")
+                        .args(["-lc", &codex_install_command()])
+                        .output()
+                }
+            }
+        }
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
+
+    let output = result.map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+    if output.status.success() {
+        let stdout = decode_output(&output.stdout).trim().to_string();
+        Ok(if stdout.is_empty() {
+            "Codex CLI 更新完成".to_string()
         } else {
             stdout
         })
@@ -750,5 +1041,10 @@ mod tests {
         let command = update_command_for(Some(&installation));
         assert!(command.starts_with(r#"wsl -d "Ubuntu-24.04" -- "#));
         assert!(command.contains("claude update"));
+    }
+
+    #[test]
+    fn codex_install_command_targets_openai_package() {
+        assert!(codex_install_command().contains("@openai/codex"));
     }
 }

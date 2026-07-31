@@ -593,13 +593,26 @@ fn usage_breakdown(
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrendGranularity {
+    Day,
+    Hour,
+}
+
 pub fn get_usage_trend_for_target(
     conn: &Connection,
     since: i64,
     target_app: Option<&str>,
+    granularity: TrendGranularity,
 ) -> AppResult<Vec<UsageTrendPoint>> {
+    let bucket = match granularity {
+        TrendGranularity::Day => "strftime('%Y-%m-%d', l.created_at / 1000, 'unixepoch', 'localtime')",
+        TrendGranularity::Hour => {
+            "strftime('%Y-%m-%d %H:00', l.created_at / 1000, 'unixepoch', 'localtime')"
+        }
+    };
     let sql = format!(
-        "SELECT strftime('%Y-%m-%d', l.created_at / 1000, 'unixepoch', 'localtime'), COUNT(*),
+        "SELECT {bucket}, COUNT(*),
                 COALESCE(SUM(l.input_tokens), 0),
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),

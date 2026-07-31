@@ -68,7 +68,8 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { formatCompactNumber } from "@/utils/formatCompact";
-import { USAGE_PERIOD_VALUES, usagePeriodLabelKey } from "@/utils/usagePeriod";
+import { USAGE_PERIOD_VALUES, usagePeriodGranularity, usagePeriodHourKeys, usagePeriodLabelKey, trendBucketLabel } from "@/utils/usagePeriod";
+import type { UsagePeriod } from "@/utils/usagePeriod";
 
 const { Text } = Typography;
 
@@ -393,7 +394,7 @@ export default function UsagePage() {
           title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}
           extra={<Button size="small" icon={<ExpandOutlined />} onClick={() => setTrendExpanded(true)}>{t("usage.expandChart")}</Button>}
         >
-          <UsageTrendChart data={dashboard?.trend ?? []} t={t} />
+          <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} />
         </Card>
 
         <Row gutter={[16, 16]}>
@@ -637,7 +638,7 @@ export default function UsagePage() {
         width="96vw"
         styles={{ body: { minHeight: "70vh" } }}
       >
-        <UsageTrendChart data={dashboard?.trend ?? []} t={t} expanded />
+        <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} expanded />
       </Modal>
     </>
   );
@@ -645,27 +646,37 @@ export default function UsagePage() {
 
 function UsageTrendChart({
   data,
+  period,
+  granularity,
   t,
   expanded = false,
 }: {
   data: UsageDashboard["trend"];
+  period: UsagePeriod;
+  granularity: "hour" | "day";
   t: (key: string) => string;
   expanded?: boolean;
 }) {
   const { token } = theme.useToken();
-  const chartData = useMemo(
-    () =>
-      data.map((row) => ({
-        date: row.date,
-        label: row.date.length >= 10 ? row.date.slice(5) : row.date,
-        inputTokens: row.inputTokens,
-        outputTokens: row.outputTokens,
-        cacheCreationInputTokens: row.cacheCreationInputTokens,
-        cacheReadInputTokens: row.cacheReadInputTokens,
-        estimatedCost: row.estimatedCost,
-      })),
-    [data],
-  );
+  const chartData = useMemo(() => {
+    const byDate = new Map(data.map((row) => [row.date, row]));
+    const keys =
+      granularity === "hour" && (period === "24h" || period === "today")
+        ? usagePeriodHourKeys(period)
+        : data.map((row) => row.date);
+    return keys.map((key) => {
+      const row = byDate.get(key);
+      return {
+        date: key,
+        label: trendBucketLabel(key, granularity),
+        inputTokens: row?.inputTokens ?? 0,
+        outputTokens: row?.outputTokens ?? 0,
+        cacheCreationInputTokens: row?.cacheCreationInputTokens ?? 0,
+        cacheReadInputTokens: row?.cacheReadInputTokens ?? 0,
+        estimatedCost: row?.estimatedCost ?? 0,
+      };
+    });
+  }, [data, granularity, period]);
   const colors = {
     input: token.colorInfo,
     output: token.colorSuccess,
@@ -710,6 +721,8 @@ function UsageTrendChart({
             tickLine={false}
             tick={{ fill: colors.axis, fontSize: 12 }}
             dy={8}
+            interval={granularity === "hour" ? 1 : "preserveStartEnd"}
+            minTickGap={granularity === "hour" ? 8 : 20}
           />
           <YAxis
             yAxisId="tokens"

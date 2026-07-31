@@ -17,7 +17,7 @@ use crate::database::dao::proxy_logs::{
     get_usage_by_provider_for_target, get_usage_summary_for_target,
     get_usage_trend_for_target, list_model_pricing as list_pricing,
     list_proxy_request_logs, save_model_pricing as save_pricing, ModelPricing, PaginatedProxyLogs,
-    ProxyLogFilters, UsageBreakdown, UsageSummary, UsageTrendPoint, LogMaintenancePreview,
+    ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageSummary, UsageTrendPoint, LogMaintenancePreview,
     LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
     preview_proxy_log_maintenance as preview_logs,
 };
@@ -68,6 +68,8 @@ pub struct UsageDashboard {
     pub by_provider: Vec<UsageBreakdown>,
     pub by_model: Vec<UsageBreakdown>,
     pub trend: Vec<UsageTrendPoint>,
+    /// `"hour"` when the window is today / last 24h; otherwise `"day"`.
+    pub trend_granularity: String,
     pub local_codex: LocalCodexUsage,
 }
 
@@ -206,6 +208,16 @@ pub async fn get_usage_dashboard(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<UsageDashboard> {
     let since = resolve_usage_since(days, hours, today);
+    let granularity = if today.unwrap_or(false) || hours.is_some() {
+        TrendGranularity::Hour
+    } else {
+        TrendGranularity::Day
+    };
+    let trend_granularity = match granularity {
+        TrendGranularity::Hour => "hour",
+        TrendGranularity::Day => "day",
+    }
+    .to_string();
     let source = UsageSource::parse(source.as_deref())?;
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
@@ -244,7 +256,8 @@ pub async fn get_usage_dashboard(
                     summary: get_usage_summary_for_target(conn, since, target)?,
                     by_provider: get_usage_by_provider_for_target(conn, since, target)?,
                     by_model: get_usage_by_model_for_target(conn, since, target)?,
-                    trend: get_usage_trend_for_target(conn, since, target)?,
+                    trend: get_usage_trend_for_target(conn, since, target, granularity)?,
+                    trend_granularity: trend_granularity.clone(),
                     local_codex,
                 }
             } else {
@@ -253,6 +266,7 @@ pub async fn get_usage_dashboard(
                     by_provider: Vec::new(),
                     by_model: Vec::new(),
                     trend: Vec::new(),
+                    trend_granularity,
                     local_codex,
                 }
             })

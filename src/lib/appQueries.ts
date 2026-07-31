@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   getAutostartConfig,
   getClaudeCodeVersion,
+  getCodexCliVersion,
   getCloseBehavior,
   getDbInfo,
   getDataRoot,
@@ -184,5 +185,17 @@ export const localClaudeVersionOptions = queryOptions({
 export const claudeVersionOptions = queryOptions({
   queryKey: ["claude-code-version", "latest"] as const,
   queryFn: () => getClaudeCodeVersion(true),
+  staleTime: 5 * 60_000,
+});
+
+export const localCodexCliVersionOptions = queryOptions({
+  queryKey: ["codex-cli-version", "local"] as const,
+  queryFn: () => getCodexCliVersion(false),
+  staleTime: 5 * 60_000,
+});
+
+export const codexCliVersionOptions = queryOptions({
+  queryKey: ["codex-cli-version", "latest"] as const,
+  queryFn: () => getCodexCliVersion(true),
   staleTime: 5 * 60_000,
 });

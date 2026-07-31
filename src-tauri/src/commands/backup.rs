@@ -2,8 +2,9 @@
 
 use crate::backup::{
     backup_file, export_library_backup as export_library,
-    preview_library_backup as preview_library, restore_library_backup as restore_library,
-    LibraryArchivePreview, LibraryBackupInfo, LibraryRestoreResult, DEFAULT_BACKUP_KEEP,
+    find_latest_library_archive, preview_library_backup as preview_library,
+    restore_library_backup as restore_library, LibraryArchivePreview, LibraryBackupInfo,
+    LibraryRestoreResult, DEFAULT_BACKUP_KEEP,
 };
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
@@ -28,11 +29,19 @@ pub fn backup_now() -> AppResult<String> {
     }
 }
 
-/// Export a versioned, portable managed-library ZIP. The archive excludes API
-/// keys, OS credentials, Claude sign-in state, and private keys by design.
+/// Export a versioned, portable managed-library ZIP.
+/// Optional `destination_dir` writes the ZIP into a user-chosen folder.
+/// Optional `include_credentials` embeds resolved API keys (opt-in only).
 #[tauri::command]
-pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
-    export_library()
+pub fn export_library_backup(
+    destination_dir: Option<String>,
+    include_credentials: Option<bool>,
+) -> AppResult<LibraryBackupInfo> {
+    let destination = destination_dir
+        .as_deref()
+        .map(std::path::Path::new)
+        .filter(|path| !path.as_os_str().is_empty());
+    export_library(destination, include_credentials.unwrap_or(false))
 }
 
 /// Verify a portable library ZIP before any restore workflow is allowed to
@@ -47,4 +56,12 @@ pub fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchiveP
 #[tauri::command]
 pub fn restore_library_backup(archive_path: String) -> AppResult<LibraryRestoreResult> {
     restore_library(std::path::Path::new(&archive_path))
+}
+
+/// Resolve the newest `library-*.zip` inside a directory (for sync incoming folders).
+#[tauri::command]
+pub fn find_latest_library_archive_cmd(directory: String) -> AppResult<String> {
+    Ok(find_latest_library_archive(std::path::Path::new(&directory))?
+        .to_string_lossy()
+        .into_owned())
 }

@@ -515,7 +515,7 @@ async fn apply_target_provider(
     let result: AppResult<Option<CodexProviderSyncResult>> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
-                let ownership = prepare_code_ownership(
+                let mut ownership = prepare_code_ownership(
                     &runtime_provider,
                     state,
                     uses_proxy,
@@ -534,6 +534,9 @@ async fn apply_target_provider(
                 })
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Code 配置写入任务失败: {error}")))??;
+                // Persist the actual on-disk managed fields so later compares
+                // match Claude Code / JSON normalization instead of our preview.
+                ownership.written = code_managed_fields()?;
                 commit_code_ownership(state, ownership)?;
                 Ok(None)
             }
@@ -776,8 +779,57 @@ fn code_managed_fields() -> AppResult<BTreeMap<String, Option<Value>>> {
     };
     let env = settings.get("env").and_then(Value::as_object);
     Ok(claude_code::MANAGED_ENV_KEYS.into_iter().map(|key| {
-        (key.to_string(), env.and_then(|map| map.get(key)).cloned())
+        (
+            key.to_string(),
+            normalize_managed_value(env.and_then(|map| map.get(key)).cloned()),
+        )
     }).collect())
+}
+
+/// Treat missing / null / blank string as the same "absent" state for ownership.
+fn normalize_managed_value(value: Option<Value>) -> Option<Value> {
+    match value {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) if text.trim().is_empty() => None,
+        other => other,
+    }
+}
+
+fn normalize_managed_fields(
+    fields: &BTreeMap<String, Option<Value>>,
+) -> BTreeMap<String, Option<Value>> {
+    fields
+        .iter()
+        .map(|(key, value)| (key.clone(), normalize_managed_value(value.clone())))
+        .collect()
+}
+
+/// Keys we expected to be absent (`None`) but which now exist (e.g. Claude Code
+/// rewrote `ANTHROPIC_API_KEY`) are adopted so the next apply can clear them
+/// without blocking the user. Real edits to values we previously wrote still
+/// fail the ownership check.
+fn adopt_absent_key_drift(
+    ownership: &mut CodeOwnership,
+    current: &BTreeMap<String, Option<Value>>,
+) {
+    for (key, current_value) in current {
+        let written = normalize_managed_value(ownership.written.get(key).cloned().unwrap_or(None));
+        let current_value = normalize_managed_value(current_value.clone());
+        if written.is_none() && current_value.is_some() {
+            ownership
+                .before
+                .entry(key.clone())
+                .or_insert_with(|| current_value.clone());
+            ownership.written.insert(key.clone(), current_value);
+        }
+    }
+}
+
+fn managed_fields_match(
+    left: &BTreeMap<String, Option<Value>>,
+    right: &BTreeMap<String, Option<Value>>,
+) -> bool {
+    normalize_managed_fields(left) == normalize_managed_fields(right)
 }
 
 fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap<String, Option<Value>> {
@@ -882,7 +934,8 @@ fn prepare_code_ownership(provider: &Provider, state: &AppState, proxy: bool, po
         let mut ownership: CodeOwnership = serde_json::from_str(&raw)
             .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全切换".to_string()))?;
         upgrade_code_ownership_fields(&mut ownership, &current);
-        if ownership.written != current {
+        adopt_absent_key_drift(&mut ownership, &current);
+        if !managed_fields_match(&ownership.written, &current) {
             return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
         }
         ownership.written = expected_code_fields(provider, proxy, port);
@@ -907,7 +960,8 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
         .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全恢复".to_string()))?;
     let current = code_managed_fields()?;
     upgrade_code_ownership_fields(&mut ownership, &current);
-    if current != ownership.written {
+    adopt_absent_key_drift(&mut ownership, &current);
+    if !managed_fields_match(&current, &ownership.written) {
         return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
     }
     claude_code::restore_managed_fields(&ownership.before)?;
@@ -917,6 +971,13 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
 const DESKTOP_OWNERSHIP_KEY: &str = "p7.desktop_original_applied_id";
 
 fn prepare_desktop_ownership(state: &AppState) -> AppResult<Option<String>> {
+    if !claude_desktop::is_supported_platform() {
+        // Stale ownership from a Windows/macOS DB copy must not block Linux users.
+        let _ = state.db.with_conn(|conn| set_setting(conn, DESKTOP_OWNERSHIP_KEY, ""));
+        return Err(AppError::Config(
+            "当前系统不支持 Claude Desktop 配置管理（仅 Windows / macOS）".to_string(),
+        ));
+    }
     let raw = state.db.with_conn(|conn| get_setting(conn, DESKTOP_OWNERSHIP_KEY))?;
     if let Some(raw) = raw.filter(|value| !value.is_empty()) {
         if !claude_desktop::current_applied_id()?
@@ -940,6 +1001,12 @@ fn commit_desktop_ownership(state: &AppState, original_applied_id: Option<String
 }
 
 fn restore_desktop_ownership(state: &AppState) -> AppResult<()> {
+    if !claude_desktop::is_supported_platform() {
+        let _ = state.db.with_conn(|conn| set_setting(conn, DESKTOP_OWNERSHIP_KEY, ""));
+        return Err(AppError::Config(
+            "当前系统不支持 Claude Desktop 配置管理（仅 Windows / macOS）".to_string(),
+        ));
+    }
     let raw = state.db.with_conn(|conn| get_setting(conn, DESKTOP_OWNERSHIP_KEY))?;
     let Some(raw) = raw.filter(|value| !value.is_empty()) else {
         return claude_desktop::clear_provider();
@@ -1269,5 +1336,33 @@ mod tests {
             ownership.written["ANTHROPIC_DEFAULT_SONNET_MODEL"],
             Some(Value::String("user-sonnet".to_string()))
         );
+    }
+
+    #[test]
+    fn ownership_adopts_absent_api_key_drift() {
+        let mut ownership = CodeOwnership {
+            before: BTreeMap::from([("ANTHROPIC_AUTH_TOKEN".into(), None)]),
+            written: BTreeMap::from([
+                ("ANTHROPIC_AUTH_TOKEN".into(), Some(Value::String("tok".into()))),
+                ("ANTHROPIC_API_KEY".into(), None),
+            ]),
+        };
+        let current = BTreeMap::from([
+            ("ANTHROPIC_AUTH_TOKEN".into(), Some(Value::String("tok".into()))),
+            ("ANTHROPIC_API_KEY".into(), Some(Value::String("tok".into()))),
+        ]);
+        adopt_absent_key_drift(&mut ownership, &current);
+        assert!(managed_fields_match(&ownership.written, &current));
+        assert_eq!(
+            ownership.before.get("ANTHROPIC_API_KEY"),
+            Some(&Some(Value::String("tok".into())))
+        );
+    }
+
+    #[test]
+    fn ownership_normalizes_blank_strings_as_absent() {
+        let left = BTreeMap::from([("ANTHROPIC_API_KEY".into(), Some(Value::String("  ".into())))]);
+        let right = BTreeMap::from([("ANTHROPIC_API_KEY".into(), None)]);
+        assert!(managed_fields_match(&left, &right));
     }
 }

@@ -117,6 +117,7 @@ export interface LibraryArchivePreview {
   schemaVersion: number;
   entries: number;
   totalBytes: number;
+  credentialsIncluded: boolean;
 }
 
 export interface LibraryRestoreResult {
@@ -412,6 +413,7 @@ export interface UsageDashboard {
   byProvider: UsageBreakdown[];
   byModel: UsageBreakdown[];
   trend: UsageTrendPoint[];
+  trendGranularity: "hour" | "day";
   localCodex: LocalCodexUsage;
 }
 
@@ -583,6 +585,20 @@ export interface ClaudeCodeVersionInfo {
   environment: string;
   installedButBroken: boolean;
   wslDistro: string | null;
+}
+
+export interface CodexCliVersionInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
 }
 
 export type SessionProvider = "claude_code" | "codex";

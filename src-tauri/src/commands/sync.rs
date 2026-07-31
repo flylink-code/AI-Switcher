@@ -178,7 +178,7 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
         }
     }
     Ok(SyncPreview { target, changes, warnings: vec![
-        "预览只列出 Windows 端应用管理数据；不会读取或传递 API Key、Claude 登录状态、远程密码或私钥。".to_string(),
+        "预览只列出本机应用管理数据；默认不传输 API Key。可在推送时勾选可选的 API Key 同步。".to_string(),
         "执行同步前仍需显式确认；SSH 可使用系统 SSH Agent/密钥，或在推送时临时输入密码（不会保存）。".to_string(),
     ]})
 }
@@ -189,17 +189,20 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
 /// can inspect and import the archive explicitly after transfer.
 ///
 /// Optional `password` is used only for this SSH session and is never persisted.
+/// Optional `include_api_keys` embeds provider API keys in the archive (default false).
 #[tauri::command]
 pub fn push_sync_archive(
     target_id: String,
     password: Option<String>,
+    include_api_keys: Option<bool>,
 ) -> AppResult<SyncPushResult> {
     let mut config = load_targets()?;
     let index = config.targets.iter().position(|target| target.id == target_id)
         .ok_or_else(|| AppError::Config("未找到同步目标".to_string()))?;
     let target = config.targets[index].clone();
     validate_target(&target)?;
-    let archive = crate::backup::export_library_backup()?;
+    let include_api_keys = include_api_keys.unwrap_or(false);
+    let archive = crate::backup::export_library_backup(None, include_api_keys)?;
     let archive_path = PathBuf::from(&archive.archive_path);
     let filename = archive_path.file_name().and_then(|name| name.to_str())
         .ok_or_else(|| AppError::Path("同步归档文件名无效".to_string()))?;

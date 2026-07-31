@@ -24,7 +24,10 @@ pub mod usage;
 pub use backend::ping;
 pub use codex::{get_codex_auth_status, sync_codex_session_providers};
 pub use app_update::{check_app_update, install_app_update};
-pub use backup::{backup_now, export_library_backup, preview_library_backup, restore_library_backup};
+pub use backup::{
+    backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup,
+    restore_library_backup,
+};
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
 pub use desktop_localization::{
@@ -82,7 +85,9 @@ pub use sync::{
     delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync,
     push_sync_archive, save_sync_target,
 };
-pub use tools::{get_claude_code_version, run_claude_code_update};
+pub use tools::{
+    get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
+};
 pub use usage::{
     delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, import_model_pricing_xlsx, list_model_pricing,
     list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,

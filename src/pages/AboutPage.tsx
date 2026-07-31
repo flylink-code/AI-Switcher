@@ -19,10 +19,22 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { getUpdateMirrorSettings, restartApp, restoreOnboardingTips, runClaudeCodeUpdate, setUpdateMirrorSettings } from "@/services/api";
-import { claudeVersionOptions, localClaudeVersionOptions } from "@/lib/appQueries";
+import {
+  getUpdateMirrorSettings,
+  restartApp,
+  restoreOnboardingTips,
+  runClaudeCodeUpdate,
+  runCodexCliUpdate,
+  setUpdateMirrorSettings,
+} from "@/services/api";
+import {
+  claudeVersionOptions,
+  codexCliVersionOptions,
+  localClaudeVersionOptions,
+  localCodexCliVersionOptions,
+} from "@/lib/appQueries";
 import { checkForAppUpdate, installAvailableAppUpdate } from "@/lib/appUpdater";
-import type { UpdateMirrorSettings } from "@/types/backend";
+import type { ClaudeCodeVersionInfo, CodexCliVersionInfo, UpdateMirrorSettings } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text, Paragraph } = Typography;
@@ -33,6 +45,7 @@ export default function AboutPage() {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [checkingApp, setCheckingApp] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
+  const [updatingCodex, setUpdatingCodex] = useState(false);
   const [restoringTips, setRestoringTips] = useState(false);
   const [updateMirrorSettings, setUpdateMirrorSettingsState] = useState<UpdateMirrorSettings | null>(null);
   const [savingUpdateMirrorSettings, setSavingUpdateMirrorSettings] = useState(false);
@@ -42,6 +55,12 @@ export default function AboutPage() {
     placeholderData: () => localClaudeQuery.data,
   });
   const claudeInfo = claudeQuery.data ?? localClaudeQuery.data ?? null;
+  const localCodexQuery = useQuery(localCodexCliVersionOptions);
+  const codexQuery = useQuery({
+    ...codexCliVersionOptions,
+    placeholderData: () => localCodexQuery.data,
+  });
+  const codexInfo = codexQuery.data ?? localCodexQuery.data ?? null;
 
   useEffect(() => {
     void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
@@ -138,6 +157,19 @@ export default function AboutPage() {
     }
   };
 
+  const updateCodexCli = async () => {
+    setUpdatingCodex(true);
+    try {
+      const result = await runCodexCliUpdate();
+      void message.success(result);
+      await queryClient.invalidateQueries({ queryKey: ["codex-cli-version"] });
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUpdatingCodex(false);
+    }
+  };
+
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -198,102 +230,181 @@ export default function AboutPage() {
           </Space>
         </Card>
 
-        <Card
-          size="small"
-          title={
-            <Space>
-              <CodeOutlined />
-              {t("about.claudeCodeSection")}
-            </Space>
-          }
-          extra={
-            <Button
-              size="small"
-              icon={<ReloadOutlined spin={claudeQuery.isFetching} />}
-              onClick={() => void claudeQuery.refetch()}
-            >
-              {t("common.refresh")}
-            </Button>
-          }
-        >
-          <Space direction="vertical" style={{ width: "100%" }}>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("about.claudeCurrentVersion")}>
-                {claudeInfo?.installedButBroken ? (
-                  <Tag color="red">{t("about.installedButBroken")}</Tag>
-                ) : claudeInfo?.installed ? (
-                  <Text code>{claudeInfo.currentVersion ?? t("about.unknown")}</Text>
-                ) : (
-                  <Tag>{t("about.notInstalled")}</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeLatestVersion")}>
-                <Text code>{claudeInfo?.latestVersion ?? t("about.unknown")}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeStatus")}>
-                {claudeInfo?.updateAvailable ? (
-                  <Tag color="orange">{t("about.updateAvailable")}</Tag>
-                ) : claudeInfo?.installedButBroken ? (
-                  <Tag color="red">{t("about.installedButBroken")}</Tag>
-                ) : claudeInfo?.installed ? (
-                  <Tag color="green">{t("about.upToDate")}</Tag>
-                ) : (
-                  <Tag>{t("about.notInstalled")}</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeEnvironment")}>
-                <Space size="small">
-                  <Tag>{claudeInfo?.environment ?? "—"}</Tag>
-                  {claudeInfo?.wslDistro && <Text code>{claudeInfo.wslDistro}</Text>}
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeInstallSource")}>
-                <Text>{claudeInfo?.source ?? "—"}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeExecutablePath")}>
-                <Text code copyable={Boolean(claudeInfo?.executablePath)}>
-                  {claudeInfo?.executablePath ?? "—"}
-                </Text>
-              </Descriptions.Item>
-            </Descriptions>
+        <CliToolCard
+          title={t("about.claudeCodeSection")}
+          info={claudeInfo}
+          fetching={claudeQuery.isFetching}
+          updating={updatingClaude}
+          onRefresh={() => void claudeQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateClaudeCode()}
+          labels={{
+            current: t("about.claudeCurrentVersion"),
+            latest: t("about.claudeLatestVersion"),
+            status: t("about.claudeStatus"),
+            environment: t("about.claudeEnvironment"),
+            source: t("about.claudeInstallSource"),
+            executable: t("about.claudeExecutablePath"),
+            hint: t("about.claudeCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runClaudeInstall"),
+            update: t("about.runClaudeUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+          }}
+        />
 
-            {claudeInfo?.error && (
-              <Alert type="warning" showIcon message={claudeInfo.error} />
-            )}
-
-            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              {t("about.claudeCommandHint")}
-            </Paragraph>
-            <Space wrap>
-              <Text code copyable>
-                {claudeInfo?.installed ? claudeInfo.updateCommand : claudeInfo?.installCommand}
-              </Text>
-              <Button
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={() =>
-                  void copyCommand(
-                    claudeInfo?.installed
-                      ? claudeInfo.updateCommand
-                      : claudeInfo?.installCommand ?? "",
-                  )
-                }
-              >
-                {t("about.copyCommand")}
-              </Button>
-              <Button
-                size="small"
-                type="primary"
-                loading={updatingClaude}
-                onClick={() => void updateClaudeCode()}
-              >
-                {claudeInfo?.installed ? t("about.runClaudeUpdate") : t("about.runClaudeInstall")}
-              </Button>
-            </Space>
-          </Space>
-        </Card>
+        <CliToolCard
+          title={t("about.codexCliSection")}
+          info={codexInfo}
+          fetching={codexQuery.isFetching}
+          updating={updatingCodex}
+          onRefresh={() => void codexQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateCodexCli()}
+          labels={{
+            current: t("about.codexCurrentVersion"),
+            latest: t("about.codexLatestVersion"),
+            status: t("about.codexStatus"),
+            environment: t("about.codexEnvironment"),
+            source: t("about.codexInstallSource"),
+            executable: t("about.codexExecutablePath"),
+            hint: t("about.codexCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runCodexInstall"),
+            update: t("about.runCodexUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+          }}
+        />
       </Space>
     </>
+  );
+}
+
+type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo;
+
+function CliToolCard({
+  title,
+  info,
+  fetching,
+  updating,
+  onRefresh,
+  onCopy,
+  onInstallOrUpdate,
+  labels,
+}: {
+  title: string;
+  info: CliInfo | null;
+  fetching: boolean;
+  updating: boolean;
+  onRefresh: () => void;
+  onCopy: (command: string) => void;
+  onInstallOrUpdate: () => void;
+  labels: {
+    current: string;
+    latest: string;
+    status: string;
+    environment: string;
+    source: string;
+    executable: string;
+    hint: string;
+    copy: string;
+    install: string;
+    update: string;
+    notInstalled: string;
+    broken: string;
+    unknown: string;
+    updateAvailable: string;
+    upToDate: string;
+    refresh: string;
+  };
+}) {
+  const command = info?.installed ? info.updateCommand : info?.installCommand ?? "";
+  return (
+    <Card
+      size="small"
+      title={
+        <Space>
+          <CodeOutlined />
+          {title}
+        </Space>
+      }
+      extra={
+        <Button size="small" icon={<ReloadOutlined spin={fetching} />} onClick={onRefresh}>
+          {labels.refresh}
+        </Button>
+      }
+    >
+      <Space direction="vertical" style={{ width: "100%" }}>
+        <Descriptions column={1} size="small" bordered>
+          <Descriptions.Item label={labels.current}>
+            {info?.installedButBroken ? (
+              <Tag color="red">{labels.broken}</Tag>
+            ) : info?.installed ? (
+              <Text code>{info.currentVersion ?? labels.unknown}</Text>
+            ) : (
+              <Tag>{labels.notInstalled}</Tag>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label={labels.latest}>
+            <Text code>{info?.latestVersion ?? labels.unknown}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label={labels.status}>
+            {info?.updateAvailable ? (
+              <Tag color="orange">{labels.updateAvailable}</Tag>
+            ) : info?.installedButBroken ? (
+              <Tag color="red">{labels.broken}</Tag>
+            ) : info?.installed ? (
+              <Tag color="green">{labels.upToDate}</Tag>
+            ) : (
+              <Tag>{labels.notInstalled}</Tag>
+            )}
+          </Descriptions.Item>
+          <Descriptions.Item label={labels.environment}>
+            <Space size="small">
+              <Tag>{info?.environment ?? "—"}</Tag>
+              {"wslDistro" in (info ?? {}) && (info as ClaudeCodeVersionInfo).wslDistro && (
+                <Text code>{(info as ClaudeCodeVersionInfo).wslDistro}</Text>
+              )}
+            </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label={labels.source}>
+            <Text>{info?.source ?? "—"}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label={labels.executable}>
+            <Text code copyable={Boolean(info?.executablePath)}>
+              {info?.executablePath ?? "—"}
+            </Text>
+          </Descriptions.Item>
+        </Descriptions>
+
+        {info?.error && <Alert type="warning" showIcon message={info.error} />}
+
+        <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          {labels.hint}
+        </Paragraph>
+        <Space wrap>
+          <Text code copyable>
+            {command}
+          </Text>
+          <Button size="small" icon={<CopyOutlined />} onClick={() => onCopy(command)}>
+            {labels.copy}
+          </Button>
+          <Button size="small" type="primary" loading={updating} onClick={onInstallOrUpdate}>
+            {info?.installed ? labels.update : labels.install}
+          </Button>
+        </Space>
+      </Space>
+    </Card>
   );
 }
 

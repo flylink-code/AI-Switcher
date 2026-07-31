@@ -53,6 +53,7 @@ import type {
   ProxyLogListInput,
   PaginatedProxyLogs,
   ClaudeCodeVersionInfo,
+  CodexCliVersionInfo,
   AutostartConfig,
   AutostartMode,
   CloseBehavior,
@@ -119,9 +120,15 @@ export async function backupNow(): Promise<string> {
   return invoke<string>("backup_now", {});
 }
 
-export async function exportLibraryBackup(): Promise<LibraryBackupInfo> {
+export async function exportLibraryBackup(
+  destinationDir?: string | null,
+  includeCredentials = false,
+): Promise<LibraryBackupInfo> {
   const invoke = await getInvoke();
-  return invoke<LibraryBackupInfo>("export_library_backup", {});
+  return invoke<LibraryBackupInfo>("export_library_backup", {
+    destinationDir: destinationDir?.trim() ? destinationDir : null,
+    includeCredentials,
+  });
 }
 
 export async function previewLibraryBackup(archivePath: string): Promise<LibraryArchivePreview> {
@@ -132,6 +139,11 @@ export async function previewLibraryBackup(archivePath: string): Promise<Library
 export async function restoreLibraryBackup(archivePath: string): Promise<LibraryRestoreResult> {
   const invoke = await getInvoke();
   return invoke<LibraryRestoreResult>("restore_library_backup", { archivePath });
+}
+
+export async function findLatestLibraryArchive(directory: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("find_latest_library_archive_cmd", { directory });
 }
 
 // ---- Cross-environment sync -------------------------------------------------
@@ -164,11 +176,13 @@ export async function previewSync(targetId: string): Promise<SyncPreview> {
 export async function pushSyncArchive(
   targetId: string,
   password?: string | null,
+  includeApiKeys = false,
 ): Promise<SyncPushResult> {
   const invoke = await getInvoke();
   return invoke<SyncPushResult>("push_sync_archive", {
     targetId,
     password: password?.trim() ? password : null,
+    includeApiKeys,
   });
 }
 
@@ -259,19 +273,41 @@ export async function importProvidersJson(json: string): Promise<ProviderImportR
   return invoke<ProviderImportResult>("import_providers_json", { json });
 }
 
-export async function listConfigBackups(target: ProviderTarget): Promise<ConfigBackup[]> {
+export async function listConfigBackups(
+  target: ProviderTarget,
+  directory?: string | null,
+): Promise<ConfigBackup[]> {
   const invoke = await getInvoke();
-  return invoke<ConfigBackup[]>("list_config_backups", { target });
+  return invoke<ConfigBackup[]>("list_config_backups", {
+    target,
+    directory: directory?.trim() ? directory : null,
+  });
 }
 
-export async function previewConfigBackup(target: ProviderTarget, name: string): Promise<string> {
+export async function previewConfigBackup(
+  target: ProviderTarget,
+  name: string,
+  directory?: string | null,
+): Promise<string> {
   const invoke = await getInvoke();
-  return invoke<string>("preview_config_backup", { target, name });
+  return invoke<string>("preview_config_backup", {
+    target,
+    name,
+    directory: directory?.trim() ? directory : null,
+  });
 }
 
-export async function restoreConfigBackup(target: ProviderTarget, name: string): Promise<void> {
+export async function restoreConfigBackup(
+  target: ProviderTarget,
+  name: string,
+  directory?: string | null,
+): Promise<void> {
   const invoke = await getInvoke();
-  return invoke<void>("restore_config_backup", { target, name });
+  return invoke<void>("restore_config_backup", {
+    target,
+    name,
+    directory: directory?.trim() ? directory : null,
+  });
 }
 
 // ---- Local proxy ------------------------------------------------------------
@@ -713,6 +749,16 @@ export async function getClaudeCodeVersion(includeLatest = true): Promise<Claude
 export async function runClaudeCodeUpdate(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("run_claude_code_update", {});
+}
+
+export async function getCodexCliVersion(includeLatest = true): Promise<CodexCliVersionInfo> {
+  const invoke = await getInvoke();
+  return invoke<CodexCliVersionInfo>("get_codex_cli_version", { includeLatest });
+}
+
+export async function runCodexCliUpdate(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("run_codex_cli_update", {});
 }
 
 export async function scanSessions(

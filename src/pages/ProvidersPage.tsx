@@ -36,7 +36,6 @@ import { usageTrendOptions } from "@/lib/appQueries";
 import {
   USAGE_PERIOD_VALUES,
   usagePeriodLabelKey,
-  usagePeriodToCalendarDays,
 } from "@/utils/usagePeriod";
 
 const { Text } = Typography;
@@ -328,7 +327,7 @@ export default function ProvidersPage() {
       {usageQuery.error ? (
         <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
       ) : (
-        <UsageCalendar data={usageQuery.data?.trend ?? []} days={usagePeriodToCalendarDays(usagePeriod)} />
+        <UsageCalendar data={usageQuery.data?.trend ?? []} period={usagePeriod} />
       )}
     </Card>
     <ProviderForm

@@ -2,13 +2,125 @@ import { Empty, Space, Statistic, Tooltip, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import type { UsageDashboard } from "@/types/backend";
 import { formatCompactNumber, formatFullNumber } from "@/utils/formatCompact";
+import {
+  localDateKey,
+  usagePeriodGranularity,
+  usagePeriodHourKeys,
+  usagePeriodToCalendarDays,
+  type UsagePeriod,
+} from "@/utils/usagePeriod";
 
 const { Text } = Typography;
 
-export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; days: number }) {
+export function UsageCalendar({
+  data,
+  period,
+}: {
+  data: UsageDashboard["trend"];
+  period: UsagePeriod;
+}) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const granularity = usagePeriodGranularity(period);
   const byDate = new Map(data.map((row) => [row.date, row]));
+  const levels = [
+    { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
+    { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
+    { color: token.colorSuccessBgHover, label: t("usage.calendarLevelTwo") },
+    { color: token.colorSuccessBorder, label: t("usage.calendarLevelThree") },
+    { color: token.colorSuccess, label: t("usage.calendarLevelFour") },
+  ];
+
+  if (granularity === "hour") {
+    const hourPeriod = period === "today" ? "today" : "24h";
+    const keys = usagePeriodHourKeys(hourPeriod);
+    const hourly = keys.map((key) => {
+      const row = byDate.get(key);
+      const tokens = row
+        ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens
+        : 0;
+      return { key, row, tokens };
+    });
+    const max = Math.max(...hourly.map((item) => item.tokens), 0);
+    const activeHours = hourly.filter((item) => item.tokens > 0).length;
+    const total = hourly.reduce((sum, item) => sum + item.tokens, 0);
+
+    return (
+      <Space direction="vertical" size={14} style={{ width: "100%" }}>
+        <Space wrap size={24}>
+          <Statistic title={t("usage.activeHours")} value={activeHours} suffix={`/ ${keys.length}`} />
+          <Statistic
+            title={t("usage.hourlyPeak")}
+            value={max}
+            formatter={(value) => (
+              <Tooltip title={formatFullNumber(Number(value))}>{formatCompactNumber(Number(value))}</Tooltip>
+            )}
+          />
+          <Statistic
+            title={t("usage.calendarTotal")}
+            value={total}
+            formatter={(value) => (
+              <Tooltip title={formatFullNumber(Number(value))}>{formatCompactNumber(Number(value))}</Tooltip>
+            )}
+          />
+        </Space>
+        <div
+          role="grid"
+          aria-label={t("usage.hourlyStatistics")}
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${Math.min(keys.length, 24)}, minmax(10px, 1fr))`,
+            gap: "clamp(2px, 0.35vw, 6px)",
+            width: "100%",
+          }}
+        >
+          {hourly.map((item) => {
+            const level = item.tokens === 0 ? 0 : Math.min(4, Math.ceil((item.tokens / Math.max(max, 1)) * 4));
+            const hourLabel = item.key.slice(11, 16);
+            const tooltip = item.row
+              ? `${item.key}: ${formatCompactNumber(item.tokens)} Token (${formatFullNumber(item.tokens)}) · ${item.row.requestCount} ${t("usage.requests")}`
+              : `${item.key}: 0 Token`;
+            return (
+              <Tooltip key={item.key} title={tooltip}>
+                <button
+                  type="button"
+                  role="gridcell"
+                  aria-label={tooltip}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    cursor: "default",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      border: `1px solid ${token.colorBorderSecondary}`,
+                      borderRadius: 3,
+                      background: levels[level].color,
+                    }}
+                  />
+                  <Text type="secondary" style={{ fontSize: 10, lineHeight: 1 }}>
+                    {hourLabel}
+                  </Text>
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
+        <CalendarLegend levels={levels} legend={t("usage.calendarLegend")} border={token.colorBorderSecondary} />
+      </Space>
+    );
+  }
+
+  const days = usagePeriodToCalendarDays(period);
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() - days + 1);
@@ -17,7 +129,9 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
     date.setDate(start.getDate() + index);
     const key = localDateKey(date);
     const row = byDate.get(key);
-    const tokens = row ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens : 0;
+    const tokens = row
+      ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens
+      : 0;
     return { date, key, row, tokens };
   });
   const max = Math.max(...daily.map((item) => item.tokens), 0);
@@ -27,15 +141,10 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
   const columns = Math.ceil((leading.length + daily.length) / 7);
   const columnGaps = Math.max(columns - 1, 0);
   const gridMaxWidth = columns * 36 + columnGaps * 6;
-  const levels = [
-    { color: token.colorFillQuaternary, label: t("usage.calendarLevelNone") },
-    { color: token.colorSuccessBg, label: t("usage.calendarLevelOne") },
-    { color: token.colorSuccessBgHover, label: t("usage.calendarLevelTwo") },
-    { color: token.colorSuccessBorder, label: t("usage.calendarLevelThree") },
-    { color: token.colorSuccess, label: t("usage.calendarLevelFour") },
-  ];
 
-  if (!data.length) return <Empty description={t("usage.noData")} />;
+  if (!data.length && daily.every((item) => item.tokens === 0)) {
+    return <Empty description={t("usage.noData")} />;
+  }
 
   return (
     <Space direction="vertical" size={14} style={{ width: "100%" }}>
@@ -70,7 +179,9 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
             maxWidth: gridMaxWidth,
           }}
         >
-          {leading.map((_, index) => <span key={`leading-${index}`} />)}
+          {leading.map((_, index) => (
+            <span key={`leading-${index}`} />
+          ))}
           {daily.map((item) => {
             const level = item.tokens === 0 ? 0 : Math.min(4, Math.ceil((item.tokens / Math.max(max, 1)) * 4));
             const tooltip = item.row
@@ -99,33 +210,44 @@ export function UsageCalendar({ data, days }: { data: UsageDashboard["trend"]; d
           })}
         </div>
       </div>
-      <Space wrap size={[10, 6]} align="center" style={{ alignSelf: "flex-end", justifyContent: "flex-end" }}>
-        <Text type="secondary" style={{ fontSize: 12 }}>{t("usage.calendarLegend")}</Text>
-        {levels.map((level) => (
-          <Space key={level.label} size={4} align="center">
-            <span
-              aria-hidden="true"
-              style={{
-                display: "inline-block",
-                flex: "0 0 12px",
-                width: 12,
-                height: 12,
-                borderRadius: 2,
-                background: level.color,
-                border: `1px solid ${token.colorBorderSecondary}`,
-              }}
-            />
-            <Text type="secondary" style={{ fontSize: 12 }}>{level.label}</Text>
-          </Space>
-        ))}
-      </Space>
+      <CalendarLegend levels={levels} legend={t("usage.calendarLegend")} border={token.colorBorderSecondary} />
     </Space>
   );
 }
 
-function localDateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function CalendarLegend({
+  levels,
+  legend,
+  border,
+}: {
+  levels: Array<{ color: string; label: string }>;
+  legend: string;
+  border: string;
+}) {
+  return (
+    <Space wrap size={[10, 6]} align="center" style={{ alignSelf: "flex-end", justifyContent: "flex-end" }}>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {legend}
+      </Text>
+      {levels.map((level) => (
+        <Space key={level.label} size={4} align="center">
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              flex: "0 0 12px",
+              width: 12,
+              height: 12,
+              borderRadius: 2,
+              background: level.color,
+              border: `1px solid ${border}`,
+            }}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {level.label}
+          </Text>
+        </Space>
+      ))}
+    </Space>
+  );
 }

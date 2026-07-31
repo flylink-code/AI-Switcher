@@ -67,13 +67,21 @@ jobs:
 
             ## What's new
 
-            - Import portable library ZIP (verify → confirm → replace managed data; restart required; API keys not included)
-            - Usage period options: last 24 hours, today, plus 7 / 30 / 90 / 365 days
+            - Directory pickers for config backup / library export & import (including newest `library-*.zip` in a folder)
+            - Hourly usage chart and heatmap for “today” and “last 24 hours”
+            - Optional API key inclusion when pushing SSH/WSL sync archives (off by default)
+            - About: Linux Claude Code install via login-shell / install.sh; Codex CLI version detect & install
+            - Safer Claude Code ownership checks; clearer Claude Desktop unsupported message on Linux
+            - Environment paths collapsed into a top-level “View path details” dialog
 
             ## 更新内容
 
-            - 支持导入可迁移资料库 ZIP（校验 → 确认 → 替换托管资料；需重启；不含 API Key）
-            - 用量统计时间范围：最近 24 小时、今天，以及 7 / 30 / 90 / 365 天
+            - 配置备份 / 资料库导出与导入支持选择目录（含目录内最新 `library-*.zip`）
+            - 「今天 / 最近 24 小时」用量曲线与热力图按小时展示
+            - SSH/WSL 同步可选携带 API Key（默认关闭）
+            - 关于页：Ubuntu 下 Claude Code 安装加固；新增 Codex CLI 版本检测与安装
+            - 缓解 Claude Code「外部修改拒绝覆盖」误判；Linux 上 Claude Desktop 给出明确不支持提示
+            - 环境信息路径合并到顶部「查看路径信息」弹窗
 
             ### Windows
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.

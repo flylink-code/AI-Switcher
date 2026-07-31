@@ -47,6 +47,8 @@ pub struct LibraryArchiveManifest {
     pub version: u8,
     pub created_at: i64,
     pub schema_version: u32,
+    #[serde(default)]
+    pub credentials_included: bool,
     pub entries: Vec<LibraryArchiveEntry>,
 }
 
@@ -77,6 +79,7 @@ pub struct LibraryArchivePreview {
     pub schema_version: u32,
     pub entries: usize,
     pub total_bytes: u64,
+    pub credentials_included: bool,
 }
 
 const LIBRARY_ARCHIVE_VERSION: u8 = 1;
@@ -88,14 +91,38 @@ const MAX_LIBRARY_ARCHIVE_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 /// skills.  The database is copied through SQLite's backup API before any
 /// credential reference is removed, so a live WAL database is never copied as
 /// raw files.
-pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
+///
+/// When `destination_dir` is set, the ZIP is written into that directory;
+/// otherwise it uses the app backup directory.
+///
+/// When `include_credentials` is true, provider API keys are resolved from the
+/// OS keyring into the snapshot as plaintext so a remote import can rematerialize
+/// them. Prefer leaving this off unless the user explicitly opts in.
+pub fn export_library_backup(
+    destination_dir: Option<&Path>,
+    include_credentials: bool,
+) -> AppResult<LibraryBackupInfo> {
     let created_at = Utc::now().timestamp_millis();
-    let backup_dir = get_backup_dir();
-    fs::create_dir_all(&backup_dir)?;
+    let backup_dir = match destination_dir {
+        Some(dir) => {
+            if !dir.is_dir() {
+                return Err(AppError::Path(format!(
+                    "导出目录不存在或不是文件夹: {}",
+                    dir.display()
+                )));
+            }
+            dir.to_path_buf()
+        }
+        None => {
+            let dir = get_backup_dir();
+            fs::create_dir_all(&dir)?;
+            dir
+        }
+    };
     let archive_path = backup_dir.join(format!("library-{created_at}.zip"));
     let staging = StagingDirectory::create()?;
     let snapshot = staging.0.join("app.db");
-    create_sanitized_db_snapshot(&snapshot)?;
+    create_db_snapshot(&snapshot, include_credentials)?;
 
     let mut files = vec![("database/app.db".to_string(), snapshot)];
     collect_managed_files(
@@ -128,6 +155,7 @@ pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
         version: LIBRARY_ARCHIVE_VERSION,
         created_at,
         schema_version: crate::database::schema::SCHEMA_VERSION,
+        credentials_included: include_credentials,
         entries,
     };
     archive.start_file(LIBRARY_ARCHIVE_MANIFEST, options).map_err(|error| AppError::Other(format!("写入资料库清单失败: {error}")))?;
@@ -140,9 +168,47 @@ pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
     })
 }
 
-/// Validate a portable library archive without extracting or writing it.  A
-/// future restore flow must call this first, then stage validated files before
-/// asking the user for a separate replacement confirmation.
+/// Find the newest `library-*.zip` under `directory` (non-recursive).
+pub fn find_latest_library_archive(directory: &Path) -> AppResult<PathBuf> {
+    if !directory.is_dir() {
+        return Err(AppError::Path(format!(
+            "目录不存在或不是文件夹: {}",
+            directory.display()
+        )));
+    }
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in fs::read_dir(directory).map_err(|error| io_context("读取归档目录失败", error))? {
+        let entry = entry.map_err(|error| io_context("读取归档目录项失败", error))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        let lower = name.to_ascii_lowercase();
+        if !(lower.starts_with("library-") && lower.ends_with(".zip")) {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        match &best {
+            Some((time, _)) if modified <= *time => {}
+            _ => best = Some((modified, path)),
+        }
+    }
+    best.map(|(_, path)| path).ok_or_else(|| {
+        AppError::Config(format!(
+            "目录中未找到 library-*.zip：{}",
+            directory.display()
+        ))
+    })
+}
+
+/// Validate a portable library ZIP and return a summary without extracting it.
 pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePreview> {
     let metadata = fs::metadata(archive_path)
         .map_err(|error| io_context("读取资料库归档失败", error))?;
@@ -225,6 +291,7 @@ pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePr
         schema_version: manifest.schema_version,
         entries: manifest.entries.len(),
         total_bytes,
+        credentials_included: manifest.credentials_included,
     })
 }
 
@@ -384,7 +451,7 @@ fn validate_library_archive_path(path: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn create_sanitized_db_snapshot(snapshot: &Path) -> AppResult<()> {
+fn create_db_snapshot(snapshot: &Path, include_credentials: bool) -> AppResult<()> {
     let source_path = get_app_db_path();
     if !source_path.is_file() {
         return Err(AppError::Config(format!("数据库文件不存在，无法归档: {}", source_path.display())));
@@ -394,8 +461,45 @@ fn create_sanitized_db_snapshot(snapshot: &Path) -> AppResult<()> {
     let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
     backup.run_to_completion(100, std::time::Duration::from_millis(5), None)?;
     drop(backup);
-    // Both legacy plaintext keys and current OS-keyring references are excluded.
-    destination.execute("UPDATE providers SET api_key = ''", [])?;
+    if include_credentials {
+        materialize_credentials_into_snapshot(&destination)?;
+    } else {
+        // Both legacy plaintext keys and current OS-keyring references are excluded.
+        destination.execute("UPDATE providers SET api_key = ''", [])?;
+    }
+    Ok(())
+}
+
+fn materialize_credentials_into_snapshot(destination: &rusqlite::Connection) -> AppResult<()> {
+    let mut stmt = destination.prepare("SELECT id, api_key FROM providers")?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    for (id, value) in rows {
+        if value.is_empty() {
+            continue;
+        }
+        let plaintext = if crate::secrets::is_keyring_ref(&value) {
+            let account = &value[crate::secrets::KEYRING_REF_PREFIX.len()..];
+            match crate::secrets::load_key(account)? {
+                Some(secret) => secret,
+                None => {
+                    destination.execute(
+                        "UPDATE providers SET api_key = '' WHERE id = ?",
+                        rusqlite::params![id],
+                    )?;
+                    continue;
+                }
+            }
+        } else {
+            value
+        };
+        destination.execute(
+            "UPDATE providers SET api_key = ? WHERE id = ?",
+            rusqlite::params![plaintext, id],
+        )?;
+    }
     Ok(())
 }
 
@@ -628,6 +732,21 @@ mod tests {
     }
 
     #[test]
+    fn find_latest_library_archive_picks_newest_zip() {
+        let dir = tempdir().unwrap();
+        let older = dir.path().join("library-1.zip");
+        let newer = dir.path().join("library-2.zip");
+        fs::write(&older, b"old").unwrap();
+        fs::write(&newer, b"new").unwrap();
+        let older_time = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_100);
+        let newer_time = std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_200);
+        filetime::set_file_mtime(&older, filetime::FileTime::from_system_time(older_time)).unwrap();
+        filetime::set_file_mtime(&newer, filetime::FileTime::from_system_time(newer_time)).unwrap();
+        let found = find_latest_library_archive(dir.path()).unwrap();
+        assert_eq!(found, newer);
+    }
+
+    #[test]
     fn library_archive_preview_verifies_manifest_hashes() {
         let dir = tempdir().unwrap();
         let archive_path = dir.path().join("library.zip");
@@ -685,6 +804,7 @@ mod tests {
             version: LIBRARY_ARCHIVE_VERSION,
             created_at: 1,
             schema_version: 1,
+            credentials_included: false,
             entries: vec![entry],
         };
         let file = fs::File::create(path).unwrap();
