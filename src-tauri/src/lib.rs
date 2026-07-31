@@ -34,7 +34,7 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use crate::commands::{
     check_app_update, install_app_update,
     get_codex_auth_status, sync_codex_session_providers,
-    activate_prompt, backup_now, export_library_backup, preview_library_backup, create_provider, delete_mcp_server, delete_prompt,
+    activate_prompt, backup_now, export_library_backup, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
@@ -123,6 +123,7 @@ pub fn run() {
             backup_now,
             export_library_backup,
             preview_library_backup,
+            restore_library_backup,
             get_desktop_localization_status,
             get_localization_hub_status,
             download_desktop_localization_pack,

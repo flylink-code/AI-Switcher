@@ -27,6 +27,7 @@ import type {
     ConfigBackup,
     LibraryBackupInfo,
     LibraryArchivePreview,
+    LibraryRestoreResult,
   ProviderInput,
   ProviderTarget,
   CodexAuthStatus,
@@ -126,6 +127,11 @@ export async function exportLibraryBackup(): Promise<LibraryBackupInfo> {
 export async function previewLibraryBackup(archivePath: string): Promise<LibraryArchivePreview> {
   const invoke = await getInvoke();
   return invoke<LibraryArchivePreview>("preview_library_backup", { archivePath });
+}
+
+export async function restoreLibraryBackup(archivePath: string): Promise<LibraryRestoreResult> {
+  const invoke = await getInvoke();
+  return invoke<LibraryRestoreResult>("restore_library_backup", { archivePath });
 }
 
 // ---- Cross-environment sync -------------------------------------------------
@@ -607,12 +613,20 @@ export async function restoreDesktopLocalization(): Promise<DesktopLocalizationA
 // ---- Usage ------------------------------------------------------------------
 
 export async function getUsageDashboard(
-  days = 30,
+  range: { days?: number; hours?: number; today?: boolean } | number = 30,
   source: ProviderTarget | "all" = "all",
 ): Promise<UsageDashboard> {
   const invoke = await getInvoke();
+  const params =
+    typeof range === "number"
+      ? { days: range }
+      : {
+          days: range.days,
+          hours: range.hours,
+          today: range.today,
+        };
   return invoke<UsageDashboard>("get_usage_dashboard", {
-    days,
+    ...params,
     source: source === "all" ? undefined : source,
   });
 }

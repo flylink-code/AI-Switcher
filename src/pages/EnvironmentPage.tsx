@@ -36,6 +36,7 @@ import {
   backupNow,
   exportLibraryBackup,
   previewLibraryBackup,
+  restoreLibraryBackup,
   deleteSyncTarget,
   discoverWslDistributions,
   migrateDataRoot,
@@ -159,6 +160,24 @@ export default function EnvironmentPage() {
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, [libraryArchivePath]);
+
+  const onImportLibraryArchive = useCallback(async () => {
+    if (!libraryArchivePath.trim()) return;
+    setRunning(true);
+    try {
+      const result = await restoreLibraryBackup(libraryArchivePath.trim());
+      void message.success(t("env.libraryImported"));
+      setLibraryArchivePreview(null);
+      if (result.restartRequired) {
+        Modal.info({
+          title: t("env.dataRootRestartTitle"),
+          content: t("env.confirmImportLibraryDescription"),
+        });
+      }
+      await environmentQuery.refetch();
+    } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
+    finally { setRunning(false); }
+  }, [environmentQuery, libraryArchivePath, t]);
 
   const onAutostartChange = useCallback(async (mode: AutostartMode) => {
     setAutostartChanging(true);
@@ -526,6 +545,14 @@ export default function EnvironmentPage() {
           <Space.Compact style={{ width: "100%" }}>
             <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />
             <Button loading={running} disabled={!libraryArchivePath.trim()} onClick={() => void onPreviewLibraryArchive()}>{t("env.verifyLibraryArchive")}</Button>
+            <Popconfirm
+              title={t("env.confirmImportLibrary")}
+              description={t("env.confirmImportLibraryDescription")}
+              disabled={!libraryArchivePath.trim()}
+              onConfirm={() => void onImportLibraryArchive()}
+            >
+              <Button danger loading={running} disabled={!libraryArchivePath.trim()}>{t("env.importLibraryArchive")}</Button>
+            </Popconfirm>
           </Space.Compact>
           <Text type="secondary">{t("env.libraryArchiveDescription")}</Text>
         </Card>
@@ -559,7 +586,23 @@ export default function EnvironmentPage() {
       <Modal open={backupPreview !== null} footer={null} onCancel={() => setBackupPreview(null)} title={t("env.previewBackup")} width={720}>
         <pre style={{ maxHeight: 480, overflow: "auto", whiteSpace: "pre-wrap" }}>{backupPreview}</pre>
       </Modal>
-      <Modal open={libraryArchivePreview !== null} footer={null} onCancel={() => setLibraryArchivePreview(null)} title={t("env.libraryArchiveVerified")}>
+      <Modal
+        open={libraryArchivePreview !== null}
+        onCancel={() => setLibraryArchivePreview(null)}
+        title={t("env.libraryArchiveVerified")}
+        footer={
+          <Space>
+            <Button onClick={() => setLibraryArchivePreview(null)}>{t("common.cancel")}</Button>
+            <Popconfirm
+              title={t("env.confirmImportLibrary")}
+              description={t("env.confirmImportLibraryDescription")}
+              onConfirm={() => void onImportLibraryArchive()}
+            >
+              <Button type="primary" danger loading={running}>{t("env.importLibraryArchive")}</Button>
+            </Popconfirm>
+          </Space>
+        }
+      >
         {libraryArchivePreview && <Descriptions column={1} size="small" bordered>
           <Descriptions.Item label={t("env.libraryArchivePath")}><PathValue value={libraryArchivePreview.archivePath} /></Descriptions.Item>
           <Descriptions.Item label={t("env.libraryArchiveEntries")}>{libraryArchivePreview.entries}</Descriptions.Item>

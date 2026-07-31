@@ -33,6 +33,11 @@ import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
 import { usageTrendOptions } from "@/lib/appQueries";
+import {
+  USAGE_PERIOD_VALUES,
+  usagePeriodLabelKey,
+  usagePeriodToCalendarDays,
+} from "@/utils/usagePeriod";
 
 const { Text } = Typography;
 
@@ -42,8 +47,8 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
-  const usageDays = usePagePreferencesStore((state) => state.usageDays);
-  const setUsageDays = usePagePreferencesStore((state) => state.setUsageDays);
+  const usagePeriod = usePagePreferencesStore((state) => state.usagePeriod);
+  const setUsagePeriod = usePagePreferencesStore((state) => state.setUsagePeriod);
   const usageSource = usePagePreferencesStore((state) => state.usageLogTarget);
   const setUsageSource = usePagePreferencesStore((state) => state.setUsageLogTarget);
   const [formOpen, setFormOpen] = useState(false);
@@ -51,7 +56,7 @@ export default function ProvidersPage() {
   const [busy, setBusy] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-  const usageQuery = useQuery(usageTrendOptions(usageDays, usageSource));
+  const usageQuery = useQuery(usageTrendOptions(usagePeriod, usageSource));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -301,10 +306,16 @@ export default function ProvidersPage() {
         <Space wrap size={8} align="center">
           <Select
             size="middle"
-            value={usageDays}
-            style={{ width: 130 }}
-            options={[7, 30, 90, 365].map((value) => ({ value, label: t("usage.lastDays", { days: value }) }))}
-            onChange={setUsageDays}
+            value={usagePeriod}
+            style={{ width: 160 }}
+            options={USAGE_PERIOD_VALUES.map((value) => ({
+              value,
+              label:
+                typeof value === "number"
+                  ? t("usage.lastDays", { days: value })
+                  : t(usagePeriodLabelKey(value)),
+            }))}
+            onChange={setUsagePeriod}
           />
           <UsageSourceFilterSegmented
             value={usageSource}
@@ -317,7 +328,7 @@ export default function ProvidersPage() {
       {usageQuery.error ? (
         <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
       ) : (
-        <UsageCalendar data={usageQuery.data?.trend ?? []} days={usageDays} />
+        <UsageCalendar data={usageQuery.data?.trend ?? []} days={usagePeriodToCalendarDays(usagePeriod)} />
       )}
     </Card>
     <ProviderForm

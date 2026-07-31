@@ -67,17 +67,13 @@ jobs:
 
             ## What's new
 
-            - Fix Linux app icon white edges (transparent corners)
-            - SSH sync: optional one-shot password, username ↔ `/home/<user>/.ai-switcher` linkage, clearer pipe errors
-            - Compact token display (k / M) on heatmap and usage stats
-            - Linux autostart status: surface XDG Exec and stop false “not registered” when enabled
+            - Import portable library ZIP (verify → confirm → replace managed data; restart required; API keys not included)
+            - Usage period options: last 24 hours, today, plus 7 / 30 / 90 / 365 days
 
             ## 更新内容
 
-            - 修复 Linux 应用图标白边（透明圆角）
-            - SSH 同步：支持推送时临时输入密码；填写用户名自动联动 `/home/<user>/.ai-switcher`；管道关闭错误附带远端详情
-            - 热力图与用量统计 Token 显示为 k / M
-            - Linux 开机自启：回填 XDG Exec，已启用时不再误报「未写入启动项」
+            - 支持导入可迁移资料库 ZIP（校验 → 确认 → 替换托管资料；需重启；不含 API Key）
+            - 用量统计时间范围：最近 24 小时、今天，以及 7 / 30 / 90 / 365 天
 
             ### Windows
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.

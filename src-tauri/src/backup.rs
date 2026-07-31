@@ -228,6 +228,151 @@ pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePr
     })
 }
 
+/// Result of replacing the local managed library from a portable ZIP.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryRestoreResult {
+    pub archive_path: String,
+    pub restored_entries: usize,
+    pub backup_db_path: Option<String>,
+    pub restart_required: bool,
+}
+
+/// Validate, stage, and replace local managed library files from `archive_path`.
+///
+/// The live SQLite connection remains open, so callers must restart the app
+/// before the restored database is used. API keys are not present in archives.
+pub fn restore_library_backup(archive_path: &Path) -> AppResult<LibraryRestoreResult> {
+    let preview = preview_library_backup(archive_path)?;
+    if preview.schema_version > crate::database::schema::SCHEMA_VERSION {
+        return Err(AppError::Config(format!(
+            "归档架构版本 v{} 高于当前程序支持的 v{}，请先升级 AI-Switcher",
+            preview.schema_version,
+            crate::database::schema::SCHEMA_VERSION
+        )));
+    }
+
+    let staging = StagingDirectory::create()?;
+    let restored_entries = extract_library_archive(archive_path, &staging.0)?;
+
+    // Checkpoint then snapshot the live DB so a failed restore can be rolled back manually.
+    let db_path = get_app_db_path();
+    if db_path.is_file() {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        }
+    }
+    let backup_db_path = backup_file(&db_path, DEFAULT_BACKUP_KEEP)?
+        .map(|path| path.to_string_lossy().into_owned());
+
+    let staged_db = staging.0.join("database").join("app.db");
+    if staged_db.is_file() {
+        if let Some(parent) = db_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| io_context("创建数据库目录失败", error))?;
+        }
+        remove_sqlite_sidecars(&db_path);
+        fs::copy(&staged_db, &db_path).map_err(|error| io_context("写入恢复后的数据库失败", error))?;
+        remove_sqlite_sidecars(&db_path);
+    }
+
+    let staged_skills = staging.0.join("skills");
+    if staged_skills.exists() {
+        replace_directory_contents(&get_claude_skills_dir(), &staged_skills)?;
+    }
+
+    let staged_archives = staging.0.join("session-archives");
+    if staged_archives.exists() {
+        replace_directory_contents(
+            &get_app_config_dir().join("session-archives"),
+            &staged_archives,
+        )?;
+    }
+
+    let staged_skill_sources = staging.0.join("metadata").join("skill-sources.json");
+    if staged_skill_sources.is_file() {
+        let dest = get_app_config_dir().join("skill-sources.json");
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|error| io_context("创建配置目录失败", error))?;
+        }
+        fs::copy(&staged_skill_sources, &dest)
+            .map_err(|error| io_context("写入 skill-sources.json 失败", error))?;
+    }
+
+    Ok(LibraryRestoreResult {
+        archive_path: preview.archive_path,
+        restored_entries,
+        backup_db_path,
+        restart_required: true,
+    })
+}
+
+fn extract_library_archive(archive_path: &Path, staging_root: &Path) -> AppResult<usize> {
+    let file = fs::File::open(archive_path).map_err(|error| io_context("打开资料库归档失败", error))?;
+    let mut archive = ZipArchive::new(file)
+        .map_err(|error| AppError::Config(format!("资料库归档不是有效的 ZIP 文件: {error}")))?;
+    let mut count = 0_usize;
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| AppError::Config(format!("读取资料库归档目录失败: {error}")))?;
+        let name = entry.name().to_string();
+        if name == LIBRARY_ARCHIVE_MANIFEST || entry.is_dir() {
+            continue;
+        }
+        validate_library_archive_path(&name)?;
+        let dest = staging_root.join(Path::new(&name));
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent).map_err(|error| io_context("创建解压目录失败", error))?;
+        }
+        let mut out = fs::File::create(&dest).map_err(|error| io_context("写入解压文件失败", error))?;
+        std::io::copy(&mut entry, &mut out).map_err(|error| io_context("解压资料库归档失败", error))?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+fn remove_sqlite_sidecars(db_path: &Path) {
+    let wal = PathBuf::from(format!("{}-wal", db_path.display()));
+    let shm = PathBuf::from(format!("{}-shm", db_path.display()));
+    let _ = fs::remove_file(wal);
+    let _ = fs::remove_file(shm);
+}
+
+fn replace_directory_contents(dest: &Path, source: &Path) -> AppResult<()> {
+    if dest.exists() {
+        let stamp = Utc::now().format("%Y%m%d_%H%M%S_%f");
+        let file_name = dest
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "data".to_string());
+        let aside = dest
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(format!("{file_name}.pre-restore-{stamp}"));
+        fs::rename(dest, &aside).map_err(|error| io_context("备份原目录失败", error))?;
+    }
+    copy_directory_recursive(source, dest)
+}
+
+fn copy_directory_recursive(source: &Path, dest: &Path) -> AppResult<()> {
+    fs::create_dir_all(dest).map_err(|error| io_context("创建目标目录失败", error))?;
+    for entry in fs::read_dir(source).map_err(|error| io_context("读取恢复目录失败", error))? {
+        let entry = entry.map_err(|error| io_context("读取恢复目录项失败", error))?;
+        let file_type = entry.file_type().map_err(|error| io_context("读取恢复目录项类型失败", error))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        let from = entry.path();
+        let to = dest.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_directory_recursive(&from, &to)?;
+        } else if file_type.is_file() {
+            fs::copy(&from, &to).map_err(|error| io_context("复制恢复文件失败", error))?;
+        }
+    }
+    Ok(())
+}
+
 fn validate_library_archive_path(path: &str) -> AppResult<()> {
     if path.is_empty() || path == LIBRARY_ARCHIVE_MANIFEST || path.contains('\\') || path.starts_with('/') {
         return Err(AppError::Path(format!("资料库归档包含不安全路径: {path}")));
@@ -509,6 +654,25 @@ mod tests {
         write_test_library_archive(&archive_path, "../outside.txt", b"unsafe", None);
 
         assert!(preview_library_backup(&archive_path).is_err());
+    }
+
+    #[test]
+    fn library_archive_restore_extracts_to_destination_dirs() {
+        let root = tempdir().unwrap();
+        let archive_path = root.path().join("library.zip");
+        write_test_library_archive(&archive_path, "skills/demo/SKILL.md", b"restored skill", None);
+
+        let config = root.path().join("config");
+        let skills = root.path().join("skills");
+        fs::create_dir_all(&config).unwrap();
+        fs::create_dir_all(&skills).unwrap();
+        // Point path helpers via env is not available; call extract + replace helpers directly.
+        let staging = StagingDirectory::create().unwrap();
+        let count = extract_library_archive(&archive_path, &staging.0).unwrap();
+        assert_eq!(count, 1);
+        replace_directory_contents(&skills, &staging.0.join("skills")).unwrap();
+        let restored = fs::read_to_string(skills.join("demo").join("SKILL.md")).unwrap();
+        assert_eq!(restored, "restored skill");
     }
 
     fn write_test_library_archive(path: &Path, entry_path: &str, content: &[u8], hash_override: Option<&str>) {

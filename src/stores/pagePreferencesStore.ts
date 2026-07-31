@@ -1,15 +1,16 @@
 import { create } from "zustand";
 import type { ProviderTarget } from "@/types/backend";
+import type { UsagePeriod } from "@/utils/usagePeriod";
 
 interface PagePreferencesState {
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
-  usageDays: number;
+  usagePeriod: UsagePeriod;
   usageLogPage: number;
   usageLogTarget: ProviderTarget | "all";
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
-  setUsageDays: (days: number) => void;
+  setUsagePeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
   setUsageLogTarget: (target: ProviderTarget | "all") => void;
 }
@@ -17,12 +18,12 @@ interface PagePreferencesState {
 export const usePagePreferencesStore = create<PagePreferencesState>((set) => ({
   providersTarget: "claude_code",
   proxyTarget: "claude_desktop",
-  usageDays: 365,
+  usagePeriod: 365,
   usageLogPage: 0,
   usageLogTarget: "all",
   setProvidersTarget: (providersTarget) => set({ providersTarget }),
   setProxyTarget: (proxyTarget) => set({ proxyTarget }),
-  setUsageDays: (usageDays) => set({ usageDays }),
+  setUsagePeriod: (usagePeriod) => set({ usagePeriod }),
   setUsageLogPage: (usageLogPage) => set({ usageLogPage }),
   setUsageLogTarget: (usageLogTarget) => set({ usageLogTarget }),
 }));

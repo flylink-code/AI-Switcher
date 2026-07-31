@@ -119,6 +119,13 @@ export interface LibraryArchivePreview {
   totalBytes: number;
 }
 
+export interface LibraryRestoreResult {
+  archivePath: string;
+  restoredEntries: number;
+  backupDbPath?: string | null;
+  restartRequired: boolean;
+}
+
 export interface DesktopLocalizationStatus {
   platformSupported: boolean;
   installDetected: boolean;
@@ -555,6 +562,8 @@ export interface PaginatedProxyLogs {
 
 export interface ProxyLogListInput {
   days?: number;
+  hours?: number;
+  today?: boolean;
   targetApp?: string;
   statusCode?: number;
   page?: number;

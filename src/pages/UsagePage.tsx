@@ -68,6 +68,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { formatCompactNumber } from "@/utils/formatCompact";
+import { USAGE_PERIOD_VALUES, usagePeriodLabelKey } from "@/utils/usagePeriod";
 
 const { Text } = Typography;
 
@@ -83,8 +84,8 @@ function invalidateUsageQueries(queryClient: ReturnType<typeof useQueryClient>) 
 export default function UsagePage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const days = usePagePreferencesStore((state) => state.usageDays);
-  const setDays = usePagePreferencesStore((state) => state.setUsageDays);
+  const period = usePagePreferencesStore((state) => state.usagePeriod);
+  const setPeriod = usePagePreferencesStore((state) => state.setUsagePeriod);
   const logPage = usePagePreferencesStore((state) => state.usageLogPage);
   const setLogPage = usePagePreferencesStore((state) => state.setUsageLogPage);
   const logTargetApp = usePagePreferencesStore((state) => state.usageLogTarget);
@@ -105,11 +106,11 @@ export default function UsagePage() {
   const [trendExpanded, setTrendExpanded] = useState(false);
 
   const dashboardQuery = useQuery({
-    ...usageDashboardOptions(days, logTargetApp),
+    ...usageDashboardOptions(period, logTargetApp),
     placeholderData: keepPreviousData,
   });
   const logsQuery = useQuery({
-    ...usageLogsOptions(days, logPage, logTargetApp),
+    ...usageLogsOptions(period, logPage, logTargetApp),
     placeholderData: keepPreviousData,
   });
   const metaQuery = useQuery(usageMetaOptions);
@@ -325,14 +326,17 @@ export default function UsagePage() {
               <Text type="secondary">{t("usage.period")}</Text>
               <Select
                 size="middle"
-                value={days}
-                style={{ width: 140 }}
-                options={[7, 30, 90, 365].map((value) => ({
+                value={period}
+                style={{ width: 160 }}
+                options={USAGE_PERIOD_VALUES.map((value) => ({
                   value,
-                  label: t("usage.lastDays", { days: value }),
+                  label:
+                    typeof value === "number"
+                      ? t("usage.lastDays", { days: value })
+                      : t(usagePeriodLabelKey(value)),
                 }))}
                 onChange={(value) => {
-                  setDays(value);
+                  setPeriod(value);
                   setLogPage(0);
                 }}
               />

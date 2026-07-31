@@ -1,6 +1,10 @@
 //! Backup trigger command.
 
-use crate::backup::{backup_file, export_library_backup as export_library, preview_library_backup as preview_library, LibraryArchivePreview, LibraryBackupInfo, DEFAULT_BACKUP_KEEP};
+use crate::backup::{
+    backup_file, export_library_backup as export_library,
+    preview_library_backup as preview_library, restore_library_backup as restore_library,
+    LibraryArchivePreview, LibraryBackupInfo, LibraryRestoreResult, DEFAULT_BACKUP_KEEP,
+};
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
 
@@ -36,4 +40,11 @@ pub fn export_library_backup() -> AppResult<LibraryBackupInfo> {
 #[tauri::command]
 pub fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchivePreview> {
     preview_library(std::path::Path::new(&archive_path))
+}
+
+/// Replace the local managed library from a verified portable ZIP.
+/// Requires an application restart before the restored database is used.
+#[tauri::command]
+pub fn restore_library_backup(archive_path: String) -> AppResult<LibraryRestoreResult> {
+    restore_library(std::path::Path::new(&archive_path))
 }

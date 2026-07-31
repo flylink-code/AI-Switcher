@@ -24,7 +24,7 @@ pub mod usage;
 pub use backend::ping;
 pub use codex::{get_codex_auth_status, sync_codex_session_providers};
 pub use app_update::{check_app_update, install_app_update};
-pub use backup::{backup_now, export_library_backup, preview_library_backup};
+pub use backup::{backup_now, export_library_backup, preview_library_backup, restore_library_backup};
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
 pub use desktop_localization::{

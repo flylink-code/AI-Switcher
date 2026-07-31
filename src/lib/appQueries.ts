@@ -21,6 +21,8 @@ import {
   readLivePrompt,
 } from "@/services/api";
 import type { PromptTarget, ProviderTarget, SkillTarget } from "@/types/backend";
+import type { UsagePeriod } from "@/utils/usagePeriod";
+import { usagePeriodToQuery } from "@/utils/usagePeriod";
 
 export const providerListOptions = (target: ProviderTarget) =>
   queryOptions({
@@ -64,25 +66,25 @@ export const skillRepositoryOptions = queryOptions({
 });
 
 export const usageDashboardOptions = (
-  days: number,
+  period: UsagePeriod,
   target: ProviderTarget | "all",
 ) =>
   queryOptions({
-    queryKey: ["usage-dashboard", days, target] as const,
-    queryFn: () => getUsageDashboard(days, target),
+    queryKey: ["usage-dashboard", period, target] as const,
+    queryFn: () => getUsageDashboard(usagePeriodToQuery(period), target),
     staleTime: 30_000,
   });
 
 export const usageLogsOptions = (
-  days: number,
+  period: UsagePeriod,
   logPage: number,
   target: ProviderTarget | "all",
 ) =>
   queryOptions({
-    queryKey: ["usage-logs", days, logPage, target] as const,
+    queryKey: ["usage-logs", period, logPage, target] as const,
     queryFn: () =>
       listProxyRequestLogs({
-        days,
+        ...usagePeriodToQuery(period),
         page: logPage,
         pageSize: 20,
         targetApp: target === "all" ? undefined : target,
@@ -104,19 +106,20 @@ export const usageMetaOptions = queryOptions({
 
 /** @deprecated Prefer usageDashboardOptions + usageLogsOptions + usageMetaOptions */
 export const usageOverviewOptions = (
-  days: number,
+  period: UsagePeriod,
   logPage: number,
   target: ProviderTarget | "all",
 ) =>
   queryOptions({
-    queryKey: ["usage-overview", days, logPage, target] as const,
+    queryKey: ["usage-overview", period, logPage, target] as const,
     queryFn: async () => {
+      const range = usagePeriodToQuery(period);
       const [dashboard, pricing, maintenancePolicy, requestLogs] = await Promise.all([
-        getUsageDashboard(days, target),
+        getUsageDashboard(range, target),
         listModelPricing(),
         getLogMaintenancePolicy(),
         listProxyRequestLogs({
-          days,
+          ...range,
           page: logPage,
           pageSize: 20,
           targetApp: target === "all" ? undefined : target,
@@ -129,12 +132,12 @@ export const usageOverviewOptions = (
 
 /** Lightweight trend-only fetch for Providers calendar (no logs/pricing). */
 export const usageTrendOptions = (
-  days: number,
+  period: UsagePeriod,
   target: ProviderTarget | "all" = "all",
 ) =>
   queryOptions({
-    queryKey: ["usage-trend", days, target] as const,
-    queryFn: () => getUsageDashboard(days, target),
+    queryKey: ["usage-trend", period, target] as const,
+    queryFn: () => getUsageDashboard(usagePeriodToQuery(period), target),
     staleTime: 60_000,
     refetchOnMount: false,
   });

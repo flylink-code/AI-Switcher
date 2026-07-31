@@ -146,10 +146,34 @@ impl Default for LogMaintenancePolicy {
 #[serde(rename_all = "camelCase")]
 pub struct ProxyLogListInput {
     pub days: Option<u32>,
+    pub hours: Option<u32>,
+    pub today: Option<bool>,
     pub target_app: Option<String>,
     pub status_code: Option<i64>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
+}
+
+fn resolve_usage_since(days: Option<u32>, hours: Option<u32>, today: Option<bool>) -> i64 {
+    if today.unwrap_or(false) {
+        return local_midnight_millis();
+    }
+    if let Some(hours) = hours {
+        let hours = hours.clamp(1, 24 * 365);
+        return (Utc::now() - Duration::hours(i64::from(hours))).timestamp_millis();
+    }
+    let days = days.unwrap_or(365).clamp(1, 365);
+    (Utc::now() - Duration::days(i64::from(days))).timestamp_millis()
+}
+
+fn local_midnight_millis() -> i64 {
+    use chrono::Local;
+    let today = Local::now().date_naive();
+    today
+        .and_hms_opt(0, 0, 0)
+        .and_then(|naive| naive.and_local_timezone(Local).single())
+        .map(|dt| dt.timestamp_millis())
+        .unwrap_or_else(|| (Utc::now() - Duration::days(1)).timestamp_millis())
 }
 
 #[tauri::command]
@@ -157,8 +181,7 @@ pub async fn list_proxy_request_logs_cmd(
     input: ProxyLogListInput,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<PaginatedProxyLogs> {
-    let days = input.days.unwrap_or(30).clamp(1, 365);
-    let since = (Utc::now() - Duration::days(i64::from(days))).timestamp_millis();
+    let since = resolve_usage_since(input.days, input.hours, input.today);
     let page = input.page.unwrap_or(0);
     let page_size = input.page_size.unwrap_or(20);
     let filters = ProxyLogFilters {
@@ -177,11 +200,12 @@ pub async fn list_proxy_request_logs_cmd(
 #[tauri::command]
 pub async fn get_usage_dashboard(
     days: Option<u32>,
+    hours: Option<u32>,
+    today: Option<bool>,
     source: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<UsageDashboard> {
-    let days = days.unwrap_or(365).clamp(1, 365);
-    let since = (Utc::now() - Duration::days(i64::from(days))).timestamp_millis();
+    let since = resolve_usage_since(days, hours, today);
     let source = UsageSource::parse(source.as_deref())?;
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
