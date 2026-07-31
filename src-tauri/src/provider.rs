@@ -91,6 +91,32 @@ impl ProtocolType {
     }
 }
 
+/// How a provider authenticates / routes upstream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderKind {
+    #[default]
+    Standard,
+    /// ChatGPT Plus/Pro subscription via local proxy (OAuth tokens stay in app data).
+    CodexOauth,
+}
+
+impl ProviderKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ProviderKind::Standard => "standard",
+            ProviderKind::CodexOauth => "codex_oauth",
+        }
+    }
+
+    pub fn from_str_lossy(value: &str) -> Self {
+        match value {
+            "codex_oauth" => ProviderKind::CodexOauth,
+            _ => ProviderKind::Standard,
+        }
+    }
+}
+
 /// Codex accepts direct OpenAI-compatible model providers only. Claude model
 /// roles have no meaning for this target.
 pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) -> AppResult<()> {
@@ -102,6 +128,17 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
     {
         return Err(AppError::Config(
             "Codex 供应商仅支持 OpenAI Chat、OpenAI Responses 或 Anthropic Messages 协议".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> AppResult<()> {
+    if kind == ProviderKind::CodexOauth
+        && !matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop)
+    {
+        return Err(AppError::Config(
+            "ChatGPT 订阅目前仅支持 Claude Code 和 Claude Desktop".to_string(),
         ));
     }
     Ok(())
@@ -253,6 +290,15 @@ pub fn protocol_endpoint_path(protocol: ProtocolType) -> &'static str {
     }
 }
 
+/// ChatGPT Codex backend uses `/responses` under `.../backend-api/codex`.
+pub fn protocol_endpoint_path_for_provider(provider: &Provider) -> &'static str {
+    if provider.is_codex_oauth() {
+        "/responses"
+    } else {
+        protocol_endpoint_path(provider.protocol_type)
+    }
+}
+
 /// Optional upstream model overrides for Claude's built-in model roles.
 ///
 /// `Provider.model` remains the required default. Empty role values fall back
@@ -400,6 +446,10 @@ pub struct Provider {
     #[serde(default)]
     pub protocol_type: ProtocolType,
     #[serde(default)]
+    pub provider_kind: ProviderKind,
+    #[serde(default)]
+    pub auth_binding: String,
+    #[serde(default)]
     pub notes: String,
     #[serde(default)]
     pub target_app: ProviderTarget,
@@ -416,8 +466,13 @@ pub struct Provider {
 }
 
 impl Provider {
+    pub fn is_codex_oauth(&self) -> bool {
+        self.provider_kind == ProviderKind::CodexOauth
+    }
+
     pub fn requires_local_proxy(&self) -> bool {
-        self.protocol_type.uses_proxy()
+        self.is_codex_oauth()
+            || self.protocol_type.uses_proxy()
             || (self.target_app == ProviderTarget::Codex
                 && self.protocol_type == ProtocolType::Anthropic)
             || (self.target_app == ProviderTarget::ClaudeDesktop
@@ -457,6 +512,10 @@ pub struct ProviderInput {
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
     pub protocol_type: ProtocolType,
+    #[serde(default)]
+    pub provider_kind: ProviderKind,
+    #[serde(default)]
+    pub auth_binding: String,
     #[serde(default)]
     pub target_app: ProviderTarget,
     #[serde(default)]
@@ -534,7 +593,8 @@ mod tests {
     use super::{
         api_endpoint_url, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
         openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
-        normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType, Provider, ProviderTarget,
+        normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType,
+        Provider, ProviderKind, ProviderTarget,
     };
 
     #[test]
@@ -658,6 +718,8 @@ mod tests {
             auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::Anthropic,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::Codex,
             notes: String::new(),
             sort_index: 0,
@@ -687,6 +749,8 @@ mod tests {
                 subagent: "agent-upstream".into(),
             },
             protocol_type: ProtocolType::OpenAiChat,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,

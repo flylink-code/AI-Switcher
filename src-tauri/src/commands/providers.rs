@@ -9,7 +9,7 @@ use crate::provider::{
     api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
     LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
     normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol, ProviderImportResult, ProviderInput,
-    ProviderTarget, ProtocolType,
+    ProviderKind, ProviderTarget, ProtocolType,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -521,6 +521,8 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             auto_review_model_override: None,
             model_mapping: entry.model_mapping,
             protocol_type: entry.protocol_type,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: entry.target_app,
             notes: entry.notes,
         }))?;
@@ -536,17 +538,21 @@ async fn apply_target_provider(
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
     // for config writing; it is never serialized or persisted.
     let mut runtime_provider = provider.clone();
-    runtime_provider.api_key = state.db.with_conn(|conn| {
-        dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| {
-            AppError::Config("供应商未配置 API Key，无法切换".to_string())
-        })
-    })?;
+    runtime_provider.api_key = if provider.is_codex_oauth() {
+        "PROXY_MANAGED".to_string()
+    } else {
+        state.db.with_conn(|conn| {
+            dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| {
+                AppError::Config("供应商未配置 API Key，无法切换".to_string())
+            })
+        })?
+    };
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
     let mut snapshot = SwitchSnapshot::capture(state, runtime_provider.target_app).await?;
     if runtime_provider.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
-    let uses_proxy = runtime_provider.requires_local_proxy();
+    let uses_proxy = runtime_provider.is_codex_oauth() || runtime_provider.requires_local_proxy();
     let result: AppResult<Option<CodexProviderSyncResult>> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
@@ -1222,6 +1228,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         ),
         model_mapping: normalized_model_mapping(input.target_app, input.model_mapping.clone()),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
+        provider_kind: input.provider_kind, auth_binding: input.auth_binding.clone(),
         sort_index: 0, is_current: false, created_at: 0,
         health_status: None, health_checked_at: None,
     })
@@ -1322,6 +1329,8 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         auto_review_model_override: None,
         model_mapping: live.model_mapping,
         protocol_type: ProtocolType::Anthropic,
+        provider_kind: ProviderKind::Standard,
+        auth_binding: String::new(),
         target_app: target,
         notes: "从当前 Claude Code 配置导入".to_string(),
     };

@@ -584,7 +584,7 @@ fn write_meta(path: &Path, applied_id: Option<&str>, our_name: Option<&str>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderTarget};
+    use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderKind, ProviderTarget};
     use tempfile::tempdir;
 
     fn mapped_provider() -> Provider {
@@ -605,6 +605,8 @@ mod tests {
                 subagent: String::new(),
             },
             protocol_type: ProtocolType::Anthropic,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeDesktop,
             notes: String::new(),
             sort_index: 0,
@@ -741,6 +743,8 @@ mod tests {
                 subagent: String::new(),
             },
             protocol_type: ProtocolType::OpenAiChat,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeDesktop,
             notes: String::new(),
             sort_index: 0,

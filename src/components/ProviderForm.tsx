@@ -119,6 +119,7 @@ export function ProviderForm({
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
   const watchedMapping = Form.useWatch("modelMapping", form);
+  const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
 
@@ -146,6 +147,8 @@ export function ProviderForm({
         autoReviewModelOverride: editing.autoReviewModelOverride ?? undefined,
         modelMapping: editing.modelMapping,
         protocolType: editing.protocolType,
+        providerKind: editing.providerKind,
+        authBinding: editing.authBinding,
         notes: editing.notes,
         targetApp: editing.targetApp,
       });
@@ -163,6 +166,8 @@ export function ProviderForm({
       form.resetFields();
       form.setFieldsValue({
         protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
+        providerKind: "standard",
+        authBinding: "",
         targetApp: target,
         modelMapping: {
           sonnet: "",
@@ -341,6 +346,12 @@ export function ProviderForm({
         <Form.Item name="id" hidden>
           <Input />
         </Form.Item>
+        <Form.Item name="providerKind" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="authBinding" hidden>
+          <Input />
+        </Form.Item>
 
         <Form.Item
           name="name"
@@ -420,15 +431,15 @@ export function ProviderForm({
           />
         </Form.Item>
 
-        <Form.Item
+        {watchedProviderKind !== "codex_oauth" && <Form.Item
           name="apiKey"
           label={t("providers.fieldApiKey")}
           extra={editing?.apiKeySet ? t("providers.keyStored") : undefined}
         >
           <Input.Password placeholder="sk-..." autoComplete="new-password" />
-        </Form.Item>
+        </Form.Item>}
 
-        {editing?.apiKeySet && (
+        {watchedProviderKind !== "codex_oauth" && editing?.apiKeySet && (
           <Form.Item name="clearApiKey" valuePropName="checked">
             <Checkbox>{t("providers.clearKey")}</Checkbox>
           </Form.Item>

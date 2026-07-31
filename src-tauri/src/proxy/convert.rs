@@ -66,6 +66,25 @@ pub fn anthropic_to_openai_responses(request: &Value, model: &str, stream: bool)
     result
 }
 
+/// Apply fields required by the ChatGPT Codex OAuth backend.
+pub fn apply_codex_oauth_response_body(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    object.insert("store".to_string(), Value::Bool(false));
+    let include = object
+        .entry("include")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if !include.is_array() {
+        *include = Value::Array(Vec::new());
+    }
+    let items = include.as_array_mut().expect("include normalized to array");
+    let encrypted_content = Value::String("reasoning.encrypted_content".to_string());
+    if !items.contains(&encrypted_content) {
+        items.push(encrypted_content);
+    }
+}
+
 pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
     let choice = value.get("choices").and_then(Value::as_array).and_then(|items| items.first());
     let message = choice.and_then(|choice| choice.get("message")).cloned().unwrap_or_else(|| json!({}));
@@ -741,6 +760,21 @@ fn push_event(output: &mut String, event: &str, data: Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn codex_oauth_body_disables_storage_and_requests_encrypted_reasoning() {
+        let mut value = json!({"model":"gpt-test","include":["file_search_call.results"]});
+        apply_codex_oauth_response_body(&mut value);
+        assert_eq!(value["store"], false);
+        assert!(value["include"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("reasoning.encrypted_content")));
+        assert!(value["include"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("file_search_call.results")));
+    }
 
     #[test]
     fn chat_conversion_preserves_tools_images_and_model() {

@@ -109,8 +109,24 @@ pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16
     } else {
         api_key
     };
-    let auth = serde_json::json!({ "OPENAI_API_KEY": auth_key });
-    atomic_write(&auth_path, serde_json::to_string_pretty(&auth)?.as_bytes())
+    write_auth_api_key(&auth_path, auth_key)
+}
+
+fn write_auth_api_key(path: &Path, api_key: &str) -> AppResult<()> {
+    let mut auth = if path.exists() {
+        serde_json::from_slice::<Value>(&fs::read(path)?)
+            .map_err(|error| AppError::Config(format!("Codex auth.json 格式无效：{error}")))?
+    } else {
+        Value::Object(Map::new())
+    };
+    let object = auth
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config("Codex auth.json 必须是 JSON 对象".to_string()))?;
+    object.insert(
+        "OPENAI_API_KEY".to_string(),
+        Value::String(api_key.to_string()),
+    );
+    atomic_write(path, serde_json::to_string_pretty(&auth)?.as_bytes())
 }
 
 fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) -> AppResult<()> {
@@ -349,7 +365,9 @@ pub fn read_mcp_servers() -> AppResult<BTreeMap<String, Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{ClaudeModelMapping, ProtocolType, Provider, ProviderTarget};
+    use crate::provider::{
+        ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget,
+    };
 
     fn sample_codex_provider() -> Provider {
         Provider {
@@ -363,6 +381,8 @@ mod tests {
             auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiResponses,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::Codex,
             notes: String::new(),
             sort_index: 0,
@@ -472,5 +492,23 @@ mod tests {
         assert!(is_managed_provider_id("ai_switcher_p1"));
         assert!(!is_managed_provider_id("openai"));
         assert!(!is_managed_provider_id("custom"));
+    }
+
+    #[test]
+    fn auth_update_preserves_login_tokens_and_mode() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("auth.json");
+        fs::write(
+            &path,
+            r#"{"tokens":{"access_token":"keep"},"auth_mode":"chatgpt","OPENAI_API_KEY":"old"}"#,
+        )
+        .unwrap();
+
+        write_auth_api_key(&path, "new-key").unwrap();
+
+        let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(value["tokens"]["access_token"], "keep");
+        assert_eq!(value["auth_mode"], "chatgpt");
+        assert_eq!(value["OPENAI_API_KEY"], "new-key");
     }
 }

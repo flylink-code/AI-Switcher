@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 17;
+pub const SCHEMA_VERSION: u32 = 18;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -26,6 +26,8 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             model_context_window INTEGER,
             auto_review_model_override TEXT,
             protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+            provider_kind TEXT NOT NULL DEFAULT 'standard',
+            auth_binding TEXT NOT NULL DEFAULT '',
             target_app    TEXT NOT NULL DEFAULT 'claude_code',
             notes         TEXT NOT NULL DEFAULT '',
             sort_index    INTEGER NOT NULL DEFAULT 0,
@@ -201,6 +203,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 17 {
         migrate_v16_to_v17(conn)?;
+    }
+    if current < 18 {
+        migrate_v17_to_v18(conn)?;
     }
     Ok(())
 }
@@ -608,6 +613,34 @@ fn migrate_v16_to_v17(conn: &Connection) -> AppResult<()> {
         );",
     )?;
     set_user_version(conn, 17)
+}
+
+/// Add provider authentication/routing kind and its non-secret account binding.
+fn migrate_v17_to_v18(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 18);
+    }
+    for (name, definition) in [
+        ("provider_kind", "TEXT NOT NULL DEFAULT 'standard'"),
+        ("auth_binding", "TEXT NOT NULL DEFAULT ''"),
+    ] {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if exists == 0 {
+            conn.execute_batch(&format!(
+                "ALTER TABLE providers ADD COLUMN {name} {definition};"
+            ))?;
+        }
+    }
+    set_user_version(conn, 18)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

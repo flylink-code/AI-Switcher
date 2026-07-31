@@ -32,6 +32,9 @@ import type {
   ProviderTarget,
   CodexAuthStatus,
   CodexProviderSyncResult,
+  CodexOauthAccount,
+  CodexOauthDeviceStart,
+  CodexOauthPollResult,
   SwitchProviderResult,
   ProxyStatus,
   Skill,
@@ -201,6 +204,34 @@ export async function listProviders(target: ProviderTarget): Promise<Provider[]>
 export async function getCodexAuthStatus(): Promise<CodexAuthStatus> {
   const invoke = await getInvoke();
   return invoke<CodexAuthStatus>("get_codex_auth_status");
+}
+
+export async function startCodexOauthLogin(): Promise<CodexOauthDeviceStart> {
+  const invoke = await getInvoke();
+  return invoke<CodexOauthDeviceStart>("start_codex_oauth_login", {});
+}
+
+export async function pollCodexOauthLogin(deviceCode: string): Promise<CodexOauthPollResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexOauthPollResult>("poll_codex_oauth_login", { deviceCode });
+}
+
+export async function listCodexOauthAccounts(): Promise<CodexOauthAccount[]> {
+  const invoke = await getInvoke();
+  return invoke<CodexOauthAccount[]>("list_codex_oauth_accounts", {});
+}
+
+export async function ensureCodexOauthProvider(
+  target: ProviderTarget,
+  accountId: string,
+  model?: string,
+): Promise<Provider> {
+  const invoke = await getInvoke();
+  return invoke<Provider>("ensure_codex_oauth_provider", {
+    target,
+    accountId,
+    model: model ?? null,
+  });
 }
 
 export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {

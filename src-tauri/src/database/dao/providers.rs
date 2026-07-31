@@ -6,8 +6,8 @@ use rusqlite::{params, Connection};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
     normalize_provider_base_url, normalized_auto_review_model_override, normalized_model_mapping,
-    validate_target_protocol, ClaudeModelMapping, ProtocolType, Provider, ProviderInput,
-    ProviderTarget,
+    validate_provider_kind, validate_target_protocol, ClaudeModelMapping, ProtocolType, Provider,
+    ProviderInput, ProviderKind, ProviderTarget,
 };
 use crate::secrets;
 
@@ -34,7 +34,8 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json, model_context_window, auto_review_model_override
+                model_mapping_json, model_context_window, auto_review_model_override,
+                provider_kind, auth_binding
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -48,7 +49,8 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json, model_context_window, auto_review_model_override
+                model_mapping_json, model_context_window, auto_review_model_override,
+                provider_kind, auth_binding
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -65,7 +67,8 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 is_current, created_at,
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
-                model_mapping_json, model_context_window, auto_review_model_override
+                model_mapping_json, model_context_window, auto_review_model_override,
+                provider_kind, auth_binding
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -85,14 +88,28 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     if input.name.trim().is_empty() {
         return Err(AppError::Config("供应商名称不能为空".to_string()));
     }
-    if input.base_url.trim().is_empty() {
+    validate_provider_kind(input.target_app, input.provider_kind)?;
+    let is_codex_oauth = input.provider_kind == ProviderKind::CodexOauth;
+    if !is_codex_oauth && input.base_url.trim().is_empty() {
         return Err(AppError::Config("API 地址不能为空".to_string()));
+    }
+    if is_codex_oauth && input.auth_binding.trim().is_empty() {
+        return Err(AppError::Config("ChatGPT 账户绑定不能为空".to_string()));
     }
     if input.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空".to_string()));
     }
-    validate_target_protocol(input.target_app, input.protocol_type)?;
-    let base_url = normalize_provider_base_url(input.target_app, input.protocol_type, &input.base_url)?;
+    let protocol_type = if is_codex_oauth {
+        ProtocolType::OpenAiResponses
+    } else {
+        input.protocol_type
+    };
+    validate_target_protocol(input.target_app, protocol_type)?;
+    let base_url = if is_codex_oauth {
+        crate::codex_oauth::CODEX_OAUTH_BASE_URL.to_string()
+    } else {
+        normalize_provider_base_url(input.target_app, protocol_type, &input.base_url)?
+    };
     let model_mapping_json = serde_json::to_string(&normalized_model_mapping(
         input.target_app,
         input.model_mapping.clone(),
@@ -112,7 +129,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         }
         // Determine the DB column value without allowing an implicit empty-key
         // update to erase an existing credential.
-        let api_key_col = if input.clear_api_key {
+        let api_key_col = if is_codex_oauth {
+            String::new()
+        } else if input.clear_api_key {
             String::new()
         } else if !input.api_key.trim().is_empty() {
             secrets::store_key(id, input.api_key.trim())?;
@@ -123,14 +142,15 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         conn.execute(
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
-                auto_review_model_override = ? WHERE id = ?;",
+                auto_review_model_override = ?, provider_kind = ?, auth_binding = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
-                input.protocol_type.as_str(), input.notes, model_mapping_json,
-                input.model_context_window, auto_review_model_override, id,
+                protocol_type.as_str(), input.notes, model_mapping_json,
+                input.model_context_window, auto_review_model_override,
+                input.provider_kind.as_str(), input.auth_binding.trim(), id,
             ],
         )?;
-        if input.clear_api_key {
+        if input.clear_api_key || is_codex_oauth {
             secrets::delete_key(id)?;
         }
         return get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")));
@@ -142,7 +162,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     if input.clear_api_key {
         return Err(AppError::Config("新建供应商时不能删除不存在的 API Key".to_string()));
     }
-    let api_key_col = if !input.api_key.trim().is_empty() {
+    let api_key_col = if is_codex_oauth {
+        String::new()
+    } else if !input.api_key.trim().is_empty() {
         secrets::store_key(&id, input.api_key.trim())?;
         secrets::keyring_ref(&id)
     } else {
@@ -150,11 +172,12 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
-            input.protocol_type.as_str(), input.target_app.as_str(), input.notes, next_sort, now,
+            protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
+            input.target_app.as_str(), input.notes, next_sort, now,
             model_mapping_json, input.model_context_window, auto_review_model_override,
         ],
     ) {
@@ -312,8 +335,12 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
     let model_mapping_json: String = row.get(13)?;
     let model_mapping =
         serde_json::from_str::<ClaudeModelMapping>(&model_mapping_json).unwrap_or_default();
+    let provider_kind_raw: String = row.get(16)?;
+    let provider_kind = ProviderKind::from_str_lossy(&provider_kind_raw);
+    let auth_binding: String = row.get(17)?;
     Ok(Provider {
-        api_key_set: !api_key.is_empty(),
+        api_key_set: !api_key.is_empty()
+            || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
         api_key,
         id: row.get(0)?,
         name: row.get(1)?,
@@ -321,6 +348,8 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         model: row.get(4)?,
         model_mapping,
         protocol_type: ProtocolType::from_str_lossy(&protocol),
+        provider_kind,
+        auth_binding,
         target_app: ProviderTarget::from_str_lossy(&target),
         notes: row.get(7)?,
         sort_index: row.get(8)?,
@@ -356,6 +385,8 @@ mod tests {
             auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiChat,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
         }

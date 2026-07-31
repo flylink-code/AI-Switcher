@@ -4,6 +4,7 @@ import {
   App,
   Button,
   Card,
+  Modal,
   Popconfirm,
   Segmented,
   Select,
@@ -15,6 +16,7 @@ import {
   type TableColumnsType,
 } from "antd";
 import { useQuery } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
@@ -25,13 +27,26 @@ import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
-import type { Provider, ProviderInput, ProviderTarget } from "@/types/backend";
+import type {
+  CodexOauthDeviceStart,
+  Provider,
+  ProviderInput,
+  ProviderTarget,
+} from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
-import { exportProviders, getCodexAuthStatus, importProvidersJson, testProviderConnection } from "@/services/api";
+import {
+  ensureCodexOauthProvider,
+  exportProviders,
+  getCodexAuthStatus,
+  importProvidersJson,
+  pollCodexOauthLogin,
+  startCodexOauthLogin,
+  testProviderConnection,
+} from "@/services/api";
 import { usageTrendOptions } from "@/lib/appQueries";
 import {
   USAGE_PERIOD_VALUES,
@@ -54,6 +69,8 @@ export default function ProvidersPage() {
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
+  const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
+  const [oauthPolling, setOauthPolling] = useState(false);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
   const usageQuery = useQuery(usageTrendOptions(usagePeriod, usageSource));
 
@@ -65,6 +82,36 @@ export default function ProvidersPage() {
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (provider: Provider) => { setEditing(provider); setFormOpen(true); };
+
+  const handleCodexOauthLogin = async () => {
+    setBusy(true);
+    try {
+      const device = await startCodexOauthLogin();
+      setOauthDevice(device);
+      setOauthPolling(true);
+      await openUrl(device.verificationUri);
+      const deadline = Date.now() + device.expiresIn * 1000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, Math.max(1, device.interval) * 1000));
+        const result = await pollCodexOauthLogin(device.deviceCode);
+        if (result.status === "pending") continue;
+        if (result.status === "complete" && result.account) {
+          await ensureCodexOauthProvider(target, result.account.accountId);
+          await store.load(target);
+          setOauthDevice(null);
+          void message.success(t("providers.chatgptLoginSuccess"));
+          return;
+        }
+        throw new Error(result.message || t("providers.chatgptLoginFailed"));
+      }
+      throw new Error(t("providers.chatgptLoginExpired"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setOauthPolling(false);
+      setBusy(false);
+    }
+  };
 
   const handleSubmit = async (input: ProviderInput) => {
     setBusy(true);
@@ -251,6 +298,11 @@ export default function ProvidersPage() {
         ]}
       />
       <Space wrap size={[8, 8]}>
+        {target !== "codex" && (
+          <Button loading={oauthPolling} onClick={() => void handleCodexOauthLogin()}>
+            {t("providers.chatgptLogin")}
+          </Button>
+        )}
         <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
         <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
         <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
@@ -353,6 +405,28 @@ export default function ProvidersPage() {
       onCancel={() => setFormOpen(false)}
       onSubmit={handleSubmit}
     />
+    <Modal
+      open={oauthDevice !== null}
+      title={t("providers.chatgptLoginTitle")}
+      footer={null}
+      closable={!oauthPolling}
+      maskClosable={!oauthPolling}
+      onCancel={() => setOauthDevice(null)}
+    >
+      <Space direction="vertical" style={{ width: "100%" }}>
+        <Text>{t("providers.chatgptLoginInstructions")}</Text>
+        <Typography.Title level={2} copyable style={{ margin: 0 }}>
+          {oauthDevice?.userCode}
+        </Typography.Title>
+        <Button
+          type="primary"
+          onClick={() => oauthDevice && void openUrl(oauthDevice.verificationUri)}
+        >
+          {t("providers.openChatgptLogin")}
+        </Button>
+        {oauthPolling && <Text type="secondary">{t("providers.waitingAuthorization")}</Text>}
+      </Space>
+    </Modal>
   </Space>;
 }
 

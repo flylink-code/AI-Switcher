@@ -360,7 +360,7 @@ fn backup_settings(path: &std::path::Path) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{ProviderTarget, ProtocolType};
+    use crate::provider::{ProviderKind, ProviderTarget, ProtocolType};
     use serde_json::json;
     use std::fs;
     use tempfile::tempdir;
@@ -383,6 +383,8 @@ mod tests {
                 subagent: "deepseek-agent".into(),
             },
             protocol_type: ProtocolType::Anthropic,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,

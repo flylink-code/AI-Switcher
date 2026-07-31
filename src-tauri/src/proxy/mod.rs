@@ -39,8 +39,8 @@ use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, protocol_endpoint_path, resolve_upstream_model, ProtocolType, Provider,
-    ProviderTarget,
+    api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
+    Provider, ProviderTarget,
 };
 
 const DEFAULT_PORT: u16 = 15821;
@@ -144,7 +144,7 @@ impl ProxyManager {
             started_at: Instant::now(),
         };
 
-        let mut app = if target == ProviderTarget::Codex {
+        let app = if target == ProviderTarget::Codex {
             Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
@@ -331,6 +331,18 @@ fn next_failover_provider(state: &ProxyState, current_id: &str) -> AppResult<Opt
         if candidate.id == current_id || candidate.base_url.trim().is_empty() || circuit_is_open(state, &candidate.id) {
             continue;
         }
+        if candidate.is_codex_oauth() {
+            if let Ok((token, account_id)) =
+                crate::codex_oauth::manager().get_valid_token(Some(&candidate.auth_binding))
+            {
+                candidate.api_key = token;
+                candidate.auth_binding = account_id;
+                candidate.base_url = crate::codex_oauth::CODEX_OAUTH_BASE_URL.to_string();
+                candidate.protocol_type = ProtocolType::OpenAiResponses;
+                return Ok(Some(candidate));
+            }
+            continue;
+        }
         match state.db.with_conn(|conn| resolve_api_key(conn, &candidate.id)) {
             Ok(Some(key)) if !key.trim().is_empty() => {
                 candidate.api_key = key;
@@ -353,25 +365,37 @@ fn prepare_upstream_request(
 ) -> AppResult<PreparedUpstreamRequest> {
     let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("");
     provider.model = resolve_upstream_model(provider, requested_model);
-    let target_url = api_endpoint_url(&provider.base_url, protocol_endpoint_path(provider.protocol_type))?;
+    let target_url = api_endpoint_url(
+        &provider.base_url,
+        protocol_endpoint_path_for_provider(provider),
+    )?;
     let (outgoing_body, translated) = encode_upstream_request(provider, incoming, body_bytes, incoming_stream);
     let mut builder = state.client.request(method.clone(), target_url).header(header::CONTENT_TYPE, "application/json");
-    for (name, value) in headers.iter() {
-        let name_str = name.as_str();
-        if is_hop_by_hop_header(name_str)
-            || name_str.eq_ignore_ascii_case("host")
-            || name_str.eq_ignore_ascii_case("content-length")
-            || name_str.eq_ignore_ascii_case("content-type")
-            || name_str.eq_ignore_ascii_case("authorization")
-            || name_str.eq_ignore_ascii_case("x-api-key")
-        {
-            continue;
+    if !provider.is_codex_oauth() {
+        for (name, value) in headers.iter() {
+            let name_str = name.as_str();
+            if is_hop_by_hop_header(name_str)
+                || name_str.eq_ignore_ascii_case("host")
+                || name_str.eq_ignore_ascii_case("content-length")
+                || name_str.eq_ignore_ascii_case("content-type")
+                || name_str.eq_ignore_ascii_case("authorization")
+                || name_str.eq_ignore_ascii_case("x-api-key")
+            {
+                continue;
+            }
+            builder = builder.header(name, value);
         }
-        builder = builder.header(name, value);
     }
     let key = provider.api_key.trim();
     builder = builder.header(header::AUTHORIZATION, format!("Bearer {key}"));
-    builder = builder.header("x-api-key", key);
+    if provider.is_codex_oauth() {
+        builder = builder
+            .header("originator", crate::codex_oauth::ORIGINATOR)
+            .header("version", crate::codex_oauth::CLIENT_VERSION)
+            .header("Chatgpt-Account-Id", provider.auth_binding.trim());
+    } else {
+        builder = builder.header("x-api-key", key);
+    }
     Ok(PreparedUpstreamRequest { builder, outgoing_body, translated })
 }
 
@@ -577,7 +601,21 @@ async fn proxy_handler(
         log_early_failure(&state, uri.path(), "provider", Some(503), started.elapsed().as_millis() as i64);
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商");
     };
-    provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
+    if provider.is_codex_oauth() {
+        match crate::codex_oauth::manager().get_valid_token(Some(&provider.auth_binding)) {
+            Ok((token, account_id)) => {
+                provider.api_key = token;
+                provider.auth_binding = account_id;
+                provider.base_url = crate::codex_oauth::CODEX_OAUTH_BASE_URL.to_string();
+                provider.protocol_type = ProtocolType::OpenAiResponses;
+            }
+            Err(error) => {
+                log::error!("代理读取 ChatGPT OAuth 凭据失败: {error}");
+                return json_error(StatusCode::SERVICE_UNAVAILABLE, "ChatGPT 登录已失效");
+            }
+        }
+    } else {
+        provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
         Ok(Some(key)) => key,
         Ok(None) => {
             log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
@@ -588,7 +626,8 @@ async fn proxy_handler(
             log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));
             return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商凭据不可用");
         }
-    };
+        };
+    }
     if provider.base_url.trim().is_empty() {
         log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("configuration"));
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "当前供应商未配置 Base URL");
@@ -1262,8 +1301,11 @@ fn encode_upstream_request(
             )
         }
         ProtocolType::OpenAiResponses => {
-            let request =
+            let mut request =
                 convert::anthropic_to_openai_responses(incoming, provider.model.trim(), stream);
+            if provider.is_codex_oauth() {
+                convert::apply_codex_oauth_response_body(&mut request);
+            }
             (
                 Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
                 true,
@@ -1553,7 +1595,7 @@ pub(crate) fn is_hop_by_hop_header(name: &str) -> bool {
 mod tests {
     use super::*;
     use crate::database::Database;
-    use crate::provider::{ClaudeModelMapping, ProviderTarget};
+    use crate::provider::{ClaudeModelMapping, ProviderKind, ProviderTarget};
 
     fn provider(protocol_type: ProtocolType) -> Provider {
         Provider {
@@ -1567,6 +1609,8 @@ mod tests {
             auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,

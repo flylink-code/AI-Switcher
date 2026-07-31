@@ -93,13 +93,15 @@ jobs:
 
             ## What's new
 
-            - Session manager: paginated parse, file-open timeout, scan cap; skip stuck jsonl (cloud sync / AV locks) instead of hanging
-            - Warn in UI when scan is degraded (timeouts or file-count limit)
+            - ChatGPT subscription for Claude Code/Desktop: device OAuth login, local proxy injects tokens (zero live credentials)
+            - Codex `auth.json` merge on third-party switch: preserve official login tokens
+            - Confirm Claude Code `CLAUDE_CODE_SUBAGENT_MODEL` role mapping
 
             ## 更新内容
 
-            - 会话管理：分页解析、打开超时、扫描上限；跳过被云同步/杀毒卡住的 jsonl，避免进入页面卡死
-            - 扫描降级时在界面提示（超时或文件数达上限）
+            - Claude Code/Desktop 支持 ChatGPT 订阅：设备码登录，本地代理注入令牌（live 配置不落真实凭据）
+            - 切换 Codex 第三方时合并 `auth.json`，保留官方登录 tokens
+            - 确认 Claude Code 子代理模型字段 `CLAUDE_CODE_SUBAGENT_MODEL`
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

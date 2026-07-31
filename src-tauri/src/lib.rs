@@ -6,6 +6,7 @@
 )]
 
 mod backup;
+mod codex_oauth;
 mod commands;
 mod config;
 mod database;
@@ -70,6 +71,8 @@ use crate::commands::{
     resolve_close_request, restore_onboarding_tips, set_close_behavior,
     apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
     list_profiles, update_workspace_profile,
+    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
+    remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -154,6 +157,12 @@ pub fn run() {
             import_live_config,
             export_providers,
             import_providers_json,
+            start_codex_oauth_login,
+            poll_codex_oauth_login,
+            list_codex_oauth_accounts,
+            remove_codex_oauth_account,
+            set_default_codex_oauth_account,
+            ensure_codex_oauth_provider,
             list_config_backups,
             preview_config_backup,
             restore_config_backup,

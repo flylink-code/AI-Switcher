@@ -2,6 +2,7 @@
 
 pub mod backend;
 pub mod codex;
+pub mod codex_oauth;
 pub mod app_update;
 pub mod backup;
 pub mod db;
@@ -25,6 +26,10 @@ pub mod usage;
 
 pub use backend::ping;
 pub use codex::{get_codex_auth_status, sync_codex_session_providers};
+pub use codex_oauth::{
+    ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
+    remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
+};
 pub use app_update::{check_app_update, install_app_update};
 pub use backup::{
     backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup,

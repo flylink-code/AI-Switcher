@@ -5,6 +5,7 @@
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex";
+export type ProviderKind = "standard" | "codex_oauth";
 
 export interface ClaudeModelMapping {
   sonnet: string;
@@ -28,6 +29,8 @@ export interface Provider {
   autoReviewModelOverride?: string | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
+  providerKind: ProviderKind;
+  authBinding: string;
   targetApp: ProviderTarget;
   notes: string;
   sortIndex: number;
@@ -53,6 +56,8 @@ export interface ProviderInput {
   autoReviewModelOverride?: string | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
+  providerKind?: ProviderKind;
+  authBinding?: string;
   targetApp: ProviderTarget;
   notes: string;
 }
@@ -311,6 +316,26 @@ export interface CodexAuthStatus {
   configExists: boolean;
   loggedIn: boolean;
   loginCommand: string;
+}
+
+export interface CodexOauthDeviceStart {
+  deviceCode: string;
+  userCode: string;
+  verificationUri: string;
+  interval: number;
+  expiresIn: number;
+}
+
+export interface CodexOauthAccount {
+  accountId: string;
+  email: string;
+  authenticatedAt: number;
+}
+
+export interface CodexOauthPollResult {
+  status: "pending" | "complete" | "expired" | "denied" | "error";
+  account?: CodexOauthAccount;
+  message?: string;
 }
 
 export interface McpImportSummary {
