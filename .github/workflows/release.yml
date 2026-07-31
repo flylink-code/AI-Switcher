@@ -67,21 +67,17 @@ jobs:
 
             ## What's new
 
-            - Directory pickers for config backup / library export & import (including newest `library-*.zip` in a folder)
-            - Hourly usage chart and heatmap for “today” and “last 24 hours”
-            - Optional API key inclusion when pushing SSH/WSL sync archives (off by default)
-            - About: Linux Claude Code install via login-shell / install.sh; Codex CLI version detect & install
-            - Safer Claude Code ownership checks; clearer Claude Desktop unsupported message on Linux
-            - Environment paths collapsed into a top-level “View path details” dialog
+            - About: probe Node/npm (≥22) before Codex / Claude npm installs; install Node 22 via fnm in the user directory (no sudo)
+            - PATH-anchored npm installs so GUI sessions can find fnm/system Node
+            - Claude Code: prefer native `install.sh` / `install.ps1` (download to temp file), fall back to npm
+            - Clearer install errors when npm is missing or Node is too old (`EBADENGINE`)
 
             ## 更新内容
 
-            - 配置备份 / 资料库导出与导入支持选择目录（含目录内最新 `library-*.zip`）
-            - 「今天 / 最近 24 小时」用量曲线与热力图按小时展示
-            - SSH/WSL 同步可选携带 API Key（默认关闭）
-            - 关于页：Ubuntu 下 Claude Code 安装加固；新增 Codex CLI 版本检测与安装
-            - 缓解 Claude Code「外部修改拒绝覆盖」误判；Linux 上 Claude Desktop 给出明确不支持提示
-            - 环境信息路径合并到顶部「查看路径信息」弹窗
+            - 关于页：安装 Codex / Claude（npm）前探测 Node/npm（≥22）；可用 fnm 在用户目录安装 Node 22（无需 sudo）
+            - npm 安装使用 PATH 锚定，避免 GUI 进程找不到 fnm/系统 Node
+            - Claude Code：优先官方原生 `install.sh` / `install.ps1`（先下载到临时文件），失败再走 npm
+            - npm 缺失或 Node 过旧（`EBADENGINE`）时给出更清晰的错误提示
 
             ### Windows
             Download the NSIS installer for new installations. In-app updates are signed and delivered from this release.

@@ -3,6 +3,7 @@ import {
   getAutostartConfig,
   getClaudeCodeVersion,
   getCodexCliVersion,
+  getNodeRuntimeStatus,
   getCloseBehavior,
   getDbInfo,
   getDataRoot,
@@ -198,4 +199,10 @@ export const codexCliVersionOptions = queryOptions({
   queryKey: ["codex-cli-version", "latest"] as const,
   queryFn: () => getCodexCliVersion(true),
   staleTime: 5 * 60_000,
+});
+
+export const nodeRuntimeStatusOptions = queryOptions({
+  queryKey: ["node-runtime-status"] as const,
+  queryFn: getNodeRuntimeStatus,
+  staleTime: 60_000,
 });

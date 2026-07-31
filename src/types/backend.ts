@@ -601,6 +601,17 @@ export interface CodexCliVersionInfo {
   installedButBroken: boolean;
 }
 
+export interface NodeRuntimeStatus {
+  installed: boolean;
+  version: string | null;
+  meetsMinimum: boolean;
+  npmPath: string | null;
+  nodePath: string | null;
+  source: string;
+  fnmInstalled: boolean;
+  installHint: string;
+}
+
 export type SessionProvider = "claude_code" | "codex";
 
 export interface SessionProviderStatus {

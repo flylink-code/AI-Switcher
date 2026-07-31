@@ -719,6 +719,21 @@
     "codexExecutablePath": "Executable",
     "codexCommandHint": "You can also run this command in a terminal to install or update:",
     "runCodexUpdate": "Update Codex CLI",
-    "runCodexInstall": "Install Codex CLI"
+    "runCodexInstall": "Install Codex CLI",
+    "nodeRuntimeSection": "Node.js runtime",
+    "nodeRuntimeVersion": "Node version",
+    "nodeRuntimeSource": "Source",
+    "nodeRuntimeNpm": "npm path",
+    "nodeRuntimeReady": "Meets ≥22 — ready for Node-based CLIs",
+    "nodeRuntimeMissing": "No usable Node.js ≥22 detected",
+    "nodeRuntimeTooOld": "Node is too old; ≥22 is required",
+    "nodeRuntimeHint": "Codex CLI (and Claude’s npm install path) need Node.js ≥22. You can install it with fnm in your user directory — no sudo required.",
+    "installNodeViaFnm": "Install Node 22 via fnm",
+    "installingNodeViaFnm": "Installing Node via fnm…",
+    "nodeRuntimeInstallSuccess": "Node.js is ready ({{version}})",
+    "nodeRuntimeInstallFailed": "Failed to install Node: {{error}}",
+    "cliInstallNeedNode": "Install Node.js ≥22 first (use the fnm button above)",
+    "cliInstallNodeMissing": "npm was not found. Install Node.js ≥22 first.",
+    "cliInstallNodeTooOld": "Node.js is too old. Upgrade to ≥22 and try again."
   }
 }

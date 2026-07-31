@@ -18,6 +18,7 @@ pub mod proxy;
 pub mod skills;
 pub mod system;
 pub mod sync;
+pub mod node_runtime;
 pub mod tools;
 pub mod usage;
 
@@ -85,6 +86,7 @@ pub use sync::{
     delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync,
     push_sync_archive, save_sync_target,
 };
+pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
 pub use tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
 };

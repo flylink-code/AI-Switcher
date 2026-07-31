@@ -48,14 +48,20 @@ struct Installation {
 fn install_command() -> String {
     #[cfg(windows)]
     {
-        format!("npm i -g {NPM_PACKAGE}@latest")
+        format!(
+            "irm https://claude.ai/install.ps1 | iex ; if (-not $?) {{ npm i -g {NPM_PACKAGE}@latest }}"
+        )
     }
     #[cfg(not(windows))]
     {
         format!(
-            "curl -fsSL https://claude.ai/install.sh | bash || npm i -g {NPM_PACKAGE}@latest"
+            "curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh && bash /tmp/claude-install.sh || npm i -g {NPM_PACKAGE}@latest"
         )
     }
+}
+
+fn map_cli_install_error(detail: &str) -> String {
+    crate::commands::node_runtime::map_npm_install_error(detail)
 }
 
 fn parse_version(text: &str) -> Option<String> {
@@ -537,6 +543,7 @@ fn resolve_command_via_login_shell(name: &str) -> Option<PathBuf> {
     }
 }
 
+#[cfg(not(windows))]
 fn shell_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
@@ -683,10 +690,25 @@ fn run_anchored_update(installation: &Installation) -> io::Result<Output> {
                     find_command_near("volta", installation),
                     vec!["install", "@anthropic-ai/claude-code@latest"],
                 ),
-                _ => (
-                    find_command_near("npm", installation),
-                    vec!["i", "-g", "@anthropic-ai/claude-code@latest"],
-                ),
+                _ => {
+                    if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+                        let npm = find_command_near("npm", installation);
+                        let npm = if npm.is_file() {
+                            npm
+                        } else {
+                            runtime.npm_path.clone()
+                        };
+                        return crate::commands::node_runtime::run_anchored_npm(
+                            &npm,
+                            &runtime.node_path,
+                            &["i", "-g", "@anthropic-ai/claude-code@latest"],
+                        );
+                    }
+                    (
+                        find_command_near("npm", installation),
+                        vec!["i", "-g", "@anthropic-ai/claude-code@latest"],
+                    )
+                }
             };
             #[cfg(windows)]
             {
@@ -724,40 +746,133 @@ fn run_unix_command_with_login_path(
     Command::new("sh").args(["-lc", &script]).output()
 }
 
+fn download_to_temp(url: &str, filename: &str) -> AppResult<PathBuf> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .build()
+        .map_err(|error| AppError::Other(format!("Failed to build HTTP client: {error}")))?;
+    let response = client
+        .get(url)
+        .send()
+        .map_err(|error| AppError::Other(format!("Download failed ({url}): {error}")))?;
+    if !response.status().is_success() {
+        return Err(AppError::Other(format!(
+            "Download failed ({url}): HTTP {}",
+            response.status()
+        )));
+    }
+    let bytes = response
+        .bytes()
+        .map_err(|error| AppError::Other(format!("Download read failed ({url}): {error}")))?;
+    let path = std::env::temp_dir().join(format!(
+        "{}-{}-{}",
+        filename.trim_end_matches(".sh").trim_end_matches(".ps1"),
+        std::process::id(),
+        filename
+    ));
+    std::fs::write(&path, bytes)?;
+    Ok(path)
+}
+
 #[cfg(not(windows))]
-fn run_unix_install_claude() -> io::Result<Output> {
-    Command::new("sh")
-        .args(["-lc", &install_command()])
+fn run_claude_native_install_unix() -> AppResult<Output> {
+    let script = download_to_temp("https://claude.ai/install.sh", "claude-install.sh")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&script)?.permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&script, perms)?;
+    }
+    let output = Command::new("bash")
+        .arg(script.as_os_str())
         .output()
+        .map_err(|error| AppError::Other(format!("无法执行 Claude 安装脚本: {error}")))?;
+    let _ = std::fs::remove_file(&script);
+    Ok(output)
+}
+
+#[cfg(windows)]
+fn run_claude_native_install_windows() -> AppResult<Output> {
+    use std::os::windows::process::CommandExt;
+
+    let script = download_to_temp("https://claude.ai/install.ps1", "claude-install.ps1")?;
+    let mut command = Command::new("powershell");
+    command
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            &script.display().to_string(),
+        ])
+        .creation_flags(CREATE_NO_WINDOW);
+    let output = command
+        .output()
+        .map_err(|error| AppError::Other(format!("无法执行 Claude 安装脚本: {error}")))?;
+    let _ = std::fs::remove_file(&script);
+    Ok(output)
+}
+
+fn run_claude_npm_install() -> AppResult<Output> {
+    let runtime = crate::commands::node_runtime::require_node_for_npm()?;
+    crate::commands::node_runtime::run_anchored_npm(
+        &runtime.npm_path,
+        &runtime.node_path,
+        &["i", "-g", "@anthropic-ai/claude-code@latest"],
+    )
+    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
+}
+
+fn run_claude_install_or_update() -> AppResult<Output> {
+    let probe = probe_installation();
+    match probe {
+        Probe::Found(installation) | Probe::Broken(installation, _) => {
+            if installation.source == "native" || installation.environment == "wsl" {
+                return run_anchored_update(&installation)
+                    .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")));
+            }
+            // npm/pnpm/volta paths require a usable Node runtime.
+            let _ = crate::commands::node_runtime::require_node_for_npm()?;
+            run_anchored_update(&installation)
+                .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))
+        }
+        Probe::NotFound(_) => {
+            #[cfg(windows)]
+            {
+                match run_claude_native_install_windows() {
+                    Ok(output) if output.status.success() => Ok(output),
+                    Ok(native_output) => match run_claude_npm_install() {
+                        Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
+                        Ok(npm_output) => Ok(npm_output),
+                        Err(_) => Ok(native_output),
+                    },
+                    Err(_) => run_claude_npm_install(),
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                match run_claude_native_install_unix() {
+                    Ok(output) if output.status.success() => Ok(output),
+                    Ok(native_output) => match run_claude_npm_install() {
+                        Ok(npm_output) if npm_output.status.success() => Ok(npm_output),
+                        Ok(npm_output) => Ok(npm_output),
+                        Err(_) => Ok(native_output),
+                    },
+                    Err(_) => run_claude_npm_install(),
+                }
+            }
+        }
+    }
 }
 
 #[tauri::command]
 pub async fn run_claude_code_update() -> AppResult<String> {
-    let result = tokio::task::spawn_blocking(|| {
-        let probe = probe_installation();
-        match probe {
-            Probe::Found(installation) | Probe::Broken(installation, _) => {
-                run_anchored_update(&installation)
-            }
-            Probe::NotFound(_) => {
-                #[cfg(windows)]
-                {
-                    run_windows_command(
-                        Path::new("npm"),
-                        &["i", "-g", "@anthropic-ai/claude-code@latest"],
-                    )
-                }
-                #[cfg(not(windows))]
-                {
-                    run_unix_install_claude()
-                }
-            }
-        }
-    })
-    .await
-    .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
+    let result = tokio::task::spawn_blocking(run_claude_install_or_update)
+        .await
+        .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
 
-    let output = result.map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+    let output = result?;
     if output.status.success() {
         let stdout = decode_output(&output.stdout).trim().to_string();
         Ok(if stdout.is_empty() {
@@ -766,7 +881,9 @@ pub async fn run_claude_code_update() -> AppResult<String> {
             stdout
         })
     } else {
-        Err(AppError::Config(output_detail(&output)))
+        Err(AppError::Config(map_cli_install_error(&output_detail(
+            &output,
+        ))))
     }
 }
 
@@ -889,16 +1006,37 @@ fn codex_update_command_for(installation: Option<&Installation>) -> String {
     )
 }
 
-fn run_codex_anchored_update(installation: &Installation) -> io::Result<Output> {
-    let program = find_command_near("npm", installation);
-    let args = ["i", "-g", "@openai/codex@latest"];
-    #[cfg(windows)]
-    {
-        run_windows_command(&program, &args)
-    }
-    #[cfg(not(windows))]
-    {
-        run_unix_command_with_login_path(&program, &args, Path::new(&installation.path))
+fn run_codex_npm_install() -> AppResult<Output> {
+    let runtime = crate::commands::node_runtime::require_node_for_npm()?;
+    crate::commands::node_runtime::run_anchored_npm(
+        &runtime.npm_path,
+        &runtime.node_path,
+        &["i", "-g", "@openai/codex@latest"],
+    )
+    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
+}
+
+fn run_codex_install_or_update() -> AppResult<Output> {
+    // Codex always depends on Node/npm.
+    let _ = crate::commands::node_runtime::require_node_for_npm()?;
+    let probe = probe_codex_installation();
+    match probe {
+        Probe::Found(installation) | Probe::Broken(installation, _) => {
+            let program = find_command_near("npm", &installation);
+            let runtime = crate::commands::node_runtime::require_node_for_npm()?;
+            let npm = if program.is_file() {
+                program
+            } else {
+                runtime.npm_path.clone()
+            };
+            crate::commands::node_runtime::run_anchored_npm(
+                &npm,
+                &runtime.node_path,
+                &["i", "-g", "@openai/codex@latest"],
+            )
+            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))
+        }
+        Probe::NotFound(_) => run_codex_npm_install(),
     }
 }
 
@@ -944,30 +1082,11 @@ pub async fn get_codex_cli_version(include_latest: Option<bool>) -> AppResult<Co
 
 #[tauri::command]
 pub async fn run_codex_cli_update() -> AppResult<String> {
-    let result = tokio::task::spawn_blocking(|| {
-        let probe = probe_codex_installation();
-        match probe {
-            Probe::Found(installation) | Probe::Broken(installation, _) => {
-                run_codex_anchored_update(&installation)
-            }
-            Probe::NotFound(_) => {
-                #[cfg(windows)]
-                {
-                    run_windows_command(Path::new("npm"), &["i", "-g", "@openai/codex@latest"])
-                }
-                #[cfg(not(windows))]
-                {
-                    Command::new("sh")
-                        .args(["-lc", &codex_install_command()])
-                        .output()
-                }
-            }
-        }
-    })
-    .await
-    .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
+    let result = tokio::task::spawn_blocking(run_codex_install_or_update)
+        .await
+        .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
 
-    let output = result.map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+    let output = result?;
     if output.status.success() {
         let stdout = decode_output(&output.stdout).trim().to_string();
         Ok(if stdout.is_empty() {
@@ -976,7 +1095,9 @@ pub async fn run_codex_cli_update() -> AppResult<String> {
             stdout
         })
     } else {
-        Err(AppError::Config(output_detail(&output)))
+        Err(AppError::Config(map_cli_install_error(&output_detail(
+            &output,
+        ))))
     }
 }
 
@@ -1046,5 +1167,11 @@ mod tests {
     #[test]
     fn codex_install_command_targets_openai_package() {
         assert!(codex_install_command().contains("@openai/codex"));
+    }
+
+    #[test]
+    fn maps_npm_not_found_for_cli_install() {
+        let mapped = map_cli_install_error("sh: 1: npm: not found");
+        assert!(mapped.starts_with("NODE_RUNTIME_MISSING:"));
     }
 }

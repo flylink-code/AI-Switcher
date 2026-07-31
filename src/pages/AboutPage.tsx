@@ -20,6 +20,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import {
+  ensureNodeRuntimeViaFnm,
   getUpdateMirrorSettings,
   restartApp,
   restoreOnboardingTips,
@@ -32,12 +33,37 @@ import {
   codexCliVersionOptions,
   localClaudeVersionOptions,
   localCodexCliVersionOptions,
+  nodeRuntimeStatusOptions,
 } from "@/lib/appQueries";
 import { checkForAppUpdate, installAvailableAppUpdate } from "@/lib/appUpdater";
-import type { ClaudeCodeVersionInfo, CodexCliVersionInfo, UpdateMirrorSettings } from "@/types/backend";
+import type {
+  ClaudeCodeVersionInfo,
+  CodexCliVersionInfo,
+  NodeRuntimeStatus,
+  UpdateMirrorSettings,
+} from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text, Paragraph } = Typography;
+
+function formatCliInstallError(raw: string, t: (key: string) => string): string {
+  if (raw.includes("NODE_RUNTIME_MISSING:")) {
+    return t("about.cliInstallNodeMissing");
+  }
+  if (raw.includes("NODE_RUNTIME_TOO_OLD:")) {
+    return t("about.cliInstallNodeTooOld");
+  }
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("npm: not found")
+    || lower.includes("node.js ≥22")
+    || lower.includes("node.js >=22")
+    || lower.includes("was not found")
+  ) {
+    return t("about.cliInstallNeedNode");
+  }
+  return raw;
+}
 
 export default function AboutPage() {
   const { t } = useTranslation();
@@ -46,9 +72,12 @@ export default function AboutPage() {
   const [checkingApp, setCheckingApp] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
+  const [installingNode, setInstallingNode] = useState(false);
   const [restoringTips, setRestoringTips] = useState(false);
   const [updateMirrorSettings, setUpdateMirrorSettingsState] = useState<UpdateMirrorSettings | null>(null);
   const [savingUpdateMirrorSettings, setSavingUpdateMirrorSettings] = useState(false);
+  const nodeRuntimeQuery = useQuery(nodeRuntimeStatusOptions);
+  const nodeRuntime = nodeRuntimeQuery.data ?? null;
   const localClaudeQuery = useQuery(localClaudeVersionOptions);
   const claudeQuery = useQuery({
     ...claudeVersionOptions,
@@ -71,6 +100,54 @@ export default function AboutPage() {
       console.warn("Failed to load update mirror settings", error);
     });
   }, []);
+
+  const refreshNodeRuntime = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["node-runtime-status"] });
+  };
+
+  const installNodeViaFnm = async (): Promise<NodeRuntimeStatus | null> => {
+    setInstallingNode(true);
+    try {
+      const status = await ensureNodeRuntimeViaFnm();
+      queryClient.setQueryData(["node-runtime-status"], status);
+      if (status.meetsMinimum) {
+        void message.success(
+          t("about.nodeRuntimeInstallSuccess", {
+            version: status.version ?? "22+",
+          }),
+        );
+        return status;
+      }
+      void message.error(status.installHint);
+      return status;
+    } catch (error) {
+      void message.error(
+        t("about.nodeRuntimeInstallFailed", { error: errMsg(error) }),
+      );
+      return null;
+    } finally {
+      setInstallingNode(false);
+    }
+  };
+
+  const ensureNodeThen = async (action: () => Promise<void>) => {
+    if (nodeRuntime?.meetsMinimum) {
+      await action();
+      return;
+    }
+    Modal.confirm({
+      title: t("about.installNodeViaFnm"),
+      content: t("about.nodeRuntimeHint"),
+      okText: t("about.installNodeViaFnm"),
+      cancelText: t("providers.cancel"),
+      onOk: async () => {
+        const status = await installNodeViaFnm();
+        if (status?.meetsMinimum) {
+          await action();
+        }
+      },
+    });
+  };
 
   const checkAppUpdate = async () => {
     setCheckingApp(true);
@@ -147,27 +224,67 @@ export default function AboutPage() {
   const updateClaudeCode = async () => {
     setUpdatingClaude(true);
     try {
+      // Native installer is preferred on the backend; only gate npm fallback errors.
       const result = await runClaudeCodeUpdate();
       void message.success(result);
       await queryClient.invalidateQueries({ queryKey: ["claude-code-version"] });
+      await refreshNodeRuntime();
     } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
+      const raw = errMsg(e);
+      if (
+        raw.includes("NODE_RUNTIME_")
+        || raw.toLowerCase().includes("npm: not found")
+        || raw.toLowerCase().includes("node.js")
+      ) {
+        void message.error(formatCliInstallError(raw, t));
+        if (!nodeRuntime?.meetsMinimum) {
+          void ensureNodeThen(async () => {
+            setUpdatingClaude(true);
+            try {
+              const result = await runClaudeCodeUpdate();
+              void message.success(result);
+              await queryClient.invalidateQueries({ queryKey: ["claude-code-version"] });
+            } catch (retryError) {
+              void message.error(formatCliInstallError(errMsg(retryError), t));
+            } finally {
+              setUpdatingClaude(false);
+            }
+          });
+        }
+      } else {
+        void message.error(formatCliInstallError(raw, t));
+      }
     } finally {
       setUpdatingClaude(false);
     }
   };
 
   const updateCodexCli = async () => {
-    setUpdatingCodex(true);
-    try {
-      const result = await runCodexCliUpdate();
-      void message.success(result);
-      await queryClient.invalidateQueries({ queryKey: ["codex-cli-version"] });
-    } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      setUpdatingCodex(false);
+    const runInstall = async () => {
+      setUpdatingCodex(true);
+      try {
+        const result = await runCodexCliUpdate();
+        void message.success(result);
+        await queryClient.invalidateQueries({ queryKey: ["codex-cli-version"] });
+      } catch (e) {
+        void message.error(formatCliInstallError(errMsg(e), t));
+      } finally {
+        setUpdatingCodex(false);
+      }
+    };
+
+    if (!nodeRuntime?.meetsMinimum) {
+      await ensureNodeThen(runInstall);
+      return;
     }
+    await runInstall();
+  };
+
+  const nodeStatusLabel = () => {
+    if (!nodeRuntime) return t("about.unknown");
+    if (nodeRuntime.meetsMinimum) return t("about.nodeRuntimeReady");
+    if (nodeRuntime.installed) return t("about.nodeRuntimeTooOld");
+    return t("about.nodeRuntimeMissing");
   };
 
   return (
@@ -230,6 +347,58 @@ export default function AboutPage() {
           </Space>
         </Card>
 
+        <Card
+          size="small"
+          title={t("about.nodeRuntimeSection")}
+          extra={
+            <Button
+              size="small"
+              icon={<ReloadOutlined spin={nodeRuntimeQuery.isFetching} />}
+              onClick={() => void nodeRuntimeQuery.refetch()}
+            >
+              {t("common.refresh")}
+            </Button>
+          }
+        >
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Descriptions column={1} size="small" bordered>
+              <Descriptions.Item label={t("about.nodeRuntimeVersion")}>
+                {nodeRuntime?.version ? (
+                  <Text code>{nodeRuntime.version}</Text>
+                ) : (
+                  <Tag>{t("about.notInstalled")}</Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("about.claudeStatus")}>
+                <Tag color={nodeRuntime?.meetsMinimum ? "green" : "orange"}>
+                  {nodeStatusLabel()}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("about.nodeRuntimeSource")}>
+                <Text>{nodeRuntime?.source ?? "—"}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("about.nodeRuntimeNpm")}>
+                <Text code copyable={Boolean(nodeRuntime?.npmPath)}>
+                  {nodeRuntime?.npmPath ?? "—"}
+                </Text>
+              </Descriptions.Item>
+            </Descriptions>
+            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              {t("about.nodeRuntimeHint")}
+            </Paragraph>
+            {!nodeRuntime?.meetsMinimum && (
+              <Alert type="warning" showIcon message={nodeRuntime?.installHint ?? t("about.nodeRuntimeMissing")} />
+            )}
+            <Button
+              type={nodeRuntime?.meetsMinimum ? "default" : "primary"}
+              loading={installingNode}
+              onClick={() => void installNodeViaFnm()}
+            >
+              {installingNode ? t("about.installingNodeViaFnm") : t("about.installNodeViaFnm")}
+            </Button>
+          </Space>
+        </Card>
+
         <CliToolCard
           title={t("about.claudeCodeSection")}
           info={claudeInfo}
@@ -262,10 +431,15 @@ export default function AboutPage() {
           title={t("about.codexCliSection")}
           info={codexInfo}
           fetching={codexQuery.isFetching}
-          updating={updatingCodex}
+          updating={updatingCodex || installingNode}
           onRefresh={() => void codexQuery.refetch()}
           onCopy={(command) => void copyCommand(command)}
           onInstallOrUpdate={() => void updateCodexCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !codexInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
           labels={{
             current: t("about.codexCurrentVersion"),
             latest: t("about.codexLatestVersion"),
@@ -300,6 +474,7 @@ function CliToolCard({
   onRefresh,
   onCopy,
   onInstallOrUpdate,
+  primaryLabel,
   labels,
 }: {
   title: string;
@@ -309,6 +484,7 @@ function CliToolCard({
   onRefresh: () => void;
   onCopy: (command: string) => void;
   onInstallOrUpdate: () => void;
+  primaryLabel?: string;
   labels: {
     current: string;
     latest: string;
@@ -400,7 +576,7 @@ function CliToolCard({
             {labels.copy}
           </Button>
           <Button size="small" type="primary" loading={updating} onClick={onInstallOrUpdate}>
-            {info?.installed ? labels.update : labels.install}
+            {primaryLabel ?? (info?.installed ? labels.update : labels.install)}
           </Button>
         </Space>
       </Space>

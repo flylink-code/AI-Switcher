@@ -54,6 +54,7 @@ import type {
   PaginatedProxyLogs,
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
+  NodeRuntimeStatus,
   AutostartConfig,
   AutostartMode,
   CloseBehavior,
@@ -759,6 +760,16 @@ export async function getCodexCliVersion(includeLatest = true): Promise<CodexCli
 export async function runCodexCliUpdate(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("run_codex_cli_update", {});
+}
+
+export async function getNodeRuntimeStatus(): Promise<NodeRuntimeStatus> {
+  const invoke = await getInvoke();
+  return invoke<NodeRuntimeStatus>("get_node_runtime_status", {});
+}
+
+export async function ensureNodeRuntimeViaFnm(): Promise<NodeRuntimeStatus> {
+  const invoke = await getInvoke();
+  return invoke<NodeRuntimeStatus>("ensure_node_runtime_via_fnm", {});
 }
 
 export async function scanSessions(

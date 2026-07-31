@@ -719,6 +719,21 @@
     "codexExecutablePath": "可执行文件",
     "codexCommandHint": "也可在终端手动执行以下命令安装或更新：",
     "runCodexUpdate": "更新 Codex CLI",
-    "runCodexInstall": "安装 Codex CLI"
+    "runCodexInstall": "安装 Codex CLI",
+    "nodeRuntimeSection": "Node.js 运行时",
+    "nodeRuntimeVersion": "Node 版本",
+    "nodeRuntimeSource": "来源",
+    "nodeRuntimeNpm": "npm 路径",
+    "nodeRuntimeReady": "已满足 ≥22，可安装依赖 Node 的 CLI",
+    "nodeRuntimeMissing": "未检测到可用的 Node.js ≥22",
+    "nodeRuntimeTooOld": "当前 Node 版本过低，需要 ≥22",
+    "nodeRuntimeHint": "Codex CLI（以及 Claude 的 npm 安装方式）需要 Node.js ≥22。可使用 fnm 在用户目录安装，无需 sudo。",
+    "installNodeViaFnm": "用 fnm 安装 Node 22",
+    "installingNodeViaFnm": "正在通过 fnm 安装 Node…",
+    "nodeRuntimeInstallSuccess": "Node.js 已就绪（{{version}}）",
+    "nodeRuntimeInstallFailed": "安装 Node 失败：{{error}}",
+    "cliInstallNeedNode": "请先安装 Node.js ≥22（可用上方的 fnm 按钮）",
+    "cliInstallNodeMissing": "未找到 npm。请先安装 Node.js ≥22。",
+    "cliInstallNodeTooOld": "Node.js 版本过低。请升级到 ≥22 后再试。"
   }
 }
