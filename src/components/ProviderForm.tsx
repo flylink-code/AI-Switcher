@@ -45,7 +45,15 @@ const protocolEndpoints: Record<ProtocolType, string> = {
   openai_responses: "/v1/responses",
 };
 
-const codexModelSuggestions = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex"];
+const codexModelSuggestions = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.3-codex",
+];
 
 /** Validate and convert a pasted request endpoint into a reusable HTTPS Base URL. */
 function normalizeBaseUrl(value: string): string {

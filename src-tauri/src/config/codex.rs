@@ -122,6 +122,14 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     doc["model_provider"] = value(provider_id);
     doc["model_context_window"] = value(context_window as i64);
     doc["model_catalog_json"] = value(MODEL_CATALOG_FILENAME);
+    // Advertise Fast-mode UI (/fast) when the model supports it. Do not force
+    // service_tier=fast — that doubles API cost; users opt in via Codex.
+    if model_supports_codex_fast(model) {
+        if !doc["features"].is_table() {
+            doc["features"] = Item::Table(Table::new());
+        }
+        doc["features"]["fast_mode"] = value(true);
+    }
     if !doc["model_providers"].is_table() {
         doc["model_providers"] = Item::Table(Table::new());
     }
@@ -151,6 +159,18 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     Ok(())
 }
 
+/// Models that Codex / ChatGPT Fast mode currently supports (catalog-driven).
+fn model_supports_codex_fast(model: &str) -> bool {
+    let m = model.trim().to_ascii_lowercase();
+    if m == "gpt-5.6" || m == "gpt-5.6-sol" || m.starts_with("gpt-5.5") {
+        return true;
+    }
+    if m == "gpt-5.4" || m.starts_with("gpt-5.4-pro") {
+        return true;
+    }
+    false
+}
+
 fn write_model_catalog(provider: &Provider) -> AppResult<()> {
     let model = provider.model.trim();
     if model.is_empty() {
@@ -169,7 +189,7 @@ fn write_model_catalog(provider: &Provider) -> AppResult<()> {
 /// Build a Codex ≥0.144.5-compatible catalog entry, backfilling parser-required
 /// fields when absent from a minimal model list.
 fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
-    serde_json::json!({
+    let mut entry = serde_json::json!({
         "slug": model,
         "display_name": model,
         "description": model,
@@ -210,8 +230,19 @@ fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
         "effective_context_window_percent": 95,
         "experimental_supported_tools": [],
         "input_modalities": ["text", "image"],
-        "supports_search_tool": true
-    })
+        "supports_search_tool": true,
+        "service_tiers": [],
+        "additional_speed_tiers": []
+    });
+    if model_supports_codex_fast(model) {
+        entry["service_tiers"] = serde_json::json!([{
+            "id": "fast",
+            "name": "Fast",
+            "description": "Up to 2.5x speed on Sol (API Fast / Priority tier; higher token rate)"
+        }]);
+        entry["additional_speed_tiers"] = serde_json::json!(["fast"]);
+    }
+    entry
 }
 
 fn remove_legacy_managed_providers(doc: &mut DocumentMut) {
@@ -395,6 +426,18 @@ mod tests {
         assert_eq!(entry["context_window"], 200_000);
         assert_eq!(entry["max_context_window"], 200_000);
         assert_eq!(entry["supports_reasoning_summaries"], true);
+    }
+
+    #[test]
+    fn catalog_advertises_fast_mode_for_sol() {
+        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000);
+        assert_eq!(entry["service_tiers"][0]["id"], "fast");
+        assert_eq!(entry["additional_speed_tiers"][0], "fast");
+        assert!(model_supports_codex_fast("gpt-5.6-sol"));
+        assert!(model_supports_codex_fast("gpt-5.5"));
+        assert!(model_supports_codex_fast("gpt-5.4"));
+        assert!(!model_supports_codex_fast("gpt-5.6-luna"));
+        assert!(!model_supports_codex_fast("gpt-5.4-mini"));
     }
 
     #[test]

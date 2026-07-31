@@ -67,17 +67,15 @@ jobs:
 
             ## What's new
 
-            - Node install via fnm uses npmmirror (`FNM_NODE_DIST`) with GitHub zip mirror fallbacks and retries
-            - npm global Claude/Codex installs use `registry.npmmirror.com` and soft-verify with absolute paths
-            - When Node ≥22 is available, Claude install prefers npm first; native installer is the fallback with merged errors
-            - About page maps network/registry failures to clearer i18n messages
+            - Update default OpenAI GPT-5.6 Luna (−80%) and Terra (−20%) prices; fill cache rates
+            - Advertise Sol Fast mode in Codex model catalog (`service_tiers` / `fast_mode`); do not force `service_tier=fast`
+            - Add `gpt-5.6-sol-fast` pricing row (2× Sol) and Codex model suggestions for sol/terra/luna
 
             ## 更新内容
 
-            - fnm 安装 Node 走 npmmirror（`FNM_NODE_DIST`），GitHub zip 支持镜像回退与重试
-            - Claude/Codex 的 npm 全局安装使用 `registry.npmmirror.com`，并以绝对路径软校验
-            - 已有 Node ≥22 时 Claude 优先 npm 安装；失败再回退原生安装并合并错误信息
-            - 关于页将网络/源失败映射为更清晰的中英文提示
+            - 更新 GPT-5.6 Luna（−80%）与 Terra（−20%）默认价，并补齐缓存价
+            - Codex 模型目录声明 Sol Fast（`service_tiers` / `fast_mode`），不强制开启双倍计费
+            - 新增 `gpt-5.6-sol-fast`（2×）计价行；供应商表单建议加入 sol/terra/luna
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
