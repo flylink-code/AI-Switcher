@@ -24,6 +24,8 @@ export interface Provider {
   model: string;
   /** Optional Codex catalog context window; missing uses 272k. */
   modelContextWindow?: number | null;
+  /** Optional Codex auto-review subagent model override. */
+  autoReviewModelOverride?: string | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
@@ -48,6 +50,7 @@ export interface ProviderInput {
   clearApiKey?: boolean;
   model: string;
   modelContextWindow?: number | null;
+  autoReviewModelOverride?: string | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   targetApp: ProviderTarget;
@@ -286,6 +289,7 @@ export interface McpServer {
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
+  sortIndex: number;
   createdAt: number;
 }
 

@@ -67,15 +67,13 @@ jobs:
 
             ## What's new
 
-            - Official-login provider switch uses the same file/proxy snapshot rollback as third-party switches
-            - Connection tests report latency in milliseconds on the providers page and health tags
-            - Failed switches surface an explicit rolled-back message
+            - MCP servers: structured args/env/headers editors with reorder; `sort_index` for server list order
+            - Codex providers: optional `autoReviewModelOverride`; proxy rewrites `model` when `x-openai-subagent` is guardian/auto_review
 
             ## 更新内容
 
-            - 切回官方登录与第三方切换共用文件/代理快照回滚
-            - 连通性测试在供应商页展示毫秒延迟
-            - 切换失败时明确提示「已回滚」
+            - MCP：参数 / env / headers 结构化编辑与排序；服务器列表支持 `sort_index`
+            - Codex：供应商级 `autoReviewModelOverride`；代理在 `x-openai-subagent: guardian|auto_review` 时改写模型，避免 404
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

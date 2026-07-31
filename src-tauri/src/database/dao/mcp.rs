@@ -7,12 +7,13 @@ use serde_json::Value;
 use crate::error::{AppError, AppResult};
 use crate::mcp::{validate_server_input, McpServer, McpServerInput, McpTarget};
 
-/// List all MCP servers ordered by name.
+const SERVER_SELECT: &str = "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, sort_index, created_at";
+
+/// List all MCP servers ordered by `sort_index`.
 pub fn list_mcp_servers(conn: &Connection) -> AppResult<Vec<McpServer>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
-         FROM mcp_servers ORDER BY name ASC;",
-    )?;
+    let mut stmt = conn.prepare(&format!(
+        "{SERVER_SELECT} FROM mcp_servers ORDER BY sort_index ASC, created_at ASC;"
+    ))?;
     let rows = stmt.query_map([], row_to_server)?;
     let mut out = Vec::new();
     for r in rows {
@@ -23,10 +24,7 @@ pub fn list_mcp_servers(conn: &Connection) -> AppResult<Vec<McpServer>> {
 
 /// Fetch a single server by id.
 pub fn get_mcp_server(conn: &Connection, id: &str) -> AppResult<Option<McpServer>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
-         FROM mcp_servers WHERE id = ?;",
-    )?;
+    let mut stmt = conn.prepare(&format!("{SERVER_SELECT} FROM mcp_servers WHERE id = ?;"))?;
     let mut rows = stmt.query(params![id])?;
     match rows.next()? {
         Some(row) => Ok(Some(row_to_server(row)?)),
@@ -73,10 +71,11 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
     }
     let id = format!("mcp_{}", uuid_v8());
     let now = Utc::now().timestamp_millis();
+    let sort_index = next_sort_index(conn)?;
     conn.execute(
         "INSERT INTO mcp_servers
-            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?);",
+            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, sort_index, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id,
             name,
@@ -84,6 +83,7 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
             input.enabled_claude_code as i64,
             input.enabled_claude_desktop as i64,
             input.enabled_codex as i64,
+            sort_index,
             now,
         ],
     )?;
@@ -95,6 +95,17 @@ pub fn delete_mcp_server(conn: &Connection, id: &str) -> AppResult<()> {
     let changed = conn.execute("DELETE FROM mcp_servers WHERE id = ?;", params![id])?;
     if changed == 0 {
         return Err(AppError::Config(format!("MCP 服务器不存在: {id}")));
+    }
+    Ok(())
+}
+
+/// Reorder MCP server ids.
+pub fn reorder_mcp_servers(conn: &Connection, ordered_ids: &[String]) -> AppResult<()> {
+    for (idx, id) in ordered_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE mcp_servers SET sort_index = ? WHERE id = ?;",
+            params![idx as i64, id],
+        )?;
     }
     Ok(())
 }
@@ -160,15 +171,21 @@ pub fn import_mcp_entry(
 }
 
 fn get_by_name(conn: &Connection, name: &str) -> AppResult<Option<McpServer>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, created_at
-         FROM mcp_servers WHERE name = ?;",
-    )?;
+    let mut stmt = conn.prepare(&format!("{SERVER_SELECT} FROM mcp_servers WHERE name = ?;"))?;
     let mut rows = stmt.query(params![name])?;
     match rows.next()? {
         Some(row) => Ok(Some(row_to_server(row)?)),
         None => Ok(None),
     }
+}
+
+fn next_sort_index(conn: &Connection) -> AppResult<i64> {
+    let max: Option<i64> = conn.query_row(
+        "SELECT MAX(sort_index) FROM mcp_servers;",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(max.unwrap_or(-1) + 1)
 }
 
 fn row_to_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<McpServer> {
@@ -182,7 +199,8 @@ fn row_to_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<McpServer> {
         enabled_claude_code: row.get::<_, i64>(3)? != 0,
         enabled_claude_desktop: row.get::<_, i64>(4)? != 0,
         enabled_codex: row.get::<_, i64>(5)? != 0,
-        created_at: row.get(6)?,
+        sort_index: row.get(6)?,
+        created_at: row.get(7)?,
     })
 }
 
@@ -250,6 +268,21 @@ mod tests {
             assert!(!import_mcp_entry(conn, "svc", &cfg, false, true, false)?);
             let s = list_mcp_servers(conn)?.pop().unwrap();
             assert!(s.enabled_claude_code && s.enabled_claude_desktop);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reorder_updates_sort_index() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let a = upsert_mcp_server(conn, &input("alpha"))?;
+            let b = upsert_mcp_server(conn, &input("beta"))?;
+            reorder_mcp_servers(conn, &[b.id.clone(), a.id.clone()])?;
+            let ordered = list_mcp_servers(conn)?;
+            assert_eq!(ordered[0].id, b.id);
+            assert_eq!(ordered[1].id, a.id);
             Ok(())
         })
         .unwrap();

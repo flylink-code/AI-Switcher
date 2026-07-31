@@ -13,7 +13,6 @@
 //!
 //! See task.md §2.5: "统一面板管理 + 双向同步：从现有配置导入，编辑后写回各应用".
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -58,6 +57,7 @@ pub struct McpServer {
     pub enabled_claude_code: bool,
     pub enabled_claude_desktop: bool,
     pub enabled_codex: bool,
+    pub sort_index: i64,
     pub created_at: i64,
 }
 
@@ -145,20 +145,16 @@ pub fn sync_to_files(servers: &[McpServer]) -> AppResult<()> {
 }
 
 /// Build the `mcpServers` object for one application: enabled servers only,
-/// keyed by name (BTreeMap for deterministic output order).
+/// keyed by name in `sort_index` order.
 fn enabled_map(servers: &[McpServer], target: McpTarget) -> Map<String, Value> {
-    let sorted: BTreeMap<&str, &Value> = servers
+    servers
         .iter()
         .filter(|s| match target {
             McpTarget::ClaudeCode => s.enabled_claude_code,
             McpTarget::ClaudeDesktop => s.enabled_claude_desktop,
             McpTarget::Codex => s.enabled_codex,
         })
-        .map(|s| (s.name.as_str(), &s.server_config))
-        .collect();
-    sorted
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v.clone()))
+        .map(|s| (s.name.clone(), s.server_config.clone()))
         .collect()
 }
 
@@ -216,6 +212,7 @@ mod tests {
             enabled_claude_code: code,
             enabled_claude_desktop: desktop,
             enabled_codex: false,
+            sort_index: 0,
             created_at: 0,
         }
     }

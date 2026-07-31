@@ -359,6 +359,7 @@ mod tests {
             api_key_set: true,
             model: "gpt-5".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiResponses,
             target_app: ProviderTarget::Codex,

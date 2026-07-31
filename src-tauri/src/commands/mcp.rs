@@ -49,6 +49,19 @@ pub fn toggle_mcp_server(
     sync_all(&state)
 }
 
+/// Reorder MCP servers by id list.
+#[tauri::command]
+pub fn reorder_mcp_servers(
+    ordered_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    state
+        .db
+        .with_conn(|conn| dao::reorder_mcp_servers(conn, &ordered_ids))?;
+    sync_all(&state)?;
+    Ok(())
+}
+
 /// Import the union of both apps' live `mcpServers` maps into the DB.
 ///
 /// A server present in an app is enabled for that app; existing rows keep their

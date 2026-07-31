@@ -374,6 +374,7 @@ mod tests {
             api_key_set: true,
             model: "deepseek-v4-pro".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "deepseek-sonnet".into(),
                 opus: "deepseek-opus".into(),

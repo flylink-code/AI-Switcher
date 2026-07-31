@@ -7,6 +7,7 @@
 
 mod convert;
 mod codex;
+mod codex_auto_review;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -1562,6 +1563,7 @@ mod tests {
             api_key_set: true,
             model: "opus-upstream".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type,
             target_app: ProviderTarget::ClaudeCode,

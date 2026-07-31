@@ -596,6 +596,7 @@ mod tests {
             api_key_set: true,
             model: "default-upstream".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "upstream-sonnet".into(),
                 opus: "upstream-opus".into(),
@@ -731,6 +732,7 @@ mod tests {
             api_key_set: true,
             model: "deepseek-chat".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "deepseek-chat".into(),
                 opus: "deepseek-chat".into(),

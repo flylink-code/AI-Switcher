@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 14;
+pub const SCHEMA_VERSION: u32 = 16;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -24,6 +24,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             model         TEXT,
             model_mapping_json TEXT NOT NULL DEFAULT '{}',
             model_context_window INTEGER,
+            auto_review_model_override TEXT,
             protocol_type TEXT NOT NULL DEFAULT 'anthropic',
             target_app    TEXT NOT NULL DEFAULT 'claude_code',
             notes         TEXT NOT NULL DEFAULT '',
@@ -66,6 +67,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             enabled_claude_code    BOOLEAN NOT NULL DEFAULT 0,
             enabled_claude_desktop BOOLEAN NOT NULL DEFAULT 0,
             enabled_codex          BOOLEAN NOT NULL DEFAULT 0,
+            sort_index    INTEGER NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
     )?;
@@ -178,6 +180,12 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 14 {
         migrate_v13_to_v14(conn)?;
+    }
+    if current < 15 {
+        migrate_v14_to_v15(conn)?;
+    }
+    if current < 16 {
+        migrate_v15_to_v16(conn)?;
     }
     Ok(())
 }
@@ -516,6 +524,62 @@ fn migrate_v13_to_v14(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 14)
 }
 
+/// Optional Codex auto-review model override on provider rows.
+fn migrate_v14_to_v15(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 15);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'auto_review_model_override';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN auto_review_model_override TEXT;",
+        )?;
+    }
+    set_user_version(conn, 15)
+}
+
+/// Add display/sync ordering for unified MCP server rows.
+fn migrate_v15_to_v16(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'mcp_servers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return set_user_version(conn, 16);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('mcp_servers') WHERE name = 'sort_index';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE mcp_servers ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0;",
+        )?;
+        conn.execute_batch(
+            "WITH ordered AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY created_at ASC, name ASC) - 1 AS idx
+                FROM mcp_servers
+             )
+             UPDATE mcp_servers
+             SET sort_index = (
+                SELECT idx FROM ordered WHERE ordered.id = mcp_servers.id
+             );",
+        )?;
+    }
+    set_user_version(conn, 16)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -688,5 +752,47 @@ mod tests {
                 .unwrap();
             assert_eq!(count, 1, "missing {name}");
         }
+    }
+
+    #[test]
+    fn v15_providers_gain_auto_review_model_override_idempotently() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE providers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                model TEXT,
+                model_mapping_json TEXT NOT NULL DEFAULT '{}',
+                model_context_window INTEGER,
+                protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+                target_app TEXT NOT NULL DEFAULT 'claude_code',
+                notes TEXT NOT NULL DEFAULT '',
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                is_current BOOLEAN NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO providers (id, name, base_url, model)
+            VALUES ('legacy', 'Legacy', 'https://api.example.test', 'old-default');
+            PRAGMA user_version = 14;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'auto_review_model_override';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
     }
 }

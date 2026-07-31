@@ -16,8 +16,8 @@ use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
 use crate::provider::{api_endpoint_url, ProviderTarget};
 
 use super::{
-    extract_usage_from_json, extract_usage_from_sse, is_hop_by_hop_header, json_error,
-    log_early_failure, log_request, ProxyState,
+    codex_auto_review::apply_auto_review_model_override, extract_usage_from_json, extract_usage_from_sse,
+    is_hop_by_hop_header, json_error, log_early_failure, log_request, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -125,6 +125,13 @@ pub async fn codex_proxy_handler(
         .ok()
         .and_then(|value| value.get("stream").and_then(serde_json::Value::as_bool))
         .unwrap_or(false);
+
+    // Resolve override from the current provider; if failover is added later, use the target provider.
+    let body = apply_auto_review_model_override(
+        &headers,
+        &body,
+        provider.auto_review_model_override.as_deref(),
+    );
 
     let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
     request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));

@@ -398,6 +398,11 @@ export async function toggleMcpServer(
   return invoke<void>("toggle_mcp_server", { id, target, enabled });
 }
 
+export async function reorderMcpServers(orderedIds: string[]): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("reorder_mcp_servers", { orderedIds });
+}
+
 export async function importMcpServers(): Promise<McpImportSummary> {
   const invoke = await getInvoke();
   return invoke<McpImportSummary>("import_mcp_servers", {});

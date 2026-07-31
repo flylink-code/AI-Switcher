@@ -8,7 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::provider::{
     api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
     LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
-    normalized_model_mapping, validate_target_protocol, ProviderImportResult, ProviderInput,
+    normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol, ProviderImportResult, ProviderInput,
     ProviderTarget, ProtocolType,
 };
 use crate::store::AppState;
@@ -518,6 +518,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             clear_api_key: false,
             model: entry.model,
             model_context_window: entry.model_context_window,
+            auto_review_model_override: None,
             model_mapping: entry.model_mapping,
             protocol_type: entry.protocol_type,
             target_app: entry.target_app,
@@ -1215,6 +1216,10 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         name: input.name.clone(), base_url: normalize_base_url(&input.base_url)?, api_key: key,
         api_key_set: !input.api_key.trim().is_empty(), model: input.model.clone(),
         model_context_window: input.model_context_window,
+        auto_review_model_override: normalized_auto_review_model_override(
+            input.target_app,
+            input.auto_review_model_override.clone(),
+        ),
         model_mapping: normalized_model_mapping(input.target_app, input.model_mapping.clone()),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
         sort_index: 0, is_current: false, created_at: 0,
@@ -1314,6 +1319,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         clear_api_key: false,
         model: live.model,
         model_context_window: None,
+        auto_review_model_override: None,
         model_mapping: live.model_mapping,
         protocol_type: ProtocolType::Anthropic,
         target_app: target,

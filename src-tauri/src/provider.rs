@@ -112,6 +112,24 @@ pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapp
     }
 }
 
+/// Normalize optional Codex auto-review model override; non-Codex targets always clear it.
+pub fn normalized_auto_review_model_override(
+    target: ProviderTarget,
+    value: Option<String>,
+) -> Option<String> {
+    if target != ProviderTarget::Codex {
+        return None;
+    }
+    value.and_then(|model| {
+        let trimmed = model.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
 /// Codex bundled models.json uses 272000 as the default context window.
 pub const CODEX_DEFAULT_CONTEXT_WINDOW: u64 = 272_000;
 
@@ -368,9 +386,12 @@ pub struct Provider {
     /// Primary model written to `ANTHROPIC_MODEL`. May be empty.
     #[serde(default)]
     pub model: String,
-    /// Optional Codex model catalog context window. Missing/zero uses 272k.
+    /// Optional Codex model catalog context window on provider rows.
     #[serde(default)]
     pub model_context_window: Option<u64>,
+    /// Optional upstream model for Codex guardian/auto_review subagent requests.
+    #[serde(default)]
+    pub auto_review_model_override: Option<String>,
     #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
@@ -425,6 +446,8 @@ pub struct ProviderInput {
     pub model: String,
     #[serde(default)]
     pub model_context_window: Option<u64>,
+    #[serde(default)]
+    pub auto_review_model_override: Option<String>,
     #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
@@ -626,6 +649,7 @@ mod tests {
             api_key_set: false,
             model: "default-model".into(),
             model_context_window: None,
+            auto_review_model_override: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "sonnet-upstream".into(),
                 opus: "opus-upstream".into(),

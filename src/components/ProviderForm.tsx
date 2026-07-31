@@ -143,6 +143,7 @@ export function ProviderForm({
         clearApiKey: false,
         model: editing.model,
         modelContextWindow: editing.modelContextWindow ?? undefined,
+        autoReviewModelOverride: editing.autoReviewModelOverride ?? undefined,
         modelMapping: editing.modelMapping,
         protocolType: editing.protocolType,
         notes: editing.notes,
@@ -474,6 +475,23 @@ export function ProviderForm({
             ]}
           >
             <InputNumber style={{ width: "100%" }} min={1} step={1000} placeholder="272000" />
+          </Form.Item>
+        )}
+
+        {isCodex && (
+          <Form.Item
+            name="autoReviewModelOverride"
+            label={t("providers.autoReviewModelOverride")}
+            extra={t("providers.autoReviewModelOverrideHint")}
+          >
+            <AutoComplete
+              allowClear
+              options={modelOptions}
+              placeholder="gpt-5.4-mini"
+              filterOption={(input, option) =>
+                String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
+              }
+            />
           </Form.Item>
         )}
 
