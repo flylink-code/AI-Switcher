@@ -135,6 +135,8 @@ struct ProviderHealthUpdated {
     category: String,
     message: String,
     checked_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latency_ms: Option<u64>,
 }
 
 pub fn schedule_provider_health_check<R: tauri::Runtime>(
@@ -157,6 +159,7 @@ pub fn schedule_provider_health_check<R: tauri::Runtime>(
                 category: "internal".to_string(),
                 message: error.to_string(),
                 checked_at: Utc::now().timestamp_millis(),
+                latency_ms: None,
             },
         };
         log::info!(
@@ -175,6 +178,7 @@ pub fn schedule_provider_health_check<R: tauri::Runtime>(
                 category: result.category,
                 message: result.message,
                 checked_at: result.checked_at,
+                latency_ms: result.latency_ms,
             },
         );
     });
@@ -407,13 +411,43 @@ pub async fn switch_to_official(target: ProviderTarget, state: tauri::State<'_, 
 
 /// Shared official-login restoration used by IPC and tray actions.
 pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppState) -> AppResult<()> {
-    match target {
-        ProviderTarget::ClaudeCode => restore_code_ownership(state)?,
-        ProviderTarget::ClaudeDesktop => restore_desktop_ownership(state)?,
-        ProviderTarget::Codex => codex::restore_official()?,
+    let mut snapshot = SwitchSnapshot::capture(state, target).await?;
+    let result: AppResult<()> = async {
+        match target {
+            ProviderTarget::ClaudeCode => restore_code_ownership(state)?,
+            ProviderTarget::ClaudeDesktop => restore_desktop_ownership(state)?,
+            ProviderTarget::Codex => {
+                tauri::async_runtime::spawn_blocking(codex::restore_official)
+                    .await
+                    .map_err(|error| {
+                        AppError::Tauri(format!("Codex 官方配置恢复任务失败: {error}"))
+                    })??;
+            }
+        }
+        state.proxy.lock().await.stop_target(target);
+        state.db.with_conn(|conn| dao::clear_current_provider(conn, target))?;
+        Ok(())
     }
-    state.proxy.lock().await.stop_target(target);
-    state.db.with_conn(|conn| dao::clear_current_provider(conn, target))
+    .await;
+    match result {
+        Ok(()) => {
+            let _ = snapshot.capture_last_written_files();
+            Ok(())
+        }
+        Err(error) => {
+            if let Err(mark_error) = snapshot.capture_last_written_files() {
+                return rollback_switch(
+                    snapshot,
+                    state,
+                    AppError::Config(format!(
+                        "{error}；无法安全确认配置写入状态：{mark_error}"
+                    )),
+                )
+                .await;
+            }
+            rollback_switch(snapshot, state, error).await
+        }
+    }
 }
 
 #[tauri::command]
@@ -758,8 +792,10 @@ impl FileSnapshot {
 
 async fn rollback_switch<T>(snapshot: SwitchSnapshot, state: &AppState, error: AppError) -> AppResult<T> {
     match snapshot.restore(state).await {
-        Ok(()) => Err(error),
-        Err(rollback_error) => Err(AppError::Config(format!("{error}；已尝试回滚，但部分恢复失败：{rollback_error}"))),
+        Ok(()) => Err(AppError::Config(format!("{error}（已回滚到切换前配置）"))),
+        Err(rollback_error) => Err(AppError::Config(format!(
+            "{error}；已尝试回滚，但部分恢复失败：{rollback_error}"
+        ))),
     }
 }
 
@@ -1097,6 +1133,7 @@ async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<
                 category: "credential".to_string(),
                 message: "无法读取系统凭据库中的 API Key".to_string(),
                 checked_at: Utc::now().timestamp_millis(),
+                latency_ms: None,
             };
             persist_provider_health(provider, &result, state.db.as_ref())?;
             return Ok(result);
@@ -1126,12 +1163,14 @@ async fn test_provider_with_key(
             if matches!(provider.protocol_type, ProtocolType::Anthropic) {
                 request = request.header("anthropic-version", "2023-06-01");
             }
+            let started = std::time::Instant::now();
             let response = request.body(serde_json::to_vec(&payload)?).send().await;
-            classify_test_response(response, checked_at, provider.protocol_type)
+            let latency_ms = Some(started.elapsed().as_millis() as u64);
+            classify_test_response(response, checked_at, provider.protocol_type, latency_ms)
     } else if key.trim().is_empty() {
-        ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at }
+        ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at, latency_ms: None }
     } else {
-        ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at }
+        ConnectionTestResult { ok: false, category: "model".to_string(), message: "请先填写模型名称".to_string(), checked_at, latency_ms: None }
     };
     if persist_health {
         persist_provider_health(provider, &result, db)?;
@@ -1148,7 +1187,15 @@ fn persist_provider_health(
         conn.execute(
             "INSERT INTO provider_health (provider_id, status, detail, checked_at) VALUES (?, ?, ?, ?)
              ON CONFLICT(provider_id) DO UPDATE SET status = excluded.status, detail = excluded.detail, checked_at = excluded.checked_at",
-            rusqlite::params![provider.id, if result.ok { "healthy" } else { "error" }, result.message, result.checked_at],
+            rusqlite::params![
+                provider.id,
+                if result.ok { "healthy" } else { "error" },
+                match result.latency_ms {
+                    Some(ms) => format!("{}|latency_ms={ms}", result.message),
+                    None => result.message.clone(),
+                },
+                result.checked_at
+            ],
         )?;
         Ok(())
     })
@@ -1176,11 +1223,21 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
 }
 
 fn classify_test_response(
-    response: Result<reqwest::Response, reqwest::Error>, checked_at: i64, protocol: ProtocolType,
+    response: Result<reqwest::Response, reqwest::Error>,
+    checked_at: i64,
+    protocol: ProtocolType,
+    latency_ms: Option<u64>,
 ) -> ConnectionTestResult {
     match response {
         Ok(response) if response.status().is_success() => ConnectionTestResult {
-            ok: true, category: "ok".to_string(), message: "连接验证成功".to_string(), checked_at,
+            ok: true,
+            category: "ok".to_string(),
+            message: match latency_ms {
+                Some(ms) => format!("连接验证成功（{ms} ms）"),
+                None => "连接验证成功".to_string(),
+            },
+            checked_at,
+            latency_ms,
         },
         Ok(response) => {
             let status = response.status().as_u16();
@@ -1190,13 +1247,27 @@ fn classify_test_response(
                 400 | 422 => ("model", "模型不可用或不兼容"),
                 _ => ("upstream", "上游服务返回错误"),
             };
-            ConnectionTestResult { ok: false, category: category.to_string(), message: message.to_string(), checked_at }
+            ConnectionTestResult {
+                ok: false,
+                category: category.to_string(),
+                message: message.to_string(),
+                checked_at,
+                latency_ms,
+            }
         }
         Err(error) if error.is_timeout() => ConnectionTestResult {
-            ok: false, category: "network".to_string(), message: "连接测试超时".to_string(), checked_at,
+            ok: false,
+            category: "network".to_string(),
+            message: "连接测试超时".to_string(),
+            checked_at,
+            latency_ms,
         },
         Err(_) => ConnectionTestResult {
-            ok: false, category: "network".to_string(), message: "无法连接供应商服务".to_string(), checked_at,
+            ok: false,
+            category: "network".to_string(),
+            message: "无法连接供应商服务".to_string(),
+            checked_at,
+            latency_ms,
         },
     }
 }

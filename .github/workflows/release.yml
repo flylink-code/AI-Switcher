@@ -67,15 +67,15 @@ jobs:
 
             ## What's new
 
-            - Update default OpenAI GPT-5.6 Luna (−80%) and Terra (−20%) prices; fill cache rates
-            - Advertise Sol Fast mode in Codex model catalog (`service_tiers` / `fast_mode`); do not force `service_tier=fast`
-            - Add `gpt-5.6-sol-fast` pricing row (2× Sol) and Codex model suggestions for sol/terra/luna
+            - Official-login provider switch uses the same file/proxy snapshot rollback as third-party switches
+            - Connection tests report latency in milliseconds on the providers page and health tags
+            - Failed switches surface an explicit rolled-back message
 
             ## 更新内容
 
-            - 更新 GPT-5.6 Luna（−80%）与 Terra（−20%）默认价，并补齐缓存价
-            - Codex 模型目录声明 Sol Fast（`service_tiers` / `fast_mode`），不强制开启双倍计费
-            - 新增 `gpt-5.6-sol-fast`（2×）计价行；供应商表单建议加入 sol/terra/luna
+            - 切回官方登录与第三方切换共用文件/代理快照回滚
+            - 连通性测试在供应商页展示毫秒延迟
+            - 切换失败时明确提示「已回滚」
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

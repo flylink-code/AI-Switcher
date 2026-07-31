@@ -33,6 +33,8 @@ export interface Provider {
   createdAt: number;
   healthStatus?: string | null;
   healthCheckedAt?: number | null;
+  /** Last probe latency in ms (session/UI only; may come from health event). */
+  healthLatencyMs?: number | null;
 }
 
 /** Input shape for create/update commands (mirrors `ProviderInput`). */
@@ -57,6 +59,7 @@ export interface ConnectionTestResult {
   category: string;
   message: string;
   checkedAt: number;
+  latencyMs?: number | null;
 }
 
 export interface ProviderHealthUpdated {
@@ -66,6 +69,7 @@ export interface ProviderHealthUpdated {
   category: string;
   message: string;
   checkedAt: number;
+  latencyMs?: number | null;
 }
 
 export interface CodexProviderSyncResult {

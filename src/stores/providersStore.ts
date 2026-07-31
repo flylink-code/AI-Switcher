@@ -154,6 +154,7 @@ export function initializeProviderHealthEvents(): void {
                 ...provider,
                 healthStatus: payload.ok ? "healthy" : "error",
                 healthCheckedAt: payload.checkedAt,
+                healthLatencyMs: payload.latencyMs ?? null,
               }
             : provider,
         ),
@@ -167,6 +168,7 @@ export function initializeProviderHealthEvents(): void {
                 ...provider,
                 healthStatus: payload.ok ? "healthy" : "error",
                 healthCheckedAt: payload.checkedAt,
+                healthLatencyMs: payload.latencyMs ?? null,
               }
             : provider,
         ),

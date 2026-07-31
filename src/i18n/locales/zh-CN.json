@@ -190,6 +190,8 @@
     "modelCacheUpdated": "模型列表已刷新并保存：{{time}}",
     "healthy": "健康",
     "unhealthy": "异常",
+    "latencyMs": "{{ms}} ms",
+    "switchedRolledBack": "切换失败，已回滚到切换前配置",
     "export": "导出（不含密钥）",
     "importFile": "导入 JSON",
     "importSummary": "已导入 {{imported}} 项，跳过 {{skipped}} 项",

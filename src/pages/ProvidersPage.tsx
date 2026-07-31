@@ -114,7 +114,11 @@ export default function ProvidersPage() {
     try {
       const result = await testProviderConnection(provider.id);
       const notify = result.ok ? message.success : message.error;
-      void notify(result.message);
+      void notify(
+        result.latencyMs != null
+          ? `${result.message} · ${t("providers.latencyMs", { ms: result.latencyMs })}`
+          : result.message,
+      );
       useProvidersStore.setState((state) => ({
         providers: state.providers.map((item) =>
           item.id === provider.id
@@ -122,6 +126,7 @@ export default function ProvidersPage() {
                 ...item,
                 healthStatus: result.ok ? "healthy" : "error",
                 healthCheckedAt: result.checkedAt,
+                healthLatencyMs: result.latencyMs ?? null,
               }
             : item,
         ),
@@ -184,7 +189,18 @@ export default function ProvidersPage() {
   };
 
   const columns: TableColumnsType<Provider> = [
-    { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => <Space><Text strong>{row.name}</Text>{row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}{row.healthStatus && <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>{row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}</Tag>}</Space> },
+    { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => (
+      <Space>
+        <Text strong>{row.name}</Text>
+        {row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}
+        {row.healthStatus && (
+          <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>
+            {row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}
+            {row.healthLatencyMs != null ? ` · ${row.healthLatencyMs}ms` : ""}
+          </Tag>
+        )}
+      </Space>
+    ) },
     { title: t("providers.colBaseUrl"), dataIndex: "baseUrl", width: 280, ellipsis: true, render: (value: string) => <Text code copyable ellipsis={{ tooltip: value }}>{value}</Text> },
     {
       title: t("providers.colModel"),

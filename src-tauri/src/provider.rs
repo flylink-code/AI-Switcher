@@ -443,6 +443,8 @@ pub struct ConnectionTestResult {
     pub category: String,
     pub message: String,
     pub checked_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_ms: Option<u64>,
 }
 
 /// Cached model-discovery result. Endpoint failures are represented as an empty

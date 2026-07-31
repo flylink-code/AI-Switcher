@@ -190,6 +190,8 @@
     "modelCacheUpdated": "Model list refreshed and saved at {{time}}",
     "healthy": "Healthy",
     "unhealthy": "Unhealthy",
+    "latencyMs": "{{ms}} ms",
+    "switchedRolledBack": "Switch failed; configuration was rolled back",
     "export": "Export (no keys)",
     "importFile": "Import JSON",
     "importSummary": "Imported {{imported}}, skipped {{skipped}}",
