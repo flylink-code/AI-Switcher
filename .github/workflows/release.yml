@@ -10,8 +10,32 @@ permissions:
   contents: write
 
 jobs:
+  # Create the GitHub Release once before matrix builds upload artifacts.
+  # Avoids concurrent create races and "Resource not accessible" failures when
+  # both Windows and Linux jobs try to create the same release.
+  prepare-release:
+    name: Ensure GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists"
+            exit 0
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AI-Switcher ${tag#v}" \
+            --notes "CI is uploading signed installers for ${tag}." \
+            --verify-tag
+
   release:
     name: Build (${{ matrix.platform }})
+    needs: prepare-release
     strategy:
       fail-fast: false
       matrix:
@@ -22,6 +46,8 @@ jobs:
           - platform: ubuntu-22.04
             bundles: appimage,deb
     runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
     env:
       CI: true
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
