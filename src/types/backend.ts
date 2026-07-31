@@ -671,3 +671,36 @@ export interface SessionBatchExportInfo {
   sessionCount: number;
   createdAt: number;
 }
+
+export interface ProfileScopePayload {
+  providerId?: string | null;
+  mcpIds: string[];
+  skillIds: string[];
+  promptId?: string | null;
+}
+
+export interface ProfilePayload {
+  claudeCode?: ProfileScopePayload | null;
+  claudeDesktop?: ProfileScopePayload | null;
+  codex?: ProfileScopePayload | null;
+}
+
+export interface Profile {
+  id: string;
+  name: string;
+  payload: ProfilePayload;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProfileSnapshotScopes {
+  claudeCode: boolean;
+  claudeDesktop: boolean;
+  codex: boolean;
+}
+
+export interface ApplyProfileResult {
+  profile: Profile;
+  warnings: string[];
+}

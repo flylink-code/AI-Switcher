@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { App as AntApp, Badge, Button, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
@@ -30,6 +31,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { key: "providers", icon: <ApiOutlined /> },
+  { key: "profiles", icon: <AppstoreOutlined /> },
   { key: "proxy", icon: <NodeIndexOutlined /> },
   { key: "mcp", icon: <ClusterOutlined /> },
   { key: "prompts", icon: <FileTextOutlined /> },

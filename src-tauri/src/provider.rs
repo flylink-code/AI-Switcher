@@ -95,10 +95,13 @@ impl ProtocolType {
 /// roles have no meaning for this target.
 pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) -> AppResult<()> {
     if target == ProviderTarget::Codex
-        && !matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses)
+        && !matches!(
+            protocol,
+            ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses | ProtocolType::Anthropic
+        )
     {
         return Err(AppError::Config(
-            "Codex 供应商仅支持 OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+            "Codex 供应商仅支持 OpenAI Chat、OpenAI Responses 或 Anthropic Messages 协议".to_string(),
         ));
     }
     Ok(())
@@ -415,6 +418,8 @@ pub struct Provider {
 impl Provider {
     pub fn requires_local_proxy(&self) -> bool {
         self.protocol_type.uses_proxy()
+            || (self.target_app == ProviderTarget::Codex
+                && self.protocol_type == ProtocolType::Anthropic)
             || (self.target_app == ProviderTarget::ClaudeDesktop
                 && (self.model_mapping.has_explicit_roles()
                     || !is_claude_desktop_safe_model(self.model.trim())))
@@ -632,12 +637,36 @@ mod tests {
     }
 
     #[test]
-    fn codex_rejects_non_openai_protocols_and_clears_claude_mapping() {
-        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Anthropic).is_err());
+    fn codex_accepts_openai_and_anthropic_protocols_and_clears_claude_mapping() {
+        assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Anthropic).is_ok());
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Proxy).is_err());
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::OpenAiResponses).is_ok());
         let mapping = ClaudeModelMapping { sonnet: "claude-sonnet".into(), ..Default::default() };
         assert!(!normalized_model_mapping(ProviderTarget::Codex, mapping).has_explicit_roles());
+    }
+
+    #[test]
+    fn codex_anthropic_requires_local_proxy() {
+        let provider = Provider {
+            id: "codex-anthropic".into(),
+            name: "Anthropic Codex".into(),
+            base_url: "https://api.anthropic.test".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: "claude-sonnet-4-20250514".into(),
+            model_context_window: None,
+            auto_review_model_override: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::Anthropic,
+            target_app: ProviderTarget::Codex,
+            notes: String::new(),
+            sort_index: 0,
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+        };
+        assert!(provider.requires_local_proxy());
     }
 
     fn provider_with_mapping() -> Provider {

@@ -358,6 +358,7 @@ export function ProviderForm({
         <Form.Item
           name="protocolType"
           label={t("providers.fieldProtocol")}
+          extra={isCodex && watchedProtocol === "anthropic" ? t("providers.protocolAnthropicCodexHint") : undefined}
           rules={[{ required: true }]}
         >
           <Select
@@ -365,6 +366,7 @@ export function ProviderForm({
               ? [
                   { value: "openai_responses", label: t("providers.protocolOpenAiResponses") },
                   { value: "openai_chat", label: t("providers.protocolOpenAiChat") },
+                  { value: "anthropic", label: t("providers.protocolAnthropicCodex") },
                 ]
               : [
                   { value: "anthropic", label: t("providers.protocolAnthropic") },

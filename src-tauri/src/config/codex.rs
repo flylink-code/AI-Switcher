@@ -117,7 +117,8 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     let provider_id = MANAGED_PROVIDER_ID;
     let model = provider.model.trim();
     let context_window = effective_model_context_window(provider);
-    write_model_catalog(provider)?;
+    let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
+    write_model_catalog(provider, anthropic_upstream)?;
     doc["model"] = value(model);
     doc["model_provider"] = value(provider_id);
     doc["model_context_window"] = value(context_window as i64);
@@ -147,7 +148,7 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     entry["base_url"] = value(base_url);
     // Local proxy always speaks Responses to Codex clients; upstream conversion
     // is handled by the forwarder based on the DB protocol.
-    entry["wire_api"] = value(if proxy_port.is_some() {
+    entry["wire_api"] = value(if proxy_port.is_some() || anthropic_upstream {
         "responses"
     } else {
         wire_api(provider.protocol_type)
@@ -171,14 +172,14 @@ fn model_supports_codex_fast(model: &str) -> bool {
     false
 }
 
-fn write_model_catalog(provider: &Provider) -> AppResult<()> {
+fn write_model_catalog(provider: &Provider, anthropic_upstream: bool) -> AppResult<()> {
     let model = provider.model.trim();
     if model.is_empty() {
         return Err(AppError::Config("Codex 默认模型不能为空".to_string()));
     }
     let context_window = effective_model_context_window(provider);
     let catalog = serde_json::json!({
-        "models": [codex_model_catalog_entry(model, context_window)],
+        "models": [codex_model_catalog_entry(model, context_window, anthropic_upstream)],
     });
     let dir = get_codex_config_dir();
     fs::create_dir_all(&dir)?;
@@ -188,7 +189,7 @@ fn write_model_catalog(provider: &Provider) -> AppResult<()> {
 
 /// Build a Codex ≥0.144.5-compatible catalog entry, backfilling parser-required
 /// fields when absent from a minimal model list.
-fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
+fn codex_model_catalog_entry(model: &str, context_window: u64, anthropic_upstream: bool) -> Value {
     let mut entry = serde_json::json!({
         "slug": model,
         "display_name": model,
@@ -217,8 +218,8 @@ fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
         "default_reasoning_summary": "none",
         "support_verbosity": true,
         "default_verbosity": "low",
-        "apply_patch_tool_type": "freeform",
-        "web_search_tool_type": "text_and_image",
+        "apply_patch_tool_type": if anthropic_upstream { "structured" } else { "freeform" },
+        "web_search_tool_type": if anthropic_upstream { "disabled" } else { "text_and_image" },
         "truncation_policy": {
             "mode": "tokens",
             "limit": 10000
@@ -230,7 +231,7 @@ fn codex_model_catalog_entry(model: &str, context_window: u64) -> Value {
         "effective_context_window_percent": 95,
         "experimental_supported_tools": [],
         "input_modalities": ["text", "image"],
-        "supports_search_tool": true,
+        "supports_search_tool": !anthropic_upstream,
         "service_tiers": [],
         "additional_speed_tiers": []
     });
@@ -423,15 +424,39 @@ mod tests {
     fn catalog_uses_explicit_context_window() {
         let mut provider = sample_codex_provider();
         provider.model_context_window = Some(200_000);
-        let entry = codex_model_catalog_entry("gpt-5", effective_model_context_window(&provider));
+        let entry = codex_model_catalog_entry("gpt-5", effective_model_context_window(&provider), false);
         assert_eq!(entry["context_window"], 200_000);
         assert_eq!(entry["max_context_window"], 200_000);
         assert_eq!(entry["supports_reasoning_summaries"], true);
     }
 
     #[test]
+    fn anthropic_upstream_catalog_disables_incompatible_codex_tools() {
+        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true);
+        assert_eq!(entry["apply_patch_tool_type"], "structured");
+        assert_eq!(entry["web_search_tool_type"], "disabled");
+        assert_eq!(entry["supports_search_tool"], false);
+    }
+
+    #[test]
+    fn anthropic_upstream_via_proxy_keeps_responses_wire_api() {
+        let mut provider = sample_codex_provider();
+        provider.protocol_type = ProtocolType::Anthropic;
+        provider.base_url = "https://api.anthropic.test".into();
+        let mut doc = DocumentMut::new();
+        doc["model_providers"] = Item::Table(Table::new());
+        write_managed_provider(&mut doc, &provider, Some(15823)).unwrap();
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
+        assert_eq!(
+            entry.get("base_url").and_then(Item::as_str),
+            Some("http://127.0.0.1:15823/v1")
+        );
+    }
+
+    #[test]
     fn catalog_advertises_fast_mode_for_sol() {
-        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000);
+        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false);
         assert_eq!(entry["service_tiers"][0]["id"], "fast");
         assert_eq!(entry["additional_speed_tiers"][0], "fast");
         assert!(model_supports_codex_fast("gpt-5.6-sol"));

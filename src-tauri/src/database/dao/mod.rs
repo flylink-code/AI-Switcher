@@ -1,9 +1,16 @@
 //! Data-access helpers.
 
 pub mod mcp;
+pub mod profiles;
 pub mod providers;
 pub mod proxy_logs;
 pub mod settings;
+
+pub use profiles::{
+    create_profile, delete_profile, get_current_profile_id, get_profile, list_profiles,
+    set_current_profile_id, update_profile, Profile, ProfilePayload, ProfileScopePayload,
+    ProfileSnapshotScopes, CURRENT_PROFILE_SETTING_KEY,
+};
 
 pub use providers::{
     clear_current_provider, count_providers, delete_provider, get_current_provider,

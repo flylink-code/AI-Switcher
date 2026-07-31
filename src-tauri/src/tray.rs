@@ -16,6 +16,7 @@ const CODE_PROVIDER_PREFIX: &str = "code-provider:";
 const DESKTOP_PROVIDER_PREFIX: &str = "desktop-provider:";
 const CODE_OFFICIAL_ID: &str = "code-provider:official";
 const DESKTOP_OFFICIAL_ID: &str = "desktop-provider:official";
+const PROFILE_PREFIX: &str = "profile:";
 
 /// Build and attach the tray icon. Provider entries are generated once at app
 /// startup; selecting an entry applies the same configuration as the UI switch.
@@ -52,6 +53,11 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
                 _ if id.starts_with(DESKTOP_PROVIDER_PREFIX) => {
                     if let Err(e) = tauri::async_runtime::block_on(switch_provider(app, &id[DESKTOP_PROVIDER_PREFIX.len()..], ProviderTarget::ClaudeDesktop)) {
                         log::error!("托盘切换 Claude Desktop 供应商失败: {e}");
+                    }
+                }
+                _ if id.starts_with(PROFILE_PREFIX) => {
+                    if let Err(e) = tauri::async_runtime::block_on(apply_profile_from_tray(app, &id[PROFILE_PREFIX.len()..])) {
+                        log::error!("托盘应用配置快照失败: {e}");
                     }
                 }
                 _ => {}
@@ -93,13 +99,14 @@ fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult
         "Claude Desktop",
         labels.official,
     )?;
+    let profiles_menu = build_profiles_menu(app, labels.projects)?;
     let show = MenuItem::with_id(app, "show", labels.show, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
     let separator =
         PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
-    Menu::with_items(app, &[&show, &code_menu, &desktop_menu, &separator, &quit])
+    Menu::with_items(app, &[&show, &code_menu, &desktop_menu, &profiles_menu, &separator, &quit])
         .map_err(|e| AppError::Tauri(e.to_string()))
 }
 
@@ -107,6 +114,7 @@ fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult
 struct TrayLabels {
     show: &'static str,
     official: &'static str,
+    projects: &'static str,
     quit: &'static str,
 }
 
@@ -115,12 +123,14 @@ fn tray_labels(language: &str) -> TrayLabels {
         TrayLabels {
             show: "Open AI-Switcher",
             official: "Official login",
+            projects: "Projects",
             quit: "Quit",
         }
     } else {
         TrayLabels {
             show: "打开 AI-Switcher",
             official: "官方登录",
+            projects: "项目",
             quit: "退出",
         }
     }
@@ -155,6 +165,45 @@ fn build_provider_menu<R: Runtime>(
         .map_err(|e| AppError::Tauri(e.to_string()))
 }
 
+fn build_profiles_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    label: &str,
+) -> AppResult<Submenu<R>> {
+    let state = app.state::<AppState>();
+    let profiles = state.db.with_conn(dao::profiles::list_profiles)?;
+    let current_id = state
+        .db
+        .with_conn(dao::profiles::get_current_profile_id)?;
+    let mut items: Vec<MenuItem<R>> = Vec::new();
+    for profile in profiles {
+        let item_label = if current_id.as_deref() == Some(profile.id.as_str()) {
+            format!("✓ {}", profile.name)
+        } else {
+            profile.name
+        };
+        items.push(
+            MenuItem::with_id(
+                app,
+                format!("{PROFILE_PREFIX}{}", profile.id),
+                item_label,
+                true,
+                None::<&str>,
+            )
+            .map_err(|e| AppError::Tauri(e.to_string()))?,
+        );
+    }
+    if items.is_empty() {
+        items.push(
+            MenuItem::with_id(app, "profiles-empty", "—", false, None::<&str>)
+                .map_err(|e| AppError::Tauri(e.to_string()))?,
+        );
+    }
+    let refs: Vec<&dyn tauri::menu::IsMenuItem<R>> =
+        items.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>).collect();
+    Submenu::with_items(app, label, true, &refs)
+        .map_err(|e| AppError::Tauri(e.to_string()))
+}
+
 fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -182,6 +231,20 @@ async fn switch_provider<R: Runtime>(
 async fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
     let state = app.state::<AppState>();
     crate::commands::providers::switch_to_official_for_target(target, &state).await
+}
+
+async fn apply_profile_from_tray<R: Runtime>(app: &AppHandle<R>, id: &str) -> AppResult<()> {
+    let state = app.state::<AppState>();
+    let result =
+        crate::commands::profiles::apply_profile_for_id(id, true, app, &state).await?;
+    if !result.warnings.is_empty() {
+        log::warn!(
+            "配置快照 {} 已应用，但有 {} 条警告",
+            result.profile.name,
+            result.warnings.len()
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]

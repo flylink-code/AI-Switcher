@@ -67,13 +67,13 @@ jobs:
 
             ## What's new
 
-            - MCP servers: structured args/env/headers editors with reorder; `sort_index` for server list order
-            - Codex providers: optional `autoReviewModelOverride`; proxy rewrites `model` when `x-openai-subagent` is guardian/auto_review
+            - Project profiles: snapshot/apply provider + MCP + Skills + Prompt per app; tray Projects menu
+            - Codex Anthropic upstream: Responses↔Messages bridge via local proxy; Anthropic protocol allowed for Codex
 
             ## 更新内容
 
-            - MCP：参数 / env / headers 结构化编辑与排序；服务器列表支持 `sort_index`
-            - Codex：供应商级 `autoReviewModelOverride`；代理在 `x-openai-subagent: guardian|auto_review` 时改写模型，避免 404
+            - 项目快照：按端保存/应用供应商 + MCP + Skills + Prompt；托盘 Projects 一键切换
+            - Codex Anthropic 上游：本地代理做 Responses↔Messages 桥；Codex 可选 Anthropic 协议
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

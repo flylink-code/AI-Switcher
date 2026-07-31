@@ -68,6 +68,8 @@ use crate::commands::{
     restart_app,
     dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
     resolve_close_request, restore_onboarding_tips, set_close_behavior,
+    apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
+    list_profiles, update_workspace_profile,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -252,6 +254,12 @@ pub fn run() {
             get_close_behavior,
             set_close_behavior,
             resolve_close_request,
+            list_profiles,
+            get_current_profile_id,
+            create_workspace_profile,
+            update_workspace_profile,
+            delete_workspace_profile,
+            apply_profile,
         ]);
     let builder = add_single_instance(builder);
     if let Err(error) = builder.run(tauri::generate_context!()) {

@@ -7,6 +7,7 @@
 
 mod convert;
 mod codex;
+mod codex_anthropic;
 mod codex_auto_review;
 
 use std::net::SocketAddr;

@@ -10,6 +10,7 @@ pub mod desktop_localization;
 pub mod localization;
 pub mod mcp;
 pub mod paths;
+pub mod profiles;
 pub mod prompts;
 pub mod recovery;
 pub mod sessions;
@@ -46,6 +47,10 @@ pub use mcp::{
     reorder_mcp_servers, save_mcp_server, search_mcp_registry, toggle_mcp_server,
 };
 pub use paths::get_paths;
+pub use profiles::{
+    apply_profile, apply_profile_for_id, create_workspace_profile, delete_workspace_profile,
+    get_current_profile_id, list_profiles, update_workspace_profile, ApplyProfileResult,
+};
 pub use prompts::{
     activate_prompt, delete_prompt, import_live_prompt, list_prompts, read_live_prompt,
     read_prompt, save_prompt,

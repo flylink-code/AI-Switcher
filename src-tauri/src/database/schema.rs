@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 16;
+pub const SCHEMA_VERSION: u32 = 17;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -107,6 +107,18 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
         );",
     )?;
 
+    // Workspace configuration snapshots (profiles).
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS profiles (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            payload_json  TEXT NOT NULL,
+            sort_order    INTEGER NOT NULL DEFAULT 0,
+            created_at    INTEGER NOT NULL DEFAULT 0,
+            updated_at    INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+
     // Custom per-model pricing for cost estimation.
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS model_pricing (
@@ -186,6 +198,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 16 {
         migrate_v15_to_v16(conn)?;
+    }
+    if current < 17 {
+        migrate_v16_to_v17(conn)?;
     }
     Ok(())
 }
@@ -580,6 +595,21 @@ fn migrate_v15_to_v16(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 16)
 }
 
+/// Workspace configuration snapshots for one-click project switching.
+fn migrate_v16_to_v17(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS profiles (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            payload_json  TEXT NOT NULL,
+            sort_order    INTEGER NOT NULL DEFAULT 0,
+            created_at    INTEGER NOT NULL DEFAULT 0,
+            updated_at    INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+    set_user_version(conn, 17)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -597,7 +627,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "proxy_request_logs", "model_pricing", "provider_health", "provider_models"] {
+            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],

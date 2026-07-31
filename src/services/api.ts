@@ -71,6 +71,10 @@ import type {
   AppUpdateInfo,
   UpdateMirrorSettings,
   PricingImportPreview,
+  Profile,
+  ProfilePayload,
+  ProfileSnapshotScopes,
+  ApplyProfileResult,
 } from "@/types/backend";
 
 async function getInvoke() {
@@ -937,4 +941,44 @@ export async function dismissOnboardingTip(tipKey: string): Promise<void> {
 export async function restoreOnboardingTips(): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("restore_onboarding_tips", {});
+}
+
+export async function listProfiles(): Promise<Profile[]> {
+  const invoke = await getInvoke();
+  return invoke<Profile[]>("list_profiles", {});
+}
+
+export async function getCurrentProfileId(): Promise<string | null> {
+  const invoke = await getInvoke();
+  return invoke<string | null>("get_current_profile_id", {});
+}
+
+export async function createProfile(
+  name: string,
+  scopes: ProfileSnapshotScopes,
+): Promise<Profile> {
+  const invoke = await getInvoke();
+  return invoke<Profile>("create_workspace_profile", { name, scopes });
+}
+
+export async function updateProfile(
+  id: string,
+  name?: string,
+  payload?: ProfilePayload,
+): Promise<Profile> {
+  const invoke = await getInvoke();
+  return invoke<Profile>("update_workspace_profile", { id, name, payload });
+}
+
+export async function deleteProfile(id: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_workspace_profile", { id });
+}
+
+export async function applyProfile(
+  id: string,
+  autosavePrevious = true,
+): Promise<ApplyProfileResult> {
+  const invoke = await getInvoke();
+  return invoke<ApplyProfileResult>("apply_profile", { id, autosavePrevious });
 }
