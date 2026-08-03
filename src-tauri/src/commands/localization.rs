@@ -75,6 +75,7 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
         .unwrap_or(false);
     let settings_configured = settings.get("language").and_then(Value::as_str) == Some("Chinese")
         && settings.get("spinnerTipsEnabled").and_then(Value::as_bool) == Some(true);
+    let spinner_verbs_invalid = settings.get("spinnerVerbs").is_some_and(Value::is_array);
     let claude_code = ClaudeCodeLocalizationStatus {
         installed: code_info.installed,
         version: code_info.current_version,
@@ -83,6 +84,8 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
         settings_configured,
         message: if !code_info.installed {
             "未检测到 Claude Code".to_string()
+        } else if spinner_verbs_invalid {
+            "settings.json 中 spinnerVerbs 格式无效（写成了数组），会导致 Claude Code 整份设置失效；请重新执行「安装中文」以自动修复".to_string()
         } else if plugin_enabled && settings_configured {
             "中文插件与基础设置已启用".to_string()
         } else {
@@ -134,7 +137,25 @@ fn merge_claude_code_chinese_settings() -> AppResult<()> {
         .ok_or_else(|| AppError::Config("Claude Code settings.json 必须是 JSON 对象".to_string()))?;
     object.insert("language".to_string(), Value::String("Chinese".to_string()));
     object.insert("spinnerTipsEnabled".to_string(), Value::Bool(true));
+    normalize_spinner_verbs(object);
     write_json_file(&path, &settings)
+}
+
+/// Claude Code expects `spinnerVerbs` as `{ mode, verbs }`. Some Chinese tip packs
+/// write a bare string array, which makes the whole settings file fail validation
+/// ("Expected object, but received array") and disables permission rules.
+fn normalize_spinner_verbs(settings: &mut Map<String, Value>) {
+    let Some(Value::Array(verbs)) = settings.get("spinnerVerbs").cloned() else {
+        return;
+    };
+    let verbs: Vec<Value> = verbs
+        .into_iter()
+        .filter(|value| value.is_string())
+        .collect();
+    let mut object = Map::new();
+    object.insert("mode".to_string(), Value::String("replace".to_string()));
+    object.insert("verbs".to_string(), Value::Array(verbs));
+    settings.insert("spinnerVerbs".to_string(), Value::Object(object));
 }
 
 fn run_claude_plugin_command<const N: usize>(executable: &str, args: [&str; N]) -> AppResult<()> {
@@ -300,5 +321,45 @@ mod tests {
         fs::create_dir(dir.path().join("other.claude-code-9.0.0")).unwrap();
         let found = find_extension(dir.path(), CLAUDE_EXTENSION_PREFIX).unwrap();
         assert!(found.ends_with("anthropic.claude-code-2.1.183"));
+    }
+
+    #[test]
+    fn normalizes_bare_spinner_verbs_array_to_object() {
+        let mut settings = Map::new();
+        settings.insert(
+            "spinnerVerbs".to_string(),
+            Value::Array(vec![
+                Value::String("思考中".to_string()),
+                Value::String("编写中".to_string()),
+                Value::Bool(true),
+            ]),
+        );
+        normalize_spinner_verbs(&mut settings);
+        let verbs = settings
+            .get("spinnerVerbs")
+            .and_then(Value::as_object)
+            .expect("spinnerVerbs object");
+        assert_eq!(verbs.get("mode").and_then(Value::as_str), Some("replace"));
+        assert_eq!(
+            verbs.get("verbs").and_then(Value::as_array).map(Vec::len),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn leaves_valid_spinner_verbs_object_untouched() {
+        let mut settings = Map::new();
+        settings.insert(
+            "spinnerVerbs".to_string(),
+            serde_json::json!({
+                "mode": "append",
+                "verbs": ["Pondering"]
+            }),
+        );
+        normalize_spinner_verbs(&mut settings);
+        assert_eq!(
+            settings.get("spinnerVerbs").and_then(|value| value.get("mode")).and_then(Value::as_str),
+            Some("append")
+        );
     }
 }
