@@ -1,161 +1,162 @@
 # AI-Switcher
 
-> A local configuration, provider, and utility manager for Claude Code, Claude Desktop, and Codex.
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**.
 
-[中文](README.md)
+[中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest)
 
-AI-Switcher is a desktop application built with Tauri 2, Rust, and React. It brings together configuration files, operating-system credentials, and local tooling in one interface while keeping Claude Code and Claude Desktop providers and active configurations independent.
+Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, and Codex providers and active configs independent.
 
-The application works locally by default. API keys are stored in the operating system credential store, configuration writes are backed up, and the Session Manager handles only local Claude Code and Codex JSONL data.
+Works locally by default: API keys go in the OS credential store, writes are backed up first, and sessions only read local JSONL.
+
+| Platform | Package | Notes |
+|---|---|---|
+| Windows 10/11 | NSIS `.exe` (preferred) / MSI | Full feature set |
+| Linux (preview) | AppImage / `.deb` | Best-effort; some Desktop localization features unavailable |
+
+---
+
+## Install
+
+Download the latest build from [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest):
+
+- **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
+- **Linux**: prefer the `.AppImage` (`chmod +x`, then run).
+
+Install Claude Code, Claude Desktop, or the Codex CLI as needed.
+
+---
 
 ## Features
 
-- **Provider management**: Manage third-party APIs, model mappings, import/export, connection tests, model discovery, and official-login restoration independently for Claude Code, Claude Desktop, and Codex. Codex providers are written directly to `~/.codex/config.toml` and do not use the Claude local proxy.
-- **Local proxy**: Anthropic Messages-compatible proxying, model mapping, credential injection, streaming forwarding, runtime status, and request logs. Opt-in automatic failover temporarily opens a provider circuit for 60 seconds after two consecutive transient failures; it is disabled by default.
-- **MCP, Prompts, and Skills**: Maintain MCP servers, including Codex synchronization, manage `CLAUDE.md` presets, and install, enable, disable, update, and remove Claude Code or Codex Skills from GitHub or local ZIP files with recorded provenance.
-- **Session Manager**: Browse, filter, and search local JSONL sessions for Claude Code and Codex. Both sources support single/batch export, import, backup, trash, and restore.
-- **Localization hub**: Manage Claude Code CLI localization, VS Code/Cursor patch helpers, and Claude Desktop language packs separately; applying an editor patch always requires editor confirmation.
-- **Usage dashboard**: Merges proxy logs with Codex local-event models, tokens, and trends. Codex local response counts are not HTTP requests or account billing; estimated cost remains proxy-log only.
-- **System integration**: Provider switching from the system tray, tray labels that follow the selected language, high-contrast light/dark/system themes, and launch at login. Cards, tables, form controls, and overlays use dynamic theme colors in the desktop app.
-- **Environment and updates**: Inspect configuration paths, the installed Claude Code version, and application updates.
+### Providers and switching
+
+- Manage third-party APIs, model mappings, import/export, connection tests, and model discovery for Claude Code / Desktop / Codex separately
+- One-click switch with backups; restore official login configs
+- On Claude targets, sign in with a **ChatGPT subscription** (via local proxy); Codex official accounts use terminal `codex login`
+- Codex providers write to `~/.codex/config.toml` and do not use the Claude local proxy
+
+### Local proxy
+
+Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default).
+
+### MCP / Prompts / Skills
+
+Maintain MCP servers (with Codex sync) and `CLAUDE.md` presets. Install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP archives.
+
+### Sessions
+
+Browse, filter, and search local Claude Code and Codex JSONL sessions; export / import / backup / trash. Claude Desktop private history formats are not parsed.
+
+### Localization
+
+Manage Claude Code plugins, editor patch helpers, and Claude Desktop language packs separately. Applying an editor patch always requires confirmation inside the editor.
+
+### Usage, environment, and system
+
+- Usage: merges proxy logs with Codex local events (estimated cost is proxy-log only)
+- Environment: config paths, library migration / portable export, WSL·SSH sync preview+push, Claude Code / Codex CLI install detection
+- Tray switching, EN/ZH UI, light / dark / system theme, launch at login
+
+---
 
 ## Session Manager
 
-Claude Code and Codex sessions are scanned from local JSONL files:
-
-- Sources: `~/.claude/projects/**/*.jsonl` and `$CODEX_HOME/sessions/**/*.jsonl` (or `~/.codex/sessions/**/*.jsonl` when unset)
-- The list view extracts only session ID, summary, working directory, and timestamps
-- Message contents are read only when details or full-content search are requested
-- Every source path is validated against the allowed session root
-- Browsing and search never modify original sessions; users may explicitly export, import, back up, or move a session to its AI-Switcher trash for restoration
-
-Claude Desktop does not publish a stable local session-enumeration format. This release only detects its local data directory and provides the official `claude://claude.ai/new` entry point; it does not parse Chromium caches or call private APIs. A known conversation ID can be opened with Anthropic's documented [Claude Desktop deep-link format](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
-
-## Installation
-
-Download the NSIS installer from [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest). The installed executable is named `AISwitcher.exe`.
-
-Requirements:
-
-- Windows 10/11
-- Claude Code or Claude Desktop as needed
-- Source development requires Node.js 20+, pnpm 9+, Rust stable (MSVC), and the Visual Studio 2022 Desktop development with C++ workload
-
-## Run from source
-
-```powershell
-pnpm install
-pnpm tauri dev
-```
-
-If the current terminal does not have the MSVC environment:
-
-```powershell
-scripts\tauri-msvc.bat dev
-```
-
-## Build
-
-Build scripts run the complete Rust test suite before compiling the application. Build a release executable without installers:
-
-```powershell
-scripts\build-exe.bat
-# or
-pnpm build:exe
-```
-
-Build a debug executable:
-
-```powershell
-scripts\build-exe.bat debug
-# or
-pnpm build:exe:debug
-```
-
-Build MSI and NSIS installers:
-
-```powershell
-scripts\build-exe.bat bundle
-# or
-pnpm build:exe:bundle
-```
-
-For a faster local build that skips tests:
-
-```powershell
-scripts\build-exe.bat release skip-tests
-# or use the PowerShell entry point directly
-.\scripts\build-exe.ps1 -SkipTests
-```
-
-The scripts automatically detect Visual Studio 2022 Community, Professional, Enterprise, or Build Tools and fall back to `corepack pnpm` when a global `pnpm` shim is unavailable.
-
-Main outputs:
-
-| Artifact | Path |
+| Source | Path |
 |---|---|
-| Tauri release executable | `src-tauri\target\release\AISwitcher.exe` |
-| Release test copy | `release\AISwitcher.exe` |
-| Debug test copy | `release\AISwitcher-debug.exe` |
-| Installers | `src-tauri\target\release\bundle\` |
+| Claude Code | `~/.claude/projects/**/*.jsonl` |
+| Codex | `$CODEX_HOME/sessions/**/*.jsonl` (default `~/.codex/sessions/`) |
+
+The list view reads metadata only; message bodies load for details or full-text search. Paths must stay under the session root. Browsing never modifies originals.
+
+For Claude Desktop, the app only detects the data directory and offers the official `claude://claude.ai/new` entry. Known conversation IDs can use Anthropic’s [deep-link format](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
+
+---
 
 ## Data and configuration
 
 | Path | Purpose |
 |---|---|
-| `~/.claude/settings.json` | Active Claude Code provider configuration |
-| `~/.claude.json` | Claude Code MCP and project configuration |
-| `~/.claude/projects/` | Local Claude Code sessions |
-| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party gateway profiles |
+| `~/.claude/settings.json` | Active Claude Code provider |
+| `~/.claude.json` | Claude Code MCP / project config |
+| `~/.claude/projects/` | Claude Code sessions |
 | `~/.claude/skills/` | Claude Code Skills |
-| `$CODEX_HOME` or `~/.codex/` | Codex configuration, sessions, and Skills root |
-| `~/.codex/sessions/` | Local Codex sessions |
-| `~/.codex/skills/` | Codex Skills |
-| `~/.claude-switcher/` (default) or a directory selected on Environment | AI-Switcher-managed data library: database, backups, downloaded resources, and logs |
+| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party profiles (Windows) |
+| `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills |
+| `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
-The product is now AI-Switcher while the application identifier, signing key, and default data location are retained for compatibility. The data library can be copied to another drive; every copied file is SHA-256 verified, the old copy is retained, and the new location is used after restart. Claude live configuration remains at its official location.
+The product name is AI-Switcher; the app id and default library path are kept for compatibility. The library can move to another drive (SHA-256 verified, effective after restart). Export / sync omit API keys by default.
 
-Environment can export a versioned portable-library ZIP containing a sanitized database snapshot, Skills, Skill provenance, and session archives with a SHA-256 manifest. API keys, OS credentials, Claude sign-in state, passwords, and private keys are excluded from both export and WSL/SSH pushes. Sync always shows a preview first; confirmation writes only an archive to the target's `incoming/` directory and never overwrites its live configuration.
+---
 
 ## Security and privacy
 
-- API keys are stored through Windows Credential Manager, macOS Keychain, or Linux Secret Service.
-- Configuration files use atomic writes with rotating pre-write backups.
-- The Session Manager creates no full-text database and rejects paths outside the session root; import, export, and trash operations validate session roots, archive-relative paths, and symlinks.
-- Sessions may contain source code, credentials, or other sensitive data. Review content before copying or sharing it.
-- Except for provider tests, model discovery, update checks, user-requested downloads, and a user-confirmed WSL/SSH archive push, the application does not upload local content.
+- API keys: Windows Credential Manager / macOS Keychain / Linux Secret Service
+- Config: atomic writes with rotating backups
+- Sessions: no full-text DB; import/export/trash validate roots and symlinks
+- No local content upload except provider tests, model discovery, update checks, user downloads, and confirmed remote archive pushes
+
+---
+
+## Develop from source
+
+Requires Node.js 20+, pnpm 9+ (Corepack is fine), and Rust stable. On Windows also install the VS 2022 Desktop development with C++ workload.
+
+```powershell
+pnpm install
+pnpm tauri dev
+# Without MSVC env vars:
+scripts\tauri-msvc.bat dev
+```
+
+### Build (Windows)
+
+Scripts run the full Rust test suite first:
+
+```powershell
+pnpm build:exe              # release exe → release\AISwitcher.exe
+pnpm build:exe:debug        # debug → release\AISwitcher-debug.exe
+pnpm build:exe:bundle       # MSI + NSIS
+scripts\build-exe.bat release skip-tests   # skip tests
+```
+
+| Artifact | Path |
+|---|---|
+| Release binary | `src-tauri\target\release\AISwitcher.exe` |
+| Test copies | `release\AISwitcher.exe` / `AISwitcher-debug.exe` |
+| Installers | `src-tauri\target\release\bundle\` |
+
+---
 
 ## Project layout
 
 ```text
-src/                         React, Ant Design, Zustand, and i18next frontend
-src/pages/SessionsPage.tsx   Local session list and details
-src-tauri/src/               Rust backend, configuration, proxy, database, and tray
-src-tauri/src/session_manager.rs
-                             Read-only session adapter and path validation
-scripts/                     Windows development and build scripts
+src/                  React + Ant Design + Zustand + i18next
+src-tauri/src/        Rust: config, proxy, database, tray, sessions
+scripts/              Windows develop / build scripts
 ```
 
-## References and acknowledgements
-
-This project drew product and implementation ideas from the following open-source projects. AI-Switcher is independent and is not affiliated with these projects or with Anthropic.
-
-| Project | Area referenced | Upstream and license |
-|---|---|---|
-| AI Toolbox | Multi-tool configuration, sessions, and desktop information architecture | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox), MIT |
-| cc Proxy | Claude Desktop local proxying and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy), subject to its repository license terms |
-| CC Switch | Provider switching, Tauri architecture, session parsing, and tray interactions | [farion1231/cc-switch](https://github.com/farion1231/cc-switch), MIT |
-| Claude Code for VS Code Chinese Pack | VS Code extension discovery, localization rules, backup, and restoration | Local reference: `examples/claude-code-vscode-zh-cn`; [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn), MIT |
-| Claude Code Chinese Localization Plugin | Claude Code CLI localization installation, update, and restoration | Local reference: `examples/claude-code-zh-cn`; [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn), subject to its repository license terms |
-| Claude Desktop Chinese Patch | Desktop discovery, language-pack validation, and recovery | Localization repository: [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn), subject to its repository terms |
-| Code Switch | Local proxying, failover, and Claude Code/Codex configuration | [daodao97/code-swtich](https://github.com/daodao97/code-swtich), Apache-2.0 |
-| Codex++ (CodexPlusPlus) | Codex Pure API writes (`auth.json` / `requires_openai_auth`), provider switching, and historical session sync/repair | Local reference: `examples/CodexPlusPlus`; [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus), AGPL-3.0 |
-
-When quoting, porting, or redistributing code from these projects, follow the corresponding upstream license and copyright notices.
+---
 
 ## Current limitations
 
-- Session resume copies a command; it does not launch a terminal or execute commands. Moving to trash first creates a verified archive.
-- Remote archives are not auto-imported, remote conflicts are not merged, and team sharing is not included.
-- Claude Desktop history is not parsed through private formats while no stable official interface exists.
-- Claude Code and Claude Desktop provider lists, active selections, and live configurations remain independent.
+- Product scope: Claude Code + Claude Desktop + Codex only (no Grok / Gemini / …)
+- Session “resume” copies a command; it does not launch a terminal
+- No auto-merge of remote sync conflicts; no team sharing
+- Claude Code and Desktop provider lists and active selections stay independent
+
+---
+
+## References and acknowledgements
+
+AI-Switcher is independent and unaffiliated with the projects below or with Anthropic. Follow each upstream license when quoting or porting code.
+
+| Project | Area referenced | Upstream |
+|---|---|---|
+| AI Toolbox | Multi-tool config, sessions, desktop IA | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
+| cc Proxy | Desktop local proxy and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
+| CC Switch | Provider switching, Tauri, sessions, tray | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
+| Claude Code VS Code Chinese pack | Extension discovery and localization flow | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
+| Claude Code Chinese plugin | CLI localization install / restore | [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) |
+| Claude Desktop Chinese patch | Install discovery and language packs | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) |
+| Code Switch | Local proxy, failover, Codex config | [daodao97/code-swtich](https://github.com/daodao97/code-swtich) Apache-2.0 |
+| Codex++ | Codex API writes and session sync | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |
