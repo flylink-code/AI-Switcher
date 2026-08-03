@@ -129,6 +129,69 @@ fn write_auth_api_key(path: &Path, api_key: &str) -> AppResult<()> {
     atomic_write(path, serde_json::to_string_pretty(&auth)?.as_bytes())
 }
 
+fn auth_value_present(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::String(text) => !text.trim().is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(map) => !map.is_empty(),
+        _ => true,
+    }
+}
+
+/// True when auth carries material Codex authenticates with ahead of the
+/// API-key fallback (OAuth tokens / PAT / agent identity / Bedrock). Pure
+/// metadata such as `auth_mode`, `last_refresh`, or `tokens.account_id` does
+/// not count — it must not shield a stale third-party key from cleanup.
+fn auth_has_credential_login_material(auth: &Value) -> bool {
+    let Some(obj) = auth.as_object() else {
+        return false;
+    };
+    if ["personal_access_token", "agent_identity", "bedrock_api_key"]
+        .iter()
+        .any(|key| obj.get(*key).is_some_and(auth_value_present))
+    {
+        return true;
+    }
+    obj.get("tokens")
+        .and_then(Value::as_object)
+        .is_some_and(|tokens| {
+            ["id_token", "access_token", "refresh_token"]
+                .iter()
+                .any(|key| tokens.get(*key).is_some_and(auth_value_present))
+        })
+}
+
+/// Shape left behind after a third-party switch with no prior official login:
+/// a non-empty `OPENAI_API_KEY` (optionally with metadata) and no real login
+/// credential beside it.
+fn live_auth_is_stale_third_party_residue(live_auth: &Value) -> bool {
+    if auth_has_credential_login_material(live_auth) {
+        return false;
+    }
+    live_auth
+        .get("OPENAI_API_KEY")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|key| !key.is_empty())
+}
+
+/// Delete an API-key-only `auth.json` so Codex can show its login screen.
+/// Deleting (not writing `{}`) matches Codex logout: an empty object errors
+/// at bootstrap, while a missing file yields NotAuthenticated.
+fn clear_stale_third_party_auth_if_needed(auth_path: &Path) -> AppResult<bool> {
+    if !auth_path.exists() {
+        return Ok(false);
+    }
+    let live_auth: Value = serde_json::from_slice(&fs::read(auth_path)?)
+        .map_err(|error| AppError::Config(format!("Codex auth.json 格式无效：{error}")))?;
+    if !live_auth_is_stale_third_party_residue(&live_auth) {
+        return Ok(false);
+    }
+    fs::remove_file(auth_path)?;
+    Ok(true)
+}
+
 fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) -> AppResult<()> {
     let provider_id = MANAGED_PROVIDER_ID;
     let model = provider.model.trim();
@@ -286,6 +349,12 @@ pub fn restore_official() -> AppResult<()> {
     }
     if auth_backup.exists() {
         atomic_write(&auth_path, &fs::read(auth_backup)?)?;
+    } else {
+        // No pre-switch auth snapshot: a third-party apply may have created
+        // auth.json from scratch. Leaving that vendor key behind sends Codex
+        // to the official endpoint with a foreign credential (401) and blocks
+        // the login screen because the file still exists.
+        clear_stale_third_party_auth_if_needed(&auth_path)?;
     }
     Ok(())
 }
@@ -510,5 +579,82 @@ mod tests {
         assert_eq!(value["tokens"]["access_token"], "keep");
         assert_eq!(value["auth_mode"], "chatgpt");
         assert_eq!(value["OPENAI_API_KEY"], "new-key");
+    }
+
+    #[test]
+    fn credential_login_material_only_counts_real_credentials() {
+        assert!(auth_has_credential_login_material(&serde_json::json!({
+            "tokens": { "access_token": "t" }
+        })));
+        assert!(auth_has_credential_login_material(&serde_json::json!({
+            "tokens": { "refresh_token": "r" }
+        })));
+        assert!(auth_has_credential_login_material(&serde_json::json!({
+            "personal_access_token": "pat"
+        })));
+        assert!(auth_has_credential_login_material(&serde_json::json!({
+            "bedrock_api_key": "bk"
+        })));
+
+        assert!(!auth_has_credential_login_material(&serde_json::json!({
+            "OPENAI_API_KEY": "sk-x"
+        })));
+        assert!(!auth_has_credential_login_material(&serde_json::json!({
+            "OPENAI_API_KEY": "sk-x",
+            "last_refresh": "2026-01-01T00:00:00Z",
+            "tokens": { "account_id": "acct-meta-only" }
+        })));
+        assert!(!auth_has_credential_login_material(&serde_json::json!({})));
+    }
+
+    #[test]
+    fn stale_third_party_residue_detection() {
+        assert!(live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "OPENAI_API_KEY": "sk-third-party"
+        })));
+        assert!(live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "auth_mode": "apikey",
+            "OPENAI_API_KEY": "PROXY_MANAGED"
+        })));
+        assert!(live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "OPENAI_API_KEY": "sk-third-party",
+            "last_refresh": "2026-01-01T00:00:00Z",
+            "tokens": { "account_id": "acct-meta-only" }
+        })));
+
+        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "OPENAI_API_KEY": "sk-x",
+            "tokens": { "access_token": "t" }
+        })));
+        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "auth_mode": "chatgpt",
+            "OPENAI_API_KEY": null,
+            "tokens": { "access_token": "official-oauth-token" }
+        })));
+        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({})));
+        assert!(!live_auth_is_stale_third_party_residue(&serde_json::json!({
+            "OPENAI_API_KEY": ""
+        })));
+    }
+
+    #[test]
+    fn clears_api_key_only_auth_but_keeps_oauth() {
+        let temp = tempfile::tempdir().unwrap();
+        let stale = temp.path().join("stale-auth.json");
+        fs::write(&stale, r#"{"auth_mode":"apikey","OPENAI_API_KEY":"sk-vendor"}"#).unwrap();
+        assert!(clear_stale_third_party_auth_if_needed(&stale).unwrap());
+        assert!(!stale.exists());
+
+        let oauth = temp.path().join("oauth-auth.json");
+        fs::write(
+            &oauth,
+            r#"{"tokens":{"access_token":"keep"},"auth_mode":"chatgpt","OPENAI_API_KEY":"sk-vendor"}"#,
+        )
+        .unwrap();
+        assert!(!clear_stale_third_party_auth_if_needed(&oauth).unwrap());
+        assert!(oauth.exists());
+        let value: Value = serde_json::from_slice(&fs::read(&oauth).unwrap()).unwrap();
+        assert_eq!(value["tokens"]["access_token"], "keep");
+        assert_eq!(value["OPENAI_API_KEY"], "sk-vendor");
     }
 }

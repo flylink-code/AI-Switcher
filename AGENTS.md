@@ -4,19 +4,18 @@
 
 - 项目：Claude Switcher / AI-Switcher，Windows 桌面端，用于统一配置 Claude Desktop、Claude Code、Codex 及相关工具。
 - 技术栈：Tauri 2（Rust 后端）+ React + TypeScript + Vite（前端）+ pnpm。
-- 版本：工作区已更新为 `0.7.3`（`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`）。
+- 版本：工作区已更新为 `0.7.4`（`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`）。
 - 构建与测试：允许执行本项目的编译和测试；包管理器请使用 Corepack 读取 `packageManager` 锁定的 pnpm 版本。
 
-## 当前工作区状态（v0.7.3）
+## 当前工作区状态（v0.7.4）
 
-- v0.7.3：CodexHistoryStore + `/responses/compact` facade 已发版。
-- 推送 `main` 与带注释的 `v0.7.3` 标签后由 GitHub Actions 云端构建发布。
-- 不要将 `release/` 调试文件或编译缓存纳入提交；`task.md` 为本地规划（gitignore）。
+- v0.7.4：修复 Ubuntu/Linux GUI 下 fnm Node 就绪后 Claude Code / Codex CLI 假成功安装（补扫 fnm bin + npm 硬校验）；切回官方 Codex 清理残留第三方 `auth.json`。
+- 推送 `main` 与带注释的 `v0.7.4` 标签后由 GitHub Actions 云端构建发布。
+- 不要将 `release/` 调试文件或编译缓存纳入提交；`task.md` / `bug.md` 为本地规划（gitignore）。
 
 ## 已验证结果
 
-- `cargo check -j 1`：通过。
-- `cargo test --lib proxy::`（含 history / compact / Anthropic enrich 桥测）：通过。
+- 相关 `cargo test`：config::codex + commands::tools / node_runtime 单测。
 
 ## 后续操作建议
 

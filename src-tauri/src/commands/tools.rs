@@ -168,6 +168,19 @@ fn candidate_dirs() -> Vec<PathBuf> {
         push_child_dirs(&mut paths, &mut seen, &nvm_home);
     }
 
+    // fnm-managed Node bins (Ubuntu/Linux GUI PATH usually omits these).
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        push_unique(&mut paths, &mut seen, dir);
+    }
+
+    // nvm version bins under ~/.nvm/versions/node/*/bin
+    let nvm_versions = home.join(".nvm").join("versions").join("node");
+    if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+        for entry in entries.flatten().take(64) {
+            push_unique(&mut paths, &mut seen, entry.path().join("bin"));
+        }
+    }
+
     push_unique(&mut paths, &mut seen, home.join("scoop").join("shims"));
     push_unique(
         &mut paths,
@@ -209,7 +222,7 @@ fn executable_candidates(dir: &Path) -> Vec<PathBuf> {
 
 fn infer_source(path: &Path) -> String {
     let normalized = path.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
-    if normalized.contains("/.local/bin/claude") {
+    if normalized.contains("/.local/bin/claude") || normalized.contains("/.local/bin/codex") {
         "native".to_string()
     } else if normalized.contains("/pnpm/") {
         "pnpm".to_string()
@@ -217,7 +230,11 @@ fn infer_source(path: &Path) -> String {
         "volta".to_string()
     } else if normalized.contains("/nvm/") {
         "nvm".to_string()
-    } else if normalized.contains("fnm_multishell") {
+    } else if normalized.contains("fnm_multishell")
+        || normalized.contains("/fnm/")
+        || normalized.contains("\\fnm\\")
+        || normalized.contains("node-versions")
+    {
         "fnm".to_string()
     } else if normalized.contains("/scoop/") {
         "scoop".to_string()
@@ -288,7 +305,13 @@ fn run_local_tool(path: &Path) -> io::Result<Output> {
 fn probe_native_installations() -> Probe {
     let mut seen = HashSet::new();
     let mut broken: Option<(Installation, String)> = None;
-    for dir in candidate_dirs() {
+    let mut dirs = candidate_dirs();
+    if let Some(login_path) = resolve_command_via_login_shell("claude") {
+        if let Some(parent) = login_path.parent() {
+            dirs.insert(0, parent.to_path_buf());
+        }
+    }
+    for dir in dirs {
         for path in executable_candidates(&dir) {
             if !path.is_file() {
                 continue;
@@ -816,12 +839,18 @@ fn run_claude_native_install_windows() -> AppResult<Output> {
 
 fn run_claude_npm_install() -> AppResult<Output> {
     let runtime = crate::commands::node_runtime::require_node_for_npm()?;
-    crate::commands::node_runtime::run_anchored_npm_global_install(
+    let output = crate::commands::node_runtime::run_anchored_npm_global_install(
         &runtime.npm_path,
         &runtime.node_path,
         "@anthropic-ai/claude-code@latest",
     )
-    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
+    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))?;
+    Ok(ensure_npm_cli_after_install(
+        &runtime.node_path,
+        &runtime.npm_path,
+        "claude",
+        output,
+    ))
 }
 
 fn output_failed(detail: &str) -> Output {
@@ -849,19 +878,69 @@ fn merge_install_failures(primary: &str, secondary: &str) -> String {
     format!("{primary}\n---\n{secondary}")
 }
 
-/// Soft-verify a freshly installed npm global CLI via absolute paths next to node.
-fn soft_verify_npm_cli_near_node(node: &Path, cli_name: &str) {
-    let Some(node_dir) = node.parent() else {
-        return;
-    };
-    for candidate in [
-        node_dir.join(cli_name),
-        node_dir.join(format!("{cli_name}.cmd")),
-        node_dir.join(format!("{cli_name}.exe")),
-    ] {
-        if candidate.is_file() {
-            let _ = run_local_tool(&candidate);
-            return;
+/// Hard-verify a freshly installed npm global CLI via absolute paths.
+/// Soft checks previously allowed npm exit 0 + missing bin (common on Ubuntu GUI/fnm).
+fn verify_npm_cli_near_node(node: &Path, npm: &Path, cli_name: &str) -> Result<PathBuf, String> {
+    let mut candidates = Vec::new();
+    if let Some(node_dir) = node.parent() {
+        candidates.push(node_dir.join(cli_name));
+        candidates.push(node_dir.join(format!("{cli_name}.cmd")));
+        candidates.push(node_dir.join(format!("{cli_name}.exe")));
+    }
+    if let Some(home) = dirs::home_dir() {
+        candidates.push(home.join(".local").join("bin").join(cli_name));
+    }
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        candidates.push(dir.join(cli_name));
+        candidates.push(dir.join(format!("{cli_name}.cmd")));
+        candidates.push(dir.join(format!("{cli_name}.exe")));
+    }
+    if let Ok(bin_output) =
+        crate::commands::node_runtime::run_anchored_npm(npm, node, &["bin", "-g"])
+    {
+        if bin_output.status.success() {
+            let bin_dir = decode_output(&bin_output.stdout).trim().to_string();
+            if !bin_dir.is_empty() {
+                let dir = PathBuf::from(&bin_dir);
+                candidates.push(dir.join(cli_name));
+                candidates.push(dir.join(format!("{cli_name}.cmd")));
+                candidates.push(dir.join(format!("{cli_name}.exe")));
+            }
+        }
+    }
+    if let Some(login) = resolve_command_via_login_shell(cli_name) {
+        candidates.push(login);
+    }
+
+    let mut seen = HashSet::new();
+    for candidate in candidates {
+        if !seen.insert(candidate.clone()) || !candidate.is_file() {
+            continue;
+        }
+        match run_local_tool(&candidate) {
+            Ok(output) if output.status.success() => return Ok(candidate),
+            _ => continue,
+        }
+    }
+    Err(format!(
+        "npm reported success but `{cli_name}` was not found next to Node ({}) or under fnm/npm global bins. Check that the Node bin directory is writable and retry.",
+        node.display()
+    ))
+}
+
+fn ensure_npm_cli_after_install(node: &Path, npm: &Path, cli_name: &str, output: Output) -> Output {
+    if !output.status.success() {
+        return output;
+    }
+    match verify_npm_cli_near_node(node, npm, cli_name) {
+        Ok(_) => output,
+        Err(detail) => {
+            let mut merged = output_detail(&output);
+            if !merged.is_empty() {
+                merged.push('\n');
+            }
+            merged.push_str(&detail);
+            output_failed(&merged)
         }
     }
 }
@@ -881,10 +960,9 @@ fn run_claude_install_or_update() -> AppResult<Output> {
         }
         Probe::NotFound(_) => {
             // Prefer npm when Node≥22 is available (more reliable behind mirrors than install.sh).
-            if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+            if crate::commands::node_runtime::require_node_for_npm().is_ok() {
                 match run_claude_npm_install() {
                     Ok(output) if output.status.success() => {
-                        soft_verify_npm_cli_near_node(&runtime.node_path, "claude");
                         return Ok(output);
                     }
                     Ok(npm_output) => {
@@ -1048,7 +1126,13 @@ fn codex_executable_candidates(dir: &Path) -> Vec<PathBuf> {
 fn probe_codex_installation() -> Probe {
     let mut seen = HashSet::new();
     let mut broken: Option<(Installation, String)> = None;
-    for dir in candidate_dirs() {
+    let mut dirs = candidate_dirs();
+    if let Some(login_path) = resolve_command_via_login_shell("codex") {
+        if let Some(parent) = login_path.parent() {
+            dirs.insert(0, parent.to_path_buf());
+        }
+    }
+    for dir in dirs {
         for path in codex_executable_candidates(&dir) {
             if !path.is_file() {
                 continue;
@@ -1126,12 +1210,18 @@ fn codex_update_command_for(installation: Option<&Installation>) -> String {
 
 fn run_codex_npm_install() -> AppResult<Output> {
     let runtime = crate::commands::node_runtime::require_node_for_npm()?;
-    crate::commands::node_runtime::run_anchored_npm_global_install(
+    let output = crate::commands::node_runtime::run_anchored_npm_global_install(
         &runtime.npm_path,
         &runtime.node_path,
         "@openai/codex@latest",
     )
-    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))
+    .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))?;
+    Ok(ensure_npm_cli_after_install(
+        &runtime.node_path,
+        &runtime.npm_path,
+        "codex",
+        output,
+    ))
 }
 
 fn run_codex_install_or_update() -> AppResult<Output> {
@@ -1146,18 +1236,16 @@ fn run_codex_install_or_update() -> AppResult<Output> {
             } else {
                 runtime.npm_path.clone()
             };
-            crate::commands::node_runtime::run_anchored_npm_global_install(
+            let output = crate::commands::node_runtime::run_anchored_npm_global_install(
                 &npm,
                 &runtime.node_path,
                 "@openai/codex@latest",
             )
-            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?
+            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+            ensure_npm_cli_after_install(&runtime.node_path, &npm, "codex", output)
         }
         Probe::NotFound(_) => run_codex_npm_install()?,
     };
-    if output.status.success() {
-        soft_verify_npm_cli_near_node(&runtime.node_path, "codex");
-    }
     Ok(output)
 }
 
@@ -1245,6 +1333,16 @@ mod tests {
         );
         assert_eq!(
             infer_source(Path::new(r"C:\Users\me\.local\bin\claude.exe")),
+            "native"
+        );
+        assert_eq!(
+            infer_source(Path::new(
+                "/home/me/.local/share/fnm/node-versions/v22.14.0/installation/bin/claude"
+            )),
+            "fnm"
+        );
+        assert_eq!(
+            infer_source(Path::new("/home/me/.local/bin/codex")),
             "native"
         );
     }

@@ -1,6 +1,7 @@
 //! Probe and ensure a Node.js runtime (≥22) via fnm for CLI installs.
 
 use serde::Serialize;
+use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -208,6 +209,57 @@ fn fnm_install_dir() -> PathBuf {
 fn looks_like_fnm_path(path: &Path) -> bool {
     let text = path.to_string_lossy().to_ascii_lowercase();
     text.contains("fnm")
+}
+
+fn push_bin_dir(dirs: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, path: PathBuf) {
+    if path.as_os_str().is_empty() || !path.is_dir() || !seen.insert(path.clone()) {
+        return;
+    }
+    dirs.push(path);
+}
+
+/// Bin directories for fnm-managed Node installs.
+///
+/// GUI apps on Linux/macOS often lack `fnm env` on PATH, so global npm CLIs
+/// that land under `node-versions/*/installation/bin` are invisible unless we
+/// scan these roots explicitly.
+pub fn fnm_node_bin_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+
+    for root in fnm_candidate_dirs() {
+        push_bin_dir(
+            &mut dirs,
+            &mut seen,
+            root.join("aliases").join("default").join("bin"),
+        );
+        if let Ok(entries) = std::fs::read_dir(root.join("aliases")) {
+            for entry in entries.flatten().take(64) {
+                push_bin_dir(&mut dirs, &mut seen, entry.path().join("bin"));
+            }
+        }
+        if let Ok(entries) = std::fs::read_dir(root.join("node-versions")) {
+            for entry in entries.flatten().take(96) {
+                let version_root = entry.path();
+                push_bin_dir(
+                    &mut dirs,
+                    &mut seen,
+                    version_root.join("installation").join("bin"),
+                );
+                push_bin_dir(&mut dirs, &mut seen, version_root.join("bin"));
+            }
+        }
+    }
+
+    if let Some(fnm) = find_fnm_binary() {
+        if let Some((node, _, _, _)) = probe_fnm_default_node(&fnm) {
+            if let Some(parent) = node.parent() {
+                push_bin_dir(&mut dirs, &mut seen, parent.to_path_buf());
+            }
+        }
+    }
+
+    dirs
 }
 
 fn executable_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
