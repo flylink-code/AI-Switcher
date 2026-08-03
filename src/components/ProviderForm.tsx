@@ -35,8 +35,6 @@ interface ProviderFormProps {
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
   target: ProviderTarget;
-  /** Optional preset to apply when opening the create modal. */
-  initialPresetId?: string | null;
   onCancel: () => void;
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
@@ -108,7 +106,6 @@ export function ProviderForm({
   open,
   editing,
   target,
-  initialPresetId = null,
   onCancel,
   onSubmit,
 }: ProviderFormProps) {
@@ -119,6 +116,7 @@ export function ProviderForm({
   const [modelResult, setModelResult] = useState<ModelDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
@@ -140,6 +138,7 @@ export function ProviderForm({
     setModelResult(null);
     if (editing) {
       setModels([]);
+      setSelectedPresetId(null);
       form.setFieldsValue({
         id: editing.id,
         name: editing.name,
@@ -167,6 +166,7 @@ export function ProviderForm({
         });
     } else {
       setModels([]);
+      setSelectedPresetId(null);
       form.resetFields();
       form.setFieldsValue({
         protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
@@ -181,32 +181,13 @@ export function ProviderForm({
           subagent: "",
         },
       });
-      const preset = initialPresetId
-        ? presetsForTarget(target).find((item) => item.id === initialPresetId)
-        : undefined;
-      if (preset) {
-        skipModelSyncRef.current = true;
-        prevModelRef.current = preset.model;
-        form.setFieldsValue({
-          name: preset.name,
-          protocolType: preset.protocolType,
-          baseUrl: preset.baseUrl,
-          model: preset.model,
-          modelContextWindow: preset.modelContextWindow,
-          notes: preset.notes ?? "",
-          modelMapping:
-            target === "codex"
-              ? { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" }
-              : mappingFromModel(preset.model, target),
-        });
-      }
     }
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
     return () => {
       cancelled = true;
     };
-  }, [open, editing, form, target, initialPresetId]);
+  }, [open, editing, form, target]);
 
   useEffect(() => {
     if (!open) return;
@@ -356,7 +337,30 @@ export function ProviderForm({
   const applyPreset = (presetId: string) => {
     const preset = presetsForTarget(target).find((item) => item.id === presetId);
     if (!preset) return;
+    setSelectedPresetId(presetId);
     applyPresetValues(preset);
+  };
+
+  const clearPreset = () => {
+    setSelectedPresetId(null);
+    setModels([]);
+    setModelResult(null);
+    skipModelSyncRef.current = true;
+    prevModelRef.current = "";
+    form.resetFields();
+    form.setFieldsValue({
+      protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
+      providerKind: "standard",
+      authBinding: "",
+      targetApp: target,
+      modelMapping: {
+        sonnet: "",
+        opus: "",
+        haiku: "",
+        fable: "",
+        subagent: "",
+      },
+    });
   };
 
   const applyPresetValues = (preset: ProviderPreset) => {
@@ -406,18 +410,29 @@ export function ProviderForm({
         </Form.Item>
 
         {!isEdit && createPresets.length > 0 ? (
-          <Form.Item label={t("providers.fromPreset")}>
-            <Select
-              allowClear
-              placeholder={t("providers.fromPresetPlaceholder")}
-              options={createPresets.map((preset) => ({
-                value: preset.id,
-                label: `${preset.name} · ${preset.protocolType}`,
-              }))}
-              onChange={(value) => {
-                if (typeof value === "string" && value) applyPreset(value);
-              }}
-            />
+          <Form.Item
+            label={t("providers.fromPreset")}
+            extra={t("providers.fromPresetHint")}
+          >
+            <Space wrap size={[8, 8]}>
+              <Button
+                size="small"
+                type={selectedPresetId === null ? "primary" : "default"}
+                onClick={clearPreset}
+              >
+                {t("providers.blankPreset")}
+              </Button>
+              {createPresets.map((preset) => (
+                <Button
+                  key={preset.id}
+                  size="small"
+                  type={selectedPresetId === preset.id ? "primary" : "default"}
+                  onClick={() => applyPreset(preset.id)}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </Space>
           </Form.Item>
         ) : null}
 

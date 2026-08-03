@@ -39,7 +39,6 @@ import { ProviderForm } from "@/components/ProviderForm";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
-import { presetsForTarget } from "@/lib/providerPresets";
 import {
   ensureCodexOauthProvider,
   exportProviders,
@@ -69,16 +68,12 @@ export default function ProvidersPage() {
   const setUsageSource = usePagePreferencesStore((state) => state.setUsageLogTarget);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
-  const [initialPresetId, setInitialPresetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
   const usageQuery = useQuery(usageTrendOptions(usagePeriod, usageSource));
-  const quickPresets = presetsForTarget(target).filter((preset) =>
-    ["deepseek-anthropic", "kimi-cn", "glm", "qwen"].includes(preset.id),
-  );
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -86,14 +81,12 @@ export default function ProvidersPage() {
     void getCodexAuthStatus().then(setCodexAuth).catch(() => setCodexAuth(null));
   }, [target]);
 
-  const openCreate = (presetId?: string) => {
+  const openCreate = () => {
     setEditing(null);
-    setInitialPresetId(presetId ?? null);
     setFormOpen(true);
   };
   const openEdit = (provider: Provider) => {
     setEditing(provider);
-    setInitialPresetId(null);
     setFormOpen(true);
   };
 
@@ -323,16 +316,6 @@ export default function ProvidersPage() {
         <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>{t("providers.create")}</Button>
       </Space>
     </Space>
-    {quickPresets.length > 0 ? (
-      <Space wrap size={[8, 8]}>
-        <Typography.Text type="secondary">{t("providers.quickPresets")}</Typography.Text>
-        {quickPresets.map((preset) => (
-          <Button key={preset.id} size="small" onClick={() => openCreate(preset.id)}>
-            {preset.name}
-          </Button>
-        ))}
-      </Space>
-    ) : null}
     {target === "codex" && (
       <OnboardingTip
         tipKey="providers_codex_auth"
@@ -436,10 +419,8 @@ export default function ProvidersPage() {
       open={formOpen}
       editing={editing}
       target={target}
-      initialPresetId={initialPresetId}
       onCancel={() => {
         setFormOpen(false);
-        setInitialPresetId(null);
       }}
       onSubmit={handleSubmit}
     />
