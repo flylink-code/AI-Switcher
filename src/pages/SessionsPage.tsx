@@ -178,6 +178,10 @@ export default function SessionsPage() {
       if (sort === "directory") {
         return (left.projectDir ?? "").localeCompare(right.projectDir ?? "");
       }
+      const pinDelta = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+      if (pinDelta !== 0 && sort === "recent") {
+        return pinDelta;
+      }
       const leftTime = left.lastActiveAt ?? left.createdAt ?? 0;
       const rightTime = right.lastActiveAt ?? right.createdAt ?? 0;
       return sort === "oldest" ? leftTime - rightTime : rightTime - leftTime;
@@ -495,7 +499,8 @@ export default function SessionsPage() {
                       title={
                         <Space>
                           <Tag color={session.provider === "codex" ? "green" : "purple"}>{session.provider === "codex" ? "Codex" : "Claude Code"}</Tag>
-                          <Typography.Text ellipsis style={{ maxWidth: 230 }}>
+                          {session.pinned ? <Tag color="gold">{t("sessions.pinned")}</Tag> : null}
+                          <Typography.Text ellipsis style={{ maxWidth: 200 }}>
                             {session.title || session.sessionId}
                           </Typography.Text>
                         </Space>
@@ -611,7 +616,12 @@ function SessionDetail({
   return (
     <Card
       size="small"
-      title={session.title || session.sessionId}
+      title={
+        <Space>
+          {session.pinned ? <Tag color="gold">{t("sessions.pinned")}</Tag> : null}
+          <span>{session.title || session.sessionId}</span>
+        </Space>
+      }
       extra={
         <Space>
           <Tooltip title={session.resumeCommand ? undefined : t("sessions.resumeUnavailable")}>

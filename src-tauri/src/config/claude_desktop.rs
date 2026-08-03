@@ -1,8 +1,8 @@
 //! Claude Desktop configuration directory discovery and profile management.
 //!
 //! Third-party gateway profiles live under `configLibrary` inside the **3p**
-//! install directory (`Claude-3p` on Windows, `Claude-3p` under Application
-//! Support on macOS). Logic aligned with `examples/cc-switch-main`.
+//! install directory (`Claude-3p` on Windows/macOS/Linux). On Windows, Store /
+//! MSIX installs may virtualize config under `Packages\\Claude_*\\LocalCache`.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -53,7 +53,7 @@ impl ClaudeDesktopPaths {
 
 /// Whether Claude Desktop config management is supported on this OS.
 pub fn is_supported_platform() -> bool {
-    cfg!(any(target_os = "windows", target_os = "macos"))
+    cfg!(any(target_os = "windows", target_os = "macos", target_os = "linux"))
 }
 
 /// Resolve platform paths. On supported platforms this always returns concrete
@@ -70,18 +70,33 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
         return paths_from_dirs(app_support.join("Claude"), app_support.join("Claude-3p"));
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        let config = linux_config_home();
+        return paths_from_dirs(config.join("Claude"), config.join("Claude-3p"));
+    }
+
     #[cfg(windows)]
     {
         let local_app_data = windows_local_app_data_dir();
-        let normal_dir = pick_windows_claude_dir(&local_app_data, false)
+        let roaming_app_data = windows_roaming_app_data_dir();
+        let normal_dir = pick_windows_claude_dir(&local_app_data, &roaming_app_data, false)
             .unwrap_or_else(|| local_app_data.join("Claude"));
-        let threep_dir = pick_windows_claude_dir(&local_app_data, true)
+        let threep_dir = pick_windows_claude_dir(&local_app_data, &roaming_app_data, true)
             .unwrap_or_else(|| local_app_data.join("Claude-3p"));
         return paths_from_dirs(normal_dir, threep_dir);
     }
 
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     ClaudeDesktopPaths::unsupported()
+}
+
+#[cfg(target_os = "linux")]
+fn linux_config_home() -> PathBuf {
+    std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| get_home_dir().join(".config"))
 }
 
 #[cfg(windows)]
@@ -92,13 +107,80 @@ fn windows_local_app_data_dir() -> PathBuf {
 }
 
 #[cfg(windows)]
-fn pick_windows_claude_dir(local_app_data: &Path, threep: bool) -> Option<PathBuf> {
+fn windows_roaming_app_data_dir() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| get_home_dir().join("AppData").join("Roaming"))
+}
+
+/// Prefer the directory Claude Desktop actually reads.
+///
+/// Store / MSIX builds may keep a virtualized copy under
+/// `Packages\\Claude_*\\LocalCache\\Roaming\\Claude` while Settings → Edit Config
+/// opens the non-virtualized `%APPDATA%\\Claude` path.
+#[cfg(windows)]
+fn pick_windows_claude_dir(
+    local_app_data: &Path,
+    roaming_app_data: &Path,
+    threep: bool,
+) -> Option<PathBuf> {
     let exact_name = if threep { "Claude-3p" } else { "Claude" };
-    let exact = local_app_data.join(exact_name);
-    if exact.is_dir() {
-        return Some(exact);
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    candidates.push(local_app_data.join(exact_name));
+    candidates.extend(windows_msix_claude_dirs(local_app_data, threep));
+    candidates.push(roaming_app_data.join(exact_name));
+    if let Some(fuzzy) = windows_fuzzy_local_claude_dirs(local_app_data, threep) {
+        candidates.extend(fuzzy);
     }
 
+    let mut seen = std::collections::HashSet::new();
+    candidates.retain(|path| seen.insert(normalize_windows_path_key(path)));
+
+    if let Some(path) = candidates
+        .iter()
+        .find(|path| path.join(CONFIG_FILE).is_file())
+        .cloned()
+    {
+        return Some(path);
+    }
+    candidates.into_iter().find(|path| path.is_dir())
+}
+
+#[cfg(windows)]
+fn windows_msix_claude_dirs(local_app_data: &Path, threep: bool) -> Vec<PathBuf> {
+    let packages = local_app_data.join("Packages");
+    let Ok(entries) = std::fs::read_dir(packages) else {
+        return Vec::new();
+    };
+    let exact_name = if threep { "Claude-3p" } else { "Claude" };
+    let mut dirs = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        // Official package id looks like Claude_pzs8sxrjxfjjc; keep the prefix
+        // loose so publisher suffixes still match.
+        let is_claude_package = name.starts_with("Claude_") || name.starts_with("Claude-");
+        let is_threep_package = name.to_ascii_lowercase().contains("3p");
+        if !is_claude_package || is_threep_package != threep {
+            continue;
+        }
+        dirs.push(
+            path.join("LocalCache")
+                .join("Roaming")
+                .join(exact_name),
+        );
+    }
+    dirs.sort();
+    dirs
+}
+
+#[cfg(windows)]
+fn windows_fuzzy_local_claude_dirs(local_app_data: &Path, threep: bool) -> Option<Vec<PathBuf>> {
     let mut candidates: Vec<PathBuf> = std::fs::read_dir(local_app_data)
         .ok()?
         .filter_map(Result::ok)
@@ -108,13 +190,24 @@ fn pick_windows_claude_dir(local_app_data: &Path, threep: bool) -> Option<PathBu
             let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
                 return false;
             };
+            if name.eq_ignore_ascii_case("Packages") {
+                return false;
+            }
             let starts = name.starts_with("Claude");
             let is_threep = name.contains("-3p");
             starts && is_threep == threep
         })
         .collect();
     candidates.sort();
-    candidates.into_iter().next()
+    Some(candidates)
+}
+
+#[cfg(windows)]
+fn normalize_windows_path_key(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('/', "\\")
+        .trim_end_matches(['\\', '/'])
+        .to_ascii_lowercase()
 }
 
 fn paths_from_dirs(normal_dir: PathBuf, threep_dir: PathBuf) -> ClaudeDesktopPaths {
@@ -773,6 +866,51 @@ mod tests {
             paths.config_library,
             Some(PathBuf::from("/tmp/Claude-3p/configLibrary"))
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_picker_prefers_msix_config_over_empty_local_dir() {
+        let root = tempfile::tempdir().unwrap();
+        let local = root.path().join("Local");
+        let roaming = root.path().join("Roaming");
+        let empty_local = local.join("Claude");
+        std::fs::create_dir_all(&empty_local).unwrap();
+
+        let msix = local
+            .join("Packages")
+            .join("Claude_pzs8sxrjxfjjc")
+            .join("LocalCache")
+            .join("Roaming")
+            .join("Claude");
+        std::fs::create_dir_all(&msix).unwrap();
+        std::fs::write(msix.join(CONFIG_FILE), r#"{"mcpServers":{}}"#).unwrap();
+
+        let picked = pick_windows_claude_dir(&local, &roaming, false).unwrap();
+        assert_eq!(picked, msix);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_picker_keeps_local_when_it_owns_the_config() {
+        let root = tempfile::tempdir().unwrap();
+        let local = root.path().join("Local");
+        let roaming = root.path().join("Roaming");
+        let local_claude = local.join("Claude");
+        std::fs::create_dir_all(&local_claude).unwrap();
+        std::fs::write(local_claude.join(CONFIG_FILE), r#"{"mcpServers":{}}"#).unwrap();
+
+        let msix = local
+            .join("Packages")
+            .join("Claude_pzs8sxrjxfjjc")
+            .join("LocalCache")
+            .join("Roaming")
+            .join("Claude");
+        std::fs::create_dir_all(&msix).unwrap();
+        std::fs::write(msix.join(CONFIG_FILE), r#"{"mcpServers":{"other":{}}}"#).unwrap();
+
+        let picked = pick_windows_claude_dir(&local, &roaming, false).unwrap();
+        assert_eq!(picked, local_claude);
     }
 
     #[test]

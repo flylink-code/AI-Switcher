@@ -11,7 +11,7 @@
 | 平台 | 安装包 | 说明 |
 |---|---|---|
 | Windows 10/11 | NSIS `.exe`（推荐）/ MSI | 完整功能 |
-| Linux（预览） | AppImage / `.deb` | 尽力支持；Claude Desktop 中文化等部分能力不可用 |
+| Linux（预览） | AppImage / `.deb` | 尽力支持；已覆盖 Claude Desktop 官方 Linux 配置路径；中文化等部分能力仍受限 |
 
 ---
 

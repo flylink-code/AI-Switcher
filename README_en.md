@@ -11,7 +11,7 @@ Works locally by default: API keys go in the OS credential store, writes are bac
 | Platform | Package | Notes |
 |---|---|---|
 | Windows 10/11 | NSIS `.exe` (preferred) / MSI | Full feature set |
-| Linux (preview) | AppImage / `.deb` | Best-effort; some Desktop localization features unavailable |
+| Linux (preview) | AppImage / `.deb` | Best-effort; official Claude Desktop Linux config paths are covered; some localization features remain limited |
 
 ---
 

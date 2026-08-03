@@ -100,6 +100,7 @@
     "listTitle": "会话（{{count}}）",
     "empty": "未发现符合条件的会话",
     "unknownDirectory": "未知工作目录",
+    "pinned": "置顶",
     "createdAt": "创建时间",
     "lastActiveAt": "最近活跃",
     "selectHint": "选择一个会话查看详情",

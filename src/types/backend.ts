@@ -665,6 +665,8 @@ export interface SessionMeta {
   lastActiveAt?: number;
   sourcePath: string;
   resumeCommand?: string;
+  /** Codex thread pin from local SQLite index. */
+  pinned?: boolean;
 }
 
 export interface SessionMessage {

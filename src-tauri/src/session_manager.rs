@@ -1,10 +1,12 @@
 //! Local session discovery and archive operations for Claude Code and Codex.
 
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -69,6 +71,9 @@ pub struct SessionMeta {
     pub source_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resume_command: Option<String>,
+    /// Codex thread pin from `state_5.sqlite` (`threads.is_pinned`).
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -162,7 +167,25 @@ pub fn scan_sessions(
         providers.push(status);
     }
 
-    indexed.sort_by(|left, right| right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1)));
+    let codex_index = if indexed
+        .iter()
+        .any(|(_, _, session_provider)| *session_provider == SessionProvider::Codex)
+    {
+        load_codex_thread_index()
+    } else {
+        CodexThreadIndex::default()
+    };
+
+    indexed.sort_by(|left, right| {
+        let left_pinned = left.2 == SessionProvider::Codex
+            && codex_index.lookup(&left.1).is_some_and(|meta| meta.pinned);
+        let right_pinned = right.2 == SessionProvider::Codex
+            && codex_index.lookup(&right.1).is_some_and(|meta| meta.pinned);
+        right_pinned
+            .cmp(&left_pinned)
+            .then_with(|| right.0.cmp(&left.0))
+            .then_with(|| left.1.cmp(&right.1))
+    });
 
     let total = indexed.len();
     let offset = offset.unwrap_or(0).min(total);
@@ -175,10 +198,15 @@ pub fn scan_sessions(
 
     // List view must NEVER open session files. Opening cloud placeholders /
     // antivirus-locked jsonl on Windows can stall the kernel and freeze the OS.
+    // Codex names / pins come from SQLite thread index instead.
     let sessions = page
         .into_iter()
         .filter_map(|(mtime, path, session_provider)| {
-            session_meta_from_path(session_provider, &path, mtime)
+            let mut session = session_meta_from_path(session_provider, &path, mtime)?;
+            if session_provider == SessionProvider::Codex {
+                apply_codex_thread_meta(&mut session, &path, &codex_index);
+            }
+            Some(session)
         })
         .collect();
 
@@ -946,6 +974,7 @@ fn session_meta_from_path(
         last_active_at: (mtime > 0).then_some(mtime),
         source_path: path.display().to_string(),
         resume_command: resume,
+        pinned: false,
     })
 }
 
@@ -1017,6 +1046,7 @@ fn parse_claude_code_session(path: &Path) -> AppResult<Option<SessionMeta>> {
         last_active_at,
         source_path: path.display().to_string(),
         resume_command: resume_command(&session_id),
+        pinned: false,
     }))
 }
 
@@ -1025,6 +1055,8 @@ fn parse_codex_session(path: &Path) -> AppResult<Option<SessionMeta>> {
     if let Some(session) = &mut session {
         session.provider = SessionProvider::Codex;
         session.resume_command = Some(format!("codex resume {}", session.session_id));
+        let index = load_codex_thread_index();
+        apply_codex_thread_meta(session, path, &index);
     }
     Ok(session)
 }
@@ -1134,6 +1166,7 @@ fn session_metadata_contains(session: &SessionMeta, query: &str) -> bool {
     .into_iter()
     .flatten()
     .any(|value| value.to_lowercase().contains(query))
+        || (session.pinned && ("pin" == query || "pinned" == query || "置顶" == query))
 }
 
 fn file_contains(provider: SessionProvider, path: &str, query: &str) -> AppResult<bool> {
@@ -1200,6 +1233,312 @@ fn normalize_path_key(path: &Path) -> String {
         .replace('/', "\\")
         .trim_end_matches(['\\', '/'])
         .to_ascii_lowercase()
+}
+
+#[derive(Debug, Clone, Default)]
+struct CodexThreadMeta {
+    id: String,
+    title: Option<String>,
+    name: Option<String>,
+    summary: Option<String>,
+    cwd: Option<String>,
+    pinned: bool,
+    created_at: Option<i64>,
+    updated_at: Option<i64>,
+}
+
+#[derive(Debug, Default)]
+struct CodexThreadIndex {
+    by_path: HashMap<String, CodexThreadMeta>,
+    by_id: HashMap<String, CodexThreadMeta>,
+}
+
+impl CodexThreadIndex {
+    fn lookup(&self, path: &Path) -> Option<&CodexThreadMeta> {
+        let key = normalize_path_key(path);
+        if let Some(meta) = self.by_path.get(&key) {
+            return Some(meta);
+        }
+        let file_name = path.file_name().and_then(|value| value.to_str())?;
+        for (id, meta) in &self.by_id {
+            if file_name.contains(id) {
+                return Some(meta);
+            }
+        }
+        None
+    }
+}
+
+fn apply_codex_thread_meta(session: &mut SessionMeta, path: &Path, index: &CodexThreadIndex) {
+    let Some(meta) = index.lookup(path) else {
+        return;
+    };
+    if !meta.id.is_empty() {
+        session.session_id = meta.id.clone();
+        session.resume_command = Some(format!("codex resume {}", meta.id));
+    }
+    let display = meta
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            meta.title
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            meta.summary
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        });
+    if let Some(title) = display {
+        session.title = Some(truncate(title, SUMMARY_LIMIT));
+        if session.summary.is_none() {
+            session.summary = Some(truncate(title, SUMMARY_LIMIT));
+        }
+    }
+    if session.project_dir.is_none() {
+        if let Some(cwd) = meta
+            .cwd
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            session.project_dir = Some(cwd.to_string());
+        }
+    }
+    if session.created_at.is_none() {
+        session.created_at = meta.created_at;
+    }
+    if let Some(updated_at) = meta.updated_at {
+        session.last_active_at = Some(updated_at);
+    }
+    session.pinned = meta.pinned;
+}
+
+fn load_codex_thread_index() -> CodexThreadIndex {
+    let mut index = CodexThreadIndex::default();
+    for path in codex_thread_db_paths() {
+        if let Err(error) = load_codex_thread_index_from_db(&path, &mut index) {
+            log::warn!(
+                "跳过无法读取的 Codex 会话索引 {}: {error}",
+                path.display()
+            );
+        }
+    }
+    index
+}
+
+fn codex_thread_db_paths() -> Vec<PathBuf> {
+    let home = config::get_codex_config_dir();
+    let mut paths = Vec::new();
+    let legacy = home.join("state_5.sqlite");
+    if legacy.is_file() {
+        paths.push(legacy);
+    }
+    if let Ok(entries) = fs::read_dir(home.join("sqlite")) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            if !(name.ends_with(".sqlite") || name.ends_with(".db")) {
+                continue;
+            }
+            if name.ends_with("-wal") || name.ends_with("-shm") {
+                continue;
+            }
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    paths
+}
+
+fn load_codex_thread_index_from_db(path: &Path, index: &mut CodexThreadIndex) -> AppResult<()> {
+    let db = Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| {
+        AppError::Database(format!("打开 Codex SQLite 失败 {}: {error}", path.display()))
+    })?;
+    if !sqlite_table_exists(&db, "threads") {
+        return Ok(());
+    }
+    let has_id = sqlite_column_exists(&db, "threads", "id");
+    let has_rollout = sqlite_column_exists(&db, "threads", "rollout_path");
+    if !has_id && !has_rollout {
+        return Ok(());
+    }
+    let has_title = sqlite_column_exists(&db, "threads", "title");
+    let has_name = sqlite_column_exists(&db, "threads", "name");
+    let has_preview = sqlite_column_exists(&db, "threads", "preview");
+    let has_first = sqlite_column_exists(&db, "threads", "first_user_message");
+    let has_cwd = sqlite_column_exists(&db, "threads", "cwd");
+    let has_pinned = sqlite_column_exists(&db, "threads", "is_pinned");
+    let has_created = sqlite_column_exists(&db, "threads", "created_at_ms");
+    let has_updated = sqlite_column_exists(&db, "threads", "updated_at_ms");
+
+    let mut columns = Vec::new();
+    if has_id {
+        columns.push("id");
+    }
+    if has_rollout {
+        columns.push("rollout_path");
+    }
+    if has_title {
+        columns.push("title");
+    }
+    if has_name {
+        columns.push("name");
+    }
+    if has_preview {
+        columns.push("preview");
+    }
+    if has_first {
+        columns.push("first_user_message");
+    }
+    if has_cwd {
+        columns.push("cwd");
+    }
+    if has_pinned {
+        columns.push("is_pinned");
+    }
+    if has_created {
+        columns.push("created_at_ms");
+    }
+    if has_updated {
+        columns.push("updated_at_ms");
+    }
+    let sql = format!("SELECT {} FROM threads", columns.join(", "));
+    let mut stmt = db.prepare(&sql).map_err(|error| {
+        AppError::Database(format!("查询 Codex threads 失败: {error}"))
+    })?;
+    let rows = stmt
+        .query_map([], |row| {
+            let mut offset = 0usize;
+            let mut next = || {
+                let value = offset;
+                offset += 1;
+                value
+            };
+            let id = if has_id {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let rollout_path = if has_rollout {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let title = if has_title {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let name = if has_name {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let preview = if has_preview {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let first_user_message = if has_first {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let cwd = if has_cwd {
+                row.get::<_, Option<String>>(next())?
+            } else {
+                None
+            };
+            let pinned = if has_pinned {
+                row.get::<_, Option<i64>>(next())?.unwrap_or(0) != 0
+            } else {
+                false
+            };
+            let created_at = if has_created {
+                row.get::<_, Option<i64>>(next())?
+            } else {
+                None
+            };
+            let updated_at = if has_updated {
+                row.get::<_, Option<i64>>(next())?
+            } else {
+                None
+            };
+            Ok((
+                rollout_path,
+                CodexThreadMeta {
+                    id: id.unwrap_or_default(),
+                    title: nonempty_owned(title),
+                    name: nonempty_owned(name),
+                    summary: nonempty_owned(preview).or_else(|| nonempty_owned(first_user_message)),
+                    cwd: nonempty_owned(cwd),
+                    pinned,
+                    created_at,
+                    updated_at,
+                },
+            ))
+        })
+        .map_err(|error| AppError::Database(format!("读取 Codex threads 失败: {error}")))?;
+
+    for (rollout_path, meta) in rows.flatten() {
+        if !meta.id.is_empty() {
+            index.by_id.entry(meta.id.clone()).or_insert_with(|| meta.clone());
+        }
+        if let Some(path) = rollout_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            index
+                .by_path
+                .entry(normalize_path_key(Path::new(path)))
+                .or_insert(meta);
+        }
+    }
+    Ok(())
+}
+
+fn nonempty_owned(value: Option<String>) -> Option<String> {
+    value.and_then(|text| {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn sqlite_table_exists(db: &Connection, table: &str) -> bool {
+    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1 LIMIT 1")
+        .ok()
+        .and_then(|mut stmt| stmt.exists([table]).ok())
+        .unwrap_or(false)
+}
+
+fn sqlite_column_exists(db: &Connection, table: &str, column: &str) -> bool {
+    let Ok(mut stmt) = db.prepare(&format!(
+        "SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?1 LIMIT 1"
+    )) else {
+        return false;
+    };
+    stmt.exists([column]).unwrap_or(false)
 }
 
 fn truncate(value: &str, max_chars: usize) -> String {
@@ -1351,6 +1690,7 @@ mod tests {
                 last_active_at: Some(index as i64),
                 source_path: format!("/tmp/s-{index}.jsonl"),
                 resume_command: None,
+                pinned: false,
             })
             .collect();
         let total = sessions.len();
@@ -1361,5 +1701,59 @@ mod tests {
         assert_eq!(page.len(), 2);
         assert_eq!(page[0].session_id, "s-2");
         assert_eq!(page[1].session_id, "s-3");
+    }
+
+    #[test]
+    fn codex_thread_index_enriches_name_pin_and_cwd() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("state_5.sqlite");
+        let rollout = dir
+            .path()
+            .join("rollout-demo-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl");
+        File::create(&rollout).unwrap();
+
+        let db = Connection::open(&db_path).unwrap();
+        db.execute_batch(
+            "CREATE TABLE threads (
+                id TEXT,
+                rollout_path TEXT,
+                title TEXT,
+                name TEXT,
+                preview TEXT,
+                first_user_message TEXT,
+                cwd TEXT,
+                is_pinned INTEGER,
+                created_at_ms INTEGER,
+                updated_at_ms INTEGER
+            );
+            INSERT INTO threads VALUES (
+                '019f8d32-4e9b-7551-acde-45e4c9a58e0b',
+                NULL,
+                'auto title',
+                'Named thread',
+                NULL,
+                'hello',
+                'C:\\work\\demo',
+                1,
+                1000,
+                2000
+            );",
+        )
+        .unwrap();
+        drop(db);
+
+        let mut index = CodexThreadIndex::default();
+        load_codex_thread_index_from_db(&db_path, &mut index).unwrap();
+
+        let mut session = session_meta_from_path(SessionProvider::Codex, &rollout, 9).unwrap();
+        apply_codex_thread_meta(&mut session, &rollout, &index);
+        assert!(session.pinned);
+        assert_eq!(session.title.as_deref(), Some("Named thread"));
+        assert_eq!(session.project_dir.as_deref(), Some("C:\\work\\demo"));
+        assert_eq!(session.session_id, "019f8d32-4e9b-7551-acde-45e4c9a58e0b");
+        assert_eq!(
+            session.resume_command.as_deref(),
+            Some("codex resume 019f8d32-4e9b-7551-acde-45e4c9a58e0b")
+        );
     }
 }
