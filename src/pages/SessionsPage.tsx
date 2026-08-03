@@ -86,6 +86,7 @@ export default function SessionsPage() {
     time !== "all" ||
     sort !== "recent" ||
     Boolean(query.trim());
+  // Always page on the backend. Path-only listing is cheap; avoid unbounded scans.
   const pageForFetch = needsFullScan || contentSearch ? 1 : page;
 
   const loadBrowse = useCallback(async () => {
@@ -93,7 +94,9 @@ export default function SessionsPage() {
     setError(null);
     try {
       const offset = needsFullScan ? 0 : (pageForFetch - 1) * PAGE_SIZE;
-      const limit = needsFullScan ? undefined : PAGE_SIZE;
+      // Cap even "full" filter scans — filtering is applied client-side on returned rows
+      // for directory/time/query when we fetch a larger first page.
+      const limit = needsFullScan ? Math.max(PAGE_SIZE * 20, 500) : PAGE_SIZE;
       const next = await scanSessions(provider, offset, limit);
       setResult(next);
       setSelected((current) =>

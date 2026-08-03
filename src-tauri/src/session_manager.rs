@@ -3,9 +3,7 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
-use std::thread;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,10 +22,13 @@ const SESSION_ARCHIVE_CONTENT: &str = "session.jsonl";
 const SESSION_BATCH_ARCHIVE_VERSION: u8 = 1;
 const SESSION_BATCH_ARCHIVE_MANIFEST: &str = "batch-manifest.json";
 const SESSION_BATCH_ARCHIVE_PREFIX: &str = "sessions";
-/// Avoid hanging forever on cloud placeholders / antivirus-locked session files.
-const SESSION_FILE_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
 /// Soft cap so a huge session tree cannot freeze the UI indefinitely.
-const MAX_SESSION_FILES: usize = 8_000;
+const MAX_SESSION_FILES: usize = 2_000;
+/// Bound recursive walks under cloud-synced / AV-watched trees.
+const MAX_WALK_DEPTH: u32 = 6;
+const WALK_DEADLINE: Duration = Duration::from_secs(2);
+/// Content search may open files; keep it tiny to avoid system-wide I/O stalls.
+const MAX_CONTENT_SEARCH_OPENS: usize = 40;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -140,18 +141,21 @@ pub fn scan_sessions(
     let mut indexed: Vec<(i64, PathBuf, SessionProvider)> = Vec::new();
     let mut providers = Vec::new();
     let mut truncated = false;
+    let mut timed_out = false;
 
     if provider.is_none() || provider == Some(SessionProvider::ClaudeCode) {
-        let (paths, status, was_truncated) = collect_claude_code_session_paths()?;
+        let (paths, status, was_truncated, walk_timed_out) = collect_claude_code_session_paths()?;
         truncated |= was_truncated;
+        timed_out |= walk_timed_out;
         for (path, mtime) in paths {
             indexed.push((mtime, path, SessionProvider::ClaudeCode));
         }
         providers.push(status);
     }
     if provider.is_none() || provider == Some(SessionProvider::Codex) {
-        let (paths, status, was_truncated) = collect_codex_session_paths()?;
+        let (paths, status, was_truncated, walk_timed_out) = collect_codex_session_paths()?;
         truncated |= was_truncated;
+        timed_out |= walk_timed_out;
         for (path, mtime) in paths {
             indexed.push((mtime, path, SessionProvider::Codex));
         }
@@ -169,28 +173,26 @@ pub fn scan_sessions(
         None => indexed,
     };
 
-    let mut sessions = Vec::with_capacity(page.len());
-    let mut open_timeouts = 0usize;
-    for (_mtime, path, session_provider) in page {
-        match parse_session_with_timeout(session_provider, &path) {
-            Ok(Some(session)) => sessions.push(session),
-            Ok(None) => {}
-            Err(error) if error.to_string().contains("打开会话超时") => {
-                open_timeouts += 1;
-                log::warn!("{error}");
-            }
-            Err(error) => log::warn!("跳过无法解析的会话 {}: {error}", path.display()),
-        }
-    }
+    // List view must NEVER open session files. Opening cloud placeholders /
+    // antivirus-locked jsonl on Windows can stall the kernel and freeze the OS.
+    let sessions = page
+        .into_iter()
+        .filter_map(|(mtime, path, session_provider)| {
+            session_meta_from_path(session_provider, &path, mtime)
+        })
+        .collect();
 
-    if truncated || open_timeouts > 0 {
+    if truncated || timed_out {
         for status in &mut providers {
             let mut notes = Vec::new();
             if truncated {
                 notes.push(format!("已限制最多扫描 {MAX_SESSION_FILES} 个会话文件"));
             }
-            if open_timeouts > 0 {
-                notes.push(format!("{open_timeouts} 个文件打开超时（可能被占用或云同步卡住）"));
+            if timed_out {
+                notes.push(format!(
+                    "目录扫描超过 {} 秒已提前结束（可能被云同步或杀毒卡住）",
+                    WALK_DEADLINE.as_secs()
+                ));
             }
             if !notes.is_empty() {
                 status.detail = format!("{}；{}", status.detail, notes.join("；"));
@@ -222,14 +224,23 @@ pub fn search_session_contents(
 
     let mut result = scan_sessions(provider, None, None)?;
     let limit = clamp_search_limit(limit);
-    result.sessions.retain(|session| {
-        if session_metadata_contains(session, &query) {
-            return true;
+    let mut matched = Vec::new();
+    let mut opens = 0usize;
+    for session in result.sessions.drain(..) {
+        if session_metadata_contains(&session, &query) {
+            matched.push(session);
+        } else if opens < MAX_CONTENT_SEARCH_OPENS {
+            opens += 1;
+            if file_contains(session.provider, &session.source_path, &query).unwrap_or(false) {
+                matched.push(session);
+            }
         }
-        file_contains(session.provider, &session.source_path, &query).unwrap_or(false)
-    });
+        if matched.len() >= limit {
+            break;
+        }
+    }
+    result.sessions = matched;
     result.total = result.sessions.len();
-    result.sessions.truncate(limit);
     result.offset = 0;
     result.limit = Some(limit);
     Ok(result)
@@ -722,7 +733,8 @@ fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {
 
 fn safe_session_name(value: &str) -> String { value.chars().filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_')).collect::<String>() }
 
-fn collect_claude_code_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool)> {
+fn collect_claude_code_session_paths(
+) -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
     let root = claude_code_session_root();
     if !root.is_dir() {
         return Ok((
@@ -734,10 +746,12 @@ fn collect_claude_code_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, Sessio
                 root_path: Some(root.display().to_string()),
             },
             false,
+            false,
         ));
     }
     let mut paths = Vec::new();
-    let truncated = collect_jsonl_files_with_mtime(&root, &mut paths)?;
+    let deadline = Instant::now() + WALK_DEADLINE;
+    let (truncated, timed_out) = collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
     Ok((
         paths,
         SessionProviderStatus {
@@ -747,10 +761,11 @@ fn collect_claude_code_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, Sessio
             root_path: Some(root.display().to_string()),
         },
         truncated,
+        timed_out,
     ))
 }
 
-fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool)> {
+fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
     let root = codex_session_root();
     if !root.is_dir() {
         return Ok((
@@ -762,10 +777,12 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
                 root_path: Some(root.display().to_string()),
             },
             false,
+            false,
         ));
     }
     let mut paths = Vec::new();
-    let truncated = collect_jsonl_files_with_mtime(&root, &mut paths)?;
+    let deadline = Instant::now() + WALK_DEADLINE;
+    let (truncated, timed_out) = collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
     Ok((
         paths,
         SessionProviderStatus {
@@ -775,6 +792,7 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
             root_path: Some(root.display().to_string()),
         },
         truncated,
+        timed_out,
     ))
 }
 
@@ -789,24 +807,46 @@ fn codex_session_root() -> PathBuf {
 
 fn collect_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) -> AppResult<()> {
     let mut with_mtime = Vec::new();
-    let _ = collect_jsonl_files_with_mtime(directory, &mut with_mtime)?;
+    let deadline = Instant::now() + WALK_DEADLINE;
+    let _ = collect_jsonl_files_with_mtime(directory, &mut with_mtime, 0, deadline)?;
     files.extend(with_mtime.into_iter().map(|(path, _)| path));
     Ok(())
 }
 
-/// Walk session trees using metadata only (no content open). Returns true if capped.
+/// Walk session trees using DirEntry metadata only (never open file contents).
+/// Returns `(truncated_by_count, timed_out)`.
 fn collect_jsonl_files_with_mtime(
     directory: &Path,
     files: &mut Vec<(PathBuf, i64)>,
-) -> AppResult<bool> {
+    depth: u32,
+    deadline: Instant,
+) -> AppResult<(bool, bool)> {
     if files.len() >= MAX_SESSION_FILES {
-        return Ok(true);
+        return Ok((true, false));
     }
-    let entries = fs::read_dir(directory)
-        .map_err(|error| AppError::Io(format!("读取会话目录 {} 失败: {error}", directory.display())))?;
+    if depth > MAX_WALK_DEPTH {
+        return Ok((false, false));
+    }
+    if Instant::now() >= deadline {
+        return Ok((false, true));
+    }
+    let entries = match fs::read_dir(directory) {
+        Ok(value) => value,
+        Err(error) => {
+            log::warn!("跳过无法读取的会话目录 {}: {error}", directory.display());
+            return Ok((false, false));
+        }
+    };
+    let mut timed_out = false;
+    let mut truncated = false;
     for entry in entries {
+        if Instant::now() >= deadline {
+            timed_out = true;
+            break;
+        }
         if files.len() >= MAX_SESSION_FILES {
-            return Ok(true);
+            truncated = true;
+            break;
         }
         let entry = match entry {
             Ok(value) => value,
@@ -816,16 +856,23 @@ fn collect_jsonl_files_with_mtime(
             }
         };
         let path = entry.path();
-        if entry
-            .file_type()
-            .map(|file_type| file_type.is_symlink())
-            .unwrap_or(true)
-        {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_symlink() {
             continue;
         }
-        if path.is_dir() {
-            if let Err(error) = collect_jsonl_files_with_mtime(&path, files) {
-                log::warn!("跳过无法扫描的会话子目录 {}: {error}", path.display());
+        let metadata = entry.metadata().ok();
+        if metadata.as_ref().is_some_and(is_risky_cloud_placeholder) {
+            continue;
+        }
+        if file_type.is_dir() {
+            let (child_truncated, child_timeout) =
+                collect_jsonl_files_with_mtime(&path, files, depth + 1, deadline)?;
+            truncated |= child_truncated;
+            if child_timeout {
+                timed_out = true;
+                break;
             }
             continue;
         }
@@ -835,51 +882,79 @@ fn collect_jsonl_files_with_mtime(
             .and_then(|value| value.to_str())
             .is_some_and(|name| name.starts_with("agent-"));
         if is_jsonl && !is_agent {
-            let mtime = fs::metadata(&path)
-                .ok()
-                .and_then(|metadata| metadata.modified().ok())
+            let mtime = metadata
+                .as_ref()
+                .and_then(|value| value.modified().ok())
                 .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
                 .map(|duration| duration.as_millis() as i64)
                 .unwrap_or(0);
             files.push((path, mtime));
         }
     }
-    Ok(false)
+    Ok((truncated, timed_out))
+}
+
+#[cfg(windows)]
+fn is_risky_cloud_placeholder(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_OFFLINE: u32 = 0x1000;
+    const FILE_ATTRIBUTE_RECALL_ON_OPEN: u32 = 0x4_0000;
+    const FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
+    let attrs = metadata.file_attributes();
+    attrs
+        & (FILE_ATTRIBUTE_OFFLINE
+            | FILE_ATTRIBUTE_RECALL_ON_OPEN
+            | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS)
+        != 0
+}
+
+#[cfg(not(windows))]
+fn is_risky_cloud_placeholder(_metadata: &fs::Metadata) -> bool {
+    false
+}
+
+/// Build list-row metadata without opening the jsonl (avoids OS freezes).
+fn session_meta_from_path(
+    provider: SessionProvider,
+    path: &Path,
+    mtime: i64,
+) -> Option<SessionMeta> {
+    let session_id = path.file_stem()?.to_str()?.to_string();
+    if session_id.is_empty() {
+        return None;
+    }
+    let project_dir = match provider {
+        SessionProvider::ClaudeCode => path
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(|name| name.replace('-', "/")),
+        SessionProvider::Codex => None,
+    };
+    let resume = match provider {
+        SessionProvider::ClaudeCode => resume_command(&session_id),
+        SessionProvider::Codex => Some(format!("codex resume {session_id}")),
+    };
+    Some(SessionMeta {
+        provider,
+        session_id: session_id.clone(),
+        title: Some(session_id.clone()),
+        summary: None,
+        project_dir,
+        created_at: None,
+        last_active_at: (mtime > 0).then_some(mtime),
+        source_path: path.display().to_string(),
+        resume_command: resume,
+    })
 }
 
 fn open_session_file(path: &Path) -> AppResult<File> {
-    let path_buf = path.to_path_buf();
-    let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
-        let _ = tx.send(File::open(&path_buf));
-    });
-    match rx.recv_timeout(SESSION_FILE_OPEN_TIMEOUT) {
-        Ok(Ok(file)) => Ok(file),
-        Ok(Err(error)) => Err(AppError::Io(format!(
-            "打开会话 {} 失败: {error}",
-            path.display()
-        ))),
-        Err(_) => Err(AppError::Io(format!(
-            "打开会话超时（{}s）: {}",
-            SESSION_FILE_OPEN_TIMEOUT.as_secs(),
-            path.display()
-        ))),
-    }
-}
-
-fn parse_session_with_timeout(
-    provider: SessionProvider,
-    path: &Path,
-) -> AppResult<Option<SessionMeta>> {
-    let root = match provider {
-        SessionProvider::ClaudeCode => claude_code_session_root(),
-        SessionProvider::Codex => codex_session_root(),
-    };
-    let path = validate_session_path_in_root(&root, path)?;
-    match provider {
-        SessionProvider::ClaudeCode => parse_claude_code_session(&path),
-        SessionProvider::Codex => parse_codex_session(&path),
-    }
+    // Direct open only — never spawn abandoned timeout threads (those can strand
+    // kernel waits and help freeze Windows under OneDrive/AV pressure).
+    File::open(path).map_err(|error| {
+        AppError::Io(format!("打开会话 {} 失败: {error}", path.display()))
+    })
 }
 
 fn parse_claude_code_session(path: &Path) -> AppResult<Option<SessionMeta>> {
@@ -1078,21 +1153,53 @@ fn file_contains(provider: SessionProvider, path: &str, query: &str) -> AppResul
 }
 
 fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBuf> {
-    let root = root
-        .canonicalize()
-        .map_err(|error| AppError::Path(format!("无法解析会话根目录 {}: {error}", root.display())))?;
-    let source = source
-        .canonicalize()
-        .map_err(|error| AppError::Path(format!("无法解析会话文件 {}: {error}", source.display())))?;
-    if !source.starts_with(&root)
-        || source.extension().and_then(|value| value.to_str()) != Some("jsonl")
+    if source.components().any(|component| matches!(component, std::path::Component::ParentDir)) {
+        return Err(AppError::Path(format!(
+            "会话文件不在允许的目录内: {}",
+            source.display()
+        )));
+    }
+    let candidate = if source.is_absolute() {
+        source.to_path_buf()
+    } else {
+        root.join(source)
+    };
+    if candidate.extension().and_then(|value| value.to_str()) != Some("jsonl") {
+        return Err(AppError::Path(format!(
+            "会话文件不在允许的目录内: {}",
+            candidate.display()
+        )));
+    }
+    // Prefer prefix checks without canonicalize — canonicalize can hang on cloud FS.
+    let root_key = normalize_path_key(root);
+    let candidate_key = normalize_path_key(&candidate);
+    if candidate_key.starts_with(&root_key)
+        && (candidate_key.len() == root_key.len()
+            || candidate_key.as_bytes().get(root_key.len()) == Some(&b'\\')
+            || candidate_key.as_bytes().get(root_key.len()) == Some(&b'/'))
     {
+        return Ok(candidate);
+    }
+    let root = root.canonicalize().map_err(|error| {
+        AppError::Path(format!("无法解析会话根目录 {}: {error}", root.display()))
+    })?;
+    let source = candidate.canonicalize().map_err(|error| {
+        AppError::Path(format!("无法解析会话文件 {}: {error}", candidate.display()))
+    })?;
+    if !source.starts_with(&root) {
         return Err(AppError::Path(format!(
             "会话文件不在允许的目录内: {}",
             source.display()
         )));
     }
     Ok(source)
+}
+
+fn normalize_path_key(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('/', "\\")
+        .trim_end_matches(['\\', '/'])
+        .to_ascii_lowercase()
 }
 
 fn truncate(value: &str, max_chars: usize) -> String {

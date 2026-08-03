@@ -93,15 +93,15 @@ jobs:
 
             ## What's new
 
-            - ChatGPT subscription for Claude Code/Desktop: device OAuth login, local proxy injects tokens (zero live credentials)
-            - Codex `auth.json` merge on third-party switch: preserve official login tokens
-            - Confirm Claude Code `CLAUDE_CODE_SUBAGENT_MODEL` role mapping
+            - Session manager safety: list view never opens jsonl files; path/mtime only
+            - Directory walk deadline (2s), depth/count caps; skip Windows cloud offline placeholders
+            - Remove per-file open timeout threads that could strand kernel waits
 
             ## 更新内容
 
-            - Claude Code/Desktop 支持 ChatGPT 订阅：设备码登录，本地代理注入令牌（live 配置不落真实凭据）
-            - 切换 Codex 第三方时合并 `auth.json`，保留官方登录 tokens
-            - 确认 Claude Code 子代理模型字段 `CLAUDE_CODE_SUBAGENT_MODEL`
+            - 会话列表不再打开 jsonl，只用路径与修改时间，避免整机卡死
+            - 目录扫描限时 2 秒并限制深度/数量；跳过 Windows 云同步离线占位文件
+            - 移除“每文件开线程再超时”的做法，避免残留内核等待拖垮系统
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
