@@ -33,6 +33,7 @@ import {
   deletePrompt,
   importLivePrompt,
   readPrompt,
+  renamePrompt,
   savePrompt,
 } from "@/services/api";
 import { promptsOverviewOptions } from "@/lib/appQueries";
@@ -86,14 +87,18 @@ export default function PromptsPage() {
 
   const handleSave = async (values: PromptFormValues) => {
     const name = values.name.trim();
-    if (editing && name !== editing.name) {
-      void message.warning(t("prompts.renameUnsupported"));
-      return;
-    }
     setBusy(true);
     try {
-      await savePrompt(name, values.content, target);
-      void message.success(t(editing ? "prompts.updated" : "prompts.created"));
+      if (editing && name !== editing.name) {
+        await renamePrompt(editing.name, name, target);
+        if (values.content !== editing.content) {
+          await savePrompt(name, values.content, target);
+        }
+        void message.success(t("prompts.renamed"));
+      } else {
+        await savePrompt(name, values.content, target);
+        void message.success(t(editing ? "prompts.updated" : "prompts.created"));
+      }
       setFormOpen(false);
       await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {

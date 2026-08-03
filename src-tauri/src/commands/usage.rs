@@ -584,13 +584,20 @@ fn find_pricing_for_model<'a>(
     pricing: &'a [ModelPricing],
     model: &str,
 ) -> Option<&'a ModelPricing> {
+    let normalized = model.trim();
     pricing
         .iter()
-        .find(|entry| entry.model == model)
+        .find(|entry| entry.model == normalized)
         .or_else(|| {
-            pricing.iter().find(|entry| {
-                model.starts_with(&entry.model) || entry.model.starts_with(model)
-            })
+            // Prefer longer catalog keys so `claude-opus-5-fast` wins over `claude-opus-5`.
+            let mut candidates: Vec<_> = pricing
+                .iter()
+                .filter(|entry| {
+                    normalized.starts_with(&entry.model) || entry.model.starts_with(normalized)
+                })
+                .collect();
+            candidates.sort_by_key(|entry| std::cmp::Reverse(entry.model.len()));
+            candidates.into_iter().next()
         })
 }
 

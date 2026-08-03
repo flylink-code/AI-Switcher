@@ -8,6 +8,7 @@
 mod backup;
 mod agents;
 mod codex_oauth;
+mod codex_plugins;
 mod commands;
 mod config;
 mod database;
@@ -37,7 +38,8 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 use crate::commands::{
     check_app_update, install_app_update,
-    get_codex_auth_status, sync_codex_session_providers,
+    get_codex_auth_status, list_codex_plugins, set_codex_plugin_enabled,
+    sync_codex_session_providers,
     activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
@@ -50,7 +52,7 @@ use crate::commands::{
     install_mcp_registry_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status, clear_mcp_oauth,
     get_localization_hub_status, install_claude_code_localization, install_editor_localization_helper,
     get_skill_repository, get_skill_repository_snapshot, list_github_repository_skills, refresh_github_repository_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
-    list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_mcp_servers, reorder_providers,
+    list_providers, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
     search_mcp_registry,
     report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, test_provider_connection, test_provider_input,
@@ -61,7 +63,7 @@ use crate::commands::{
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, get_codex_cli_version,
     get_node_runtime_status, ensure_node_runtime_via_fnm,
-    run_claude_code_update, run_codex_cli_update,
+    run_claude_code_update, run_codex_cli_update, run_environment_doctor,
     backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
     import_claude_code_session, load_session_messages,
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
@@ -122,6 +124,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             ping,
             get_codex_auth_status,
+            list_codex_plugins,
+            set_codex_plugin_enabled,
             sync_codex_session_providers,
             check_app_update,
             install_app_update,
@@ -184,6 +188,7 @@ pub fn run() {
             list_prompts,
             read_prompt,
             save_prompt,
+            rename_prompt,
             delete_prompt,
             activate_prompt,
             read_live_prompt,
@@ -244,6 +249,7 @@ pub fn run() {
             run_codex_cli_update,
             get_node_runtime_status,
             ensure_node_runtime_via_fnm,
+            run_environment_doctor,
             scan_sessions,
             search_session_contents,
             load_session_messages,

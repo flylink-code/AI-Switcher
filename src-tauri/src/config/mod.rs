@@ -16,7 +16,8 @@ pub use claude_desktop::{apply_provider as apply_provider_to_desktop, clear_prov
 pub use paths::{
     get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir, get_claude_config_dir,
     get_claude_json_path, get_claude_settings_path, get_claude_skills_dir, get_home_dir,
-    get_codex_config_dir, get_codex_config_path, get_codex_auth_path, get_codex_skills_dir,
+    get_codex_config_dir, get_codex_config_path, get_codex_auth_path,
+    get_codex_plugins_cache_dir, get_codex_skills_dir,
 };
 
 // Foundational helpers (used from P1+). Re-exported for convenience; the

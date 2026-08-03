@@ -690,6 +690,7 @@ mod tests {
             model: "default-upstream".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "upstream-sonnet".into(),
                 opus: "upstream-opus".into(),
@@ -828,6 +829,7 @@ mod tests {
             model: "deepseek-chat".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "deepseek-chat".into(),
                 opus: "deepseek-chat".into(),

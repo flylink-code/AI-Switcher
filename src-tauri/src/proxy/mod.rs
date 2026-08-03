@@ -1630,6 +1630,7 @@ mod tests {
             model: "opus-upstream".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type,
             provider_kind: ProviderKind::Standard,

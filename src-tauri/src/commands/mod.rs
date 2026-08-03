@@ -3,11 +3,13 @@
 pub mod backend;
 pub mod agents;
 pub mod codex;
+pub mod codex_plugins;
 pub mod codex_oauth;
 pub mod app_update;
 pub mod backup;
 pub mod db;
 pub mod data_root;
+pub mod doctor;
 pub mod desktop_localization;
 pub mod localization;
 pub mod mcp;
@@ -30,6 +32,7 @@ pub use agents::{
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
 };
 pub use codex::{get_codex_auth_status, sync_codex_session_providers};
+pub use codex_plugins::{list_codex_plugins, set_codex_plugin_enabled};
 pub use codex_oauth::{
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
     remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
@@ -41,6 +44,7 @@ pub use backup::{
 };
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
+pub use doctor::run_environment_doctor;
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
     install_desktop_localization,
@@ -63,7 +67,7 @@ pub use profiles::{
 };
 pub use prompts::{
     activate_prompt, delete_prompt, import_live_prompt, list_prompts, read_live_prompt,
-    read_prompt, save_prompt,
+    read_prompt, rename_prompt, save_prompt,
 };
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use sessions::{

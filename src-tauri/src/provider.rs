@@ -438,6 +438,9 @@ pub struct Provider {
     /// Optional Codex model catalog context window on provider rows.
     #[serde(default)]
     pub model_context_window: Option<u64>,
+    /// Optional Codex catalog web search tool flag. `None` = auto (enabled unless Anthropic upstream).
+    #[serde(default)]
+    pub web_search_enabled: Option<bool>,
     /// Optional upstream model for Codex guardian/auto_review subagent requests.
     #[serde(default)]
     pub auto_review_model_override: Option<String>,
@@ -509,6 +512,8 @@ pub struct ProviderInput {
     #[serde(default)]
     pub auto_review_model_override: Option<String>,
     #[serde(default)]
+    pub web_search_enabled: Option<bool>,
+    #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     #[serde(default)]
     pub protocol_type: ProtocolType,
@@ -564,6 +569,8 @@ pub struct ProviderExportEntry {
     pub model: String,
     #[serde(default)]
     pub model_context_window: Option<u64>,
+    #[serde(default)]
+    pub web_search_enabled: Option<bool>,
     #[serde(default)]
     pub model_mapping: ClaudeModelMapping,
     pub protocol_type: ProtocolType,
@@ -716,6 +723,7 @@ mod tests {
             model: "claude-sonnet-4-20250514".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::Anthropic,
             provider_kind: ProviderKind::Standard,
@@ -741,6 +749,7 @@ mod tests {
             model: "default-model".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping {
                 sonnet: "sonnet-upstream".into(),
                 opus: "opus-upstream".into(),

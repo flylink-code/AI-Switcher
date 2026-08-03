@@ -77,6 +77,7 @@ pub fn ensure_codex_oauth_provider(
             .unwrap_or_else(|| "gpt-5.4".to_string()),
         model_context_window: None,
         auto_review_model_override: None,
+        web_search_enabled: None,
         model_mapping: ClaudeModelMapping::default(),
         protocol_type: ProtocolType::OpenAiResponses,
         target_app: target,

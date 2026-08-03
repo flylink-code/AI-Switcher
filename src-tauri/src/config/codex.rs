@@ -267,8 +267,15 @@ fn write_model_catalog(provider: &Provider, anthropic_upstream: bool) -> AppResu
         return Err(AppError::Config("Codex 默认模型不能为空".to_string()));
     }
     let context_window = effective_model_context_window(provider);
+    let web_search_enabled =
+        !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
     let catalog = serde_json::json!({
-        "models": [codex_model_catalog_entry(model, context_window, anthropic_upstream)],
+        "models": [codex_model_catalog_entry(
+            model,
+            context_window,
+            anthropic_upstream,
+            web_search_enabled,
+        )],
     });
     let dir = get_codex_config_dir();
     fs::create_dir_all(&dir)?;
@@ -278,7 +285,12 @@ fn write_model_catalog(provider: &Provider, anthropic_upstream: bool) -> AppResu
 
 /// Build a Codex ≥0.144.5-compatible catalog entry, backfilling parser-required
 /// fields when absent from a minimal model list.
-fn codex_model_catalog_entry(model: &str, context_window: u64, anthropic_upstream: bool) -> Value {
+fn codex_model_catalog_entry(
+    model: &str,
+    context_window: u64,
+    anthropic_upstream: bool,
+    web_search_enabled: bool,
+) -> Value {
     let mut entry = serde_json::json!({
         "slug": model,
         "display_name": model,
@@ -308,7 +320,7 @@ fn codex_model_catalog_entry(model: &str, context_window: u64, anthropic_upstrea
         "support_verbosity": true,
         "default_verbosity": "low",
         "apply_patch_tool_type": if anthropic_upstream { "structured" } else { "freeform" },
-        "web_search_tool_type": if anthropic_upstream { "disabled" } else { "text_and_image" },
+        "web_search_tool_type": if web_search_enabled { "text_and_image" } else { "disabled" },
         "truncation_policy": {
             "mode": "tokens",
             "limit": 10000
@@ -320,7 +332,7 @@ fn codex_model_catalog_entry(model: &str, context_window: u64, anthropic_upstrea
         "effective_context_window_percent": 95,
         "experimental_supported_tools": [],
         "input_modalities": ["text", "image"],
-        "supports_search_tool": !anthropic_upstream,
+        "supports_search_tool": web_search_enabled,
         "service_tiers": [],
         "additional_speed_tiers": []
     });
@@ -455,6 +467,7 @@ mod tests {
             model: "gpt-5".into(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiResponses,
             provider_kind: ProviderKind::Standard,
@@ -545,7 +558,12 @@ mod tests {
     fn catalog_uses_explicit_context_window() {
         let mut provider = sample_codex_provider();
         provider.model_context_window = Some(200_000);
-        let entry = codex_model_catalog_entry("gpt-5", effective_model_context_window(&provider), false);
+        let entry = codex_model_catalog_entry(
+            "gpt-5",
+            effective_model_context_window(&provider),
+            false,
+            true,
+        );
         assert_eq!(entry["context_window"], 200_000);
         assert_eq!(entry["max_context_window"], 200_000);
         assert_eq!(entry["supports_reasoning_summaries"], true);
@@ -553,8 +571,22 @@ mod tests {
 
     #[test]
     fn anthropic_upstream_catalog_disables_incompatible_codex_tools() {
-        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true);
+        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false);
         assert_eq!(entry["apply_patch_tool_type"], "structured");
+        assert_eq!(entry["web_search_tool_type"], "disabled");
+        assert_eq!(entry["supports_search_tool"], false);
+    }
+
+    #[test]
+    fn provider_can_disable_web_search_for_openai_upstream() {
+        let mut provider = sample_codex_provider();
+        provider.web_search_enabled = Some(false);
+        let entry = codex_model_catalog_entry(
+            &provider.model,
+            effective_model_context_window(&provider),
+            false,
+            provider.web_search_enabled.unwrap_or(true),
+        );
         assert_eq!(entry["web_search_tool_type"], "disabled");
         assert_eq!(entry["supports_search_tool"], false);
     }
@@ -577,7 +609,7 @@ mod tests {
 
     #[test]
     fn catalog_advertises_fast_mode_for_sol() {
-        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false);
+        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true);
         assert_eq!(entry["service_tiers"][0]["id"], "fast");
         assert_eq!(entry["additional_speed_tiers"][0], "fast");
         assert!(model_supports_codex_fast("gpt-5.6-sol"));

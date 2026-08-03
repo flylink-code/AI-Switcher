@@ -133,6 +133,49 @@ pub fn update_profile(
     get_profile(conn, id)?.ok_or_else(|| AppError::Config(format!("配置快照不存在: {id}")))
 }
 
+/// Rewrite `prompt_id` references after a Prompt preset rename.
+pub fn rewrite_prompt_id(
+    conn: &Connection,
+    scope: PromptRenameScope,
+    old_name: &str,
+    new_name: &str,
+) -> AppResult<usize> {
+    let mut updated = 0usize;
+    for mut profile in list_profiles(conn)? {
+        let changed = match scope {
+            PromptRenameScope::ClaudeCode => rewrite_scope_prompt(&mut profile.payload.claude_code, old_name, new_name),
+            PromptRenameScope::Codex => rewrite_scope_prompt(&mut profile.payload.codex, old_name, new_name),
+        };
+        if !changed {
+            continue;
+        }
+        update_profile(conn, &profile.id, None, Some(&profile.payload))?;
+        updated += 1;
+    }
+    Ok(updated)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PromptRenameScope {
+    ClaudeCode,
+    Codex,
+}
+
+fn rewrite_scope_prompt(
+    scope: &mut Option<ProfileScopePayload>,
+    old_name: &str,
+    new_name: &str,
+) -> bool {
+    let Some(payload) = scope.as_mut() else {
+        return false;
+    };
+    if payload.prompt_id.as_deref() == Some(old_name) {
+        payload.prompt_id = Some(new_name.to_string());
+        return true;
+    }
+    false
+}
+
 pub fn delete_profile(conn: &Connection, id: &str) -> AppResult<()> {
     let changed = conn.execute("DELETE FROM profiles WHERE id = ?;", params![id])?;
     if changed == 0 {

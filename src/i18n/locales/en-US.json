@@ -51,6 +51,7 @@
     "prompts": "Prompts",
     "skills": "Skills",
     "agents": "Agents",
+    "codexPlugins": "Codex Plugins",
     "sessions": "Sessions",
     "usage": "Usage",
     "localization": "Localization",
@@ -148,11 +149,6 @@
       "system": "System"
     }
   },
-  "placeholder": {
-    "title": "Coming soon",
-    "subtitle": "This module will be implemented in a later phase (P1+).",
-    "p0": "Current build is the P0 scaffold: a runnable shell plus core libraries."
-  },
   "providers": {
     "title": "Providers",
     "subtitle": "Manage Claude Code / Desktop third-party API configs and switch with one click",
@@ -220,6 +216,8 @@
     "requiredDefaultModel": "Enter a default model",
     "modelContextWindow": "Context window",
     "modelContextWindowHint": "Written into the Codex model catalog. Leave empty to use 272000 (Codex bundled default).",
+    "webSearchEnabled": "Enable Web Search",
+    "webSearchEnabledHint": "Writes Codex catalog supports_search_tool / web_search_tool_type. Forced off for Anthropic upstream protocols.",
     "autoReviewModelOverride": "Auto-review model",
     "autoReviewModelOverrideHint": "When Codex sends guardian or auto_review subagent requests, rewrite the upstream model to this value. Leave empty to keep the default model.",
     "invalidContextWindow": "Enter a positive integer context window",
@@ -319,7 +317,7 @@
     "description": "Manage MCP servers for Claude Code and Claude Desktop in one place. Saving or toggling a server synchronizes its target configuration after a backup.",
     "registryBrowse": "Browse official Registry",
     "registryTitle": "Official MCP Registry",
-    "registryNotice": "The directory is in preview. Only entries that can be safely converted to Claude configuration can be added; entries requiring secrets, URL templates, or other package managers need manual setup.",
+    "registryNotice": "Only Registry entries that can be safely converted to Claude configuration are listed; entries requiring secrets, URL templates, or other package managers need manual setup.",
     "registrySearchPlaceholder": "Search MCP names or keywords; leave blank to browse recent entries",
     "registrySearch": "Search",
     "registryEmpty": "No matching Registry entries found",
@@ -414,7 +412,7 @@
     "fieldContent": "Markdown content",
     "requiredName": "Please enter a preset name",
     "requiredContent": "Please enter prompt content",
-    "renameUnsupported": "Renaming is not supported yet. Create a new preset, then remove the old one.",
+    "renamed": "Prompt preset renamed",
     "presetDescription": "Can be activated as ~/.claude/CLAUDE.md",
     "activationNote": "Activation replaces ~/.claude/CLAUDE.md and creates a backup first.",
     "expand": "Show more"
@@ -591,6 +589,19 @@
     "deleted": "Agent deleted",
     "confirmDelete": "Delete this agent?"
   },
+  "codexPlugins": {
+    "title": "Codex Plugins",
+    "description": "Detect installed Agent Plugins under ~/.codex/plugins and config.toml. Enable or disable them (no marketplace install).",
+    "refresh": "Refresh",
+    "empty": "No installed Codex plugins found",
+    "name": "Plugin",
+    "marketplace": "Marketplace",
+    "version": "Version",
+    "enabled": "Enabled",
+    "path": "Path",
+    "toggled": "Plugin state updated",
+    "cacheDir": "Plugin cache directory"
+  },
   "env": {
     "dataRootDescription": "Move AI-Switcher-owned data (database, backups, downloaded resources, and future archives) to another drive. Claude's live configuration stays in its official location.",
     "dataRootActive": "Managed data library",
@@ -613,8 +624,15 @@
     "dataRootMigrated": "Managed data library copied successfully",
     "dataRootRestartTitle": "Restart required",
     "dataRootRestartDescription": "Restart AI-Switcher to begin using the new data library. The previous copy is retained as a rollback option.",
-    "title": "Environment (P0 detection check)",
-    "description": "These paths are detected live by the Rust backend, verifying the config-directory discovery logic.",
+    "title": "Environment",
+    "description": "These paths are detected live by the Rust backend. Run diagnostics to check Claude Code / Codex configuration health.",
+    "doctorTitle": "Environment diagnostics",
+    "doctorDescription": "Runs claude doctor and validates Codex config.toml / auth plus related settings.",
+    "doctorRun": "Run diagnostics",
+    "doctorRunning": "Running diagnostics…",
+    "doctorPassed": "Pass",
+    "doctorFailed": "Issue",
+    "doctorEmpty": "Diagnostics have not been run yet.",
     "refresh": "Refresh",
     "runBackup": "Back up now",
     "exportLibrary": "Export portable library",
@@ -684,6 +702,7 @@
       "codexConfigPath": "config.toml",
       "codexAuthPath": "auth.json (path only)",
       "codexSkillsDir": "Skills directory",
+      "codexPluginsCacheDir": "Plugin cache directory",
       "codexSessionsDir": "Sessions directory",
       "codexAgentsPath": "AGENTS.md (global instructions)",
       "claudeDesktopBase": "1p install dir",

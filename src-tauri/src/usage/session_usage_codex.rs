@@ -211,6 +211,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         return Ok((0, 0));
     };
     let mut model = "unknown".to_string();
+    let mut service_tier: Option<String> = None;
     let mut thread_id = "unknown".to_string();
     let mut prev_total: Option<TokenTotals> = None;
     let mut fork_baseline_pending = false;
@@ -242,8 +243,12 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             continue;
         }
         if value.get("type").and_then(Value::as_str) == Some("turn_context") {
-            if let Some(next) = extract_model_name(value.pointer("/payload")) {
+            let payload = value.pointer("/payload");
+            if let Some(next) = extract_model_name(payload) {
                 model = next;
+            }
+            if let Some(tier) = extract_service_tier(payload) {
+                service_tier = Some(tier);
             }
             continue;
         }
@@ -255,6 +260,10 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         if let Some(next) = extract_model_name(info) {
             model = next;
         }
+        if let Some(tier) = extract_service_tier(info).or_else(|| extract_service_tier(value.pointer("/payload"))) {
+            service_tier = Some(tier);
+        }
+        let billable_model = normalize_usage_model(&model, service_tier.as_deref());
         let Some(delta) = compute_token_delta(info, &mut prev_total, &mut fork_baseline_pending) else {
             continue;
         };
@@ -270,7 +279,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         if should_skip_codex_session_insert(
             conn,
             created_at,
-            Some(&model),
+            Some(&billable_model),
             fresh_input,
             cached,
             delta.output,
@@ -285,7 +294,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             created_at,
             Some(CODEX_SESSION_PROVIDER_ID),
             Some("Codex local events"),
-            Some(&model),
+            Some(&billable_model),
             Some(200),
             fresh_input,
             cached,
@@ -369,6 +378,34 @@ fn extract_model_name(value: Option<&Value>) -> Option<String> {
                 trimmed.to_string()
             }
         })
+}
+
+fn extract_service_tier(value: Option<&Value>) -> Option<String> {
+    let value = value?;
+    ["service_tier", "serviceTier", "speed_tier", "speedTier"]
+        .iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|tier| !tier.is_empty())
+        .map(str::to_string)
+}
+
+/// Map Codex Fast / Priority tier onto seeded `*-fast` pricing rows when possible.
+fn normalize_usage_model(model: &str, service_tier: Option<&str>) -> String {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        return "unknown".to_string();
+    }
+    let is_fast = service_tier
+        .map(|tier| {
+            let lower = tier.to_ascii_lowercase();
+            lower == "fast" || lower == "priority"
+        })
+        .unwrap_or(false);
+    if !is_fast || trimmed.to_ascii_lowercase().ends_with("-fast") {
+        return trimmed.to_string();
+    }
+    format!("{trimmed}-fast")
 }
 
 fn parse_event_timestamp(value: &Value) -> Option<i64> {
@@ -496,5 +533,12 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn normalize_usage_model_appends_fast_suffix() {
+        assert_eq!(normalize_usage_model("claude-opus-5", Some("fast")), "claude-opus-5-fast");
+        assert_eq!(normalize_usage_model("claude-opus-5-fast", Some("fast")), "claude-opus-5-fast");
+        assert_eq!(normalize_usage_model("gpt-5.6-sol", None), "gpt-5.6-sol");
     }
 }

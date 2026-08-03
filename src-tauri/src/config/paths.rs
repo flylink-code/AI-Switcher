@@ -127,6 +127,10 @@ pub fn get_codex_skills_dir() -> PathBuf {
     get_codex_config_dir().join("skills")
 }
 
+pub fn get_codex_plugins_cache_dir() -> PathBuf {
+    get_codex_config_dir().join("plugins").join("cache")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -27,6 +27,8 @@ export interface Provider {
   modelContextWindow?: number | null;
   /** Optional Codex auto-review subagent model override. */
   autoReviewModelOverride?: string | null;
+  /** Optional Codex web-search capability override; missing means automatic. */
+  webSearchEnabled?: boolean | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   providerKind: ProviderKind;
@@ -54,6 +56,7 @@ export interface ProviderInput {
   model: string;
   modelContextWindow?: number | null;
   autoReviewModelOverride?: string | null;
+  webSearchEnabled?: boolean | null;
   modelMapping: ClaudeModelMapping;
   protocolType: ProtocolType;
   providerKind?: ProviderKind;
@@ -225,6 +228,7 @@ export interface PathsInfo {
   codexConfigPath: string;
   codexAuthPath: string;
   codexSkillsDir: string;
+  codexPluginsCacheDir: string;
   codexSessionsDir: string;
   codexAgentsPath: string;
   /** Application data directory (`~/.claude-switcher`). */
@@ -259,6 +263,17 @@ export interface DbInfo {
   path: string;
   schemaVersion: number;
   providerCount: number;
+}
+
+export interface DoctorCheck {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface DoctorReport {
+  checks: DoctorCheck[];
 }
 
 /** Result of proxy status commands. */
@@ -412,6 +427,16 @@ export interface AgentDraft {
   name: string;
   description: string;
   body?: string;
+}
+
+export interface CodexPlugin {
+  pluginId: string;
+  name: string;
+  marketplace: string;
+  version: string;
+  enabled: boolean;
+  installed: boolean;
+  path: string;
 }
 
 export interface InstalledSkillSource {

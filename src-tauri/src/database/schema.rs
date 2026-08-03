@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 18;
+pub const SCHEMA_VERSION: u32 = 19;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -24,6 +24,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             model         TEXT,
             model_mapping_json TEXT NOT NULL DEFAULT '{}',
             model_context_window INTEGER,
+            web_search_enabled INTEGER,
             auto_review_model_override TEXT,
             protocol_type TEXT NOT NULL DEFAULT 'anthropic',
             provider_kind TEXT NOT NULL DEFAULT 'standard',
@@ -206,6 +207,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 18 {
         migrate_v17_to_v18(conn)?;
+    }
+    if current < 19 {
+        migrate_v18_to_v19(conn)?;
     }
     Ok(())
 }
@@ -641,6 +645,29 @@ fn migrate_v17_to_v18(conn: &Connection) -> AppResult<()> {
         }
     }
     set_user_version(conn, 18)
+}
+
+/// Optional provider-level Codex web-search capability override.
+fn migrate_v18_to_v19(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 19);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'web_search_enabled';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN web_search_enabled INTEGER;",
+        )?;
+    }
+    set_user_version(conn, 19)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

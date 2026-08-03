@@ -1,7 +1,11 @@
 //! Prompt (CLAUDE.md) preset commands.
 
+use tauri::State;
+
+use crate::database::dao::{self, PromptRenameScope};
 use crate::error::AppResult;
 use crate::prompts::{self, LivePrompt, PromptDetail, PromptInfo, PromptTarget};
+use crate::store::AppState;
 
 /// List all stored presets (names + mtimes, no content).
 #[tauri::command]
@@ -19,6 +23,26 @@ pub fn read_prompt(name: String, target: Option<PromptTarget>) -> AppResult<Prom
 #[tauri::command]
 pub fn save_prompt(name: String, content: String, target: Option<PromptTarget>) -> AppResult<()> {
     prompts::save_prompt(target.unwrap_or_default(), &name, &content)
+}
+
+/// Rename a preset and cascade profile `prompt_id` references.
+#[tauri::command]
+pub fn rename_prompt(
+    old_name: String,
+    new_name: String,
+    target: Option<PromptTarget>,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let target = target.unwrap_or_default();
+    prompts::rename_prompt(target, &old_name, &new_name)?;
+    let scope = match target {
+        PromptTarget::ClaudeCode => PromptRenameScope::ClaudeCode,
+        PromptTarget::Codex => PromptRenameScope::Codex,
+    };
+    state.db.with_conn(|conn| {
+        dao::rewrite_prompt_id(conn, scope, old_name.trim(), new_name.trim())?;
+        Ok(())
+    })
 }
 
 /// Delete a preset (idempotent).

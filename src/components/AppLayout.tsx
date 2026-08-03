@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { App as AntApp, Badge, Button, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import AppstoreAddOutlined from "@ant-design/icons/es/icons/AppstoreAddOutlined";
 import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
@@ -38,6 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "prompts", icon: <FileTextOutlined /> },
   { key: "skills", icon: <ThunderboltOutlined /> },
   { key: "agents", icon: <TeamOutlined /> },
+  { key: "codexPlugins", icon: <AppstoreAddOutlined /> },
   { key: "sessions", icon: <MessageOutlined /> },
   { key: "usage", icon: <BarChartOutlined /> },
   { key: "localization", icon: <GlobalOutlined /> },

@@ -22,6 +22,7 @@ import {
   listProxyRequestLogs,
   listSkills,
   listAgents,
+  listCodexPlugins,
   getSkillRepositorySnapshot,
   readLivePrompt,
 } from "@/services/api";
@@ -80,6 +81,12 @@ export const skillsOptions = (target: SkillTarget = "claude_code") => queryOptio
 export const agentsOptions = queryOptions({
   queryKey: ["agents"] as const,
   queryFn: listAgents,
+  staleTime: 30_000,
+});
+
+export const codexPluginsOptions = queryOptions({
+  queryKey: ["codexPlugins"] as const,
+  queryFn: listCodexPlugins,
   staleTime: 30_000,
 });
 

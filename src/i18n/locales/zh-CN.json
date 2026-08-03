@@ -51,6 +51,7 @@
     "prompts": "Prompts",
     "skills": "Skills",
     "agents": "Agents",
+    "codexPlugins": "Codex 插件",
     "sessions": "会话管理",
     "usage": "用量统计",
     "localization": "中文化配置",
@@ -148,11 +149,6 @@
       "system": "系统"
     }
   },
-  "placeholder": {
-    "title": "功能开发中",
-    "subtitle": "该模块将在后续阶段（P1+）实现。",
-    "p0": "当前为 P0 脚手架阶段，仅提供可运行空壳与基础库。"
-  },
   "providers": {
     "title": "供应商管理",
     "subtitle": "管理 Claude Code / Desktop 的第三方 API 配置，一键切换",
@@ -220,6 +216,8 @@
     "requiredDefaultModel": "请输入默认模型",
     "modelContextWindow": "上下文窗口",
     "modelContextWindowHint": "写入 Codex 模型目录；留空时默认 272000（对齐 Codex 内置目录）。",
+    "webSearchEnabled": "启用 Web Search",
+    "webSearchEnabledHint": "写入 Codex 模型目录的 supports_search_tool / web_search_tool_type。Anthropic 上游协议会强制关闭。",
     "autoReviewModelOverride": "自动审查模型",
     "autoReviewModelOverrideHint": "当 Codex 以 guardian 或 auto_review 子代理发起请求时，将上游 model 重写为此值；留空则保持默认模型。",
     "invalidContextWindow": "请输入正整数上下文窗口",
@@ -319,7 +317,7 @@
     "description": "统一管理 Claude Code 和 Claude Desktop 的 MCP 服务器。保存或切换开关后会自动同步到对应配置文件，并在写入前备份。",
     "registryBrowse": "浏览官方 Registry",
     "registryTitle": "官方 MCP Registry",
-    "registryNotice": "目录处于预览期。仅显示可安全转换为 Claude 配置的条目；需要密钥、URL 模板或其他包管理器的条目需手动配置。",
+    "registryNotice": "仅显示可安全转换为 Claude 配置的 Registry 条目；需要密钥、URL 模板或其他包管理器的条目请手动配置。",
     "registrySearchPlaceholder": "搜索 MCP 名称或关键词，留空可浏览最新条目",
     "registrySearch": "搜索",
     "registryEmpty": "未找到匹配的 Registry 条目",
@@ -414,7 +412,7 @@
     "fieldContent": "Markdown 内容",
     "requiredName": "请输入预设名称",
     "requiredContent": "请输入 Prompt 内容",
-    "renameUnsupported": "暂不支持重命名，请新建预设后再删除原预设",
+    "renamed": "Prompt 预设已重命名",
     "presetDescription": "可激活为 ~/.claude/CLAUDE.md",
     "activationNote": "激活将覆盖 ~/.claude/CLAUDE.md，并自动创建备份。",
     "expand": "展开"
@@ -591,6 +589,19 @@
     "deleted": "Agent 已删除",
     "confirmDelete": "删除此 Agent？"
   },
+  "codexPlugins": {
+    "title": "Codex 插件",
+    "description": "探测 ~/.codex/plugins 与 config.toml 中已安装的 Agent Plugins，支持启停（不提供商店安装）。",
+    "refresh": "刷新",
+    "empty": "未检测到已安装的 Codex 插件",
+    "name": "插件",
+    "marketplace": "市场",
+    "version": "版本",
+    "enabled": "启用",
+    "path": "路径",
+    "toggled": "插件状态已更新",
+    "cacheDir": "插件缓存目录"
+  },
   "env": {
     "dataRootDescription": "将 AI-Switcher 自有资料（数据库、备份、下载资源和后续归档）迁移到其他盘。Claude 的活动配置仍保留在官方读取目录。",
     "dataRootActive": "资料库目录",
@@ -613,8 +624,15 @@
     "dataRootMigrated": "资料库已成功复制",
     "dataRootRestartTitle": "需要重启",
     "dataRootRestartDescription": "请重启 AI-Switcher 后使用新的资料库目录；原目录会保留，可作为回退副本。",
-    "title": "环境信息（P0 探测验证）",
-    "description": "以下路径由 Rust 后端实时探测，用于验证配置目录发现逻辑是否正确。",
+    "title": "环境信息",
+    "description": "以下路径由 Rust 后端实时探测；可运行诊断以检查 Claude Code / Codex 配置健康状况。",
+    "doctorTitle": "环境诊断",
+    "doctorDescription": "运行 claude doctor，并校验 Codex config.toml / auth 与关键设置。",
+    "doctorRun": "运行诊断",
+    "doctorRunning": "正在诊断…",
+    "doctorPassed": "通过",
+    "doctorFailed": "异常",
+    "doctorEmpty": "尚未运行诊断。",
     "refresh": "刷新",
     "runBackup": "立即备份",
     "exportLibrary": "导出可迁移资料库",
@@ -684,6 +702,7 @@
       "codexConfigPath": "config.toml",
       "codexAuthPath": "auth.json（仅路径）",
       "codexSkillsDir": "Skills 目录",
+      "codexPluginsCacheDir": "插件缓存目录",
       "codexSessionsDir": "Sessions 目录",
       "codexAgentsPath": "AGENTS.md（全局指令）",
       "claudeDesktopBase": "1p 安装目录",

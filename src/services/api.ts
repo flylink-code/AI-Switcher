@@ -9,6 +9,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   DbInfo,
+  DoctorReport,
   DataRootInfo,
   LivePrompt,
   McpImportSummary,
@@ -46,6 +47,7 @@ import type {
   SkillRepositorySnapshot,
   Agent,
   AgentDraft,
+  CodexPlugin,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -115,6 +117,11 @@ export async function getPaths(): Promise<PathsInfo> {
 export async function getDbInfo(): Promise<DbInfo> {
   const invoke = await getInvoke();
   return invoke<DbInfo>("get_db_info", {});
+}
+
+export async function runEnvironmentDoctor(): Promise<DoctorReport> {
+  const invoke = await getInvoke();
+  return invoke<DoctorReport>("run_environment_doctor", {});
 }
 
 export async function getDataRoot(): Promise<DataRootInfo> {
@@ -497,6 +504,15 @@ export async function savePrompt(name: string, content: string, target: PromptTa
   return invoke<void>("save_prompt", { name, content, target });
 }
 
+export async function renamePrompt(
+  oldName: string,
+  newName: string,
+  target: PromptTarget = "claude_code",
+): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("rename_prompt", { oldName, newName, target });
+}
+
 export async function deletePrompt(name: string, target: PromptTarget = "claude_code"): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("delete_prompt", { name, target });
@@ -550,6 +566,18 @@ export async function deleteAgent(name: string): Promise<void> {
 export async function installZipAgent(path: string): Promise<Agent[]> {
   const invoke = await getInvoke();
   return invoke<Agent[]>("install_zip_agent", { path });
+}
+
+// ---- Codex Plugins ----------------------------------------------------------
+
+export async function listCodexPlugins(): Promise<CodexPlugin[]> {
+  const invoke = await getInvoke();
+  return invoke<CodexPlugin[]>("list_codex_plugins", {});
+}
+
+export async function setCodexPluginEnabled(pluginId: string, enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_codex_plugin_enabled", { pluginId, enabled });
 }
 
 export async function getSkillRepository(): Promise<string> {

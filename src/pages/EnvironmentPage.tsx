@@ -29,6 +29,7 @@ import type {
   AutostartMode,
   CloseBehavior,
   ConfigBackup,
+  DoctorReport,
   LibraryArchivePreview,
   ProviderTarget,
   SyncPreview,
@@ -41,6 +42,7 @@ import {
   findLatestLibraryArchive,
   previewLibraryBackup,
   restoreLibraryBackup,
+  runEnvironmentDoctor,
   deleteSyncTarget,
   discoverWslDistributions,
   migrateDataRoot,
@@ -108,6 +110,8 @@ export default function EnvironmentPage() {
     : null;
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [doctorRunning, setDoctorRunning] = useState(false);
+  const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
   const [autostartChanging, setAutostartChanging] = useState(false);
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
@@ -143,6 +147,17 @@ export default function EnvironmentPage() {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
+    }
+  }, []);
+
+  const onRunDoctor = useCallback(async () => {
+    setDoctorRunning(true);
+    try {
+      setDoctorReport(await runEnvironmentDoctor());
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDoctorRunning(false);
     }
   }, []);
 
@@ -472,6 +487,7 @@ export default function EnvironmentPage() {
         { key: "codexConfigPath", value: paths.codexConfigPath },
         { key: "codexAuthPath", value: paths.codexAuthPath },
         { key: "codexSkillsDir", value: paths.codexSkillsDir },
+        { key: "codexPluginsCacheDir", value: paths.codexPluginsCacheDir },
         { key: "codexSessionsDir", value: paths.codexSessionsDir },
         { key: "codexAgentsPath", value: paths.codexAgentsPath },
       ]
@@ -517,6 +533,43 @@ export default function EnvironmentPage() {
             <Skeleton active paragraph={{ rows: 6 }} />
           </Card>
         )}
+
+        <Card
+          size="small"
+          title={t("env.doctorTitle")}
+          extra={
+            <Button size="small" loading={doctorRunning} onClick={() => void onRunDoctor()}>
+              {doctorRunning ? t("env.doctorRunning") : t("env.doctorRun")}
+            </Button>
+          }
+        >
+          <Text type="secondary">{t("env.doctorDescription")}</Text>
+          {doctorReport ? (
+            <List
+              size="small"
+              style={{ marginTop: 8 }}
+              dataSource={doctorReport.checks}
+              renderItem={(check) => (
+                <List.Item
+                  extra={
+                    <Tag color={check.ok ? "green" : "red"}>
+                      {t(check.ok ? "env.doctorPassed" : "env.doctorFailed")}
+                    </Tag>
+                  }
+                >
+                  <List.Item.Meta
+                    title={check.label}
+                    description={<Text type="secondary" style={{ whiteSpace: "pre-wrap" }}>{check.detail}</Text>}
+                  />
+                </List.Item>
+              )}
+            />
+          ) : (
+            <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+              {t("env.doctorEmpty")}
+            </Text>
+          )}
+        </Card>
 
         <Card size="small" title={t("env.sections.system")}>
           <Descriptions column={1} size="small" bordered>

@@ -35,7 +35,7 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding
+                provider_kind, auth_binding, web_search_enabled
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -50,7 +50,7 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding
+                provider_kind, auth_binding, web_search_enabled
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -68,7 +68,7 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding
+                provider_kind, auth_binding, web_search_enabled
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -142,12 +142,14 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         conn.execute(
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
-                auto_review_model_override = ?, provider_kind = ?, auth_binding = ? WHERE id = ?;",
+                auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
+                web_search_enabled = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
                 input.model_context_window, auto_review_model_override,
-                input.provider_kind.as_str(), input.auth_binding.trim(), id,
+                input.provider_kind.as_str(), input.auth_binding.trim(),
+                web_search_sql(input.web_search_enabled), id,
             ],
         )?;
         if input.clear_api_key || is_codex_oauth {
@@ -172,13 +174,14 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
             input.target_app.as_str(), input.notes, next_sort, now,
             model_mapping_json, input.model_context_window, auto_review_model_override,
+            web_search_sql(input.web_search_enabled),
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -359,7 +362,12 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         health_checked_at: row.get(12)?,
         model_context_window: row.get(14)?,
         auto_review_model_override: row.get(15)?,
+        web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),
     })
+}
+
+fn web_search_sql(value: Option<bool>) -> Option<i64> {
+    value.map(|enabled| if enabled { 1 } else { 0 })
 }
 
 fn uuid_v8() -> String {
@@ -383,6 +391,7 @@ mod tests {
             model: "test-model".to_string(),
             model_context_window: None,
             auto_review_model_override: None,
+            web_search_enabled: None,
             model_mapping: ClaudeModelMapping::default(),
             protocol_type: ProtocolType::OpenAiChat,
             provider_kind: ProviderKind::Standard,

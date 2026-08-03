@@ -90,7 +90,7 @@ fn parse_version(text: &str) -> Option<String> {
     })
 }
 
-fn decode_output(bytes: &[u8]) -> String {
+pub(crate) fn decode_output(bytes: &[u8]) -> String {
     if bytes.len() >= 2 && bytes.iter().skip(1).step_by(2).any(|byte| *byte == 0) {
         let utf16 = bytes
             .chunks_exact(2)
@@ -816,6 +816,39 @@ fn run_unix_command_with_login_path(
         pieces.join(" ")
     );
     Command::new("sh").args(["-lc", &script]).output()
+}
+
+pub(crate) fn run_claude_doctor_output() -> AppResult<Output> {
+    let installation = match probe_installation() {
+        Probe::Found(installation) | Probe::Broken(installation, _) => installation,
+        Probe::NotFound(detail) => return Err(AppError::Config(detail)),
+    };
+    if installation.environment == "wsl" {
+        let mut command = Command::new("wsl.exe");
+        if let Some(distro) = &installation.wsl_distro {
+            command.args(["-d", distro]);
+        }
+        command.args(["--", "sh", "-lc", "claude doctor"]);
+        configure_hidden(&mut command);
+        return command
+            .output()
+            .map_err(|error| AppError::Other(format!("无法运行 claude doctor: {error}")));
+    }
+
+    #[cfg(windows)]
+    {
+        run_windows_command(Path::new(&installation.path), &["doctor"])
+            .map_err(|error| AppError::Other(format!("无法运行 claude doctor: {error}")))
+    }
+    #[cfg(not(windows))]
+    {
+        run_unix_command_with_login_path(
+            Path::new(&installation.path),
+            &["doctor"],
+            Path::new(&installation.path),
+        )
+        .map_err(|error| AppError::Other(format!("无法运行 claude doctor: {error}")))
+    }
 }
 
 fn download_to_temp(url: &str, filename: &str) -> AppResult<PathBuf> {

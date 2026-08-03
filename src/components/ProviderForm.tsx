@@ -148,6 +148,7 @@ export function ProviderForm({
         model: editing.model,
         modelContextWindow: editing.modelContextWindow ?? undefined,
         autoReviewModelOverride: editing.autoReviewModelOverride ?? undefined,
+        webSearchEnabled: editing.webSearchEnabled ?? true,
         modelMapping: editing.modelMapping,
         protocolType: editing.protocolType,
         providerKind: editing.providerKind,
@@ -172,6 +173,7 @@ export function ProviderForm({
         protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
         providerKind: "standard",
         authBinding: "",
+        webSearchEnabled: true,
         targetApp: target,
         modelMapping: {
           sonnet: "",
@@ -352,6 +354,7 @@ export function ProviderForm({
       protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
       providerKind: "standard",
       authBinding: "",
+      webSearchEnabled: true,
       targetApp: target,
       modelMapping: {
         sonnet: "",
@@ -372,6 +375,7 @@ export function ProviderForm({
       baseUrl: preset.baseUrl,
       model: preset.model,
       modelContextWindow: preset.modelContextWindow,
+      webSearchEnabled: true,
       providerKind: "standard",
       authBinding: "",
       notes: preset.notes ?? "",
@@ -571,6 +575,16 @@ export function ProviderForm({
             ]}
           >
             <InputNumber style={{ width: "100%" }} min={1} step={1000} placeholder="272000" />
+          </Form.Item>
+        )}
+
+        {isCodex && (
+          <Form.Item
+            name="webSearchEnabled"
+            valuePropName="checked"
+            extra={t("providers.webSearchEnabledHint")}
+          >
+            <Checkbox>{t("providers.webSearchEnabled")}</Checkbox>
           </Form.Item>
         )}
 

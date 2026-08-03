@@ -12,7 +12,7 @@ use crate::error::AppResult;
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
 /// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
-const CATALOG_VERSION: &str = "2026-08-03";
+const CATALOG_VERSION: &str = "2026-08-03-fast";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -42,7 +42,9 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     // Sonnet 5 keeps introductory $2/$10 through 2026-08-31.
     DefaultPricing { provider: "Anthropic", model: "claude-fable-5", input: 10.0, cache_read: 1.0, cache_write: 12.5, output: 50.0, batch_input: 5.0, batch_output: 25.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-opus-4.8", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 2.5, batch_output: 12.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-4.8-fast", input: 10.0, cache_read: 1.0, cache_write: 12.5, output: 50.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-opus-5", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 2.5, batch_output: 12.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-5-fast", input: 10.0, cache_read: 1.0, cache_write: 12.5, output: 50.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-sonnet-4.6", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 1.5, batch_output: 7.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-sonnet-5", input: 2.0, cache_read: 0.2, cache_write: 2.5, output: 10.0, batch_input: 1.0, batch_output: 5.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-haiku-4.5", input: 1.0, cache_read: 0.1, cache_write: 1.25, output: 5.0, batch_input: 0.5, batch_output: 2.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
