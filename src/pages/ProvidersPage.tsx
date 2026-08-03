@@ -313,8 +313,18 @@ export default function ProvidersPage() {
       <Alert
         type={codexAuth?.loggedIn ? "success" : "info"}
         showIcon
-        message={codexAuth?.loggedIn ? "已检测到 Codex 登录配置" : "使用官方 Codex 前请先在终端登录"}
-        description={<Space wrap><Text code>{codexAuth?.loginCommand ?? "codex login"}</Text><Button size="small" onClick={() => void navigator.clipboard?.writeText(codexAuth?.loginCommand ?? "codex login")}>复制命令</Button></Space>}
+        message={codexAuth?.loggedIn ? t("providers.codexLoginDetected") : t("providers.codexLoginNeeded")}
+        description={
+          <Space direction="vertical" size={4}>
+            <Space wrap>
+              <Text code>{codexAuth?.loginCommand ?? "codex login"}</Text>
+              <Button size="small" onClick={() => void navigator.clipboard?.writeText(codexAuth?.loginCommand ?? "codex login")}>
+                复制命令
+              </Button>
+            </Space>
+            <Text type="secondary">{t("providers.codexLoginHint")}</Text>
+          </Space>
+        }
       />
     )}
     <Card

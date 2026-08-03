@@ -838,12 +838,32 @@ fn normalize_managed_value(value: Option<Value>) -> Option<Value> {
     }
 }
 
+fn normalize_managed_value_for_key(key: &str, value: Option<Value>) -> Option<Value> {
+    let value = normalize_managed_value(value);
+    match (key, value) {
+        ("ANTHROPIC_BASE_URL", Some(Value::String(url))) => {
+            let trimmed = url.trim().trim_end_matches('/').to_string();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(Value::String(trimmed))
+            }
+        }
+        (_, other) => other,
+    }
+}
+
 fn normalize_managed_fields(
     fields: &BTreeMap<String, Option<Value>>,
 ) -> BTreeMap<String, Option<Value>> {
     fields
         .iter()
-        .map(|(key, value)| (key.clone(), normalize_managed_value(value.clone())))
+        .map(|(key, value)| {
+            (
+                key.clone(),
+                normalize_managed_value_for_key(key, value.clone()),
+            )
+        })
         .collect()
 }
 
@@ -856,8 +876,9 @@ fn adopt_absent_key_drift(
     current: &BTreeMap<String, Option<Value>>,
 ) {
     for (key, current_value) in current {
-        let written = normalize_managed_value(ownership.written.get(key).cloned().unwrap_or(None));
-        let current_value = normalize_managed_value(current_value.clone());
+        let written =
+            normalize_managed_value_for_key(key, ownership.written.get(key).cloned().unwrap_or(None));
+        let current_value = normalize_managed_value_for_key(key, current_value.clone());
         if written.is_none() && current_value.is_some() {
             ownership
                 .before
@@ -866,6 +887,60 @@ fn adopt_absent_key_drift(
             ownership.written.insert(key.clone(), current_value);
         }
     }
+}
+
+/// Claude Code sometimes relocates the same secret between `ANTHROPIC_AUTH_TOKEN`
+/// and `ANTHROPIC_API_KEY`. Treat that migration as compatible ownership drift.
+fn adopt_credential_key_migration(
+    ownership: &mut CodeOwnership,
+    current: &BTreeMap<String, Option<Value>>,
+) {
+    const AUTH: &str = "ANTHROPIC_AUTH_TOKEN";
+    const API: &str = "ANTHROPIC_API_KEY";
+
+    let written_auth =
+        normalize_managed_value(ownership.written.get(AUTH).cloned().unwrap_or(None));
+    let written_api = normalize_managed_value(ownership.written.get(API).cloned().unwrap_or(None));
+    let current_auth = normalize_managed_value(current.get(AUTH).cloned().unwrap_or(None));
+    let current_api = normalize_managed_value(current.get(API).cloned().unwrap_or(None));
+
+    if written_auth.is_some()
+        && current_auth.is_none()
+        && current_api == written_auth
+        && (written_api.is_none() || written_api == written_auth)
+    {
+        ownership.written.insert(AUTH.to_string(), None);
+        ownership.written.insert(API.to_string(), current_api.clone());
+        ownership
+            .before
+            .entry(API.to_string())
+            .or_insert_with(|| current_api);
+        return;
+    }
+
+    if written_api.is_some()
+        && current_api.is_none()
+        && current_auth == written_api
+        && (written_auth.is_none() || written_auth == written_api)
+    {
+        ownership.written.insert(API.to_string(), None);
+        ownership
+            .written
+            .insert(AUTH.to_string(), current_auth.clone());
+        ownership
+            .before
+            .entry(AUTH.to_string())
+            .or_insert_with(|| current_auth);
+    }
+}
+
+fn reconcile_code_ownership(
+    ownership: &mut CodeOwnership,
+    current: &BTreeMap<String, Option<Value>>,
+) {
+    upgrade_code_ownership_fields(ownership, current);
+    adopt_absent_key_drift(ownership, current);
+    adopt_credential_key_migration(ownership, current);
 }
 
 fn managed_fields_match(
@@ -972,19 +1047,30 @@ fn upgrade_code_ownership_fields(
 
 fn prepare_code_ownership(provider: &Provider, state: &AppState, proxy: bool, port: u16) -> AppResult<CodeOwnership> {
     let current = code_managed_fields()?;
+    let expected = expected_code_fields(provider, proxy, port);
     let raw = state.db.with_conn(|conn| get_setting(conn, CODE_OWNERSHIP_KEY))?;
     if let Some(raw) = raw.filter(|value| !value.is_empty()) {
         let mut ownership: CodeOwnership = serde_json::from_str(&raw)
             .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全切换".to_string()))?;
-        upgrade_code_ownership_fields(&mut ownership, &current);
-        adopt_absent_key_drift(&mut ownership, &current);
+        reconcile_code_ownership(&mut ownership, &current);
         if !managed_fields_match(&ownership.written, &current) {
-            return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
+            // Claude Code / user edits after our last write used to hard-block every
+            // later switch. Rebaseline onto the live file so the user can continue.
+            log::warn!(
+                "Claude Code managed fields drifted from ownership record; rebasing onto current settings before switch"
+            );
+            return Ok(CodeOwnership {
+                before: current,
+                written: expected,
+            });
         }
-        ownership.written = expected_code_fields(provider, proxy, port);
+        ownership.written = expected;
         Ok(ownership)
     } else {
-        Ok(CodeOwnership { before: current, written: expected_code_fields(provider, proxy, port) })
+        Ok(CodeOwnership {
+            before: current,
+            written: expected,
+        })
     }
 }
 
@@ -1002,10 +1088,15 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
     let mut ownership: CodeOwnership = serde_json::from_str(&raw)
         .map_err(|_| AppError::Config("配置所有权记录已损坏，无法安全恢复".to_string()))?;
     let current = code_managed_fields()?;
-    upgrade_code_ownership_fields(&mut ownership, &current);
-    adopt_absent_key_drift(&mut ownership, &current);
+    reconcile_code_ownership(&mut ownership, &current);
     if !managed_fields_match(&current, &ownership.written) {
-        return Err(AppError::Config("检测到 Claude Code 配置已被外部修改，已拒绝覆盖".to_string()));
+        // Stale before-state is no longer trustworthy; clear managed keys for
+        // official mode instead of refusing forever.
+        log::warn!(
+            "Claude Code managed fields drifted from ownership record; clearing managed fields for official restore"
+        );
+        claude_code::clear_provider_from_settings()?;
+        return state.db.with_conn(|conn| set_setting(conn, CODE_OWNERSHIP_KEY, ""));
     }
     claude_code::restore_managed_fields(&ownership.before)?;
     state.db.with_conn(|conn| set_setting(conn, CODE_OWNERSHIP_KEY, ""))
@@ -1443,6 +1534,50 @@ mod tests {
             ownership.before.get("ANTHROPIC_API_KEY"),
             Some(&Some(Value::String("tok".into())))
         );
+    }
+
+    #[test]
+    fn ownership_adopts_auth_token_migrated_to_api_key() {
+        let mut ownership = CodeOwnership {
+            before: claude_code::MANAGED_ENV_KEYS
+                .into_iter()
+                .map(|key| (key.to_string(), None))
+                .collect(),
+            written: {
+                let mut fields = claude_code::MANAGED_ENV_KEYS
+                    .into_iter()
+                    .map(|key| (key.to_string(), None))
+                    .collect::<BTreeMap<_, _>>();
+                fields.insert(
+                    "ANTHROPIC_AUTH_TOKEN".into(),
+                    Some(Value::String("tok".into())),
+                );
+                fields
+            },
+        };
+        let mut current = claude_code::MANAGED_ENV_KEYS
+            .into_iter()
+            .map(|key| (key.to_string(), None))
+            .collect::<BTreeMap<_, _>>();
+        current.insert(
+            "ANTHROPIC_API_KEY".into(),
+            Some(Value::String("tok".into())),
+        );
+        reconcile_code_ownership(&mut ownership, &current);
+        assert!(managed_fields_match(&ownership.written, &current));
+    }
+
+    #[test]
+    fn ownership_normalizes_base_url_trailing_slash() {
+        let left = BTreeMap::from([(
+            "ANTHROPIC_BASE_URL".into(),
+            Some(Value::String("https://api.example.com/".into())),
+        )]);
+        let right = BTreeMap::from([(
+            "ANTHROPIC_BASE_URL".into(),
+            Some(Value::String("https://api.example.com".into())),
+        )]);
+        assert!(managed_fields_match(&left, &right));
     }
 
     #[test]

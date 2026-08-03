@@ -78,6 +78,21 @@ fn load_document(path: &Path) -> AppResult<DocumentMut> {
         .map_err(|error| AppError::Config(format!("Codex config.toml 格式无效：{error}")))
 }
 
+/// Ensure `doc[key]` is a table without probing via `doc[key].is_table()`.
+///
+/// `toml_edit` treats `doc["missing"]` as an IndexMut insert of a vacant entry;
+/// a subsequent nested write then panics with `index not found`. Always probe
+/// with `DocumentMut::get` (or `entry`) before creating the table.
+fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> &'a mut Table {
+    let needs_table = doc.get(key).map(|item| !item.is_table()).unwrap_or(true);
+    if needs_table {
+        doc[key] = Item::Table(Table::new());
+    }
+    doc[key]
+        .as_table_mut()
+        .expect("table was just ensured")
+}
+
 fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
     if !path.exists() {
         return Ok(());
@@ -205,16 +220,11 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     // Advertise Fast-mode UI (/fast) when the model supports it. Do not force
     // service_tier=fast — that doubles API cost; users opt in via Codex.
     if model_supports_codex_fast(model) {
-        if !doc["features"].is_table() {
-            doc["features"] = Item::Table(Table::new());
-        }
-        doc["features"]["fast_mode"] = value(true);
+        ensure_table(doc, "features")["fast_mode"] = value(true);
     }
-    if !doc["model_providers"].is_table() {
-        doc["model_providers"] = Item::Table(Table::new());
-    }
+    ensure_table(doc, "model_providers");
     remove_legacy_managed_providers(doc);
-    let entry = &mut doc["model_providers"][provider_id];
+    let entry = &mut ensure_table(doc, "model_providers")[provider_id];
     if !entry.is_table() {
         *entry = Item::Table(Table::new());
     }
@@ -386,10 +396,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
 pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
     let path = get_codex_config_path();
     let mut doc = load_document(&path)?;
-    if !doc["mcp_servers"].is_table() {
-        doc["mcp_servers"] = Item::Table(Table::new());
-    }
-    let table = doc["mcp_servers"].as_table_mut().expect("table set above");
+    let table = ensure_table(&mut doc, "mcp_servers");
     for server in servers.iter().filter(|server| server.enabled_codex) {
         let Some(object) = server.server_config.as_object() else { continue; };
         let mut entry = Table::new();
@@ -460,6 +467,31 @@ mod tests {
             health_status: None,
             health_checked_at: None,
         }
+    }
+
+    #[test]
+    fn empty_config_accepts_fast_mode_model_without_panic() {
+        let mut provider = sample_codex_provider();
+        provider.model = "gpt-5.6-sol".into();
+        let mut doc = DocumentMut::new();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None).unwrap();
+        assert_eq!(doc["features"]["fast_mode"].as_bool(), Some(true));
+        assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn empty_config_accepts_standard_model_without_panic() {
+        let provider = sample_codex_provider();
+        let mut doc = DocumentMut::new();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None).unwrap();
+        assert!(doc.get("features").is_none());
+        assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
+        std::env::remove_var("CODEX_HOME");
     }
 
     #[test]

@@ -93,15 +93,15 @@ jobs:
 
             ## What's new
 
-            - CodexHistoryStore restores bare `function_call_output` before Anthropic bridge conversion
-            - `/v1/responses/compact` and `/responses/compact` routes with Responses passthrough
-            - Chat / Anthropic compact fallback returns `response.compaction` (rejects stream=true)
+            - Claude Code provider switch no longer hard-blocks on drifted managed settings (AUTH↔API_KEY / URL drift; rebaseline when needed)
+            - Fix Codex config write panic `index not found` on empty config.toml or Fast-mode models (toml_edit table probe)
+            - Clarify ChatGPT-subscription vs Codex official login copy on the Providers page
 
             ## 更新内容
 
-            - CodexHistoryStore：Anthropic 桥转换前补回缺失的 function_call
-            - 支持 `/v1/responses/compact` 与 `/responses/compact`；Responses 上游直通
-            - Chat / Anthropic compact 有损 fallback 返回 `response.compaction`（拒绝 stream=true）
+            - Claude Code 切换：托管配置漂移不再永久拒绝（AUTH↔API_KEY / URL 等价；必要时按磁盘重建基线）
+            - 修复 Codex 写入 `config.toml` 时 `index not found` panic（空配置或 Fast 模型写 features）
+            - Providers 页厘清「ChatGPT 订阅」与 Codex 官方登录的区别
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
