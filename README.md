@@ -44,6 +44,7 @@
 ### 供应商与切换
 
 - 分别管理 Claude Code / Desktop / Codex 的第三方 API、模型映射、导入导出、连接测试与模型发现
+- Codex 供应商可开关 **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`；与顶层 `web_search` 模式是不同层次，后者规划于 0.8.5）
 - 一键切换并备份；可恢复官方登录配置
 - Claude 侧可用 **ChatGPT 订阅**（经本地代理）；Codex 官方账号用终端 `codex login`
 - Codex 写入 `~/.codex/config.toml`，不经过 Claude 本地代理
@@ -52,9 +53,18 @@
 
 Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。
 
-### MCP / Prompts / Skills
+### MCP / Prompts / Skills / Agents / Plugins
 
-统一维护 MCP（可同步到 Codex）、`CLAUDE.md` 预设；Claude Code 与 Codex Skills 支持 GitHub / ZIP 安装、启停、更新与删除。
+- MCP：统一维护并可同步到 Codex；支持远程 HTTP/SSE、OAuth 状态清理，以及 Desktop Connectors / `.mcpb` 冲突提示
+- MCP Registry：浏览官方 Registry 并安装可安全转换为 Claude 配置的条目（需密钥/URL 模板的仍需手动配置）
+- Prompts：`CLAUDE.md` / Codex `AGENTS.md` 预设，支持重命名与一键激活
+- Skills：Claude Code 与 Codex 支持 GitHub / ZIP 安装、启停、更新与删除
+- Agents：管理 Claude Code 用户级 `~/.claude/agents`
+- Codex Plugins：探测已安装插件并启停（不提供商店安装；marketplace 管理见后续规划）
+
+### 项目（Profiles）
+
+为 Claude Code / Desktop / Codex 分别快照供应商、MCP、Skills、Prompt 选择；可一键应用与重命名。
 
 ### 会话
 
@@ -62,12 +72,12 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 中文化
 
-Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管理；编辑器补丁始终需在编辑器内确认。
+Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管理；编辑器补丁始终需在编辑器内确认。安装中文时会规范化错误的 `spinnerVerbs` 数组格式。
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex 本地事件（预估成本仅来自代理日志）
-- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步预览推送、Claude Code / Codex CLI 安装检测
+- 用量：合并代理日志与 Codex / Claude Code 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）
+- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 
 ---
@@ -94,7 +104,8 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 | `~/.claude/projects/` | Claude Code 会话 |
 | `~/.claude/skills/` | Claude Code Skills |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方配置（Windows） |
-| `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话、Skills |
+| `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话、Skills、Plugins |
+| `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/`（可改） | 本应用资料库：数据库、备份、日志 |
 
 产品名已改为 AI-Switcher，仍保留原应用标识与默认资料库路径以兼容旧用户。资料库可迁到其他盘（SHA-256 校验，重启生效）。导出 / 同步默认不含 API Key。
@@ -153,9 +164,11 @@ scripts/              Windows 开发 / 构建脚本
 ## 当前边界
 
 - 产品范围：Claude Code + Claude Desktop + Codex（不做 Grok / Gemini 等）
+- Codex Plugins 仅本地探测与启停，不做完整官方商店
 - 会话「恢复」只复制命令，不自动开终端
 - 不同步自动合并远端冲突，不做团队分享
 - Claude Code 与 Desktop 的供应商列表与激活状态始终独立
+- 不解析 Claude Desktop 私有会话格式
 
 ---
 

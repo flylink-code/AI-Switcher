@@ -30,10 +30,31 @@ pub struct CodexPlugin {
     pub path: Option<String>,
 }
 
-pub fn list_plugins() -> AppResult<Vec<CodexPlugin>> {
-    let mut by_id: BTreeMap<String, CodexPlugin> = BTreeMap::new();
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPluginsSnapshot {
+    pub plugins: Vec<CodexPlugin>,
+    pub config_path: String,
+    pub cache_path: String,
+    pub config_plugin_count: usize,
+    pub cache_plugin_count: usize,
+    pub parse_ok: bool,
+    pub parse_error: Option<String>,
+}
 
-    for (plugin_id, enabled) in read_enabled_map(&load_config_document()?) {
+pub fn list_plugins() -> AppResult<Vec<CodexPlugin>> {
+    Ok(list_plugins_snapshot()?.plugins)
+}
+
+pub fn list_plugins_snapshot() -> AppResult<CodexPluginsSnapshot> {
+    let config_path = get_codex_config_path();
+    let cache_path = get_codex_plugins_cache_dir();
+    let (doc, parse_ok, parse_error) = load_config_document_tolerant(&config_path);
+    let config_entries = read_enabled_map(&doc);
+    let config_plugin_count = config_entries.len();
+
+    let mut by_id: BTreeMap<String, CodexPlugin> = BTreeMap::new();
+    for (plugin_id, enabled) in config_entries {
         let (name, marketplace) = split_plugin_id(&plugin_id);
         by_id.insert(
             plugin_id.clone(),
@@ -49,30 +70,40 @@ pub fn list_plugins() -> AppResult<Vec<CodexPlugin>> {
         );
     }
 
-    for cached in scan_cache(&get_codex_plugins_cache_dir())? {
-        let entry = by_id.entry(cached.plugin_id.clone()).or_insert_with(|| CodexPlugin {
-            plugin_id: cached.plugin_id.clone(),
-            name: cached.name.clone(),
-            marketplace: cached.marketplace.clone(),
+    let cached = scan_cache(&cache_path)?;
+    let cache_plugin_count = cached.len();
+    for item in cached {
+        let entry = by_id.entry(item.plugin_id.clone()).or_insert_with(|| CodexPlugin {
+            plugin_id: item.plugin_id.clone(),
+            name: item.name.clone(),
+            marketplace: item.marketplace.clone(),
             version: None,
             enabled: false,
             installed: false,
             path: None,
         });
         entry.installed = true;
-        entry.version = cached.version.or(entry.version.clone());
-        entry.path = cached.path.or(entry.path.clone());
+        entry.version = item.version.or(entry.version.clone());
+        entry.path = item.path.or(entry.path.clone());
         if entry.name.is_empty() {
-            entry.name = cached.name;
+            entry.name = item.name;
         }
         if entry.marketplace.is_empty() {
-            entry.marketplace = cached.marketplace;
+            entry.marketplace = item.marketplace;
         }
     }
 
-    let mut out: Vec<CodexPlugin> = by_id.into_values().collect();
-    out.sort_by(|a, b| a.plugin_id.cmp(&b.plugin_id));
-    Ok(out)
+    let mut plugins: Vec<CodexPlugin> = by_id.into_values().collect();
+    plugins.sort_by(|a, b| a.plugin_id.cmp(&b.plugin_id));
+    Ok(CodexPluginsSnapshot {
+        plugins,
+        config_path: config_path.to_string_lossy().into_owned(),
+        cache_path: cache_path.to_string_lossy().into_owned(),
+        config_plugin_count,
+        cache_plugin_count,
+        parse_ok,
+        parse_error,
+    })
 }
 
 pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
@@ -97,13 +128,35 @@ pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
 
 fn load_config_document() -> AppResult<DocumentMut> {
     let path = get_codex_config_path();
-    if !path.exists() {
-        return Ok(DocumentMut::new());
+    let (doc, parse_ok, parse_error) = load_config_document_tolerant(&path);
+    if parse_ok {
+        Ok(doc)
+    } else {
+        Err(AppError::Config(
+            parse_error.unwrap_or_else(|| "Codex config.toml 格式无效".into()),
+        ))
     }
-    fs::read_to_string(&path)
-        .map_err(AppError::from)?
-        .parse::<DocumentMut>()
-        .map_err(|error| AppError::Config(format!("Codex config.toml 格式无效：{error}")))
+}
+
+fn load_config_document_tolerant(path: &Path) -> (DocumentMut, bool, Option<String>) {
+    if !path.exists() {
+        return (DocumentMut::new(), true, None);
+    }
+    match fs::read_to_string(path) {
+        Ok(raw) => match raw.parse::<DocumentMut>() {
+            Ok(doc) => (doc, true, None),
+            Err(error) => (
+                DocumentMut::new(),
+                false,
+                Some(format!("Codex config.toml 格式无效：{error}")),
+            ),
+        },
+        Err(error) => (
+            DocumentMut::new(),
+            false,
+            Some(format!("无法读取 Codex config.toml：{error}")),
+        ),
+    }
 }
 
 fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> &'a mut Table {
@@ -241,6 +294,48 @@ mod tests {
         set_plugin_enabled("slack@openai-curated", false).unwrap();
         let listed = list_plugins().unwrap();
         assert!(!listed[0].enabled);
+
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn list_snapshot_reads_quoted_plugin_table_keys() {
+        let _guard = env_lock().lock().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", root.path());
+
+        let cache = root
+            .path()
+            .join("plugins")
+            .join("cache")
+            .join("openai-curated")
+            .join("google-calendar")
+            .join("0.2.1");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(
+            root.path().join("config.toml"),
+            r#"
+[plugins."google-calendar@openai-curated"]
+enabled = true
+
+[plugins."slack@openai-curated"]
+enabled = false
+"#,
+        )
+        .unwrap();
+
+        let snap = list_plugins_snapshot().unwrap();
+        assert!(snap.parse_ok);
+        assert_eq!(snap.config_plugin_count, 2);
+        assert_eq!(snap.cache_plugin_count, 1);
+        assert_eq!(snap.plugins.len(), 2);
+        let calendar = snap
+            .plugins
+            .iter()
+            .find(|p| p.plugin_id == "google-calendar@openai-curated")
+            .expect("calendar plugin");
+        assert!(calendar.enabled);
+        assert!(calendar.installed);
 
         std::env::remove_var("CODEX_HOME");
     }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Card, Space, Switch, Table, Typography, message } from "antd";
+import { Alert, Button, Card, Space, Switch, Table, Typography, message } from "antd";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,15 @@ export default function CodexPluginsPage() {
   const queryClient = useQueryClient();
   const pluginsQuery = useQuery(codexPluginsOptions);
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null);
+
+  const snapshot = pluginsQuery.data;
+  const plugins = snapshot?.plugins ?? [];
+  const queryError =
+    pluginsQuery.error instanceof Error
+      ? pluginsQuery.error.message
+      : pluginsQuery.error
+        ? String(pluginsQuery.error)
+        : null;
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["codexPlugins"] });
@@ -46,12 +55,44 @@ export default function CodexPluginsPage() {
       }
     >
       <Paragraph type="secondary">{t("codexPlugins.description")}</Paragraph>
+      {queryError ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t("codexPlugins.loadError")}
+          description={queryError}
+        />
+      ) : null}
+      {!queryError && snapshot && !snapshot.parseOk ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t("codexPlugins.parseError")}
+          description={snapshot.parseError ?? undefined}
+        />
+      ) : null}
+      {!queryError && snapshot && plugins.length === 0 ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t("codexPlugins.empty")}
+          description={t("codexPlugins.emptyHint", {
+            configPath: snapshot.configPath,
+            cachePath: snapshot.cachePath,
+            configCount: snapshot.configPluginCount,
+            cacheCount: snapshot.cachePluginCount,
+          })}
+        />
+      ) : null}
       <Table
         rowKey="pluginId"
         loading={pluginsQuery.isLoading}
-        dataSource={pluginsQuery.data ?? []}
+        dataSource={plugins}
         pagination={false}
-        locale={{ emptyText: t("codexPlugins.empty") }}
+        locale={{ emptyText: queryError ? t("codexPlugins.loadError") : t("codexPlugins.empty") }}
         columns={[
           {
             title: t("codexPlugins.name"),
@@ -72,6 +113,7 @@ export default function CodexPluginsPage() {
             title: t("codexPlugins.version"),
             dataIndex: "version",
             width: 120,
+            render: (version?: string | null) => version ?? "—",
           },
           {
             title: t("codexPlugins.path"),

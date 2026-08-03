@@ -44,7 +44,7 @@ pub use backup::{
 };
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
-pub use doctor::run_environment_doctor;
+pub use doctor::{repair_environment_visibility, run_environment_doctor};
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
     install_desktop_localization,
@@ -113,5 +113,6 @@ pub use usage::{
     delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, import_model_pricing_xlsx, list_model_pricing,
     list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,
     rebuild_codex_session_usage_cmd, sync_codex_session_usage_cmd,
+    rebuild_claude_code_session_usage_cmd, sync_claude_code_session_usage_cmd,
     preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
 };

@@ -12,6 +12,7 @@ export type OnboardingTipKey =
   | "sessions"
   | "usage"
   | "usage_codex_local"
+  | "usage_claude_code_local"
   | "usage_currency"
   | "usage_cache_pricing"
   | "localization"

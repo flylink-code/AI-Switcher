@@ -1,6 +1,6 @@
 //! Local session discovery and archive operations for Claude Code and Codex.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -796,12 +796,28 @@ fn collect_claude_code_session_paths(
 fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
     let root = codex_session_root();
     if !root.is_dir() {
+        // Directory missing — still try SQLite rollout paths (custom CODEX_HOME layouts).
+        let mut paths = Vec::new();
+        merge_codex_sqlite_rollout_paths(&mut paths);
+        if paths.is_empty() {
+            return Ok((
+                Vec::new(),
+                SessionProviderStatus {
+                    provider: SessionProvider::Codex,
+                    status: "not_found".to_string(),
+                    detail: "未发现 Codex 本地会话目录".to_string(),
+                    root_path: Some(root.display().to_string()),
+                },
+                false,
+                false,
+            ));
+        }
         return Ok((
-            Vec::new(),
+            paths,
             SessionProviderStatus {
                 provider: SessionProvider::Codex,
-                status: "not_found".to_string(),
-                detail: "未发现 Codex 本地会话目录".to_string(),
+                status: "available".to_string(),
+                detail: "Codex 会话由 SQLite rollout 路径兜底列出".to_string(),
                 root_path: Some(root.display().to_string()),
             },
             false,
@@ -811,17 +827,87 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
     let mut paths = Vec::new();
     let deadline = Instant::now() + WALK_DEADLINE;
     let (truncated, timed_out) = collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
+    // When the walk finds nothing or times out, merge valid rollout_path entries from state DB.
+    if paths.is_empty() || timed_out {
+        merge_codex_sqlite_rollout_paths(&mut paths);
+    }
+    let detail = if timed_out && !paths.is_empty() {
+        "Codex 本地会话可用（含 SQLite 兜底）".to_string()
+    } else {
+        "Codex 本地会话可用".to_string()
+    };
     Ok((
         paths,
         SessionProviderStatus {
             provider: SessionProvider::Codex,
             status: "available".to_string(),
-            detail: "Codex 本地会话可用".to_string(),
+            detail,
             root_path: Some(root.display().to_string()),
         },
         truncated,
         timed_out,
     ))
+}
+
+/// Append existing rollout JSONL paths from Codex thread DBs that are not already listed.
+fn merge_codex_sqlite_rollout_paths(paths: &mut Vec<(PathBuf, i64)>) {
+    let mut seen: HashSet<String> = paths
+        .iter()
+        .map(|(path, _)| normalize_path_key(path))
+        .collect();
+    for db_path in codex_thread_db_paths() {
+        let Ok(db) = Connection::open_with_flags(
+            &db_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        ) else {
+            continue;
+        };
+        if !sqlite_table_exists(&db, "threads") || !sqlite_column_exists(&db, "threads", "rollout_path") {
+            continue;
+        }
+        let has_updated = sqlite_column_exists(&db, "threads", "updated_at_ms");
+        let sql = if has_updated {
+            "SELECT rollout_path, updated_at_ms FROM threads WHERE rollout_path IS NOT NULL AND TRIM(rollout_path) <> ''"
+        } else {
+            "SELECT rollout_path, NULL FROM threads WHERE rollout_path IS NOT NULL AND TRIM(rollout_path) <> ''"
+        };
+        let Ok(mut stmt) = db.prepare(sql) else {
+            continue;
+        };
+        let Ok(rows) = stmt.query_map([], |row| {
+            let path: String = row.get(0)?;
+            let updated: Option<i64> = row.get(1)?;
+            Ok((path, updated))
+        }) else {
+            continue;
+        };
+        for row in rows.flatten() {
+            let (raw, updated) = row;
+            let path = PathBuf::from(raw.trim());
+            if !path.is_file() {
+                continue;
+            }
+            let key = normalize_path_key(&path);
+            if !seen.insert(key) {
+                continue;
+            }
+            if paths.len() >= MAX_SESSION_FILES {
+                break;
+            }
+            let mtime = updated.unwrap_or_else(|| {
+                path.metadata()
+                    .and_then(|meta| meta.modified())
+                    .ok()
+                    .and_then(|time| {
+                        time.duration_since(std::time::UNIX_EPOCH)
+                            .ok()
+                            .map(|d| d.as_millis() as i64)
+                    })
+                    .unwrap_or(0)
+            });
+            paths.push((path, mtime));
+        }
+    }
 }
 
 fn claude_code_session_root() -> PathBuf {

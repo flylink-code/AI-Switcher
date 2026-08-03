@@ -47,6 +47,7 @@ import type {
   SessionProvider,
   SessionScanResult,
 } from "@/types/backend";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 type DirectoryFilter = "all" | "yes" | "no";
 type TimeFilter = "all" | "day" | "week" | "month";
@@ -64,7 +65,8 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
-  const [provider, setProvider] = useState<SessionProvider>("claude_code");
+  const provider = usePagePreferencesStore((state) => state.sessionsProvider);
+  const setProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
@@ -361,6 +363,10 @@ export default function SessionsPage() {
     () => result.providers.filter((item) => item.status === "degraded"),
     [result.providers],
   );
+  const activeProviderStatus = useMemo(
+    () => result.providers.find((item) => item.provider === provider),
+    [provider, result.providers],
+  );
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
@@ -382,6 +388,28 @@ export default function SessionsPage() {
           description={item.detail || t("sessions.degradedHint")}
         />
       ))}
+      {provider === "codex" && !loading && !error && listTotal === 0 ? (
+        <Alert
+          type="info"
+          showIcon
+          message={t("sessions.codexEmptyTitle")}
+          description={
+            <Space direction="vertical" size={8}>
+              <span>
+                {t("sessions.codexEmptyHint", {
+                  path: activeProviderStatus?.rootPath || t("sessions.codexEmptyPathUnknown"),
+                  detail: activeProviderStatus?.detail || "",
+                })}
+              </span>
+              <Tooltip title={t("sessions.codexRepairHint")}>
+                <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
+                  {t("sessions.codexRepair")}
+                </Button>
+              </Tooltip>
+            </Space>
+          }
+        />
+      ) : null}
 
       <Card size="small">
         <Space wrap>

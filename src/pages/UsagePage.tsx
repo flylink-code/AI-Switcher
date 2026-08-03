@@ -59,9 +59,11 @@ import {
   previewProxyLogMaintenance,
   previewModelPricingXlsx,
   rebuildCodexSessionUsage,
+  rebuildClaudeCodeSessionUsage,
   saveModelPricing,
   saveLogMaintenancePolicy,
   syncCodexSessionUsage,
+  syncClaudeCodeSessionUsage,
 } from "@/services/api";
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -257,6 +259,10 @@ export default function UsagePage() {
     (summary?.outputTokens ?? 0);
   const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
   const isCodexOnly = logTargetApp === "codex";
+  const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
+  const isClaudeCodeOnly = logTargetApp === "claude_code";
+  const localClaude = dashboard?.localClaudeCode;
+  const emptyClaudeCode = includesClaudeCode && (summary?.requestCount ?? 0) === 0;
 
   const syncCodexSessions = async () => {
     setRefreshing(true);
@@ -294,6 +300,42 @@ export default function UsagePage() {
     }
   };
 
+  const syncClaudeCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await syncClaudeCodeSessionUsage();
+      void message.success(
+        t("usage.claudeCodeSyncDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedFiles,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const rebuildClaudeCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildClaudeCodeSessionUsage();
+      void message.success(
+        t("usage.claudeCodeRebuildDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedFiles,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -307,6 +349,42 @@ export default function UsagePage() {
             description={dashboard?.localCodex.available
               ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
               : t("usage.codexLocalUnavailable")}
+          />
+        )}
+        {includesClaudeCode && (
+          <OnboardingTip
+            tipKey="usage_claude_code_local"
+            type={localClaude?.available ? "info" : isClaudeCodeOnly ? "warning" : "info"}
+            message={t("usage.claudeCodeLocalTitle")}
+            description={localClaude?.available
+              ? t("usage.claudeCodeLocalAvailable", { events: localClaude.eventCount, sessions: localClaude.sessionCount })
+              : t("usage.claudeCodeLocalUnavailable")}
+          />
+        )}
+        {emptyClaudeCode && (
+          <Alert
+            type="info"
+            showIcon
+            message={t("usage.claudeCodeEmptyTitle")}
+            description={t("usage.claudeCodeEmptyHint")}
+            action={
+              <Button size="small" loading={refreshing} onClick={() => void syncClaudeCodeSessions()}>
+                {t("usage.syncClaudeCodeSessions")}
+              </Button>
+            }
+          />
+        )}
+        {includesCodex && !dashboard?.localCodex.available && (
+          <Alert
+            type={isCodexOnly ? "warning" : "info"}
+            showIcon
+            message={t("usage.codexEmptyTitle")}
+            description={t("usage.codexEmptyHint")}
+            action={
+              <Button size="small" loading={refreshing} onClick={() => void syncCodexSessions()}>
+                {t("usage.syncCodexSessions")}
+              </Button>
+            }
           />
         )}
         <OnboardingTip tipKey="usage_currency" type="info" message={t("usage.currencyLimit")} />
@@ -370,6 +448,16 @@ export default function UsagePage() {
                 </Button>
                 <Button loading={refreshing} onClick={() => void rebuildCodexSessions()}>
                   {t("usage.rebuildCodexSessions")}
+                </Button>
+              </>
+            )}
+            {includesClaudeCode && (
+              <>
+                <Button loading={refreshing} onClick={() => void syncClaudeCodeSessions()}>
+                  {t("usage.syncClaudeCodeSessions")}
+                </Button>
+                <Button loading={refreshing} onClick={() => void rebuildClaudeCodeSessions()}>
+                  {t("usage.rebuildClaudeCodeSessions")}
                 </Button>
               </>
             )}

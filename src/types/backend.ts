@@ -276,6 +276,14 @@ export interface DoctorReport {
   checks: DoctorCheck[];
 }
 
+export interface VisibilityRepairResult {
+  codexProviderFiles: number;
+  codexProviderRows: number;
+  codexUsageInserted: number;
+  claudeCodeUsageInserted: number;
+  message: string;
+}
+
 /** Result of proxy status commands. */
 export interface ProxyStatus {
   running: boolean;
@@ -433,10 +441,20 @@ export interface CodexPlugin {
   pluginId: string;
   name: string;
   marketplace: string;
-  version: string;
+  version?: string | null;
   enabled: boolean;
   installed: boolean;
-  path: string;
+  path?: string | null;
+}
+
+export interface CodexPluginsSnapshot {
+  plugins: CodexPlugin[];
+  configPath: string;
+  cachePath: string;
+  configPluginCount: number;
+  cachePluginCount: number;
+  parseOk: boolean;
+  parseError?: string | null;
 }
 
 export interface InstalledSkillSource {
@@ -516,6 +534,7 @@ export interface UsageDashboard {
   trend: UsageTrendPoint[];
   trendGranularity: "hour" | "day";
   localCodex: LocalCodexUsage;
+  localClaudeCode: LocalCodexUsage;
 }
 
 export interface LocalCodexUsage {

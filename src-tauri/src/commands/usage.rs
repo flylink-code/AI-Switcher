@@ -59,6 +59,10 @@ impl UsageSource {
     fn includes_local_codex(self) -> bool {
         matches!(self, Self::All | Self::Codex)
     }
+
+    fn includes_local_claude_code(self) -> bool {
+        matches!(self, Self::All | Self::ClaudeCode)
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +75,7 @@ pub struct UsageDashboard {
     /// `"hour"` when the window is today / last 24h; otherwise `"day"`.
     pub trend_granularity: String,
     pub local_codex: LocalCodexUsage,
+    pub local_claude_code: LocalCodexUsage,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -232,7 +237,9 @@ pub async fn get_usage_dashboard(
                 )?;
                 let session_files: i64 = conn
                     .query_row(
-                        "SELECT COUNT(*) FROM session_log_sync;",
+                        "SELECT COUNT(*) FROM session_log_sync
+                         WHERE replace(lower(file_path), '\\', '/') LIKE '%/sessions/%'
+                            OR replace(lower(file_path), '\\', '/') LIKE '%/archived_sessions/%';",
                         [],
                         |row| row.get(0),
                     )
@@ -250,6 +257,36 @@ pub async fn get_usage_dashboard(
             } else {
                 local_codex_not_selected()
             };
+            let local_claude_code = if source.includes_local_claude_code() {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM proxy_request_logs
+                     WHERE target_app = 'claude_code' AND created_at >= ?
+                       AND COALESCE(data_source, 'proxy') IN ('proxy', 'claude_code_session');",
+                    rusqlite::params![since],
+                    |row| row.get(0),
+                )?;
+                let session_files: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM session_log_sync
+                         WHERE replace(lower(file_path), '\\', '/') LIKE '%/.claude/projects/%'
+                            OR replace(lower(file_path), '\\', '/') LIKE '%/claude/projects/%';",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+                LocalCodexUsage {
+                    available: count > 0,
+                    session_count: session_files,
+                    event_count: count,
+                    message: if count > 0 {
+                        "Claude Code usage includes proxy logs and synced project session events".to_string()
+                    } else {
+                        "No Claude Code usage rows yet; sync project sessions or route traffic via the local proxy".to_string()
+                    },
+                }
+            } else {
+                local_codex_not_selected()
+            };
             let target = source.proxy_target();
             Ok(if let Some(target) = target {
                 UsageDashboard {
@@ -259,6 +296,7 @@ pub async fn get_usage_dashboard(
                     trend: get_usage_trend_for_target(conn, since, target, granularity)?,
                     trend_granularity: trend_granularity.clone(),
                     local_codex,
+                    local_claude_code,
                 }
             } else {
                 UsageDashboard {
@@ -268,6 +306,7 @@ pub async fn get_usage_dashboard(
                     trend: Vec::new(),
                     trend_granularity,
                     local_codex,
+                    local_claude_code,
                 }
             })
         })
@@ -298,6 +337,30 @@ pub async fn rebuild_codex_session_usage_cmd(
     })
     .await
     .map_err(|e| AppError::Database(format!("codex session rebuild task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn sync_claude_code_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_claude_code::ClaudeCodeSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_claude_code::try_sync_claude_code_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("claude code session sync task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn rebuild_claude_code_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_claude_code::ClaudeCodeSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_claude_code::rebuild_claude_code_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("claude code session rebuild task failed: {e}")))?
 }
 
 #[derive(Debug)]

@@ -9,19 +9,24 @@ use crate::error::AppResult;
 
 pub const DATA_SOURCE_PROXY: &str = "proxy";
 pub const DATA_SOURCE_CODEX_SESSION: &str = "codex_session";
+pub const DATA_SOURCE_CLAUDE_CODE_SESSION: &str = "claude_code_session";
 pub const CODEX_SESSION_PROVIDER_ID: &str = "_codex_session";
+pub const CLAUDE_CODE_SESSION_PROVIDER_ID: &str = "_claude_code_session";
 /// Hide session rows when a matching proxy row exists within ±10 minutes.
 const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 
-/// SQL fragment: drop `codex_session` rows that duplicate a nearby proxy row.
+/// SQL fragment: drop session-sync rows that duplicate a nearby proxy row.
 /// Uses a created_at range (not ABS) so SQLite can use indexes.
 const EFFECTIVE_USAGE_FILTER: &str = "
   AND (
-    COALESCE(l.data_source, 'proxy') != 'codex_session'
+    COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session')
     OR NOT EXISTS (
       SELECT 1 FROM proxy_request_logs p
       WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
-        AND p.target_app = 'codex'
+        AND p.target_app = CASE
+          WHEN COALESCE(l.data_source, 'proxy') = 'claude_code_session' THEN 'claude_code'
+          ELSE 'codex'
+        END
         AND p.status_code BETWEEN 200 AND 299
         AND p.created_at BETWEEN l.created_at - 600000 AND l.created_at + 600000
         AND p.input_tokens = l.input_tokens
@@ -268,11 +273,50 @@ pub fn should_skip_codex_session_insert(
     cache_read_input_tokens: i64,
     output_tokens: i64,
 ) -> AppResult<bool> {
+    should_skip_session_insert_for_target(
+        conn,
+        "codex",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )
+}
+
+pub fn should_skip_claude_code_session_insert(
+    conn: &Connection,
+    created_at: i64,
+    model: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<bool> {
+    should_skip_session_insert_for_target(
+        conn,
+        "claude_code",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )
+}
+
+fn should_skip_session_insert_for_target(
+    conn: &Connection,
+    target_app: &str,
+    created_at: i64,
+    model: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<bool> {
     let model = model.unwrap_or("unknown");
     let exists: i64 = conn.query_row(
         "SELECT COUNT(*) FROM proxy_request_logs
          WHERE COALESCE(data_source, 'proxy') = 'proxy'
-           AND target_app = 'codex'
+           AND target_app = ?
            AND status_code BETWEEN 200 AND 299
            AND created_at BETWEEN ? AND ?
            AND input_tokens = ?
@@ -284,6 +328,7 @@ pub fn should_skip_codex_session_insert(
              OR lower(?) IN ('', 'unknown')
            );",
         params![
+            target_app,
             created_at - SESSION_PROXY_DEDUP_WINDOW_MS,
             created_at + SESSION_PROXY_DEDUP_WINDOW_MS,
             input_tokens,
@@ -340,14 +385,27 @@ pub fn reset_codex_session_usage(conn: &Connection) -> AppResult<i64> {
         "DELETE FROM proxy_request_logs WHERE data_source = ?;",
         params![DATA_SOURCE_CODEX_SESSION],
     )? as i64;
+    // Clear sync cursors for Codex session trees only (keep Claude Code cursors).
     conn.execute(
-        "DELETE FROM session_log_sync WHERE file_path LIKE '%[/\\\\]sessions[/\\\\]%'
-           OR file_path LIKE '%[/\\\\]archived_sessions[/\\\\]%';",
+        "DELETE FROM session_log_sync
+         WHERE replace(lower(file_path), '\\', '/') LIKE '%/sessions/%'
+            OR replace(lower(file_path), '\\', '/') LIKE '%/archived_sessions/%';",
         [],
     )?;
-    // SQLite LIKE with character classes is awkward; clear all cursors under known roots later.
-    // Prefer wiping all sync cursors that we manage for Codex JSONL:
-    conn.execute("DELETE FROM session_log_sync;", [])?;
+    Ok(deleted)
+}
+
+pub fn reset_claude_code_session_usage(conn: &Connection) -> AppResult<i64> {
+    let deleted = conn.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = ?;",
+        params![DATA_SOURCE_CLAUDE_CODE_SESSION],
+    )? as i64;
+    conn.execute(
+        "DELETE FROM session_log_sync
+         WHERE replace(lower(file_path), '\\', '/') LIKE '%/.claude/projects/%'
+            OR replace(lower(file_path), '\\', '/') LIKE '%/claude/projects/%';",
+        [],
+    )?;
     Ok(deleted)
 }
 

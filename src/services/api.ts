@@ -10,6 +10,7 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   DbInfo,
   DoctorReport,
+  VisibilityRepairResult,
   DataRootInfo,
   LivePrompt,
   McpImportSummary,
@@ -47,7 +48,7 @@ import type {
   SkillRepositorySnapshot,
   Agent,
   AgentDraft,
-  CodexPlugin,
+  CodexPluginsSnapshot,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -122,6 +123,11 @@ export async function getDbInfo(): Promise<DbInfo> {
 export async function runEnvironmentDoctor(): Promise<DoctorReport> {
   const invoke = await getInvoke();
   return invoke<DoctorReport>("run_environment_doctor", {});
+}
+
+export async function repairEnvironmentVisibility(): Promise<VisibilityRepairResult> {
+  const invoke = await getInvoke();
+  return invoke<VisibilityRepairResult>("repair_environment_visibility", {});
 }
 
 export async function getDataRoot(): Promise<DataRootInfo> {
@@ -570,9 +576,9 @@ export async function installZipAgent(path: string): Promise<Agent[]> {
 
 // ---- Codex Plugins ----------------------------------------------------------
 
-export async function listCodexPlugins(): Promise<CodexPlugin[]> {
+export async function listCodexPlugins(): Promise<CodexPluginsSnapshot> {
   const invoke = await getInvoke();
-  return invoke<CodexPlugin[]>("list_codex_plugins", {});
+  return invoke<CodexPluginsSnapshot>("list_codex_plugins", {});
 }
 
 export async function setCodexPluginEnabled(pluginId: string, enabled: boolean): Promise<void> {
@@ -797,6 +803,16 @@ export async function syncCodexSessionUsage(): Promise<CodexSessionSyncResult> {
 export async function rebuildCodexSessionUsage(): Promise<CodexSessionSyncResult> {
   const invoke = await getInvoke();
   return invoke<CodexSessionSyncResult>("rebuild_codex_session_usage_cmd", {});
+}
+
+export async function syncClaudeCodeSessionUsage(): Promise<CodexSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexSessionSyncResult>("sync_claude_code_session_usage_cmd", {});
+}
+
+export async function rebuildClaudeCodeSessionUsage(): Promise<CodexSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexSessionSyncResult>("rebuild_claude_code_session_usage_cmd", {});
 }
 
 export async function listModelPricing(): Promise<ModelPricing[]> {

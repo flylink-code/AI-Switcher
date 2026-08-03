@@ -44,6 +44,7 @@ Install Claude Code, Claude Desktop, or the Codex CLI as needed.
 ### Providers and switching
 
 - Manage third-party APIs, model mappings, import/export, connection tests, and model discovery for Claude Code / Desktop / Codex separately
+- Codex providers can toggle **Web Search** (writes catalog `supports_search_tool` / `web_search_tool_type`; distinct from top-level `web_search` mode planned for 0.8.5)
 - One-click switch with backups; restore official login configs
 - On Claude targets, sign in with a **ChatGPT subscription** (via local proxy); Codex official accounts use terminal `codex login`
 - Codex providers write to `~/.codex/config.toml` and do not use the Claude local proxy
@@ -52,9 +53,18 @@ Install Claude Code, Claude Desktop, or the Codex CLI as needed.
 
 Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default).
 
-### MCP / Prompts / Skills
+### MCP / Prompts / Skills / Agents / Plugins
 
-Maintain MCP servers (with Codex sync) and `CLAUDE.md` presets. Install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP archives.
+- MCP: unified management with Codex sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
+- MCP Registry: browse the official Registry and install entries that safely convert to Claude config (secret/URL-template entries still need manual setup)
+- Prompts: `CLAUDE.md` / Codex `AGENTS.md` presets with rename and one-click activate
+- Skills: install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP
+- Agents: manage Claude Code user agents under `~/.claude/agents`
+- Codex Plugins: detect installed plugins and enable/disable them (no marketplace install; marketplace management is planned)
+
+### Projects (Profiles)
+
+Snapshot provider / MCP / Skills / Prompt selections per Claude Code, Desktop, or Codex scope; apply and rename in one click.
 
 ### Sessions
 
@@ -62,12 +72,12 @@ Browse, filter, and search local Claude Code and Codex JSONL sessions; export / 
 
 ### Localization
 
-Manage Claude Code plugins, editor patch helpers, and Claude Desktop language packs separately. Applying an editor patch always requires confirmation inside the editor.
+Manage Claude Code plugins, editor patch helpers, and Claude Desktop language packs separately. Applying an editor patch always requires confirmation inside the editor. Chinese localization also normalizes invalid bare `spinnerVerbs` arrays.
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex local events (estimated cost is proxy-log only)
-- Environment: config paths, library migration / portable export, WSL·SSH sync preview+push, Claude Code / Codex CLI install detection
+- Usage: merges proxy logs with Codex / Claude Code local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching
+- Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 
 ---
@@ -94,7 +104,8 @@ For Claude Desktop, the app only detects the data directory and offers the offic
 | `~/.claude/projects/` | Claude Code sessions |
 | `~/.claude/skills/` | Claude Code Skills |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party profiles (Windows) |
-| `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills |
+| `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills, Plugins |
+| `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
 The product name is AI-Switcher; the app id and default library path are kept for compatibility. The library can move to another drive (SHA-256 verified, effective after restart). Export / sync omit API keys by default.
@@ -153,9 +164,11 @@ scripts/              Windows develop / build scripts
 ## Current limitations
 
 - Product scope: Claude Code + Claude Desktop + Codex only (no Grok / Gemini / …)
+- Codex Plugins are local detect/enable only — not a full official marketplace
 - Session “resume” copies a command; it does not launch a terminal
 - No auto-merge of remote sync conflicts; no team sharing
 - Claude Code and Desktop provider lists and active selections stay independent
+- Claude Desktop private session formats are not parsed
 
 ---
 

@@ -59,11 +59,12 @@ use crate::commands::{
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
     preview_model_pricing_xlsx, preview_proxy_log_maintenance, rebuild_codex_session_usage_cmd, restore_desktop_localization, save_log_maintenance_policy,
-    sync_codex_session_usage_cmd,
+    sync_codex_session_usage_cmd, sync_claude_code_session_usage_cmd, rebuild_claude_code_session_usage_cmd,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, get_codex_cli_version,
     get_node_runtime_status, ensure_node_runtime_via_fnm,
     run_claude_code_update, run_codex_cli_update, run_environment_doctor,
+    repair_environment_visibility,
     backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
     import_claude_code_session, load_session_messages,
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
@@ -231,6 +232,8 @@ pub fn run() {
             get_usage_dashboard,
             sync_codex_session_usage_cmd,
             rebuild_codex_session_usage_cmd,
+            sync_claude_code_session_usage_cmd,
+            rebuild_claude_code_session_usage_cmd,
             list_model_pricing,
             export_model_pricing_xlsx,
             preview_model_pricing_xlsx,
@@ -250,6 +253,7 @@ pub fn run() {
             get_node_runtime_status,
             ensure_node_runtime_via_fnm,
             run_environment_doctor,
+            repair_environment_visibility,
             scan_sessions,
             search_session_contents,
             load_session_messages,
@@ -400,6 +404,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     spawn_codex_session_usage_sync(Arc::clone(&db));
+    spawn_claude_code_session_usage_sync(Arc::clone(&db));
 
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {
@@ -455,6 +460,45 @@ fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
                 }
                 Err(error) => {
                     log::warn!("Codex session usage sync task join failed: {error}");
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    });
+}
+
+/// Background Claude Code project JSONL → DB sync: first run after ~12s, then every 60s.
+fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(12)).await;
+        loop {
+            let db = Arc::clone(&db);
+            let sync_result = tokio::task::spawn_blocking(move || {
+                usage::session_usage_claude_code::try_sync_claude_code_session_usage_db(&db)
+            })
+            .await;
+            match sync_result {
+                Ok(Ok(result)) => {
+                    if result.inserted_rows > 0 {
+                        log::info!(
+                            "Claude Code session usage sync: scanned={}, inserted={}, skipped={}",
+                            result.scanned_files,
+                            result.inserted_rows,
+                            result.skipped_rows
+                        );
+                    } else {
+                        log::debug!(
+                            "Claude Code session usage sync: scanned={}, message={}",
+                            result.scanned_files,
+                            result.message
+                        );
+                    }
+                }
+                Ok(Err(error)) => {
+                    log::warn!("Claude Code session usage sync failed: {error}");
+                }
+                Err(error) => {
+                    log::warn!("Claude Code session usage sync task join failed: {error}");
                 }
             }
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;

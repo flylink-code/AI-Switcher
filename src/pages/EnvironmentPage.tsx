@@ -30,6 +30,7 @@ import type {
   CloseBehavior,
   ConfigBackup,
   DoctorReport,
+  VisibilityRepairResult,
   LibraryArchivePreview,
   ProviderTarget,
   SyncPreview,
@@ -43,6 +44,7 @@ import {
   previewLibraryBackup,
   restoreLibraryBackup,
   runEnvironmentDoctor,
+  repairEnvironmentVisibility,
   deleteSyncTarget,
   discoverWslDistributions,
   migrateDataRoot,
@@ -112,6 +114,7 @@ export default function EnvironmentPage() {
   const [running, setRunning] = useState(false);
   const [doctorRunning, setDoctorRunning] = useState(false);
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [visibilityRepairing, setVisibilityRepairing] = useState(false);
   const [autostartChanging, setAutostartChanging] = useState(false);
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
@@ -160,6 +163,19 @@ export default function EnvironmentPage() {
       setDoctorRunning(false);
     }
   }, []);
+
+  const onRepairVisibility = useCallback(async () => {
+    setVisibilityRepairing(true);
+    try {
+      const result: VisibilityRepairResult = await repairEnvironmentVisibility();
+      void message.success(result.message || t("env.visibilityRepairDone"));
+      setDoctorReport(await runEnvironmentDoctor());
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setVisibilityRepairing(false);
+    }
+  }, [t]);
 
   const onBackup = useCallback(async () => {
     setRunning(true);
@@ -538,9 +554,14 @@ export default function EnvironmentPage() {
           size="small"
           title={t("env.doctorTitle")}
           extra={
-            <Button size="small" loading={doctorRunning} onClick={() => void onRunDoctor()}>
-              {doctorRunning ? t("env.doctorRunning") : t("env.doctorRun")}
-            </Button>
+            <Space size={8}>
+              <Button size="small" loading={visibilityRepairing} onClick={() => void onRepairVisibility()}>
+                {t("env.visibilityRepair")}
+              </Button>
+              <Button size="small" loading={doctorRunning} onClick={() => void onRunDoctor()}>
+                {doctorRunning ? t("env.doctorRunning") : t("env.doctorRun")}
+              </Button>
+            </Space>
           }
         >
           <Text type="secondary">{t("env.doctorDescription")}</Text>

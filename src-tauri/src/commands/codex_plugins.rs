@@ -1,11 +1,11 @@
 //! Codex Agent Plugins commands.
 
-use crate::codex_plugins::{self, CodexPlugin};
+use crate::codex_plugins::{self, CodexPluginsSnapshot};
 use crate::error::AppResult;
 
 #[tauri::command]
-pub fn list_codex_plugins() -> AppResult<Vec<CodexPlugin>> {
-    codex_plugins::list_plugins()
+pub fn list_codex_plugins() -> AppResult<CodexPluginsSnapshot> {
+    codex_plugins::list_plugins_snapshot()
 }
 
 #[tauri::command]

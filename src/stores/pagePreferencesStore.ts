@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ProviderTarget } from "@/types/backend";
+import type { ProviderTarget, SessionProvider } from "@/types/backend";
 import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 
 const STORAGE_KEY = "cs.pagePreferences";
@@ -9,6 +9,7 @@ interface PersistedPagePreferences {
   proxyTarget?: ProviderTarget;
   usagePeriod?: UsagePeriod;
   usageLogTarget?: ProviderTarget | "all";
+  sessionsProvider?: SessionProvider;
 }
 
 interface PagePreferencesState {
@@ -17,25 +18,32 @@ interface PagePreferencesState {
   usagePeriod: UsagePeriod;
   usageLogPage: number;
   usageLogTarget: ProviderTarget | "all";
+  sessionsProvider: SessionProvider;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
   setUsageLogTarget: (target: ProviderTarget | "all") => void;
+  setSessionsProvider: (provider: SessionProvider) => void;
 }
 
 const DEFAULTS: Pick<
   PagePreferencesState,
-  "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget"
+  "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget" | "sessionsProvider"
 > = {
   providersTarget: "claude_code",
   proxyTarget: "claude_desktop",
   usagePeriod: 365,
   usageLogTarget: "all",
+  sessionsProvider: "claude_code",
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
   return value === "claude_code" || value === "claude_desktop" || value === "codex";
+}
+
+function isSessionProvider(value: unknown): value is SessionProvider {
+  return value === "claude_code" || value === "codex";
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
@@ -81,13 +89,16 @@ function initialState() {
     usageLogTarget: isUsageLogTarget(stored.usageLogTarget)
       ? stored.usageLogTarget
       : DEFAULTS.usageLogTarget,
+    sessionsProvider: isSessionProvider(stored.sessionsProvider)
+      ? stored.sessionsProvider
+      : DEFAULTS.sessionsProvider,
   };
 }
 
 function persistSlice(
   state: Pick<
     PagePreferencesState,
-    "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget"
+    "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget" | "sessionsProvider"
   >,
 ) {
   writePersisted({
@@ -95,6 +106,7 @@ function persistSlice(
     proxyTarget: state.proxyTarget,
     usagePeriod: state.usagePeriod,
     usageLogTarget: state.usageLogTarget,
+    sessionsProvider: state.sessionsProvider,
   });
 }
 
@@ -116,6 +128,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   setUsageLogPage: (usageLogPage) => set({ usageLogPage }),
   setUsageLogTarget: (usageLogTarget) => {
     set({ usageLogTarget });
+    persistSlice(get());
+  },
+  setSessionsProvider: (sessionsProvider) => {
+    set({ sessionsProvider });
     persistSlice(get());
   },
 }));

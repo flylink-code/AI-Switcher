@@ -26,6 +26,7 @@ const ONBOARDING_TIP_KEYS: &[&str] = &[
     "sessions",
     "usage",
     "usage_codex_local",
+    "usage_claude_code_local",
     "usage_currency",
     "usage_cache_pricing",
     "localization",
@@ -591,6 +592,7 @@ mod tests {
         assert!(validate_onboarding_tip_key("proxy").is_ok());
         assert!(validate_onboarding_tip_key("usage").is_ok());
         assert!(validate_onboarding_tip_key("usage_codex_local").is_ok());
+        assert!(validate_onboarding_tip_key("usage_claude_code_local").is_ok());
         assert!(validate_onboarding_tip_key("usage_currency").is_ok());
         assert!(validate_onboarding_tip_key("usage_cache_pricing").is_ok());
         assert!(validate_onboarding_tip_key("localization").is_ok());
