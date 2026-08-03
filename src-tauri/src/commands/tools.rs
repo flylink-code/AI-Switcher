@@ -61,6 +61,18 @@ fn install_command() -> String {
 }
 
 fn map_cli_install_error(detail: &str) -> String {
+    let lower = detail.to_ascii_lowercase();
+    // npm shebang CLIs need node on PATH; GUI sessions often lack fnm.
+    if lower.contains("/usr/bin/env")
+        && lower.contains("node")
+        && (lower.contains("no such file")
+            || lower.contains("没有那个文件")
+            || lower.contains("not found"))
+    {
+        return format!(
+            "NODE_RUNTIME_MISSING: Codex/Claude npm CLI needs `node` on PATH. Detail: {detail}"
+        );
+    }
     crate::commands::node_runtime::map_npm_install_error(detail)
 }
 
@@ -272,6 +284,42 @@ fn compact_execution_path(tool_dir: &Path) -> std::ffi::OsString {
     std::env::join_paths(unique).unwrap_or_default()
 }
 
+/// GUI apps on Linux/macOS often lack fnm/nvm on PATH. npm global CLIs use
+/// `#!/usr/bin/env node`, so probing without Node on PATH yields
+/// "installed but broken" even when fnm Node ≥22 is present.
+#[cfg(not(windows))]
+fn unix_execution_path(tool_dir: &Path) -> std::ffi::OsString {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+    let push = |dirs: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, path: PathBuf| {
+        if path.as_os_str().is_empty() || !seen.insert(path.clone()) {
+            return;
+        }
+        dirs.push(path);
+    };
+
+    push(&mut dirs, &mut seen, tool_dir.to_path_buf());
+    if let Ok(runtime) = crate::commands::node_runtime::require_node_for_npm() {
+        if let Some(parent) = runtime.node_path.parent() {
+            push(&mut dirs, &mut seen, parent.to_path_buf());
+        }
+    }
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        push(&mut dirs, &mut seen, dir);
+    }
+    push(&mut dirs, &mut seen, PathBuf::from("/usr/local/bin"));
+    push(&mut dirs, &mut seen, PathBuf::from("/usr/bin"));
+    if let Some(home) = dirs::home_dir() {
+        push(&mut dirs, &mut seen, home.join(".local").join("bin"));
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            push(&mut dirs, &mut seen, dir);
+        }
+    }
+    std::env::join_paths(dirs).unwrap_or_default()
+}
+
 #[cfg(windows)]
 fn run_local_tool(path: &Path) -> io::Result<Output> {
     use std::os::windows::process::CommandExt;
@@ -299,7 +347,11 @@ fn run_local_tool(path: &Path) -> io::Result<Output> {
 
 #[cfg(not(windows))]
 fn run_local_tool(path: &Path) -> io::Result<Output> {
-    Command::new(path).arg("--version").output()
+    let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
+    Command::new(path)
+        .arg("--version")
+        .env("PATH", unix_execution_path(tool_dir))
+        .output()
 }
 
 fn probe_native_installations() -> Probe {
@@ -751,11 +803,8 @@ fn run_unix_command_with_login_path(
     args: &[&str],
     tool_path: &Path,
 ) -> io::Result<Output> {
-    let tool_dir = tool_path
-        .parent()
-        .unwrap_or_else(|| Path::new("/usr/bin"))
-        .display()
-        .to_string();
+    let tool_dir = tool_path.parent().unwrap_or_else(|| Path::new("/usr/bin"));
+    let path_value = unix_execution_path(tool_dir);
     let mut pieces = Vec::with_capacity(args.len() + 1);
     pieces.push(shell_single_quote(&program.display().to_string()));
     for arg in args {
@@ -763,7 +812,7 @@ fn run_unix_command_with_login_path(
     }
     let script = format!(
         "export PATH={}:\"$PATH\"; {}",
-        shell_single_quote(&tool_dir),
+        shell_single_quote(&path_value.to_string_lossy()),
         pieces.join(" ")
     );
     Command::new("sh").args(["-lc", &script]).output()
@@ -1392,5 +1441,13 @@ mod tests {
     fn maps_npm_not_found_for_cli_install() {
         let mapped = map_cli_install_error("sh: 1: npm: not found");
         assert!(mapped.starts_with("NODE_RUNTIME_MISSING:"));
+    }
+
+    #[test]
+    fn maps_missing_node_on_path_for_npm_shebang_cli() {
+        let mapped = map_cli_install_error("/usr/bin/env: \"node\": 没有那个文件或目录");
+        assert!(mapped.starts_with("NODE_RUNTIME_MISSING:"));
+        let mapped_en = map_cli_install_error("/usr/bin/env: 'node': No such file or directory");
+        assert!(mapped_en.starts_with("NODE_RUNTIME_MISSING:"));
     }
 }

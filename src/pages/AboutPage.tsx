@@ -67,9 +67,13 @@ function formatCliInstallError(raw: string, t: (key: string) => string): string 
   }
   if (
     lower.includes("npm: not found")
-    || lower.includes("node.js ≥22")
-    || lower.includes("node.js >=22")
-    || lower.includes("was not found")
+    || lower.includes("'npm' is not recognized")
+    || lower.includes("node.js ≥22 was not found")
+    || lower.includes("node.js >=22 was not found")
+    || (lower.includes("node.js")
+      && lower.includes("was not found")
+      && !lower.includes("codex")
+      && !lower.includes("claude"))
   ) {
     return t("about.cliInstallNeedNode");
   }
