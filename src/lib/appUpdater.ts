@@ -22,6 +22,21 @@ export async function installAvailableAppUpdate(version: string): Promise<void> 
   await installAppUpdate(version);
 }
 
+/** Backend maps missing manifests / platform packages to null; keep a frontend safety net. */
+export function isNoAppUpdateAvailableError(raw: string): boolean {
+  const text = raw.toLowerCase();
+  return (
+    text.includes("could not fetch a valid release json")
+    || text.includes("were found in the response `platforms`")
+    || text.includes("was not found in the response `platforms` object")
+    || text.includes("当前没有可安装的应用更新")
+  );
+}
+
+export function isAppUpdatePackagePendingError(raw: string): boolean {
+  return raw.includes("暂时无法获取安装包") || raw.toLowerCase().includes("package pending");
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {

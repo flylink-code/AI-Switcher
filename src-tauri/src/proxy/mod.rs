@@ -138,6 +138,10 @@ impl ProxyManager {
             db: Arc::clone(&self.db),
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(300))
+                // Never inherit HTTP(S)_PROXY for upstream calls: the local listener is an
+                // API gateway on 127.0.0.1, not a system proxy. Following env proxies can
+                // create loops if HTTP_PROXY accidentally points at our own ports.
+                .no_proxy()
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
             circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),

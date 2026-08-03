@@ -35,7 +35,7 @@ import {
   localCodexCliVersionOptions,
   nodeRuntimeStatusOptions,
 } from "@/lib/appQueries";
-import { checkForAppUpdate, installAvailableAppUpdate } from "@/lib/appUpdater";
+import { checkForAppUpdate, installAvailableAppUpdate, isAppUpdatePackagePendingError, isNoAppUpdateAvailableError } from "@/lib/appUpdater";
 import type {
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
@@ -188,8 +188,17 @@ export default function AboutPage() {
       });
     } catch (error) {
       console.error("Application update check failed", error);
+      const raw = errMsg(error);
+      if (isNoAppUpdateAvailableError(raw)) {
+        void message.info(t("about.appUpToDate"));
+        return;
+      }
+      if (isAppUpdatePackagePendingError(raw)) {
+        void message.warning(t("about.appUpdatePackagePending"));
+        return;
+      }
       void message.error(
-        t("about.appUpdateFailedDetail", { error: errMsg(error) }),
+        t("about.appUpdateFailedDetail", { error: raw }),
       );
     } finally {
       setCheckingApp(false);
