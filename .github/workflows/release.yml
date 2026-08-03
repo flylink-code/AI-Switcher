@@ -93,15 +93,13 @@ jobs:
 
             ## What's new
 
-            - Claude Code provider switch no longer hard-blocks on drifted managed settings (AUTH↔API_KEY / URL drift; rebaseline when needed)
-            - Fix Codex config write panic `index not found` on empty config.toml or Fast-mode models (toml_edit table probe)
-            - Clarify ChatGPT-subscription vs Codex official login copy on the Providers page
+            - Info tips on Providers / Localization / Environment can be dismissed and stay dismissed
+            - Ignore accidental nested `src-tauri/src-tauri/` cargo build caches in git
 
             ## 更新内容
 
-            - Claude Code 切换：托管配置漂移不再永久拒绝（AUTH↔API_KEY / URL 等价；必要时按磁盘重建基线）
-            - 修复 Codex 写入 `config.toml` 时 `index not found` panic（空配置或 Fast 模型写 features）
-            - Providers 页厘清「ChatGPT 订阅」与 Codex 官方登录的区别
+            - 供应商 / 中文化 / 环境页提示支持关闭并记住
+            - `.gitignore` 忽略误生成的嵌套 `src-tauri/src-tauri/` 编译缓存
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

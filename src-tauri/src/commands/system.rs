@@ -28,7 +28,11 @@ const ONBOARDING_TIP_KEYS: &[&str] = &[
     "usage_currency",
     "usage_cache_pricing",
     "localization",
+    "localization_safe_mode",
+    "localization_third_party",
     "environment",
+    "environment_sync",
+    "providers_codex_auth",
     "about",
 ];
 
@@ -589,7 +593,11 @@ mod tests {
         assert!(validate_onboarding_tip_key("usage_currency").is_ok());
         assert!(validate_onboarding_tip_key("usage_cache_pricing").is_ok());
         assert!(validate_onboarding_tip_key("localization").is_ok());
+        assert!(validate_onboarding_tip_key("localization_safe_mode").is_ok());
+        assert!(validate_onboarding_tip_key("localization_third_party").is_ok());
         assert!(validate_onboarding_tip_key("environment").is_ok());
+        assert!(validate_onboarding_tip_key("environment_sync").is_ok());
+        assert!(validate_onboarding_tip_key("providers_codex_auth").is_ok());
         assert!(validate_onboarding_tip_key("about").is_ok());
         assert!(validate_onboarding_tip_key("anything-else").is_err());
     }

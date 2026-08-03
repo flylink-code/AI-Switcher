@@ -14,6 +14,9 @@ release/
 
 # Rust / Tauri
 src-tauri/target/
+# Accidental nested cargo target (e.g. wrong CARGO_TARGET_DIR / cwd)
+src-tauri/src-tauri/
+**/target/
 src-tauri/Cargo.lock
 src-tauri/gen/schemas/
 

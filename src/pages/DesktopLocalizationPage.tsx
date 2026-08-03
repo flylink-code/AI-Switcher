@@ -206,15 +206,14 @@ export default function DesktopLocalizationPage() {
           </Space>
         )}
       </Card>
-      <Alert
-        type="info"
-        showIcon
+      <OnboardingTip
+        tipKey="localization_safe_mode"
         message={t("env.localization.safeMode")}
         description={t("env.localization.safeModeDescription")}
       />
-      <Alert
+      <OnboardingTip
+        tipKey="localization_third_party"
         type="warning"
-        showIcon
         message={t("env.localization.thirdPartyTitle")}
         description={
           <Space direction="vertical" size={0}>

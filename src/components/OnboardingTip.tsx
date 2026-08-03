@@ -1,6 +1,6 @@
 import { Alert } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { dismissOnboardingTip, getDismissedOnboardingTips } from "@/services/api";
 
 export type OnboardingTipKey =
@@ -14,7 +14,11 @@ export type OnboardingTipKey =
   | "usage_currency"
   | "usage_cache_pricing"
   | "localization"
+  | "localization_safe_mode"
+  | "localization_third_party"
   | "environment"
+  | "environment_sync"
+  | "providers_codex_auth"
   | "about";
 
 export function OnboardingTip({
@@ -23,12 +27,14 @@ export function OnboardingTip({
   description,
   action,
   type = "info",
+  style,
 }: {
   tipKey: OnboardingTipKey;
-  message: string;
-  description?: string;
+  message: ReactNode;
+  description?: ReactNode;
   action?: ReactNode;
   type?: "info" | "warning" | "success" | "error";
+  style?: CSSProperties;
 }) {
   const queryClient = useQueryClient();
   const tipsQuery = useQuery({
@@ -48,6 +54,7 @@ export function OnboardingTip({
       message={message}
       description={description}
       action={action}
+      style={style}
       onClose={() => {
         void dismissOnboardingTip(tipKey).then(() => {
           queryClient.setQueryData<string[]>(["dismissed-onboarding-tips"], (current = []) =>

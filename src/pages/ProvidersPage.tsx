@@ -36,6 +36,7 @@ import type {
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import {
@@ -310,9 +311,9 @@ export default function ProvidersPage() {
       </Space>
     </Space>
     {target === "codex" && (
-      <Alert
+      <OnboardingTip
+        tipKey="providers_codex_auth"
         type={codexAuth?.loggedIn ? "success" : "info"}
-        showIcon
         message={codexAuth?.loggedIn ? t("providers.codexLoginDetected") : t("providers.codexLoginNeeded")}
         description={
           <Space direction="vertical" size={4}>

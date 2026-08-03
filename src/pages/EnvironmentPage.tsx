@@ -644,7 +644,7 @@ export default function EnvironmentPage() {
         </Card>
 
         <Card size="small" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
-          <Alert type="info" showIcon message={t("env.syncDescription")} style={{ marginBottom: 12 }} />
+          <OnboardingTip tipKey="environment_sync" message={t("env.syncDescription")} style={{ marginBottom: 12 }} />
           <List
             size="small"
             loading={syncTargetsQuery.isPending}
