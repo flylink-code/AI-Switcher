@@ -28,12 +28,15 @@ import {
   getCachedProviderModels,
   testProviderInput,
 } from "@/services/api";
+import { mappingFromModel, presetsForTarget, type ProviderPreset } from "@/lib/providerPresets";
 
 interface ProviderFormProps {
   open: boolean;
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
   target: ProviderTarget;
+  /** Optional preset to apply when opening the create modal. */
+  initialPresetId?: string | null;
   onCancel: () => void;
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
@@ -105,6 +108,7 @@ export function ProviderForm({
   open,
   editing,
   target,
+  initialPresetId = null,
   onCancel,
   onSubmit,
 }: ProviderFormProps) {
@@ -177,13 +181,32 @@ export function ProviderForm({
           subagent: "",
         },
       });
+      const preset = initialPresetId
+        ? presetsForTarget(target).find((item) => item.id === initialPresetId)
+        : undefined;
+      if (preset) {
+        skipModelSyncRef.current = true;
+        prevModelRef.current = preset.model;
+        form.setFieldsValue({
+          name: preset.name,
+          protocolType: preset.protocolType,
+          baseUrl: preset.baseUrl,
+          model: preset.model,
+          modelContextWindow: preset.modelContextWindow,
+          notes: preset.notes ?? "",
+          modelMapping:
+            target === "codex"
+              ? { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" }
+              : mappingFromModel(preset.model, target),
+        });
+      }
     }
     // Focus the name field after the modal paints.
     setTimeout(() => nameRef?.focus(), 50);
     return () => {
       cancelled = true;
     };
-  }, [open, editing, form, target]);
+  }, [open, editing, form, target, initialPresetId]);
 
   useEffect(() => {
     if (!open) return;
@@ -330,6 +353,35 @@ export function ProviderForm({
     form.setFieldValue("modelMapping", mapping);
   };
 
+  const applyPreset = (presetId: string) => {
+    const preset = presetsForTarget(target).find((item) => item.id === presetId);
+    if (!preset) return;
+    applyPresetValues(preset);
+  };
+
+  const applyPresetValues = (preset: ProviderPreset) => {
+    skipModelSyncRef.current = true;
+    prevModelRef.current = preset.model;
+    form.setFieldsValue({
+      name: preset.name,
+      protocolType: preset.protocolType,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      modelContextWindow: preset.modelContextWindow,
+      providerKind: "standard",
+      authBinding: "",
+      notes: preset.notes ?? "",
+      targetApp: target,
+      modelMapping: isCodex
+        ? { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" }
+        : mappingFromModel(preset.model, target),
+    });
+    setModels([]);
+    setModelResult(null);
+  };
+
+  const createPresets = presetsForTarget(target);
+
   return (
     <Modal
       open={open}
@@ -352,6 +404,22 @@ export function ProviderForm({
         <Form.Item name="authBinding" hidden>
           <Input />
         </Form.Item>
+
+        {!isEdit && createPresets.length > 0 ? (
+          <Form.Item label={t("providers.fromPreset")}>
+            <Select
+              allowClear
+              placeholder={t("providers.fromPresetPlaceholder")}
+              options={createPresets.map((preset) => ({
+                value: preset.id,
+                label: `${preset.name} · ${preset.protocolType}`,
+              }))}
+              onChange={(value) => {
+                if (typeof value === "string" && value) applyPreset(value);
+              }}
+            />
+          </Form.Item>
+        ) : null}
 
         <Form.Item
           name="name"

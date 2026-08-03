@@ -186,6 +186,7 @@
     "confirmDelete": "Delete this provider?",
     "fromPreset": "Fill from preset",
     "fromPresetPlaceholder": "Pick a built-in preset to autofill",
+    "quickPresets": "Quick presets",
     "fieldName": "Name",
     "fieldBaseUrl": "HTTPS base URL",
     "baseUrlHint": "Enter only an origin or gateway path prefix; the request endpoint is added from the selected protocol.",

@@ -186,6 +186,7 @@
     "confirmDelete": "确定删除该供应商？",
     "fromPreset": "从预设填充",
     "fromPresetPlaceholder": "选择一个内置预设快速填充",
+    "quickPresets": "常用预设",
     "fieldName": "名称",
     "fieldBaseUrl": "HTTPS 基础地址",
     "baseUrlHint": "只填写域名或网关路径前缀，程序会按协议自动补全请求端点。",

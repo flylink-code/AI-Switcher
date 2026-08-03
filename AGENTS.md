@@ -9,7 +9,7 @@
 
 ## 当前工作区状态（v0.7.9）
 
-- v0.7.9：Claude Desktop Linux / Windows MSIX 路径探测；Codex 会话名称与置顶（读 `state_5.sqlite`）。
+- v0.7.9：Claude Desktop Linux / Windows MSIX 路径探测；Codex 会话名称与置顶；常用供应商快速配置（DeepSeek / Kimi / GLM 等）。
 - 规划见 `task.md`（0.7.9 / 0.8 / 随后）；`task.md` / `bug.md` 为本地规划（gitignore）。
 - 不要将 `release/` 调试文件或编译缓存纳入提交。
 
@@ -20,7 +20,7 @@
 
 ## 后续操作建议
 
-1. 验证无满意后可提交并打 `v0.7.9` 标签发布。
+1. 推送 `main` 与带注释的 `v0.7.9` 标签，由 GitHub Actions 云端构建发布。
 2. 下一阶段按 `task.md` 的 0.8：Agents / MCP OAuth 与 Connectors 冲突提示。
 
 # 注释
