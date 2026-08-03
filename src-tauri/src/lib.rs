@@ -6,6 +6,7 @@
 )]
 
 mod backup;
+mod agents;
 mod codex_oauth;
 mod commands;
 mod config;
@@ -13,6 +14,7 @@ mod database;
 mod error;
 mod log_redact;
 mod mcp;
+mod mcp_oauth;
 mod mcp_registry;
 mod process_util;
 mod prompts;
@@ -38,13 +40,14 @@ use crate::commands::{
     get_codex_auth_status, sync_codex_session_providers,
     activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
+    delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
-    install_mcp_registry_server,
+    install_mcp_registry_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status, clear_mcp_oauth,
     get_localization_hub_status, install_claude_code_localization, install_editor_localization_helper,
     get_skill_repository, get_skill_repository_snapshot, list_github_repository_skills, refresh_github_repository_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, reorder_mcp_servers, reorder_providers,
@@ -175,6 +178,9 @@ pub fn run() {
             import_mcp_servers,
             search_mcp_registry,
             install_mcp_registry_server,
+            get_mcp_oauth_status,
+            clear_mcp_oauth,
+            get_mcp_desktop_conflict_status,
             list_prompts,
             read_prompt,
             save_prompt,
@@ -193,6 +199,11 @@ pub fn run() {
             set_proxy_retryable_status_codes,
             set_proxy_streaming_idle_timeout_secs,
             list_skills,
+            list_agents,
+            save_agent,
+            set_agent_enabled,
+            delete_agent,
+            install_zip_agent,
             get_skill_repository,
             get_skill_repository_snapshot,
             set_skill_repository,

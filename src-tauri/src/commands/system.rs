@@ -22,6 +22,7 @@ const ONBOARDING_TIP_KEYS: &[&str] = &[
     "mcp",
     "prompts",
     "skills",
+    "agents",
     "sessions",
     "usage",
     "usage_codex_local",

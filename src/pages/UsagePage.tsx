@@ -309,7 +309,7 @@ export default function UsagePage() {
               : t("usage.codexLocalUnavailable")}
           />
         )}
-        <OnboardingTip tipKey="usage_currency" type="warning" message={t("usage.currencyLimit")} />
+        <OnboardingTip tipKey="usage_currency" type="info" message={t("usage.currencyLimit")} />
         <OnboardingTip tipKey="usage_cache_pricing" message={t("usage.cachePricingIncluded")} />
 
         <div
@@ -386,8 +386,24 @@ export default function UsagePage() {
           <Metric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
           <Metric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
           <Metric title={t("usage.totalTokens")} value={totalTokens} compact />
-          <Metric title={t("usage.estimatedCost")} value={summary?.estimatedCost ?? 0} precision={4} prefix="$" icon={<DollarOutlined />} />
+          <Metric
+            title={t("usage.estimatedCost")}
+            value={summary?.estimatedCost ?? 0}
+            precision={4}
+            prefix={currencyPrefix(summary?.estimatedCostCurrency)}
+            icon={<DollarOutlined />}
+          />
         </Row>
+        {(summary?.estimatedCostsByCurrency?.length ?? 0) > 1 && (
+          <Alert
+            type="info"
+            showIcon
+            message={t("usage.multiCurrencyTitle")}
+            description={summary?.estimatedCostsByCurrency
+              .map((entry) => `${currencyPrefix(entry.currency)}${entry.amount.toFixed(4)} (${entry.currency})`)
+              .join(" · ")}
+          />
+        )}
 
         <Card
           size="small"
@@ -553,12 +569,12 @@ export default function UsagePage() {
             columns={[
               { title: t("usage.model"), dataIndex: "model" },
               { title: t("usage.pricingProvider"), dataIndex: "provider", render: (v: string) => v || "-" },
-              { title: t("usage.inputPrice"), dataIndex: "inputPricePerMillion", render: (v: number) => formatCost(v) },
-              { title: t("usage.cacheReadPrice"), dataIndex: "cacheReadPricePerMillion", render: (v: number) => formatCost(v) },
-              { title: t("usage.cacheWritePrice"), dataIndex: "cacheWritePricePerMillion", render: (v: number) => formatCost(v) },
-              { title: t("usage.outputPrice"), dataIndex: "outputPricePerMillion", render: (v: number) => formatCost(v) },
-              { title: t("usage.batchInputPrice"), dataIndex: "batchInputPricePerMillion", render: (v: number) => formatCost(v) },
-              { title: t("usage.batchOutputPrice"), dataIndex: "batchOutputPricePerMillion", render: (v: number) => formatCost(v) },
+              { title: t("usage.inputPrice"), dataIndex: "inputPricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
+              { title: t("usage.cacheReadPrice"), dataIndex: "cacheReadPricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
+              { title: t("usage.cacheWritePrice"), dataIndex: "cacheWritePricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
+              { title: t("usage.outputPrice"), dataIndex: "outputPricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
+              { title: t("usage.batchInputPrice"), dataIndex: "batchInputPricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
+              { title: t("usage.batchOutputPrice"), dataIndex: "batchOutputPricePerMillion", render: (v: number, row) => formatCost(v, row.currency) },
               { title: t("usage.currency"), dataIndex: "currency", render: (v: string) => <Tag>{v}</Tag> },
               { title: t("usage.priceSource"), dataIndex: "effectiveDate", render: (v: string, row: ModelPricing) => row.sourceUrl ? <a href={row.sourceUrl} target="_blank" rel="noreferrer">{v || t("usage.priceSource")}</a> : "-" },
               { title: t("usage.actions"), render: (_, row: ModelPricing) => <Button danger type="link" onClick={() => void removePricing(row.model)}>{t("usage.delete")}</Button> },
@@ -674,9 +690,14 @@ function UsageTrendChart({
         cacheCreationInputTokens: row?.cacheCreationInputTokens ?? 0,
         cacheReadInputTokens: row?.cacheReadInputTokens ?? 0,
         estimatedCost: row?.estimatedCost ?? 0,
+        currency: row?.currency ?? "USD",
       };
     });
   }, [data, granularity, period]);
+  const chartCurrency = useMemo(() => {
+    const currencies = [...new Set(chartData.map((row) => row.currency).filter((value) => value && value !== "MIXED"))];
+    return currencies.length === 1 ? currencies[0] : "USD";
+  }, [chartData]);
   const colors = {
     input: token.colorInfo,
     output: token.colorSuccess,
@@ -738,7 +759,7 @@ function UsageTrendChart({
             axisLine={false}
             tickLine={false}
             tick={{ fill: colors.axis, fontSize: 12 }}
-            tickFormatter={(value: number) => `$${Number(value).toFixed(2)}`}
+            tickFormatter={(value: number) => `${currencyPrefix(chartCurrency)}${Number(value).toFixed(2)}`}
             width={56}
           />
           <RechartsTooltip
@@ -751,10 +772,11 @@ function UsageTrendChart({
               const row = payload?.[0]?.payload as { date?: string } | undefined;
               return row?.date ?? String(_label);
             }}
-            formatter={(value, name) => {
+            formatter={(value, name, item) => {
               const numeric = typeof value === "number" ? value : Number(value);
               if (name === t("usage.estimatedCost")) {
-                return [formatCost(numeric), name];
+                const row = item?.payload as { currency?: string } | undefined;
+                return [formatCost(numeric, row?.currency ?? chartCurrency), name];
               }
               return [formatCompactNumber(numeric), name];
             }}
@@ -850,7 +872,8 @@ function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard
                   row.outputTokens,
               ),
           },
-          { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number) => formatCost(v) },
+          { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number, row) =>
+            row.currency === "MIXED" ? t("usage.mixedCurrency") : formatCost(v, row.currency) },
         ]}
     />
   </Card>;
@@ -859,5 +882,15 @@ function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard
 function successRate(total?: number, successful?: number) {
   return total ? Number((((successful ?? 0) / total) * 100).toFixed(1)) : 0;
 }
-function formatCost(value: number) { return `$${value.toFixed(4)}`; }
+function currencyPrefix(currency?: string | null) {
+  const normalized = (currency ?? "USD").trim().toUpperCase();
+  if (normalized === "CNY" || normalized === "RMB") return "¥";
+  if (normalized === "EUR") return "€";
+  if (normalized === "GBP") return "£";
+  if (normalized === "USD" || normalized === "") return "$";
+  return `${normalized} `;
+}
+function formatCost(value: number, currency?: string | null) {
+  return `${currencyPrefix(currency)}${value.toFixed(4)}`;
+}
 function errMsg(e: unknown): string { return e instanceof Error ? e.message : String(e); }

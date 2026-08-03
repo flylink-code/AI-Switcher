@@ -16,10 +16,10 @@ use crate::database::dao::proxy_logs::{
     delete_model_pricing as delete_pricing, get_usage_by_model_for_target,
     get_usage_by_provider_for_target, get_usage_summary_for_target,
     get_usage_trend_for_target, list_model_pricing as list_pricing,
-    list_proxy_request_logs, save_model_pricing as save_pricing, ModelPricing, PaginatedProxyLogs,
-    ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageSummary, UsageTrendPoint, LogMaintenancePreview,
-    LogMaintenanceResult, maintain_proxy_logs as maintain_logs,
-    preview_proxy_log_maintenance as preview_logs,
+    list_proxy_request_logs, save_model_pricing as save_pricing, CurrencyAmount, ModelPricing,
+    PaginatedProxyLogs, ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageSummary,
+    UsageTrendPoint, LogMaintenancePreview, LogMaintenanceResult,
+    maintain_proxy_logs as maintain_logs, preview_proxy_log_maintenance as preview_logs,
 };
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
@@ -518,6 +518,8 @@ fn empty_summary() -> UsageSummary {
         cache_creation_input_tokens: 0,
         output_tokens: 0,
         estimated_cost: 0.0,
+        estimated_cost_currency: "USD".to_string(),
+        estimated_costs_by_currency: Vec::new(),
     }
 }
 fn local_codex_not_selected() -> LocalCodexUsage {
@@ -537,6 +539,7 @@ fn empty_breakdown(key: String) -> UsageBreakdown {
         cache_creation_input_tokens: 0,
         output_tokens: 0,
         estimated_cost: 0.0,
+        currency: "USD".to_string(),
     }
 }
 fn empty_trend(date: String) -> UsageTrendPoint {
@@ -548,6 +551,7 @@ fn empty_trend(date: String) -> UsageTrendPoint {
         cache_creation_input_tokens: 0,
         output_tokens: 0,
         estimated_cost: 0.0,
+        currency: "USD".to_string(),
     }
 }
 fn add_breakdown(item: &mut UsageBreakdown, input: i64, cached: i64, output: i64) {
@@ -570,9 +574,6 @@ fn estimate_token_cost(
     cache_write: i64,
     output: i64,
 ) -> f64 {
-    if !pricing.currency.eq_ignore_ascii_case("USD") {
-        return 0.0;
-    }
     (input as f64) * pricing.input_price_per_million / 1_000_000.0
         + (cache_read as f64) * pricing.cache_read_price_per_million / 1_000_000.0
         + (cache_write as f64) * pricing.cache_write_price_per_million / 1_000_000.0
@@ -594,9 +595,10 @@ fn find_pricing_for_model<'a>(
 }
 
 fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[ModelPricing]) {
-    let mut total_cost = 0.0;
+    let mut by_currency: BTreeMap<String, f64> = BTreeMap::new();
     for item in local.by_model.values_mut() {
-        let cost = find_pricing_for_model(pricing, &item.key)
+        let matched = find_pricing_for_model(pricing, &item.key);
+        let cost = matched
             .map(|entry| {
                 estimate_token_cost(
                     entry,
@@ -607,10 +609,52 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
                 )
             })
             .unwrap_or(0.0);
+        let currency = matched
+            .map(|entry| {
+                let trimmed = entry.currency.trim();
+                if trimmed.is_empty() {
+                    "USD".to_string()
+                } else {
+                    trimmed.to_ascii_uppercase()
+                }
+            })
+            .unwrap_or_else(|| "USD".to_string());
         item.estimated_cost = cost;
-        total_cost += cost;
+        item.currency = currency.clone();
+        *by_currency.entry(currency).or_insert(0.0) += cost;
     }
-    local.summary.estimated_cost = total_cost;
+    let estimated_costs_by_currency: Vec<CurrencyAmount> = by_currency
+        .into_iter()
+        .filter(|(_, amount)| amount.abs() > f64::EPSILON)
+        .map(|(currency, amount)| CurrencyAmount { currency, amount })
+        .collect();
+    let (currency, amount) = if estimated_costs_by_currency.is_empty() {
+        ("USD".to_string(), 0.0)
+    } else if estimated_costs_by_currency.len() == 1 {
+        (
+            estimated_costs_by_currency[0].currency.clone(),
+            estimated_costs_by_currency[0].amount,
+        )
+    } else if let Some(usd) = estimated_costs_by_currency
+        .iter()
+        .find(|entry| entry.currency == "USD")
+    {
+        (usd.currency.clone(), usd.amount)
+    } else {
+        estimated_costs_by_currency
+            .iter()
+            .max_by(|left, right| {
+                left.amount
+                    .abs()
+                    .partial_cmp(&right.amount.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|entry| (entry.currency.clone(), entry.amount))
+            .unwrap_or_else(|| ("USD".to_string(), 0.0))
+    };
+    local.summary.estimated_cost = amount;
+    local.summary.estimated_cost_currency = currency.clone();
+    local.summary.estimated_costs_by_currency = estimated_costs_by_currency;
     for item in local.trend.values_mut() {
         // Trend rows are not model-split; leave cost at 0 unless a single model covers all.
         if local.by_model.len() == 1 {
@@ -621,7 +665,10 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
                     0.0
                 };
                 item.estimated_cost = model.estimated_cost * share;
+                item.currency = model.currency.clone();
             }
+        } else {
+            item.currency = currency.clone();
         }
     }
 }
@@ -632,7 +679,13 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
     dashboard.summary.input_tokens += local.summary.input_tokens;
     dashboard.summary.cache_read_input_tokens += local.summary.cache_read_input_tokens;
     dashboard.summary.output_tokens += local.summary.output_tokens;
-    dashboard.summary.estimated_cost += local.summary.estimated_cost;
+    merge_currency_amounts(
+        &mut dashboard.summary.estimated_costs_by_currency,
+        &local.summary.estimated_costs_by_currency,
+    );
+    let (currency, amount) = pick_summary_currency(&dashboard.summary.estimated_costs_by_currency);
+    dashboard.summary.estimated_cost = amount;
+    dashboard.summary.estimated_cost_currency = currency;
     if local.status.available {
         let mut provider = empty_breakdown(CODEX_LOCAL_PROVIDER_KEY.to_string());
         provider.request_count = local.summary.request_count;
@@ -640,6 +693,7 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
         provider.cache_read_input_tokens = local.summary.cache_read_input_tokens;
         provider.output_tokens = local.summary.output_tokens;
         provider.estimated_cost = local.summary.estimated_cost;
+        provider.currency = local.summary.estimated_cost_currency.clone();
         dashboard.by_provider.push(provider);
     }
     for (key, item) in local.by_model {
@@ -649,7 +703,15 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
             existing.input_tokens += item.input_tokens;
             existing.cache_read_input_tokens += item.cache_read_input_tokens;
             existing.output_tokens += item.output_tokens;
-            existing.estimated_cost += item.estimated_cost;
+            if existing.currency == item.currency {
+                existing.estimated_cost += item.estimated_cost;
+            } else if existing.estimated_cost.abs() <= f64::EPSILON {
+                existing.estimated_cost = item.estimated_cost;
+                existing.currency = item.currency;
+            } else if item.estimated_cost.abs() > f64::EPSILON {
+                existing.estimated_cost = 0.0;
+                existing.currency = "MIXED".to_string();
+            }
         } else {
             dashboard.by_model.push(item);
         }
@@ -661,7 +723,15 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
             existing.input_tokens += item.input_tokens;
             existing.cache_read_input_tokens += item.cache_read_input_tokens;
             existing.output_tokens += item.output_tokens;
-            existing.estimated_cost += item.estimated_cost;
+            if existing.currency == item.currency {
+                existing.estimated_cost += item.estimated_cost;
+            } else if existing.estimated_cost.abs() <= f64::EPSILON {
+                existing.estimated_cost = item.estimated_cost;
+                existing.currency = item.currency;
+            } else if item.estimated_cost.abs() > f64::EPSILON {
+                existing.estimated_cost = 0.0;
+                existing.currency = "MIXED".to_string();
+            }
         } else {
             dashboard.trend.push(item);
         }
@@ -669,6 +739,57 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
     dashboard
         .trend
         .sort_by(|left, right| left.date.cmp(&right.date));
+}
+
+fn merge_currency_amounts(target: &mut Vec<CurrencyAmount>, incoming: &[CurrencyAmount]) {
+    for entry in incoming {
+        if let Some(existing) = target
+            .iter_mut()
+            .find(|item| item.currency.eq_ignore_ascii_case(&entry.currency))
+        {
+            existing.amount += entry.amount;
+        } else {
+            target.push(CurrencyAmount {
+                currency: entry.currency.clone(),
+                amount: entry.amount,
+            });
+        }
+    }
+    target.retain(|entry| entry.amount.abs() > f64::EPSILON);
+    target.sort_by(|left, right| {
+        right
+            .amount
+            .abs()
+            .partial_cmp(&left.amount.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.currency.cmp(&right.currency))
+    });
+}
+
+fn pick_summary_currency(amounts: &[CurrencyAmount]) -> (String, f64) {
+    if amounts.is_empty() {
+        return ("USD".to_string(), 0.0);
+    }
+    if amounts.len() == 1 {
+        return (amounts[0].currency.clone(), amounts[0].amount);
+    }
+    if let Some(usd) = amounts
+        .iter()
+        .find(|entry| entry.currency.eq_ignore_ascii_case("USD") && entry.amount.abs() > f64::EPSILON)
+    {
+        return (usd.currency.clone(), usd.amount);
+    }
+    amounts
+        .iter()
+        .max_by(|left, right| {
+            left.amount
+                .abs()
+                .partial_cmp(&right.amount.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.currency.cmp(&right.currency))
+        })
+        .map(|entry| (entry.currency.clone(), entry.amount))
+        .unwrap_or_else(|| ("USD".to_string(), 0.0))
 }
 
 #[tauri::command]
@@ -1029,6 +1150,7 @@ mod tests {
                 cache_creation_input_tokens: 0,
                 output_tokens: 500_000,
                 estimated_cost: 0.0,
+                currency: "USD".to_string(),
             },
         );
         let pricing = vec![ModelPricing {
@@ -1047,7 +1169,54 @@ mod tests {
         }];
         apply_codex_estimated_cost(&mut local, &pricing);
         assert!((local.summary.estimated_cost - 6.0).abs() < f64::EPSILON);
+        assert_eq!(local.summary.estimated_cost_currency, "USD");
         assert!((local.by_model["gpt-5"].estimated_cost - 6.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn apply_codex_estimated_cost_uses_cny_pricing() {
+        let mut local = LocalCodexAggregation {
+            status: LocalCodexUsage {
+                available: true,
+                session_count: 1,
+                event_count: 1,
+                message: String::new(),
+            },
+            summary: empty_summary(),
+            by_model: BTreeMap::new(),
+            trend: BTreeMap::new(),
+        };
+        local.by_model.insert(
+            "k3".to_string(),
+            UsageBreakdown {
+                key: "k3".to_string(),
+                request_count: 1,
+                input_tokens: 1_000_000,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                output_tokens: 500_000,
+                estimated_cost: 0.0,
+                currency: "USD".to_string(),
+            },
+        );
+        let pricing = vec![ModelPricing {
+            model: "k3".to_string(),
+            provider: "Moonshot/Kimi".to_string(),
+            input_price_per_million: 20.0,
+            cache_read_price_per_million: 2.0,
+            cache_write_price_per_million: 0.0,
+            output_price_per_million: 100.0,
+            batch_input_price_per_million: 0.0,
+            batch_output_price_per_million: 0.0,
+            currency: "CNY".to_string(),
+            source_url: String::new(),
+            effective_date: String::new(),
+            is_default: false,
+        }];
+        apply_codex_estimated_cost(&mut local, &pricing);
+        assert!((local.summary.estimated_cost - 70.0).abs() < f64::EPSILON);
+        assert_eq!(local.summary.estimated_cost_currency, "CNY");
+        assert_eq!(local.by_model["k3"].currency, "CNY");
     }
 
     fn row(values: &[&str]) -> Vec<String> {

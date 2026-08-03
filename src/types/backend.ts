@@ -219,6 +219,8 @@ export interface PathsInfo {
   claudeSettingsPath: string;
   /** `~/.claude.json` (MCP + project roots). */
   claudeJsonPath: string;
+  /** `~/.claude/agents` (Claude Code custom agents). */
+  claudeAgentsPath: string;
   codexConfigDir: string;
   codexConfigPath: string;
   codexAuthPath: string;
@@ -343,6 +345,24 @@ export interface McpImportSummary {
   updated: number;
 }
 
+export interface McpOauthStatus {
+  storage: string;
+  path?: string | null;
+  serverNames: string[];
+  entryCount: number;
+  clearable: boolean;
+  note?: string | null;
+}
+
+export interface McpDesktopConflictStatus {
+  desktopInstalled: boolean;
+  managedDesktopServers: number;
+  liveDesktopServers: number;
+  extensionArtifacts: string[];
+  conflictLikely: boolean;
+  message?: string | null;
+}
+
 export interface RegistryMcpServer {
   name: string;
   title: string;
@@ -381,6 +401,19 @@ export interface Skill {
 
 export type SkillTarget = "claude_code" | "codex";
 
+export interface Agent {
+  name: string;
+  path: string;
+  enabled: boolean;
+  description: string;
+}
+
+export interface AgentDraft {
+  name: string;
+  description: string;
+  body?: string;
+}
+
 export interface InstalledSkillSource {
   kind: "github" | "zip" | string;
   sourceUrl?: string | null;
@@ -412,6 +445,11 @@ export interface SkillRepositorySnapshot {
   skills: RepositorySkill[];
 }
 
+export interface CurrencyAmount {
+  currency: string;
+  amount: number;
+}
+
 export interface UsageSummary {
   requestCount: number;
   successfulRequestCount: number;
@@ -420,6 +458,8 @@ export interface UsageSummary {
   cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
+  estimatedCostCurrency: string;
+  estimatedCostsByCurrency: CurrencyAmount[];
 }
 
 export interface UsageBreakdown {
@@ -430,6 +470,7 @@ export interface UsageBreakdown {
   cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
+  currency: string;
 }
 
 export interface UsageTrendPoint {
@@ -440,6 +481,7 @@ export interface UsageTrendPoint {
   cacheCreationInputTokens: number;
   outputTokens: number;
   estimatedCost: number;
+  currency: string;
 }
 
 export interface UsageDashboard {
@@ -703,6 +745,7 @@ export interface ProfileScopePayload {
   providerId?: string | null;
   mcpIds: string[];
   skillIds: string[];
+  agentIds?: string[];
   promptId?: string | null;
 }
 

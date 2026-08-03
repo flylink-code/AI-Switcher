@@ -14,6 +14,7 @@ import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
 import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
+import TeamOutlined from "@ant-design/icons/es/icons/TeamOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
@@ -36,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "mcp", icon: <ClusterOutlined /> },
   { key: "prompts", icon: <FileTextOutlined /> },
   { key: "skills", icon: <ThunderboltOutlined /> },
+  { key: "agents", icon: <TeamOutlined /> },
   { key: "sessions", icon: <MessageOutlined /> },
   { key: "usage", icon: <BarChartOutlined /> },
   { key: "localization", icon: <GlobalOutlined /> },

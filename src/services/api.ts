@@ -12,6 +12,8 @@ import type {
   DataRootInfo,
   LivePrompt,
   McpImportSummary,
+  McpOauthStatus,
+  McpDesktopConflictStatus,
   McpServer,
   McpServerInput,
   RegistryMcpServer,
@@ -42,6 +44,8 @@ import type {
   SkillUpdateStatus,
   RepositorySkill,
   SkillRepositorySnapshot,
+  Agent,
+  AgentDraft,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -461,6 +465,21 @@ export async function installMcpRegistryServer(
   });
 }
 
+export async function getMcpOauthStatus(): Promise<McpOauthStatus> {
+  const invoke = await getInvoke();
+  return invoke<McpOauthStatus>("get_mcp_oauth_status", {});
+}
+
+export async function clearMcpOauth(serverNames: string[] = []): Promise<McpOauthStatus> {
+  const invoke = await getInvoke();
+  return invoke<McpOauthStatus>("clear_mcp_oauth", { input: { serverNames } });
+}
+
+export async function getMcpDesktopConflictStatus(): Promise<McpDesktopConflictStatus> {
+  const invoke = await getInvoke();
+  return invoke<McpDesktopConflictStatus>("get_mcp_desktop_conflict_status", {});
+}
+
 // ---- Prompt presets ---------------------------------------------------------
 
 export async function listPrompts(target: PromptTarget = "claude_code"): Promise<PromptInfo[]> {
@@ -504,6 +523,33 @@ export async function importLivePrompt(name: string, target: PromptTarget = "cla
 export async function listSkills(target?: SkillTarget): Promise<Skill[]> {
   const invoke = await getInvoke();
   return invoke<Skill[]>("list_skills", { target });
+}
+
+// ---- Agents -----------------------------------------------------------------
+
+export async function listAgents(): Promise<Agent[]> {
+  const invoke = await getInvoke();
+  return invoke<Agent[]>("list_agents", {});
+}
+
+export async function saveAgent(draft: AgentDraft): Promise<Agent> {
+  const invoke = await getInvoke();
+  return invoke<Agent>("save_agent", { draft });
+}
+
+export async function setAgentEnabled(name: string, enabled: boolean): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("set_agent_enabled", { name, enabled });
+}
+
+export async function deleteAgent(name: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("delete_agent", { name });
+}
+
+export async function installZipAgent(path: string): Promise<Agent[]> {
+  const invoke = await getInvoke();
+  return invoke<Agent[]>("install_zip_agent", { path });
 }
 
 export async function getSkillRepository(): Promise<string> {

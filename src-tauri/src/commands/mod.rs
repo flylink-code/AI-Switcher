@@ -1,6 +1,7 @@
 //! Tauri command handlers exposed to the frontend.
 
 pub mod backend;
+pub mod agents;
 pub mod codex;
 pub mod codex_oauth;
 pub mod app_update;
@@ -25,6 +26,9 @@ pub mod tools;
 pub mod usage;
 
 pub use backend::ping;
+pub use agents::{
+    delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
+};
 pub use codex::{get_codex_auth_status, sync_codex_session_providers};
 pub use codex_oauth::{
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
@@ -48,8 +52,9 @@ pub use localization::{
     install_editor_localization_helper,
 };
 pub use mcp::{
-    delete_mcp_server, import_mcp_servers, install_mcp_registry_server, list_mcp_servers,
-    reorder_mcp_servers, save_mcp_server, search_mcp_registry, toggle_mcp_server,
+    clear_mcp_oauth, delete_mcp_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status,
+    import_mcp_servers, install_mcp_registry_server, list_mcp_servers, reorder_mcp_servers,
+    save_mcp_server, search_mcp_registry, toggle_mcp_server,
 };
 pub use paths::get_paths;
 pub use profiles::{

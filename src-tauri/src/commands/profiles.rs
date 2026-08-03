@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 
+use crate::agents;
 use crate::commands::mcp::sync_all;
 use crate::commands::providers::{switch_provider_for_target, switch_to_official_for_target};
 use crate::database::dao;
@@ -185,6 +186,10 @@ pub async fn apply_profile_for_id<R: tauri::Runtime>(
         apply_skills(scope, scope_payload, &mut warnings);
     }
 
+    if let Some(scope_payload) = ProfileScope::ClaudeCode.payload(&profile.payload) {
+        apply_agents(scope_payload, &mut warnings);
+    }
+
     for scope in [
         ProfileScope::ClaudeCode,
         ProfileScope::ClaudeDesktop,
@@ -272,6 +277,16 @@ fn snapshot_scope(state: &AppState, scope: ProfileScope) -> AppResult<ProfileSco
         None => Vec::new(),
     };
 
+    let agent_ids = if matches!(scope, ProfileScope::ClaudeCode) {
+        agents::list_agents()?
+            .into_iter()
+            .filter(|agent| agent.enabled)
+            .map(|agent| agent.name)
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     let prompt_id = match scope.prompt_target() {
         Some(target) => detect_active_prompt(target)?,
         None => None,
@@ -281,6 +296,7 @@ fn snapshot_scope(state: &AppState, scope: ProfileScope) -> AppResult<ProfileSco
         provider_id,
         mcp_ids,
         skill_ids,
+        agent_ids,
         prompt_id,
     })
 }
@@ -391,6 +407,35 @@ fn apply_skills(
                 "{} Skill 不存在，已跳过: {name}",
                 scope_label(scope)
             ));
+        }
+    }
+}
+
+fn apply_agents(scope_payload: &ProfileScopePayload, warnings: &mut Vec<String>) {
+    let enabled: std::collections::BTreeSet<&str> = scope_payload
+        .agent_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let agents = match agents::list_agents() {
+        Ok(value) => value,
+        Err(error) => {
+            warnings.push(format!("Claude Code Agents 读取失败: {error}"));
+            return;
+        }
+    };
+    for agent in &agents {
+        let should_enable = enabled.contains(agent.name.as_str());
+        if agent.enabled == should_enable {
+            continue;
+        }
+        if let Err(error) = agents::set_agent_enabled(&agent.name, should_enable) {
+            warnings.push(format!("Claude Code Agent {}: {error}", agent.name));
+        }
+    }
+    for name in &scope_payload.agent_ids {
+        if !agents.iter().any(|agent| agent.name == *name) {
+            warnings.push(format!("Claude Code Agent 不存在，已跳过: {name}"));
         }
     }
 }

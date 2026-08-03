@@ -10,6 +10,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Switch,
   Table,
@@ -31,6 +32,7 @@ import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import type { McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
 import {
+  clearMcpOauth,
   deleteMcpServer,
   importMcpServers,
   installMcpRegistryServer,
@@ -39,7 +41,11 @@ import {
   searchMcpRegistry,
   toggleMcpServer,
 } from "@/services/api";
-import { mcpServersOptions } from "@/lib/appQueries";
+import {
+  mcpDesktopConflictOptions,
+  mcpOauthStatusOptions,
+  mcpServersOptions,
+} from "@/lib/appQueries";
 
 const { Text, Paragraph } = Typography;
 
@@ -50,6 +56,7 @@ interface KeyValueEntry {
 
 interface FormValues {
   name: string;
+  transport: "stdio" | "http" | "sse";
   command: string;
   url: string;
   args: string[];
@@ -65,6 +72,24 @@ const EXAMPLE_CONFIG: Record<string, unknown> = {
   command: "npx",
   args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allow"],
 };
+
+type McpTransport = FormValues["transport"];
+
+function detectTransport(config: Record<string, unknown>): McpTransport {
+  const rawType = typeof config.type === "string" ? config.type.toLowerCase() : "";
+  if (rawType === "http" || rawType === "streamable-http") return "http";
+  if (rawType === "sse") return "sse";
+  if (typeof config.url === "string" && config.url.trim()) return "http";
+  return "stdio";
+}
+
+function usesMcpRemoteBridge(config: Record<string, unknown>): boolean {
+  const command = typeof config.command === "string" ? config.command : "";
+  const args = Array.isArray(config.args)
+    ? config.args.filter((item): item is string => typeof item === "string")
+    : [];
+  return [command, ...args].some((part) => part.toLowerCase().includes("mcp-remote"));
+}
 
 function objectToEntries(value: unknown): KeyValueEntry[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
@@ -83,7 +108,9 @@ function entriesToObject(entries: KeyValueEntry[]): Record<string, string> {
   return out;
 }
 
-function parseConfigObject(config: Record<string, unknown>): Pick<FormValues, "command" | "url" | "args" | "env" | "headers" | "serverConfig"> {
+function parseConfigObject(
+  config: Record<string, unknown>,
+): Pick<FormValues, "transport" | "command" | "url" | "args" | "env" | "headers" | "serverConfig"> {
   const command = typeof config.command === "string" ? config.command : "";
   const url = typeof config.url === "string" ? config.url : "";
   const args = Array.isArray(config.args)
@@ -92,6 +119,7 @@ function parseConfigObject(config: Record<string, unknown>): Pick<FormValues, "c
   const env = objectToEntries(config.env);
   const headers = objectToEntries(config.headers);
   return {
+    transport: detectTransport(config),
     command,
     url,
     args: args.length ? args : [""],
@@ -103,7 +131,7 @@ function parseConfigObject(config: Record<string, unknown>): Pick<FormValues, "c
 
 function mergeStructuredIntoConfig(
   baseJson: string,
-  structured: Pick<FormValues, "command" | "url" | "args" | "env" | "headers">,
+  structured: Pick<FormValues, "transport" | "command" | "url" | "args" | "env" | "headers">,
 ): Record<string, unknown> {
   let base: Record<string, unknown>;
   try {
@@ -117,17 +145,27 @@ function mergeStructuredIntoConfig(
     base = {};
   }
 
-  const command = structured.command.trim();
-  if (command) base.command = command;
-  else delete base.command;
+  if (structured.transport === "http" || structured.transport === "sse") {
+    base.type = structured.transport;
+    const url = structured.url.trim();
+    if (url) base.url = url;
+    else delete base.url;
+    // Remote transports don't use stdio command/args unless the user keeps them in advanced JSON.
+    delete base.command;
+    delete base.args;
+  } else {
+    delete base.type;
+    const command = structured.command.trim();
+    if (command) base.command = command;
+    else delete base.command;
 
-  const url = structured.url.trim();
-  if (url) base.url = url;
-  else delete base.url;
+    const args = structured.args.map((item) => item.trim()).filter(Boolean);
+    if (args.length) base.args = args;
+    else delete base.args;
 
-  const args = structured.args.map((item) => item.trim()).filter(Boolean);
-  if (args.length) base.args = args;
-  else delete base.args;
+    // URL without type is invalid for Claude Code; drop stale remote fields on stdio.
+    delete base.url;
+  }
 
   const env = entriesToObject(structured.env);
   if (Object.keys(env).length) base.env = env;
@@ -151,6 +189,8 @@ export default function McpPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const serversQuery = useQuery(mcpServersOptions);
+  const oauthQuery = useQuery(mcpOauthStatusOptions);
+  const conflictQuery = useQuery(mcpDesktopConflictOptions);
   const servers = serversQuery.data ?? [];
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,6 +203,13 @@ export default function McpPage() {
   const [registryCode, setRegistryCode] = useState(true);
   const [registryDesktop, setRegistryDesktop] = useState(false);
   const [form] = Form.useForm<FormValues>();
+  const watchedTransport = Form.useWatch("transport", form) as McpTransport | undefined;
+  const watchedCommand = Form.useWatch("command", form) as string | undefined;
+  const watchedArgs = Form.useWatch("args", form) as string[] | undefined;
+  const showRemoteBridgeHint = usesMcpRemoteBridge({
+    command: watchedCommand ?? "",
+    args: watchedArgs ?? [],
+  });
 
   const openCreate = () => {
     setEditing(null);
@@ -228,7 +275,10 @@ export default function McpPage() {
       await saveMcpServer(input);
       void message.success(t(editing ? "mcp.updated" : "mcp.created"));
       setFormOpen(false);
-      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey }),
+        queryClient.invalidateQueries({ queryKey: mcpDesktopConflictOptions.queryKey }),
+      ]);
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -254,6 +304,7 @@ export default function McpPage() {
             : item,
         ),
       );
+      await queryClient.invalidateQueries({ queryKey: mcpDesktopConflictOptions.queryKey });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -299,7 +350,10 @@ export default function McpPage() {
       void message.success(
         t("mcp.imported", { imported: summary.imported, updated: summary.updated }),
       );
-      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey }),
+        queryClient.invalidateQueries({ queryKey: mcpDesktopConflictOptions.queryKey }),
+      ]);
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -310,9 +364,26 @@ export default function McpPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await serversQuery.refetch();
+      await Promise.all([
+        serversQuery.refetch(),
+        oauthQuery.refetch(),
+        conflictQuery.refetch(),
+      ]);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleClearOauth = async (serverNames: string[] = []) => {
+    setBusy(true);
+    try {
+      await clearMcpOauth(serverNames);
+      void message.success(t("mcp.oauthCleared"));
+      await queryClient.invalidateQueries({ queryKey: mcpOauthStatusOptions.queryKey });
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -355,11 +426,22 @@ export default function McpPage() {
       title: t("mcp.colConfig"),
       dataIndex: "serverConfig",
       ellipsis: true,
-      render: (config: Record<string, unknown>) => (
-        <Text code style={{ wordBreak: "break-all" }}>
-          {config.command ? String(config.command) : config.url ? String(config.url) : "JSON"}
-        </Text>
-      ),
+      render: (config: Record<string, unknown>) => {
+        const transport = detectTransport(config);
+        const summary = config.command
+          ? String(config.command)
+          : config.url
+            ? String(config.url)
+            : "JSON";
+        return (
+          <Space size={4} wrap>
+            <Text type="secondary">{t(`mcp.transport.${transport}`)}</Text>
+            <Text code style={{ wordBreak: "break-all" }}>
+              {summary}
+            </Text>
+          </Space>
+        );
+      },
     },
     {
       title: t("mcp.claudeCode"),
@@ -452,6 +534,71 @@ export default function McpPage() {
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {serversQuery.error && <Alert type="error" showIcon message={errMsg(serversQuery.error)} />}
         <OnboardingTip tipKey="mcp" message={t("mcp.title")} description={t("mcp.description")} />
+        {conflictQuery.data?.message && (
+          <Alert
+            type={conflictQuery.data.conflictLikely ? "warning" : "info"}
+            showIcon
+            message={t("mcp.connectorsTitle")}
+            description={
+              <Space direction="vertical" size={4}>
+                <Text>{conflictQuery.data.message}</Text>
+                {conflictQuery.data.extensionArtifacts.length > 0 && (
+                  <Text type="secondary">
+                    {t("mcp.connectorsArtifacts", {
+                      names: conflictQuery.data.extensionArtifacts.slice(0, 8).join(", "),
+                    })}
+                  </Text>
+                )}
+              </Space>
+            }
+          />
+        )}
+        <Card size="small" title={t("mcp.oauthTitle")}>
+          {oauthQuery.error ? (
+            <Alert type="error" showIcon message={errMsg(oauthQuery.error)} />
+          ) : (
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Text type="secondary">
+                {oauthQuery.data?.note ||
+                  t("mcp.oauthSummary", {
+                    count: oauthQuery.data?.entryCount ?? 0,
+                    storage: oauthQuery.data?.storage ?? "none",
+                  })}
+              </Text>
+              {(oauthQuery.data?.serverNames.length ?? 0) > 0 && (
+                <Text>
+                  {t("mcp.oauthServers", {
+                    names: (oauthQuery.data?.serverNames ?? []).join(", "),
+                  })}
+                </Text>
+              )}
+              <Space>
+                <Button
+                  size="small"
+                  loading={oauthQuery.isFetching}
+                  onClick={() => void oauthQuery.refetch()}
+                >
+                  {t("common.refresh")}
+                </Button>
+                <Popconfirm
+                  title={t("mcp.oauthClearConfirm")}
+                  okText={t("mcp.oauthClear")}
+                  cancelText={t("common.cancel")}
+                  disabled={!oauthQuery.data?.clearable || (oauthQuery.data.entryCount ?? 0) === 0}
+                  onConfirm={() => void handleClearOauth()}
+                >
+                  <Button
+                    size="small"
+                    danger
+                    disabled={!oauthQuery.data?.clearable || (oauthQuery.data.entryCount ?? 0) === 0 || busy}
+                  >
+                    {t("mcp.oauthClear")}
+                  </Button>
+                </Popconfirm>
+              </Space>
+            </Space>
+          )}
+        </Card>
         <Card
           size="small"
           title={t("mcp.title")}
@@ -506,17 +653,51 @@ export default function McpPage() {
             if ("serverConfig" in changed) return;
             syncStructuredToJson(form);
           }}
-          initialValues={{ enabledClaudeCode: true, args: [""], env: [], headers: [] }}
+          initialValues={{ enabledClaudeCode: true, transport: "stdio", args: [""], env: [], headers: [] }}
         >
           <Form.Item name="name" label={t("mcp.fieldName")} rules={[{ required: true, message: t("mcp.requiredName") }]}>
             <Input autoFocus disabled={busy} />
           </Form.Item>
-          <Form.Item name="command" label={t("mcp.fieldCommand")}>
-            <Input disabled={busy} placeholder="npx" spellCheck={false} />
+          <Form.Item name="transport" label={t("mcp.fieldTransport")} rules={[{ required: true }]}>
+            <Select
+              disabled={busy}
+              options={[
+                { value: "stdio", label: t("mcp.transport.stdio") },
+                { value: "http", label: t("mcp.transport.http") },
+                { value: "sse", label: t("mcp.transport.sse") },
+              ]}
+            />
           </Form.Item>
-          <Form.Item name="url" label={t("mcp.fieldUrl")}>
-            <Input disabled={busy} placeholder="https://..." spellCheck={false} />
-          </Form.Item>
+          {(watchedTransport === "http" || watchedTransport === "sse") && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={t("mcp.remoteHint")}
+            />
+          )}
+          {showRemoteBridgeHint && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={t("mcp.mcpRemoteHint")}
+            />
+          )}
+          {watchedTransport === "stdio" ? (
+            <Form.Item name="command" label={t("mcp.fieldCommand")}>
+              <Input disabled={busy} placeholder="npx" spellCheck={false} />
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="url"
+              label={t("mcp.fieldUrl")}
+              rules={[{ required: true, message: t("mcp.requiredUrl") }]}
+            >
+              <Input disabled={busy} placeholder="https://..." spellCheck={false} />
+            </Form.Item>
+          )}
+          {watchedTransport === "stdio" && (
           <Form.Item label={t("mcp.fieldArgs")}>
             <Form.List name="args">
               {(fields, { add, remove, move }) => (
@@ -576,6 +757,7 @@ export default function McpPage() {
               )}
             </Form.List>
           </Form.Item>
+          )}
           <KeyValueList
             name="env"
             label={t("mcp.fieldEnv")}

@@ -8,6 +8,7 @@ export type OnboardingTipKey =
   | "mcp"
   | "prompts"
   | "skills"
+  | "agents"
   | "sessions"
   | "usage"
   | "usage_codex_local"

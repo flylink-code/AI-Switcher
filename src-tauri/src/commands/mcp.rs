@@ -3,7 +3,11 @@
 use crate::database::dao::mcp as dao;
 use crate::error::AppResult;
 use crate::mcp::{
-    self, McpImportSummary, McpServer, McpServerInput, McpTarget,
+    self, McpDesktopConflictStatus, McpImportSummary, McpServer, McpServerInput, McpTarget,
+};
+use crate::mcp_oauth::{
+    clear_mcp_oauth as clear_oauth_entries, get_mcp_oauth_status as read_oauth_status,
+    ClearMcpOauthInput, McpOauthStatus,
 };
 use crate::mcp_registry::{
     resolve_mcp_registry_server, search_mcp_registry as search_registry, RegistryMcpServer,
@@ -130,6 +134,27 @@ pub async fn install_mcp_registry_server(
     let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
     sync_all(&state)?;
     Ok(saved)
+}
+
+/// Claude Code MCP OAuth credential status (names only; no tokens).
+#[tauri::command]
+pub fn get_mcp_oauth_status() -> AppResult<McpOauthStatus> {
+    read_oauth_status()
+}
+
+/// Clear Claude Code MCP OAuth entries from the credentials file.
+#[tauri::command]
+pub fn clear_mcp_oauth(input: ClearMcpOauthInput) -> AppResult<McpOauthStatus> {
+    clear_oauth_entries(input)
+}
+
+/// Desktop Connectors / `.mcpb` coexistence notice for the MCP page.
+#[tauri::command]
+pub fn get_mcp_desktop_conflict_status(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<McpDesktopConflictStatus> {
+    let servers = state.db.with_conn(|conn| dao::list_mcp_servers(conn))?;
+    mcp::get_desktop_connector_status(&servers)
 }
 
 /// Load all servers from the DB and write the enabled subsets to both apps.

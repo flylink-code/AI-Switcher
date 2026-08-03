@@ -451,6 +451,7 @@ export default function EnvironmentPage() {
         { key: "claudeConfigDir", value: paths.claudeConfigDir },
         { key: "claudeSettingsPath", value: paths.claudeSettingsPath },
         { key: "claudeJsonPath", value: paths.claudeJsonPath },
+        { key: "claudeAgentsPath", value: paths.claudeAgentsPath },
       ]
     : [];
 

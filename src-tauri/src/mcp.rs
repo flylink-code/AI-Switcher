@@ -13,6 +13,7 @@
 //!
 //! See task.md §2.5: "统一面板管理 + 双向同步：从现有配置导入，编辑后写回各应用".
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -195,6 +196,109 @@ pub fn validate_server_input(input: &McpServerInput) -> AppResult<()> {
         ));
     }
     Ok(())
+}
+
+/// Desktop Connectors / `.mcpb` / `.dxt` coexistence notice (does not parse private formats).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpDesktopConflictStatus {
+    pub desktop_installed: bool,
+    pub managed_desktop_servers: usize,
+    pub live_desktop_servers: usize,
+    pub extension_artifacts: Vec<String>,
+    pub conflict_likely: bool,
+    pub message: Option<String>,
+}
+
+/// Detect whether managed `mcpServers` may collide with Desktop Connectors / extensions.
+pub fn get_desktop_connector_status(servers: &[McpServer]) -> AppResult<McpDesktopConflictStatus> {
+    let desktop = detect_claude_desktop();
+    let Some(base) = desktop.base.as_ref() else {
+        return Ok(McpDesktopConflictStatus {
+            desktop_installed: false,
+            managed_desktop_servers: 0,
+            live_desktop_servers: 0,
+            extension_artifacts: Vec::new(),
+            conflict_likely: false,
+            message: None,
+        });
+    };
+
+    let managed_desktop_servers = servers
+        .iter()
+        .filter(|server| server.enabled_claude_desktop)
+        .count();
+    let live_desktop_servers = read_desktop_mcp_servers()?.len();
+    let extension_artifacts = collect_extension_artifacts(base);
+    let conflict_likely =
+        !extension_artifacts.is_empty() && (managed_desktop_servers > 0 || live_desktop_servers > 0);
+    let message = if conflict_likely {
+        Some(
+            "检测到 Claude Desktop Connectors / 扩展包（.mcpb/.dxt）与 JSON mcpServers 可能并存。官方扩展与手写 mcpServers 可能互相覆盖或导致工具不可见；本应用不会复刻 Connectors UI，建议只保留一侧来源。"
+                .into(),
+        )
+    } else if !extension_artifacts.is_empty() {
+        Some(
+            "已检测到 Claude Desktop 扩展 / Connectors 制品；若之后再启用 JSON mcpServers，可能发生冲突。"
+                .into(),
+        )
+    } else {
+        None
+    };
+
+    Ok(McpDesktopConflictStatus {
+        desktop_installed: true,
+        managed_desktop_servers,
+        live_desktop_servers,
+        extension_artifacts,
+        conflict_likely,
+        message,
+    })
+}
+
+fn collect_extension_artifacts(base: &Path) -> Vec<String> {
+    let mut found = Vec::new();
+    let candidate_dirs = [
+        base.join("Claude Extensions"),
+        base.join("Extensions"),
+        base.join("extensions"),
+        base.join("Local Extension Settings"),
+    ];
+    for dir in candidate_dirs {
+        push_extension_names(&dir, &mut found);
+    }
+    // Shallow scan of the Desktop base for packaged extensions.
+    if let Ok(entries) = fs::read_dir(base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+                continue;
+            };
+            let lower = name.to_ascii_lowercase();
+            if lower.ends_with(".mcpb") || lower.ends_with(".dxt") {
+                found.push(name.to_string());
+            }
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
+
+fn push_extension_names(dir: &Path, found: &mut Vec<String>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        let lower = name.to_ascii_lowercase();
+        if path.is_dir() || lower.ends_with(".mcpb") || lower.ends_with(".dxt") {
+            found.push(name.to_string());
+        }
+    }
 }
 
 #[cfg(test)]

@@ -14,11 +14,14 @@ import {
   getProxyStatus,
   getUsageDashboard,
   listMcpServers,
+  getMcpOauthStatus,
+  getMcpDesktopConflictStatus,
   listModelPricing,
   listPrompts,
   listProviders,
   listProxyRequestLogs,
   listSkills,
+  listAgents,
   getSkillRepositorySnapshot,
   readLivePrompt,
 } from "@/services/api";
@@ -47,6 +50,18 @@ export const mcpServersOptions = queryOptions({
   staleTime: 30_000,
 });
 
+export const mcpOauthStatusOptions = queryOptions({
+  queryKey: ["mcp-oauth-status"] as const,
+  queryFn: getMcpOauthStatus,
+  staleTime: 15_000,
+});
+
+export const mcpDesktopConflictOptions = queryOptions({
+  queryKey: ["mcp-desktop-conflict"] as const,
+  queryFn: getMcpDesktopConflictStatus,
+  staleTime: 15_000,
+});
+
 export const promptsOverviewOptions = (target: PromptTarget = "claude_code") => queryOptions({
   queryKey: ["prompts-overview", target] as const,
   queryFn: async () => {
@@ -59,6 +74,12 @@ export const promptsOverviewOptions = (target: PromptTarget = "claude_code") => 
 export const skillsOptions = (target: SkillTarget = "claude_code") => queryOptions({
   queryKey: ["skills", target] as const,
   queryFn: () => listSkills(target),
+  staleTime: 30_000,
+});
+
+export const agentsOptions = queryOptions({
+  queryKey: ["agents"] as const,
+  queryFn: listAgents,
   staleTime: 30_000,
 });
 

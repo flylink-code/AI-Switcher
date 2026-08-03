@@ -4,8 +4,8 @@ use serde::Serialize;
 
 use crate::config::{
     claude_desktop::detect_claude_desktop,
-    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_config_dir,
-    get_claude_json_path, get_claude_settings_path, get_home_dir,
+    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir,
+    get_claude_config_dir, get_claude_json_path, get_claude_settings_path, get_home_dir,
     get_codex_auth_path, get_codex_config_dir, get_codex_config_path, get_codex_skills_dir,
 };
 
@@ -16,6 +16,7 @@ pub struct PathsInfo {
     pub claude_config_dir: String,
     pub claude_settings_path: String,
     pub claude_json_path: String,
+    pub claude_agents_path: String,
     pub codex_config_dir: String,
     pub codex_config_path: String,
     pub codex_auth_path: String,
@@ -46,6 +47,7 @@ pub fn get_paths() -> PathsInfo {
         claude_config_dir: s(&get_claude_config_dir()),
         claude_settings_path: s(&get_claude_settings_path()),
         claude_json_path: s(&get_claude_json_path()),
+        claude_agents_path: s(&get_claude_agents_dir()),
         codex_config_dir: s(&get_codex_config_dir()),
         codex_config_path: s(&get_codex_config_path()),
         codex_auth_path: s(&get_codex_auth_path()),

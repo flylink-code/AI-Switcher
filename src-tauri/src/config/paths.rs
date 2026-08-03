@@ -101,6 +101,11 @@ pub fn get_claude_skills_dir() -> PathBuf {
     get_claude_config_dir().join("skills")
 }
 
+/// `~/.claude/agents` — Claude Code custom subagent markdown files.
+pub fn get_claude_agents_dir() -> PathBuf {
+    get_claude_config_dir().join("agents")
+}
+
 /// Codex's configuration root. Respect CODEX_HOME so test and portable
 /// installations never accidentally modify the user's default profile.
 pub fn get_codex_config_dir() -> PathBuf {

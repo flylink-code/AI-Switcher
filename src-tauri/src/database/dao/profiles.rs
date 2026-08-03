@@ -16,6 +16,8 @@ pub struct ProfileScopePayload {
     pub provider_id: Option<String>,
     pub mcp_ids: Vec<String>,
     pub skill_ids: Vec<String>,
+    #[serde(default)]
+    pub agent_ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_id: Option<String>,
 }
@@ -216,6 +218,7 @@ mod tests {
                 provider_id: Some("p_ABC".to_string()),
                 mcp_ids: vec!["mcp_1".to_string()],
                 skill_ids: vec!["commit".to_string()],
+                agent_ids: vec!["reviewer".to_string()],
                 prompt_id: Some("default".to_string()),
             }),
             claude_desktop: None,
@@ -223,6 +226,7 @@ mod tests {
                 provider_id: None,
                 mcp_ids: vec![],
                 skill_ids: vec![],
+                agent_ids: vec![],
                 prompt_id: None,
             }),
         };

@@ -38,6 +38,13 @@ const EFFECTIVE_USAGE_FILTER: &str = "
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CurrencyAmount {
+    pub currency: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UsageSummary {
     pub request_count: i64,
     pub successful_request_count: i64,
@@ -46,6 +53,10 @@ pub struct UsageSummary {
     pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
+    /// Currency for `estimated_cost` (dominant / sole matched pricing currency).
+    pub estimated_cost_currency: String,
+    /// All matched pricing currencies; amounts are never mixed across currencies.
+    pub estimated_costs_by_currency: Vec<CurrencyAmount>,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,6 +69,8 @@ pub struct UsageBreakdown {
     pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
+    /// Pricing currency for this row (`MIXED` when a provider spans multiple currencies).
+    pub currency: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -70,6 +83,7 @@ pub struct UsageTrendPoint {
     pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
+    pub currency: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -500,43 +514,114 @@ pub fn update_proxy_log_diagnostic(
     Ok(())
 }
 
+/// Per-request cost from matched `model_pricing` (any currency).
+const ROW_COST_SQL: &str = "\
+    COALESCE(l.input_tokens, 0) * COALESCE(p.input_price_per_million, 0) / 1000000.0 \
+    + COALESCE(l.cache_read_input_tokens, 0) * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0 \
+    + COALESCE(l.cache_creation_input_tokens, 0) * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0 \
+    + COALESCE(l.output_tokens, 0) * COALESCE(p.output_price_per_million, 0) / 1000000.0";
+
+const PRICING_CURRENCY_SQL: &str =
+    "UPPER(COALESCE(NULLIF(TRIM(p.currency), ''), 'USD'))";
+
 pub fn get_usage_summary_for_target(
     conn: &Connection,
     since: i64,
     target_app: Option<&str>,
 ) -> AppResult<UsageSummary> {
-    let sql = format!(
+    let tokens_sql = format!(
         "SELECT COUNT(*),
                 COALESCE(SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(input_tokens), 0),
                 COALESCE(SUM(cache_read_input_tokens), 0),
                 COALESCE(SUM(cache_creation_input_tokens), 0),
-                COALESCE(SUM(output_tokens), 0),
-                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
-                    input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                    + cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
-                    + cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
-                    + output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
-                    ELSE 0 END), 0)
-         FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
+                COALESCE(SUM(output_tokens), 0)
+         FROM proxy_request_logs l
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
            {EFFECTIVE_USAGE_FILTER};"
     );
-    conn.query_row(
-        &sql,
-        named_params! { ":since": since, ":target_app": target_app },
-        |row| Ok(UsageSummary {
-            request_count: row.get(0)?,
-            successful_request_count: row.get(1)?,
-            input_tokens: row.get(2)?,
-            cache_read_input_tokens: row.get(3)?,
-            cache_creation_input_tokens: row.get(4)?,
-            output_tokens: row.get(5)?,
-            estimated_cost: row.get(6)?,
-        }),
-    )
-    .map_err(Into::into)
+    let (request_count, successful_request_count, input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens) =
+        conn.query_row(
+            &tokens_sql,
+            named_params! { ":since": since, ":target_app": target_app },
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                    row.get::<_, i64>(4)?,
+                    row.get::<_, i64>(5)?,
+                ))
+            },
+        )?;
+
+    let costs_sql = format!(
+        "SELECT {PRICING_CURRENCY_SQL},
+                COALESCE(SUM({ROW_COST_SQL}), 0)
+         FROM proxy_request_logs l
+         INNER JOIN model_pricing p ON p.model = l.model
+         WHERE l.created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {EFFECTIVE_USAGE_FILTER}
+         GROUP BY 1
+         ORDER BY 2 DESC, 1 ASC;"
+    );
+    let mut stmt = conn.prepare(&costs_sql)?;
+    let mut estimated_costs_by_currency = stmt
+        .query_map(
+            named_params! { ":since": since, ":target_app": target_app },
+            |row| {
+                Ok(CurrencyAmount {
+                    currency: row.get(0)?,
+                    amount: row.get(1)?,
+                })
+            },
+        )?
+        .collect::<Result<Vec<_>, _>>()?;
+    estimated_costs_by_currency.retain(|entry| entry.amount.abs() > f64::EPSILON);
+    let (estimated_cost_currency, estimated_cost) =
+        pick_primary_currency_amount(&estimated_costs_by_currency);
+
+    Ok(UsageSummary {
+        request_count,
+        successful_request_count,
+        input_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        output_tokens,
+        estimated_cost,
+        estimated_cost_currency,
+        estimated_costs_by_currency,
+    })
+}
+
+fn pick_primary_currency_amount(amounts: &[CurrencyAmount]) -> (String, f64) {
+    if amounts.is_empty() {
+        return ("USD".to_string(), 0.0);
+    }
+    if amounts.len() == 1 {
+        return (amounts[0].currency.clone(), amounts[0].amount);
+    }
+    // Prefer USD when present with a non-zero total; otherwise the largest absolute amount.
+    if let Some(usd) = amounts
+        .iter()
+        .find(|entry| entry.currency.eq_ignore_ascii_case("USD") && entry.amount.abs() > f64::EPSILON)
+    {
+        return (usd.currency.clone(), usd.amount);
+    }
+    amounts
+        .iter()
+        .max_by(|left, right| {
+            left.amount
+                .abs()
+                .partial_cmp(&right.amount.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.currency.cmp(&right.currency))
+        })
+        .map(|entry| (entry.currency.clone(), entry.amount))
+        .unwrap_or_else(|| ("USD".to_string(), 0.0))
 }
 
 pub fn get_usage_by_provider_for_target(
@@ -566,12 +651,12 @@ fn usage_breakdown(
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
-                    l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                    + l.cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
-                    + l.cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
-                    + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
-                    ELSE 0 END), 0)
+                COALESCE(SUM({ROW_COST_SQL}), 0),
+                CASE
+                  WHEN COUNT(DISTINCT CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END) > 1
+                    THEN 'MIXED'
+                  ELSE COALESCE(MAX(CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END), 'USD')
+                END
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
@@ -580,6 +665,14 @@ fn usage_breakdown(
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
+        let currency: String = row.get(7)?;
+        let estimated_cost: f64 = row.get(6)?;
+        // Avoid presenting a mixed-currency sum as a single meaningful total.
+        let (estimated_cost, currency) = if currency == "MIXED" {
+            (0.0, currency)
+        } else {
+            (estimated_cost, currency)
+        };
         Ok(UsageBreakdown {
             key: row.get(0)?,
             request_count: row.get(1)?,
@@ -587,7 +680,8 @@ fn usage_breakdown(
             cache_read_input_tokens: row.get(3)?,
             cache_creation_input_tokens: row.get(4)?,
             output_tokens: row.get(5)?,
-            estimated_cost: row.get(6)?,
+            estimated_cost,
+            currency,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -617,12 +711,12 @@ pub fn get_usage_trend_for_target(
                 COALESCE(SUM(l.cache_read_input_tokens), 0),
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
-                COALESCE(SUM(CASE WHEN p.currency = 'USD' THEN
-                    l.input_tokens * COALESCE(p.input_price_per_million, 0) / 1000000.0
-                    + l.cache_read_input_tokens * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
-                    + l.cache_creation_input_tokens * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
-                    + l.output_tokens * COALESCE(p.output_price_per_million, 0) / 1000000.0
-                    ELSE 0 END), 0)
+                COALESCE(SUM({ROW_COST_SQL}), 0),
+                CASE
+                  WHEN COUNT(DISTINCT CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END) > 1
+                    THEN 'MIXED'
+                  ELSE COALESCE(MAX(CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END), 'USD')
+                END
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
@@ -631,6 +725,13 @@ pub fn get_usage_trend_for_target(
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
+        let currency: String = row.get(7)?;
+        let estimated_cost: f64 = row.get(6)?;
+        let (estimated_cost, currency) = if currency == "MIXED" {
+            (0.0, currency)
+        } else {
+            (estimated_cost, currency)
+        };
         Ok(UsageTrendPoint {
             date: row.get(0)?,
             request_count: row.get(1)?,
@@ -638,7 +739,8 @@ pub fn get_usage_trend_for_target(
             cache_read_input_tokens: row.get(3)?,
             cache_creation_input_tokens: row.get(4)?,
             output_tokens: row.get(5)?,
-            estimated_cost: row.get(6)?,
+            estimated_cost,
+            currency,
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
