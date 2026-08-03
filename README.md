@@ -2,7 +2,7 @@
 
 > 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。
 
-[English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest)
+[English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
 基于 **Tauri 2 + Rust + React**。把分散在配置文件、系统凭据库和本地目录里的能力收进一个界面；Claude Code、Claude Desktop、Codex 的供应商与当前激活配置彼此独立。
 
@@ -12,6 +12,19 @@
 |---|---|---|
 | Windows 10/11 | NSIS `.exe`（推荐）/ MSI | 完整功能 |
 | Linux（预览） | AppImage / `.deb` | 尽力支持；Claude Desktop 中文化等部分能力不可用 |
+
+---
+
+## 开源说明
+
+本项目以 **[MIT License](LICENSE)** 开源，源码位于 [flylink-code/AI-Switcher](https://github.com/flylink-code/AI-Switcher)。
+
+- **可以**：自由使用、修改、分发、商用；衍生作品可用其他许可证（保留 MIT 声明与版权即可）
+- **需要**：在副本或显著部分中保留 `LICENSE` 中的版权与许可声明
+- **无关声明**：AI-Switcher 为独立社区项目，与 Anthropic、OpenAI 及下述参考项目均无隶属、赞助或官方关系；Claude、Claude Code、Claude Desktop、Codex、ChatGPT 等为各自权利人的商标
+- **第三方依赖**：构建产物会链接 npm / crates 等第三方库，请同时遵守其各自许可证
+- **思路参考**：下文「参考与致谢」中的项目仅作产品与实现思路参考；若你移植了其中受版权保护的代码，须另行遵守对应上游许可证（例如 AGPL-3.0 项目）
+- **欢迎贡献**：Issue / PR 请提交到 GitHub 仓库；合入代码默认按本仓库 MIT 许可授权
 
 ---
 
@@ -148,7 +161,7 @@ scripts/              Windows 开发 / 构建脚本
 
 ## 参考与致谢
 
-独立项目，与下列仓库及 Anthropic 均无隶属关系。引用或移植请遵守各自许可证。
+独立项目，与下列仓库及 Anthropic / OpenAI 均无隶属关系。表中许可证指**上游仓库自身**的许可；AI-Switcher 源码仍以本仓库 [MIT](LICENSE) 为准。引用或移植上游代码时，请同时遵守其许可证与版权声明。
 
 | 项目 | 参考方向 | 上游 |
 |---|---|---|

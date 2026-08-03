@@ -2,7 +2,7 @@
 
 > Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**.
 
-[中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest)
+[中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
 Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, and Codex providers and active configs independent.
 
@@ -12,6 +12,19 @@ Works locally by default: API keys go in the OS credential store, writes are bac
 |---|---|---|
 | Windows 10/11 | NSIS `.exe` (preferred) / MSI | Full feature set |
 | Linux (preview) | AppImage / `.deb` | Best-effort; some Desktop localization features unavailable |
+
+---
+
+## Open source
+
+AI-Switcher is released under the **[MIT License](LICENSE)**. Source: [flylink-code/AI-Switcher](https://github.com/flylink-code/AI-Switcher).
+
+- **You may** use, modify, distribute, and commercialize the software; derivatives may use another license if you keep the MIT copyright and permission notice
+- **You must** include the copyright and permission notice from `LICENSE` in all copies or substantial portions
+- **No affiliation**: AI-Switcher is an independent community project and is not affiliated with, sponsored by, or endorsed by Anthropic, OpenAI, or the projects listed under Acknowledgements. Claude, Claude Code, Claude Desktop, Codex, and ChatGPT are trademarks of their respective owners
+- **Third-party dependencies**: builds link npm / crates packages that remain under their own licenses
+- **Inspiration only**: projects in Acknowledgements informed product and implementation ideas; if you port copyrighted code from them, follow those upstream licenses as well (for example AGPL-3.0)
+- **Contributions**: Issues and PRs are welcome on GitHub; contributions are accepted under this repository’s MIT license
 
 ---
 
@@ -148,7 +161,7 @@ scripts/              Windows develop / build scripts
 
 ## References and acknowledgements
 
-AI-Switcher is independent and unaffiliated with the projects below or with Anthropic. Follow each upstream license when quoting or porting code.
+Independent project; not affiliated with the repositories below or with Anthropic / OpenAI. Licenses in the table describe **those upstream projects**; AI-Switcher source remains under this repo’s [MIT](LICENSE). When quoting or porting upstream code, follow the corresponding license and copyright notices.
 
 | Project | Area referenced | Upstream |
 |---|---|---|
