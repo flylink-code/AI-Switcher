@@ -93,17 +93,15 @@ jobs:
 
             ## What's new
 
-            - Pricing catalog refresh for Claude Opus 5 / Sonnet 5 / Kimi K3 with cache rates
-            - Runtime and proxy diagnostic logs redact secrets and credential-bearing URLs
-            - Codex failover applies the fallback provider's auto-review model override
-            - Moonshot/Kimi Chat keeps or reinjects `prompt_cache_key` from explicit/session clues
+            - CodexHistoryStore restores bare `function_call_output` before Anthropic bridge conversion
+            - `/v1/responses/compact` and `/responses/compact` routes with Responses passthrough
+            - Chat / Anthropic compact fallback returns `response.compaction` (rejects stream=true)
 
             ## 更新内容
 
-            - 刷新 Opus 5 / Sonnet 5 / Kimi K3 定价与 cache 费率目录
-            - 运行时与代理诊断日志脱敏密钥及带凭证 URL
-            - Codex 故障切换后使用备用供应商的 auto-review 模型覆盖
-            - Moonshot/Kimi Chat 路径保留/回填 `prompt_cache_key`（显式值或会话线索，不造随机键）
+            - CodexHistoryStore：Anthropic 桥转换前补回缺失的 function_call
+            - 支持 `/v1/responses/compact` 与 `/responses/compact`；Responses 上游直通
+            - Chat / Anthropic compact 有损 fallback 返回 `response.compaction`（拒绝 stream=true）
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

@@ -9,6 +9,8 @@ mod convert;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;
+mod codex_compact;
+mod codex_history;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -139,6 +141,7 @@ impl ProxyManager {
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
             circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            codex_history: Arc::new(codex_history::CodexHistoryStore::default()),
             target,
             port,
             started_at: Instant::now(),
@@ -149,6 +152,8 @@ impl ProxyManager {
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
                 .route("/v1/responses", any(codex::codex_proxy_handler))
+                .route("/v1/responses/compact", any(codex::codex_proxy_handler))
+                .route("/responses/compact", any(codex::codex_proxy_handler))
                 .route("/v1/chat/completions", any(codex::codex_proxy_handler))
         } else {
             let mut app = Router::new()
@@ -273,6 +278,7 @@ pub(crate) struct ProxyState {
     pub(crate) db: Arc<Database>,
     pub(crate) client: Client,
     circuits: Arc<Mutex<std::collections::HashMap<String, ProviderCircuit>>>,
+    pub(crate) codex_history: Arc<codex_history::CodexHistoryStore>,
     pub(crate) target: ProviderTarget,
     port: u16,
     started_at: Instant,
@@ -1639,6 +1645,7 @@ mod tests {
             db: Arc::new(Database::memory().unwrap()),
             client: Client::new(),
             circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            codex_history: Arc::new(super::codex_history::CodexHistoryStore::default()),
             target: ProviderTarget::ClaudeCode,
             port: DEFAULT_PORT,
             started_at: Instant::now(),

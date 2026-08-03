@@ -21,7 +21,7 @@ use super::codex_anthropic::{
     responses_request_to_anthropic_messages, AnthropicSseToResponsesConverter,
 };
 use super::{
-    codex_auto_review::apply_auto_review_model_override, convert, extract_usage_from_json,
+    codex_auto_review::apply_auto_review_model_override, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     log_early_failure, log_request, next_failover_provider, record_provider_failure,
     record_provider_success, session_prompt_cache_hint, ProxyState,
@@ -100,6 +100,7 @@ pub async fn codex_proxy_handler(
     };
     let mut is_anthropic_upstream = prepared.is_anthropic_upstream;
     let mut is_stream = prepared.is_stream;
+    let mut compact_fallback = prepared.compact_fallback;
     let mut upstream = match prepared.request.body(prepared.request_body).send().await {
         Ok(response) => response,
         Err(error) => {
@@ -133,6 +134,7 @@ pub async fn codex_proxy_handler(
                             provider = fallback;
                             is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
                             is_stream = fallback_prepared.is_stream;
+                            compact_fallback = fallback_prepared.compact_fallback;
                             response
                         }
                         Err(fallback_error) => {
@@ -180,6 +182,7 @@ pub async fn codex_proxy_handler(
                         provider = fallback;
                         is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
                         is_stream = fallback_prepared.is_stream;
+                        compact_fallback = fallback_prepared.compact_fallback;
                         upstream = response;
                     }
                     Err(error) => {
@@ -216,7 +219,17 @@ pub async fn codex_proxy_handler(
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.contains("text/event-stream"));
 
-    if is_anthropic_upstream {
+    if is_anthropic_upstream || matches!(compact_fallback, Some(CompactFallback::Anthropic)) {
+        if let Some(CompactFallback::Anthropic) = compact_fallback {
+            return forward_compact_anthropic_fallback(
+                state,
+                provider,
+                upstream,
+                status,
+                log_id,
+            )
+            .await;
+        }
         return forward_anthropic_upstream(
             state,
             provider,
@@ -244,6 +257,29 @@ pub async fn codex_proxy_handler(
                 return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {error}"));
             }
         };
+        let response_bytes = if status.is_success() {
+            match compact_fallback {
+                Some(CompactFallback::Chat) => {
+                    if let Ok(upstream_json) = serde_json::from_slice::<Value>(&response_bytes) {
+                        let compact = codex_compact::chat_response_to_responses_compact(
+                            &upstream_json,
+                            provider.model.trim(),
+                        );
+                        Bytes::from(serde_json::to_vec(&compact).unwrap_or_default())
+                    } else {
+                        response_bytes
+                    }
+                }
+                _ => {
+                    if let Ok(value) = serde_json::from_slice::<Value>(&response_bytes) {
+                        let _ = state.codex_history.record_response(&value);
+                    }
+                    response_bytes
+                }
+            }
+        } else {
+            response_bytes
+        };
         if let Some(id) = log_id.as_deref() {
             if let Some(usage) = extract_usage_from_json(&response_bytes) {
                 let _ = state.db.with_conn(|conn| {
@@ -262,16 +298,37 @@ pub async fn codex_proxy_handler(
             }
         }
         return resp_builder
+            .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(response_bytes))
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
 
     let db = Arc::clone(&state.db);
+    let history = Arc::clone(&state.codex_history);
     let mut sse_buffer = Vec::new();
+    let mut history_buffer = Vec::new();
+    let mut current_response_id = None;
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
     let stream = upstream.bytes_stream().map(move |chunk| match chunk {
         Ok(bytes) => {
+            history_buffer.extend_from_slice(&bytes);
+            while let Some(block) = super::codex_history::take_sse_block(&mut history_buffer) {
+                if let Ok(text) = std::str::from_utf8(&block) {
+                    let mut data_parts = Vec::new();
+                    for line in text.lines() {
+                        if let Some(data) = line.strip_prefix("data:") {
+                            data_parts.push(data.trim_start());
+                        }
+                    }
+                    let data = data_parts.join("\n");
+                    if !data.is_empty() && data != "[DONE]" {
+                        if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                            history.inspect_sse_event(&value, &mut current_response_id);
+                        }
+                    }
+                }
+            }
             if let Some(id) = log_id.as_deref() {
                 sse_buffer.extend_from_slice(&bytes);
                 if let Some(usage) = extract_usage_from_sse(&sse_buffer) {
@@ -305,6 +362,14 @@ struct PreparedCodexUpstream {
     request_body: Vec<u8>,
     is_stream: bool,
     is_anthropic_upstream: bool,
+    /// When set, wrap a successful JSON upstream body into `response.compaction`.
+    compact_fallback: Option<CompactFallback>,
+}
+
+#[derive(Clone, Copy)]
+enum CompactFallback {
+    Chat,
+    Anthropic,
 }
 
 fn prepare_codex_upstream(
@@ -327,6 +392,7 @@ fn prepare_codex_upstream(
         }
     };
 
+    let is_compact = codex_compact::is_responses_compact_route(route);
     let is_anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
     if is_anthropic_upstream && route.contains("chat/completions") {
         return Err(json_error(
@@ -335,14 +401,16 @@ fn prepare_codex_upstream(
         ));
     }
 
-    let path = if is_anthropic_upstream {
-        "/v1/messages"
+    let path = if is_compact {
+        codex_compact::compact_upstream_path(provider.protocol_type).to_string()
+    } else if is_anthropic_upstream {
+        "/v1/messages".to_string()
     } else if route.contains("chat/completions") {
-        "/v1/chat/completions"
+        "/v1/chat/completions".to_string()
     } else {
-        "/v1/responses"
+        "/v1/responses".to_string()
     };
-    let upstream_url = match api_endpoint_url(&provider.base_url, path) {
+    let upstream_url = match api_endpoint_url(&provider.base_url, &path) {
         Ok(url) => url,
         Err(error) => {
             return Err(json_error(
@@ -359,13 +427,74 @@ fn prepare_codex_upstream(
         provider.auto_review_model_override.as_deref(),
     );
 
-    let (request_body, is_stream) = if is_anthropic_upstream {
-        let parsed: Value = match serde_json::from_slice(&body) {
+    let needs_history_enrich = is_anthropic_upstream
+        || (is_compact
+            && matches!(
+                provider.protocol_type,
+                ProtocolType::OpenAiChat | ProtocolType::Proxy | ProtocolType::Anthropic
+            ));
+
+    let (request_body, is_stream, compact_fallback) = if is_compact {
+        let mut parsed: Value = match serde_json::from_slice(&body) {
             Ok(value) => value,
             Err(_) => {
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
+        if let Err(error) = codex_compact::reject_streaming_compact(&parsed) {
+            return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+        }
+        if needs_history_enrich {
+            let _ = state.codex_history.enrich_request(&mut parsed);
+        }
+        let requested_model = parsed
+            .get("model")
+            .and_then(Value::as_str)
+            .filter(|model| !model.trim().is_empty())
+            .unwrap_or(provider.model.trim());
+        match provider.protocol_type {
+            ProtocolType::OpenAiResponses => (
+                serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
+                false,
+                None,
+            ),
+            ProtocolType::OpenAiChat | ProtocolType::Proxy => {
+                let chat = match codex_compact::compact_request_to_openai_chat(&parsed, requested_model)
+                {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+                    }
+                };
+                (
+                    serde_json::to_vec(&chat).unwrap_or_default(),
+                    false,
+                    Some(CompactFallback::Chat),
+                )
+            }
+            ProtocolType::Anthropic => {
+                let anthropic =
+                    match codex_compact::compact_request_to_anthropic(&parsed, requested_model) {
+                        Ok(value) => value,
+                        Err(error) => {
+                            return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+                        }
+                    };
+                (
+                    serde_json::to_vec(&anthropic).unwrap_or_default(),
+                    false,
+                    Some(CompactFallback::Anthropic),
+                )
+            }
+        }
+    } else if is_anthropic_upstream {
+        let mut parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        let _ = state.codex_history.enrich_request(&mut parsed);
         let requested_model = parsed
             .get("model")
             .and_then(Value::as_str)
@@ -383,7 +512,7 @@ fn prepare_codex_upstream(
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let encoded = serde_json::to_vec(&anthropic_body).unwrap_or_default();
-        (encoded, stream)
+        (encoded, stream, None)
     } else if route.contains("chat/completions") {
         let mut parsed: Value = match serde_json::from_slice(&body) {
             Ok(value) => value,
@@ -408,17 +537,18 @@ fn prepare_codex_upstream(
         (
             serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
             stream,
+            None,
         )
     } else {
         let stream = serde_json::from_slice::<Value>(&body)
             .ok()
             .and_then(|value| value.get("stream").and_then(Value::as_bool))
             .unwrap_or(false);
-        (body.to_vec(), stream)
+        (body.to_vec(), stream, None)
     };
 
     let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
-    if is_anthropic_upstream {
+    if is_anthropic_upstream || matches!(compact_fallback, Some(CompactFallback::Anthropic)) {
         request = request
             .header("x-api-key", &api_key)
             .header("anthropic-version", anthropic_version_header());
@@ -447,7 +577,61 @@ fn prepare_codex_upstream(
         request_body,
         is_stream,
         is_anthropic_upstream,
+        compact_fallback,
     })
+}
+
+async fn forward_compact_anthropic_fallback(
+    state: ProxyState,
+    provider: Provider,
+    upstream: reqwest::Response,
+    status: StatusCode,
+    log_id: Option<String>,
+) -> Response {
+    let response_bytes = match upstream.bytes().await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {error}"));
+        }
+    };
+    if !status.is_success() {
+        return Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(response_bytes))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+    let anthropic: Value = match serde_json::from_slice(&response_bytes) {
+        Ok(value) => value,
+        Err(_) => {
+            return json_error(StatusCode::BAD_GATEWAY, "Anthropic compact 上游返回了无法转换的响应");
+        }
+    };
+    let compact =
+        codex_compact::anthropic_response_to_responses_compact(&anthropic, provider.model.trim());
+    let encoded = serde_json::to_vec(&compact).unwrap_or_default();
+    if let Some(id) = log_id.as_deref() {
+        if let Some(usage) = extract_usage_from_json(&encoded) {
+            let _ = state.db.with_conn(|conn| {
+                update_proxy_log_usage_idempotent(
+                    conn,
+                    id,
+                    Some(state.target.as_str()),
+                    Some(provider.id.as_str()),
+                    usage.envelope_id.as_deref(),
+                    usage.input_tokens,
+                    usage.cache_read_input_tokens,
+                    usage.cache_creation_input_tokens,
+                    usage.output_tokens,
+                )
+            });
+        }
+    }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(encoded))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
 async fn forward_anthropic_upstream(
@@ -489,6 +673,7 @@ async fn forward_anthropic_upstream(
             }
         };
         let responses = anthropic_response_to_responses(&anthropic);
+        let _ = state.codex_history.record_response(&responses);
         let encoded = serde_json::to_vec(&responses).unwrap_or_default();
         if let Some(id) = log_id.as_deref() {
             if let Some(usage) = extract_usage_from_json(&encoded) {
@@ -515,6 +700,7 @@ async fn forward_anthropic_upstream(
     }
 
     let db = Arc::clone(&state.db);
+    let history = Arc::clone(&state.codex_history);
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
     let fallback_model = provider.model.clone();
@@ -524,9 +710,12 @@ async fn forward_anthropic_upstream(
             Vec::new(),
             AnthropicSseToResponsesConverter::new(&fallback_model),
             false,
+            None::<String>,
+            Vec::<u8>::new(),
         ),
-        move |(mut upstream_stream, mut buffer, mut converter, done)| {
+        move |(mut upstream_stream, mut buffer, mut converter, done, mut response_id, mut out_buf)| {
             let db = Arc::clone(&db);
+            let history = Arc::clone(&history);
             let target_app = target_app.clone();
             let provider_id = provider_id.clone();
             let stream_log_id = log_id.clone();
@@ -553,6 +742,23 @@ async fn forward_anthropic_upstream(
                     Some(Err(_)) => (converter.error_event("上游流式响应中断"), true),
                     None => (converter.finish_stream(), true),
                 };
+                out_buf.extend_from_slice(&output);
+                while let Some(block) = super::codex_history::take_sse_block(&mut out_buf) {
+                    if let Ok(text) = std::str::from_utf8(&block) {
+                        let mut data_parts = Vec::new();
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data:") {
+                                data_parts.push(data.trim_start());
+                            }
+                        }
+                        let data = data_parts.join("\n");
+                        if !data.is_empty() && data != "[DONE]" {
+                            if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                                history.inspect_sse_event(&value, &mut response_id);
+                            }
+                        }
+                    }
+                }
                 if let Some(id) = stream_log_id.as_deref() {
                     if let Some(usage) = extract_usage_from_sse(&output) {
                         let _ = db.with_conn(|conn| {
@@ -575,7 +781,7 @@ async fn forward_anthropic_upstream(
                 }
                 Some((
                     Ok::<Bytes, Infallible>(Bytes::from(output)),
-                    (upstream_stream, buffer, converter, done),
+                    (upstream_stream, buffer, converter, done, response_id, out_buf),
                 ))
             }
         },
@@ -604,4 +810,71 @@ fn find_sse_frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn anthropic_bridge_enriches_bare_function_call_output_before_convert() {
+        let history = super::super::codex_history::CodexHistoryStore::default();
+        history.record_response(&json!({
+            "id": "resp_1",
+            "output": [{
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "lookup",
+                "arguments": "{\"q\":\"x\"}"
+            }]
+        }));
+
+        let mut request = json!({
+            "previous_response_id": "resp_1",
+            "model": "claude-sonnet-5",
+            "max_output_tokens": 64,
+            "input": [{
+                "type": "function_call_output",
+                "call_id": "call_1",
+                "output": "found"
+            }]
+        });
+        assert_eq!(history.enrich_request(&mut request), 1);
+
+        let anthropic =
+            responses_request_to_anthropic_messages(&request, "claude-sonnet-5").unwrap();
+        let messages = anthropic["messages"].as_array().unwrap();
+        assert!(
+            messages.iter().any(|message| {
+                message.get("role").and_then(Value::as_str) == Some("assistant")
+                    && message
+                        .get("content")
+                        .and_then(Value::as_array)
+                        .is_some_and(|blocks| {
+                            blocks.iter().any(|block| {
+                                block.get("type").and_then(Value::as_str) == Some("tool_use")
+                                    && block.get("id").and_then(Value::as_str) == Some("call_1")
+                            })
+                        })
+            }),
+            "enriched assistant tool_use missing: {anthropic}"
+        );
+        assert!(
+            messages.iter().any(|message| {
+                message.get("role").and_then(Value::as_str) == Some("user")
+                    && message
+                        .get("content")
+                        .and_then(Value::as_array)
+                        .is_some_and(|blocks| {
+                            blocks.iter().any(|block| {
+                                block.get("type").and_then(Value::as_str) == Some("tool_result")
+                                    && block.get("tool_use_id").and_then(Value::as_str)
+                                        == Some("call_1")
+                            })
+                        })
+            }),
+            "tool_result missing: {anthropic}"
+        );
+    }
 }
