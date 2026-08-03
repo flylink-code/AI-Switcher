@@ -93,15 +93,17 @@ jobs:
 
             ## What's new
 
-            - Session manager safety: list view never opens jsonl files; path/mtime only
-            - Directory walk deadline (2s), depth/count caps; skip Windows cloud offline placeholders
-            - Remove per-file open timeout threads that could strand kernel waits
+            - Pricing catalog refresh for Claude Opus 5 / Sonnet 5 / Kimi K3 with cache rates
+            - Runtime and proxy diagnostic logs redact secrets and credential-bearing URLs
+            - Codex failover applies the fallback provider's auto-review model override
+            - Moonshot/Kimi Chat keeps or reinjects `prompt_cache_key` from explicit/session clues
 
             ## 更新内容
 
-            - 会话列表不再打开 jsonl，只用路径与修改时间，避免整机卡死
-            - 目录扫描限时 2 秒并限制深度/数量；跳过 Windows 云同步离线占位文件
-            - 移除“每文件开线程再超时”的做法，避免残留内核等待拖垮系统
+            - 刷新 Opus 5 / Sonnet 5 / Kimi K3 定价与 cache 费率目录
+            - 运行时与代理诊断日志脱敏密钥及带凭证 URL
+            - Codex 故障切换后使用备用供应商的 auto-review 模型覆盖
+            - Moonshot/Kimi Chat 路径保留/回填 `prompt_cache_key`（显式值或会话线索，不造随机键）
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

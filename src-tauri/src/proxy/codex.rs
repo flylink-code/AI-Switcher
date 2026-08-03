@@ -14,15 +14,17 @@ use serde_json::Value;
 
 use crate::database::dao::providers::{get_current_provider, resolve_api_key};
 use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
-use crate::provider::{api_endpoint_url, ProtocolType, ProviderTarget};
+use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
 
 use super::codex_anthropic::{
     anthropic_response_to_responses, anthropic_version_header, parse_anthropic_sse_frame,
     responses_request_to_anthropic_messages, AnthropicSseToResponsesConverter,
 };
 use super::{
-    codex_auto_review::apply_auto_review_model_override, extract_usage_from_json, extract_usage_from_sse,
-    is_hop_by_hop_header, json_error, log_early_failure, log_request, ProxyState,
+    codex_auto_review::apply_auto_review_model_override, convert, extract_usage_from_json,
+    extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
+    log_early_failure, log_request, next_failover_provider, record_provider_failure,
+    record_provider_success, session_prompt_cache_hint, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -63,7 +65,7 @@ pub async fn codex_proxy_handler(
         return json_error(StatusCode::METHOD_NOT_ALLOWED, "仅支持 POST");
     }
 
-    let provider = match state
+    let mut provider = match state
         .db
         .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
     {
@@ -90,146 +92,109 @@ pub async fn codex_proxy_handler(
         }
     };
 
-    let api_key = match state
-        .db
-        .with_conn(|conn| resolve_api_key(conn, &provider.id))
+    let original_body = body;
+    let prepared = match prepare_codex_upstream(&state, &provider, &route, &headers, &original_body)
     {
-        Ok(Some(key)) if !key.trim().is_empty() => key,
-        _ => {
-            log_early_failure(
-                &state,
-                &route,
-                "credential",
-                Some(401),
-                started.elapsed().as_millis() as i64,
-            );
-            return json_error(StatusCode::UNAUTHORIZED, "Codex 供应商未配置 API Key");
-        }
+        Ok(prepared) => prepared,
+        Err(response) => return response,
     };
-
-    let is_anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
-    if is_anthropic_upstream && route.contains("chat/completions") {
-        return json_error(
-            StatusCode::BAD_REQUEST,
-            "Anthropic 上游 Codex 供应商仅支持 /v1/responses",
-        );
-    }
-
-    let path = if is_anthropic_upstream {
-        "/v1/messages"
-    } else if route.contains("chat/completions") {
-        "/v1/chat/completions"
-    } else {
-        "/v1/responses"
-    };
-    let upstream_url = match api_endpoint_url(&provider.base_url, path) {
-        Ok(url) => url,
-        Err(error) => {
-            log_early_failure(
-                &state,
-                &route,
-                "configuration",
-                Some(500),
-                started.elapsed().as_millis() as i64,
-            );
-            return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
-        }
-    };
-
-    let body = apply_auto_review_model_override(
-        &headers,
-        &body,
-        provider.auto_review_model_override.as_deref(),
-    );
-
-    let (request_body, is_stream) = if is_anthropic_upstream {
-        let parsed: Value = match serde_json::from_slice(&body) {
-            Ok(value) => value,
-            Err(_) => {
-                log_early_failure(
-                    &state,
-                    &route,
-                    "request",
-                    Some(400),
-                    started.elapsed().as_millis() as i64,
-                );
-                return json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON");
-            }
-        };
-        let requested_model = parsed
-            .get("model")
-            .and_then(Value::as_str)
-            .filter(|model| !model.trim().is_empty())
-            .unwrap_or(provider.model.trim());
-        let anthropic_body = match responses_request_to_anthropic_messages(&parsed, requested_model) {
-            Ok(value) => value,
-            Err(error) => {
-                log_early_failure(
-                    &state,
-                    &route,
-                    "request",
-                    Some(400),
-                    started.elapsed().as_millis() as i64,
-                );
-                return json_error(StatusCode::BAD_REQUEST, error.to_string());
-            }
-        };
-        let stream = parsed
-            .get("stream")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let encoded = serde_json::to_vec(&anthropic_body).unwrap_or_default();
-        (encoded, stream)
-    } else {
-        let stream = serde_json::from_slice::<Value>(&body)
-            .ok()
-            .and_then(|value| value.get("stream").and_then(Value::as_bool))
-            .unwrap_or(false);
-        (body.to_vec(), stream)
-    };
-
-    let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
-    if is_anthropic_upstream {
-        request = request
-            .header("x-api-key", &api_key)
-            .header("anthropic-version", anthropic_version_header());
-    } else {
-        request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));
-    }
-    request = request.header(header::CONTENT_TYPE, "application/json");
-    for (name, value) in headers.iter() {
-        let key = name.as_str();
-        if is_hop_by_hop_header(key)
-            || key.eq_ignore_ascii_case("authorization")
-            || key.eq_ignore_ascii_case("host")
-            || key.eq_ignore_ascii_case("content-length")
-            || key.eq_ignore_ascii_case("x-api-key")
-            || key.eq_ignore_ascii_case("anthropic-version")
-        {
-            continue;
-        }
-        if let Ok(value) = value.to_str() {
-            request = request.header(key, value);
-        }
-    }
-
-    let upstream = match request.body(request_body).send().await {
+    let mut is_anthropic_upstream = prepared.is_anthropic_upstream;
+    let mut is_stream = prepared.is_stream;
+    let mut upstream = match prepared.request.body(prepared.request_body).send().await {
         Ok(response) => response,
         Err(error) => {
-            let _ = log_request(
-                &state,
-                &provider,
-                None,
-                started.elapsed().as_millis() as i64,
-                &route,
-                is_stream,
-                Some("network"),
+            record_provider_failure(&state, &provider.id);
+            let Some(fallback) = next_failover_provider(&state, &provider.id).ok().flatten() else {
+                let _ = log_request(
+                    &state,
+                    &provider,
+                    None,
+                    started.elapsed().as_millis() as i64,
+                    &route,
+                    is_stream,
+                    Some("network"),
+                );
+                return json_error(StatusCode::BAD_GATEWAY, format!("上游连接失败: {error}"));
+            };
+            log::warn!(
+                "Codex 供应商 {} 网络请求失败，尝试故障切换到 {}",
+                provider.id,
+                fallback.id
             );
-            return json_error(StatusCode::BAD_GATEWAY, format!("上游连接失败: {error}"));
+            match prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body) {
+                Ok(fallback_prepared) => {
+                    match fallback_prepared
+                        .request
+                        .body(fallback_prepared.request_body)
+                        .send()
+                        .await
+                    {
+                        Ok(response) => {
+                            provider = fallback;
+                            is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
+                            is_stream = fallback_prepared.is_stream;
+                            response
+                        }
+                        Err(fallback_error) => {
+                            record_provider_failure(&state, &fallback.id);
+                            let _ = log_request(
+                                &state,
+                                &fallback,
+                                None,
+                                started.elapsed().as_millis() as i64,
+                                &route,
+                                fallback_prepared.is_stream,
+                                Some("network"),
+                            );
+                            return json_error(
+                                StatusCode::BAD_GATEWAY,
+                                format!("首选与备用供应商均无法连接: {fallback_error}"),
+                            );
+                        }
+                    }
+                }
+                Err(response) => return response,
+            }
         }
     };
 
+    if is_retryable_upstream_status(&state, upstream.status()) {
+        record_provider_failure(&state, &provider.id);
+        if let Ok(Some(fallback)) = next_failover_provider(&state, &provider.id) {
+            log::warn!(
+                "Codex 供应商 {} 返回 {}，尝试故障切换到 {}",
+                provider.id,
+                upstream.status(),
+                fallback.id
+            );
+            if let Ok(fallback_prepared) =
+                prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body)
+            {
+                match fallback_prepared
+                    .request
+                    .body(fallback_prepared.request_body)
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        provider = fallback;
+                        is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
+                        is_stream = fallback_prepared.is_stream;
+                        upstream = response;
+                    }
+                    Err(error) => {
+                        record_provider_failure(&state, &fallback.id);
+                        log::warn!("Codex 备用供应商 {} 连接失败: {error}", fallback.id);
+                    }
+                }
+            }
+        }
+    }
+
     let status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    if status.is_success() {
+        record_provider_success(&state, &provider.id);
+    }
     let log_id = log_request(
         &state,
         &provider,
@@ -335,9 +300,159 @@ pub async fn codex_proxy_handler(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
+struct PreparedCodexUpstream {
+    request: reqwest::RequestBuilder,
+    request_body: Vec<u8>,
+    is_stream: bool,
+    is_anthropic_upstream: bool,
+}
+
+fn prepare_codex_upstream(
+    state: &ProxyState,
+    provider: &Provider,
+    route: &str,
+    headers: &HeaderMap,
+    original_body: &Bytes,
+) -> Result<PreparedCodexUpstream, Response> {
+    let api_key = match state
+        .db
+        .with_conn(|conn| resolve_api_key(conn, &provider.id))
+    {
+        Ok(Some(key)) if !key.trim().is_empty() => key,
+        _ => {
+            return Err(json_error(
+                StatusCode::UNAUTHORIZED,
+                "Codex 供应商未配置 API Key",
+            ));
+        }
+    };
+
+    let is_anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
+    if is_anthropic_upstream && route.contains("chat/completions") {
+        return Err(json_error(
+            StatusCode::BAD_REQUEST,
+            "Anthropic 上游 Codex 供应商仅支持 /v1/responses",
+        ));
+    }
+
+    let path = if is_anthropic_upstream {
+        "/v1/messages"
+    } else if route.contains("chat/completions") {
+        "/v1/chat/completions"
+    } else {
+        "/v1/responses"
+    };
+    let upstream_url = match api_endpoint_url(&provider.base_url, path) {
+        Ok(url) => url,
+        Err(error) => {
+            return Err(json_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error.to_string(),
+            ));
+        }
+    };
+
+    // Failover must use the *target* provider's auto-review override.
+    let body = apply_auto_review_model_override(
+        headers,
+        original_body,
+        provider.auto_review_model_override.as_deref(),
+    );
+
+    let (request_body, is_stream) = if is_anthropic_upstream {
+        let parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        let requested_model = parsed
+            .get("model")
+            .and_then(Value::as_str)
+            .filter(|model| !model.trim().is_empty())
+            .unwrap_or(provider.model.trim());
+        let anthropic_body =
+            match responses_request_to_anthropic_messages(&parsed, requested_model) {
+                Ok(value) => value,
+                Err(error) => {
+                    return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
+                }
+            };
+        let stream = parsed
+            .get("stream")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let encoded = serde_json::to_vec(&anthropic_body).unwrap_or_default();
+        (encoded, stream)
+    } else if route.contains("chat/completions") {
+        let mut parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        let stream = parsed
+            .get("stream")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let explicit = parsed
+            .get("prompt_cache_key")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        convert::reinject_chat_prompt_cache_key(
+            &mut parsed,
+            explicit.as_deref(),
+            session_prompt_cache_hint(headers).as_deref(),
+            convert::chat_prompt_cache_allowed_for_base_url(&provider.base_url),
+        );
+        (
+            serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
+            stream,
+        )
+    } else {
+        let stream = serde_json::from_slice::<Value>(&body)
+            .ok()
+            .and_then(|value| value.get("stream").and_then(Value::as_bool))
+            .unwrap_or(false);
+        (body.to_vec(), stream)
+    };
+
+    let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
+    if is_anthropic_upstream {
+        request = request
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", anthropic_version_header());
+    } else {
+        request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));
+    }
+    request = request.header(header::CONTENT_TYPE, "application/json");
+    for (name, value) in headers.iter() {
+        let key = name.as_str();
+        if is_hop_by_hop_header(key)
+            || key.eq_ignore_ascii_case("authorization")
+            || key.eq_ignore_ascii_case("host")
+            || key.eq_ignore_ascii_case("content-length")
+            || key.eq_ignore_ascii_case("x-api-key")
+            || key.eq_ignore_ascii_case("anthropic-version")
+        {
+            continue;
+        }
+        if let Ok(value) = value.to_str() {
+            request = request.header(key, value);
+        }
+    }
+
+    Ok(PreparedCodexUpstream {
+        request,
+        request_body,
+        is_stream,
+        is_anthropic_upstream,
+    })
+}
+
 async fn forward_anthropic_upstream(
     state: ProxyState,
-    provider: crate::provider::Provider,
+    provider: Provider,
     upstream: reqwest::Response,
     status: StatusCode,
     is_streaming: bool,
@@ -426,7 +541,9 @@ async fn forward_anthropic_upstream(
                         let mut output = Vec::new();
                         while let Some((end, delimiter_len)) = find_sse_frame_end(&buffer) {
                             let frame = buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
-                            let Ok(frame) = std::str::from_utf8(&frame) else { continue; };
+                            let Ok(frame) = std::str::from_utf8(&frame) else {
+                                continue;
+                            };
                             if let Some((event_type, data)) = parse_anthropic_sse_frame(frame) {
                                 output.extend(converter.push_event(event_type, &data));
                             }

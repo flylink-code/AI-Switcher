@@ -11,6 +11,7 @@ mod commands;
 mod config;
 mod database;
 mod error;
+mod log_redact;
 mod mcp;
 mod mcp_registry;
 mod process_util;

@@ -15,8 +15,8 @@ fn is_auto_review_subagent(value: &str) -> bool {
 /// When `x-openai-subagent` is `guardian` or `auto_review` (case-insensitive) and
 /// `model_override` is set, rewrite the JSON request body's `model` field.
 ///
-/// If Codex proxy later gains failover, resolve `model_override` from the *target*
-/// provider rather than the initially selected one.
+/// Callers that fail over must pass the *target* provider's override, not the
+/// originally selected provider's.
 pub fn apply_auto_review_model_override(
     headers: &HeaderMap,
     body: &[u8],

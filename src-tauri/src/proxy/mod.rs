@@ -303,13 +303,13 @@ fn circuit_is_open(state: &ProxyState, provider_id: &str) -> bool {
     }
 }
 
-fn record_provider_success(state: &ProxyState, provider_id: &str) {
+pub(crate) fn record_provider_success(state: &ProxyState, provider_id: &str) {
     if let Ok(mut circuits) = state.circuits.lock() {
         circuits.remove(provider_id);
     }
 }
 
-fn record_provider_failure(state: &ProxyState, provider_id: &str) {
+pub(crate) fn record_provider_failure(state: &ProxyState, provider_id: &str) {
     if let Ok(mut circuits) = state.circuits.lock() {
         let circuit = circuits.entry(provider_id.to_string()).or_insert(ProviderCircuit {
             failures: 0,
@@ -322,7 +322,7 @@ fn record_provider_failure(state: &ProxyState, provider_id: &str) {
     }
 }
 
-fn next_failover_provider(state: &ProxyState, current_id: &str) -> AppResult<Option<Provider>> {
+pub(crate) fn next_failover_provider(state: &ProxyState, current_id: &str) -> AppResult<Option<Provider>> {
     let enabled = state.db.with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
         .as_deref() == Some("true");
     if !enabled { return Ok(None); }
@@ -369,7 +369,8 @@ fn prepare_upstream_request(
         &provider.base_url,
         protocol_endpoint_path_for_provider(provider),
     )?;
-    let (outgoing_body, translated) = encode_upstream_request(provider, incoming, body_bytes, incoming_stream);
+    let (outgoing_body, translated) =
+        encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers);
     let mut builder = state.client.request(method.clone(), target_url).header(header::CONTENT_TYPE, "application/json");
     if !provider.is_codex_oauth() {
         for (name, value) in headers.iter() {
@@ -412,7 +413,7 @@ fn compatible_stream_retry(provider: &Provider, prepared: &PreparedUpstreamReque
         .and_then(|body| prepared.builder.try_clone().map(|builder| builder.body(body)))
 }
 
-fn is_retryable_upstream_status(state: &ProxyState, status: StatusCode) -> bool {
+pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCode) -> bool {
     let codes = state
         .db
         .with_conn(|conn| load_retryable_status_codes(conn))
@@ -1285,16 +1286,44 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
         .unwrap_or_else(|_| original.clone())
 }
 
+pub(crate) fn session_prompt_cache_hint(headers: &HeaderMap) -> Option<String> {
+    for name in [
+        "x-session-id",
+        "x-chatgpt-session-id",
+        "x-conversation-id",
+        "session_id",
+    ] {
+        if let Some(value) = headers
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
 fn encode_upstream_request(
     provider: &Provider,
     incoming: &Value,
     original: &Bytes,
     stream: bool,
+    headers: &HeaderMap,
 ) -> (Bytes, bool) {
     match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
-            let request =
+            let mut request =
                 convert::anthropic_to_openai_chat(incoming, provider.model.trim(), stream);
+            convert::reinject_chat_prompt_cache_key(
+                &mut request,
+                incoming
+                    .get("prompt_cache_key")
+                    .and_then(Value::as_str),
+                session_prompt_cache_hint(headers).as_deref(),
+                convert::chat_prompt_cache_allowed_for_base_url(&provider.base_url),
+            );
             (
                 Bytes::from(serde_json::to_vec(&request).unwrap_or_default()),
                 true,
@@ -1477,23 +1506,7 @@ fn explicitly_rejects_stream_options(bytes: &[u8]) -> bool {
 }
 
 fn sanitize_diagnostic_text(value: &str) -> String {
-    let mut result = value
-        .chars()
-        .filter(|character| !character.is_control() || *character == ' ')
-        .take(500)
-        .collect::<String>();
-    for marker in ["Bearer ", "sk-", "api_key=", "apiKey=", "x-api-key="] {
-        while let Some(start) = result.find(marker) {
-            let token_start = start + marker.len();
-            let token_len = result[token_start..]
-                .find(|character: char| {
-                    character.is_whitespace() || matches!(character, ',' | ';' | '"' | '\'')
-                })
-                .unwrap_or(result.len() - token_start);
-            result.replace_range(start..token_start + token_len, "[redacted]");
-        }
-    }
-    result
+    crate::log_redact::redact_secrets(value)
 }
 
 fn update_log_usage(state: &ProxyState, provider: &Provider, id: &str, usage: Option<UsageCounts>) {
@@ -1683,7 +1696,8 @@ mod tests {
                 ProtocolType::OpenAiResponses,
             ] {
                 let provider = provider(protocol);
-                let (body, _) = encode_upstream_request(&provider, &incoming, &original, false);
+                let (body, _) =
+                    encode_upstream_request(&provider, &incoming, &original, false, &HeaderMap::new());
                 let value: Value = serde_json::from_slice(&body).unwrap();
                 assert_eq!(
                     value["model"], "opus-upstream",
@@ -1691,6 +1705,25 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn kimi_chat_encode_reinjects_session_prompt_cache_key() {
+        let mut provider = provider(ProtocolType::OpenAiChat);
+        provider.base_url = "https://api.moonshot.cn/v1".into();
+        let incoming = serde_json::json!({
+            "model": "claude-sonnet-5",
+            "max_tokens": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        });
+        let original = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+        let mut headers = HeaderMap::new();
+        headers.insert("x-session-id", "sess-kimi".parse().unwrap());
+        let (body, translated) =
+            encode_upstream_request(&provider, &incoming, &original, false, &headers);
+        assert!(translated);
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["prompt_cache_key"], "sess-kimi");
     }
 
     #[test]

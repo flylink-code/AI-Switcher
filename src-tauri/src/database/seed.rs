@@ -11,7 +11,8 @@ use crate::error::AppResult;
 /// The catalog is intentionally embedded in the release: it never calls a
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
-const CATALOG_VERSION: &str = "2026-07-31";
+/// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
+const CATALOG_VERSION: &str = "2026-08-03";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -37,12 +38,14 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "OpenAI", model: "gpt-5-mini", input: 0.25, cache_read: 0.0, cache_write: 0.0, output: 2.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
     DefaultPricing { provider: "OpenAI", model: "gpt-5.4-mini", input: 0.75, cache_read: 0.075, cache_write: 0.0, output: 4.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
     DefaultPricing { provider: "OpenAI", model: "gpt-5.4-nano", input: 0.2, cache_read: 0.02, cache_write: 0.0, output: 1.25, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://openai.com/api/pricing/" },
-    DefaultPricing { provider: "Anthropic", model: "claude-fable-5", input: 10.0, cache_read: 0.0, cache_write: 0.0, output: 50.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
-    DefaultPricing { provider: "Anthropic", model: "claude-opus-4.8", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
-    DefaultPricing { provider: "Anthropic", model: "claude-opus-5", input: 5.0, cache_read: 0.0, cache_write: 0.0, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
-    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-4.6", input: 3.0, cache_read: 0.0, cache_write: 0.0, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
-    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-5", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 10.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
-    DefaultPricing { provider: "Anthropic", model: "claude-haiku-4.5", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 5.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.anthropic.com/en/docs/about-claude/pricing" },
+    // Anthropic (2026-08-03): cache_read = 0.1× input; cache_write = 5m write (1.25×).
+    // Sonnet 5 keeps introductory $2/$10 through 2026-08-31.
+    DefaultPricing { provider: "Anthropic", model: "claude-fable-5", input: 10.0, cache_read: 1.0, cache_write: 12.5, output: 50.0, batch_input: 5.0, batch_output: 25.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-4.8", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 2.5, batch_output: 12.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-opus-5", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 2.5, batch_output: 12.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-4.6", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 1.5, batch_output: 7.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-sonnet-5", input: 2.0, cache_read: 0.2, cache_write: 2.5, output: 10.0, batch_input: 1.0, batch_output: 5.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Anthropic", model: "claude-haiku-4.5", input: 1.0, cache_read: 0.1, cache_write: 1.25, output: 5.0, batch_input: 0.5, batch_output: 2.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.1-pro", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.5-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 9.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.6-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
@@ -55,7 +58,8 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "ByteDance Doubao", model: "doubao-seed-2.1-pro", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 30.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://www.volcengine.com/docs/82379" },
     DefaultPricing { provider: "Zhipu GLM", model: "glm-5.2", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 24.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://open.bigmodel.cn/pricing" },
     DefaultPricing { provider: "Zhipu GLM", model: "glm-5.1", input: 6.0, cache_read: 0.0, cache_write: 0.0, output: 24.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://open.bigmodel.cn/pricing" },
-    DefaultPricing { provider: "Moonshot/Kimi", model: "kimi-k3", input: 20.0, cache_read: 0.0, cache_write: 0.0, output: 100.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.kimi.com/" },
+    // Kimi China API: miss ¥20 / hit ¥2 / output ¥100; caching is automatic (no separate write fee).
+    DefaultPricing { provider: "Moonshot/Kimi", model: "kimi-k3", input: 20.0, cache_read: 2.0, cache_write: 0.0, output: 100.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.kimi.ai/docs/pricing/chat-k3" },
     DefaultPricing { provider: "Moonshot/Kimi", model: "kimi-k2.6", input: 6.5, cache_read: 0.0, cache_write: 0.0, output: 27.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.kimi.com/" },
     DefaultPricing { provider: "MiniMax", model: "minimax-m3", input: 4.0, cache_read: 0.0, cache_write: 0.0, output: 16.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://platform.minimax.io/docs" },
     DefaultPricing { provider: "xAI", model: "grok-4.3", input: 1.25, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.x.ai/docs/models" },

@@ -7,6 +7,39 @@ pub fn wants_stream(request: &Value) -> bool {
     request.get("stream").and_then(Value::as_bool).unwrap_or(false)
 }
 
+/// Moonshot / Kimi OpenAI Chat endpoints accept `prompt_cache_key`; most others 400 on it.
+pub fn chat_prompt_cache_allowed_for_base_url(base_url: &str) -> bool {
+    let url = base_url.to_ascii_lowercase();
+    url.contains("moonshot") || url.contains("kimi")
+}
+
+/// Reinject `prompt_cache_key` for allowlisted Chat upstreams.
+/// Prefer an explicit request value, then a stable session hint; never invent a random key.
+pub fn reinject_chat_prompt_cache_key(
+    request: &mut Value,
+    explicit: Option<&str>,
+    session_hint: Option<&str>,
+    allow: bool,
+) {
+    if !allow {
+        return;
+    }
+    if request
+        .get("prompt_cache_key")
+        .and_then(Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        return;
+    }
+    let key = explicit
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| session_hint.map(str::trim).filter(|value| !value.is_empty()));
+    if let Some(key) = key {
+        request["prompt_cache_key"] = Value::String(key.to_string());
+    }
+}
+
 pub fn anthropic_to_openai_chat(request: &Value, model: &str, stream: bool) -> Value {
     let mut messages = Vec::new();
     if let Some(system) = request.get("system") {
@@ -1032,5 +1065,31 @@ mod tests {
         assert!(output.contains("event: error"));
         assert!(output.contains("\"type\":\"api_error\""));
         assert!(!output.contains("Bearer"));
+    }
+
+    #[test]
+    fn chat_prompt_cache_key_strips_by_default_without_allowlist() {
+        let mut body = json!({"model": "m", "messages": []});
+        reinject_chat_prompt_cache_key(&mut body, Some("explicit"), Some("session"), false);
+        assert!(body.get("prompt_cache_key").is_none());
+        assert!(!chat_prompt_cache_allowed_for_base_url("https://api.openai.com/v1"));
+    }
+
+    #[test]
+    fn chat_prompt_cache_key_reinjects_explicit_for_allowlisted_provider() {
+        assert!(chat_prompt_cache_allowed_for_base_url("https://api.moonshot.cn/v1"));
+        assert!(chat_prompt_cache_allowed_for_base_url("https://api.kimi.com/coding/v1"));
+        let mut body = json!({"model": "kimi-k3", "messages": []});
+        reinject_chat_prompt_cache_key(&mut body, Some("explicit-key"), Some("session"), true);
+        assert_eq!(body["prompt_cache_key"], "explicit-key");
+    }
+
+    #[test]
+    fn chat_prompt_cache_key_reinjects_session_when_allowlisted_and_no_explicit() {
+        let mut body = json!({"model": "kimi-k3", "messages": []});
+        reinject_chat_prompt_cache_key(&mut body, None, Some("sess-42"), true);
+        assert_eq!(body["prompt_cache_key"], "sess-42");
+        reinject_chat_prompt_cache_key(&mut body, Some("ignored"), Some("other"), true);
+        assert_eq!(body["prompt_cache_key"], "sess-42");
     }
 }
