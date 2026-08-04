@@ -38,6 +38,8 @@ const EFFECTIVE_USAGE_FILTER: &str = "
           lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, ''))
           OR lower(COALESCE(l.model, '')) IN ('', 'unknown')
           OR lower(COALESCE(p.model, '')) IN ('', 'unknown')
+          OR lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, '')) || '-fast'
+          OR lower(COALESCE(l.model, '')) = lower(COALESCE(p.model, '')) || '-fast'
         )
     )
   )
@@ -328,6 +330,8 @@ fn should_skip_session_insert_for_target(
              lower(COALESCE(model, '')) = lower(?)
              OR lower(COALESCE(model, '')) IN ('', 'unknown')
              OR lower(?) IN ('', 'unknown')
+             OR lower(COALESCE(model, '')) = lower(?) || '-fast'
+             OR lower(?) = lower(COALESCE(model, '')) || '-fast'
            );",
         params![
             target_app,
@@ -336,6 +340,8 @@ fn should_skip_session_insert_for_target(
             input_tokens,
             output_tokens,
             cache_read_input_tokens,
+            model,
+            model,
             model,
             model,
         ],

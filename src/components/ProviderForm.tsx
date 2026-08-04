@@ -3,11 +3,13 @@ import {
   App,
   AutoComplete,
   Button,
+  Col,
   Form,
   Checkbox,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
   Space,
   Typography,
@@ -28,7 +30,12 @@ import {
   getCachedProviderModels,
   testProviderInput,
 } from "@/services/api";
-import { mappingFromModel, presetsForTarget, type ProviderPreset } from "@/lib/providerPresets";
+import {
+  mappingFromModel,
+  presetsForTarget,
+  syncMappingOnDefaultChange,
+  type ProviderPreset,
+} from "@/lib/providerPresets";
 
 interface ProviderFormProps {
   open: boolean;
@@ -102,6 +109,14 @@ function buildEndpointPreview(baseUrl: string | undefined, protocol: ProtocolTyp
   }
 }
 
+const EMPTY_MODEL_MAPPING: ClaudeModelMapping = {
+  sonnet: "",
+  opus: "",
+  haiku: "",
+  fable: "",
+  subagent: "",
+};
+
 export function ProviderForm({
   open,
   editing,
@@ -120,26 +135,25 @@ export function ProviderForm({
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
-  const watchedMapping = Form.useWatch("modelMapping", form);
   const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
 
   const isEdit = editing !== null;
   const isCodex = (editing?.targetApp ?? target) === "codex";
-  const prevModelRef = useRef<string | null>(null);
-  const skipModelSyncRef = useRef(true);
+  const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
+  // Seed with the loaded default so the sync effect never treats open/edit as a "change".
+  const prevModelRef = useRef<string>("");
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    skipModelSyncRef.current = true;
-    prevModelRef.current = null;
     setModelResult(null);
     if (editing) {
       setModels([]);
       setSelectedPresetId(null);
-        form.setFieldsValue({
+      prevModelRef.current = editing.model?.trim() ?? "";
+      form.setFieldsValue({
         id: editing.id,
         name: editing.name,
         baseUrl: editing.baseUrl,
@@ -170,6 +184,7 @@ export function ProviderForm({
     } else {
       setModels([]);
       setSelectedPresetId(null);
+      prevModelRef.current = "";
       form.resetFields();
       form.setFieldsValue({
         protocolType: (target === "codex" ? "openai_responses" : "anthropic") as ProtocolType,
@@ -179,13 +194,7 @@ export function ProviderForm({
         targetApp: target,
         failoverGroup: 0,
         failoverModels: [],
-        modelMapping: {
-          sonnet: "",
-          opus: "",
-          haiku: "",
-          fable: "",
-          subagent: "",
-        },
+        modelMapping: { ...EMPTY_MODEL_MAPPING },
       });
     }
     // Focus the name field after the modal paints.
@@ -199,22 +208,17 @@ export function ProviderForm({
     if (!open) return;
     if (isCodex) return;
     const model = watchedDefaultModel?.trim() ?? "";
-    if (skipModelSyncRef.current) {
-      skipModelSyncRef.current = false;
-      prevModelRef.current = model;
-      return;
-    }
     if (!model || model === prevModelRef.current) return;
+    const previous = prevModelRef.current;
     prevModelRef.current = model;
-    const isCode = (editing?.targetApp ?? target) === "claude_code";
-    form.setFieldValue("modelMapping", {
-      sonnet: model,
-      opus: model,
-      haiku: model,
-      fable: model,
-      subagent: isCode ? model : "",
-    });
-  }, [open, watchedDefaultModel, editing, target, form, isCodex]);
+    const nextMapping = syncMappingOnDefaultChange(
+      form.getFieldValue("modelMapping"),
+      previous,
+      model,
+      mappingTarget,
+    );
+    form.setFieldValue("modelMapping", nextMapping);
+  }, [open, watchedDefaultModel, mappingTarget, form, isCodex]);
 
   const handleOk = async () => {
     try {
@@ -223,7 +227,13 @@ export function ProviderForm({
       if (isCodex && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
         baseUrl = ensureOpenAiV1Suffix(baseUrl);
       }
-      const normalized = { ...values, baseUrl };
+      const normalized = {
+        ...values,
+        baseUrl,
+        modelMapping: isCodex
+          ? { ...EMPTY_MODEL_MAPPING }
+          : (values.modelMapping ?? { ...EMPTY_MODEL_MAPPING }),
+      };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       await onSubmit(normalized);
     } catch {
@@ -330,14 +340,11 @@ export function ProviderForm({
       void message.warning(t("providers.requiredDefaultModel"));
       return;
     }
-    const mapping = {
-      sonnet: model,
-      opus: model,
-      haiku: model,
-      fable: model,
-      subagent: (editing?.targetApp ?? target) === "claude_code" ? model : "",
-    };
-    form.setFieldValue("modelMapping", mapping);
+    form.setFieldValue("modelMapping", mappingFromModel(model, mappingTarget));
+  };
+
+  const clearRoleMapping = () => {
+    form.setFieldValue("modelMapping", { ...EMPTY_MODEL_MAPPING });
   };
 
   const applyPreset = (presetId: string) => {
@@ -351,7 +358,6 @@ export function ProviderForm({
     setSelectedPresetId(null);
     setModels([]);
     setModelResult(null);
-    skipModelSyncRef.current = true;
     prevModelRef.current = "";
     form.resetFields();
     form.setFieldsValue({
@@ -360,19 +366,12 @@ export function ProviderForm({
       authBinding: "",
       webSearchEnabled: true,
       targetApp: target,
-      modelMapping: {
-        sonnet: "",
-        opus: "",
-        haiku: "",
-        fable: "",
-        subagent: "",
-      },
+      modelMapping: { ...EMPTY_MODEL_MAPPING },
     });
   };
 
   const applyPresetValues = (preset: ProviderPreset) => {
-    skipModelSyncRef.current = true;
-    prevModelRef.current = preset.model;
+    prevModelRef.current = preset.model.trim();
     form.setFieldsValue({
       name: preset.name,
       protocolType: preset.protocolType,
@@ -385,7 +384,7 @@ export function ProviderForm({
       notes: preset.notes ?? "",
       targetApp: target,
       modelMapping: isCodex
-        ? { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" }
+        ? { ...EMPTY_MODEL_MAPPING }
         : mappingFromModel(preset.model, target),
     });
     setModels([]);
@@ -403,7 +402,7 @@ export function ProviderForm({
       onCancel={onCancel}
       onOk={handleOk}
       destroyOnHidden
-      width={640}
+      width={680}
       styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto", paddingInlineEnd: 4 } }}
     >
       <Form form={form} layout="vertical" autoComplete="off">
@@ -545,7 +544,6 @@ export function ProviderForm({
               <Space size="small" wrap>
                 <Button type="link" size="small" loading={testing} onClick={() => void testConnection()}>{t("providers.testConnection")}</Button>
                 <Button type="link" size="small" loading={discovering} onClick={() => void discoverModels()}>{t("providers.discoverModels")}</Button>
-                {!isCodex && <Button type="link" size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>}
               </Space>
               {modelCacheText && (
                 <Typography.Text type={modelResult?.stale || modelResult?.error ? "warning" : "secondary"}>
@@ -609,65 +607,83 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        {!isCodex && <><Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
-          {t("providers.modelMapping")}
-        </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          {t("providers.modelMappingHint")}
-        </Typography.Paragraph>
-        {visibleRoleFields.map((role) => (
-          <Form.Item
-            key={role.key}
-            name={["modelMapping", role.key]}
-            label={role.label}
-            extra={t("providers.modelFallback", { model: watchedDefaultModel || "—" })}
-          >
-            <AutoComplete
-              allowClear
-              options={modelOptions}
-              placeholder={watchedDefaultModel || "model-name"}
-              filterOption={(input, option) =>
-                String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
-              }
-            />
-          </Form.Item>
-        ))}</>}
-        {!isCodex && <Typography.Paragraph type="secondary">
-          {visibleRoleFields.map((role) => {
-            const mapped = watchedMapping?.[role.key]?.trim() || watchedDefaultModel || "—";
-            return (
-              <Typography.Text key={role.key} code style={{ marginInlineEnd: 8 }}>
-                {role.label} → {mapped}
-              </Typography.Text>
-            );
-          })}
-        </Typography.Paragraph>}
+        {!isCodex && (
+          <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                marginBlock: "4px 4px",
+                flexWrap: "wrap",
+              }}
+            >
+              <Typography.Title level={5} style={{ margin: 0 }}>
+                {t("providers.modelMapping")}
+              </Typography.Title>
+              <Space size="small" wrap>
+                <Button size="small" onClick={fillAllRoles}>{t("providers.fillAllModels")}</Button>
+                <Button size="small" onClick={clearRoleMapping}>{t("providers.clearModelMapping")}</Button>
+              </Space>
+            </div>
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 10, fontSize: 12 }}>
+              {t("providers.modelMappingHint")}
+            </Typography.Paragraph>
+            <Row gutter={[12, 0]}>
+              {visibleRoleFields.map((role) => (
+                <Col key={role.key} xs={24} sm={12}>
+                  <Form.Item
+                    name={["modelMapping", role.key]}
+                    label={role.label}
+                    style={{ marginBottom: 12 }}
+                  >
+                    <AutoComplete
+                      allowClear
+                      options={modelOptions}
+                      placeholder={watchedDefaultModel || "model-name"}
+                      filterOption={(input, option) =>
+                        String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
+                      }
+                    />
+                  </Form.Item>
+                </Col>
+              ))}
+            </Row>
+          </>
+        )}
 
         <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
           {t("providers.failoverSection")}
         </Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 10, fontSize: 12 }}>
           {t("providers.failoverSectionHint")}
         </Typography.Paragraph>
-        <Form.Item
-          name="failoverGroup"
-          label={t("providers.fieldFailoverGroup")}
-          extra={t("providers.failoverGroupHint")}
-        >
-          <InputNumber min={0} max={99} style={{ width: "100%" }} />
-        </Form.Item>
-        <Form.Item
-          name="failoverModels"
-          label={t("providers.fieldFailoverModels")}
-          extra={t("providers.failoverModelsHint")}
-        >
-          <Select
-            mode="tags"
-            tokenSeparators={[","]}
-            placeholder={t("providers.failoverModelsPlaceholder")}
-            style={{ width: "100%" }}
-          />
-        </Form.Item>
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={8}>
+            <Form.Item
+              name="failoverGroup"
+              label={t("providers.fieldFailoverGroup")}
+              extra={t("providers.failoverGroupHint")}
+            >
+              <InputNumber min={0} max={99} style={{ width: "100%" }} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={16}>
+            <Form.Item
+              name="failoverModels"
+              label={t("providers.fieldFailoverModels")}
+              extra={t("providers.failoverModelsHint")}
+            >
+              <Select
+                mode="tags"
+                tokenSeparators={[","]}
+                placeholder={t("providers.failoverModelsPlaceholder")}
+                style={{ width: "100%" }}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item name="notes" label={t("providers.fieldNotes")}>
           <Input.TextArea rows={2} />

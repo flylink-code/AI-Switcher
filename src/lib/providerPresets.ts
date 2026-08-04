@@ -100,3 +100,41 @@ export function mappingFromModel(
     subagent: target === "claude_code" ? value : "",
   };
 }
+
+const MAPPING_ROLES = ["sonnet", "opus", "haiku", "fable", "subagent"] as const;
+
+/**
+ * When the default model changes, only fill roles that are empty or still equal
+ * to the previous default. Custom role mappings must never be overwritten.
+ */
+export function syncMappingOnDefaultChange(
+  current: ClaudeModelMapping | undefined,
+  previousDefault: string,
+  nextDefault: string,
+  target: ProviderTarget,
+): ClaudeModelMapping {
+  const next = nextDefault.trim();
+  const previous = previousDefault.trim();
+  const includeSubagent = target === "claude_code";
+  const result: ClaudeModelMapping = {
+    sonnet: current?.sonnet ?? "",
+    opus: current?.opus ?? "",
+    haiku: current?.haiku ?? "",
+    fable: current?.fable ?? "",
+    subagent: includeSubagent ? (current?.subagent ?? "") : "",
+  };
+  if (!next || next === previous) {
+    return result;
+  }
+  for (const role of MAPPING_ROLES) {
+    if (role === "subagent" && !includeSubagent) {
+      result.subagent = "";
+      continue;
+    }
+    const value = (current?.[role] ?? "").trim();
+    if (!value || value === previous) {
+      result[role] = next;
+    }
+  }
+  return result;
+}

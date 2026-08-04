@@ -1689,19 +1689,36 @@ pub(crate) fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
 
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
     let usage = value.get("usage").or_else(|| value.pointer("/response/usage"))?;
-    let anthropic_input = usage.get("input_tokens").and_then(Value::as_i64);
-    let total_input = anthropic_input
-        .or_else(|| usage.get("prompt_tokens").and_then(Value::as_i64))?;
-    let cache_read = usage
-        .get("cache_read_input_tokens")
-        .or_else(|| usage.pointer("/input_tokens_details/cached_tokens"))
+    let input_tokens_field = usage.get("input_tokens").and_then(Value::as_i64);
+    let prompt_tokens = usage.get("prompt_tokens").and_then(Value::as_i64);
+    let reported_input = input_tokens_field.or(prompt_tokens)?;
+    // Anthropic exposes fresh input via `input_tokens` + separate `cache_read_input_tokens`.
+    // OpenAI Chat / Responses expose total input and put cache under `*_tokens_details`.
+    let anthropic_style_cache = usage.get("cache_read_input_tokens").and_then(Value::as_i64);
+    let details_cache = usage
+        .pointer("/input_tokens_details/cached_tokens")
         .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
         .or_else(|| usage.get("cached_tokens"))
-        .and_then(Value::as_i64)
+        .and_then(Value::as_i64);
+    let cache_read = anthropic_style_cache
+        .or(details_cache)
         .unwrap_or(0)
-        .clamp(0, total_input);
+        .max(0);
+    let fresh_input = if anthropic_style_cache.is_some() {
+        // Anthropic: `input_tokens` is already non-cached / fresh.
+        input_tokens_field.unwrap_or_else(|| reported_input.saturating_sub(cache_read.min(reported_input)))
+    } else {
+        // Chat Completions / Responses: reported input is total (fresh + cached).
+        let cache = cache_read.min(reported_input);
+        reported_input.saturating_sub(cache)
+    };
+    let cache_read = if anthropic_style_cache.is_some() {
+        cache_read
+    } else {
+        cache_read.min(reported_input)
+    };
     Some(UsageCounts {
-        input_tokens: anthropic_input.unwrap_or_else(|| total_input.saturating_sub(cache_read)),
+        input_tokens: fresh_input,
         cache_read_input_tokens: cache_read,
         cache_creation_input_tokens: usage
             .get("cache_creation_input_tokens")
@@ -2040,6 +2057,37 @@ mod tests {
         assert_eq!(parsed.input_tokens, 60);
         assert_eq!(parsed.cache_read_input_tokens, 40);
         assert_eq!(parsed.output_tokens, 20);
+    }
+
+    #[test]
+    fn usage_parser_treats_responses_input_tokens_as_total_with_cache_details() {
+        // Codex / OpenAI Responses: input_tokens is TOTAL; cached portion is nested.
+        // Must store fresh input so proxy↔session dedup can match session sync rows.
+        let responses = serde_json::json!({
+            "usage": {
+                "input_tokens": 140,
+                "input_tokens_details": { "cached_tokens": 40 },
+                "output_tokens": 20
+            }
+        });
+        let parsed = usage_from_value(&responses).expect("Responses usage");
+        assert_eq!(parsed.input_tokens, 100);
+        assert_eq!(parsed.cache_read_input_tokens, 40);
+        assert_eq!(parsed.output_tokens, 20);
+
+        let nested = serde_json::json!({
+            "response": {
+                "usage": {
+                    "input_tokens": 50,
+                    "input_tokens_details": { "cached_tokens": 10 },
+                    "output_tokens": 7
+                }
+            }
+        });
+        let parsed = usage_from_value(&nested).expect("nested Responses usage");
+        assert_eq!(parsed.input_tokens, 40);
+        assert_eq!(parsed.cache_read_input_tokens, 10);
+        assert_eq!(parsed.output_tokens, 7);
     }
 
     #[test]
