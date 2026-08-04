@@ -256,12 +256,15 @@ impl ProxyManager {
         };
         let _ = runtime.shutdown_tx.send(());
         let abort = runtime.handle.abort_handle();
-        match tokio::time::timeout(Duration::from_millis(800), runtime.handle).await {
-            Ok(_) => {}
+        match tokio::time::timeout(Duration::from_millis(1_500), runtime.handle).await {
+            Ok(_) => {
+                // Even after graceful shutdown, Windows may keep the port in TIME_WAIT.
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
             Err(_) => {
                 abort.abort();
                 // Give the OS a moment to reclaim the listen port after abort.
-                tokio::time::sleep(Duration::from_millis(150)).await;
+                tokio::time::sleep(Duration::from_millis(400)).await;
             }
         }
     }

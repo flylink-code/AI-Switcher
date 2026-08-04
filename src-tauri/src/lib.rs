@@ -427,6 +427,14 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             proxy_started.elapsed().as_millis(),
             background_started.elapsed().as_millis()
         );
+        // Post-update NSIS relaunch can still leave ports busy after the first
+        // pass; recover Codex routing + proxy binding a few seconds later.
+        let recover_handle = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = recover_handle.state::<AppState>();
+            commands::proxy::recover_runtime_after_relaunch(&recover_handle, &state).await;
+            log::info!("启动后二次恢复检查完成");
+        });
     });
 
     spawn_codex_session_usage_sync(Arc::clone(&db));

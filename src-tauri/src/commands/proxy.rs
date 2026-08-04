@@ -313,8 +313,9 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
         .await;
 
         // After Windows updater hard-exit + NSIS `/R`, listen ports may still be
-        // briefly busy; retry instead of leaving the proxy permanently in "error".
-        const MAX_ATTEMPTS: u32 = 4;
+        // briefly busy (TIME_WAIT); retry with longer backoff instead of leaving
+        // the proxy permanently in "error" until the user restarts again.
+        const MAX_ATTEMPTS: u32 = 8;
         let mut last_error: Option<String> = None;
         for attempt in 1..=MAX_ATTEMPTS {
             let mut proxy = state.proxy.lock().await;
@@ -334,8 +335,8 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
                         "自动启动 {target:?} 本地代理失败 (attempt {attempt}/{MAX_ATTEMPTS}): {error}"
                     );
                     if attempt < MAX_ATTEMPTS {
-                        tokio::time::sleep(std::time::Duration::from_millis(250 * u64::from(attempt)))
-                            .await;
+                        let delay_ms = 300u64.saturating_mul(u64::from(attempt)).min(2_000);
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
                     }
                 }
             }
@@ -381,11 +382,24 @@ pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
             if let Err(error) = state.db.checkpoint_wal() {
                 log::warn!("updater exit: WAL checkpoint failed: {error}");
             }
+            // Extra settle time so NSIS `/R` relaunch does not race TIME_WAIT ports.
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         });
     });
     if let Err(error) = join.join() {
         log::warn!("updater exit: teardown thread panicked: {error:?}");
     }
+}
+
+/// Second-chance recovery used after an updater relaunch: ports/DB may still be
+/// settling when the first `ensure_runtime_proxies` pass runs.
+pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppState) {
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    if let Err(error) = crate::commands::providers::repair_codex_managed_proxy_endpoint(state).await
+    {
+        log::warn!("relaunch recovery: Codex endpoint repair failed: {error}");
+    }
+    ensure_runtime_proxies(app, state).await;
 }
 
 #[cfg(test)]
