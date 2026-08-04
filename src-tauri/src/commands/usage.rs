@@ -321,7 +321,7 @@ pub async fn sync_codex_session_usage_cmd(
 ) -> AppResult<crate::usage::session_usage_codex::CodexSessionSyncResult> {
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
-        crate::usage::session_usage_codex::try_sync_codex_session_usage_db(&db)
+        crate::usage::session_usage_codex::sync_codex_session_usage_db_blocking(&db)
     })
     .await
     .map_err(|e| AppError::Database(format!("codex session sync task failed: {e}")))?
@@ -345,7 +345,7 @@ pub async fn sync_claude_code_session_usage_cmd(
 ) -> AppResult<crate::usage::session_usage_claude_code::ClaudeCodeSessionSyncResult> {
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
-        crate::usage::session_usage_claude_code::try_sync_claude_code_session_usage_db(&db)
+        crate::usage::session_usage_claude_code::sync_claude_code_session_usage_db_blocking(&db)
     })
     .await
     .map_err(|e| AppError::Database(format!("claude code session sync task failed: {e}")))?

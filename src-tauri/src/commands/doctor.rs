@@ -146,7 +146,7 @@ pub async fn repair_environment_visibility(
     let codex_usage = {
         let db = Arc::clone(&db);
         tauri::async_runtime::spawn_blocking(move || {
-            crate::usage::session_usage_codex::try_sync_codex_session_usage_db(&db)
+            crate::usage::session_usage_codex::sync_codex_session_usage_db_blocking(&db)
         })
         .await
         .map_err(|error| {
@@ -154,7 +154,7 @@ pub async fn repair_environment_visibility(
         })??
     };
     let cc_usage = tauri::async_runtime::spawn_blocking(move || {
-        crate::usage::session_usage_claude_code::try_sync_claude_code_session_usage_db(&db)
+        crate::usage::session_usage_claude_code::sync_claude_code_session_usage_db_blocking(&db)
     })
     .await
     .map_err(|error| {

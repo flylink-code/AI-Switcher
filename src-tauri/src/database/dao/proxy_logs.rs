@@ -1,5 +1,7 @@
 //! Request-log persistence and usage-statistic queries for the local proxy.
 
+use std::path::Path;
+
 use chrono::Utc;
 use rusqlite::{named_params, params, Connection};
 use serde::Serialize;
@@ -342,14 +344,31 @@ fn should_skip_session_insert_for_target(
     Ok(exists > 0)
 }
 
+pub fn normalize_sync_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 pub fn get_session_sync_state(
     conn: &Connection,
     file_path: &str,
 ) -> AppResult<Option<(i64, i64)>> {
+    let normalized = file_path.replace('\\', "/");
+    let candidates = [file_path, normalized.as_str()];
+    for candidate in candidates {
+        let mut stmt = conn.prepare(
+            "SELECT last_modified, last_line_offset FROM session_log_sync WHERE file_path = ?;",
+        )?;
+        let mut rows = stmt.query(params![candidate])?;
+        if let Some(row) = rows.next()? {
+            return Ok(Some((row.get(0)?, row.get(1)?)));
+        }
+    }
+    // Windows may have stored the opposite slash style.
     let mut stmt = conn.prepare(
-        "SELECT last_modified, last_line_offset FROM session_log_sync WHERE file_path = ?;",
+        "SELECT last_modified, last_line_offset FROM session_log_sync
+         WHERE replace(file_path, '\\', '/') = ?;",
     )?;
-    let mut rows = stmt.query(params![file_path])?;
+    let mut rows = stmt.query(params![normalized])?;
     if let Some(row) = rows.next()? {
         Ok(Some((row.get(0)?, row.get(1)?)))
     } else {
@@ -363,6 +382,14 @@ pub fn update_session_sync_state(
     last_modified: i64,
     last_line_offset: i64,
 ) -> AppResult<()> {
+    let normalized = file_path.replace('\\', "/");
+    // Drop legacy slash-variant rows so one canonical key remains.
+    conn.execute(
+        "DELETE FROM session_log_sync
+         WHERE replace(file_path, '\\', '/') = ?
+           AND file_path <> ?;",
+        params![normalized, normalized],
+    )?;
     conn.execute(
         "INSERT INTO session_log_sync (file_path, last_modified, last_line_offset, last_synced_at)
          VALUES (?, ?, ?, ?)
@@ -371,7 +398,7 @@ pub fn update_session_sync_state(
            last_line_offset = excluded.last_line_offset,
            last_synced_at = excluded.last_synced_at;",
         params![
-            file_path,
+            normalized,
             last_modified,
             last_line_offset,
             Utc::now().timestamp_millis()

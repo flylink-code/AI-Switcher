@@ -6,7 +6,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -14,9 +14,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::database::dao::proxy_logs::{
-    get_session_sync_state, insert_proxy_log_with_source, reset_claude_code_session_usage,
-    should_skip_claude_code_session_insert, update_session_sync_state,
-    CLAUDE_CODE_SESSION_PROVIDER_ID, DATA_SOURCE_CLAUDE_CODE_SESSION,
+    get_session_sync_state, insert_proxy_log_with_source, normalize_sync_path,
+    reset_claude_code_session_usage, should_skip_claude_code_session_insert,
+    update_session_sync_state, CLAUDE_CODE_SESSION_PROVIDER_ID, DATA_SOURCE_CLAUDE_CODE_SESSION,
 };
 use crate::database::Database;
 use crate::error::AppResult;
@@ -24,6 +24,55 @@ use crate::error::AppResult;
 const REQUEST_ID_PREFIX: &str = "claude_code_session";
 
 static SYNC_RUNNING: AtomicBool = AtomicBool::new(false);
+static SYNC_STARTED_MS: AtomicU64 = AtomicU64::new(0);
+const SYNC_STALE_MS: u64 = 120_000;
+
+struct SyncLockGuard;
+
+impl Drop for SyncLockGuard {
+    fn drop(&mut self) {
+        SYNC_STARTED_MS.store(0, Ordering::SeqCst);
+        SYNC_RUNNING.store(false, Ordering::SeqCst);
+    }
+}
+
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn try_acquire_sync_lock() -> Option<SyncLockGuard> {
+    for _ in 0..2 {
+        if SYNC_RUNNING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            SYNC_STARTED_MS.store(now_unix_ms(), Ordering::SeqCst);
+            return Some(SyncLockGuard);
+        }
+        let started = SYNC_STARTED_MS.load(Ordering::SeqCst);
+        let now = now_unix_ms();
+        if started > 0 && now.saturating_sub(started) > SYNC_STALE_MS {
+            SYNC_RUNNING.store(false, Ordering::SeqCst);
+            SYNC_STARTED_MS.store(0, Ordering::SeqCst);
+            continue;
+        }
+        break;
+    }
+    None
+}
+
+fn wait_acquire_sync_lock(attempts: u32) -> Option<SyncLockGuard> {
+    for _ in 0..attempts {
+        if let Some(guard) = try_acquire_sync_lock() {
+            return Some(guard);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    None
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,53 +107,41 @@ pub fn sync_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeS
 }
 
 pub fn try_sync_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeSessionSyncResult> {
-    if SYNC_RUNNING
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
+    let Some(_guard) = try_acquire_sync_lock() else {
         return Ok(ClaudeCodeSessionSyncResult {
             scanned_files: 0,
             inserted_rows: 0,
             skipped_rows: 0,
             message: "Claude Code session sync already in progress".to_string(),
         });
-    }
-    let result = sync_claude_code_session_usage_db(db);
-    SYNC_RUNNING.store(false, Ordering::SeqCst);
-    result
+    };
+    sync_claude_code_session_usage_db(db)
+}
+
+pub fn sync_claude_code_session_usage_db_blocking(
+    db: &Database,
+) -> AppResult<ClaudeCodeSessionSyncResult> {
+    let Some(_guard) = wait_acquire_sync_lock(50) else {
+        return Err(crate::error::AppError::Config(
+            "Claude Code 会话用量同步仍在进行，请稍后重试".into(),
+        ));
+    };
+    sync_claude_code_session_usage_db(db)
 }
 
 pub fn rebuild_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCodeSessionSyncResult> {
-    let mut acquired = false;
-    for _ in 0..50 {
-        if SYNC_RUNNING
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_ok()
-        {
-            acquired = true;
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-    if !acquired {
-        return Ok(ClaudeCodeSessionSyncResult {
-            scanned_files: 0,
-            inserted_rows: 0,
-            skipped_rows: 0,
-            message: "Claude Code session sync busy; try rebuild again shortly".to_string(),
-        });
-    }
-    let result = (|| {
-        let deleted = db.with_conn(reset_claude_code_session_usage)?;
-        let mut result = sync_claude_code_session_usage_db(db)?;
-        result.message = format!(
-            "Rebuilt Claude Code session usage (removed {deleted} old rows). {}",
-            result.message
-        );
-        Ok(result)
-    })();
-    SYNC_RUNNING.store(false, Ordering::SeqCst);
-    result
+    let Some(_guard) = wait_acquire_sync_lock(50) else {
+        return Err(crate::error::AppError::Config(
+            "Claude Code 会话用量同步繁忙，请稍后重试重建".into(),
+        ));
+    };
+    let deleted = db.with_conn(reset_claude_code_session_usage)?;
+    let mut result = sync_claude_code_session_usage_db(db)?;
+    result.message = format!(
+        "Rebuilt Claude Code session usage (removed {deleted} old rows). {}",
+        result.message
+    );
+    Ok(result)
 }
 
 pub fn sync_claude_code_session_usage(conn: &Connection) -> AppResult<ClaudeCodeSessionSyncResult> {
@@ -175,7 +212,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
                 .map(|duration| duration.as_millis() as i64)
         })
         .unwrap_or(0);
-    let path_key = path.to_string_lossy().to_string();
+    let path_key = normalize_sync_path(path);
     if let Some((last_modified, _)) = get_session_sync_state(conn, &path_key)? {
         if last_modified == modified {
             return Ok((0, 0));

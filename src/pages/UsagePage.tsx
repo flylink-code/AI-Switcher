@@ -263,6 +263,7 @@ export default function UsagePage() {
   const isClaudeCodeOnly = logTargetApp === "claude_code";
   const localClaude = dashboard?.localClaudeCode;
   const emptyClaudeCode = includesClaudeCode && (summary?.requestCount ?? 0) === 0;
+  const narrowPeriod = period === "today" || period === "24h";
 
   const syncCodexSessions = async () => {
     setRefreshing(true);
@@ -379,11 +380,26 @@ export default function UsagePage() {
             type={isCodexOnly ? "warning" : "info"}
             showIcon
             message={t("usage.codexEmptyTitle")}
-            description={t("usage.codexEmptyHint")}
+            description={
+              narrowPeriod ? t("usage.codexEmptyNarrowPeriodHint") : t("usage.codexEmptyHint")
+            }
             action={
-              <Button size="small" loading={refreshing} onClick={() => void syncCodexSessions()}>
-                {t("usage.syncCodexSessions")}
-              </Button>
+              <Space>
+                {narrowPeriod && (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setPeriod(7);
+                      setLogPage(0);
+                    }}
+                  >
+                    {t("usage.lastDays", { days: 7 })}
+                  </Button>
+                )}
+                <Button size="small" loading={refreshing} onClick={() => void syncCodexSessions()}>
+                  {t("usage.syncCodexSessions")}
+                </Button>
+              </Space>
             }
           />
         )}

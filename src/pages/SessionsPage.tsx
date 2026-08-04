@@ -66,11 +66,18 @@ export default function SessionsPage() {
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
   const provider = usePagePreferencesStore((state) => state.sessionsProvider);
-  const setProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
+  const setSessionsProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
   const [page, setPage] = useState(1);
+  const setProvider = (next: SessionProvider) => {
+    setSessionsProvider(next);
+    // Codex rows may lack projectDir until SQLite enrichment; avoid a filter that hides everything.
+    if (next === "codex" && directory === "yes") {
+      setDirectory("all");
+    }
+  };
   const [selected, setSelected] = useState<SessionMeta | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -396,11 +403,24 @@ export default function SessionsPage() {
           description={
             <Space direction="vertical" size={8}>
               <span>
-                {t("sessions.codexEmptyHint", {
-                  path: activeProviderStatus?.rootPath || t("sessions.codexEmptyPathUnknown"),
-                  detail: activeProviderStatus?.detail || "",
-                })}
+                {directory !== "all" || time !== "all" || query.trim()
+                  ? t("sessions.codexEmptyFilteredHint")
+                  : t("sessions.codexEmptyHint", {
+                      path: activeProviderStatus?.rootPath || t("sessions.codexEmptyPathUnknown"),
+                      detail: activeProviderStatus?.detail || "",
+                    })}
               </span>
+              {(directory !== "all" || time !== "all" || query.trim()) && (
+                <Button
+                  onClick={() => {
+                    setDirectory("all");
+                    setTime("all");
+                    setQuery("");
+                  }}
+                >
+                  {t("sessions.clearFilters")}
+                </Button>
+              )}
               <Tooltip title={t("sessions.codexRepairHint")}>
                 <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
                   {t("sessions.codexRepair")}

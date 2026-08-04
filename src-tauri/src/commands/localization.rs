@@ -179,8 +179,10 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
     {
         use std::os::windows::process::CommandExt;
         let mut command = if requires_command_shell(program) {
+            // Paths like `...\Microsoft VS Code\bin\code.cmd` contain spaces.
+            // Pass a single /C string so cmd.exe does not split on spaces.
             let mut command = Command::new("cmd.exe");
-            command.args(["/D", "/S", "/C"]).arg(program).args(args);
+            command.args(["/D", "/C"]).arg(format_cmd_script_line(program, args));
             command
         } else {
             let mut command = Command::new(program);
@@ -195,6 +197,26 @@ fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output>
         Command::new(program).args(args).output()
             .map_err(|error| AppError::Other(format!("启动命令失败: {error}")))
     }
+}
+
+/// Build `call "program" arg1 arg2` for cmd.exe /C.
+fn format_cmd_script_line(program: &Path, args: &[&str]) -> String {
+    let mut line = format!("call {}", quote_cmd_arg(&program.to_string_lossy()));
+    for arg in args {
+        line.push(' ');
+        line.push_str(&quote_cmd_arg(arg));
+    }
+    line
+}
+
+fn quote_cmd_arg(value: &str) -> String {
+    if value.is_empty() {
+        return "\"\"".to_string();
+    }
+    if !value.contains([' ', '\t', '"', '&', '|', '<', '>', '^', '%']) {
+        return value.to_string();
+    }
+    format!("\"{}\"", value.replace('"', "\"\""))
 }
 
 fn requires_command_shell(program: &Path) -> bool {
@@ -221,6 +243,7 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             cli_candidates: vec![
                 local.join("Programs").join("Microsoft VS Code").join("bin").join("code.cmd"),
                 PathBuf::from(r"C:\Program Files\Microsoft VS Code\bin\code.cmd"),
+                PathBuf::from(r"C:\Program Files (x86)\Microsoft VS Code\bin\code.cmd"),
             ],
         },
         EditorDefinition {
@@ -230,7 +253,11 @@ fn editor_definitions() -> Vec<EditorDefinition> {
             command_name: "cursor",
             cli_candidates: vec![
                 local.join("Programs").join("Cursor").join("resources").join("app").join("bin").join("cursor.cmd"),
+                local.join("Programs").join("cursor").join("resources").join("app").join("bin").join("cursor.cmd"),
+                local.join("Programs").join("Cursor").join("resources").join("app").join("codeBin").join("cursor.cmd"),
+                local.join("Programs").join("cursor").join("resources").join("app").join("codeBin").join("cursor.cmd"),
                 PathBuf::from(r"C:\Program Files\Cursor\resources\app\bin\cursor.cmd"),
+                PathBuf::from(r"C:\Program Files\cursor\resources\app\bin\cursor.cmd"),
             ],
         },
     ]
@@ -266,25 +293,181 @@ fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
 /// treating the extension directory as proof of a CLI used to produce a
 /// misleading patch-helper error.
 fn resolve_editor_cli(definition: &EditorDefinition) -> Option<PathBuf> {
-    definition.cli_candidates.iter().find(|path| path.is_file()).cloned()
+    definition
+        .cli_candidates
+        .iter()
+        .find(|path| path.is_file())
+        .cloned()
+        .or_else(|| find_cli_from_install_roots(definition))
         .or_else(|| find_command_on_path(definition.command_name))
+}
+
+fn find_cli_from_install_roots(definition: &EditorDefinition) -> Option<PathBuf> {
+    for root in editor_install_roots(definition.id) {
+        for candidate in cli_paths_for_install_root(definition.id, &root) {
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+fn cli_paths_for_install_root(editor_id: &str, root: &Path) -> Vec<PathBuf> {
+    match editor_id {
+        "vscode" => vec![
+            root.join("bin").join("code.cmd"),
+            root.join("bin").join("code.exe"),
+        ],
+        "cursor" => vec![
+            root.join("resources").join("app").join("bin").join("cursor.cmd"),
+            root.join("resources").join("app").join("bin").join("cursor.exe"),
+            root.join("resources").join("app").join("codeBin").join("cursor.cmd"),
+            root.join("resources").join("app").join("codeBin").join("cursor.exe"),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+#[cfg(windows)]
+fn editor_install_roots(editor_id: &str) -> Vec<PathBuf> {
+    let needles: &[&str] = match editor_id {
+        "vscode" => &["Visual Studio Code"],
+        "cursor" => &["Cursor"],
+        _ => return Vec::new(),
+    };
+    let mut roots = Vec::new();
+    for hive in [winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER), winreg::RegKey::predef(winreg::enums::HKEY_LOCAL_MACHINE)] {
+        for path in [
+            r"Software\Microsoft\Windows\CurrentVersion\Uninstall",
+            r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ] {
+            let Ok(uninstall) = hive.open_subkey(path) else {
+                continue;
+            };
+            for subkey_name in uninstall.enum_keys().flatten() {
+                let Ok(subkey) = uninstall.open_subkey(&subkey_name) else {
+                    continue;
+                };
+                let display_name: String = subkey.get_value("DisplayName").unwrap_or_default();
+                if !needles.iter().any(|needle| display_name.contains(needle)) {
+                    continue;
+                }
+                // Avoid matching unrelated "Cursor*" products by requiring exact-ish names.
+                if editor_id == "cursor" && !display_name.to_ascii_lowercase().starts_with("cursor") {
+                    continue;
+                }
+                let location: String = subkey.get_value("InstallLocation").unwrap_or_default();
+                let location = location.trim().trim_end_matches(['\\', '/']);
+                if location.is_empty() {
+                    continue;
+                }
+                let root = PathBuf::from(location);
+                if root.is_dir() {
+                    roots.push(root);
+                }
+            }
+        }
+    }
+    roots.sort();
+    roots.dedup();
+    roots
+}
+
+#[cfg(not(windows))]
+fn editor_install_roots(_editor_id: &str) -> Vec<PathBuf> {
+    Vec::new()
 }
 
 #[cfg(windows)]
 fn find_command_on_path(command: &str) -> Option<PathBuf> {
     use std::os::windows::process::CommandExt;
-    let mut where_command = Command::new("where.exe");
-    where_command
-        .arg(format!("{command}.cmd"))
-        .creation_flags(CREATE_NO_WINDOW);
-    let output = where_command.output().ok()?;
-    if !output.status.success() {
-        return None;
+    // GUI-launched apps often miss the latest user PATH; also probe registry PATH.
+    if let Some(path) = find_command_in_env_path(command) {
+        return Some(path);
     }
-    String::from_utf8_lossy(&output.stdout).lines()
-        .map(str::trim)
-        .map(PathBuf::from)
-        .find(|path| path.is_file())
+    for name in [format!("{command}.cmd"), command.to_string()] {
+        let mut where_command = Command::new("where.exe");
+        where_command.arg(&name).creation_flags(CREATE_NO_WINDOW);
+        let Ok(output) = where_command.output() else {
+            continue;
+        };
+        if !output.status.success() {
+            continue;
+        }
+        if let Some(path) = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .map(PathBuf::from)
+            .find(|path| {
+                path.is_file()
+                    && !path
+                        .components()
+                        .any(|part| part.as_os_str() == "WindowsApps")
+            })
+        {
+            return Some(path);
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn find_command_in_env_path(command: &str) -> Option<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Ok(path) = std::env::var("PATH") {
+        dirs.extend(std::env::split_paths(&path));
+    }
+    dirs.extend(windows_user_path_dirs());
+    let names = [
+        format!("{command}.cmd"),
+        format!("{command}.exe"),
+        format!("{command}.bat"),
+        command.to_string(),
+    ];
+    for dir in dirs {
+        // WindowsApps execution aliases are stubs and break --install-extension.
+        if dir.components().any(|part| part.as_os_str() == "WindowsApps") {
+            continue;
+        }
+        for name in &names {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn windows_user_path_dirs() -> Vec<PathBuf> {
+    let hkcu = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER);
+    let Ok(env) = hkcu.open_subkey("Environment") else {
+        return Vec::new();
+    };
+    let Ok(value) = env.get_value::<String, _>("Path") else {
+        return Vec::new();
+    };
+    let expanded = expand_windows_env(&value);
+    std::env::split_paths(&expanded).collect()
+}
+
+#[cfg(windows)]
+fn expand_windows_env(value: &str) -> String {
+    let mut result = value.to_string();
+    // Expand common %VAR% references used in user PATH.
+    for (key, replacement) in [
+        ("%USERPROFILE%", dirs::home_dir().map(|p| p.to_string_lossy().into_owned())),
+        ("%LOCALAPPDATA%", dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned())),
+        ("%APPDATA%", dirs::config_dir().map(|p| p.to_string_lossy().into_owned())),
+    ] {
+        if let Some(replacement) = replacement {
+            result = result.replace(key, &replacement);
+            result = result.replace(&key.to_ascii_lowercase(), &replacement);
+        }
+    }
+    result
 }
 
 #[cfg(not(windows))]
@@ -312,6 +495,45 @@ mod tests {
         assert!(requires_command_shell(Path::new("C:/tools/code.cmd")));
         assert!(requires_command_shell(Path::new("C:/tools/install.BAT")));
         assert!(!requires_command_shell(Path::new("C:/tools/claude.exe")));
+    }
+
+    #[test]
+    fn formats_cmd_script_line_with_quoted_spaces() {
+        let line = format_cmd_script_line(
+            Path::new(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd"),
+            &["--install-extension", "shanjiancaofu.claude-code-zh-cn-patch-helper"],
+        );
+        assert_eq!(
+            line,
+            r#"call "C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd" --install-extension shanjiancaofu.claude-code-zh-cn-patch-helper"#
+        );
+    }
+
+    #[test]
+    fn builds_cli_paths_under_install_root() {
+        let root = Path::new(r"F:\cursor");
+        let paths = cli_paths_for_install_root("cursor", root);
+        assert!(paths.iter().any(|p| p.ends_with(r"resources\app\bin\cursor.cmd") || p.ends_with("resources/app/bin/cursor.cmd")));
+        let vscode = cli_paths_for_install_root("vscode", Path::new(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code"));
+        assert!(vscode.iter().any(|p| p.ends_with("bin\\code.cmd") || p.ends_with("bin/code.cmd")));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn resolves_local_editor_cli_when_installed() {
+        let editors = editor_definitions();
+        let vscode = editors.iter().find(|e| e.id == "vscode").unwrap();
+        let cursor = editors.iter().find(|e| e.id == "cursor").unwrap();
+        // This machine has user-level VS Code under Local\Programs.
+        if PathBuf::from(r"C:\Users\admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd").is_file() {
+            let cli = resolve_editor_cli(vscode).expect("VS Code CLI");
+            assert!(cli.to_string_lossy().contains("code"));
+        }
+        // Portable/custom Cursor install registered via Uninstall InstallLocation.
+        if PathBuf::from(r"f:\cursor\resources\app\bin\cursor.cmd").is_file() {
+            let cli = resolve_editor_cli(cursor).expect("Cursor CLI");
+            assert!(cli.to_string_lossy().to_ascii_lowercase().contains("cursor"));
+        }
     }
 
     #[test]

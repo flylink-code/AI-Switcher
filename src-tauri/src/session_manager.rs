@@ -827,12 +827,10 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
     let mut paths = Vec::new();
     let deadline = Instant::now() + WALK_DEADLINE;
     let (truncated, timed_out) = collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
-    // When the walk finds nothing or times out, merge valid rollout_path entries from state DB.
-    if paths.is_empty() || timed_out {
-        merge_codex_sqlite_rollout_paths(&mut paths);
-    }
-    let detail = if timed_out && !paths.is_empty() {
-        "Codex 本地会话可用（含 SQLite 兜底）".to_string()
+    // Always merge SQLite rollout paths so locked/partial walks cannot hide sessions.
+    merge_codex_sqlite_rollout_paths(&mut paths);
+    let detail = if timed_out {
+        "Codex 本地会话可用（目录扫描超时，已合并 SQLite 索引）".to_string()
     } else {
         "Codex 本地会话可用".to_string()
     };
