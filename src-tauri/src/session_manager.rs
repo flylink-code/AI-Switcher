@@ -287,7 +287,7 @@ pub fn load_session_messages(
         SessionProvider::Codex => {
             let root = codex_session_root();
             let source = validate_session_path_in_root(&root, Path::new(source_path))?;
-            load_claude_code_messages(&source)
+            load_codex_messages(&source)
         }
     }
 }
@@ -881,7 +881,7 @@ fn merge_codex_sqlite_rollout_paths(paths: &mut Vec<(PathBuf, i64)>) {
         };
         for row in rows.flatten() {
             let (raw, updated) = row;
-            let path = PathBuf::from(raw.trim());
+            let path = PathBuf::from(strip_windows_path_prefix(raw.trim()));
             if !path.is_file() {
                 continue;
             }
@@ -1175,6 +1175,114 @@ fn load_claude_code_messages(path: &Path) -> AppResult<Vec<SessionMessage>> {
     Ok(messages)
 }
 
+/// Codex rollout JSONL uses `response_item` / `event_msg`, not Claude Code's `message` envelope.
+fn load_codex_messages(path: &Path) -> AppResult<Vec<SessionMessage>> {
+    let file = open_session_file(path)?;
+    let reader = BufReader::new(file);
+    let mut messages = Vec::new();
+
+    for line in reader.lines() {
+        let Ok(line) = line else { continue };
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        let timestamp = value.get("timestamp").and_then(parse_timestamp);
+        match value.get("type").and_then(Value::as_str) {
+            Some("response_item") => {
+                let Some(payload) = value.get("payload") else {
+                    continue;
+                };
+                let Some((role, content)) = codex_response_item_message(payload) else {
+                    continue;
+                };
+                if content.trim().is_empty() {
+                    continue;
+                }
+                messages.push(SessionMessage {
+                    role,
+                    content,
+                    timestamp,
+                });
+            }
+            Some("event_msg") => {
+                // Prefer response_item for chat turns; keep agent_message only as fallback
+                // when it carries visible assistant text without a paired response_item.
+                let Some(payload) = value.get("payload") else {
+                    continue;
+                };
+                if payload.get("type").and_then(Value::as_str) != Some("agent_message") {
+                    continue;
+                }
+                let content = payload
+                    .get("message")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string();
+                if content.is_empty() {
+                    continue;
+                }
+                // Skip if the same text was already captured from response_item.
+                if messages.iter().any(|item| item.role == "assistant" && item.content == content) {
+                    continue;
+                }
+                messages.push(SessionMessage {
+                    role: "assistant".to_string(),
+                    content,
+                    timestamp,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    Ok(messages)
+}
+
+fn codex_response_item_message(payload: &Value) -> Option<(String, String)> {
+    match payload.get("type").and_then(Value::as_str)? {
+        "message" => {
+            let role = payload.get("role")?.as_str()?;
+            if matches!(role, "developer" | "system") {
+                return None;
+            }
+            let content = extract_text(payload.get("content").unwrap_or(&Value::Null));
+            Some((role.to_string(), content))
+        }
+        "custom_tool_call" | "function_call" => {
+            let name = payload
+                .get("name")
+                .or_else(|| payload.get("tool_name"))
+                .and_then(Value::as_str)
+                .unwrap_or("tool");
+            let args = payload
+                .get("input")
+                .or_else(|| payload.get("arguments"))
+                .map(extract_text)
+                .unwrap_or_default();
+            let content = if args.trim().is_empty() {
+                format!("[tool: {name}]")
+            } else {
+                format!("[tool: {name}]\n{}", truncate(&args, SUMMARY_LIMIT * 4))
+            };
+            Some(("tool".to_string(), content))
+        }
+        "custom_tool_call_output" | "function_call_output" => {
+            let content = payload
+                .get("output")
+                .or_else(|| payload.get("content"))
+                .map(extract_text)
+                .unwrap_or_default();
+            if content.trim().is_empty() {
+                None
+            } else {
+                Some(("tool".to_string(), truncate(&content, SUMMARY_LIMIT * 4)))
+            }
+        }
+        _ => None,
+    }
+}
+
 fn message_role(value: &Value) -> Option<String> {
     let message = value.get("message")?;
     let mut role = message.get("role")?.as_str()?.to_string();
@@ -1276,8 +1384,9 @@ fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBu
             source.display()
         )));
     }
+    let source = PathBuf::from(strip_windows_path_prefix(&source.to_string_lossy()));
     let candidate = if source.is_absolute() {
-        source.to_path_buf()
+        source
     } else {
         root.join(source)
     };
@@ -1297,6 +1406,11 @@ fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBu
     {
         return Ok(candidate);
     }
+    // Codex may keep historical rollouts under a previous CODEX_HOME; allow those
+    // when they still exist and live under a `sessions` tree.
+    if candidate.is_file() && candidate_key.contains(r"\sessions\") {
+        return Ok(candidate);
+    }
     let root = root.canonicalize().map_err(|error| {
         AppError::Path(format!("无法解析会话根目录 {}: {error}", root.display()))
     })?;
@@ -1313,10 +1427,24 @@ fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBu
 }
 
 fn normalize_path_key(path: &Path) -> String {
-    path.to_string_lossy()
+    let raw = path.to_string_lossy();
+    let stripped = strip_windows_path_prefix(raw.as_ref());
+    stripped
         .replace('/', "\\")
         .trim_end_matches(['\\', '/'])
         .to_ascii_lowercase()
+}
+
+fn strip_windows_path_prefix(path: &str) -> &str {
+    let trimmed = path.trim();
+    trimmed
+        .strip_prefix(r"\\?\")
+        .or_else(|| trimmed.strip_prefix(r"//?/"))
+        .unwrap_or(trimmed)
+}
+
+fn normalize_cwd_display(cwd: &str) -> String {
+    strip_windows_path_prefix(cwd.trim()).replace('/', "\\")
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1391,7 +1519,7 @@ fn apply_codex_thread_meta(session: &mut SessionMeta, path: &Path, index: &Codex
             .map(str::trim)
             .filter(|value| !value.is_empty())
         {
-            session.project_dir = Some(cwd.to_string());
+            session.project_dir = Some(normalize_cwd_display(cwd));
         }
     }
     if session.created_at.is_none() {
@@ -1839,5 +1967,54 @@ mod tests {
             session.resume_command.as_deref(),
             Some("codex resume 019f8d32-4e9b-7551-acde-45e4c9a58e0b")
         );
+    }
+
+    #[test]
+    fn normalize_path_key_strips_windows_extended_prefix() {
+        let plain = normalize_path_key(Path::new(
+            r"C:\Users\admin\.codex\sessions\2026\08\03\rollout.jsonl",
+        ));
+        let extended = normalize_path_key(Path::new(
+            r"\\?\C:\Users\admin\.codex\sessions\2026\08\03\rollout.jsonl",
+        ));
+        assert_eq!(plain, extended);
+    }
+
+    #[test]
+    fn loads_codex_response_item_messages() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("rollout-demo.jsonl");
+        let mut file = File::create(&path).unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-03T11:59:12Z","type":"session_meta","payload":{{"id":"abc"}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-03T11:59:13Z","type":"response_item","payload":{{"type":"message","role":"developer","content":[{{"type":"input_text","text":"skip me"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-03T11:59:14Z","type":"response_item","payload":{{"type":"message","role":"user","content":[{{"type":"input_text","text":"hello codex"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-03T11:59:15Z","type":"response_item","payload":{{"type":"message","role":"assistant","content":[{{"type":"output_text","text":"hi there"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-03T11:59:16Z","type":"event_msg","payload":{{"type":"agent_message","message":"hi there"}}}}"#
+        )
+        .unwrap();
+        let messages = load_codex_messages(&path).unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[0].content, "hello codex");
+        assert_eq!(messages[1].role, "assistant");
+        assert_eq!(messages[1].content, "hi there");
     }
 }

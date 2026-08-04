@@ -775,5 +775,7 @@ function roleColor(role: string) {
 }
 
 function formatTime(value: number | undefined, locale: string) {
-  return value ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(value) : "—";
+  return value
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+    : "—";
 }
