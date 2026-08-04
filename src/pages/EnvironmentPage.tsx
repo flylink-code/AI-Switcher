@@ -12,6 +12,7 @@ import {
   Select,
   Skeleton,
   Space,
+  Tabs,
   Tag,
   Typography,
   message,
@@ -591,6 +592,13 @@ export default function EnvironmentPage() {
           </Card>
         )}
 
+        <Tabs
+          items={[
+            {
+              key: "doctor",
+              label: t("env.tabs.doctor"),
+              children: (
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Card
           size="small"
           title={t("env.doctorTitle")}
@@ -681,6 +689,112 @@ export default function EnvironmentPage() {
           </Space>
         </Card>
 
+                </Space>
+              ),
+            },
+            {
+              key: "recovery",
+              label: t("env.tabs.recovery"),
+              children: (
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Card size="small" title={t("env.sections.recovery")} extra={<Space>
+          <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
+          <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
+          <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
+        </Space>}>
+          <Space wrap style={{ marginBottom: 8 }}>
+            <Button size="small" onClick={() => void pickConfigBackupDirectory()}>{t("env.chooseBackupDirectory")}</Button>
+            {configBackupDirectory && (
+              <Button size="small" onClick={() => void useDefaultConfigBackupDirectory()}>{t("env.useDefaultBackupDirectory")}</Button>
+            )}
+          </Space>
+          {configBackupDirectory && (
+            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+              {t("env.configBackupDirectory", { path: configBackupDirectory })}
+            </Text>
+          )}
+          <List
+            size="small"
+            dataSource={configBackups}
+            locale={{ emptyText: t("env.noConfigBackups") }}
+            renderItem={(backup) => <List.Item actions={[
+              <Button key="preview" size="small" onClick={() => void previewBackup(backup)}>{t("env.previewBackup")}</Button>,
+              <Popconfirm key="restore" title={t("env.confirmRestore")} onConfirm={() => void restoreBackup(backup)}><Button size="small" danger>{t("env.restoreBackup")}</Button></Popconfirm>,
+            ]}>{backup.name}</List.Item>}
+          />
+          <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 12 }}>
+            <Space wrap>
+              <Button onClick={() => void pickLibraryArchiveFile()}>{t("env.chooseArchiveFile")}</Button>
+              <Button onClick={() => void pickLibraryArchiveDirectory()}>{t("env.chooseArchiveDirectory")}</Button>
+              {paths?.appConfigDir && (
+                <Button onClick={() => void useKnownArchiveDirectory(`${paths.appConfigDir}/backups`)}>
+                  {t("env.useBackupsDirectory")}
+                </Button>
+              )}
+              {paths?.home && (
+                <Button onClick={() => void useKnownArchiveDirectory(`${paths.home}/.ai-switcher/incoming`)}>
+                  {t("env.useSyncIncomingDirectory")}
+                </Button>
+              )}
+            </Space>
+            <Space.Compact style={{ width: "100%" }}>
+              <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />
+              <Button loading={running} disabled={!libraryArchivePath.trim()} onClick={() => void onPreviewLibraryArchive()}>{t("env.verifyLibraryArchive")}</Button>
+              <Popconfirm
+                title={t("env.confirmImportLibrary")}
+                description={t("env.confirmImportLibraryDescription")}
+                disabled={!libraryArchivePath.trim()}
+                onConfirm={() => void onImportLibraryArchive()}
+              >
+                <Button danger loading={running} disabled={!libraryArchivePath.trim()}>{t("env.importLibraryArchive")}</Button>
+              </Popconfirm>
+            </Space.Compact>
+            <Text type="secondary">{t("env.libraryArchiveDescription")}</Text>
+          </Space>
+        </Card>
+
+                </Space>
+              ),
+            },
+            {
+              key: "sync",
+              label: t("env.tabs.sync"),
+              children: (
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Card size="small" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
+          <OnboardingTip tipKey="environment_sync" message={t("env.syncDescription")} style={{ marginBottom: 12 }} />
+          <List
+            size="small"
+            loading={syncTargetsQuery.isPending}
+            dataSource={syncTargetsQuery.data ?? []}
+            locale={{ emptyText: t("env.noSyncTargets") }}
+            renderItem={(target) => <List.Item actions={[
+              <Button key="preview" size="small" onClick={() => void openSyncPreview(target)}>{t("env.previewSync")}</Button>,
+              <Popconfirm key="delete" title={t("env.confirmDeleteSync")} onConfirm={() => void removeSync(target)}><Button danger size="small">{t("usage.delete")}</Button></Popconfirm>,
+            ]}><Space><Tag>{target.kind.toUpperCase()}</Tag><Text>{target.name}</Text><Text type="secondary">{target.remoteRoot}</Text></Space></List.Item>}
+          />
+        </Card>
+
+        {db && (
+          <Card size="small" title={<><DatabaseOutlined /> {t("env.sections.db")}</>}>
+            <Descriptions column={1} size="small" bordered>
+              <Descriptions.Item label={t("env.fields.schemaVersion")}>
+                <Tag color="blue">v{db.schemaVersion}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("env.fields.providerCount")}>
+                {db.providerCount}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        )}
+                </Space>
+              ),
+            },
+            {
+              key: "system",
+              label: t("env.tabs.system"),
+              children: (
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Card size="small" title={t("env.sections.system")}>
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label={t("env.fields.autostart")}>
@@ -751,88 +865,11 @@ export default function EnvironmentPage() {
           </Card>
         )}
 
-        <Card size="small" title={t("env.sections.recovery")} extra={<Space>
-          <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
-          <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
-          <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
-        </Space>}>
-          <Space wrap style={{ marginBottom: 8 }}>
-            <Button size="small" onClick={() => void pickConfigBackupDirectory()}>{t("env.chooseBackupDirectory")}</Button>
-            {configBackupDirectory && (
-              <Button size="small" onClick={() => void useDefaultConfigBackupDirectory()}>{t("env.useDefaultBackupDirectory")}</Button>
-            )}
-          </Space>
-          {configBackupDirectory && (
-            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
-              {t("env.configBackupDirectory", { path: configBackupDirectory })}
-            </Text>
-          )}
-          <List
-            size="small"
-            dataSource={configBackups}
-            locale={{ emptyText: t("env.noConfigBackups") }}
-            renderItem={(backup) => <List.Item actions={[
-              <Button key="preview" size="small" onClick={() => void previewBackup(backup)}>{t("env.previewBackup")}</Button>,
-              <Popconfirm key="restore" title={t("env.confirmRestore")} onConfirm={() => void restoreBackup(backup)}><Button size="small" danger>{t("env.restoreBackup")}</Button></Popconfirm>,
-            ]}>{backup.name}</List.Item>}
-          />
-          <Space direction="vertical" size={8} style={{ width: "100%", marginTop: 12 }}>
-            <Space wrap>
-              <Button onClick={() => void pickLibraryArchiveFile()}>{t("env.chooseArchiveFile")}</Button>
-              <Button onClick={() => void pickLibraryArchiveDirectory()}>{t("env.chooseArchiveDirectory")}</Button>
-              {paths?.appConfigDir && (
-                <Button onClick={() => void useKnownArchiveDirectory(`${paths.appConfigDir}/backups`)}>
-                  {t("env.useBackupsDirectory")}
-                </Button>
-              )}
-              {paths?.home && (
-                <Button onClick={() => void useKnownArchiveDirectory(`${paths.home}/.ai-switcher/incoming`)}>
-                  {t("env.useSyncIncomingDirectory")}
-                </Button>
-              )}
-            </Space>
-            <Space.Compact style={{ width: "100%" }}>
-              <Input value={libraryArchivePath} onChange={(event) => setLibraryArchivePath(event.target.value)} placeholder={t("env.libraryArchivePlaceholder")} />
-              <Button loading={running} disabled={!libraryArchivePath.trim()} onClick={() => void onPreviewLibraryArchive()}>{t("env.verifyLibraryArchive")}</Button>
-              <Popconfirm
-                title={t("env.confirmImportLibrary")}
-                description={t("env.confirmImportLibraryDescription")}
-                disabled={!libraryArchivePath.trim()}
-                onConfirm={() => void onImportLibraryArchive()}
-              >
-                <Button danger loading={running} disabled={!libraryArchivePath.trim()}>{t("env.importLibraryArchive")}</Button>
-              </Popconfirm>
-            </Space.Compact>
-            <Text type="secondary">{t("env.libraryArchiveDescription")}</Text>
-          </Space>
-        </Card>
-
-        <Card size="small" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
-          <OnboardingTip tipKey="environment_sync" message={t("env.syncDescription")} style={{ marginBottom: 12 }} />
-          <List
-            size="small"
-            loading={syncTargetsQuery.isPending}
-            dataSource={syncTargetsQuery.data ?? []}
-            locale={{ emptyText: t("env.noSyncTargets") }}
-            renderItem={(target) => <List.Item actions={[
-              <Button key="preview" size="small" onClick={() => void openSyncPreview(target)}>{t("env.previewSync")}</Button>,
-              <Popconfirm key="delete" title={t("env.confirmDeleteSync")} onConfirm={() => void removeSync(target)}><Button danger size="small">{t("usage.delete")}</Button></Popconfirm>,
-            ]}><Space><Tag>{target.kind.toUpperCase()}</Tag><Text>{target.name}</Text><Text type="secondary">{target.remoteRoot}</Text></Space></List.Item>}
-          />
-        </Card>
-
-        {db && (
-          <Card size="small" title={<><DatabaseOutlined /> {t("env.sections.db")}</>}>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("env.fields.schemaVersion")}>
-                <Tag color="blue">v{db.schemaVersion}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("env.fields.providerCount")}>
-                {db.providerCount}
-              </Descriptions.Item>
-            </Descriptions>
-          </Card>
-        )}
+                </Space>
+              ),
+            },
+          ]}
+        />
       <Modal open={backupPreview !== null} footer={null} onCancel={() => setBackupPreview(null)} title={t("env.previewBackup")} width={720}>
         <pre style={{ maxHeight: 480, overflow: "auto", whiteSpace: "pre-wrap" }}>{backupPreview}</pre>
       </Modal>

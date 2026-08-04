@@ -56,7 +56,24 @@
     "usage": "Usage",
     "localization": "Localization",
     "environment": "Environment",
-    "about": "About"
+    "about": "About",
+    "groupCore": "Core",
+    "groupExtensions": "Extensions",
+    "groupData": "Data",
+    "groupSystem": "System"
+  },
+  "workspace": {
+    "target": "Workspace",
+    "claude_code": "Claude Code",
+    "claude_desktop": "Claude Desktop",
+    "codex": "Codex",
+    "proxyRunning": "Proxy running · :{{port}}",
+    "proxyStopped": "Proxy stopped",
+    "proxyStarting": "Proxy starting…",
+    "proxyError": "Proxy error",
+    "currentProvider": "Active: {{name}}",
+    "noProvider": "No active provider",
+    "openProxy": "Open proxy"
   },
   "common": {
     "theme": "Theme",
@@ -176,6 +193,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "switch": "Switch",
+    "moreActions": "More actions",
     "current": "current",
     "officialLogin": "Official login",
     "officialMode": "Official provider",
@@ -765,6 +783,12 @@
       "db": "Database",
       "recovery": "Configuration backup and recovery",
       "sync": "Cross-environment sync"
+    },
+    "tabs": {
+      "doctor": "Doctor",
+      "recovery": "Backup",
+      "sync": "Sync",
+      "system": "System & Paths"
     },
     "fields": {
       "home": "Home",

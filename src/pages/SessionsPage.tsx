@@ -12,7 +12,6 @@ import {
   Pagination,
   Popconfirm,
   Row,
-  Segmented,
   Select,
   Space,
   Spin,
@@ -44,7 +43,6 @@ import type {
   SessionMessage,
   SessionArchiveInfo,
   SessionMeta,
-  SessionProvider,
   SessionScanResult,
 } from "@/types/backend";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -66,18 +64,16 @@ export default function SessionsPage() {
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
   const provider = usePagePreferencesStore((state) => state.sessionsProvider);
-  const setSessionsProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
   const [page, setPage] = useState(1);
-  const setProvider = (next: SessionProvider) => {
-    setSessionsProvider(next);
+  useEffect(() => {
     // Codex rows may lack projectDir until SQLite enrichment; avoid a filter that hides everything.
-    if (next === "codex" && directory === "yes") {
+    if (provider === "codex" && directory === "yes") {
       setDirectory("all");
     }
-  };
+  }, [provider, directory]);
   const [selected, setSelected] = useState<SessionMeta | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -448,14 +444,9 @@ export default function SessionsPage() {
           <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
             {t("sessions.searchContents")}
           </Button>
-          <Segmented<SessionProvider>
-            value={provider}
-            onChange={setProvider}
-            options={[
-              { value: "claude_code", label: "Claude Code" },
-              { value: "codex", label: "Codex" },
-            ]}
-          />
+          <Typography.Text type="secondary">
+            {provider === "codex" ? "Codex" : "Claude Code"}
+          </Typography.Text>
           <Select<DirectoryFilter>
             value={directory}
             onChange={setDirectory}

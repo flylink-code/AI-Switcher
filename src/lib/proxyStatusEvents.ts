@@ -22,6 +22,7 @@ async function synchronizeProxySnapshots(): Promise<void> {
   for (const target of [
     "claude_code",
     "claude_desktop",
+    "codex",
   ] satisfies ProviderTarget[]) {
     try {
       const status = await getProxyStatus(target);

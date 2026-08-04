@@ -7,7 +7,6 @@ import {
   Input,
   InputNumber,
   Space,
-  Segmented,
   Switch,
   Tag,
   Typography,
@@ -20,7 +19,6 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { ProviderTarget } from "@/types/backend";
 import {
   getProxyFailoverEnabled,
   getProxyRetryableStatusCodes,
@@ -49,8 +47,7 @@ export default function ProxyPage() {
   const [retrySaving, setRetrySaving] = useState(false);
   const [idleTimeout, setIdleTimeout] = useState(180);
   const [idleSaving, setIdleSaving] = useState(false);
-  const target = usePagePreferencesStore((state) => state.proxyTarget);
-  const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
+  const target = usePagePreferencesStore((state) => state.workspaceTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
   const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
@@ -170,15 +167,16 @@ export default function ProxyPage() {
           <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
         )}
 
-        <Segmented<ProviderTarget>
-          value={target}
-          onChange={setTarget}
-          options={[
-            { value: "claude_code", label: t("providers.claudeCode") },
-            { value: "claude_desktop", label: t("providers.claudeDesktop") },
-            { value: "codex", label: "Codex" },
-          ]}
-        />
+        <Typography.Text type="secondary">
+          {t("workspace.currentProvider", {
+            name:
+              target === "claude_code"
+                ? t("providers.claudeCode")
+                : target === "claude_desktop"
+                  ? t("providers.claudeDesktop")
+                  : "Codex",
+          })}
+        </Typography.Text>
 
         <Card
           size="small"

@@ -5,6 +5,8 @@ import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 const STORAGE_KEY = "cs.pagePreferences";
 
 interface PersistedPagePreferences {
+  /** Global workspace context (Code / Desktop / Codex). */
+  workspaceTarget?: ProviderTarget;
   providersTarget?: ProviderTarget;
   proxyTarget?: ProviderTarget;
   usagePeriod?: UsagePeriod;
@@ -16,6 +18,7 @@ interface PersistedPagePreferences {
 }
 
 interface PagePreferencesState {
+  workspaceTarget: ProviderTarget;
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   usagePeriod: UsagePeriod;
@@ -24,6 +27,7 @@ interface PagePreferencesState {
   usageLogTarget: ProviderTarget | "all";
   heatmapSource: ProviderTarget | "all";
   sessionsProvider: SessionProvider;
+  setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
@@ -36,6 +40,7 @@ interface PagePreferencesState {
 
 const DEFAULTS: Pick<
   PagePreferencesState,
+  | "workspaceTarget"
   | "providersTarget"
   | "proxyTarget"
   | "usagePeriod"
@@ -44,8 +49,9 @@ const DEFAULTS: Pick<
   | "heatmapSource"
   | "sessionsProvider"
 > = {
+  workspaceTarget: "claude_code",
   providersTarget: "claude_code",
-  proxyTarget: "claude_desktop",
+  proxyTarget: "claude_code",
   usagePeriod: 365,
   heatmapPeriod: 365,
   usageLogTarget: "all",
@@ -68,6 +74,16 @@ function isUsagePeriod(value: unknown): value is UsagePeriod {
 function isUsageLogTarget(value: unknown): value is ProviderTarget | "all" {
   return value === "all" || isProviderTarget(value);
 }
+
+function sessionProviderFor(target: ProviderTarget): SessionProvider {
+  return target === "codex" ? "codex" : "claude_code";
+}
+
+function skillCompatibleTarget(target: ProviderTarget): "claude_code" | "codex" {
+  return target === "codex" ? "codex" : "claude_code";
+}
+
+export { skillCompatibleTarget };
 
 function readPersisted(): PersistedPagePreferences {
   if (typeof localStorage === "undefined") return {};
@@ -97,26 +113,30 @@ function initialState() {
   const usageLogTarget = isUsageLogTarget(stored.usageLogTarget)
     ? stored.usageLogTarget
     : DEFAULTS.usageLogTarget;
+  const providersTarget = isProviderTarget(stored.providersTarget)
+    ? stored.providersTarget
+    : DEFAULTS.providersTarget;
+  const workspaceTarget = isProviderTarget(stored.workspaceTarget)
+    ? stored.workspaceTarget
+    : providersTarget;
   return {
-    providersTarget: isProviderTarget(stored.providersTarget)
-      ? stored.providersTarget
-      : DEFAULTS.providersTarget,
-    proxyTarget: isProviderTarget(stored.proxyTarget)
-      ? stored.proxyTarget
-      : DEFAULTS.proxyTarget,
+    workspaceTarget,
+    providersTarget,
+    proxyTarget: isProviderTarget(stored.proxyTarget) ? stored.proxyTarget : workspaceTarget,
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
     usageLogTarget,
     heatmapSource: isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
     sessionsProvider: isSessionProvider(stored.sessionsProvider)
       ? stored.sessionsProvider
-      : DEFAULTS.sessionsProvider,
+      : sessionProviderFor(workspaceTarget),
   };
 }
 
 function persistSlice(
   state: Pick<
     PagePreferencesState,
+    | "workspaceTarget"
     | "providersTarget"
     | "proxyTarget"
     | "usagePeriod"
@@ -127,6 +147,7 @@ function persistSlice(
   >,
 ) {
   writePersisted({
+    workspaceTarget: state.workspaceTarget,
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     usagePeriod: state.usagePeriod,
@@ -140,8 +161,17 @@ function persistSlice(
 export const usePagePreferencesStore = create<PagePreferencesState>((set, get) => ({
   ...initialState(),
   usageLogPage: 0,
+  setWorkspaceTarget: (workspaceTarget) => {
+    set({
+      workspaceTarget,
+      providersTarget: workspaceTarget,
+      proxyTarget: workspaceTarget,
+      sessionsProvider: sessionProviderFor(workspaceTarget),
+    });
+    persistSlice(get());
+  },
   setProvidersTarget: (providersTarget) => {
-    set({ providersTarget });
+    set({ providersTarget, workspaceTarget: providersTarget });
     persistSlice(get());
   },
   setProxyTarget: (proxyTarget) => {

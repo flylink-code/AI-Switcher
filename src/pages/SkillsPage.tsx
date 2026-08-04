@@ -4,7 +4,6 @@ import {
   Card,
   Input,
   Modal,
-  Segmented,
   Space,
   Switch,
   Tag,
@@ -36,6 +35,7 @@ import {
   updateGithubSkills,
 } from "@/services/api";
 import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
+import { skillCompatibleTarget, usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text } = Typography;
 const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
@@ -44,6 +44,10 @@ export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<SkillTarget>("claude_code");
+  const workspaceTarget = usePagePreferencesStore((state) => state.workspaceTarget);
+  useEffect(() => {
+    setTarget(skillCompatibleTarget(workspaceTarget));
+  }, [workspaceTarget]);
   const skillsQuery = useQuery(skillsOptions(target));
   const repositoryQuery = useQuery(skillRepositoryOptions);
   const skills = skillsQuery.data ?? [];
@@ -264,19 +268,11 @@ export default function SkillsPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
-    <Segmented
-      value={target}
-      options={[
-        { value: "claude_code", label: t("providers.claudeCode") },
-        { value: "codex", label: "Codex" },
-      ]}
-      onChange={(value) => {
-        setTarget(value as SkillTarget);
-        setUpdateStatuses({});
-        setSelectedPaths([]);
-        setUnmanagedSkills([]);
-      }}
-    />
+    <Text type="secondary">
+      {t("workspace.currentProvider", {
+        name: target === "codex" ? "Codex" : t("providers.claudeCode"),
+      })}
+    </Text>
     <Card
       size="small"
       title={t("skills.discoveryTitle")}

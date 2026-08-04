@@ -1,5 +1,18 @@
 import { useEffect, useMemo } from "react";
-import { App as AntApp, Badge, Button, Layout, Menu, Select, Space, Tooltip, Typography, theme } from "antd";
+import {
+  App as AntApp,
+  Badge,
+  Button,
+  Layout,
+  Menu,
+  Segmented,
+  Select,
+  Space,
+  Tooltip,
+  Typography,
+  theme,
+} from "antd";
+import type { MenuProps } from "antd";
 import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import AppstoreAddOutlined from "@ant-design/icons/es/icons/AppstoreAddOutlined";
 import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
@@ -17,34 +30,46 @@ import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import TeamOutlined from "@ant-design/icons/es/icons/TeamOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { languages } from "@/i18n";
 import type { PageKey } from "@/lib/pageRegistry";
+import { providerListOptions, proxyStatusOptions } from "@/lib/appQueries";
 import { setAppLanguage } from "@/services/api";
+import type { ProviderTarget } from "@/types/backend";
 
 const { Sider, Header, Content } = Layout;
 
 export interface NavItem {
   key: PageKey;
   icon: React.ReactNode;
+  group: "core" | "extensions" | "data" | "system";
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: "providers", icon: <ApiOutlined /> },
-  { key: "profiles", icon: <AppstoreOutlined /> },
-  { key: "proxy", icon: <NodeIndexOutlined /> },
-  { key: "mcp", icon: <ClusterOutlined /> },
-  { key: "prompts", icon: <FileTextOutlined /> },
-  { key: "skills", icon: <ThunderboltOutlined /> },
-  { key: "agents", icon: <TeamOutlined /> },
-  { key: "codexPlugins", icon: <AppstoreAddOutlined /> },
-  { key: "sessions", icon: <MessageOutlined /> },
-  { key: "usage", icon: <BarChartOutlined /> },
-  { key: "localization", icon: <GlobalOutlined /> },
-  { key: "environment", icon: <DesktopOutlined /> },
-  { key: "about", icon: <InfoCircleOutlined /> },
+  { key: "providers", icon: <ApiOutlined />, group: "core" },
+  { key: "profiles", icon: <AppstoreOutlined />, group: "core" },
+  { key: "proxy", icon: <NodeIndexOutlined />, group: "core" },
+  { key: "mcp", icon: <ClusterOutlined />, group: "extensions" },
+  { key: "prompts", icon: <FileTextOutlined />, group: "extensions" },
+  { key: "skills", icon: <ThunderboltOutlined />, group: "extensions" },
+  { key: "agents", icon: <TeamOutlined />, group: "extensions" },
+  { key: "codexPlugins", icon: <AppstoreAddOutlined />, group: "extensions" },
+  { key: "sessions", icon: <MessageOutlined />, group: "data" },
+  { key: "usage", icon: <BarChartOutlined />, group: "data" },
+  { key: "localization", icon: <GlobalOutlined />, group: "system" },
+  { key: "environment", icon: <DesktopOutlined />, group: "system" },
+  { key: "about", icon: <InfoCircleOutlined />, group: "system" },
+];
+
+const NAV_GROUPS: Array<{ id: NavItem["group"]; labelKey: string }> = [
+  { id: "core", labelKey: "nav.groupCore" },
+  { id: "extensions", labelKey: "nav.groupExtensions" },
+  { id: "data", labelKey: "nav.groupData" },
+  { id: "system", labelKey: "nav.groupSystem" },
 ];
 
 interface AppLayoutProps {
@@ -61,6 +86,24 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
   system: <LaptopOutlined />,
 };
 
+function proxyStatusLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  phase: string | undefined,
+  port: number | undefined,
+): string {
+  switch (phase) {
+    case "running":
+      return t("workspace.proxyRunning", { port: port ?? "—" });
+    case "starting":
+      return t("workspace.proxyStarting");
+    case "error":
+      return t("workspace.proxyError");
+    case "stopped":
+    default:
+      return t("workspace.proxyStopped");
+  }
+}
+
 export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, children }: AppLayoutProps) {
   const { t, i18n } = useTranslation();
   const themeMode = useThemeStore((s) => s.mode);
@@ -68,8 +111,14 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
   const setThemeMode = useThemeStore((s) => s.setMode);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
+  const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
+  const setWorkspaceTarget = usePagePreferencesStore((s) => s.setWorkspaceTarget);
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
+
+  const proxyQuery = useQuery(proxyStatusOptions(workspaceTarget));
+  const providersQuery = useQuery(providerListOptions(workspaceTarget));
+  const currentProvider = providersQuery.data?.find((provider) => provider.isCurrent);
 
   useEffect(() => {
     void setAppLanguage(language).catch(() => {
@@ -77,21 +126,34 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
     });
   }, [language, message, t]);
 
-  const menuItems = useMemo(
-    () =>
-      NAV_ITEMS.filter((it) => it.key !== "localization" || language === "zh-CN").map((it) => ({
-        key: it.key,
-        icon: it.icon,
-        label: t(`nav.${it.key}`),
-      })),
-    [language, t],
-  );
+  const menuItems = useMemo<MenuProps["items"]>(() => {
+    const visible = NAV_ITEMS.filter((it) => it.key !== "localization" || language === "zh-CN");
+    return NAV_GROUPS.map((group) => ({
+      type: "group" as const,
+      key: `group-${group.id}`,
+      label: t(group.labelKey),
+      children: visible
+        .filter((it) => it.group === group.id)
+        .map((it) => ({
+          key: it.key,
+          icon: it.icon,
+          label: t(`nav.${it.key}`),
+        })),
+    })).filter((group) => (group.children?.length ?? 0) > 0);
+  }, [language, t]);
+
+  const workspaceOptions: Array<{ label: string; value: ProviderTarget }> = [
+    { value: "claude_code", label: t("workspace.claude_code") },
+    { value: "claude_desktop", label: t("workspace.claude_desktop") },
+    { value: "codex", label: t("workspace.codex") },
+  ];
 
   return (
     <Layout style={{ height: "100vh", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
       <Sider
-        width={210}
+        width={220}
         theme={resolvedTheme === "dark" ? "dark" : "light"}
+        className="app-sider"
         style={{
           height: "100vh",
           minHeight: 0,
@@ -117,19 +179,25 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
                 {t("app.name")}
               </Button>
             </Badge>
-          ) : t("app.name")}
+          ) : (
+            t("app.name")
+          )}
         </div>
         <Menu
           mode="inline"
           theme={resolvedTheme === "dark" ? "dark" : "light"}
           selectedKeys={[activeKey]}
           items={menuItems}
-          onClick={({ key }) => onNavigate(key as PageKey)}
+          onClick={({ key }) => {
+            if (key.startsWith("group-")) return;
+            onNavigate(key as PageKey);
+          }}
           style={{ borderInlineEnd: "none", background: "transparent" }}
         />
       </Sider>
       <Layout style={{ minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         <Header
+          className="app-header"
           style={{
             flex: "0 0 auto",
             minWidth: 0,
@@ -142,9 +210,30 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <Typography.Text type="secondary" ellipsis style={{ minWidth: 0 }}>
-            {t("app.tagline")}
-          </Typography.Text>
+          <Space size={12} wrap style={{ minWidth: 0, flex: 1 }}>
+            <Segmented<ProviderTarget>
+              size="small"
+              value={workspaceTarget}
+              options={workspaceOptions}
+              onChange={setWorkspaceTarget}
+              aria-label={t("workspace.target")}
+            />
+            <Tooltip title={t("workspace.openProxy")}>
+              <Button type="text" size="small" onClick={() => onNavigate("proxy")}>
+                <Typography.Text
+                  type={proxyQuery.data?.phase === "error" ? "danger" : "secondary"}
+                  style={{ fontSize: 12 }}
+                >
+                  {proxyStatusLabel(t, proxyQuery.data?.phase, proxyQuery.data?.port)}
+                </Typography.Text>
+              </Button>
+            </Tooltip>
+            <Typography.Text type="secondary" ellipsis style={{ maxWidth: 280, fontSize: 12 }}>
+              {currentProvider
+                ? t("workspace.currentProvider", { name: currentProvider.name })
+                : t("workspace.noProvider")}
+            </Typography.Text>
+          </Space>
           <Space>
             <Tooltip title={t("common.theme")}>
               <Select<ThemeMode>
@@ -175,7 +264,10 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             </Tooltip>
           </Space>
         </Header>
-        <Content style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24, background: token.colorBgLayout }}>
+        <Content
+          className="app-content"
+          style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24, background: token.colorBgLayout }}
+        >
           {children}
         </Content>
       </Layout>

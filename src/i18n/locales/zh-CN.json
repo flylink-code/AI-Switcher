@@ -56,7 +56,24 @@
     "usage": "用量统计",
     "localization": "中文化配置",
     "environment": "环境信息",
-    "about": "关于"
+    "about": "关于",
+    "groupCore": "核心",
+    "groupExtensions": "扩展",
+    "groupData": "数据",
+    "groupSystem": "系统"
+  },
+  "workspace": {
+    "target": "当前工具",
+    "claude_code": "Claude Code",
+    "claude_desktop": "Claude Desktop",
+    "codex": "Codex",
+    "proxyRunning": "代理运行中 · :{{port}}",
+    "proxyStopped": "代理未运行",
+    "proxyStarting": "代理启动中…",
+    "proxyError": "代理异常",
+    "currentProvider": "当前：{{name}}",
+    "noProvider": "未激活供应商",
+    "openProxy": "打开代理页"
   },
   "common": {
     "theme": "主题",
@@ -176,6 +193,7 @@
     "edit": "编辑",
     "delete": "删除",
     "switch": "切换",
+    "moreActions": "更多操作",
     "current": "当前",
     "officialLogin": "官方登录",
     "officialMode": "官方供应商",
@@ -765,6 +783,12 @@
       "db": "数据库",
       "recovery": "配置备份与恢复",
       "sync": "跨环境同步"
+    },
+    "tabs": {
+      "doctor": "诊断",
+      "recovery": "备份恢复",
+      "sync": "同步",
+      "system": "系统与路径"
     },
     "fields": {
       "home": "主目录",

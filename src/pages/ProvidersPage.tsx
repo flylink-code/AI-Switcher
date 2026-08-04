@@ -4,15 +4,16 @@ import {
   App,
   Button,
   Card,
+  Collapse,
+  Dropdown,
   Modal,
-  Popconfirm,
-  Segmented,
   Select,
   Space,
   Table,
   Tag,
   Tooltip,
   Typography,
+  type MenuProps,
   type TableColumnsType,
 } from "antd";
 import { useQuery } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
@@ -33,7 +35,6 @@ import type {
   ImportPreview,
   Provider,
   ProviderInput,
-  ProviderTarget,
 } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -66,8 +67,7 @@ export default function ProvidersPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const store = useProvidersStore();
-  const target = usePagePreferencesStore((state) => state.providersTarget);
-  const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const target = usePagePreferencesStore((state) => state.workspaceTarget);
   const heatmapPeriod = usePagePreferencesStore((state) => state.heatmapPeriod);
   const setHeatmapPeriod = usePagePreferencesStore((state) => state.setHeatmapPeriod);
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
@@ -355,34 +355,88 @@ export default function ProvidersPage() {
       render: (value: number) => <Tag>{value ?? 0}</Tag>,
     },
     {
-      title: t("providers.colActions"), key: "actions", width: 310,
-      render: (_: unknown, row: Provider, index: number) => <Space size="small">
-        <Tooltip title={t("providers.moveUp")}><Button size="small" icon={<ArrowUpOutlined />} disabled={index === 0 || busy} onClick={() => void store.move(row.id, -1)} /></Tooltip>
-        <Tooltip title={t("providers.moveDown")}><Button size="small" icon={<ArrowDownOutlined />} disabled={index === store.providers.length - 1 || busy} onClick={() => void store.move(row.id, 1)} /></Tooltip>
-        <Button size="small" type={row.isCurrent ? "default" : "primary"} disabled={row.isCurrent || busy} icon={<ThunderboltOutlined />} onClick={() => void handleSwitch(row)}>{t("providers.switch")}</Button>
-        <Tooltip title={t("providers.testConnection")}><Button size="small" icon={<SafetyCertificateOutlined />} disabled={busy || !row.apiKeySet} onClick={() => void handleTest(row)} /></Tooltip>
-        <Tooltip title={t("providers.speedtest")}><Button size="small" icon={<FieldTimeOutlined />} disabled={busy || !row.baseUrl} onClick={() => void handleSpeedtest(row)} /></Tooltip>
-        <Tooltip title={t("deeplink.shareLink")}><Button size="small" icon={<GlobalOutlined />} disabled={busy} onClick={() => void handleShareLink(row)} /></Tooltip>
-        <Tooltip title={t("providers.edit")}><Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} /></Tooltip>
-        <Popconfirm title={t("providers.confirmDelete")} okText={t("providers.delete")} cancelText={t("providers.cancel")} onConfirm={() => void handleDelete(row)} disabled={busy}>
-          <Tooltip title={t("providers.delete")}><Button size="small" danger icon={<DeleteOutlined />} disabled={busy} /></Tooltip>
-        </Popconfirm>
-      </Space>,
+      title: t("providers.colActions"), key: "actions", width: 200,
+      render: (_: unknown, row: Provider, index: number) => {
+        const moreItems: MenuProps["items"] = [
+          {
+            key: "up",
+            icon: <ArrowUpOutlined />,
+            label: t("providers.moveUp"),
+            disabled: index === 0 || busy,
+            onClick: () => void store.move(row.id, -1),
+          },
+          {
+            key: "down",
+            icon: <ArrowDownOutlined />,
+            label: t("providers.moveDown"),
+            disabled: index === store.providers.length - 1 || busy,
+            onClick: () => void store.move(row.id, 1),
+          },
+          {
+            key: "test",
+            icon: <SafetyCertificateOutlined />,
+            label: t("providers.testConnection"),
+            disabled: busy || !row.apiKeySet,
+            onClick: () => void handleTest(row),
+          },
+          {
+            key: "speed",
+            icon: <FieldTimeOutlined />,
+            label: t("providers.speedtest"),
+            disabled: busy || !row.baseUrl,
+            onClick: () => void handleSpeedtest(row),
+          },
+          {
+            key: "share",
+            icon: <GlobalOutlined />,
+            label: t("deeplink.shareLink"),
+            disabled: busy,
+            onClick: () => void handleShareLink(row),
+          },
+          { type: "divider" },
+          {
+            key: "delete",
+            icon: <DeleteOutlined />,
+            danger: true,
+            label: t("providers.delete"),
+            disabled: busy,
+            onClick: () => {
+              Modal.confirm({
+                title: t("providers.confirmDelete"),
+                okText: t("providers.delete"),
+                cancelText: t("providers.cancel"),
+                okButtonProps: { danger: true },
+                onOk: () => handleDelete(row),
+              });
+            },
+          },
+        ];
+        return (
+          <Space size="small">
+            <Button
+              size="small"
+              type={row.isCurrent ? "default" : "primary"}
+              disabled={row.isCurrent || busy}
+              icon={<ThunderboltOutlined />}
+              onClick={() => void handleSwitch(row)}
+            >
+              {t("providers.switch")}
+            </Button>
+            <Tooltip title={t("providers.edit")}>
+              <Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} />
+            </Tooltip>
+            <Dropdown menu={{ items: moreItems }} trigger={["click"]}>
+              <Button size="small" icon={<EllipsisOutlined />} disabled={busy} aria-label={t("providers.moreActions")} />
+            </Dropdown>
+          </Space>
+        );
+      },
     },
   ];
 
   return <Space direction="vertical" size="middle" style={{ width: "100%", minWidth: 0 }}>
     {store.error && <Alert type="error" showIcon message={store.error} closable onClose={() => store.clearError()} />}
-    <Space wrap size={[8, 8]} style={{ width: "100%", justifyContent: "space-between" }}>
-      <Segmented<ProviderTarget>
-        value={target}
-        onChange={setTarget}
-        options={[
-          { value: "claude_code", label: t("providers.claudeCode") },
-          { value: "claude_desktop", label: t("providers.claudeDesktop") },
-          { value: "codex", label: "Codex" },
-        ]}
-      />
+    <Space wrap size={[8, 8]} style={{ width: "100%", justifyContent: "flex-end" }}>
       <Space wrap size={[8, 8]}>
         {target !== "codex" && (
           <Button loading={oauthPolling} onClick={() => void handleCodexOauthLogin()}>
@@ -469,38 +523,42 @@ export default function ProvidersPage() {
         locale={{ emptyText: t("providers.empty") }}
       />
     </Card>
-    <Card
+    <Collapse
       size="small"
-      title={t("usage.dailyStatistics")}
-      extra={
-        <Space wrap size={8} align="center">
-          <Select
-            size="middle"
-            value={heatmapPeriod}
-            style={{ width: 160 }}
-            options={USAGE_PERIOD_VALUES.map((value) => ({
-              value,
-              label:
-                typeof value === "number"
-                  ? t("usage.lastDays", { days: value })
-                  : t(usagePeriodLabelKey(value)),
-            }))}
-            onChange={setHeatmapPeriod}
-          />
-          <UsageSourceFilterSegmented
-            value={heatmapSource}
-            onChange={setHeatmapSource}
-            t={t}
-          />
-        </Space>
-      }
-    >
-      {usageQuery.error ? (
-        <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
-      ) : (
-        <UsageCalendar data={usageQuery.data?.trend ?? []} period={heatmapPeriod} />
-      )}
-    </Card>
+      items={[
+        {
+          key: "heatmap",
+          label: t("usage.dailyStatistics"),
+          extra: (
+            <Space wrap size={8} align="center" onClick={(event) => event.stopPropagation()}>
+              <Select
+                size="middle"
+                value={heatmapPeriod}
+                style={{ width: 160 }}
+                options={USAGE_PERIOD_VALUES.map((value) => ({
+                  value,
+                  label:
+                    typeof value === "number"
+                      ? t("usage.lastDays", { days: value })
+                      : t(usagePeriodLabelKey(value)),
+                }))}
+                onChange={setHeatmapPeriod}
+              />
+              <UsageSourceFilterSegmented
+                value={heatmapSource}
+                onChange={setHeatmapSource}
+                t={t}
+              />
+            </Space>
+          ),
+          children: usageQuery.error ? (
+            <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
+          ) : (
+            <UsageCalendar data={usageQuery.data?.trend ?? []} period={heatmapPeriod} />
+          ),
+        },
+      ]}
+    />
     <ProviderForm
       open={formOpen}
       editing={editing}
