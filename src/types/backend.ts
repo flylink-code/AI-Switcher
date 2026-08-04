@@ -298,6 +298,7 @@ export interface DoctorCheck {
   label: string;
   ok: boolean;
   detail: string;
+  repairAction?: string | null;
 }
 
 export interface DoctorReport {
@@ -309,6 +310,11 @@ export interface VisibilityRepairResult {
   codexProviderRows: number;
   codexUsageInserted: number;
   claudeCodeUsageInserted: number;
+  message: string;
+}
+
+export interface DoctorRepairResult {
+  id: string;
   message: string;
 }
 
@@ -450,6 +456,14 @@ export interface Skill {
   source?: InstalledSkillSource | null;
 }
 
+export interface UnmanagedSkill {
+  directory: string;
+  name: string;
+  description: string;
+  foundIn: string[];
+  path: string;
+}
+
 export type SkillTarget = "claude_code" | "codex";
 
 export interface Agent {
@@ -483,6 +497,42 @@ export interface CodexPluginsSnapshot {
   cachePluginCount: number;
   parseOk: boolean;
   parseError?: string | null;
+}
+
+export interface CodexMarketplace {
+  name: string;
+  root?: string | null;
+  source?: string | null;
+  raw?: string | null;
+}
+
+export interface CodexMarketplaceListResult {
+  marketplaces: CodexMarketplace[];
+  rawOutput: string;
+  usedJson: boolean;
+}
+
+export interface CodexPluginCommandResult {
+  ok: boolean;
+  message: string;
+  stdout: string;
+  stderr: string;
+}
+
+export type CodexWebSearchMode = "disabled" | "cached" | "indexed" | "live";
+
+export interface CodexWebSearchSnapshot {
+  mode: CodexWebSearchMode;
+  configPath: string;
+  setInConfig: boolean;
+}
+
+export interface EndpointSpeedtestResult {
+  ok: boolean;
+  latencyMs?: number | null;
+  message: string;
+  checkedAt: number;
+  url: string;
 }
 
 export interface InstalledSkillSource {

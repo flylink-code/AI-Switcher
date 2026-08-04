@@ -472,6 +472,9 @@ pub struct Provider {
     pub health_status: Option<String>,
     #[serde(default)]
     pub health_checked_at: Option<i64>,
+    /// Parsed from last health probe detail (`|latency_ms=N`).
+    #[serde(default)]
+    pub health_latency_ms: Option<u64>,
 }
 
 impl Provider {
@@ -576,6 +579,17 @@ pub struct ConnectionTestResult {
     pub checked_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latency_ms: Option<u64>,
+}
+
+/// Lightweight RTT probe against a provider Base URL (no API auth required).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointSpeedtestResult {
+    pub ok: bool,
+    pub latency_ms: Option<u64>,
+    pub message: String,
+    pub checked_at: i64,
+    pub url: String,
 }
 
 /// Cached model-discovery result. Endpoint failures are represented as an empty
@@ -780,6 +794,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         };
         assert!(provider.requires_local_proxy());
     }
@@ -814,6 +829,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         }
     }
 

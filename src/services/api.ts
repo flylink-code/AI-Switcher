@@ -10,6 +10,7 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import type {
   DbInfo,
   DoctorReport,
+  DoctorRepairResult,
   VisibilityRepairResult,
   DataRootInfo,
   LivePrompt,
@@ -26,6 +27,7 @@ import type {
   PromptTarget,
   Provider,
   ConnectionTestResult,
+  EndpointSpeedtestResult,
   ModelDiscoveryResult,
     ProviderImportResult,
     ImportPreview,
@@ -48,9 +50,14 @@ import type {
   SkillUpdateStatus,
   RepositorySkill,
   SkillRepositorySnapshot,
+  UnmanagedSkill,
   Agent,
   AgentDraft,
   CodexPluginsSnapshot,
+  CodexMarketplaceListResult,
+  CodexPluginCommandResult,
+  CodexWebSearchMode,
+  CodexWebSearchSnapshot,
   UsageDashboard,
   ModelPricing,
   ModelPricingInput,
@@ -130,6 +137,11 @@ export async function runEnvironmentDoctor(): Promise<DoctorReport> {
 export async function repairEnvironmentVisibility(): Promise<VisibilityRepairResult> {
   const invoke = await getInvoke();
   return invoke<VisibilityRepairResult>("repair_environment_visibility", {});
+}
+
+export async function repairDoctorCheck(id: string): Promise<DoctorRepairResult> {
+  const invoke = await getInvoke();
+  return invoke<DoctorRepairResult>("repair_doctor_check", { id });
 }
 
 export async function getDataRoot(): Promise<DataRootInfo> {
@@ -296,6 +308,11 @@ export async function importLiveConfig(target: ProviderTarget): Promise<void> {
 export async function testProviderConnection(id: string): Promise<ConnectionTestResult> {
   const invoke = await getInvoke();
   return invoke<ConnectionTestResult>("test_provider_connection", { id });
+}
+
+export async function speedtestProviderEndpoint(id: string): Promise<EndpointSpeedtestResult> {
+  const invoke = await getInvoke();
+  return invoke<EndpointSpeedtestResult>("speedtest_provider_endpoint", { id });
 }
 
 export async function testProviderInput(input: ProviderInput): Promise<ConnectionTestResult> {
@@ -569,6 +586,21 @@ export async function listSkills(target?: SkillTarget): Promise<Skill[]> {
   return invoke<Skill[]>("list_skills", { target });
 }
 
+export async function scanUnmanagedSkills(target?: SkillTarget): Promise<UnmanagedSkill[]> {
+  const invoke = await getInvoke();
+  return invoke<UnmanagedSkill[]>("scan_unmanaged_skills", { target });
+}
+
+export async function registerUnmanagedSkill(path: string, target?: SkillTarget): Promise<Skill> {
+  const invoke = await getInvoke();
+  return invoke<Skill>("register_unmanaged_skill", { path, target });
+}
+
+export async function ignoreUnmanagedSkill(path: string): Promise<void> {
+  const invoke = await getInvoke();
+  return invoke<void>("ignore_unmanaged_skill", { path });
+}
+
 // ---- Agents -----------------------------------------------------------------
 
 export async function listAgents(): Promise<Agent[]> {
@@ -606,6 +638,36 @@ export async function listCodexPlugins(): Promise<CodexPluginsSnapshot> {
 export async function setCodexPluginEnabled(pluginId: string, enabled: boolean): Promise<void> {
   const invoke = await getInvoke();
   return invoke<void>("set_codex_plugin_enabled", { pluginId, enabled });
+}
+
+export async function listCodexPluginMarketplaces(): Promise<CodexMarketplaceListResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexMarketplaceListResult>("list_codex_plugin_marketplaces", {});
+}
+
+export async function addCodexPluginMarketplace(source: string): Promise<CodexPluginCommandResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexPluginCommandResult>("add_codex_plugin_marketplace", { source });
+}
+
+export async function removeCodexPluginMarketplace(name: string): Promise<CodexPluginCommandResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexPluginCommandResult>("remove_codex_plugin_marketplace", { name });
+}
+
+export async function uninstallCodexPlugin(pluginId: string): Promise<CodexPluginCommandResult> {
+  const invoke = await getInvoke();
+  return invoke<CodexPluginCommandResult>("uninstall_codex_plugin", { pluginId });
+}
+
+export async function getCodexWebSearchMode(): Promise<CodexWebSearchSnapshot> {
+  const invoke = await getInvoke();
+  return invoke<CodexWebSearchSnapshot>("get_codex_web_search_mode", {});
+}
+
+export async function setCodexWebSearchMode(mode: CodexWebSearchMode): Promise<CodexWebSearchSnapshot> {
+  const invoke = await getInvoke();
+  return invoke<CodexWebSearchSnapshot>("set_codex_web_search_mode", { mode });
 }
 
 export async function getSkillRepository(): Promise<string> {

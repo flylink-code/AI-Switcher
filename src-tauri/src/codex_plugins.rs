@@ -11,12 +11,15 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use serde::Serialize;
+use serde_json::Value;
 use toml_edit::{value, DocumentMut, Item, Table};
 
 use crate::config::{atomic_write, get_codex_config_path, get_codex_plugins_cache_dir};
 use crate::error::{AppError, AppResult};
+use crate::process_util::apply_no_window;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,6 +127,226 @@ pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
         fs::create_dir_all(parent)?;
     }
     atomic_write(&path, doc.to_string().as_bytes())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexMarketplace {
+    pub name: String,
+    pub root: Option<String>,
+    pub source: Option<String>,
+    pub raw: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexMarketplaceListResult {
+    pub marketplaces: Vec<CodexMarketplace>,
+    pub raw_output: String,
+    pub used_json: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPluginCommandResult {
+    pub ok: bool,
+    pub message: String,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+/// List configured plugin marketplaces via `codex plugin marketplace list`.
+pub fn list_marketplaces() -> AppResult<CodexMarketplaceListResult> {
+    let json_attempt = run_codex_plugin_args(&["plugin", "marketplace", "list", "--json"]);
+    match json_attempt {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let marketplaces = parse_marketplace_json(&stdout);
+            if !marketplaces.is_empty() || stdout.trim().starts_with('[') || stdout.trim().starts_with('{') {
+                return Ok(CodexMarketplaceListResult {
+                    marketplaces,
+                    raw_output: stdout,
+                    used_json: true,
+                });
+            }
+        }
+        _ => {}
+    }
+
+    let output = run_codex_plugin_args(&["plugin", "marketplace", "list"])?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        return Err(AppError::Other(format!(
+            "codex plugin marketplace list 失败: {}",
+            first_nonempty(&stderr, &stdout)
+        )));
+    }
+    Ok(CodexMarketplaceListResult {
+        marketplaces: parse_marketplace_text(&stdout),
+        raw_output: stdout,
+        used_json: false,
+    })
+}
+
+pub fn add_marketplace(source: &str) -> AppResult<CodexPluginCommandResult> {
+    let source = source.trim();
+    if source.is_empty() {
+        return Err(AppError::Config("marketplace 源不能为空".into()));
+    }
+    let output = run_codex_plugin_args(&["plugin", "marketplace", "add", source])?;
+    command_result(output, "已添加 marketplace")
+}
+
+pub fn remove_marketplace(name: &str) -> AppResult<CodexPluginCommandResult> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::Config("marketplace 名称不能为空".into()));
+    }
+    let output = run_codex_plugin_args(&["plugin", "marketplace", "remove", name])?;
+    command_result(output, "已移除 marketplace")
+}
+
+/// Uninstall an installed plugin via `codex plugin remove`, then refresh local state.
+pub fn uninstall_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
+    let plugin_id = plugin_id.trim();
+    if plugin_id.is_empty() || !plugin_id.contains('@') {
+        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+    }
+    let output = run_codex_plugin_args(&["plugin", "remove", plugin_id])?;
+    let result = command_result(output, "已卸载插件")?;
+    // Best-effort: drop enable entry if CLI left it behind.
+    if let Ok(mut doc) = load_config_document() {
+        if let Some(plugins) = doc.get_mut("plugins").and_then(Item::as_table_mut) {
+            plugins.remove(plugin_id);
+            let _ = atomic_write(&get_codex_config_path(), doc.to_string().as_bytes());
+        }
+    }
+    Ok(result)
+}
+
+fn command_result(output: std::process::Output, success_message: &str) -> AppResult<CodexPluginCommandResult> {
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if output.status.success() {
+        Ok(CodexPluginCommandResult {
+            ok: true,
+            message: if stdout.is_empty() {
+                success_message.to_string()
+            } else {
+                stdout.clone()
+            },
+            stdout,
+            stderr,
+        })
+    } else {
+        Err(AppError::Other(first_nonempty(&stderr, &stdout)))
+    }
+}
+
+fn first_nonempty(primary: &str, fallback: &str) -> String {
+    let primary = primary.trim();
+    if !primary.is_empty() {
+        primary.to_string()
+    } else {
+        fallback.trim().to_string()
+    }
+}
+
+fn run_codex_plugin_args(args: &[&str]) -> AppResult<std::process::Output> {
+    let mut command = Command::new("codex");
+    command.args(args);
+    apply_no_window(&mut command);
+    match command.output() {
+        Ok(output) => Ok(output),
+        Err(error) => Err(AppError::Other(format!(
+            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
+        ))),
+    }
+}
+
+fn parse_marketplace_json(stdout: &str) -> Vec<CodexMarketplace> {
+    let trimmed = stdout.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let value: Value = match serde_json::from_str(trimmed) {
+        Ok(value) => value,
+        Err(_) => return Vec::new(),
+    };
+    let items = match value {
+        Value::Array(items) => items,
+        Value::Object(map) => map
+            .get("marketplaces")
+            .or_else(|| map.get("items"))
+            .cloned()
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default(),
+        _ => return Vec::new(),
+    };
+    items
+        .into_iter()
+        .filter_map(|item| {
+            if let Some(name) = item.as_str() {
+                return Some(CodexMarketplace {
+                    name: name.to_string(),
+                    root: None,
+                    source: None,
+                    raw: Some(name.to_string()),
+                });
+            }
+            let obj = item.as_object()?;
+            let name = obj
+                .get("name")
+                .or_else(|| obj.get("marketplace"))
+                .or_else(|| obj.get("id"))
+                .and_then(Value::as_str)?
+                .to_string();
+            Some(CodexMarketplace {
+                name,
+                root: obj
+                    .get("root")
+                    .or_else(|| obj.get("path"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                source: obj
+                    .get("source")
+                    .or_else(|| obj.get("url"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                raw: Some(item.to_string()),
+            })
+        })
+        .collect()
+}
+
+fn parse_marketplace_text(stdout: &str) -> Vec<CodexMarketplace> {
+    let mut out = Vec::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Common formats: "name  /path" or "- name (path)"
+        let cleaned = line.trim_start_matches(['-', '*', '•']).trim();
+        if cleaned.is_empty() {
+            continue;
+        }
+        let (name, rest) = cleaned
+            .split_once(|ch: char| ch.is_whitespace())
+            .map(|(name, rest)| (name.trim(), rest.trim()))
+            .unwrap_or((cleaned, ""));
+        if name.eq_ignore_ascii_case("name") || name.eq_ignore_ascii_case("marketplace") {
+            continue;
+        }
+        out.push(CodexMarketplace {
+            name: name.trim_matches(|ch| ch == '"' || ch == '\'').to_string(),
+            root: if rest.is_empty() { None } else { Some(rest.to_string()) },
+            source: None,
+            raw: Some(line.to_string()),
+        });
+    }
+    out
 }
 
 fn load_config_document() -> AppResult<DocumentMut> {

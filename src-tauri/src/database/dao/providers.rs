@@ -35,7 +35,8 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -50,7 +51,8 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -68,7 +70,8 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -353,6 +356,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect();
+    let health_detail: Option<String> = row.get(21)?;
     Ok(Provider {
         api_key_set: !api_key.is_empty()
             || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
@@ -372,12 +376,38 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         created_at: row.get(10)?,
         health_status: row.get(11)?,
         health_checked_at: row.get(12)?,
+        health_latency_ms: parse_health_latency_ms(health_detail.as_deref()),
         model_context_window: row.get(14)?,
         auto_review_model_override: row.get(15)?,
         web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),
         failover_group: row.get(19)?,
         failover_models,
     })
+}
+
+fn parse_health_latency_ms(detail: Option<&str>) -> Option<u64> {
+    let detail = detail?;
+    let marker = "latency_ms=";
+    let start = detail.find(marker)? + marker.len();
+    let end = detail[start..]
+        .find(|ch: char| !ch.is_ascii_digit())
+        .map(|offset| start + offset)
+        .unwrap_or(detail.len());
+    detail[start..end].parse().ok()
+}
+
+#[cfg(test)]
+mod health_latency_tests {
+    use super::parse_health_latency_ms;
+
+    #[test]
+    fn parses_latency_suffix_from_health_detail() {
+        assert_eq!(
+            parse_health_latency_ms(Some("ok|latency_ms=123")),
+            Some(123)
+        );
+        assert_eq!(parse_health_latency_ms(Some("no latency")), None);
+    }
 }
 
 fn normalize_failover_models(models: &[String]) -> Vec<String> {

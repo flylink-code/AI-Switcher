@@ -1743,6 +1743,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         }
     }
 

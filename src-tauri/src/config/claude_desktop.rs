@@ -710,6 +710,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         }
     }
 
@@ -851,6 +852,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         };
         let profile = build_profile(&provider, 15_821).expect("profile");
         assert_eq!(

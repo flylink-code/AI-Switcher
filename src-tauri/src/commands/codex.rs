@@ -1,6 +1,9 @@
 //! Safe, credential-free Codex status commands.
 
-use crate::config::codex::{auth_status, CodexAuthStatus};
+use crate::config::codex::{
+    auth_status, get_web_search_mode, set_web_search_mode, CodexAuthStatus, CodexWebSearchMode,
+    CodexWebSearchSnapshot,
+};
 use crate::config::codex_provider_sync::{self, CodexProviderSyncResult};
 use crate::error::AppResult;
 
@@ -20,4 +23,14 @@ pub fn sync_codex_session_providers(
         .map(str::trim)
         .filter(|value| !value.is_empty());
     codex_provider_sync::sync_sessions_to_provider(None, target)
+}
+
+#[tauri::command]
+pub fn get_codex_web_search_mode() -> AppResult<CodexWebSearchSnapshot> {
+    get_web_search_mode()
+}
+
+#[tauri::command]
+pub fn set_codex_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearchSnapshot> {
+    set_web_search_mode(mode)
 }

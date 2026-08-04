@@ -20,14 +20,17 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import type { RepositorySkill, Skill, SkillTarget, SkillUpdateStatus } from "@/types/backend";
+import type { RepositorySkill, Skill, SkillTarget, SkillUpdateStatus, UnmanagedSkill } from "@/types/backend";
 import {
   deleteSkill,
   checkSkillUpdate,
   checkSkillUpdates,
+  ignoreUnmanagedSkill,
   installGithubRepositorySkills,
   installZipSkill,
   refreshGithubRepositorySkills,
+  registerUnmanagedSkill,
+  scanUnmanagedSkills,
   setSkillRepository,
   setSkillEnabled,
   updateGithubSkills,
@@ -55,6 +58,9 @@ export default function SkillsPage() {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [updateStatuses, setUpdateStatuses] = useState<Record<string, SkillUpdateStatus>>({});
   const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [unmanagedSkills, setUnmanagedSkills] = useState<UnmanagedSkill[]>([]);
+  const [discoveryBusy, setDiscoveryBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!repositoryQuery.data) return;
@@ -216,6 +222,46 @@ export default function SkillsPage() {
 
   const updateAvailableNames = skills.filter((skill) => updateStatuses[skill.name]?.status === "update_available").map((skill) => skill.name);
 
+  const discoverUnmanaged = async () => {
+    setDiscovering(true);
+    try {
+      const found = await scanUnmanagedSkills(target);
+      setUnmanagedSkills(found);
+      void message.info(t("skills.discoveryFound", { count: found.length }));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const registerUnmanaged = async (skill: UnmanagedSkill) => {
+    setDiscoveryBusy(skill.path);
+    try {
+      await registerUnmanagedSkill(skill.path, target);
+      void message.success(t("skills.discoveryRegistered", { name: skill.directory }));
+      setUnmanagedSkills((current) => current.filter((item) => item.path !== skill.path));
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setDiscoveryBusy(null);
+    }
+  };
+
+  const ignoreUnmanaged = async (skill: UnmanagedSkill) => {
+    setDiscoveryBusy(skill.path);
+    try {
+      await ignoreUnmanagedSkill(skill.path);
+      void message.success(t("skills.discoveryIgnored", { name: skill.directory }));
+      setUnmanagedSkills((current) => current.filter((item) => item.path !== skill.path));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setDiscoveryBusy(null);
+    }
+  };
+
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
     <Segmented
@@ -228,8 +274,67 @@ export default function SkillsPage() {
         setTarget(value as SkillTarget);
         setUpdateStatuses({});
         setSelectedPaths([]);
+        setUnmanagedSkills([]);
       }}
     />
+    <Card
+      size="small"
+      title={t("skills.discoveryTitle")}
+      extra={
+        <Button icon={<ReloadOutlined />} loading={discovering} disabled={busy || scanning} onClick={() => void discoverUnmanaged()}>
+          {t("skills.discoveryScan")}
+        </Button>
+      }
+    >
+      <Text type="secondary">{t("skills.discoveryHelp")}</Text>
+      <Table
+        size="small"
+        style={{ marginTop: 8 }}
+        rowKey="path"
+        dataSource={unmanagedSkills}
+        loading={discovering}
+        pagination={false}
+        locale={{ emptyText: t("skills.discoveryEmpty") }}
+        columns={[
+          { title: t("skills.name"), dataIndex: "directory", render: (name: string) => <Text strong>{name}</Text> },
+          { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
+          {
+            title: t("skills.discoveryFoundIn"),
+            dataIndex: "foundIn",
+            render: (foundIn: string[]) => foundIn.map((label) => <Tag key={label}>{label}</Tag>),
+          },
+          {
+            title: t("skills.path"),
+            dataIndex: "path",
+            ellipsis: true,
+            render: (path: string) => <Text copyable={{ text: path }} ellipsis style={{ maxWidth: 280 }}>{path}</Text>,
+          },
+          {
+            title: t("skills.actions"),
+            width: 180,
+            render: (_: unknown, skill: UnmanagedSkill) => (
+              <Space size="small">
+                <Button
+                  type="link"
+                  loading={discoveryBusy === skill.path}
+                  disabled={busy || scanning || discoveryBusy !== null}
+                  onClick={() => void registerUnmanaged(skill)}
+                >
+                  {t("skills.discoveryRegister")}
+                </Button>
+                <Button
+                  type="link"
+                  disabled={busy || scanning || discoveryBusy !== null}
+                  onClick={() => void ignoreUnmanaged(skill)}
+                >
+                  {t("skills.discoveryIgnore")}
+                </Button>
+              </Space>
+            ),
+          },
+        ]}
+      />
+    </Card>
     <Card
       size="small"
       title={t("skills.repositoryTitle")}

@@ -31,6 +31,8 @@ import type {
   ConfigBackup,
   DoctorReport,
   VisibilityRepairResult,
+  CodexWebSearchMode,
+  CodexWebSearchSnapshot,
   LibraryArchivePreview,
   ProviderTarget,
   SyncPreview,
@@ -44,7 +46,10 @@ import {
   previewLibraryBackup,
   restoreLibraryBackup,
   runEnvironmentDoctor,
+  repairDoctorCheck,
   repairEnvironmentVisibility,
+  getCodexWebSearchMode,
+  setCodexWebSearchMode,
   deleteSyncTarget,
   discoverWslDistributions,
   migrateDataRoot,
@@ -114,7 +119,10 @@ export default function EnvironmentPage() {
   const [running, setRunning] = useState(false);
   const [doctorRunning, setDoctorRunning] = useState(false);
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [doctorRepairing, setDoctorRepairing] = useState<string | null>(null);
   const [visibilityRepairing, setVisibilityRepairing] = useState(false);
+  const [webSearch, setWebSearch] = useState<CodexWebSearchSnapshot | null>(null);
+  const [webSearchSaving, setWebSearchSaving] = useState(false);
   const [autostartChanging, setAutostartChanging] = useState(false);
   const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
@@ -174,6 +182,39 @@ export default function EnvironmentPage() {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
       setVisibilityRepairing(false);
+    }
+  }, [t]);
+
+  const onRepairDoctorCheck = useCallback(async (id: string) => {
+    setDoctorRepairing(id);
+    try {
+      const result = await repairDoctorCheck(id);
+      void message.success(result.message);
+      setDoctorReport(await runEnvironmentDoctor());
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDoctorRepairing(null);
+    }
+  }, []);
+
+  const loadWebSearch = useCallback(async () => {
+    try {
+      setWebSearch(await getCodexWebSearchMode());
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const onChangeWebSearch = useCallback(async (mode: CodexWebSearchMode) => {
+    setWebSearchSaving(true);
+    try {
+      setWebSearch(await setCodexWebSearchMode(mode));
+      void message.success(t("env.webSearchSaved"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWebSearchSaving(false);
     }
   }, [t]);
 
@@ -573,9 +614,20 @@ export default function EnvironmentPage() {
               renderItem={(check) => (
                 <List.Item
                   extra={
-                    <Tag color={check.ok ? "green" : "red"}>
-                      {t(check.ok ? "env.doctorPassed" : "env.doctorFailed")}
-                    </Tag>
+                    <Space size={8}>
+                      {!check.ok && check.repairAction ? (
+                        <Button
+                          size="small"
+                          loading={doctorRepairing === check.repairAction}
+                          onClick={() => void onRepairDoctorCheck(check.repairAction!)}
+                        >
+                          {t("env.doctorRepair")}
+                        </Button>
+                      ) : null}
+                      <Tag color={check.ok ? "green" : "red"}>
+                        {t(check.ok ? "env.doctorPassed" : "env.doctorFailed")}
+                      </Tag>
+                    </Space>
                   }
                 >
                   <List.Item.Meta
@@ -590,6 +642,43 @@ export default function EnvironmentPage() {
               {t("env.doctorEmpty")}
             </Text>
           )}
+        </Card>
+
+        <Card
+          size="small"
+          title={t("env.webSearchTitle")}
+          extra={
+            <Button size="small" onClick={() => void loadWebSearch()}>
+              {t("env.refresh")}
+            </Button>
+          }
+        >
+          <Text type="secondary">{t("env.webSearchDescription")}</Text>
+          <Space style={{ marginTop: 12 }} wrap>
+            <Select<CodexWebSearchMode>
+              style={{ minWidth: 180 }}
+              loading={webSearchSaving}
+              placeholder={t("env.webSearchPlaceholder")}
+              value={webSearch?.mode}
+              onFocus={() => {
+                if (!webSearch) void loadWebSearch();
+              }}
+              onChange={(mode) => void onChangeWebSearch(mode)}
+              options={[
+                { value: "disabled", label: t("env.webSearchDisabled") },
+                { value: "cached", label: t("env.webSearchCached") },
+                { value: "indexed", label: t("env.webSearchIndexed") },
+                { value: "live", label: t("env.webSearchLive") },
+              ]}
+            />
+            {webSearch ? (
+              <Text type="secondary">
+                {webSearch.setInConfig
+                  ? t("env.webSearchConfigPath", { path: webSearch.configPath })
+                  : t("env.webSearchUnset")}
+              </Text>
+            ) : null}
+          </Space>
         </Card>
 
         <Card size="small" title={t("env.sections.system")}>

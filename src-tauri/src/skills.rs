@@ -15,7 +15,10 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 
-use crate::config::{get_app_config_dir, get_claude_skills_dir, get_codex_skills_dir, read_json_file, write_json_file};
+use crate::config::{
+    get_app_config_dir, get_claude_skills_dir, get_codex_skills_dir, get_home_dir, read_json_file,
+    write_json_file,
+};
 use crate::error::{AppError, AppResult};
 
 const SKILL_FILE: &str = "SKILL.md";
@@ -690,6 +693,220 @@ fn frontmatter_value(content: &str, key: &str) -> Option<String> {
     })
 }
 
+// ---- Skills Discovery (unmanaged local skills) --------------------------------
+
+const SKILL_DISCOVERY_IGNORE_FILE: &str = "skill-discovery-ignore.json";
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnmanagedSkill {
+    pub directory: String,
+    pub name: String,
+    pub description: String,
+    pub found_in: Vec<String>,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkillDiscoveryIgnoreConfig {
+    #[serde(default = "skill_sources_version")]
+    version: u8,
+    #[serde(default)]
+    ignored: BTreeSet<String>,
+}
+
+/// Scan known skill roots outside the managed target directory.
+pub fn scan_unmanaged_skills(target: SkillTarget) -> AppResult<Vec<UnmanagedSkill>> {
+    let managed_root = skill_root(target);
+    let managed_names: BTreeSet<String> = list_skills(target)?
+        .into_iter()
+        .map(|skill| skill.name)
+        .collect();
+    let ignored = load_discovery_ignore()?.ignored;
+
+    let mut by_key: BTreeMap<String, UnmanagedSkill> = BTreeMap::new();
+    for (scan_dir, label) in discovery_scan_sources(target) {
+        if same_path(&scan_dir, &managed_root) {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(&scan_dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let directory = entry.file_name().to_string_lossy().to_string();
+            if directory.starts_with('.') {
+                continue;
+            }
+            let skill_md = path.join(SKILL_FILE);
+            let disabled = path.join("SKILL.md.disabled");
+            let content_path = if skill_md.is_file() {
+                skill_md
+            } else if disabled.is_file() {
+                disabled
+            } else {
+                continue;
+            };
+            let ignore_key = discovery_ignore_key(&path);
+            if ignored.contains(&ignore_key) || ignored.contains(&directory) {
+                continue;
+            }
+            if managed_names.contains(&directory) {
+                continue;
+            }
+            let content = fs::read_to_string(&content_path).unwrap_or_default();
+            let description = skill_description(&content).unwrap_or_default();
+            let name = frontmatter_value(&content, "name").unwrap_or_else(|| directory.clone());
+            by_key
+                .entry(ignore_key)
+                .and_modify(|skill| {
+                    if !skill.found_in.contains(&label) {
+                        skill.found_in.push(label.clone());
+                    }
+                })
+                .or_insert(UnmanagedSkill {
+                    directory: directory.clone(),
+                    name,
+                    description,
+                    found_in: vec![label.clone()],
+                    path: path.to_string_lossy().into_owned(),
+                });
+        }
+    }
+
+    let mut out: Vec<UnmanagedSkill> = by_key.into_values().collect();
+    out.sort_by(|a, b| a.directory.to_lowercase().cmp(&b.directory.to_lowercase()));
+    Ok(out)
+}
+
+/// Copy an unmanaged skill directory into the managed skills root and record source.
+pub fn register_unmanaged_skill(path: &str, target: SkillTarget) -> AppResult<Skill> {
+    let source = PathBuf::from(path.trim());
+    if !source.is_dir() {
+        return Err(AppError::Config(format!("Skill 目录不存在: {path}")));
+    }
+    let skill_md = source.join(SKILL_FILE);
+    let disabled = source.join("SKILL.md.disabled");
+    if !skill_md.is_file() && !disabled.is_file() {
+        return Err(AppError::Config("目录缺少 SKILL.md".to_string()));
+    }
+    let directory = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| AppError::Config("无法解析 Skill 目录名".to_string()))?
+        .to_string();
+    if directory.starts_with('.') || directory.contains(['/', '\\']) {
+        return Err(AppError::Config(format!("无效的 Skill 目录名: {directory}")));
+    }
+    let dest = skill_root(target).join(&directory);
+    if dest.exists() {
+        return Err(AppError::Config(format!("目标已存在同名 Skill: {directory}")));
+    }
+    fs::create_dir_all(skill_root(target))?;
+    copy_dir_recursive(&source, &dest)?;
+    let content_hash = skill_content_hash(&dest).unwrap_or_default();
+    let skill = list_skills(target)?
+        .into_iter()
+        .find(|skill| skill.name == directory)
+        .ok_or_else(|| AppError::Config(format!("登记后未找到 Skill: {directory}")))?;
+    record_source(
+        skill,
+        InstalledSkillSource {
+            kind: "local_import".to_string(),
+            source_url: Some(source.to_string_lossy().into_owned()),
+            revision: None,
+            repository_path: None,
+            installed_at: Utc::now().timestamp_millis(),
+            content_sha256: content_hash,
+        },
+        target,
+    )
+}
+
+/// Persist an ignore entry so discovery no longer surfaces this skill path.
+pub fn ignore_unmanaged_skill(path: &str) -> AppResult<()> {
+    let source = PathBuf::from(path.trim());
+    if path.trim().is_empty() {
+        return Err(AppError::Config("忽略路径不能为空".to_string()));
+    }
+    let key = discovery_ignore_key(&source);
+    let mut config = load_discovery_ignore()?;
+    config.ignored.insert(key);
+    write_discovery_ignore(&config)
+}
+
+fn discovery_scan_sources(target: SkillTarget) -> Vec<(PathBuf, String)> {
+    let home = get_home_dir();
+    let mut sources = Vec::new();
+    match target {
+        SkillTarget::ClaudeCode => {
+            sources.push((get_codex_skills_dir(), "codex".to_string()));
+        }
+        SkillTarget::Codex => {
+            sources.push((get_claude_skills_dir(), "claude_code".to_string()));
+        }
+    }
+    sources.push((home.join(".agents").join("skills"), "agents".to_string()));
+    sources.push((home.join(".codex").join("skills"), "codex".to_string()));
+    sources.push((home.join(".claude").join("skills"), "claude_code".to_string()));
+    // Deduplicate while preserving order.
+    let mut seen = BTreeSet::new();
+    sources.retain(|(path, _)| seen.insert(normalize_path_key(path)));
+    sources
+}
+
+fn discovery_ignore_key(path: &Path) -> String {
+    normalize_path_key(path)
+}
+
+fn normalize_path_key(path: &Path) -> String {
+    let display = path.to_string_lossy();
+    #[cfg(windows)]
+    {
+        display.trim_start_matches(r"\\?\").replace('/', "\\").to_ascii_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        display.to_string()
+    }
+}
+
+fn same_path(a: &Path, b: &Path) -> bool {
+    normalize_path_key(a) == normalize_path_key(b)
+}
+
+fn load_discovery_ignore() -> AppResult<SkillDiscoveryIgnoreConfig> {
+    let path = get_app_config_dir().join(SKILL_DISCOVERY_IGNORE_FILE);
+    Ok(read_json_file::<SkillDiscoveryIgnoreConfig>(&path)?.unwrap_or_default())
+}
+
+fn write_discovery_ignore(config: &SkillDiscoveryIgnoreConfig) -> AppResult<()> {
+    let path = get_app_config_dir().join(SKILL_DISCOVERY_IGNORE_FILE);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    write_json_file(&path, config)
+}
+
+fn copy_dir_recursive(src: &Path, dest: &Path) -> AppResult<()> {
+    fs::create_dir_all(dest)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = dest.join(entry.file_name());
+        if from.is_dir() {
+            copy_dir_recursive(&from, &to)?;
+        } else {
+            fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -735,6 +952,36 @@ mod tests {
         assert_eq!(skill_sources_file(SkillTarget::Codex), CODEX_SKILL_SOURCES_CONFIG_FILE);
         assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Codex));
         assert_eq!(SkillTarget::default(), SkillTarget::ClaudeCode);
+    }
+
+    #[test]
+    fn unmanaged_skill_scan_skips_managed_and_ignored() {
+        let temp = tempfile::tempdir().unwrap();
+        let managed = temp.path().join("managed");
+        let scatter = temp.path().join("scatter");
+        fs::create_dir_all(managed.join("kept")).unwrap();
+        fs::write(managed.join("kept").join(SKILL_FILE), "---\ndescription: Kept\n---\n").unwrap();
+        fs::create_dir_all(scatter.join("loose")).unwrap();
+        fs::write(scatter.join("loose").join(SKILL_FILE), "---\ndescription: Loose\n---\n").unwrap();
+        fs::create_dir_all(scatter.join("ignored")).unwrap();
+        fs::write(scatter.join("ignored").join(SKILL_FILE), "---\ndescription: Ignored\n---\n").unwrap();
+
+        let managed_names: BTreeSet<String> = ["kept".to_string()].into_iter().collect();
+        let mut ignored = BTreeSet::new();
+        ignored.insert(normalize_path_key(&scatter.join("ignored")));
+
+        let mut found = Vec::new();
+        for entry in fs::read_dir(&scatter).unwrap().flatten() {
+            let path = entry.path();
+            let directory = entry.file_name().to_string_lossy().to_string();
+            if managed_names.contains(&directory) || ignored.contains(&discovery_ignore_key(&path)) {
+                continue;
+            }
+            if path.join(SKILL_FILE).is_file() {
+                found.push(directory);
+            }
+        }
+        assert_eq!(found, vec!["loose".to_string()]);
     }
 
     #[tokio::test]

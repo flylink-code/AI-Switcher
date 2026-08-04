@@ -5,19 +5,22 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item};
 
 use crate::codex_plugins;
 use crate::commands::tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_doctor_output,
 };
+use crate::config::codex;
 use crate::config::codex_provider_sync;
 use crate::config::{
     get_claude_config_dir, get_claude_settings_path, get_codex_auth_path, get_codex_config_dir,
-    get_codex_config_path, get_codex_plugins_cache_dir,
+    get_codex_config_path, get_codex_plugins_cache_dir, read_json_file, write_json_file,
 };
-use crate::error::AppResult;
+use crate::database::dao;
+use crate::error::{AppError, AppResult};
+use crate::provider::ProviderTarget;
 use crate::store::AppState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +30,26 @@ pub struct DoctorCheck {
     pub label: String,
     pub ok: bool,
     pub detail: String,
+    /// When set, Environment page shows a per-check repair button.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repair_action: Option<String>,
+}
+
+impl DoctorCheck {
+    fn new(id: impl Into<String>, label: impl Into<String>, ok: bool, detail: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            ok,
+            detail: detail.into(),
+            repair_action: None,
+        }
+    }
+
+    fn with_repair(mut self, action: impl Into<String>) -> Self {
+        self.repair_action = Some(action.into());
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,16 +68,23 @@ pub struct VisibilityRepairResult {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorRepairResult {
+    pub id: String,
+    pub message: String,
+}
+
 #[tauri::command]
 pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
     let mut checks = Vec::new();
 
     let claude_info = get_claude_code_version(Some(false)).await?;
-    checks.push(DoctorCheck {
-        id: "claude_cli".into(),
-        label: "Claude Code CLI".into(),
-        ok: claude_info.installed && !claude_info.installed_but_broken,
-        detail: match (
+    checks.push(DoctorCheck::new(
+        "claude_cli",
+        "Claude Code CLI",
+        claude_info.installed && !claude_info.installed_but_broken,
+        match (
             claude_info.installed,
             claude_info.current_version.as_deref(),
             claude_info.executable_path.as_deref(),
@@ -66,7 +96,7 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
             (_, _, _, Some(error)) => error.to_string(),
             _ => "未检测到 Claude Code".into(),
         },
-    });
+    ));
 
     checks.push(match run_claude_doctor_output() {
         Ok(output) => {
@@ -74,11 +104,11 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let combined = format!("{stdout}{stderr}").trim().to_string();
             let detail = truncate(&combined, 1200);
-            DoctorCheck {
-                id: "claude_doctor".into(),
-                label: "claude doctor".into(),
-                ok: output.status.success(),
-                detail: if detail.is_empty() {
+            DoctorCheck::new(
+                "claude_doctor",
+                "claude doctor",
+                output.status.success(),
+                if detail.is_empty() {
                     if output.status.success() {
                         "通过".into()
                     } else {
@@ -87,14 +117,9 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
                 } else {
                     detail
                 },
-            }
+            )
         }
-        Err(error) => DoctorCheck {
-            id: "claude_doctor".into(),
-            label: "claude doctor".into(),
-            ok: false,
-            detail: error.to_string(),
-        },
+        Err(error) => DoctorCheck::new("claude_doctor", "claude doctor", false, error.to_string()),
     });
 
     checks.push(check_claude_settings());
@@ -107,11 +132,11 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
     checks.push(check_codex_plugins());
 
     let codex_info = get_codex_cli_version(Some(false)).await?;
-    checks.push(DoctorCheck {
-        id: "codex_cli".into(),
-        label: "Codex CLI".into(),
-        ok: codex_info.installed && !codex_info.installed_but_broken,
-        detail: match (
+    checks.push(DoctorCheck::new(
+        "codex_cli",
+        "Codex CLI",
+        codex_info.installed && !codex_info.installed_but_broken,
+        match (
             codex_info.installed,
             codex_info.current_version.as_deref(),
             codex_info.executable_path.as_deref(),
@@ -123,7 +148,7 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
             (_, _, _, Some(error)) => error.to_string(),
             _ => "未检测到 Codex CLI".into(),
         },
-    });
+    ));
 
     Ok(DoctorReport { checks })
 }
@@ -178,15 +203,69 @@ pub async fn repair_environment_visibility(
     })
 }
 
+/// Repair a single doctor check when `repair_action` is present.
+#[tauri::command]
+pub async fn repair_doctor_check(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<DoctorRepairResult> {
+    match id.as_str() {
+        "claude_settings" => {
+            repair_spinner_verbs()?;
+            Ok(DoctorRepairResult {
+                id,
+                message: "已将 spinnerVerbs 规范化为 { mode, verbs } 对象".into(),
+            })
+        }
+        "codex_catalog" => {
+            let provider = state.db.with_conn(|conn| {
+                dao::get_current_provider(conn, ProviderTarget::Codex)?
+                    .ok_or_else(|| AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into()))
+            })?;
+            let path = codex::repair_model_catalog_file(&provider)?;
+            Ok(DoctorRepairResult {
+                id,
+                message: format!("已重建 model catalog: {path}"),
+            })
+        }
+        other => Err(AppError::Config(format!("检查项不支持一键修复: {other}"))),
+    }
+}
+
+fn repair_spinner_verbs() -> AppResult<()> {
+    let path = get_claude_settings_path();
+    if !path.is_file() {
+        return Err(AppError::Config("settings.json 不存在".into()));
+    }
+    let mut settings = read_json_file::<Value>(&path)?
+        .ok_or_else(|| AppError::Config("settings.json 为空".into()))?;
+    let object = settings
+        .as_object_mut()
+        .ok_or_else(|| AppError::Config("settings.json 根节点必须是对象".into()))?;
+    normalize_spinner_verbs(object);
+    write_json_file(&path, &settings)
+}
+
+fn normalize_spinner_verbs(settings: &mut Map<String, Value>) {
+    let Some(Value::Array(verbs)) = settings.get("spinnerVerbs").cloned() else {
+        return;
+    };
+    let verbs: Vec<Value> = verbs.into_iter().filter(Value::is_string).collect();
+    let mut object = Map::new();
+    object.insert("mode".to_string(), Value::String("replace".to_string()));
+    object.insert("verbs".to_string(), Value::Array(verbs));
+    settings.insert("spinnerVerbs".to_string(), Value::Object(object));
+}
+
 fn check_claude_settings() -> DoctorCheck {
     let path = get_claude_settings_path();
     if !path.is_file() {
-        return DoctorCheck {
-            id: "claude_settings".into(),
-            label: "Claude Code settings.json".into(),
-            ok: true,
-            detail: "文件不存在（使用默认设置）".into(),
-        };
+        return DoctorCheck::new(
+            "claude_settings",
+            "Claude Code settings.json",
+            true,
+            "文件不存在（使用默认设置）",
+        );
     }
     match fs::read_to_string(&path).and_then(|text| {
         serde_json::from_str::<Value>(&text).map_err(|error| {
@@ -199,33 +278,34 @@ fn check_claude_settings() -> DoctorCheck {
                 .map(|value| !value.is_array())
                 .unwrap_or(true);
             if spinner_ok {
-                DoctorCheck {
-                    id: "claude_settings".into(),
-                    label: "Claude Code settings.json".into(),
-                    ok: true,
-                    detail: format!("JSON 对象有效 @ {}", path.display()),
-                }
+                DoctorCheck::new(
+                    "claude_settings",
+                    "Claude Code settings.json",
+                    true,
+                    format!("JSON 对象有效 @ {}", path.display()),
+                )
             } else {
-                DoctorCheck {
-                    id: "claude_settings".into(),
-                    label: "Claude Code settings.json".into(),
-                    ok: false,
-                    detail: "spinnerVerbs 写成了数组，会导致整份设置失效；请执行「安装中文」或改为 {mode, verbs} 对象".into(),
-                }
+                DoctorCheck::new(
+                    "claude_settings",
+                    "Claude Code settings.json",
+                    false,
+                    "spinnerVerbs 写成了数组，会导致整份设置失效；可一键修复为 {mode, verbs} 对象",
+                )
+                .with_repair("claude_settings")
             }
         }
-        Ok(_) => DoctorCheck {
-            id: "claude_settings".into(),
-            label: "Claude Code settings.json".into(),
-            ok: false,
-            detail: "根节点必须是 JSON 对象".into(),
-        },
-        Err(error) => DoctorCheck {
-            id: "claude_settings".into(),
-            label: "Claude Code settings.json".into(),
-            ok: false,
-            detail: format!("解析失败: {error}"),
-        },
+        Ok(_) => DoctorCheck::new(
+            "claude_settings",
+            "Claude Code settings.json",
+            false,
+            "根节点必须是 JSON 对象",
+        ),
+        Err(error) => DoctorCheck::new(
+            "claude_settings",
+            "Claude Code settings.json",
+            false,
+            format!("解析失败: {error}"),
+        ),
     }
 }
 
@@ -237,26 +317,26 @@ fn check_claude_code_base_url() -> DoctorCheck {
         lower.contains("127.0.0.1") || lower.contains("localhost")
     });
     match base {
-        Some(url) if via_proxy => DoctorCheck {
-            id: "claude_code_proxy".into(),
-            label: "Claude Code 用量路径".into(),
-            ok: true,
-            detail: format!("ANTHROPIC_BASE_URL 指向本机代理（{url}），可实时记账"),
-        },
-        Some(url) => DoctorCheck {
-            id: "claude_code_proxy".into(),
-            label: "Claude Code 用量路径".into(),
-            ok: true,
-            detail: format!(
+        Some(url) if via_proxy => DoctorCheck::new(
+            "claude_code_proxy",
+            "Claude Code 用量路径",
+            true,
+            format!("ANTHROPIC_BASE_URL 指向本机代理（{url}），可实时记账"),
+        ),
+        Some(url) => DoctorCheck::new(
+            "claude_code_proxy",
+            "Claude Code 用量路径",
+            true,
+            format!(
                 "ANTHROPIC_BASE_URL 为外部上游（{url}）：无实时代理用量；可在用量页同步 ~/.claude/projects，或切到托管供应商启用本机代理"
             ),
-        },
-        None => DoctorCheck {
-            id: "claude_code_proxy".into(),
-            label: "Claude Code 用量路径".into(),
-            ok: true,
-            detail: "未设置 ANTHROPIC_BASE_URL（默认官方端点）".into(),
-        },
+        ),
+        None => DoctorCheck::new(
+            "claude_code_proxy",
+            "Claude Code 用量路径",
+            true,
+            "未设置 ANTHROPIC_BASE_URL（默认官方端点）",
+        ),
     }
 }
 
@@ -274,31 +354,31 @@ fn read_claude_base_url(path: &Path) -> Option<String> {
 fn check_claude_code_projects() -> DoctorCheck {
     let root = get_claude_config_dir().join("projects");
     if !root.is_dir() {
-        return DoctorCheck {
-            id: "claude_code_projects".into(),
-            label: "Claude Code projects".into(),
-            ok: false,
-            detail: format!("未找到会话目录 {}", root.display()),
-        };
+        return DoctorCheck::new(
+            "claude_code_projects",
+            "Claude Code projects",
+            false,
+            format!("未找到会话目录 {}", root.display()),
+        );
     }
     let count = count_jsonl_files(&root, 2_000);
-    DoctorCheck {
-        id: "claude_code_projects".into(),
-        label: "Claude Code projects".into(),
-        ok: count > 0,
-        detail: format!("发现约 {count} 个会话 JSONL @ {}", root.display()),
-    }
+    DoctorCheck::new(
+        "claude_code_projects",
+        "Claude Code projects",
+        count > 0,
+        format!("发现约 {count} 个会话 JSONL @ {}", root.display()),
+    )
 }
 
 fn check_codex_config() -> DoctorCheck {
     let path = get_codex_config_path();
     if !path.is_file() {
-        return DoctorCheck {
-            id: "codex_config".into(),
-            label: "Codex config.toml".into(),
-            ok: false,
-            detail: format!("未找到 {}", path.display()),
-        };
+        return DoctorCheck::new(
+            "codex_config",
+            "Codex config.toml",
+            false,
+            format!("未找到 {}", path.display()),
+        );
     }
     match fs::read_to_string(&path).and_then(|text| {
         text.parse::<DocumentMut>()
@@ -309,62 +389,57 @@ fn check_codex_config() -> DoctorCheck {
                 .get("model_provider")
                 .and_then(|item| item.as_str())
                 .unwrap_or("(unset)");
-            DoctorCheck {
-                id: "codex_config".into(),
-                label: "Codex config.toml".into(),
-                ok: true,
-                detail: format!("TOML 有效；model_provider={provider}"),
-            }
+            DoctorCheck::new(
+                "codex_config",
+                "Codex config.toml",
+                true,
+                format!("TOML 有效；model_provider={provider}"),
+            )
         }
-        Err(error) => DoctorCheck {
-            id: "codex_config".into(),
-            label: "Codex config.toml".into(),
-            ok: false,
-            detail: format!("解析失败: {error}"),
-        },
+        Err(error) => DoctorCheck::new(
+            "codex_config",
+            "Codex config.toml",
+            false,
+            format!("解析失败: {error}"),
+        ),
     }
 }
 
 fn check_codex_auth() -> DoctorCheck {
     let path = get_codex_auth_path();
     let ok = path.is_file();
-    DoctorCheck {
-        id: "codex_auth".into(),
-        label: "Codex auth.json".into(),
+    DoctorCheck::new(
+        "codex_auth",
+        "Codex auth.json",
         ok,
-        detail: if ok {
+        if ok {
             format!("已检测到登录文件 @ {}", path.display())
         } else {
             "未检测到 auth.json；官方 Codex 需先 `codex login`".into()
         },
-    }
+    )
 }
 
 fn check_codex_model_catalog() -> DoctorCheck {
     let path = get_codex_config_path();
     let Ok(text) = fs::read_to_string(&path) else {
-        return DoctorCheck {
-            id: "codex_catalog".into(),
-            label: "Codex model catalog".into(),
-            ok: true,
-            detail: "无 config.toml，跳过".into(),
-        };
+        return DoctorCheck::new("codex_catalog", "Codex model catalog", true, "无 config.toml，跳过");
     };
     let Ok(doc) = text.parse::<DocumentMut>() else {
-        return DoctorCheck {
-            id: "codex_catalog".into(),
-            label: "Codex model catalog".into(),
-            ok: false,
-            detail: "config.toml 无效，无法读取 model_catalog_json".into(),
-        };
+        return DoctorCheck::new(
+            "codex_catalog",
+            "Codex model catalog",
+            false,
+            "config.toml 无效，无法读取 model_catalog_json",
+        );
     };
     let Some(relative) = doc.get("model_catalog_json").and_then(|item| item.as_str()) else {
-        return DoctorCheck {
-            id: "codex_catalog".into(),
-            label: "Codex model catalog".into(),
-            ok: true,
-            detail: "未设置 model_catalog_json".into(),
-        };
+        return DoctorCheck::new(
+            "codex_catalog",
+            "Codex model catalog",
+            true,
+            "未设置 model_catalog_json",
+        );
     };
     let catalog_path = {
         let candidate = Path::new(relative);
@@ -375,35 +450,40 @@ fn check_codex_model_catalog() -> DoctorCheck {
         }
     };
     let ok = catalog_path.is_file();
-    DoctorCheck {
-        id: "codex_catalog".into(),
-        label: "Codex model catalog".into(),
+    let check = DoctorCheck::new(
+        "codex_catalog",
+        "Codex model catalog",
         ok,
-        detail: if ok {
+        if ok {
             format!("目录文件存在: {}", catalog_path.display())
         } else {
             format!("缺少目录文件: {}", catalog_path.display())
         },
+    );
+    if ok {
+        check
+    } else {
+        check.with_repair("codex_catalog")
     }
 }
 
 fn check_codex_sessions() -> DoctorCheck {
     let root = get_codex_config_dir().join("sessions");
     if !root.is_dir() {
-        return DoctorCheck {
-            id: "codex_sessions".into(),
-            label: "Codex sessions".into(),
-            ok: false,
-            detail: format!("未找到 {}", root.display()),
-        };
+        return DoctorCheck::new(
+            "codex_sessions",
+            "Codex sessions",
+            false,
+            format!("未找到 {}", root.display()),
+        );
     }
     let count = count_jsonl_files(&root, 2_000);
-    DoctorCheck {
-        id: "codex_sessions".into(),
-        label: "Codex sessions".into(),
-        ok: count > 0,
-        detail: format!("发现约 {count} 个会话 JSONL @ {}", root.display()),
-    }
+    DoctorCheck::new(
+        "codex_sessions",
+        "Codex sessions",
+        count > 0,
+        format!("发现约 {count} 个会话 JSONL @ {}", root.display()),
+    )
 }
 
 fn check_codex_plugins() -> DoctorCheck {
@@ -414,15 +494,15 @@ fn check_codex_plugins() -> DoctorCheck {
         Err(_) => count_cache_plugin_dirs(&cache_path),
     };
     let ok = config_count > 0 || cache_count > 0;
-    DoctorCheck {
-        id: "codex_plugins".into(),
-        label: "Codex plugins".into(),
+    DoctorCheck::new(
+        "codex_plugins",
+        "Codex plugins",
         ok,
-        detail: format!(
+        format!(
             "config.toml plugins={config_count}；cache={cache_count} @ {}",
             cache_path.display()
         ),
-    }
+    )
 }
 
 fn count_config_plugins(path: &Path) -> usize {

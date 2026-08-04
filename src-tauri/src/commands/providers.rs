@@ -7,9 +7,10 @@ use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
     api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
-    LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
-    normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol, ProviderImportResult, ProviderInput,
-    ProviderKind, ProviderTarget, ProtocolType,
+    EndpointSpeedtestResult, LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle,
+    ProviderExportEntry, normalized_model_mapping, normalized_auto_review_model_override,
+    validate_target_protocol, ProviderImportResult, ProviderInput, ProviderKind, ProviderTarget,
+    ProtocolType,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -205,6 +206,66 @@ pub async fn test_provider_input(
 ) -> AppResult<ConnectionTestResult> {
     let provider = temporary_provider(&input, &state)?;
     test_provider_with_key(&provider, provider.api_key.clone(), state.db.as_ref(), false).await
+}
+
+/// Measure RTT to the provider Base URL with a lightweight HTTP request (no API key).
+#[tauri::command]
+pub async fn speedtest_provider_endpoint(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<EndpointSpeedtestResult> {
+    let provider = state.db.with_conn(|conn| {
+        dao::get_provider(conn, &id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
+    })?;
+    speedtest_base_url(&provider.base_url).await
+}
+
+async fn speedtest_base_url(base_url: &str) -> AppResult<EndpointSpeedtestResult> {
+    let checked_at = Utc::now().timestamp_millis();
+    let url = normalize_base_url(base_url)?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .build()
+        .map_err(|error| AppError::Other(format!("创建测速客户端失败: {error}")))?;
+    let started = Instant::now();
+    let response = client.get(&url).send().await;
+    let latency_ms = Some(started.elapsed().as_millis() as u64);
+    match response {
+        Ok(response) => {
+            let status = response.status();
+            Ok(EndpointSpeedtestResult {
+                ok: true,
+                latency_ms,
+                message: format!("RTT {} · HTTP {}", format_latency(latency_ms), status.as_u16()),
+                checked_at,
+                url,
+            })
+        }
+        Err(error) => Ok(EndpointSpeedtestResult {
+            ok: false,
+            latency_ms,
+            message: format!("RTT {} · {}", format_latency(latency_ms), sanitize_network_error(&error)),
+            checked_at,
+            url,
+        }),
+    }
+}
+
+fn format_latency(latency_ms: Option<u64>) -> String {
+    match latency_ms {
+        Some(ms) => format!("{ms} ms"),
+        None => "—".to_string(),
+    }
+}
+
+fn sanitize_network_error(error: &reqwest::Error) -> String {
+    let text = error.to_string();
+    if text.len() > 180 {
+        format!("{}…", &text[..180])
+    } else {
+        text
+    }
 }
 
 /// Try the standard model-list endpoint. Failure is non-fatal: providers that
@@ -1367,7 +1428,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         sort_index: 0, failover_group: input.failover_group,
         failover_models: input.failover_models.clone(),
         is_current: false, created_at: 0,
-        health_status: None, health_checked_at: None,
+        health_status: None, health_checked_at: None, health_latency_ms: None,
     })
 }
 

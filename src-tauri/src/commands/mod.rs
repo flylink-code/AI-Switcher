@@ -32,8 +32,14 @@ pub use backend::ping;
 pub use agents::{
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
 };
-pub use codex::{get_codex_auth_status, sync_codex_session_providers};
-pub use codex_plugins::{list_codex_plugins, set_codex_plugin_enabled};
+pub use codex::{
+    get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,
+    sync_codex_session_providers,
+};
+pub use codex_plugins::{
+    add_codex_plugin_marketplace, list_codex_plugin_marketplaces, list_codex_plugins,
+    remove_codex_plugin_marketplace, set_codex_plugin_enabled, uninstall_codex_plugin,
+};
 pub use codex_oauth::{
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
     remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
@@ -48,7 +54,9 @@ pub use data_root::{get_data_root, migrate_data_root};
 pub use deeplink::{
     build_mcp_deeplink, build_provider_deeplink, confirm_import_preview, preview_import_text,
 };
-pub use doctor::{repair_environment_visibility, run_environment_doctor};
+pub use doctor::{
+    repair_doctor_check, repair_environment_visibility, run_environment_doctor,
+};
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
     install_desktop_localization,
@@ -85,7 +93,7 @@ pub use sessions::{
 pub use providers::{
     create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_cached_provider_models, get_current_provider, import_live_config, import_providers_json,
-    list_providers, reorder_providers, switch_provider, switch_to_official,
+    list_providers, reorder_providers, speedtest_provider_endpoint, switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
 };
 pub use proxy::{
@@ -95,8 +103,9 @@ pub use proxy::{
 };
 pub use skills::{
     check_skill_update, check_skill_updates, delete_skill, get_skill_repository, get_skill_repository_snapshot,
-    install_github_repository_skills, install_github_skill, install_zip_skill, list_github_repository_skills,
-    list_skills, refresh_github_repository_skills, set_skill_enabled, set_skill_repository, update_github_skills,
+    ignore_unmanaged_skill, install_github_repository_skills, install_github_skill, install_zip_skill,
+    list_github_repository_skills, list_skills, refresh_github_repository_skills, register_unmanaged_skill,
+    scan_unmanaged_skills, set_skill_enabled, set_skill_repository, update_github_skills,
 };
 pub use system::{
     dismiss_onboarding_tip, get_autostart_config, get_autostart_enabled, get_close_behavior,

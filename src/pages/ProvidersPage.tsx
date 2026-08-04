@@ -25,6 +25,7 @@ import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
+import FieldTimeOutlined from "@ant-design/icons/es/icons/FieldTimeOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
 import type {
@@ -50,6 +51,7 @@ import {
   previewImportText,
   pollCodexOauthLogin,
   startCodexOauthLogin,
+  speedtestProviderEndpoint,
   testProviderConnection,
 } from "@/services/api";
 import { usageTrendOptions } from "@/lib/appQueries";
@@ -197,6 +199,29 @@ export default function ProvidersPage() {
     } finally { setBusy(false); }
   };
 
+  const handleSpeedtest = async (provider: Provider) => {
+    setBusy(true);
+    try {
+      const result = await speedtestProviderEndpoint(provider.id);
+      const notify = result.ok ? message.success : message.warning;
+      void notify(result.message);
+      useProvidersStore.setState((state) => ({
+        providers: state.providers.map((item) =>
+          item.id === provider.id
+            ? {
+                ...item,
+                healthLatencyMs: result.latencyMs ?? item.healthLatencyMs ?? null,
+              }
+            : item,
+        ),
+      }));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleExport = async () => {
     try {
       const json = await exportProviders(target);
@@ -330,12 +355,13 @@ export default function ProvidersPage() {
       render: (value: number) => <Tag>{value ?? 0}</Tag>,
     },
     {
-      title: t("providers.colActions"), key: "actions", width: 280,
+      title: t("providers.colActions"), key: "actions", width: 310,
       render: (_: unknown, row: Provider, index: number) => <Space size="small">
         <Tooltip title={t("providers.moveUp")}><Button size="small" icon={<ArrowUpOutlined />} disabled={index === 0 || busy} onClick={() => void store.move(row.id, -1)} /></Tooltip>
         <Tooltip title={t("providers.moveDown")}><Button size="small" icon={<ArrowDownOutlined />} disabled={index === store.providers.length - 1 || busy} onClick={() => void store.move(row.id, 1)} /></Tooltip>
         <Button size="small" type={row.isCurrent ? "default" : "primary"} disabled={row.isCurrent || busy} icon={<ThunderboltOutlined />} onClick={() => void handleSwitch(row)}>{t("providers.switch")}</Button>
         <Tooltip title={t("providers.testConnection")}><Button size="small" icon={<SafetyCertificateOutlined />} disabled={busy || !row.apiKeySet} onClick={() => void handleTest(row)} /></Tooltip>
+        <Tooltip title={t("providers.speedtest")}><Button size="small" icon={<FieldTimeOutlined />} disabled={busy || !row.baseUrl} onClick={() => void handleSpeedtest(row)} /></Tooltip>
         <Tooltip title={t("deeplink.shareLink")}><Button size="small" icon={<GlobalOutlined />} disabled={busy} onClick={() => void handleShareLink(row)} /></Tooltip>
         <Tooltip title={t("providers.edit")}><Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} /></Tooltip>
         <Popconfirm title={t("providers.confirmDelete")} okText={t("providers.delete")} cancelText={t("providers.cancel")} onConfirm={() => void handleDelete(row)} disabled={busy}>

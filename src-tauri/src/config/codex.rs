@@ -7,7 +7,7 @@ use std::fs;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use toml_edit::{value, Array, DocumentMut, Item, Table};
 
@@ -417,6 +417,104 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     }))
 }
 
+/// Top-level Codex `web_search` mode in `~/.codex/config.toml`.
+/// Distinct from per-provider catalog `web_search_tool_type` / `supports_search_tool`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexWebSearchMode {
+    Disabled,
+    Cached,
+    Indexed,
+    Live,
+}
+
+impl CodexWebSearchMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Cached => "cached",
+            Self::Indexed => "indexed",
+            Self::Live => "live",
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "disabled" => Some(Self::Disabled),
+            "cached" => Some(Self::Cached),
+            "indexed" => Some(Self::Indexed),
+            "live" => Some(Self::Live),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexWebSearchSnapshot {
+    pub mode: CodexWebSearchMode,
+    pub config_path: String,
+    pub set_in_config: bool,
+}
+
+pub fn get_web_search_mode() -> AppResult<CodexWebSearchSnapshot> {
+    let path = get_codex_config_path();
+    let doc = load_document(&path)?;
+    let raw = doc.get("web_search").and_then(Item::as_str);
+    let (mode, set_in_config) = match raw {
+        Some(value) => match CodexWebSearchMode::parse(value) {
+            Some(mode) => (mode, true),
+            None => {
+                return Err(AppError::Config(format!(
+                    "无效的 web_search 值: {value}（应为 disabled|cached|indexed|live）"
+                )));
+            }
+        },
+        None => (CodexWebSearchMode::Disabled, false),
+    };
+    Ok(CodexWebSearchSnapshot {
+        mode,
+        config_path: path.to_string_lossy().into_owned(),
+        set_in_config,
+    })
+}
+
+pub fn set_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearchSnapshot> {
+    let path = get_codex_config_path();
+    backup_once(&path, CONFIG_BACKUP)?;
+    let mut doc = load_document(&path)?;
+    // Prefer top-level `web_search`; strip deprecated features.web_search* keys if present.
+    doc["web_search"] = value(mode.as_str());
+    if let Some(features) = doc.get_mut("features").and_then(Item::as_table_mut) {
+        features.remove("web_search");
+        features.remove("web_search_cached");
+        features.remove("web_search_indexed");
+        features.remove("web_search_live");
+        features.remove("web_search_request");
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    atomic_write(&path, doc.to_string().as_bytes())?;
+    Ok(CodexWebSearchSnapshot {
+        mode,
+        config_path: path.to_string_lossy().into_owned(),
+        set_in_config: true,
+    })
+}
+
+/// Rewrite `ai-switcher-model-catalog.json` from the current managed provider row.
+pub fn repair_model_catalog_file(provider: &Provider) -> AppResult<String> {
+    let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
+    write_model_catalog(provider, anthropic_upstream)?;
+    let path = get_codex_config_dir().join(MODEL_CATALOG_FILENAME);
+    let config_path = get_codex_config_path();
+    let mut doc = load_document(&config_path)?;
+    doc["model_catalog_json"] = value(MODEL_CATALOG_FILENAME);
+    atomic_write(&config_path, doc.to_string().as_bytes())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 /// Synchronize the enabled Codex subset into `[mcp_servers.<name>]` while
 /// retaining every unrelated config section. Unsupported JSON shapes are left
 /// out rather than guessed into an invalid TOML server definition.
@@ -496,6 +594,7 @@ mod tests {
             created_at: 0,
             health_status: None,
             health_checked_at: None,
+            health_latency_ms: None,
         }
     }
 
@@ -634,6 +733,26 @@ mod tests {
         assert!(model_supports_codex_fast("gpt-5.4"));
         assert!(!model_supports_codex_fast("gpt-5.6-luna"));
         assert!(!model_supports_codex_fast("gpt-5.4-mini"));
+    }
+
+    #[test]
+    fn top_level_web_search_mode_round_trips_and_strips_legacy_features() {
+        let root = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", root.path());
+        fs::write(
+            root.path().join("config.toml"),
+            "[features]\nweb_search = true\nweb_search_live = true\n",
+        )
+        .unwrap();
+        let snap = set_web_search_mode(CodexWebSearchMode::Live).unwrap();
+        assert_eq!(snap.mode, CodexWebSearchMode::Live);
+        assert!(snap.set_in_config);
+        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+        assert!(text.contains("web_search = \"live\""));
+        assert!(!text.contains("web_search_live"));
+        let loaded = get_web_search_mode().unwrap();
+        assert_eq!(loaded.mode, CodexWebSearchMode::Live);
+        std::env::remove_var("CODEX_HOME");
     }
 
     #[test]

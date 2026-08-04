@@ -43,24 +43,26 @@
 
 ### 供应商与切换
 
-- 分别管理 Claude Code / Desktop / Codex 的第三方 API、模型映射、导入导出、连接测试与模型发现
-- Codex 供应商可开关 **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`；与顶层 `web_search` 模式是不同层次，后者规划于 0.8.5）
+- 分别管理 Claude Code / Desktop / Codex 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- Codex 供应商可开关 catalog **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`）
+- 环境页可设置全局顶层 `web_search`：`disabled | cached | indexed | live`（与 catalog 开关层次不同；不写已弃用 `features.web_search*`）
 - 一键切换并备份；可恢复官方登录配置
 - Claude 侧可用 **ChatGPT 订阅**（经本地代理）；Codex 官方账号用终端 `codex login`
 - Codex 写入 `~/.codex/config.toml`，不经过 Claude 本地代理
+- Deep Link：`ai-switcher://v1/import?resource=provider|mcp&payload=...`（导入前预览确认）
 
 ### 本地代理
 
-Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。
+Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
 - MCP：统一维护并可同步到 Codex；支持远程 HTTP/SSE、OAuth 状态清理，以及 Desktop Connectors / `.mcpb` 冲突提示
 - MCP Registry：浏览官方 Registry 并安装可安全转换为 Claude 配置的条目（需密钥/URL 模板的仍需手动配置）
 - Prompts：`CLAUDE.md` / Codex `AGENTS.md` 预设，支持重命名与一键激活
-- Skills：Claude Code 与 Codex 支持 GitHub / ZIP 安装、启停、更新与删除
+- Skills：Claude Code 与 Codex 支持 GitHub / ZIP 安装、启停、更新与删除；可扫描散落 Skill 一键登记/忽略
 - Agents：管理 Claude Code 用户级 `~/.claude/agents`
-- Codex Plugins：探测已安装插件并启停（不提供商店安装；marketplace 管理见后续规划）
+- Codex Plugins：启停、卸载；包装 `codex plugin marketplace list/add/remove`（不做完整商店浏览）
 
 ### 项目（Profiles）
 
