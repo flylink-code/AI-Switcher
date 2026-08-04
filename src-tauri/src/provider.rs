@@ -483,13 +483,21 @@ impl Provider {
     }
 
     pub fn requires_local_proxy(&self) -> bool {
-        self.is_codex_oauth()
-            || self.protocol_type.uses_proxy()
-            || (self.target_app == ProviderTarget::Codex
-                && self.protocol_type == ProtocolType::Anthropic)
-            || (self.target_app == ProviderTarget::ClaudeDesktop
-                && (self.model_mapping.has_explicit_roles()
-                    || !is_claude_desktop_safe_model(self.model.trim())))
+        if self.is_codex_oauth() {
+            return true;
+        }
+        // Codex speaks OpenAI wire APIs natively. Keep OpenAI-compatible Codex
+        // providers on the real upstream so chat works without the desktop
+        // proxy process. Anthropic upstream still needs protocol translation.
+        if self.target_app == ProviderTarget::Codex {
+            return self.protocol_type == ProtocolType::Anthropic;
+        }
+        if self.protocol_type.uses_proxy() {
+            return true;
+        }
+        self.target_app == ProviderTarget::ClaudeDesktop
+            && (self.model_mapping.has_explicit_roles()
+                || !is_claude_desktop_safe_model(self.model.trim()))
     }
 
     /// Whether this provider may serve `requested_model` during failover.
@@ -797,6 +805,36 @@ mod tests {
             health_latency_ms: None,
         };
         assert!(provider.requires_local_proxy());
+    }
+
+    #[test]
+    fn codex_openai_responses_does_not_require_local_proxy() {
+        let provider = Provider {
+            id: "codex-openai".into(),
+            name: "OpenAI Codex".into(),
+            base_url: "https://api.example.test/v1".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: "gpt-5.6-terra".into(),
+            model_context_window: None,
+            auto_review_model_override: None,
+            web_search_enabled: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::OpenAiResponses,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
+            target_app: ProviderTarget::Codex,
+            notes: String::new(),
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        };
+        assert!(!provider.requires_local_proxy());
     }
 
     fn provider_with_mapping() -> Provider {

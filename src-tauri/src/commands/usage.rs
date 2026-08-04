@@ -737,30 +737,7 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
         .filter(|(_, amount)| amount.abs() > f64::EPSILON)
         .map(|(currency, amount)| CurrencyAmount { currency, amount })
         .collect();
-    let (currency, amount) = if estimated_costs_by_currency.is_empty() {
-        ("USD".to_string(), 0.0)
-    } else if estimated_costs_by_currency.len() == 1 {
-        (
-            estimated_costs_by_currency[0].currency.clone(),
-            estimated_costs_by_currency[0].amount,
-        )
-    } else if let Some(usd) = estimated_costs_by_currency
-        .iter()
-        .find(|entry| entry.currency == "USD")
-    {
-        (usd.currency.clone(), usd.amount)
-    } else {
-        estimated_costs_by_currency
-            .iter()
-            .max_by(|left, right| {
-                left.amount
-                    .abs()
-                    .partial_cmp(&right.amount.abs())
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|entry| (entry.currency.clone(), entry.amount))
-            .unwrap_or_else(|| ("USD".to_string(), 0.0))
-    };
+    let (currency, amount) = pick_summary_currency(&estimated_costs_by_currency);
     local.summary.estimated_cost = amount;
     local.summary.estimated_cost_currency = currency.clone();
     local.summary.estimated_costs_by_currency = estimated_costs_by_currency;
@@ -875,18 +852,14 @@ fn merge_currency_amounts(target: &mut Vec<CurrencyAmount>, incoming: &[Currency
     });
 }
 
+/// Pick the headline currency for a multi-currency cost summary.
+/// Prefer the largest absolute amount so a tiny USD total cannot hide a large CNY total.
 fn pick_summary_currency(amounts: &[CurrencyAmount]) -> (String, f64) {
     if amounts.is_empty() {
         return ("USD".to_string(), 0.0);
     }
     if amounts.len() == 1 {
         return (amounts[0].currency.clone(), amounts[0].amount);
-    }
-    if let Some(usd) = amounts
-        .iter()
-        .find(|entry| entry.currency.eq_ignore_ascii_case("USD") && entry.amount.abs() > f64::EPSILON)
-    {
-        return (usd.currency.clone(), usd.amount);
     }
     amounts
         .iter()
@@ -1326,6 +1299,117 @@ mod tests {
         assert!((local.summary.estimated_cost - 70.0).abs() < f64::EPSILON);
         assert_eq!(local.summary.estimated_cost_currency, "CNY");
         assert_eq!(local.by_model["k3"].currency, "CNY");
+    }
+
+    #[test]
+    fn pick_summary_currency_prefers_largest_amount_over_usd() {
+        let amounts = vec![
+            CurrencyAmount {
+                currency: "USD".to_string(),
+                amount: 0.0189,
+            },
+            CurrencyAmount {
+                currency: "CNY".to_string(),
+                amount: 48.0,
+            },
+        ];
+        let (currency, amount) = pick_summary_currency(&amounts);
+        assert_eq!(currency, "CNY");
+        assert!((amount - 48.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn pick_summary_currency_keeps_single_usd() {
+        let amounts = vec![CurrencyAmount {
+            currency: "USD".to_string(),
+            amount: 0.0189,
+        }];
+        let (currency, amount) = pick_summary_currency(&amounts);
+        assert_eq!(currency, "USD");
+        assert!((amount - 0.0189).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn pick_summary_currency_empty_defaults_to_usd_zero() {
+        let (currency, amount) = pick_summary_currency(&[]);
+        assert_eq!(currency, "USD");
+        assert_eq!(amount, 0.0);
+    }
+
+    #[test]
+    fn apply_codex_estimated_cost_prefers_largest_currency_when_mixed() {
+        let mut local = LocalCodexAggregation {
+            status: LocalCodexUsage {
+                available: true,
+                session_count: 1,
+                event_count: 2,
+                message: String::new(),
+            },
+            summary: empty_summary(),
+            by_model: BTreeMap::new(),
+            trend: BTreeMap::new(),
+        };
+        local.by_model.insert(
+            "k3".to_string(),
+            UsageBreakdown {
+                key: "k3".to_string(),
+                request_count: 1,
+                input_tokens: 1_000_000,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                output_tokens: 500_000,
+                estimated_cost: 0.0,
+                currency: "USD".to_string(),
+            },
+        );
+        local.by_model.insert(
+            "gpt-5".to_string(),
+            UsageBreakdown {
+                key: "gpt-5".to_string(),
+                request_count: 1,
+                input_tokens: 1_000_000,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0,
+                output_tokens: 0,
+                estimated_cost: 0.0,
+                currency: "USD".to_string(),
+            },
+        );
+        let pricing = vec![
+            ModelPricing {
+                model: "k3".to_string(),
+                provider: "Moonshot/Kimi".to_string(),
+                input_price_per_million: 20.0,
+                cache_read_price_per_million: 0.0,
+                cache_write_price_per_million: 0.0,
+                output_price_per_million: 100.0,
+                batch_input_price_per_million: 0.0,
+                batch_output_price_per_million: 0.0,
+                currency: "CNY".to_string(),
+                source_url: String::new(),
+                effective_date: String::new(),
+                is_default: false,
+            },
+            ModelPricing {
+                model: "gpt-5".to_string(),
+                provider: "OpenAI".to_string(),
+                input_price_per_million: 2.0,
+                cache_read_price_per_million: 0.0,
+                cache_write_price_per_million: 0.0,
+                output_price_per_million: 8.0,
+                batch_input_price_per_million: 0.0,
+                batch_output_price_per_million: 0.0,
+                currency: "USD".to_string(),
+                source_url: String::new(),
+                effective_date: String::new(),
+                is_default: false,
+            },
+        ];
+        apply_codex_estimated_cost(&mut local, &pricing);
+        // k3: 20+50=70 CNY; gpt-5: 2 USD — headline must be CNY, not the tiny USD.
+        assert_eq!(local.summary.estimated_cost_currency, "CNY");
+        assert!((local.summary.estimated_cost - 70.0).abs() < f64::EPSILON);
+        assert_eq!(local.summary.estimated_costs_by_currency.len(), 2);
     }
 
     fn row(values: &[&str]) -> Vec<String> {

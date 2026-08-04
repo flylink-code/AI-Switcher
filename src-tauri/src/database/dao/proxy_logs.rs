@@ -682,19 +682,14 @@ pub fn get_usage_summary_for_target(
     })
 }
 
+/// Pick the headline currency for a multi-currency cost summary.
+/// Prefer the largest absolute amount so a tiny USD total cannot hide a large CNY total.
 fn pick_primary_currency_amount(amounts: &[CurrencyAmount]) -> (String, f64) {
     if amounts.is_empty() {
         return ("USD".to_string(), 0.0);
     }
     if amounts.len() == 1 {
         return (amounts[0].currency.clone(), amounts[0].amount);
-    }
-    // Prefer USD when present with a non-zero total; otherwise the largest absolute amount.
-    if let Some(usd) = amounts
-        .iter()
-        .find(|entry| entry.currency.eq_ignore_ascii_case("USD") && entry.amount.abs() > f64::EPSILON)
-    {
-        return (usd.currency.clone(), usd.amount);
     }
     amounts
         .iter()
@@ -1014,4 +1009,37 @@ pub fn list_proxy_request_logs(
         page,
         page_size,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pick_primary_currency_prefers_largest_amount_over_usd() {
+        let amounts = vec![
+            CurrencyAmount {
+                currency: "USD".to_string(),
+                amount: 0.0189,
+            },
+            CurrencyAmount {
+                currency: "CNY".to_string(),
+                amount: 48.0,
+            },
+        ];
+        let (currency, amount) = pick_primary_currency_amount(&amounts);
+        assert_eq!(currency, "CNY");
+        assert!((amount - 48.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn pick_primary_currency_keeps_single_currency() {
+        let amounts = vec![CurrencyAmount {
+            currency: "USD".to_string(),
+            amount: 1.25,
+        }];
+        let (currency, amount) = pick_primary_currency_amount(&amounts);
+        assert_eq!(currency, "USD");
+        assert!((amount - 1.25).abs() < f64::EPSILON);
+    }
 }

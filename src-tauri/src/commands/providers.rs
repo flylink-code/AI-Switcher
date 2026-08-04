@@ -666,6 +666,14 @@ async fn apply_target_provider(
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::Codex).await?;
                 }
+                let extra_models = state
+                    .db
+                    .with_conn(|conn| {
+                        Ok(dao::get_provider_model_cache(conn, &runtime_provider.id)?
+                            .map(|cache| cache.models)
+                            .unwrap_or_default())
+                    })
+                    .unwrap_or_default();
                 let provider = runtime_provider.clone();
                 let api_key = runtime_provider.api_key.clone();
                 tauri::async_runtime::spawn_blocking(move || {
@@ -673,6 +681,7 @@ async fn apply_target_provider(
                         &provider,
                         &api_key,
                         if uses_proxy { Some(proxy_port) } else { None },
+                        &extra_models,
                     )
                 })
                 .await
@@ -1249,9 +1258,11 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
     Ok(())
 }
 
-/// Reapply the active Codex provider when the managed `ai_switcher` entry no
-/// longer points at the local proxy (common after direct upstream edits or
-/// older builds that wrote the remote Base URL into the managed slot).
+/// Reapply the active Codex provider when the managed `ai_switcher` entry is
+/// out of sync with the current routing mode:
+/// - Anthropic / OAuth: must point at the local proxy
+/// - OpenAI-compatible: must point at the real upstream (older builds pinned
+///   these to the local proxy, which breaks chat when the desktop app is closed)
 pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<()> {
     let provider = state
         .db
@@ -1259,9 +1270,6 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
     let Some(provider) = provider else {
         return Ok(());
     };
-    if !provider.requires_local_proxy() && !provider.is_codex_oauth() {
-        return Ok(());
-    }
     let port = get_saved_proxy_port(state, ProviderTarget::Codex);
     let Some(current_base) = codex::managed_provider_base_url() else {
         // Missing managed entry — a full apply restores it.
@@ -1269,13 +1277,23 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
         log::info!("Codex managed provider entry missing; reapplied current provider");
         return Ok(());
     };
-    if is_local_proxy_base_url_for_port(&current_base, port) {
+    let needs_proxy = provider.requires_local_proxy() || provider.is_codex_oauth();
+    if needs_proxy {
+        if is_local_proxy_base_url_for_port(&current_base, port) {
+            return Ok(());
+        }
+        let _ = apply_target_provider(&provider, state).await?;
+        log::info!(
+            "Codex managed base_url was `{current_base}`; reapplied local proxy on port {port}"
+        );
         return Ok(());
     }
-    let _ = apply_target_provider(&provider, state).await?;
-    log::info!(
-        "Codex managed base_url was `{current_base}`; reapplied local proxy on port {port}"
-    );
+    if is_loopback_v1_base_url(&current_base) {
+        let _ = apply_target_provider(&provider, state).await?;
+        log::info!(
+            "Codex managed base_url was local proxy `{current_base}`; reapplied direct upstream"
+        );
+    }
     Ok(())
 }
 
@@ -1284,6 +1302,13 @@ fn is_local_proxy_base_url_for_port(base_url: &str, expected_port: u16) -> bool 
     let expected = format!("http://127.0.0.1:{expected_port}/v1");
     let expected_localhost = format!("http://localhost:{expected_port}/v1");
     trimmed.eq_ignore_ascii_case(&expected) || trimmed.eq_ignore_ascii_case(&expected_localhost)
+}
+
+fn is_loopback_v1_base_url(base_url: &str) -> bool {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    let lower = trimmed.to_ascii_lowercase();
+    (lower.starts_with("http://127.0.0.1:") || lower.starts_with("http://localhost:"))
+        && lower.ends_with("/v1")
 }
 
 /// Reapply an active Claude Code provider only when the live model fields use

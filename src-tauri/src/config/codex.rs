@@ -123,7 +123,16 @@ fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
 /// Apply a Codex model provider. When `proxy_port` is set, rewrite live
 /// `base_url` to the local OpenAI-compatible proxy; the real upstream URL stays
 /// on the DB provider row for the forwarder.
-pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16>) -> AppResult<()> {
+///
+/// `extra_models` (discovery cache / failover extras) are merged into
+/// `ai-switcher-model-catalog.json` so Codex can switch models beyond the
+/// single default slug.
+pub fn apply_provider(
+    provider: &Provider,
+    api_key: &str,
+    proxy_port: Option<u16>,
+    extra_models: &[String],
+) -> AppResult<()> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
     let auth_path = get_codex_auth_path();
@@ -131,7 +140,7 @@ pub fn apply_provider(provider: &Provider, api_key: &str, proxy_port: Option<u16
     backup_once(&auth_path, AUTH_BACKUP)?;
 
     let mut doc = load_document(&config_path)?;
-    write_managed_provider(&mut doc, provider, proxy_port)?;
+    write_managed_provider(&mut doc, provider, proxy_port, extra_models)?;
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
     let auth_key = if proxy_port.is_some() {
@@ -222,12 +231,17 @@ fn clear_stale_third_party_auth_if_needed(auth_path: &Path) -> AppResult<bool> {
     Ok(true)
 }
 
-fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port: Option<u16>) -> AppResult<()> {
+fn write_managed_provider(
+    doc: &mut DocumentMut,
+    provider: &Provider,
+    proxy_port: Option<u16>,
+    extra_models: &[String],
+) -> AppResult<()> {
     let provider_id = MANAGED_PROVIDER_ID;
     let model = provider.model.trim();
     let context_window = effective_model_context_window(provider);
     let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
-    write_model_catalog(provider, anthropic_upstream)?;
+    write_model_catalog(provider, anthropic_upstream, extra_models)?;
     doc["model"] = value(model);
     doc["model_provider"] = value(provider_id);
     doc["model_context_window"] = value(context_window as i64);
@@ -264,6 +278,18 @@ fn write_managed_provider(doc: &mut DocumentMut, provider: &Provider, proxy_port
     Ok(())
 }
 
+/// Built-in OpenAI-family slugs so Codex model pickers are not stuck on the
+/// single default after apply (matches frontend `codexModelSuggestions`).
+const CODEX_MODEL_SUGGESTIONS: &[&str] = &[
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.3-codex",
+];
+
 /// Models that Codex / ChatGPT Fast mode currently supports (catalog-driven).
 fn model_supports_codex_fast(model: &str) -> bool {
     let m = model.trim().to_ascii_lowercase();
@@ -276,7 +302,11 @@ fn model_supports_codex_fast(model: &str) -> bool {
     false
 }
 
-fn write_model_catalog(provider: &Provider, anthropic_upstream: bool) -> AppResult<()> {
+fn write_model_catalog(
+    provider: &Provider,
+    anthropic_upstream: bool,
+    extra_models: &[String],
+) -> AppResult<()> {
     let model = provider.model.trim();
     if model.is_empty() {
         return Err(AppError::Config("Codex 默认模型不能为空".to_string()));
@@ -284,14 +314,38 @@ fn write_model_catalog(provider: &Provider, anthropic_upstream: bool) -> AppResu
     let context_window = effective_model_context_window(provider);
     let web_search_enabled =
         !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
-    let catalog = serde_json::json!({
-        "models": [codex_model_catalog_entry(
-            model,
-            context_window,
-            anthropic_upstream,
-            web_search_enabled,
-        )],
-    });
+
+    let mut slugs: Vec<String> = Vec::new();
+    let mut push_slug = |raw: &str| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        if slugs.iter().any(|existing| existing.eq_ignore_ascii_case(trimmed)) {
+            return;
+        }
+        slugs.push(trimmed.to_string());
+    };
+    push_slug(model);
+    for entry in &provider.failover_models {
+        push_slug(entry);
+    }
+    for entry in extra_models {
+        push_slug(entry);
+    }
+    if !anthropic_upstream {
+        for entry in CODEX_MODEL_SUGGESTIONS {
+            push_slug(entry);
+        }
+    }
+
+    let models: Vec<Value> = slugs
+        .iter()
+        .map(|slug| {
+            codex_model_catalog_entry(slug, context_window, anthropic_upstream, web_search_enabled)
+        })
+        .collect();
+    let catalog = serde_json::json!({ "models": models });
     let dir = get_codex_config_dir();
     fs::create_dir_all(&dir)?;
     let path = dir.join(MODEL_CATALOG_FILENAME);
@@ -504,9 +558,9 @@ pub fn set_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearch
 }
 
 /// Rewrite `ai-switcher-model-catalog.json` from the current managed provider row.
-pub fn repair_model_catalog_file(provider: &Provider) -> AppResult<String> {
+pub fn repair_model_catalog_file(provider: &Provider, extra_models: &[String]) -> AppResult<String> {
     let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
-    write_model_catalog(provider, anthropic_upstream)?;
+    write_model_catalog(provider, anthropic_upstream, extra_models)?;
     let path = get_codex_config_dir().join(MODEL_CATALOG_FILENAME);
     let config_path = get_codex_config_path();
     let mut doc = load_document(&config_path)?;
@@ -605,7 +659,7 @@ mod tests {
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
         std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None).unwrap();
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
         assert_eq!(doc["features"]["fast_mode"].as_bool(), Some(true));
         assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
         std::env::remove_var("CODEX_HOME");
@@ -617,7 +671,7 @@ mod tests {
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
         std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None).unwrap();
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
         assert!(doc.get("features").is_none());
         assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
         std::env::remove_var("CODEX_HOME");
@@ -642,7 +696,7 @@ mod tests {
 
         let temp = tempfile::tempdir().unwrap();
         std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None).unwrap();
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
 
         let text = doc.to_string();
         assert!(text.contains("requires_openai_auth = true"));
@@ -664,9 +718,12 @@ mod tests {
 
         let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
         let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
-        assert_eq!(catalog["models"][0]["slug"], "gpt-5");
-        assert_eq!(catalog["models"][0]["supports_reasoning_summaries"], true);
-        assert_eq!(catalog["models"][0]["context_window"], 272_000);
+        let models = catalog["models"].as_array().unwrap();
+        assert!(models.len() > 1, "catalog should include default + suggestions");
+        assert_eq!(models[0]["slug"], "gpt-5");
+        assert_eq!(models[0]["supports_reasoning_summaries"], true);
+        assert_eq!(models[0]["context_window"], 272_000);
+        assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
         std::env::remove_var("CODEX_HOME");
     }
 
@@ -714,7 +771,7 @@ mod tests {
         provider.base_url = "https://api.anthropic.test".into();
         let mut doc = DocumentMut::new();
         doc["model_providers"] = Item::Table(Table::new());
-        write_managed_provider(&mut doc, &provider, Some(15823)).unwrap();
+        write_managed_provider(&mut doc, &provider, Some(15823), &[]).unwrap();
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
         assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
         assert_eq!(

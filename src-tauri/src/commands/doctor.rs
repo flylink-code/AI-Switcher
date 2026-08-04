@@ -222,7 +222,15 @@ pub async fn repair_doctor_check(
                 dao::get_current_provider(conn, ProviderTarget::Codex)?
                     .ok_or_else(|| AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into()))
             })?;
-            let path = codex::repair_model_catalog_file(&provider)?;
+            let extra_models = state
+                .db
+                .with_conn(|conn| {
+                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                        .map(|cache| cache.models)
+                        .unwrap_or_default())
+                })
+                .unwrap_or_default();
+            let path = codex::repair_model_catalog_file(&provider, &extra_models)?;
             Ok(DoctorRepairResult {
                 id,
                 message: format!("已重建 model catalog: {path}"),
