@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -24,6 +24,7 @@ import {
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 import {
@@ -53,6 +54,9 @@ type SortMode = "recent" | "oldest" | "directory";
 
 const PAGE_SIZE = 50;
 const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [], total: 0, offset: 0 };
+/** Matches backend `RUNTIME_RECOVERED_EVENT` after post-update relaunch recovery. */
+const RUNTIME_RECOVERED_EVENT = "runtime-recovered";
+const CODEX_EMPTY_RETRY_DELAYS_MS = [3_000, 8_000] as const;
 
 export default function SessionsPage() {
   const { t, i18n } = useTranslation();
@@ -85,6 +89,7 @@ export default function SessionsPage() {
   const [sessionAction, setSessionAction] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
   const [repairingCodex, setRepairingCodex] = useState(false);
+  const emptyRetryRef = useRef(0);
 
   const needsFullScan =
     directory !== "all" ||
@@ -133,6 +138,44 @@ export default function SessionsPage() {
   useEffect(() => {
     setPage(1);
   }, [provider, directory, time, sort, query, contentSearch]);
+
+  useEffect(() => {
+    emptyRetryRef.current = 0;
+  }, [provider]);
+
+  // After NSIS `/R`, the first Codex scan can race locks / incomplete FS settle.
+  // Retry a couple of times (aligned with relaunch recovery + usage sync).
+  useEffect(() => {
+    if (provider !== "codex" || contentSearch || loading || error) return;
+    if (result.total > 0) {
+      emptyRetryRef.current = 0;
+      return;
+    }
+    if (emptyRetryRef.current >= CODEX_EMPTY_RETRY_DELAYS_MS.length) return;
+    const delay = CODEX_EMPTY_RETRY_DELAYS_MS[emptyRetryRef.current];
+    emptyRetryRef.current += 1;
+    const timer = window.setTimeout(() => {
+      void loadBrowse();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [provider, contentSearch, loading, error, result.total, loadBrowse]);
+
+  // Backend emits this after post-update proxy + Codex session-provider recovery.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen(RUNTIME_RECOVERED_EVENT, () => {
+      if (cancelled) return;
+      emptyRetryRef.current = 0;
+      void refresh();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [refresh]);
 
   const runContentSearch = async () => {
     const trimmed = query.trim();

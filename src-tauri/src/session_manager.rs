@@ -794,6 +794,16 @@ fn collect_claude_code_session_paths(
 }
 
 fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
+    let first = collect_codex_session_paths_once()?;
+    if !first.0.is_empty() || first.1.status == "not_found" {
+        return Ok(first);
+    }
+    // Post-update / antivirus settle: first walk can briefly see an empty tree.
+    std::thread::sleep(Duration::from_millis(500));
+    collect_codex_session_paths_once()
+}
+
+fn collect_codex_session_paths_once() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
     let root = codex_session_root();
     let archived = codex_archived_session_root();
     if !root.is_dir() && !archived.is_dir() {

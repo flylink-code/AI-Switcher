@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.0.3**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.0.4**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

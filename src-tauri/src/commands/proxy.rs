@@ -14,6 +14,9 @@ use crate::store::AppState;
 
 const DEFAULT_PORT: u16 = 15821;
 
+/// Emitted after post-update relaunch recovery finishes (proxy + Codex session sync).
+pub const RUNTIME_RECOVERED_EVENT: &str = "runtime-recovered";
+
 pub type ProxyStatusInfo = ProxyStatus;
 
 #[derive(Clone, Serialize)]
@@ -393,6 +396,10 @@ pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
 
 /// Second-chance recovery used after an updater relaunch: ports/DB may still be
 /// settling when the first `ensure_runtime_proxies` pass runs.
+///
+/// Also retries Codex historical `model_provider` sync — locks during NSIS `/R`
+/// often cause the first apply's session rewrite to skip files, which makes
+/// Codex sessions appear to vanish until a later manual restart.
 pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppState) {
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     if let Err(error) = crate::commands::providers::repair_codex_managed_proxy_endpoint(state).await
@@ -400,6 +407,45 @@ pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppS
         log::warn!("relaunch recovery: Codex endpoint repair failed: {error}");
     }
     ensure_runtime_proxies(app, state).await;
+
+    const MAX_SYNC_ATTEMPTS: u32 = 3;
+    for attempt in 1..=MAX_SYNC_ATTEMPTS {
+        let sync_result = tokio::task::spawn_blocking(
+            crate::config::codex_provider_sync::sync_to_managed_provider,
+        )
+        .await;
+        match sync_result {
+            Ok(Ok(result)) => {
+                log::info!(
+                    "relaunch recovery: Codex session sync attempt {attempt}/{MAX_SYNC_ATTEMPTS}: status={} changed={} sqlite={} skipped={}",
+                    result.status,
+                    result.changed_session_files,
+                    result.sqlite_rows_updated,
+                    result.skipped_locked_files.len()
+                );
+                if result.skipped_locked_files.is_empty() || attempt == MAX_SYNC_ATTEMPTS {
+                    break;
+                }
+            }
+            Ok(Err(error)) => {
+                log::warn!(
+                    "relaunch recovery: Codex session sync attempt {attempt}/{MAX_SYNC_ATTEMPTS} failed: {error}"
+                );
+                if attempt == MAX_SYNC_ATTEMPTS {
+                    break;
+                }
+            }
+            Err(error) => {
+                log::warn!("relaunch recovery: Codex session sync join failed: {error}");
+                break;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+
+    if let Err(error) = app.emit(RUNTIME_RECOVERED_EVENT, ()) {
+        log::warn!("relaunch recovery: emit {RUNTIME_RECOVERED_EVENT} failed: {error}");
+    }
 }
 
 #[cfg(test)]
