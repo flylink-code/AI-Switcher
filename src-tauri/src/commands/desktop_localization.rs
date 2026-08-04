@@ -28,7 +28,6 @@ const MAX_GITHUB_METADATA_BYTES: u64 = 1024 * 1024;
 const MAX_HARDCODED_REPLACEMENTS: usize = 5_000;
 const BACKUPS_TO_KEEP: usize = 3;
 const UPSTREAM_REPOSITORY: &str = "javaht/claude-desktop-zh-cn";
-const UPSTREAM_BRANCH: &str = "main";
 const PACK_INFO_FILE: &str = "pack-info.json";
 const MANIFEST_FILE: &str = "manifest.json";
 const RELEASE_FILE: &str = "release.json";
@@ -201,10 +200,10 @@ pub async fn download_desktop_localization_pack(
         }))
         .build()
         .map_err(|error| AppError::Other(format!("创建中文资源下载客户端失败: {error}")))?;
-    let revision = fetch_upstream_revision(&client).await?;
+    let revision = fetch_upstream_release_tag(&client).await?;
     let packs_root = get_app_config_dir().join("localization").join("packs");
     fs::create_dir_all(&packs_root)?;
-    let target = packs_root.join(&revision);
+    let target = packs_root.join(safe_component(&revision));
     let stage = packs_root.join(format!(
         ".download-{}",
         uuid::Uuid::new_v4().simple()
@@ -332,14 +331,12 @@ async fn run_localization_action(
 }
 
 #[derive(Debug, Deserialize)]
-struct GitHubCommitResponse {
-    sha: String,
+struct GitHubReleaseResponse {
+    tag_name: String,
 }
 
-async fn fetch_upstream_revision(client: &reqwest::Client) -> AppResult<String> {
-    let url = format!(
-        "https://api.github.com/repos/{UPSTREAM_REPOSITORY}/commits/{UPSTREAM_BRANCH}"
-    );
+async fn fetch_upstream_release_tag(client: &reqwest::Client) -> AppResult<String> {
+    let url = format!("https://api.github.com/repos/{UPSTREAM_REPOSITORY}/releases/latest");
     let response = client
         .get(url)
         .header("Accept", "application/vnd.github+json")
@@ -349,7 +346,7 @@ async fn fetch_upstream_revision(client: &reqwest::Client) -> AppResult<String> 
     validate_upstream_url(response.url())?;
     if !response.status().is_success() {
         return Err(github_http_error(
-            "读取中文资源版本",
+            "读取中文资源最新 Release",
             response.status(),
         ));
     }
@@ -370,14 +367,29 @@ async fn fetch_upstream_revision(client: &reqwest::Client) -> AppResult<String> 
             "中文资源版本响应超过 1 MB 限制".to_string(),
         ));
     }
-    let payload: GitHubCommitResponse = serde_json::from_slice(&body)
+    let payload: GitHubReleaseResponse = serde_json::from_slice(&body)
         .map_err(|error| AppError::Config(format!("中文资源版本响应无效: {error}")))?;
-    if payload.sha.len() != 40 || !payload.sha.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+    let tag = payload.tag_name.trim().trim_start_matches('v').to_string();
+    if !is_valid_upstream_revision(&tag) {
         return Err(AppError::Config(
-            "中文资源仓库返回了无效的 commit SHA".to_string(),
+            "中文资源仓库返回了无效的 Release 标签".to_string(),
         ));
     }
-    Ok(payload.sha.to_ascii_lowercase())
+    Ok(tag)
+}
+
+fn is_valid_upstream_revision(revision: &str) -> bool {
+    if revision.is_empty() || revision.len() > 64 {
+        return false;
+    }
+    if revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return true;
+    }
+    // GitHub Release tags such as 1.4.3 (and older commit-folder caches).
+    revision
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+        && !revision.contains("..")
 }
 
 async fn download_pack_to_stage(
@@ -457,7 +469,7 @@ fn upstream_url_allowed(url: &reqwest::Url) -> bool {
 fn github_http_error(action: &str, status: reqwest::StatusCode) -> AppError {
     let detail = match status.as_u16() {
         403 | 429 => "，GitHub 可能已限流，请稍后重试",
-        404 => "，上游仓库或分支不存在",
+        404 => "，上游仓库或 Release 不存在",
         _ => "",
     };
     AppError::Config(format!("{action}失败（HTTP {status}{detail}）"))
@@ -623,9 +635,10 @@ fn pack_info(pack_path: Option<&str>, valid: bool) -> Option<DesktopLocalization
         return Some(local_info());
     };
     let github_revision_valid = info.source == "github"
-        && info.revision.as_ref().is_some_and(|revision| {
-            revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit())
-        });
+        && info
+            .revision
+            .as_ref()
+            .is_some_and(|revision| is_valid_upstream_revision(revision));
     if !github_revision_valid {
         return Some(local_info());
     }
@@ -1879,6 +1892,17 @@ mod tests {
     #[test]
     fn safe_component_removes_path_characters() {
         assert_eq!(safe_component("1.2.3/../../x"), "1.2.3_.._.._x");
+    }
+
+    #[test]
+    fn upstream_revision_accepts_release_tags_and_commit_shas() {
+        assert!(is_valid_upstream_revision("1.4.3"));
+        assert!(is_valid_upstream_revision(
+            "9cbc72bd4d937d2ef398f80f5ee90732eb93d533"
+        ));
+        assert!(!is_valid_upstream_revision("../evil"));
+        assert!(!is_valid_upstream_revision("1.4.3/../../x"));
+        assert!(!is_valid_upstream_revision(""));
     }
 
     #[test]
