@@ -320,36 +320,56 @@ fn unix_execution_path(tool_dir: &Path) -> std::ffi::OsString {
     std::env::join_paths(dirs).unwrap_or_default()
 }
 
-#[cfg(windows)]
 fn run_local_tool(path: &Path) -> io::Result<Output> {
+    run_tool_at_path(path, &["--version"])
+}
+
+#[cfg(windows)]
+fn quote_cmd_arg(value: &str) -> String {
+    if value.is_empty() {
+        return "\"\"".to_string();
+    }
+    if !value.contains([' ', '\t', '"', '&', '|', '<', '>', '^', '%']) {
+        return value.to_string();
+    }
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+/// Run a resolved CLI (handles Windows `.cmd`/`.bat` shims and GUI PATH gaps).
+#[cfg(windows)]
+fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
     use std::os::windows::process::CommandExt;
 
     let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+    let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
     if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
-        let quoted_path = path.to_string_lossy().replace('"', "\"\"");
-        let command_line = format!("call \"{quoted_path}\" --version");
+        let mut command_line = format!("call {}", quote_cmd_arg(&path.to_string_lossy()));
+        for arg in args {
+            command_line.push(' ');
+            command_line.push_str(&quote_cmd_arg(arg));
+        }
         let mut command = Command::new("cmd");
         command
             .args(["/D", "/S", "/C"])
             .raw_arg(command_line)
-            .env("PATH", compact_execution_path(path.parent().unwrap_or(Path::new(""))))
+            .env("PATH", compact_execution_path(tool_dir))
             .creation_flags(CREATE_NO_WINDOW);
         command.output()
     } else {
         let mut command = Command::new(path);
         command
-            .arg("--version")
-            .env("PATH", compact_execution_path(path.parent().unwrap_or(Path::new(""))))
+            .args(args)
+            .env("PATH", compact_execution_path(tool_dir))
             .creation_flags(CREATE_NO_WINDOW);
         command.output()
     }
 }
 
 #[cfg(not(windows))]
-fn run_local_tool(path: &Path) -> io::Result<Output> {
+fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
     let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
     Command::new(path)
-        .arg("--version")
+        .args(args)
         .env("PATH", unix_execution_path(tool_dir))
         .output()
 }
@@ -1261,6 +1281,30 @@ fn probe_codex_installation() -> Probe {
     }
 }
 
+/// Resolve Codex CLI even when the GUI process PATH omits npm/global shims.
+pub(crate) fn resolve_codex_cli_path() -> Option<PathBuf> {
+    match probe_codex_installation() {
+        Probe::Found(installation) | Probe::Broken(installation, _) => {
+            Some(PathBuf::from(installation.path))
+        }
+        Probe::NotFound(_) => None,
+    }
+}
+
+/// Run Codex CLI with discovered executable (npm `.cmd` etc.), not bare `codex` PATH lookup.
+pub(crate) fn run_codex_cli(args: &[&str]) -> AppResult<Output> {
+    let path = resolve_codex_cli_path().ok_or_else(|| {
+        AppError::Other(
+            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: program not found".into(),
+        )
+    })?;
+    run_tool_at_path(&path, args).map_err(|error| {
+        AppError::Other(format!(
+            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
+        ))
+    })
+}
+
 async fn fetch_codex_npm_latest() -> Option<String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
@@ -1468,6 +1512,46 @@ mod tests {
     #[test]
     fn codex_install_command_targets_openai_package() {
         assert!(codex_install_command().contains("@openai/codex"));
+    }
+
+    #[test]
+    fn resolves_local_codex_cli_when_installed() {
+        let npm_cmd = dirs::data_dir()
+            .map(|dir| dir.join("npm").join("codex.cmd"))
+            .filter(|path| path.is_file());
+        let npm_bin = dirs::data_dir()
+            .map(|dir| dir.join("npm").join("codex"))
+            .filter(|path| path.is_file());
+        if npm_cmd.is_none() && npm_bin.is_none() && resolve_command_via_login_shell("codex").is_none()
+        {
+            return;
+        }
+        let resolved = resolve_codex_cli_path().expect("Codex CLI should be discoverable");
+        let name = resolved
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(
+            name.starts_with("codex"),
+            "unexpected Codex path: {}",
+            resolved.display()
+        );
+
+        // GUI PATH-less launch path used by marketplace refresh.
+        let output = run_codex_cli(&["--version"]).expect("run resolved Codex CLI");
+        assert!(
+            output.status.success(),
+            "codex --version failed: {}",
+            output_detail(&output)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn quotes_cmd_args_with_spaces() {
+        assert_eq!(quote_cmd_arg("plain"), "plain");
+        assert_eq!(quote_cmd_arg(r"C:\Program Files\codex.cmd"), r#""C:\Program Files\codex.cmd""#);
     }
 
     #[test]

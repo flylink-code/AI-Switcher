@@ -11,15 +11,14 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use serde::Serialize;
 use serde_json::Value;
 use toml_edit::{value, DocumentMut, Item, Table};
 
+use crate::commands::tools::run_codex_cli;
 use crate::config::{atomic_write, get_codex_config_path, get_codex_plugins_cache_dir};
 use crate::error::{AppError, AppResult};
-use crate::process_util::apply_no_window;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -254,15 +253,8 @@ fn first_nonempty(primary: &str, fallback: &str) -> String {
 }
 
 fn run_codex_plugin_args(args: &[&str]) -> AppResult<std::process::Output> {
-    let mut command = Command::new("codex");
-    command.args(args);
-    apply_no_window(&mut command);
-    match command.output() {
-        Ok(output) => Ok(output),
-        Err(error) => Err(AppError::Other(format!(
-            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
-        ))),
-    }
+    // GUI sessions often omit npm global dirs from PATH; resolve like doctor/tools.
+    run_codex_cli(args)
 }
 
 fn parse_marketplace_json(stdout: &str) -> Vec<CodexMarketplace> {
