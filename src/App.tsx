@@ -40,8 +40,8 @@ export default function App() {
   const resolved = useThemeStore((s) => s.resolved);
   const language = useAppStore((s) => s.language);
 
-  // Default to the Providers page now that it's functional (P1).
-  const [activeKey, setActiveKey] = useState<PageKey>("providers");
+  // Default to Overview as the workspace home.
+  const [activeKey, setActiveKey] = useState<PageKey>("overview");
   const [startupReady, setStartupReady] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [rememberCloseChoice, setRememberCloseChoice] = useState(false);

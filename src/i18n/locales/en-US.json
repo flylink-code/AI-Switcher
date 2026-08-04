@@ -44,6 +44,7 @@
     }
   },
   "nav": {
+    "overview": "Overview",
     "providers": "Providers",
     "profiles": "Projects",
     "proxy": "Proxy",
@@ -74,6 +75,12 @@
     "currentProvider": "Active: {{name}}",
     "noProvider": "No active provider",
     "openProxy": "Open proxy"
+  },
+  "overview": {
+    "title": "Overview",
+    "description": "Usage summary and daily activity heatmap for the current workspace. Open Usage for logs and pricing.",
+    "usageSummary": "Usage summary",
+    "usageHint": "See sidebar · Usage"
   },
   "common": {
     "theme": "Theme",
@@ -520,6 +527,13 @@
     "calendarLevelTwo": "26–50%",
     "calendarLevelThree": "51–75%",
     "calendarLevelFour": "76–100%",
+    "weekdaySun": "Sun",
+    "weekdayMon": "Mon",
+    "weekdayTue": "Tue",
+    "weekdayWed": "Wed",
+    "weekdayThu": "Thu",
+    "weekdayFri": "Fri",
+    "weekdaySat": "Sat",
     "trendRequests": "Requests",
     "trendTokens": "Total tokens",
     "trendCost": "Estimated cost",

@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 export const PAGE_KEYS = [
+  "overview",
   "providers",
   "profiles",
   "proxy",
@@ -21,6 +22,7 @@ type PageModule = { default: ComponentType };
 type PageLoader = () => Promise<PageModule>;
 
 const pageLoaders: Record<PageKey, PageLoader> = {
+  overview: () => import("@/pages/OverviewPage"),
   providers: () => import("@/pages/ProvidersPage"),
   profiles: () => import("@/pages/ProfilesPage"),
   proxy: () => import("@/pages/ProxyPage"),

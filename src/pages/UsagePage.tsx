@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -14,7 +14,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Switch,
   Table,
   Tag,
@@ -68,6 +67,7 @@ import {
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { UsageMetric } from "@/components/UsageMetric";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { formatCompactNumber } from "@/utils/formatCompact";
 import { USAGE_PERIOD_VALUES, usagePeriodGranularity, usagePeriodHourKeys, usagePeriodLabelKey, trendBucketLabel } from "@/utils/usagePeriod";
@@ -487,10 +487,10 @@ export default function UsagePage() {
         </div>
 
         <Row gutter={[16, 16]}>
-          <Metric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
-          <Metric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
-          <Metric title={t("usage.totalTokens")} value={totalTokens} compact />
-          <Metric
+          <UsageMetric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
+          <UsageMetric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
+          <UsageMetric title={t("usage.totalTokens")} value={totalTokens} compact />
+          <UsageMetric
             title={t("usage.estimatedCost")}
             value={summary?.estimatedCost ?? 0}
             precision={4}
@@ -935,23 +935,6 @@ function UsageTrendChart({
         </AreaChart>
       </ResponsiveContainer>
     </div>
-  );
-}
-
-function Metric({ title, value, suffix, prefix, precision, icon, compact }: { title: string; value: number; suffix?: string; prefix?: string; precision?: number; icon?: ReactNode; compact?: boolean }) {
-  return (
-    <Col xs={24} sm={12} xl={6}>
-      <Card size="small">
-        <Statistic
-          title={title}
-          value={value}
-          suffix={suffix}
-          prefix={prefix ?? icon}
-          precision={precision}
-          formatter={compact ? (v) => formatCompactNumber(Number(v)) : undefined}
-        />
-      </Card>
-    </Col>
   );
 }
 

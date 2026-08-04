@@ -3,6 +3,7 @@ import {
   App as AntApp,
   Badge,
   Button,
+  Divider,
   Layout,
   Menu,
   Segmented,
@@ -21,6 +22,7 @@ import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
+import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
 import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
@@ -42,6 +44,7 @@ import { setAppLanguage } from "@/services/api";
 import type { ProviderTarget } from "@/types/backend";
 
 const { Sider, Header, Content } = Layout;
+const SHELL_HEADER_HEIGHT = 56;
 
 export interface NavItem {
   key: PageKey;
@@ -50,6 +53,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { key: "overview", icon: <DashboardOutlined />, group: "core" },
   { key: "providers", icon: <ApiOutlined />, group: "core" },
   { key: "profiles", icon: <AppstoreOutlined />, group: "core" },
   { key: "proxy", icon: <NodeIndexOutlined />, group: "core" },
@@ -101,6 +105,20 @@ function proxyStatusLabel(
     case "stopped":
     default:
       return t("workspace.proxyStopped");
+  }
+}
+
+function proxyBadgeStatus(phase: string | undefined): "success" | "processing" | "error" | "default" {
+  switch (phase) {
+    case "running":
+      return "success";
+    case "starting":
+      return "processing";
+    case "error":
+      return "error";
+    case "stopped":
+    default:
+      return "default";
   }
 }
 
@@ -162,11 +180,16 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
         }}
       >
         <div
+          className="app-brand"
           style={{
-            height: 56,
+            height: SHELL_HEADER_HEIGHT,
+            minHeight: SHELL_HEADER_HEIGHT,
+            maxHeight: SHELL_HEADER_HEIGHT,
+            boxSizing: "border-box",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            flexShrink: 0,
             color: token.colorText,
             fontWeight: 600,
             fontSize: 16,
@@ -199,6 +222,11 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
         <Header
           className="app-header"
           style={{
+            height: SHELL_HEADER_HEIGHT,
+            minHeight: SHELL_HEADER_HEIGHT,
+            maxHeight: SHELL_HEADER_HEIGHT,
+            lineHeight: "normal",
+            boxSizing: "border-box",
             flex: "0 0 auto",
             minWidth: 0,
             background: token.colorBgContainer,
@@ -206,41 +234,80 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             alignItems: "center",
             justifyContent: "space-between",
             gap: 16,
+            paddingBlock: 0,
             paddingInline: 24,
+            overflow: "hidden",
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <Space size={12} wrap style={{ minWidth: 0, flex: 1 }}>
+          <div className="app-header-main">
             <Segmented<ProviderTarget>
               size="small"
               value={workspaceTarget}
               options={workspaceOptions}
               onChange={setWorkspaceTarget}
               aria-label={t("workspace.target")}
+              style={{ flexShrink: 0 }}
             />
-            <Tooltip title={t("workspace.openProxy")}>
-              <Button type="text" size="small" onClick={() => onNavigate("proxy")}>
-                <Typography.Text
-                  type={proxyQuery.data?.phase === "error" ? "danger" : "secondary"}
-                  style={{ fontSize: 12 }}
+            <Divider type="vertical" className="app-header-divider" />
+            <div className="app-header-status">
+              <Tooltip title={t("workspace.openProxy")}>
+                <Button
+                  type="text"
+                  size="small"
+                  className="app-header-status-btn"
+                  onClick={() => onNavigate("proxy")}
                 >
-                  {proxyStatusLabel(t, proxyQuery.data?.phase, proxyQuery.data?.port)}
-                </Typography.Text>
-              </Button>
-            </Tooltip>
-            <Typography.Text type="secondary" ellipsis style={{ maxWidth: 280, fontSize: 12 }}>
-              {currentProvider
-                ? t("workspace.currentProvider", { name: currentProvider.name })
-                : t("workspace.noProvider")}
-            </Typography.Text>
-          </Space>
-          <Space>
+                  <Badge status={proxyBadgeStatus(proxyQuery.data?.phase)} />
+                  <Typography.Text
+                    type={proxyQuery.data?.phase === "error" ? "danger" : "secondary"}
+                    style={{ fontSize: 12 }}
+                  >
+                    {proxyStatusLabel(t, proxyQuery.data?.phase, proxyQuery.data?.port)}
+                  </Typography.Text>
+                </Button>
+              </Tooltip>
+              <span className="app-header-status-sep" aria-hidden>
+                ·
+              </span>
+              <Tooltip
+                title={
+                  currentProvider
+                    ? t("workspace.currentProvider", { name: currentProvider.name })
+                    : t("workspace.noProvider")
+                }
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  className="app-header-status-btn app-header-provider"
+                  onClick={() => onNavigate("providers")}
+                >
+                  <Typography.Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                    {t("nav.providers")}
+                  </Typography.Text>
+                  <Typography.Text
+                    ellipsis
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 600,
+                      maxWidth: 160,
+                      color: currentProvider ? token.colorText : token.colorTextTertiary,
+                    }}
+                  >
+                    {currentProvider?.name ?? t("workspace.noProvider")}
+                  </Typography.Text>
+                </Button>
+              </Tooltip>
+            </div>
+          </div>
+          <Space size={8} style={{ flexShrink: 0 }}>
             <Tooltip title={t("common.theme")}>
               <Select<ThemeMode>
                 size="small"
                 value={themeMode}
                 onChange={setThemeMode}
-                style={{ width: 120 }}
+                style={{ width: 108 }}
                 suffixIcon={themeIcons[themeMode]}
                 options={[
                   { value: "light", label: t("common.themeLight") },
@@ -257,7 +324,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
                   setLanguage(v);
                   void i18n.changeLanguage(v);
                 }}
-                style={{ width: 130 }}
+                style={{ width: 118 }}
                 suffixIcon={<GlobalOutlined />}
                 options={languages.map((l) => ({ value: l.value, label: l.label }))}
               />

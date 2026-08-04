@@ -1,4 +1,4 @@
-export type UsagePeriod = "24h" | "today" | 7 | 30 | 90 | 365;
+export type UsagePeriod = "24h" | "today" | 2 | 4 | 7 | 30 | 90 | 365;
 export type UsageTrendGranularity = "hour" | "day";
 
 export type UsagePeriodQuery = {
@@ -7,7 +7,7 @@ export type UsagePeriodQuery = {
   today?: boolean;
 };
 
-export const USAGE_PERIOD_VALUES: UsagePeriod[] = ["24h", "today", 7, 30, 90, 365];
+export const USAGE_PERIOD_VALUES: UsagePeriod[] = ["24h", "today", 2, 4, 7, 30, 90, 365];
 
 export function usagePeriodToQuery(period: UsagePeriod): UsagePeriodQuery {
   switch (period) {
@@ -15,6 +15,8 @@ export function usagePeriodToQuery(period: UsagePeriod): UsagePeriodQuery {
       return { hours: 24 };
     case "today":
       return { today: true };
+    case 2:
+    case 4:
     case 7:
     case 30:
     case 90:
@@ -32,6 +34,8 @@ export function usagePeriodGranularity(period: UsagePeriod): UsageTrendGranulari
     case "24h":
     case "today":
       return "hour";
+    case 2:
+    case 4:
     case 7:
     case 30:
     case 90:
@@ -50,6 +54,8 @@ export function usagePeriodToCalendarDays(period: UsagePeriod): number {
     case "24h":
     case "today":
       return 1;
+    case 2:
+    case 4:
     case 7:
     case 30:
     case 90:
@@ -68,6 +74,8 @@ export function usagePeriodLabelKey(period: UsagePeriod): string {
       return "usage.last24Hours";
     case "today":
       return "usage.today";
+    case 2:
+    case 4:
     case 7:
     case 30:
     case 90:

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**.
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.0.0**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,26 +41,35 @@ Install Claude Code, Claude Desktop, or the Codex CLI as needed.
 
 ## Features
 
+### Workspace shell (1.0)
+
+- **Overview**: usage summary metrics plus a GitHub-style daily activity heatmap (adaptive layout for short and long ranges)
+- **Global tool switcher**: header Segmented control for Claude Code / Desktop / Codex; sidebar and pages follow the same workspace context
+- **Status strip**: proxy phase/port and active provider in the header, with one-click navigation
+- **Grouped sidebar**: Core / Extensions / Data / System
+
 ### Providers and switching
 
-- Manage third-party APIs, model mappings, import/export, connection tests, and model discovery for Claude Code / Desktop / Codex separately
-- Codex providers can toggle **Web Search** (writes catalog `supports_search_tool` / `web_search_tool_type`; distinct from top-level `web_search` mode planned for 0.8.5)
+- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex separately
+- Codex providers can toggle catalog **Web Search** (writes `supports_search_tool` / `web_search_tool_type`)
+- Environment page can set top-level `web_search`: `disabled | cached | indexed | live` (separate from catalog toggles; does not write deprecated `features.web_search*`)
 - One-click switch with backups; restore official login configs
 - On Claude targets, sign in with a **ChatGPT subscription** (via local proxy); Codex official accounts use terminal `codex login`
-- Codex providers write to `~/.codex/config.toml` and do not use the Claude local proxy
+- Codex writes `~/.codex/config.toml`; OpenAI-compatible upstreams can connect directly, while Anthropic / OAuth still use the local proxy
+- Deep Link: `ai-switcher://v1/import?resource=provider|mcp&payload=...` (preview before import)
 
 ### Local proxy
 
-Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default).
+Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default). **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
 - MCP: unified management with Codex sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
 - MCP Registry: browse the official Registry and install entries that safely convert to Claude config (secret/URL-template entries still need manual setup)
 - Prompts: `CLAUDE.md` / Codex `AGENTS.md` presets with rename and one-click activate
-- Skills: install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP
+- Skills: install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP; scan stray skills to register/ignore
 - Agents: manage Claude Code user agents under `~/.claude/agents`
-- Codex Plugins: detect installed plugins and enable/disable them (no marketplace install; marketplace management is planned)
+- Codex Plugins: enable/disable/uninstall; wraps `codex plugin marketplace list/add/remove` (not a full store browser)
 
 ### Projects (Profiles)
 
@@ -76,8 +85,8 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching
-- Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
+- Usage: merges proxy logs with Codex / Claude Code local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates (headline picks the largest absolute amount); Opus / Codex Fast tier (`*-fast`) matching
+- Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`); environment page organized with Tabs
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 
 ---

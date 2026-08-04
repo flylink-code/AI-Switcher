@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。
+> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.0.0**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,6 +41,13 @@
 
 ## 能做什么
 
+### 工作区壳层（1.0）
+
+- **总览**：用量四指标汇总 + 每日活跃热力图（GitHub 风格，短/长周期自适应排布）
+- **全局工具切换**：顶栏在 Claude Code / Desktop / Codex 间切换，侧栏与页面跟随同一工作区上下文
+- **状态台**：顶栏显示代理状态与当前供应商，可一键跳转对应页面
+- **侧栏分组**：核心 / 扩展 / 数据 / 系统
+
 ### 供应商与切换
 
 - 分别管理 Claude Code / Desktop / Codex 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
@@ -48,7 +55,7 @@
 - 环境页可设置全局顶层 `web_search`：`disabled | cached | indexed | live`（与 catalog 开关层次不同；不写已弃用 `features.web_search*`）
 - 一键切换并备份；可恢复官方登录配置
 - Claude 侧可用 **ChatGPT 订阅**（经本地代理）；Codex 官方账号用终端 `codex login`
-- Codex 写入 `~/.codex/config.toml`，不经过 Claude 本地代理
+- Codex 写入 `~/.codex/config.toml`；OpenAI 兼容上游可直连，Anthropic / OAuth 仍经本地代理
 - Deep Link：`ai-switcher://v1/import?resource=provider|mcp&payload=...`（导入前预览确认）
 
 ### 本地代理
@@ -78,8 +85,8 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）
-- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
+- 用量：合并代理日志与 Codex / Claude Code 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估（汇总按最大绝对值选主币种）；识别 Opus / Codex Fast tier（`*-fast`）
+- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）；环境页按 Tabs 组织
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 
 ---

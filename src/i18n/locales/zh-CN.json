@@ -44,6 +44,7 @@
     }
   },
   "nav": {
+    "overview": "总览",
     "providers": "供应商",
     "profiles": "项目",
     "proxy": "本地代理",
@@ -74,6 +75,12 @@
     "currentProvider": "当前：{{name}}",
     "noProvider": "未激活供应商",
     "openProxy": "打开代理页"
+  },
+  "overview": {
+    "title": "总览",
+    "description": "查看当前工作区的用量汇总与每日活跃热力图；详细日志与价目表请到「用量统计」。",
+    "usageSummary": "用量汇总",
+    "usageHint": "详见侧栏 · 用量统计"
   },
   "common": {
     "theme": "主题",
@@ -520,6 +527,13 @@
     "calendarLevelTwo": "26–50%",
     "calendarLevelThree": "51–75%",
     "calendarLevelFour": "76–100%",
+    "weekdaySun": "日",
+    "weekdayMon": "一",
+    "weekdayTue": "二",
+    "weekdayWed": "三",
+    "weekdayThu": "四",
+    "weekdayFri": "五",
+    "weekdaySat": "六",
     "trendRequests": "请求数",
     "trendTokens": "总 Token",
     "trendCost": "预估成本",

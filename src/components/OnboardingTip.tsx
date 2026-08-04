@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { dismissOnboardingTip, getDismissedOnboardingTips } from "@/services/api";
 
 export type OnboardingTipKey =
+  | "overview"
   | "proxy"
   | "mcp"
   | "prompts"

@@ -4,10 +4,8 @@ import {
   App,
   Button,
   Card,
-  Collapse,
   Dropdown,
   Modal,
-  Select,
   Space,
   Table,
   Tag,
@@ -16,7 +14,6 @@ import {
   type MenuProps,
   type TableColumnsType,
 } from "antd";
-import { useQuery } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
@@ -41,8 +38,6 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import { UsageCalendar } from "@/components/UsageCalendar";
-import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import {
   buildProviderDeeplink,
   confirmImportPreview,
@@ -55,11 +50,6 @@ import {
   speedtestProviderEndpoint,
   testProviderConnection,
 } from "@/services/api";
-import { usageTrendOptions } from "@/lib/appQueries";
-import {
-  USAGE_PERIOD_VALUES,
-  usagePeriodLabelKey,
-} from "@/utils/usagePeriod";
 
 const { Text } = Typography;
 
@@ -68,10 +58,6 @@ export default function ProvidersPage() {
   const { message } = App.useApp();
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.workspaceTarget);
-  const heatmapPeriod = usePagePreferencesStore((state) => state.heatmapPeriod);
-  const setHeatmapPeriod = usePagePreferencesStore((state) => state.setHeatmapPeriod);
-  const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
-  const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
@@ -81,7 +67,6 @@ export default function ProvidersPage() {
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-  const usageQuery = useQuery(usageTrendOptions(heatmapPeriod, heatmapSource));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -523,42 +508,6 @@ export default function ProvidersPage() {
         locale={{ emptyText: t("providers.empty") }}
       />
     </Card>
-    <Collapse
-      size="small"
-      items={[
-        {
-          key: "heatmap",
-          label: t("usage.dailyStatistics"),
-          extra: (
-            <Space wrap size={8} align="center" onClick={(event) => event.stopPropagation()}>
-              <Select
-                size="middle"
-                value={heatmapPeriod}
-                style={{ width: 160 }}
-                options={USAGE_PERIOD_VALUES.map((value) => ({
-                  value,
-                  label:
-                    typeof value === "number"
-                      ? t("usage.lastDays", { days: value })
-                      : t(usagePeriodLabelKey(value)),
-                }))}
-                onChange={setHeatmapPeriod}
-              />
-              <UsageSourceFilterSegmented
-                value={heatmapSource}
-                onChange={setHeatmapSource}
-                t={t}
-              />
-            </Space>
-          ),
-          children: usageQuery.error ? (
-            <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
-          ) : (
-            <UsageCalendar data={usageQuery.data?.trend ?? []} period={heatmapPeriod} />
-          ),
-        },
-      ]}
-    />
     <ProviderForm
       open={formOpen}
       editing={editing}
