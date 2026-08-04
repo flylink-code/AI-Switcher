@@ -12,6 +12,7 @@ import {
   Pagination,
   Popconfirm,
   Row,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -44,6 +45,7 @@ import type {
   SessionMessage,
   SessionArchiveInfo,
   SessionMeta,
+  SessionProvider,
   SessionScanResult,
 } from "@/types/backend";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -68,16 +70,16 @@ export default function SessionsPage() {
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
   const provider = usePagePreferencesStore((state) => state.sessionsProvider);
+  const setSessionsProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
   const [page, setPage] = useState(1);
   useEffect(() => {
-    // Codex rows may lack projectDir until SQLite enrichment; avoid a filter that hides everything.
-    if (provider === "codex" && directory === "yes") {
-      setDirectory("all");
-    }
-  }, [provider, directory]);
+    // Codex rows usually have projectDir after SQLite enrichment; Claude Code filters
+    // like "no directory" must not silently empty the Codex list after switching.
+    setDirectory("all");
+  }, [provider]);
   const [selected, setSelected] = useState<SessionMeta | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -472,6 +474,14 @@ export default function SessionsPage() {
 
       <Card size="small">
         <Space wrap>
+          <Segmented<SessionProvider>
+            value={provider}
+            onChange={setSessionsProvider}
+            options={[
+              { value: "claude_code", label: "Claude Code" },
+              { value: "codex", label: "Codex" },
+            ]}
+          />
           <Input
             allowClear
             value={query}
@@ -487,9 +497,6 @@ export default function SessionsPage() {
           <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
             {t("sessions.searchContents")}
           </Button>
-          <Typography.Text type="secondary">
-            {provider === "codex" ? "Codex" : "Claude Code"}
-          </Typography.Text>
           <Select<DirectoryFilter>
             value={directory}
             onChange={setDirectory}

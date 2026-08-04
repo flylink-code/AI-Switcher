@@ -78,7 +78,7 @@
   },
   "overview": {
     "title": "Overview",
-    "description": "Usage summary and daily activity heatmap for the current workspace. Open Usage for logs and pricing.",
+    "description": "Usage summary, provider/model breakdowns, and daily activity heatmap. Open Usage for logs and pricing.",
     "usageSummary": "Usage summary",
     "usageHint": "See sidebar · Usage"
   },
@@ -97,7 +97,7 @@
   },
   "sessions": {
     "title": "Session Manager",
-    "subtitle": "Browse, search, and resume local Claude Code sessions without uploading or modifying source files.",
+    "subtitle": "Browse, search, and resume local Claude Code / Codex sessions without uploading or modifying source files.",
     "desktopLimited": "Limited Claude Desktop support",
     "desktopStatus": {
       "unsupported_format": "Claude Desktop was detected, but its history has no stable public local format. Only the official entry point is provided.",
@@ -512,8 +512,8 @@
     "cached": "cached",
     "outputTokens": "Output tokens",
     "estimatedCost": "Estimated cost",
-    "currencyLimit": "Estimated cost is totaled per pricing currency. The headline figure uses the primary currency (the only currency when there is one; otherwise USD is preferred). Different currencies are never summed together.",
-    "multiCurrencyTitle": "Multi-currency cost breakdown",
+    "currencyLimit": "Estimated cost is tracked per pricing currency. When multiple currencies appear, amounts are converted to USD with approximate FX rates (e.g. CNY ≈ 7.25 per USD) and summed. The detail list still shows native amounts.",
+    "multiCurrencyTitle": "Multi-currency detail (included in USD total)",
     "mixedCurrency": "Mixed currencies",
     "cachePricingIncluded": "Estimated cost includes separate input, cache-read, cache-write, and output-token rates. Requests without upstream usage are excluded.",
     "trend": "Daily trend",

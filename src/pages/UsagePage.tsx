@@ -67,6 +67,7 @@ import {
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
 import { UsageMetric } from "@/components/UsageMetric";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { formatCompactNumber } from "@/utils/formatCompact";
@@ -518,12 +519,12 @@ export default function UsagePage() {
         </Card>
 
         <Row gutter={[16, 16]}>
-          <Col xs={24} lg={12}>
-            <BreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} t={t} />
-          </Col>
-          <Col xs={24} lg={12}>
-            <BreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} t={t} />
-          </Col>
+            <Col xs={24} lg={12}>
+              <UsageBreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} />
+            </Col>
+            <Col xs={24} lg={12}>
+              <UsageBreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} />
+            </Col>
         </Row>
 
         <Card
@@ -936,34 +937,6 @@ function UsageTrendChart({
       </ResponsiveContainer>
     </div>
   );
-}
-
-function BreakdownCard({ title, data, t }: { title: string; data: UsageDashboard["byModel"]; t: (key: string) => string }) {
-  return <Card size="small" title={title}>
-    <Table
-        size="small"
-        pagination={false}
-        rowKey="key"
-        locale={{ emptyText: t("usage.noData") }}
-        dataSource={data}
-        columns={[
-          { title: t("usage.name"), dataIndex: "key", ellipsis: true },
-          { title: t("usage.requests"), dataIndex: "requestCount" },
-          {
-            title: t("usage.totalTokens"),
-            render: (_: unknown, row: UsageDashboard["byModel"][number]) =>
-              formatCompactNumber(
-                row.inputTokens +
-                  row.cacheReadInputTokens +
-                  row.cacheCreationInputTokens +
-                  row.outputTokens,
-              ),
-          },
-          { title: t("usage.estimatedCost"), dataIndex: "estimatedCost", render: (v: number, row) =>
-            row.currency === "MIXED" ? t("usage.mixedCurrency") : formatCost(v, row.currency) },
-        ]}
-    />
-  </Card>;
 }
 
 function successRate(total?: number, successful?: number) {

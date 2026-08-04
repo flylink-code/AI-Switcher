@@ -293,8 +293,16 @@ pub async fn get_usage_dashboard(
                 let mut by_model = get_usage_by_model_for_target(conn, since, target)?;
                 apply_fuzzy_pricing_to_breakdowns(&mut by_model, &pricing);
                 let mut summary = get_usage_summary_for_target(conn, since, target)?;
-                rebuild_summary_costs_from_models(&mut summary, &by_model);
-                let by_provider = get_usage_by_provider_for_target(conn, since, target)?;
+                rebuild_summary_costs_from_models(&mut summary, &mut by_model);
+                let mut by_provider = get_usage_by_provider_for_target(conn, since, target)?;
+                apply_fuzzy_pricing_to_breakdowns(&mut by_provider, &pricing);
+                if summary.estimated_cost_currency == "USD"
+                    && summary.estimated_costs_by_currency.len() > 1
+                {
+                    for item in by_provider.iter_mut() {
+                        convert_breakdown_to_usd(item);
+                    }
+                }
                 UsageDashboard {
                     summary,
                     by_provider,
@@ -678,9 +686,9 @@ fn apply_fuzzy_pricing_to_breakdowns(rows: &mut [UsageBreakdown], pricing: &[Mod
     }
 }
 
-fn rebuild_summary_costs_from_models(summary: &mut UsageSummary, by_model: &[UsageBreakdown]) {
+fn rebuild_summary_costs_from_models(summary: &mut UsageSummary, by_model: &mut [UsageBreakdown]) {
     let mut by_currency: BTreeMap<String, f64> = BTreeMap::new();
-    for item in by_model {
+    for item in by_model.iter() {
         if item.estimated_cost.abs() <= f64::EPSILON {
             continue;
         }
@@ -692,8 +700,62 @@ fn rebuild_summary_costs_from_models(summary: &mut UsageSummary, by_model: &[Usa
         .collect();
     let (currency, amount) = pick_summary_currency(&estimated_costs_by_currency);
     summary.estimated_cost = amount;
-    summary.estimated_cost_currency = currency;
+    summary.estimated_cost_currency = currency.clone();
     summary.estimated_costs_by_currency = estimated_costs_by_currency;
+    // When the headline is converted USD (multi-currency), normalize per-model rows.
+    if currency == "USD" && summary.estimated_costs_by_currency.len() > 1 {
+        for item in by_model.iter_mut() {
+            convert_breakdown_to_usd(item);
+        }
+    }
+}
+
+fn convert_breakdown_to_usd(item: &mut UsageBreakdown) {
+    if item.currency.eq_ignore_ascii_case("USD") {
+        item.currency = "USD".to_string();
+        return;
+    }
+    if item.currency.eq_ignore_ascii_case("MIXED") {
+        return;
+    }
+    item.estimated_cost = crate::usage::to_usd(item.estimated_cost, &item.currency);
+    item.currency = "USD".to_string();
+}
+
+fn merge_breakdown_costs(existing: &mut UsageBreakdown, incoming: &UsageBreakdown) {
+    if existing.currency == incoming.currency {
+        existing.estimated_cost += incoming.estimated_cost;
+        return;
+    }
+    if existing.estimated_cost.abs() <= f64::EPSILON {
+        existing.estimated_cost = incoming.estimated_cost;
+        existing.currency = incoming.currency.clone();
+        return;
+    }
+    if incoming.estimated_cost.abs() <= f64::EPSILON {
+        return;
+    }
+    existing.estimated_cost = crate::usage::to_usd(existing.estimated_cost, &existing.currency)
+        + crate::usage::to_usd(incoming.estimated_cost, &incoming.currency);
+    existing.currency = "USD".to_string();
+}
+
+fn merge_trend_costs(existing: &mut UsageTrendPoint, incoming: &UsageTrendPoint) {
+    if existing.currency == incoming.currency {
+        existing.estimated_cost += incoming.estimated_cost;
+        return;
+    }
+    if existing.estimated_cost.abs() <= f64::EPSILON {
+        existing.estimated_cost = incoming.estimated_cost;
+        existing.currency = incoming.currency.clone();
+        return;
+    }
+    if incoming.estimated_cost.abs() <= f64::EPSILON {
+        return;
+    }
+    existing.estimated_cost = crate::usage::to_usd(existing.estimated_cost, &existing.currency)
+        + crate::usage::to_usd(incoming.estimated_cost, &incoming.currency);
+    existing.currency = "USD".to_string();
 }
 
 fn find_pricing_for_model<'a>(
@@ -741,6 +803,12 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
     local.summary.estimated_cost = amount;
     local.summary.estimated_cost_currency = currency.clone();
     local.summary.estimated_costs_by_currency = estimated_costs_by_currency;
+    let converted_to_usd = currency == "USD" && local.summary.estimated_costs_by_currency.len() > 1;
+    if converted_to_usd {
+        for item in local.by_model.values_mut() {
+            convert_breakdown_to_usd(item);
+        }
+    }
     for item in local.trend.values_mut() {
         // Trend rows are not model-split; leave cost at 0 unless a single model covers all.
         if local.by_model.len() == 1 {
@@ -789,15 +857,7 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
             existing.input_tokens += item.input_tokens;
             existing.cache_read_input_tokens += item.cache_read_input_tokens;
             existing.output_tokens += item.output_tokens;
-            if existing.currency == item.currency {
-                existing.estimated_cost += item.estimated_cost;
-            } else if existing.estimated_cost.abs() <= f64::EPSILON {
-                existing.estimated_cost = item.estimated_cost;
-                existing.currency = item.currency;
-            } else if item.estimated_cost.abs() > f64::EPSILON {
-                existing.estimated_cost = 0.0;
-                existing.currency = "MIXED".to_string();
-            }
+            merge_breakdown_costs(existing, &item);
         } else {
             dashboard.by_model.push(item);
         }
@@ -809,15 +869,7 @@ fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggr
             existing.input_tokens += item.input_tokens;
             existing.cache_read_input_tokens += item.cache_read_input_tokens;
             existing.output_tokens += item.output_tokens;
-            if existing.currency == item.currency {
-                existing.estimated_cost += item.estimated_cost;
-            } else if existing.estimated_cost.abs() <= f64::EPSILON {
-                existing.estimated_cost = item.estimated_cost;
-                existing.currency = item.currency;
-            } else if item.estimated_cost.abs() > f64::EPSILON {
-                existing.estimated_cost = 0.0;
-                existing.currency = "MIXED".to_string();
-            }
+            merge_trend_costs(existing, &item);
         } else {
             dashboard.trend.push(item);
         }
@@ -852,26 +904,14 @@ fn merge_currency_amounts(target: &mut Vec<CurrencyAmount>, incoming: &[Currency
     });
 }
 
-/// Pick the headline currency for a multi-currency cost summary.
-/// Prefer the largest absolute amount so a tiny USD total cannot hide a large CNY total.
+/// Pick the headline currency for a cost summary.
+/// Single currency stays native; multiple currencies convert to USD and sum.
 fn pick_summary_currency(amounts: &[CurrencyAmount]) -> (String, f64) {
-    if amounts.is_empty() {
-        return ("USD".to_string(), 0.0);
-    }
-    if amounts.len() == 1 {
-        return (amounts[0].currency.clone(), amounts[0].amount);
-    }
-    amounts
+    let pairs: Vec<(String, f64)> = amounts
         .iter()
-        .max_by(|left, right| {
-            left.amount
-                .abs()
-                .partial_cmp(&right.amount.abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| left.currency.cmp(&right.currency))
-        })
         .map(|entry| (entry.currency.clone(), entry.amount))
-        .unwrap_or_else(|| ("USD".to_string(), 0.0))
+        .collect();
+    crate::usage::summarize_costs_as_usd(&pairs)
 }
 
 #[tauri::command]
@@ -1302,7 +1342,7 @@ mod tests {
     }
 
     #[test]
-    fn pick_summary_currency_prefers_largest_amount_over_usd() {
+    fn pick_summary_currency_converts_mixed_to_usd() {
         let amounts = vec![
             CurrencyAmount {
                 currency: "USD".to_string(),
@@ -1310,12 +1350,13 @@ mod tests {
             },
             CurrencyAmount {
                 currency: "CNY".to_string(),
-                amount: 48.0,
+                amount: 72.5,
             },
         ];
         let (currency, amount) = pick_summary_currency(&amounts);
-        assert_eq!(currency, "CNY");
-        assert!((amount - 48.0).abs() < f64::EPSILON);
+        assert_eq!(currency, "USD");
+        // 72.5 CNY / 7.25 + 0.0189 ≈ 10.0189
+        assert!((amount - 10.0189).abs() < 1e-9);
     }
 
     #[test]
@@ -1337,7 +1378,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_codex_estimated_cost_prefers_largest_currency_when_mixed() {
+    fn apply_codex_estimated_cost_converts_mixed_currencies_to_usd() {
         let mut local = LocalCodexAggregation {
             status: LocalCodexUsage {
                 available: true,
@@ -1406,10 +1447,12 @@ mod tests {
             },
         ];
         apply_codex_estimated_cost(&mut local, &pricing);
-        // k3: 20+50=70 CNY; gpt-5: 2 USD — headline must be CNY, not the tiny USD.
-        assert_eq!(local.summary.estimated_cost_currency, "CNY");
-        assert!((local.summary.estimated_cost - 70.0).abs() < f64::EPSILON);
+        // k3: 70 CNY → 70/7.25 USD; gpt-5: 2 USD → headline ≈ 11.655 USD
+        assert_eq!(local.summary.estimated_cost_currency, "USD");
+        assert!((local.summary.estimated_cost - (70.0 / 7.25 + 2.0)).abs() < 1e-9);
         assert_eq!(local.summary.estimated_costs_by_currency.len(), 2);
+        assert_eq!(local.by_model["k3"].currency, "USD");
+        assert!((local.by_model["k3"].estimated_cost - (70.0 / 7.25)).abs() < 1e-9);
     }
 
     fn row(values: &[&str]) -> Vec<String> {

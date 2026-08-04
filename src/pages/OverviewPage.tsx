@@ -1,10 +1,11 @@
-import { Alert, Card, Row, Select, Space, Typography } from "antd";
+import { Alert, Card, Col, Row, Select, Space, Typography } from "antd";
 import CalendarOutlined from "@ant-design/icons/es/icons/CalendarOutlined";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageMetric } from "@/components/UsageMetric";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
@@ -28,19 +29,55 @@ export default function OverviewPage() {
   const trendQuery = useQuery(usageTrendOptions(heatmapPeriod, heatmapSource));
 
   const summary = dashboardQuery.data?.summary;
+  const byProvider = dashboardQuery.data?.byProvider ?? [];
+  const byModel = dashboardQuery.data?.byModel ?? [];
   const totalTokens =
     (summary?.inputTokens ?? 0) +
     (summary?.cacheReadInputTokens ?? 0) +
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
 
+  const periodSourceFilters = (
+    <Space wrap size={8} align="center">
+      <Select
+        size="middle"
+        value={heatmapPeriod}
+        style={{ width: 160 }}
+        options={USAGE_PERIOD_VALUES.map((value) => ({
+          value,
+          label:
+            typeof value === "number"
+              ? t("usage.lastDays", { days: value })
+              : t(usagePeriodLabelKey(value)),
+        }))}
+        onChange={setHeatmapPeriod}
+      />
+      <UsageSourceFilterSegmented
+        value={heatmapSource}
+        onChange={setHeatmapSource}
+        t={t}
+      />
+    </Space>
+  );
+
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <div>
-        <Title level={4} style={{ margin: 0 }}>
-          {t("overview.title")}
-        </Title>
-        <Text type="secondary">{t("overview.description")}</Text>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          <Title level={4} style={{ margin: 0 }}>
+            {t("overview.title")}
+          </Title>
+          <Text type="secondary">{t("overview.description")}</Text>
+        </div>
+        {periodSourceFilters}
       </div>
 
       <OnboardingTip tipKey="overview" message={t("overview.title")} description={t("overview.description")} />
@@ -88,34 +125,31 @@ export default function OverviewPage() {
         )}
       </Card>
 
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <UsageBreakdownCard
+            title={t("usage.byProvider")}
+            data={byProvider}
+            maxRows={10}
+            loading={dashboardQuery.isLoading}
+          />
+        </Col>
+        <Col xs={24} lg={12}>
+          <UsageBreakdownCard
+            title={t("usage.byModel")}
+            data={byModel}
+            maxRows={10}
+            loading={dashboardQuery.isLoading}
+          />
+        </Col>
+      </Row>
+
       <Card
         size="small"
         title={
           <Space>
             <CalendarOutlined />
             {t("usage.dailyStatistics")}
-          </Space>
-        }
-        extra={
-          <Space wrap size={8} align="center">
-            <Select
-              size="middle"
-              value={heatmapPeriod}
-              style={{ width: 160 }}
-              options={USAGE_PERIOD_VALUES.map((value) => ({
-                value,
-                label:
-                  typeof value === "number"
-                    ? t("usage.lastDays", { days: value })
-                    : t(usagePeriodLabelKey(value)),
-              }))}
-              onChange={setHeatmapPeriod}
-            />
-            <UsageSourceFilterSegmented
-              value={heatmapSource}
-              onChange={setHeatmapSource}
-              t={t}
-            />
           </Space>
         }
       >

@@ -689,25 +689,13 @@ pub fn get_usage_summary_for_target(
 }
 
 /// Pick the headline currency for a multi-currency cost summary.
-/// Prefer the largest absolute amount so a tiny USD total cannot hide a large CNY total.
+/// Single currency stays native; multiple currencies convert to USD and sum.
 fn pick_primary_currency_amount(amounts: &[CurrencyAmount]) -> (String, f64) {
-    if amounts.is_empty() {
-        return ("USD".to_string(), 0.0);
-    }
-    if amounts.len() == 1 {
-        return (amounts[0].currency.clone(), amounts[0].amount);
-    }
-    amounts
+    let pairs: Vec<(String, f64)> = amounts
         .iter()
-        .max_by(|left, right| {
-            left.amount
-                .abs()
-                .partial_cmp(&right.amount.abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| left.currency.cmp(&right.currency))
-        })
         .map(|entry| (entry.currency.clone(), entry.amount))
-        .unwrap_or_else(|| ("USD".to_string(), 0.0))
+        .collect();
+    crate::usage::summarize_costs_as_usd(&pairs)
 }
 
 pub fn get_usage_by_provider_for_target(
@@ -1022,7 +1010,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pick_primary_currency_prefers_largest_amount_over_usd() {
+    fn pick_primary_currency_converts_mixed_to_usd() {
         let amounts = vec![
             CurrencyAmount {
                 currency: "USD".to_string(),
@@ -1030,12 +1018,12 @@ mod tests {
             },
             CurrencyAmount {
                 currency: "CNY".to_string(),
-                amount: 48.0,
+                amount: 72.5,
             },
         ];
         let (currency, amount) = pick_primary_currency_amount(&amounts);
-        assert_eq!(currency, "CNY");
-        assert!((amount - 48.0).abs() < f64::EPSILON);
+        assert_eq!(currency, "USD");
+        assert!((amount - 10.0189).abs() < 1e-9);
     }
 
     #[test]

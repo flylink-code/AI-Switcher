@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.0.4**
+> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.0.5**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

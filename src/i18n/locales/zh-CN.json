@@ -78,7 +78,7 @@
   },
   "overview": {
     "title": "总览",
-    "description": "查看当前工作区的用量汇总与每日活跃热力图；详细日志与价目表请到「用量统计」。",
+    "description": "查看用量汇总、按供应商/模型统计与每日活跃热力图；详细日志与价目表请到「用量统计」。",
     "usageSummary": "用量汇总",
     "usageHint": "详见侧栏 · 用量统计"
   },
@@ -97,7 +97,7 @@
   },
   "sessions": {
     "title": "会话管理",
-    "subtitle": "在本地浏览、搜索并恢复 Claude Code 会话；不会上传或修改原始记录。",
+    "subtitle": "在本地浏览、搜索并恢复 Claude Code / Codex 会话；不会上传或修改原始记录。",
     "desktopLimited": "Claude Desktop 支持受限",
     "desktopStatus": {
       "unsupported_format": "已检测到 Claude Desktop；其历史会话没有公开稳定的本地格式，当前仅提供官方入口。",
@@ -512,8 +512,8 @@
     "cached": "缓存",
     "outputTokens": "输出 Token",
     "estimatedCost": "预估成本",
-    "currencyLimit": "预估成本按定价币种分别汇总；主数字取主要币种（仅一种时即该币种；多种并存时优先 USD）。不会把不同币种金额直接相加。",
-    "multiCurrencyTitle": "多币种成本明细",
+    "currencyLimit": "预估成本按定价币种分别记账；多种币种并存时按近似汇率换算成美元后相加（例如 CNY≈7.25/USD）。明细仍保留原币种金额。",
+    "multiCurrencyTitle": "多币种明细（已换算计入美元合计）",
     "mixedCurrency": "多币种混合",
     "cachePricingIncluded": "预估成本已分别计入输入、缓存读取、缓存写入和输出 Token 的价格；未返回用量的请求不会计入成本。",
     "trend": "每日趋势",
