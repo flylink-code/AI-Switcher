@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use semver::Version;
 use serde::Serialize;
+use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
@@ -98,9 +99,16 @@ fn configured_updater(
     settings: &UpdateMirrorSettings,
 ) -> AppResult<tauri_plugin_updater::Updater> {
     let endpoints = update_manifest_endpoints(settings)?;
+    let app_for_exit = app.clone();
     app.updater_builder()
         .endpoints(endpoints)
         .map_err(|error| AppError::Config(format!("更新端点配置无效: {error}")))?
+        // Replaces the plugin default hook: stop proxies + flush WAL before
+        // Windows hard-exit so NSIS `/R` relaunch can bind ports / open DB.
+        .on_before_exit(move || {
+            crate::commands::proxy::prepare_for_updater_exit(&app_for_exit);
+            app_for_exit.cleanup_before_exit();
+        })
         .build()
         .map_err(|error| AppError::Other(format!("创建更新器失败: {error}")))
 }

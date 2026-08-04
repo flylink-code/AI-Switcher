@@ -44,7 +44,9 @@ impl Database {
         }
         let db_exists = path.exists();
         let conn = Connection::open(&path)?;
-        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
+        )?;
         if !db_exists {
             // `auto_vacuum` must be set before any table is created to take effect.
             conn.execute("PRAGMA auto_vacuum = INCREMENTAL;", [])?;
@@ -103,6 +105,13 @@ impl Database {
         f(&mut conn)
     }
 
+    /// Flush WAL before hard process exit (Windows updater `std::process::exit`).
+    pub fn checkpoint_wal(&self) -> AppResult<()> {
+        let conn = lock_conn!(self.conn);
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(())
+    }
+
     /// Close the live DB file, replace it with `new_db`, reopen, and rematerialize
     /// any plaintext API keys into the OS keyring.
     ///
@@ -137,7 +146,9 @@ impl Database {
 
         let reopen_live = |guard: &mut Connection| -> AppResult<()> {
             let conn = Connection::open(&path)?;
-            conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+            conn.execute_batch(
+                "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
+            )?;
             *guard = conn;
             Ok(())
         };

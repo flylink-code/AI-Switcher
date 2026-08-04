@@ -893,7 +893,7 @@
     "saveUpdateMirror": "Save",
     "appUpToDate": "No updates available. You are on the latest version.",
     "appUpdateAvailable": "Version {{version}} is available",
-    "appUpdatePrompt": "The update will be downloaded and installed, then the app will restart.",
+    "appUpdatePrompt": "The update will be downloaded and installed. The app will close and the installer will reopen it automatically.",
     "appUpdateInstall": "Download and install",
     "appUpdateFailed": "Unable to check for or install updates. Try again later.",
     "appUpdateFailedDetail": "Unable to check for or install updates: {{error}}",

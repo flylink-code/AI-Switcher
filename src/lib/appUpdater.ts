@@ -19,6 +19,9 @@ export async function checkForAppUpdate(timeoutMessage: string): Promise<AppUpda
 }
 
 export async function installAvailableAppUpdate(version: string): Promise<void> {
+  // On Windows, tauri-plugin-updater launches NSIS with /R then hard-exits; this
+  // await typically never resolves. Callers should still attempt restartApp() for
+  // macOS/Linux where install returns and the app must relaunch itself.
   await installAppUpdate(version);
 }
 

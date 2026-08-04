@@ -223,6 +223,16 @@ impl ProxyManager {
         log::info!("本地代理已停止");
     }
 
+    /// Stop all proxies and wait briefly so sockets can release before process exit.
+    ///
+    /// Used by the Windows updater path, which hard-exits after launching NSIS `/R`.
+    pub async fn stop_graceful(&mut self) {
+        self.stop_target_graceful(ProviderTarget::ClaudeCode).await;
+        self.stop_target_graceful(ProviderTarget::ClaudeDesktop).await;
+        self.stop_target_graceful(ProviderTarget::Codex).await;
+        log::info!("本地代理已优雅停止");
+    }
+
     pub fn stop_target(&mut self, target: ProviderTarget) {
         let runtime = match target {
             ProviderTarget::ClaudeCode => self.code.take(),
@@ -232,6 +242,27 @@ impl ProxyManager {
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
             runtime.handle.abort();
+        }
+    }
+
+    async fn stop_target_graceful(&mut self, target: ProviderTarget) {
+        let runtime = match target {
+            ProviderTarget::ClaudeCode => self.code.take(),
+            ProviderTarget::ClaudeDesktop => self.desktop.take(),
+            ProviderTarget::Codex => self.codex.take(),
+        };
+        let Some(runtime) = runtime else {
+            return;
+        };
+        let _ = runtime.shutdown_tx.send(());
+        let abort = runtime.handle.abort_handle();
+        match tokio::time::timeout(Duration::from_millis(800), runtime.handle).await {
+            Ok(_) => {}
+            Err(_) => {
+                abort.abort();
+                // Give the OS a moment to reclaim the listen port after abort.
+                tokio::time::sleep(Duration::from_millis(150)).await;
+            }
         }
     }
 

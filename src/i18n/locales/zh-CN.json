@@ -893,7 +893,7 @@
     "saveUpdateMirror": "保存",
     "appUpToDate": "暂无更新，当前已是最新版本",
     "appUpdateAvailable": "发现新版本 {{version}}",
-    "appUpdatePrompt": "将下载并安装更新，应用会随后重启。",
+    "appUpdatePrompt": "将下载并安装更新；安装过程中应用会关闭并由安装程序自动重新打开。",
     "appUpdateInstall": "下载并安装",
     "appUpdateFailed": "无法检查或安装更新，请稍后重试",
     "appUpdateFailedDetail": "无法检查或安装更新：{{error}}",

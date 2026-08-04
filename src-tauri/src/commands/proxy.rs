@@ -311,27 +311,80 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
             status_value(state, target, port, "starting", None),
         )
         .await;
-        let mut proxy = state.proxy.lock().await;
-        match proxy.start(port, target).await {
-            Ok(()) => {
-                let status = proxy.status_for(target);
-                drop(proxy);
-                publish_status(app, state, target, status).await;
-                log::info!("已自动启动 {target:?} 本地代理: http://127.0.0.1:{port}");
-            }
-            Err(error) => {
-                drop(proxy);
-                let status = status_value(
-                    state,
-                    target,
-                    port,
-                    "error",
-                    Some(sanitize_status_error(&error.to_string())),
-                );
-                publish_status(app, state, target, status).await;
-                log::error!("自动启动 {target:?} 本地代理失败: {error}");
+
+        // After Windows updater hard-exit + NSIS `/R`, listen ports may still be
+        // briefly busy; retry instead of leaving the proxy permanently in "error".
+        const MAX_ATTEMPTS: u32 = 4;
+        let mut last_error: Option<String> = None;
+        for attempt in 1..=MAX_ATTEMPTS {
+            let mut proxy = state.proxy.lock().await;
+            match proxy.start(port, target).await {
+                Ok(()) => {
+                    let status = proxy.status_for(target);
+                    drop(proxy);
+                    publish_status(app, state, target, status).await;
+                    log::info!("已自动启动 {target:?} 本地代理: http://127.0.0.1:{port}");
+                    last_error = None;
+                    break;
+                }
+                Err(error) => {
+                    drop(proxy);
+                    last_error = Some(error.to_string());
+                    log::warn!(
+                        "自动启动 {target:?} 本地代理失败 (attempt {attempt}/{MAX_ATTEMPTS}): {error}"
+                    );
+                    if attempt < MAX_ATTEMPTS {
+                        tokio::time::sleep(std::time::Duration::from_millis(250 * u64::from(attempt)))
+                            .await;
+                    }
+                }
             }
         }
+        if let Some(error) = last_error {
+            let status = status_value(
+                state,
+                target,
+                port,
+                "error",
+                Some(sanitize_status_error(&error)),
+            );
+            publish_status(app, state, target, status).await;
+            log::error!("自动启动 {target:?} 本地代理最终失败: {error}");
+        }
+    }
+}
+
+/// Best-effort teardown before Windows updater `std::process::exit(0)`.
+///
+/// Must not call `Handle::block_on` here: the updater invokes this hook from an
+/// async task, and nesting `block_on` panics/deadlocks. Use a short-lived thread.
+pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
+    use tauri::Manager;
+
+    let app = app.clone();
+    let join = std::thread::spawn(move || {
+        let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        else {
+            log::warn!("updater exit: failed to create teardown runtime");
+            return;
+        };
+        runtime.block_on(async {
+            let Some(state) = app.try_state::<AppState>() else {
+                return;
+            };
+            {
+                let mut proxy = state.proxy.lock().await;
+                proxy.stop_graceful().await;
+            }
+            if let Err(error) = state.db.checkpoint_wal() {
+                log::warn!("updater exit: WAL checkpoint failed: {error}");
+            }
+        });
+    });
+    if let Err(error) = join.join() {
+        log::warn!("updater exit: teardown thread panicked: {error:?}");
     }
 }
 
