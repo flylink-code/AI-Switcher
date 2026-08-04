@@ -35,7 +35,7 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -50,7 +50,7 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -68,7 +68,7 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 (SELECT status FROM provider_health WHERE provider_id = providers.id),
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
-                provider_kind, auth_binding, web_search_enabled
+                provider_kind, auth_binding, web_search_enabled, failover_group, failover_models
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -143,13 +143,16 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
                 auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
-                web_search_enabled = ? WHERE id = ?;",
+                web_search_enabled = ?, failover_group = ?, failover_models = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
                 input.model_context_window, auto_review_model_override,
                 input.provider_kind.as_str(), input.auth_binding.trim(),
-                web_search_sql(input.web_search_enabled), id,
+                web_search_sql(input.web_search_enabled),
+                input.failover_group,
+                serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
+                id,
             ],
         )?;
         if input.clear_api_key || is_codex_oauth {
@@ -174,14 +177,16 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
             input.target_app.as_str(), input.notes, next_sort, now,
             model_mapping_json, input.model_context_window, auto_review_model_override,
             web_search_sql(input.web_search_enabled),
+            input.failover_group,
+            serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -341,6 +346,13 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
     let provider_kind_raw: String = row.get(16)?;
     let provider_kind = ProviderKind::from_str_lossy(&provider_kind_raw);
     let auth_binding: String = row.get(17)?;
+    let failover_models_json: String = row.get(20)?;
+    let failover_models = serde_json::from_str::<Vec<String>>(&failover_models_json)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect();
     Ok(Provider {
         api_key_set: !api_key.is_empty()
             || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
@@ -363,7 +375,17 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         model_context_window: row.get(14)?,
         auto_review_model_override: row.get(15)?,
         web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),
+        failover_group: row.get(19)?,
+        failover_models,
     })
+}
+
+fn normalize_failover_models(models: &[String]) -> Vec<String> {
+    models
+        .iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect()
 }
 
 fn web_search_sql(value: Option<bool>) -> Option<i64> {
@@ -398,6 +420,8 @@ mod tests {
             auth_binding: String::new(),
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
+            failover_group: 0,
+            failover_models: Vec::new(),
         }
     }
 
@@ -451,6 +475,49 @@ mod tests {
 
             delete_provider(conn, &provider.id)?;
             assert!(get_provider_model_cache(conn, &provider.id)?.is_none());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn switching_current_provider_is_visible_to_next_lookup() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut first = provider_input("https://first.example.test/v1");
+            first.name = "First".into();
+            let first = upsert_provider(conn, &first)?;
+            let mut second = provider_input("https://second.example.test/v1");
+            second.name = "Second".into();
+            let second = upsert_provider(conn, &second)?;
+
+            set_current_provider(conn, &first.id)?;
+            let current = get_current_provider(conn, ProviderTarget::ClaudeCode)?.expect("current");
+            assert_eq!(current.id, first.id);
+            assert_eq!(current.base_url, "https://first.example.test/v1");
+
+            set_current_provider(conn, &second.id)?;
+            let current = get_current_provider(conn, ProviderTarget::ClaudeCode)?.expect("current");
+            assert_eq!(current.id, second.id);
+            assert_eq!(current.base_url, "https://second.example.test/v1");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn failover_fields_roundtrip_on_upsert() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut input = provider_input("https://failover.example.test/v1");
+            input.failover_group = 2;
+            input.failover_models = vec!["claude-opus".into(), " gpt-5 ".into()];
+            let created = upsert_provider(conn, &input)?;
+            assert_eq!(created.failover_group, 2);
+            assert_eq!(
+                created.failover_models,
+                vec!["claude-opus".to_string(), "gpt-5".to_string()]
+            );
             Ok(())
         })
         .unwrap();

@@ -56,6 +56,8 @@ const DEFAULT_STREAMING_IDLE_TIMEOUT_SECS: u64 = 180;
 const MAX_UPSTREAM_ERROR_BYTES: usize = 16 * 1024;
 const CIRCUIT_FAILURE_THRESHOLD: u8 = 2;
 const CIRCUIT_OPEN_SECONDS: u64 = 60;
+/// Max alternate upstreams tried on a single failing request chain.
+pub(crate) const FAILOVER_MAX_HOPS: usize = 3;
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct UsageCounts {
@@ -332,13 +334,30 @@ pub(crate) fn record_provider_failure(state: &ProxyState, provider_id: &str) {
     }
 }
 
-pub(crate) fn next_failover_provider(state: &ProxyState, current_id: &str) -> AppResult<Option<Provider>> {
+pub(crate) fn next_failover_provider(
+    state: &ProxyState,
+    exclude_ids: &[String],
+    requested_model: &str,
+) -> AppResult<Option<Provider>> {
     let enabled = state.db.with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
         .as_deref() == Some("true");
-    if !enabled { return Ok(None); }
-    let candidates = state.db.with_conn(|conn| list_providers(conn, state.target))?;
+    if !enabled {
+        return Ok(None);
+    }
+    let mut candidates = state.db.with_conn(|conn| list_providers(conn, state.target))?;
+    candidates.sort_by(|left, right| {
+        left.failover_group
+            .cmp(&right.failover_group)
+            .then(left.sort_index.cmp(&right.sort_index))
+            .then(left.created_at.cmp(&right.created_at))
+            .then(left.id.cmp(&right.id))
+    });
     for mut candidate in candidates {
-        if candidate.id == current_id || candidate.base_url.trim().is_empty() || circuit_is_open(state, &candidate.id) {
+        if exclude_ids.iter().any(|id| id == &candidate.id)
+            || candidate.base_url.trim().is_empty()
+            || circuit_is_open(state, &candidate.id)
+            || !candidate.allows_failover_for_request(requested_model)
+        {
             continue;
         }
         if candidate.is_codex_oauth() {
@@ -661,6 +680,11 @@ async fn proxy_handler(
         }
     };
     let incoming_stream = convert::wants_stream(&incoming);
+    let requested_model = incoming
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream) {
         Ok(request) => request,
         Err(error) => {
@@ -682,37 +706,77 @@ async fn proxy_handler(
         Ok(r) => r,
         Err(e) => {
             record_provider_failure(&state, &provider.id);
-            let fallback = next_failover_provider(&state, &provider.id).ok().flatten();
-            let Some(mut fallback) = fallback else {
-                log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
-                if translated {
-                    log::warn!("转发到 OpenAI 兼容上游失败: {e}");
-                    return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
-                }
-                return json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {e}"));
-            };
-            log::warn!("供应商 {} 网络请求失败，尝试故障切换到 {}", provider.id, fallback.id);
-            let fallback_prepared = match prepare_upstream_request(&state, &mut fallback, &method, &headers, &incoming, &body_bytes, incoming_stream) {
-                Ok(request) => request,
-                Err(_) => {
-                    log_request(&state, &provider, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
-                    return json_error(StatusCode::BAD_GATEWAY, "首选供应商不可用，备用供应商配置无效");
-                }
-            };
-            translated = fallback_prepared.translated;
-            retry_without_stream_options = compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-            match fallback_prepared.builder.body(fallback_prepared.outgoing_body).send().await {
-                Ok(response) => {
-                    provider = fallback;
-                    response
-                }
-                Err(fallback_error) => {
-                    record_provider_failure(&state, &fallback.id);
-                    log_request(&state, &fallback, Some(502), started.elapsed().as_millis() as i64, uri.path(), incoming_stream, Some("network"));
-                    if translated {
-                        return anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502));
+            let mut excluded = vec![provider.id.clone()];
+            let mut last_error = e.to_string();
+            let mut recovered = None::<reqwest::Response>;
+            for _ in 0..FAILOVER_MAX_HOPS {
+                let Some(mut fallback) =
+                    next_failover_provider(&state, &excluded, &requested_model)
+                        .ok()
+                        .flatten()
+                else {
+                    break;
+                };
+                excluded.push(fallback.id.clone());
+                log::warn!(
+                    "供应商 {} 网络请求失败，尝试故障切换到 {}",
+                    provider.id,
+                    fallback.id
+                );
+                let Ok(fallback_prepared) = prepare_upstream_request(
+                    &state,
+                    &mut fallback,
+                    &method,
+                    &headers,
+                    &incoming,
+                    &body_bytes,
+                    incoming_stream,
+                ) else {
+                    continue;
+                };
+                translated = fallback_prepared.translated;
+                retry_without_stream_options =
+                    compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
+                match fallback_prepared
+                    .builder
+                    .body(fallback_prepared.outgoing_body)
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        provider = fallback;
+                        recovered = Some(response);
+                        break;
                     }
-                    return json_error(StatusCode::BAD_GATEWAY, format!("首选与备用供应商均无法连接: {fallback_error}"));
+                    Err(fallback_error) => {
+                        record_provider_failure(&state, &fallback.id);
+                        last_error = fallback_error.to_string();
+                    }
+                }
+            }
+            match recovered {
+                Some(response) => response,
+                None => {
+                    log_request(
+                        &state,
+                        &provider,
+                        Some(502),
+                        started.elapsed().as_millis() as i64,
+                        uri.path(),
+                        incoming_stream,
+                        Some("network"),
+                    );
+                    if translated {
+                        log::warn!("转发到 OpenAI 兼容上游失败: {last_error}");
+                        return anthropic_error(
+                            StatusCode::BAD_GATEWAY,
+                            convert::openai_error_to_anthropic(502),
+                        );
+                    }
+                    return json_error(
+                        StatusCode::BAD_GATEWAY,
+                        format!("转发到上游失败: {last_error}"),
+                    );
                 }
             }
         }
@@ -720,22 +784,55 @@ async fn proxy_handler(
 
     if is_retryable_upstream_status(&state, upstream_resp.status()) {
         record_provider_failure(&state, &provider.id);
-        if let Ok(Some(mut fallback)) = next_failover_provider(&state, &provider.id) {
-            log::warn!("供应商 {} 返回 {}，尝试故障切换到 {}", provider.id, upstream_resp.status(), fallback.id);
-            if let Ok(fallback_prepared) = prepare_upstream_request(&state, &mut fallback, &method, &headers, &incoming, &body_bytes, incoming_stream) {
-                let fallback_translated = fallback_prepared.translated;
-                let fallback_retry = compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-                match fallback_prepared.builder.body(fallback_prepared.outgoing_body).send().await {
-                    Ok(response) => {
-                        provider = fallback;
-                        translated = fallback_translated;
-                        retry_without_stream_options = fallback_retry;
-                        upstream_resp = response;
+        let mut excluded = vec![provider.id.clone()];
+        for _ in 0..FAILOVER_MAX_HOPS {
+            let Some(mut fallback) =
+                next_failover_provider(&state, &excluded, &requested_model)
+                    .ok()
+                    .flatten()
+            else {
+                break;
+            };
+            excluded.push(fallback.id.clone());
+            log::warn!(
+                "供应商 {} 返回 {}，尝试故障切换到 {}",
+                provider.id,
+                upstream_resp.status(),
+                fallback.id
+            );
+            let Ok(fallback_prepared) = prepare_upstream_request(
+                &state,
+                &mut fallback,
+                &method,
+                &headers,
+                &incoming,
+                &body_bytes,
+                incoming_stream,
+            ) else {
+                continue;
+            };
+            let fallback_translated = fallback_prepared.translated;
+            let fallback_retry =
+                compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
+            match fallback_prepared
+                .builder
+                .body(fallback_prepared.outgoing_body)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    provider = fallback;
+                    translated = fallback_translated;
+                    retry_without_stream_options = fallback_retry;
+                    upstream_resp = response;
+                    if !is_retryable_upstream_status(&state, upstream_resp.status()) {
+                        break;
                     }
-                    Err(error) => {
-                        record_provider_failure(&state, &fallback.id);
-                        log::warn!("备用供应商 {} 连接失败: {error}", fallback.id);
-                    }
+                    record_provider_failure(&state, &provider.id);
+                }
+                Err(error) => {
+                    record_provider_failure(&state, &fallback.id);
+                    log::warn!("备用供应商 {} 连接失败: {error}", fallback.id);
                 }
             }
         }
@@ -962,7 +1059,7 @@ async fn proxy_handler(
             }
         };
         if provider.protocol_type == ProtocolType::OpenAiResponses {
-            if let Some(failed) = convert::responses_failed_anthropic_error(&upstream) {
+                if let Some(failed) = convert::responses_failed_anthropic_error(&upstream) {
                 record_provider_failure(&state, &provider.id);
                 update_log_diagnostic(
                     &state,
@@ -973,13 +1070,22 @@ async fn proxy_handler(
                         .and_then(Value::as_str)
                         .unwrap_or("Responses status=failed"),
                 );
-                if let Ok(Some(mut fallback)) = next_failover_provider(&state, &provider.id) {
+                let mut excluded = vec![provider.id.clone()];
+                for _ in 0..FAILOVER_MAX_HOPS {
+                    let Some(mut fallback) =
+                        next_failover_provider(&state, &excluded, &requested_model)
+                            .ok()
+                            .flatten()
+                    else {
+                        break;
+                    };
+                    excluded.push(fallback.id.clone());
                     log::warn!(
                         "供应商 {} 返回 Responses failed envelope，尝试故障切换到 {}",
                         provider.id,
                         fallback.id
                     );
-                    if let Ok(fallback_prepared) = prepare_upstream_request(
+                    let Ok(fallback_prepared) = prepare_upstream_request(
                         &state,
                         &mut fallback,
                         &method,
@@ -987,97 +1093,90 @@ async fn proxy_handler(
                         &incoming,
                         &body_bytes,
                         incoming_stream,
-                    ) {
-                        let fallback_translated = fallback_prepared.translated;
-                        match fallback_prepared
-                            .builder
-                            .body(fallback_prepared.outgoing_body)
-                            .send()
-                            .await
-                        {
-                            Ok(response) if response.status().is_success() => {
-                                let fallback_bytes = match response.bytes().await {
-                                    Ok(bytes) => bytes,
-                                    Err(_) => {
-                                        record_provider_failure(&state, &fallback.id);
-                                        return anthropic_error(
-                                            StatusCode::BAD_GATEWAY,
-                                            failed,
-                                        );
-                                    }
-                                };
-                                let fallback_json: Value = match serde_json::from_slice(&fallback_bytes)
-                                {
-                                    Ok(value) => value,
-                                    Err(_) => {
-                                        record_provider_failure(&state, &fallback.id);
-                                        return anthropic_error(
-                                            StatusCode::BAD_GATEWAY,
-                                            failed,
-                                        );
-                                    }
-                                };
-                                if fallback.protocol_type == ProtocolType::OpenAiResponses
-                                    && convert::responses_failed_anthropic_error(&fallback_json)
-                                        .is_some()
-                                {
+                    ) else {
+                        continue;
+                    };
+                    match fallback_prepared
+                        .builder
+                        .body(fallback_prepared.outgoing_body)
+                        .send()
+                        .await
+                    {
+                        Ok(response) if response.status().is_success() => {
+                            let fallback_bytes = match response.bytes().await {
+                                Ok(bytes) => bytes,
+                                Err(_) => {
                                     record_provider_failure(&state, &fallback.id);
-                                    return anthropic_error(StatusCode::BAD_GATEWAY, failed);
+                                    continue;
                                 }
-                                provider = fallback;
-                                let _ = fallback_translated;
-                                let anthropic = match provider.protocol_type {
-                                    ProtocolType::OpenAiResponses => {
-                                        convert::openai_responses_to_anthropic(
-                                            &fallback_json,
-                                            provider.model.trim(),
-                                        )
-                                    }
-                                    _ => convert::openai_chat_to_anthropic(
+                            };
+                            let fallback_json: Value = match serde_json::from_slice(&fallback_bytes)
+                            {
+                                Ok(value) => value,
+                                Err(_) => {
+                                    record_provider_failure(&state, &fallback.id);
+                                    continue;
+                                }
+                            };
+                            if fallback.protocol_type == ProtocolType::OpenAiResponses
+                                && convert::responses_failed_anthropic_error(&fallback_json)
+                                    .is_some()
+                            {
+                                record_provider_failure(&state, &fallback.id);
+                                continue;
+                            }
+                            provider = fallback;
+                            let anthropic = match provider.protocol_type {
+                                ProtocolType::OpenAiResponses => {
+                                    convert::openai_responses_to_anthropic(
                                         &fallback_json,
                                         provider.model.trim(),
+                                    )
+                                }
+                                _ => convert::openai_chat_to_anthropic(
+                                    &fallback_json,
+                                    provider.model.trim(),
+                                ),
+                            };
+                            record_provider_success(&state, &provider.id);
+                            if let Some(id) = log_id.as_deref() {
+                                update_log_usage(
+                                    &state,
+                                    &provider,
+                                    id,
+                                    extract_usage_from_json(
+                                        &serde_json::to_vec(&anthropic).unwrap_or_default(),
                                     ),
-                                };
-                                record_provider_success(&state, &provider.id);
-                                if let Some(id) = log_id.as_deref() {
-                                    update_log_usage(
-                                        &state,
-                                        &provider,
-                                        id,
-                                        extract_usage_from_json(
-                                            &serde_json::to_vec(&anthropic).unwrap_or_default(),
-                                        ),
-                                    );
-                                }
-                                if incoming_stream {
-                                    return Response::builder()
-                                        .status(StatusCode::OK)
-                                        .header(header::CONTENT_TYPE, "text/event-stream")
-                                        .header(header::CACHE_CONTROL, "no-cache")
-                                        .body(Body::from(convert::anthropic_message_to_sse(&anthropic)))
-                                        .unwrap_or_else(|_| {
-                                            json_error(
-                                                StatusCode::INTERNAL_SERVER_ERROR,
-                                                "构造流式响应失败",
-                                            )
-                                        });
-                                }
+                                );
+                            }
+                            if incoming_stream {
                                 return Response::builder()
                                     .status(StatusCode::OK)
-                                    .header(header::CONTENT_TYPE, "application/json")
-                                    .body(Body::from(
-                                        serde_json::to_vec(&anthropic).unwrap_or_default(),
-                                    ))
+                                    .header(header::CONTENT_TYPE, "text/event-stream")
+                                    .header(header::CACHE_CONTROL, "no-cache")
+                                    .body(Body::from(convert::anthropic_message_to_sse(&anthropic)))
                                     .unwrap_or_else(|_| {
                                         json_error(
                                             StatusCode::INTERNAL_SERVER_ERROR,
-                                            "构造响应失败",
+                                            "构造流式响应失败",
                                         )
                                     });
                             }
-                            Ok(_) | Err(_) => {
-                                record_provider_failure(&state, &fallback.id);
-                            }
+                            return Response::builder()
+                                .status(StatusCode::OK)
+                                .header(header::CONTENT_TYPE, "application/json")
+                                .body(Body::from(
+                                    serde_json::to_vec(&anthropic).unwrap_or_default(),
+                                ))
+                                .unwrap_or_else(|_| {
+                                    json_error(
+                                        StatusCode::INTERNAL_SERVER_ERROR,
+                                        "构造响应失败",
+                                    )
+                                });
+                        }
+                        Ok(_) | Err(_) => {
+                            record_provider_failure(&state, &fallback.id);
                         }
                     }
                 }
@@ -1638,6 +1737,8 @@ mod tests {
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
             is_current: true,
             created_at: 0,
             health_status: None,
@@ -1666,6 +1767,122 @@ mod tests {
         assert!(circuit_is_open(&state, "provider-a"));
         record_provider_success(&state, "provider-a");
         assert!(!circuit_is_open(&state, "provider-a"));
+    }
+
+    #[test]
+    fn next_failover_provider_orders_by_group_and_filters_models() {
+        use crate::database::dao::providers::{set_current_provider, upsert_provider};
+        use crate::database::dao::settings::set_setting;
+        use crate::provider::{ClaudeModelMapping, ProviderInput, ProviderKind};
+
+        let state = circuit_test_state();
+        let seeded = state.db.with_conn(|conn| {
+            set_setting(conn, PROXY_FAILOVER_ENABLED_KEY, "true")?;
+            let current = upsert_provider(
+                conn,
+                &ProviderInput {
+                    id: None,
+                    name: "Current".into(),
+                    base_url: "https://current.example.test/v1".into(),
+                    api_key: "sk-current".into(),
+                    clear_api_key: false,
+                    model: "default".into(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::OpenAiChat,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 0,
+                    failover_models: Vec::new(),
+                },
+            )?;
+            set_current_provider(conn, &current.id)?;
+
+            let _group1 = upsert_provider(
+                conn,
+                &ProviderInput {
+                    id: None,
+                    name: "Group1".into(),
+                    base_url: "https://group1.example.test/v1".into(),
+                    api_key: "sk-group1".into(),
+                    clear_api_key: false,
+                    model: "default".into(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::OpenAiChat,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 1,
+                    failover_models: vec!["gpt-4o".into()],
+                },
+            )?;
+            let group0 = upsert_provider(
+                conn,
+                &ProviderInput {
+                    id: None,
+                    name: "Group0".into(),
+                    base_url: "https://group0.example.test/v1".into(),
+                    api_key: "sk-group0".into(),
+                    clear_api_key: false,
+                    model: "default".into(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::OpenAiChat,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 0,
+                    failover_models: Vec::new(),
+                },
+            )?;
+            Ok((current.id, group0.id))
+        });
+        let (current_id, group0_id) = match seeded {
+            Ok(ids) => ids,
+            Err(error) => {
+                let message = error.to_string();
+                if message.contains("凭据")
+                    || message.contains("keyring")
+                    || message.contains("credential")
+                {
+                    return;
+                }
+                panic!("{error}");
+            }
+        };
+
+        let first = next_failover_provider(&state, &[current_id.clone()], "claude-opus-5")
+            .unwrap()
+            .expect("group 0 candidate");
+        assert_eq!(first.id, group0_id);
+
+        let filtered = next_failover_provider(
+            &state,
+            &[current_id.clone(), group0_id.clone()],
+            "claude-opus-5",
+        )
+        .unwrap();
+        assert!(filtered.is_none(), "group1 whitelist should reject opus");
+
+        let matched = next_failover_provider(
+            &state,
+            &[current_id, group0_id],
+            "gpt-4o-mini",
+        )
+        .unwrap()
+        .expect("group1 whitelist match");
+        assert_eq!(matched.name, "Group1");
     }
 
     #[test]

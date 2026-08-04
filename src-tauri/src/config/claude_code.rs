@@ -389,6 +389,8 @@ mod tests {
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
             is_current: true,
             created_at: 0,
             health_status: None,

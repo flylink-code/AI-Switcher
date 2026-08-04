@@ -30,12 +30,16 @@ import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import type { McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
+import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
+import type { ImportPreview, McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
 import {
+  buildMcpDeeplink,
   clearMcpOauth,
+  confirmImportPreview,
   deleteMcpServer,
   importMcpServers,
   installMcpRegistryServer,
+  previewImportText,
   reorderMcpServers,
   saveMcpServer,
   searchMcpRegistry,
@@ -193,6 +197,8 @@ export default function McpPage() {
   const conflictQuery = useQuery(mcpDesktopConflictOptions);
   const servers = serversQuery.data ?? [];
   const [busy, setBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importConfirming, setImportConfirming] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<McpServer | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -361,6 +367,50 @@ export default function McpPage() {
     }
   };
 
+  const handleImportClipboard = async () => {
+    setBusy(true);
+    try {
+      const text = await navigator.clipboard.readText();
+      const preview = await previewImportText(text);
+      if (preview.resource !== "mcp") {
+        void message.warning(t("deeplink.expectMcp"));
+        return;
+      }
+      setImportPreview(preview);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    setImportConfirming(true);
+    try {
+      const result = await confirmImportPreview(importPreview);
+      void message.success(
+        t("providers.importSummary", { imported: result.imported, skipped: result.skipped }),
+      );
+      setImportPreview(null);
+      await queryClient.invalidateQueries({ queryKey: mcpServersOptions.queryKey });
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setImportConfirming(false);
+    }
+  };
+
+  const handleShareLink = async (server: McpServer) => {
+    try {
+      const link = await buildMcpDeeplink(server.id);
+      await navigator.clipboard.writeText(link);
+      void message.success(t("deeplink.linkCopied"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -513,6 +563,9 @@ export default function McpPage() {
           <Tooltip title={t("mcp.edit")}>
             <Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(server)} />
           </Tooltip>
+          <Tooltip title={t("deeplink.shareLink")}>
+            <Button size="small" icon={<GlobalOutlined />} disabled={busy} onClick={() => void handleShareLink(server)} />
+          </Tooltip>
           <Popconfirm
             title={t("mcp.confirmDelete")}
             okText={t("mcp.delete")}
@@ -609,6 +662,9 @@ export default function McpPage() {
               </Button>
               <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
                 {t("mcp.import")}
+              </Button>
+              <Button loading={busy} onClick={() => void handleImportClipboard()}>
+                {t("mcp.importClipboard")}
               </Button>
               <Button
                 icon={<SyncOutlined />}
@@ -890,6 +946,13 @@ export default function McpPage() {
           />
         </Space>
       </Modal>
+      <ImportPreviewDialog
+        open={importPreview !== null}
+        preview={importPreview}
+        confirming={importConfirming}
+        onCancel={() => setImportPreview(null)}
+        onConfirm={() => void handleConfirmImport()}
+      />
     </>
   );
 }

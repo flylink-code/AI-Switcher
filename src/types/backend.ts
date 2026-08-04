@@ -36,6 +36,10 @@ export interface Provider {
   targetApp: ProviderTarget;
   notes: string;
   sortIndex: number;
+  /** Lower = higher failover priority. */
+  failoverGroup: number;
+  /** Empty = any model; otherwise request/mapped model must match. */
+  failoverModels: string[];
   isCurrent: boolean;
   createdAt: number;
   healthStatus?: string | null;
@@ -63,6 +67,8 @@ export interface ProviderInput {
   authBinding?: string;
   targetApp: ProviderTarget;
   notes: string;
+  failoverGroup?: number;
+  failoverModels?: string[];
 }
 
 export interface ConnectionTestResult {
@@ -109,6 +115,28 @@ export interface ModelDiscoveryResult {
 }
 
 export interface ProviderImportResult {
+  imported: number;
+  skipped: number;
+}
+
+export type ImportResource = "provider" | "mcp";
+
+export interface ImportPreviewItem {
+  name: string;
+  summary: string;
+  detail?: unknown;
+}
+
+export interface ImportPreview {
+  resource: ImportResource;
+  source: string;
+  items: ImportPreviewItem[];
+  warnings: string[];
+  payload: unknown;
+}
+
+export interface DeeplinkImportResult {
+  resource: ImportResource;
   imported: number;
   skipped: number;
 }

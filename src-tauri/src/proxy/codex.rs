@@ -24,7 +24,7 @@ use super::{
     codex_auto_review::apply_auto_review_model_override, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     log_early_failure, log_request, next_failover_provider, record_provider_failure,
-    record_provider_success, session_prompt_cache_hint, ProxyState,
+    record_provider_success, session_prompt_cache_hint, FAILOVER_MAX_HOPS, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -93,6 +93,15 @@ pub async fn codex_proxy_handler(
     };
 
     let original_body = body;
+    let requested_model = serde_json::from_slice::<Value>(&original_body)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("model")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .unwrap_or_default();
     let prepared = match prepare_codex_upstream(&state, &provider, &route, &headers, &original_body)
     {
         Ok(prepared) => prepared,
@@ -105,64 +114,81 @@ pub async fn codex_proxy_handler(
         Ok(response) => response,
         Err(error) => {
             record_provider_failure(&state, &provider.id);
-            let Some(fallback) = next_failover_provider(&state, &provider.id).ok().flatten() else {
-                let _ = log_request(
-                    &state,
-                    &provider,
-                    None,
-                    started.elapsed().as_millis() as i64,
-                    &route,
-                    is_stream,
-                    Some("network"),
+            let mut excluded = vec![provider.id.clone()];
+            let mut last_error = error.to_string();
+            let mut recovered = None::<reqwest::Response>;
+            for _ in 0..FAILOVER_MAX_HOPS {
+                let Some(fallback) =
+                    next_failover_provider(&state, &excluded, &requested_model)
+                        .ok()
+                        .flatten()
+                else {
+                    break;
+                };
+                excluded.push(fallback.id.clone());
+                log::warn!(
+                    "Codex 供应商 {} 网络请求失败，尝试故障切换到 {}",
+                    provider.id,
+                    fallback.id
                 );
-                return json_error(StatusCode::BAD_GATEWAY, format!("上游连接失败: {error}"));
-            };
-            log::warn!(
-                "Codex 供应商 {} 网络请求失败，尝试故障切换到 {}",
-                provider.id,
-                fallback.id
-            );
-            match prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body) {
-                Ok(fallback_prepared) => {
-                    match fallback_prepared
-                        .request
-                        .body(fallback_prepared.request_body)
-                        .send()
-                        .await
-                    {
-                        Ok(response) => {
-                            provider = fallback;
-                            is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
-                            is_stream = fallback_prepared.is_stream;
-                            compact_fallback = fallback_prepared.compact_fallback;
-                            response
-                        }
-                        Err(fallback_error) => {
-                            record_provider_failure(&state, &fallback.id);
-                            let _ = log_request(
-                                &state,
-                                &fallback,
-                                None,
-                                started.elapsed().as_millis() as i64,
-                                &route,
-                                fallback_prepared.is_stream,
-                                Some("network"),
-                            );
-                            return json_error(
-                                StatusCode::BAD_GATEWAY,
-                                format!("首选与备用供应商均无法连接: {fallback_error}"),
-                            );
+                match prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body) {
+                    Ok(fallback_prepared) => {
+                        match fallback_prepared
+                            .request
+                            .body(fallback_prepared.request_body)
+                            .send()
+                            .await
+                        {
+                            Ok(response) => {
+                                provider = fallback;
+                                is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
+                                is_stream = fallback_prepared.is_stream;
+                                compact_fallback = fallback_prepared.compact_fallback;
+                                recovered = Some(response);
+                                break;
+                            }
+                            Err(fallback_error) => {
+                                record_provider_failure(&state, &fallback.id);
+                                last_error = fallback_error.to_string();
+                            }
                         }
                     }
+                    Err(_) => continue,
                 }
-                Err(response) => return response,
+            }
+            match recovered {
+                Some(response) => response,
+                None => {
+                    let _ = log_request(
+                        &state,
+                        &provider,
+                        None,
+                        started.elapsed().as_millis() as i64,
+                        &route,
+                        is_stream,
+                        Some("network"),
+                    );
+                    return json_error(
+                        StatusCode::BAD_GATEWAY,
+                        format!("上游连接失败: {last_error}"),
+                    );
+                }
             }
         }
     };
 
     if is_retryable_upstream_status(&state, upstream.status()) {
         record_provider_failure(&state, &provider.id);
-        if let Ok(Some(fallback)) = next_failover_provider(&state, &provider.id) {
+        let mut excluded = vec![provider.id.clone()];
+        for _ in 0..FAILOVER_MAX_HOPS {
+            let Some(fallback) =
+                next_failover_provider(&state, &excluded, &requested_model)
+                    .ok()
+                    .flatten()
+            else {
+                break;
+            };
+            excluded.push(fallback.id.clone());
             log::warn!(
                 "Codex 供应商 {} 返回 {}，尝试故障切换到 {}",
                 provider.id,
@@ -184,6 +210,10 @@ pub async fn codex_proxy_handler(
                         is_stream = fallback_prepared.is_stream;
                         compact_fallback = fallback_prepared.compact_fallback;
                         upstream = response;
+                        if !is_retryable_upstream_status(&state, upstream.status()) {
+                            break;
+                        }
+                        record_provider_failure(&state, &provider.id);
                     }
                     Err(error) => {
                         record_provider_failure(&state, &fallback.id);

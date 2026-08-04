@@ -88,14 +88,32 @@ pub fn sync_sessions_to_provider(
     let pending_sqlite = count_sqlite_provider_updates(&sqlite_paths, &target)?;
 
     if rewrite_changes.is_empty() && pending_sqlite == 0 {
+        let status = if collected.skipped_locked_files.is_empty()
+            && collected.skipped_locked_databases.is_empty()
+        {
+            "synced"
+        } else {
+            "warning"
+        };
+        let message = if status == "warning" {
+            format!(
+                "历史会话看起来已对齐，但有 {} 个文件 / {} 个数据库因占用未能核对；请先退出 Codex 再点「修复历史会话」",
+                collected.skipped_locked_files.len(),
+                collected.skipped_locked_databases.len()
+            )
+        } else {
+            "历史会话已与当前供应商一致，无需修改".into()
+        };
+        let mut skipped = collected.skipped_locked_files;
+        skipped.extend(collected.skipped_locked_databases);
         return Ok(CodexProviderSyncResult {
-            status: "synced".into(),
-            message: "历史会话已与当前供应商一致，无需修改".into(),
+            status: status.into(),
+            message,
             target_provider: target,
             backup_dir: None,
             changed_session_files: 0,
             sqlite_rows_updated: 0,
-            skipped_locked_files: collected.skipped_locked_files,
+            skipped_locked_files: skipped,
         });
     }
 
@@ -171,6 +189,7 @@ fn root_toml_string_value(text: &str, key: &str) -> Option<String> {
 struct CollectedSessionChanges {
     changes: Vec<SessionChange>,
     skipped_locked_files: Vec<String>,
+    skipped_locked_databases: Vec<String>,
 }
 
 fn collect_session_changes(home: &Path, target_provider: &str) -> AppResult<CollectedSessionChanges> {
@@ -201,6 +220,13 @@ fn collect_session_changes(home: &Path, target_provider: &str) -> AppResult<Coll
             next_text: rewrite.next_text,
             rewrite_needed: rewrite.rewrite_needed,
         });
+    }
+    for path in provider_sync_db_paths(home) {
+        if open_codex_sqlite(&path).is_err() {
+            collected
+                .skipped_locked_databases
+                .push(path.display().to_string());
+        }
     }
     Ok(collected)
 }
@@ -331,8 +357,16 @@ fn provider_sync_db_paths(home: &Path) -> Vec<PathBuf> {
     paths
 }
 
+fn open_codex_sqlite(path: &Path) -> AppResult<Connection> {
+    let db = Connection::open(path).map_err(|error| {
+        AppError::Database(format!("打开 Codex SQLite 失败 {}: {error}", path.display()))
+    })?;
+    let _ = db.busy_timeout(std::time::Duration::from_millis(2_000));
+    Ok(db)
+}
+
 fn sqlite_has_provider_table(path: &Path) -> bool {
-    let Ok(db) = Connection::open(path) else {
+    let Ok(db) = open_codex_sqlite(path) else {
         return false;
     };
     table_has_column(&db, "threads", "model_provider")
@@ -360,9 +394,13 @@ fn count_sqlite_provider_update(path: &Path, target_provider: &str) -> AppResult
     if !path.exists() {
         return Ok(0);
     }
-    let db = Connection::open(path).map_err(|error| {
-        AppError::Database(format!("打开 Codex SQLite 失败 {}: {error}", path.display()))
-    })?;
+    let db = match open_codex_sqlite(path) {
+        Ok(db) => db,
+        Err(_) => {
+            // Locked while Codex is running — caller surfaces skipped DBs as warning.
+            return Ok(0);
+        }
+    };
     let mut total = 0usize;
     if table_has_column(&db, "threads", "model_provider") {
         total += db
@@ -397,9 +435,7 @@ fn apply_sqlite_provider_update(path: &Path, target_provider: &str) -> AppResult
     if !path.exists() {
         return Ok(0);
     }
-    let mut db = Connection::open(path).map_err(|error| {
-        AppError::Database(format!("打开 Codex SQLite 失败 {}: {error}", path.display()))
-    })?;
+    let mut db = open_codex_sqlite(path)?;
     let tx = db.transaction().map_err(|error| {
         AppError::Database(format!("开始 Codex SQLite 事务失败: {error}"))
     })?;

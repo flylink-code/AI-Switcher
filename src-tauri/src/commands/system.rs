@@ -35,6 +35,7 @@ const ONBOARDING_TIP_KEYS: &[&str] = &[
     "environment",
     "environment_sync",
     "providers_codex_auth",
+    "providers_hot_switch",
     "about",
 ];
 
@@ -601,6 +602,7 @@ mod tests {
         assert!(validate_onboarding_tip_key("environment").is_ok());
         assert!(validate_onboarding_tip_key("environment_sync").is_ok());
         assert!(validate_onboarding_tip_key("providers_codex_auth").is_ok());
+        assert!(validate_onboarding_tip_key("providers_hot_switch").is_ok());
         assert!(validate_onboarding_tip_key("about").is_ok());
         assert!(validate_onboarding_tip_key("anything-else").is_err());
     }

@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AI-Switcher",
   "mainBinaryName": "AISwitcher",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "identifier": "com.claude-switcher.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -36,6 +36,11 @@
         "https://github.com/flylink-code/AI-Switcher/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERDMzM2QzY5ODhGRDVFMzgKUldRNFh2MklhV3d6M01hNFNUZzkrYXJYQVQ0TEN4REt0Y2k4Q1pDMDVDYitJWjBmWjJjS0ZTR3MK"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["ai-switcher"]
+      }
     }
   },
   "bundle": {

@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 19;
+pub const SCHEMA_VERSION: u32 = 20;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -32,6 +32,8 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             target_app    TEXT NOT NULL DEFAULT 'claude_code',
             notes         TEXT NOT NULL DEFAULT '',
             sort_index    INTEGER NOT NULL DEFAULT 0,
+            failover_group INTEGER NOT NULL DEFAULT 0,
+            failover_models TEXT NOT NULL DEFAULT '[]',
             is_current    BOOLEAN NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
@@ -210,6 +212,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 19 {
         migrate_v18_to_v19(conn)?;
+    }
+    if current < 20 {
+        migrate_v19_to_v20(conn)?;
     }
     Ok(())
 }
@@ -668,6 +673,41 @@ fn migrate_v18_to_v19(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 19)
+}
+
+/// Failover priority group + optional model whitelist for backup candidates.
+fn migrate_v19_to_v20(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 20);
+    }
+    let has_group: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'failover_group';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_group == 0 {
+        conn.execute(
+            "ALTER TABLE providers ADD COLUMN failover_group INTEGER NOT NULL DEFAULT 0;",
+            [],
+        )?;
+    }
+    let has_models: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'failover_models';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_models == 0 {
+        conn.execute(
+            "ALTER TABLE providers ADD COLUMN failover_models TEXT NOT NULL DEFAULT '[]';",
+            [],
+        )?;
+    }
+    set_user_version(conn, 20)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

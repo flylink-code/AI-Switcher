@@ -9,6 +9,7 @@ pub mod app_update;
 pub mod backup;
 pub mod db;
 pub mod data_root;
+pub mod deeplink;
 pub mod doctor;
 pub mod desktop_localization;
 pub mod localization;
@@ -44,6 +45,9 @@ pub use backup::{
 };
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
+pub use deeplink::{
+    build_mcp_deeplink, build_provider_deeplink, confirm_import_preview, preview_import_text,
+};
 pub use doctor::{repair_environment_visibility, run_environment_doctor};
 pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,

@@ -14,6 +14,7 @@ import enUS from "antd/locale/en_US";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { AppLayout } from "@/components/AppLayout";
+import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
 import { StartupScreen } from "@/components/StartupScreen";
@@ -23,6 +24,7 @@ import {
   reportFrontendStartup,
   restartApp,
   resolveCloseRequest,
+  confirmImportPreview,
 } from "@/services/api";
 import { checkForAppUpdate, installAvailableAppUpdate, type AppUpdate } from "@/lib/appUpdater";
 import {
@@ -30,6 +32,8 @@ import {
   preloadPage,
   type PageKey,
 } from "@/lib/pageRegistry";
+import type { ImportPreview } from "@/types/backend";
+import { message as staticMessage } from "antd";
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -47,6 +51,8 @@ export default function App() {
   const [updatePromptOpen, setUpdatePromptOpen] = useState(false);
   const [installingUpdate, setInstallingUpdate] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [deeplinkPreview, setDeeplinkPreview] = useState<ImportPreview | null>(null);
+  const [deeplinkConfirming, setDeeplinkConfirming] = useState(false);
   const [startupProgress, setStartupProgress] = useState<StartupProgress>({
     completed: 0,
     total: 1,
@@ -133,6 +139,31 @@ export default function App() {
       unlisten?.();
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const disposers: Array<() => void> = [];
+    const hasTauri =
+      typeof window !== "undefined" &&
+      Boolean((window as unknown as Record<string, unknown>).__TAURI_INTERNALS__);
+    if (!hasTauri) return;
+    void listen<ImportPreview>("deeplink-import", (event) => {
+      setDeeplinkPreview(event.payload);
+    }).then((dispose) => {
+      if (active) disposers.push(dispose);
+      else dispose();
+    });
+    void listen<{ message?: string }>("deeplink-error", (event) => {
+      void staticMessage.error(event.payload?.message ?? t("deeplink.invalid"));
+    }).then((dispose) => {
+      if (active) disposers.push(dispose);
+      else dispose();
+    });
+    return () => {
+      active = false;
+      for (const dispose of disposers) dispose();
+    };
+  }, [t]);
 
   // Keep i18next in sync with the persisted language.
   useEffect(() => {
@@ -240,6 +271,25 @@ export default function App() {
     }
   }, [availableUpdate, t]);
 
+  const handleConfirmDeeplink = useCallback(async () => {
+    if (!deeplinkPreview) return;
+    setDeeplinkConfirming(true);
+    try {
+      const result = await confirmImportPreview(deeplinkPreview);
+      void staticMessage.success(
+        t("providers.importSummary", {
+          imported: result.imported,
+          skipped: result.skipped,
+        }),
+      );
+      setDeeplinkPreview(null);
+    } catch (error) {
+      void staticMessage.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeeplinkConfirming(false);
+    }
+  }, [deeplinkPreview, t]);
+
   return (
     <ConfigProvider csp={csp} locale={antdLocale} theme={themeConfig}>
       <AntApp>
@@ -315,6 +365,13 @@ export default function App() {
           {updateError && <Alert type="error" showIcon message={updateError} style={{ marginBottom: 16 }} />}
           {t("about.appUpdatePrompt")}
         </Modal>
+        <ImportPreviewDialog
+          open={deeplinkPreview !== null}
+          preview={deeplinkPreview}
+          confirming={deeplinkConfirming}
+          onCancel={() => setDeeplinkPreview(null)}
+          onConfirm={() => void handleConfirmDeeplink()}
+        />
       </AntApp>
     </ConfigProvider>
   );

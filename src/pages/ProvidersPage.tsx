@@ -29,6 +29,7 @@ import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined"
 import { useTranslation } from "react-i18next";
 import type {
   CodexOauthDeviceStart,
+  ImportPreview,
   Provider,
   ProviderInput,
   ProviderTarget,
@@ -36,14 +37,17 @@ import type {
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
+import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageCalendar } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import {
+  buildProviderDeeplink,
+  confirmImportPreview,
   ensureCodexOauthProvider,
   exportProviders,
   getCodexAuthStatus,
-  importProvidersJson,
+  previewImportText,
   pollCodexOauthLogin,
   startCodexOauthLogin,
   testProviderConnection,
@@ -62,18 +66,20 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
-  const usagePeriod = usePagePreferencesStore((state) => state.usagePeriod);
-  const setUsagePeriod = usePagePreferencesStore((state) => state.setUsagePeriod);
-  const usageSource = usePagePreferencesStore((state) => state.usageLogTarget);
-  const setUsageSource = usePagePreferencesStore((state) => state.setUsageLogTarget);
+  const heatmapPeriod = usePagePreferencesStore((state) => state.heatmapPeriod);
+  const setHeatmapPeriod = usePagePreferencesStore((state) => state.setHeatmapPeriod);
+  const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
+  const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importConfirming, setImportConfirming] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-  const usageQuery = useQuery(usageTrendOptions(usagePeriod, usageSource));
+  const usageQuery = useQuery(usageTrendOptions(heatmapPeriod, heatmapSource));
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
   useEffect(() => {
@@ -145,6 +151,7 @@ export default function ProvidersPage() {
     try {
       const result = await store.switchTo(provider.id);
       void message.success(t("providers.switched", { name: provider.name }));
+      void message.info(t("providers.hotSwitchHint"));
       const sync = result.sessionSync;
       if (sync) {
         if (sync.status === "warning") {
@@ -205,11 +212,50 @@ export default function ProvidersPage() {
   const handleImportFile = async (file: File) => {
     setBusy(true);
     try {
-      const result = await importProvidersJson(await file.text());
-      void message.success(t("providers.importSummary", { imported: result.imported, skipped: result.skipped }));
-      await store.load(target);
+      const preview = await previewImportText(await file.text());
+      setImportPreview(preview);
     } catch (e) { void message.error(errMsg(e)); }
     finally { setBusy(false); }
+  };
+
+  const handleImportClipboard = async () => {
+    setBusy(true);
+    try {
+      const text = await navigator.clipboard.readText();
+      const preview = await previewImportText(text);
+      setImportPreview(preview);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    setImportConfirming(true);
+    try {
+      const result = await confirmImportPreview(importPreview);
+      void message.success(
+        t("providers.importSummary", { imported: result.imported, skipped: result.skipped }),
+      );
+      setImportPreview(null);
+      await store.load(target);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setImportConfirming(false);
+    }
+  };
+
+  const handleShareLink = async (provider: Provider) => {
+    try {
+      const link = await buildProviderDeeplink(provider.id);
+      await navigator.clipboard.writeText(link);
+      void message.success(t("deeplink.linkCopied"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
   };
 
   const handleOfficial = async () => {
@@ -278,12 +324,19 @@ export default function ProvidersPage() {
     },
     { title: t("providers.colProtocol"), dataIndex: "protocolType", width: 150, render: (value: string) => <Tag color={value === "anthropic" ? "blue" : "orange"}>{value}</Tag> },
     {
-      title: t("providers.colActions"), key: "actions", width: 240,
+      title: t("providers.colFailoverGroup"),
+      dataIndex: "failoverGroup",
+      width: 90,
+      render: (value: number) => <Tag>{value ?? 0}</Tag>,
+    },
+    {
+      title: t("providers.colActions"), key: "actions", width: 280,
       render: (_: unknown, row: Provider, index: number) => <Space size="small">
         <Tooltip title={t("providers.moveUp")}><Button size="small" icon={<ArrowUpOutlined />} disabled={index === 0 || busy} onClick={() => void store.move(row.id, -1)} /></Tooltip>
         <Tooltip title={t("providers.moveDown")}><Button size="small" icon={<ArrowDownOutlined />} disabled={index === store.providers.length - 1 || busy} onClick={() => void store.move(row.id, 1)} /></Tooltip>
         <Button size="small" type={row.isCurrent ? "default" : "primary"} disabled={row.isCurrent || busy} icon={<ThunderboltOutlined />} onClick={() => void handleSwitch(row)}>{t("providers.switch")}</Button>
         <Tooltip title={t("providers.testConnection")}><Button size="small" icon={<SafetyCertificateOutlined />} disabled={busy || !row.apiKeySet} onClick={() => void handleTest(row)} /></Tooltip>
+        <Tooltip title={t("deeplink.shareLink")}><Button size="small" icon={<GlobalOutlined />} disabled={busy} onClick={() => void handleShareLink(row)} /></Tooltip>
         <Tooltip title={t("providers.edit")}><Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} /></Tooltip>
         <Popconfirm title={t("providers.confirmDelete")} okText={t("providers.delete")} cancelText={t("providers.cancel")} onConfirm={() => void handleDelete(row)} disabled={busy}>
           <Tooltip title={t("providers.delete")}><Button size="small" danger icon={<DeleteOutlined />} disabled={busy} /></Tooltip>
@@ -312,10 +365,17 @@ export default function ProvidersPage() {
         )}
         <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
         <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
+        <Button loading={busy} onClick={() => void handleImportClipboard()}>{t("providers.importClipboard")}</Button>
         <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>{t("providers.create")}</Button>
       </Space>
     </Space>
+    <OnboardingTip
+      tipKey="providers_hot_switch"
+      type="info"
+      message={t("providers.hotSwitchTitle")}
+      description={t("providers.hotSwitchDescription")}
+    />
     {target === "codex" && (
       <OnboardingTip
         tipKey="providers_codex_auth"
@@ -390,7 +450,7 @@ export default function ProvidersPage() {
         <Space wrap size={8} align="center">
           <Select
             size="middle"
-            value={usagePeriod}
+            value={heatmapPeriod}
             style={{ width: 160 }}
             options={USAGE_PERIOD_VALUES.map((value) => ({
               value,
@@ -399,11 +459,11 @@ export default function ProvidersPage() {
                   ? t("usage.lastDays", { days: value })
                   : t(usagePeriodLabelKey(value)),
             }))}
-            onChange={setUsagePeriod}
+            onChange={setHeatmapPeriod}
           />
           <UsageSourceFilterSegmented
-            value={usageSource}
-            onChange={setUsageSource}
+            value={heatmapSource}
+            onChange={setHeatmapSource}
             t={t}
           />
         </Space>
@@ -412,7 +472,7 @@ export default function ProvidersPage() {
       {usageQuery.error ? (
         <Alert type="error" showIcon message={errMsg(usageQuery.error)} />
       ) : (
-        <UsageCalendar data={usageQuery.data?.trend ?? []} period={usagePeriod} />
+        <UsageCalendar data={usageQuery.data?.trend ?? []} period={heatmapPeriod} />
       )}
     </Card>
     <ProviderForm
@@ -423,6 +483,13 @@ export default function ProvidersPage() {
         setFormOpen(false);
       }}
       onSubmit={handleSubmit}
+    />
+    <ImportPreviewDialog
+      open={importPreview !== null}
+      preview={importPreview}
+      confirming={importConfirming}
+      onCancel={() => setImportPreview(null)}
+      onConfirm={() => void handleConfirmImport()}
     />
     <Modal
       open={oauthDevice !== null}

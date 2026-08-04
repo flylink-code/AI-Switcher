@@ -21,6 +21,7 @@ export type OnboardingTipKey =
   | "environment"
   | "environment_sync"
   | "providers_codex_auth"
+  | "providers_hot_switch"
   | "about";
 
 export function OnboardingTip({

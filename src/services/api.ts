@@ -28,6 +28,8 @@ import type {
   ConnectionTestResult,
   ModelDiscoveryResult,
     ProviderImportResult,
+    ImportPreview,
+    DeeplinkImportResult,
     ConfigBackup,
     LibraryBackupInfo,
     LibraryArchivePreview,
@@ -324,6 +326,26 @@ export async function exportProviders(target: ProviderTarget): Promise<string> {
 export async function importProvidersJson(json: string): Promise<ProviderImportResult> {
   const invoke = await getInvoke();
   return invoke<ProviderImportResult>("import_providers_json", { json });
+}
+
+export async function previewImportText(text: string): Promise<ImportPreview> {
+  const invoke = await getInvoke();
+  return invoke<ImportPreview>("preview_import_text", { text });
+}
+
+export async function confirmImportPreview(preview: ImportPreview): Promise<DeeplinkImportResult> {
+  const invoke = await getInvoke();
+  return invoke<DeeplinkImportResult>("confirm_import_preview", { preview });
+}
+
+export async function buildProviderDeeplink(providerId: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("build_provider_deeplink", { providerId });
+}
+
+export async function buildMcpDeeplink(serverId: string): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("build_mcp_deeplink", { serverId });
 }
 
 export async function listConfigBackups(

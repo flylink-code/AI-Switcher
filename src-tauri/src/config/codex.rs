@@ -56,6 +56,21 @@ pub fn managed_provider_id() -> &'static str {
     MANAGED_PROVIDER_ID
 }
 
+/// Current `model_providers.ai_switcher.base_url` from config.toml, if present.
+pub fn managed_provider_base_url() -> Option<String> {
+    let path = get_codex_config_path();
+    let text = fs::read_to_string(path).ok()?;
+    let doc = text.parse::<DocumentMut>().ok()?;
+    doc.get("model_providers")
+        .and_then(Item::as_table)
+        .and_then(|table| table.get(MANAGED_PROVIDER_ID))
+        .and_then(Item::as_table)
+        .and_then(|table| table.get("base_url"))
+        .and_then(Item::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 pub fn is_managed_provider_id(provider_id: &str) -> bool {
     provider_id == MANAGED_PROVIDER_ID || provider_id.starts_with(LEGACY_MANAGED_PROVIDER_PREFIX)
 }
@@ -475,6 +490,8 @@ mod tests {
             target_app: ProviderTarget::Codex,
             notes: String::new(),
             sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
             is_current: true,
             created_at: 0,
             health_status: None,

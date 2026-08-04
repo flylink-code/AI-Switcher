@@ -458,6 +458,12 @@ pub struct Provider {
     pub target_app: ProviderTarget,
     #[serde(default)]
     pub sort_index: i64,
+    /// Lower group number = higher failover priority. Same group uses `sort_index`.
+    #[serde(default)]
+    pub failover_group: i64,
+    /// Empty = accept any model as failover candidate; otherwise request model must match.
+    #[serde(default)]
+    pub failover_models: Vec<String>,
     #[serde(default)]
     pub is_current: bool,
     #[serde(default)]
@@ -481,6 +487,35 @@ impl Provider {
             || (self.target_app == ProviderTarget::ClaudeDesktop
                 && (self.model_mapping.has_explicit_roles()
                     || !is_claude_desktop_safe_model(self.model.trim())))
+    }
+
+    /// Whether this provider may serve `requested_model` during failover.
+    pub fn allows_failover_model(&self, requested_model: &str) -> bool {
+        if self.failover_models.is_empty() {
+            return true;
+        }
+        let requested = requested_model.trim();
+        if requested.is_empty() {
+            return true;
+        }
+        let requested_lower = requested.to_ascii_lowercase();
+        self.failover_models.iter().any(|entry| {
+            let needle = entry.trim();
+            if needle.is_empty() {
+                return false;
+            }
+            needle.eq_ignore_ascii_case(requested)
+                || requested_lower.starts_with(&needle.to_ascii_lowercase())
+        })
+    }
+
+    /// Accepts when either the client-requested model or the mapped upstream model matches.
+    pub fn allows_failover_for_request(&self, requested_model: &str) -> bool {
+        if self.failover_models.is_empty() {
+            return true;
+        }
+        let mapped = resolve_upstream_model(self, requested_model);
+        self.allows_failover_model(requested_model) || self.allows_failover_model(&mapped)
     }
 }
 
@@ -525,6 +560,10 @@ pub struct ProviderInput {
     pub target_app: ProviderTarget,
     #[serde(default)]
     pub notes: String,
+    #[serde(default)]
+    pub failover_group: i64,
+    #[serde(default)]
+    pub failover_models: Vec<String>,
 }
 
 /// Sanitized result of a provider connectivity check.
@@ -577,6 +616,10 @@ pub struct ProviderExportEntry {
     pub target_app: ProviderTarget,
     #[serde(default)]
     pub notes: String,
+    #[serde(default)]
+    pub failover_group: i64,
+    #[serde(default)]
+    pub failover_models: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -731,6 +774,8 @@ mod tests {
             target_app: ProviderTarget::Codex,
             notes: String::new(),
             sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -763,6 +808,8 @@ mod tests {
             target_app: ProviderTarget::ClaudeCode,
             notes: String::new(),
             sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -813,5 +860,17 @@ mod tests {
             resolve_upstream_model(&provider, "unknown-model"),
             "default-model"
         );
+    }
+
+    #[test]
+    fn failover_model_whitelist_matches_request_or_mapped_upstream() {
+        let mut provider = provider_with_mapping();
+        provider.failover_models = vec!["opus-upstream".into()];
+        assert!(provider.allows_failover_for_request("claude-opus-5"));
+        assert!(!provider.allows_failover_for_request("claude-sonnet-5"));
+
+        provider.failover_models = vec!["claude-sonnet".into()];
+        assert!(provider.allows_failover_for_request("claude-sonnet-5"));
+        assert!(provider.allows_failover_model(""));
     }
 }

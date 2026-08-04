@@ -159,7 +159,12 @@ export default function ProxyPage() {
         <OnboardingTip
           tipKey="proxy"
           message={t("proxy.title")}
-          description={t("proxy.description")}
+          description={
+            <Space direction="vertical" size={4}>
+              <Text type="secondary">{t("proxy.description")}</Text>
+              <Text type="secondary">{t("proxy.hotSwitchDescription")}</Text>
+            </Space>
+          }
         />
         {statusQuery.error && (
           <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
@@ -240,6 +245,7 @@ export default function ProxyPage() {
         <Card size="small" title={t("proxy.failoverTitle")}>
           <Space direction="vertical" style={{ width: "100%" }}>
             <Text type="secondary">{t("proxy.failoverDescription")}</Text>
+            <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
             <Switch
               checked={failoverQuery.data ?? false}
               loading={failoverQuery.isPending || failoverSaving}

@@ -84,6 +84,8 @@ pub fn ensure_codex_oauth_provider(
         provider_kind: ProviderKind::CodexOauth,
         auth_binding: account_id,
         notes: String::new(),
+        failover_group: 0,
+        failover_models: Vec::new(),
     };
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
 }

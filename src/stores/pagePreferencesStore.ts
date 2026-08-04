@@ -8,7 +8,10 @@ interface PersistedPagePreferences {
   providersTarget?: ProviderTarget;
   proxyTarget?: ProviderTarget;
   usagePeriod?: UsagePeriod;
+  /** Providers heatmap period; falls back to usagePeriod on first load. */
+  heatmapPeriod?: UsagePeriod;
   usageLogTarget?: ProviderTarget | "all";
+  heatmapSource?: ProviderTarget | "all";
   sessionsProvider?: SessionProvider;
 }
 
@@ -16,25 +19,37 @@ interface PagePreferencesState {
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   usagePeriod: UsagePeriod;
+  heatmapPeriod: UsagePeriod;
   usageLogPage: number;
   usageLogTarget: ProviderTarget | "all";
+  heatmapSource: ProviderTarget | "all";
   sessionsProvider: SessionProvider;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
+  setHeatmapPeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
   setUsageLogTarget: (target: ProviderTarget | "all") => void;
+  setHeatmapSource: (target: ProviderTarget | "all") => void;
   setSessionsProvider: (provider: SessionProvider) => void;
 }
 
 const DEFAULTS: Pick<
   PagePreferencesState,
-  "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget" | "sessionsProvider"
+  | "providersTarget"
+  | "proxyTarget"
+  | "usagePeriod"
+  | "heatmapPeriod"
+  | "usageLogTarget"
+  | "heatmapSource"
+  | "sessionsProvider"
 > = {
   providersTarget: "claude_code",
   proxyTarget: "claude_desktop",
   usagePeriod: 365,
+  heatmapPeriod: 365,
   usageLogTarget: "all",
+  heatmapSource: "all",
   sessionsProvider: "claude_code",
 };
 
@@ -78,6 +93,10 @@ function writePersisted(state: PersistedPagePreferences) {
 
 function initialState() {
   const stored = readPersisted();
+  const usagePeriod = isUsagePeriod(stored.usagePeriod) ? stored.usagePeriod : DEFAULTS.usagePeriod;
+  const usageLogTarget = isUsageLogTarget(stored.usageLogTarget)
+    ? stored.usageLogTarget
+    : DEFAULTS.usageLogTarget;
   return {
     providersTarget: isProviderTarget(stored.providersTarget)
       ? stored.providersTarget
@@ -85,10 +104,10 @@ function initialState() {
     proxyTarget: isProviderTarget(stored.proxyTarget)
       ? stored.proxyTarget
       : DEFAULTS.proxyTarget,
-    usagePeriod: isUsagePeriod(stored.usagePeriod) ? stored.usagePeriod : DEFAULTS.usagePeriod,
-    usageLogTarget: isUsageLogTarget(stored.usageLogTarget)
-      ? stored.usageLogTarget
-      : DEFAULTS.usageLogTarget,
+    usagePeriod,
+    heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
+    usageLogTarget,
+    heatmapSource: isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
     sessionsProvider: isSessionProvider(stored.sessionsProvider)
       ? stored.sessionsProvider
       : DEFAULTS.sessionsProvider,
@@ -98,14 +117,22 @@ function initialState() {
 function persistSlice(
   state: Pick<
     PagePreferencesState,
-    "providersTarget" | "proxyTarget" | "usagePeriod" | "usageLogTarget" | "sessionsProvider"
+    | "providersTarget"
+    | "proxyTarget"
+    | "usagePeriod"
+    | "heatmapPeriod"
+    | "usageLogTarget"
+    | "heatmapSource"
+    | "sessionsProvider"
   >,
 ) {
   writePersisted({
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     usagePeriod: state.usagePeriod,
+    heatmapPeriod: state.heatmapPeriod,
     usageLogTarget: state.usageLogTarget,
+    heatmapSource: state.heatmapSource,
     sessionsProvider: state.sessionsProvider,
   });
 }
@@ -125,9 +152,17 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
     set({ usagePeriod });
     persistSlice(get());
   },
+  setHeatmapPeriod: (heatmapPeriod) => {
+    set({ heatmapPeriod });
+    persistSlice(get());
+  },
   setUsageLogPage: (usageLogPage) => set({ usageLogPage }),
   setUsageLogTarget: (usageLogTarget) => {
     set({ usageLogTarget });
+    persistSlice(get());
+  },
+  setHeatmapSource: (heatmapSource) => {
+    set({ heatmapSource });
     persistSlice(get());
   },
   setSessionsProvider: (sessionsProvider) => {

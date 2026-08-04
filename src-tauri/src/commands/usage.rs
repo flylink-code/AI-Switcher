@@ -289,10 +289,16 @@ pub async fn get_usage_dashboard(
             };
             let target = source.proxy_target();
             Ok(if let Some(target) = target {
+                let pricing = list_pricing(conn)?;
+                let mut by_model = get_usage_by_model_for_target(conn, since, target)?;
+                apply_fuzzy_pricing_to_breakdowns(&mut by_model, &pricing);
+                let mut summary = get_usage_summary_for_target(conn, since, target)?;
+                rebuild_summary_costs_from_models(&mut summary, &by_model);
+                let by_provider = get_usage_by_provider_for_target(conn, since, target)?;
                 UsageDashboard {
-                    summary: get_usage_summary_for_target(conn, since, target)?,
-                    by_provider: get_usage_by_provider_for_target(conn, since, target)?,
-                    by_model: get_usage_by_model_for_target(conn, since, target)?,
+                    summary,
+                    by_provider,
+                    by_model,
                     trend: get_usage_trend_for_target(conn, since, target, granularity)?,
                     trend_granularity: trend_granularity.clone(),
                     local_codex,
@@ -643,25 +649,58 @@ fn estimate_token_cost(
         + (output as f64) * pricing.output_price_per_million / 1_000_000.0
 }
 
+fn apply_fuzzy_pricing_to_breakdowns(rows: &mut [UsageBreakdown], pricing: &[ModelPricing]) {
+    for item in rows.iter_mut() {
+        let matched = find_pricing_for_model(pricing, &item.key);
+        let cost = matched
+            .map(|entry| {
+                estimate_token_cost(
+                    entry,
+                    item.input_tokens,
+                    item.cache_read_input_tokens,
+                    item.cache_creation_input_tokens,
+                    item.output_tokens,
+                )
+            })
+            .unwrap_or(0.0);
+        let currency = matched
+            .map(|entry| {
+                let trimmed = entry.currency.trim();
+                if trimmed.is_empty() {
+                    "USD".to_string()
+                } else {
+                    trimmed.to_ascii_uppercase()
+                }
+            })
+            .unwrap_or_else(|| "USD".to_string());
+        item.estimated_cost = cost;
+        item.currency = currency;
+    }
+}
+
+fn rebuild_summary_costs_from_models(summary: &mut UsageSummary, by_model: &[UsageBreakdown]) {
+    let mut by_currency: BTreeMap<String, f64> = BTreeMap::new();
+    for item in by_model {
+        if item.estimated_cost.abs() <= f64::EPSILON {
+            continue;
+        }
+        *by_currency.entry(item.currency.clone()).or_default() += item.estimated_cost;
+    }
+    let estimated_costs_by_currency: Vec<CurrencyAmount> = by_currency
+        .into_iter()
+        .map(|(currency, amount)| CurrencyAmount { currency, amount })
+        .collect();
+    let (currency, amount) = pick_summary_currency(&estimated_costs_by_currency);
+    summary.estimated_cost = amount;
+    summary.estimated_cost_currency = currency;
+    summary.estimated_costs_by_currency = estimated_costs_by_currency;
+}
+
 fn find_pricing_for_model<'a>(
     pricing: &'a [ModelPricing],
     model: &str,
 ) -> Option<&'a ModelPricing> {
-    let normalized = model.trim();
-    pricing
-        .iter()
-        .find(|entry| entry.model == normalized)
-        .or_else(|| {
-            // Prefer longer catalog keys so `claude-opus-5-fast` wins over `claude-opus-5`.
-            let mut candidates: Vec<_> = pricing
-                .iter()
-                .filter(|entry| {
-                    normalized.starts_with(&entry.model) || entry.model.starts_with(normalized)
-                })
-                .collect();
-            candidates.sort_by_key(|entry| std::cmp::Reverse(entry.model.len()));
-            candidates.into_iter().next()
-        })
+    crate::usage::find_pricing_for_model(pricing, model)
 }
 
 fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[ModelPricing]) {

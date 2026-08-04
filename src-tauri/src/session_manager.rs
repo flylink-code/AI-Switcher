@@ -28,7 +28,7 @@ const SESSION_BATCH_ARCHIVE_PREFIX: &str = "sessions";
 const MAX_SESSION_FILES: usize = 2_000;
 /// Bound recursive walks under cloud-synced / AV-watched trees.
 const MAX_WALK_DEPTH: u32 = 6;
-const WALK_DEADLINE: Duration = Duration::from_secs(2);
+const WALK_DEADLINE: Duration = Duration::from_secs(5);
 /// Content search may open files; keep it tiny to avoid system-wide I/O stalls.
 const MAX_CONTENT_SEARCH_OPENS: usize = 40;
 
@@ -795,7 +795,8 @@ fn collect_claude_code_session_paths(
 
 fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
     let root = codex_session_root();
-    if !root.is_dir() {
+    let archived = codex_archived_session_root();
+    if !root.is_dir() && !archived.is_dir() {
         // Directory missing — still try SQLite rollout paths (custom CODEX_HOME layouts).
         let mut paths = Vec::new();
         merge_codex_sqlite_rollout_paths(&mut paths);
@@ -826,11 +827,24 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
     }
     let mut paths = Vec::new();
     let deadline = Instant::now() + WALK_DEADLINE;
-    let (truncated, timed_out) = collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
+    let mut truncated = false;
+    let mut timed_out = false;
+    if root.is_dir() {
+        let (part_truncated, part_timed_out) =
+            collect_jsonl_files_with_mtime(&root, &mut paths, 0, deadline)?;
+        truncated |= part_truncated;
+        timed_out |= part_timed_out;
+    }
+    if archived.is_dir() && Instant::now() < deadline {
+        let (part_truncated, part_timed_out) =
+            collect_jsonl_files_with_mtime(&archived, &mut paths, 0, deadline)?;
+        truncated |= part_truncated;
+        timed_out |= part_timed_out;
+    }
     // Always merge SQLite rollout paths so locked/partial walks cannot hide sessions.
     merge_codex_sqlite_rollout_paths(&mut paths);
     let detail = if timed_out {
-        "Codex 本地会话可用（目录扫描超时，已合并 SQLite 索引）".to_string()
+        "Codex 本地会话可用（目录扫描超时，已合并 SQLite / 归档索引）".to_string()
     } else {
         "Codex 本地会话可用".to_string()
     };
@@ -914,6 +928,10 @@ fn claude_code_session_root() -> PathBuf {
 
 fn codex_session_root() -> PathBuf {
     config::get_codex_config_dir().join("sessions")
+}
+
+fn codex_archived_session_root() -> PathBuf {
+    config::get_codex_config_dir().join("archived_sessions")
 }
 
 
@@ -1407,8 +1425,13 @@ fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBu
         return Ok(candidate);
     }
     // Codex may keep historical rollouts under a previous CODEX_HOME; allow those
-    // when they still exist and live under a `sessions` tree.
-    if candidate.is_file() && candidate_key.contains(r"\sessions\") {
+    // when they still exist and live under a `sessions` / `archived_sessions` tree.
+    if candidate.is_file()
+        && (candidate_key.contains(r"\sessions\")
+            || candidate_key.contains(r"\archived_sessions\")
+            || candidate_key.contains("/sessions/")
+            || candidate_key.contains("/archived_sessions/"))
+    {
         return Ok(candidate);
     }
     let root = root.canonicalize().map_err(|error| {

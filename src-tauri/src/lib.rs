@@ -12,6 +12,7 @@ mod codex_plugins;
 mod commands;
 mod config;
 mod database;
+mod deeplink;
 mod error;
 mod log_redact;
 mod mcp;
@@ -48,6 +49,7 @@ use crate::commands::{
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
+    build_mcp_deeplink, build_provider_deeplink, confirm_import_preview, preview_import_text,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
     install_mcp_registry_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status, clear_mcp_oauth,
     get_localization_hub_status, install_claude_code_localization, install_editor_localization_helper,
@@ -120,6 +122,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(setup)
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
@@ -166,6 +169,10 @@ pub fn run() {
             import_live_config,
             export_providers,
             import_providers_json,
+            preview_import_text,
+            confirm_import_preview,
+            build_provider_deeplink,
+            build_mcp_deeplink,
             start_codex_oauth_login,
             poll_codex_oauth_login,
             list_codex_oauth_accounts,
@@ -324,6 +331,9 @@ fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         if argv.iter().any(|arg| arg == "--autostart") {
             return;
         }
+        if let Some(url) = argv.iter().find(|arg| commands::deeplink::looks_like_deeplink(arg)) {
+            commands::deeplink::emit_deeplink_url(app, url);
+        }
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
@@ -390,6 +400,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         if let Err(error) = commands::providers::repair_current_code_model_fields(&state).await {
             log::error!("Claude Code model-field migration failed: {error}");
         }
+        if let Err(error) = commands::providers::repair_codex_managed_proxy_endpoint(&state).await {
+            log::error!("Codex managed proxy endpoint repair failed: {error}");
+        }
         log::info!(
             "启动配置修复完成: duration_ms={}",
             repair_started.elapsed().as_millis()
@@ -418,6 +431,21 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         log::info!("开机自启采用静默模式，主窗口保持隐藏");
     }
+
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_deep_link::DeepLinkExt;
+        if let Err(error) = app.deep_link().register_all() {
+            log::warn!("Deep Link 协议注册失败: {error}");
+        }
+        let handle = app.handle().clone();
+        app.deep_link().on_open_url(move |event| {
+            for url in event.urls() {
+                commands::deeplink::emit_deeplink_url(&handle, &url.to_string());
+            }
+        });
+    }
+
     log::info!(
         "Tauri setup completed: duration_ms={}",
         setup_started.elapsed().as_millis()

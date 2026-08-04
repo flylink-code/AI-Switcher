@@ -486,6 +486,8 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
             protocol_type: provider.protocol_type,
             target_app: provider.target_app,
             notes: provider.notes,
+            failover_group: provider.failover_group,
+            failover_models: provider.failover_models,
         }).collect(),
     };
     Ok(serde_json::to_string_pretty(&bundle)?)
@@ -527,6 +529,8 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             auth_binding: String::new(),
             target_app: entry.target_app,
             notes: entry.notes,
+            failover_group: entry.failover_group,
+            failover_models: entry.failover_models,
         }))?;
         imported += 1;
     }
@@ -1184,6 +1188,43 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
     Ok(())
 }
 
+/// Reapply the active Codex provider when the managed `ai_switcher` entry no
+/// longer points at the local proxy (common after direct upstream edits or
+/// older builds that wrote the remote Base URL into the managed slot).
+pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<()> {
+    let provider = state
+        .db
+        .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::Codex))?;
+    let Some(provider) = provider else {
+        return Ok(());
+    };
+    if !provider.requires_local_proxy() && !provider.is_codex_oauth() {
+        return Ok(());
+    }
+    let port = get_saved_proxy_port(state, ProviderTarget::Codex);
+    let Some(current_base) = codex::managed_provider_base_url() else {
+        // Missing managed entry — a full apply restores it.
+        let _ = apply_target_provider(&provider, state).await?;
+        log::info!("Codex managed provider entry missing; reapplied current provider");
+        return Ok(());
+    };
+    if is_local_proxy_base_url_for_port(&current_base, port) {
+        return Ok(());
+    }
+    let _ = apply_target_provider(&provider, state).await?;
+    log::info!(
+        "Codex managed base_url was `{current_base}`; reapplied local proxy on port {port}"
+    );
+    Ok(())
+}
+
+fn is_local_proxy_base_url_for_port(base_url: &str, expected_port: u16) -> bool {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    let expected = format!("http://127.0.0.1:{expected_port}/v1");
+    let expected_localhost = format!("http://localhost:{expected_port}/v1");
+    trimmed.eq_ignore_ascii_case(&expected) || trimmed.eq_ignore_ascii_case(&expected_localhost)
+}
+
 /// Reapply an active Claude Code provider only when the live model fields use
 /// the pre-display-name or pre-role-alias format.
 pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()> {
@@ -1323,7 +1364,9 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         model_mapping: normalized_model_mapping(input.target_app, input.model_mapping.clone()),
         protocol_type: input.protocol_type, notes: input.notes.clone(), target_app: input.target_app,
         provider_kind: input.provider_kind, auth_binding: input.auth_binding.clone(),
-        sort_index: 0, is_current: false, created_at: 0,
+        sort_index: 0, failover_group: input.failover_group,
+        failover_models: input.failover_models.clone(),
+        is_current: false, created_at: 0,
         health_status: None, health_checked_at: None,
     })
 }
@@ -1428,6 +1471,8 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         auth_binding: String::new(),
         target_app: target,
         notes: "从当前 Claude Code 配置导入".to_string(),
+        failover_group: 0,
+        failover_models: Vec::new(),
     };
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
     state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id))

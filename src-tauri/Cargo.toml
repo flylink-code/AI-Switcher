@@ -1,6 +1,6 @@
 [package]
 name = "claude-switcher"
-version = "0.8.7"
+version = "0.8.8"
 description = "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex"
 authors = ["Claude Switcher"]
 license = "MIT"
@@ -63,6 +63,7 @@ rust_xlsxwriter = "0.79"
 # P7 fails closed when the OS backend is unavailable.
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-deep-link = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

@@ -139,7 +139,7 @@ export function ProviderForm({
     if (editing) {
       setModels([]);
       setSelectedPresetId(null);
-      form.setFieldsValue({
+        form.setFieldsValue({
         id: editing.id,
         name: editing.name,
         baseUrl: editing.baseUrl,
@@ -155,6 +155,8 @@ export function ProviderForm({
         authBinding: editing.authBinding,
         notes: editing.notes,
         targetApp: editing.targetApp,
+        failoverGroup: editing.failoverGroup ?? 0,
+        failoverModels: editing.failoverModels ?? [],
       });
       void getCachedProviderModels(editing.id)
         .then((result) => {
@@ -175,6 +177,8 @@ export function ProviderForm({
         authBinding: "",
         webSearchEnabled: true,
         targetApp: target,
+        failoverGroup: 0,
+        failoverModels: [],
         modelMapping: {
           sonnet: "",
           opus: "",
@@ -638,6 +642,32 @@ export function ProviderForm({
             );
           })}
         </Typography.Paragraph>}
+
+        <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
+          {t("providers.failoverSection")}
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          {t("providers.failoverSectionHint")}
+        </Typography.Paragraph>
+        <Form.Item
+          name="failoverGroup"
+          label={t("providers.fieldFailoverGroup")}
+          extra={t("providers.failoverGroupHint")}
+        >
+          <InputNumber min={0} max={99} style={{ width: "100%" }} />
+        </Form.Item>
+        <Form.Item
+          name="failoverModels"
+          label={t("providers.fieldFailoverModels")}
+          extra={t("providers.failoverModelsHint")}
+        >
+          <Select
+            mode="tags"
+            tokenSeparators={[","]}
+            placeholder={t("providers.failoverModelsPlaceholder")}
+            style={{ width: "100%" }}
+          />
+        </Form.Item>
 
         <Form.Item name="notes" label={t("providers.fieldNotes")}>
           <Input.TextArea rows={2} />
