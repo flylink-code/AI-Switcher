@@ -328,6 +328,13 @@ export interface ProxyStatus {
   checkedAt: number;
 }
 
+/** Whether Claude Code / Desktop / Codex client processes are running. */
+export interface ManagedAppRuntimeStatus {
+  claudeCode: boolean;
+  claudeDesktop: boolean;
+  codex: boolean;
+}
+
 export interface ProxyStatusUpdated {
   target: ProviderTarget;
   status: ProxyStatus;

@@ -12,6 +12,7 @@ import {
   getLogMaintenancePolicy,
   getPaths,
   getProxyStatus,
+  getManagedAppsRuntimeStatus,
   getUsageDashboard,
   listMcpServers,
   getMcpOauthStatus,
@@ -44,6 +45,13 @@ export const proxyStatusOptions = (target: ProviderTarget) =>
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnMount: false,
   });
+
+export const managedAppsRuntimeStatusOptions = queryOptions({
+  queryKey: ["managed-apps-runtime-status"] as const,
+  queryFn: getManagedAppsRuntimeStatus,
+  staleTime: 2_000,
+  refetchInterval: 3_000,
+});
 
 export const mcpServersOptions = queryOptions({
   queryKey: ["mcp-servers"] as const,

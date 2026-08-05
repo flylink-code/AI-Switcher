@@ -74,7 +74,10 @@
     "proxyError": "Proxy error",
     "currentProvider": "Active: {{name}}",
     "noProvider": "No active provider",
-    "openProxy": "Open proxy"
+    "openProxy": "Open proxy",
+    "appRunning": "{{name}} running",
+    "appStopped": "{{name}} not running",
+    "openEnvironment": "Open Environment for install and runtime status"
   },
   "overview": {
     "title": "Overview",

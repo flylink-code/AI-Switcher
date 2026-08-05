@@ -798,9 +798,27 @@ fn collect_codex_session_paths() -> AppResult<(Vec<(PathBuf, i64)>, SessionProvi
     if !first.0.is_empty() || first.1.status == "not_found" {
         return Ok(first);
     }
-    // Post-update / antivirus settle: first walk can briefly see an empty tree.
+    // Post-update / antivirus settle: first walk can briefly see an empty tree
+    // even when ~/.codex/sessions exists on disk.
+    log::warn!(
+        "Codex 会话首次扫描为空（status={} detail={}），500ms 后重试",
+        first.1.status,
+        first.1.detail
+    );
     std::thread::sleep(Duration::from_millis(500));
-    collect_codex_session_paths_once()
+    let second = collect_codex_session_paths_once()?;
+    if !second.0.is_empty() {
+        return Ok(second);
+    }
+    std::thread::sleep(Duration::from_millis(1_500));
+    let third = collect_codex_session_paths_once()?;
+    log::info!(
+        "Codex 会话扫描结束: count={} status={} root={:?}",
+        third.0.len(),
+        third.1.status,
+        third.1.root_path
+    );
+    Ok(third)
 }
 
 fn collect_codex_session_paths_once() -> AppResult<(Vec<(PathBuf, i64)>, SessionProviderStatus, bool, bool)> {
@@ -853,16 +871,30 @@ fn collect_codex_session_paths_once() -> AppResult<(Vec<(PathBuf, i64)>, Session
     }
     // Always merge SQLite rollout paths so locked/partial walks cannot hide sessions.
     merge_codex_sqlite_rollout_paths(&mut paths);
-    let detail = if timed_out {
-        "Codex 本地会话可用（目录扫描超时，已合并 SQLite / 归档索引）".to_string()
+    let (status, detail) = if paths.is_empty() {
+        (
+            "degraded".to_string(),
+            format!(
+                "会话目录存在但未扫到 jsonl（可能被杀毒/云同步短暂锁住）：{}",
+                root.display()
+            ),
+        )
+    } else if timed_out {
+        (
+            "available".to_string(),
+            "Codex 本地会话可用（目录扫描超时，已合并 SQLite / 归档索引）".to_string(),
+        )
     } else {
-        "Codex 本地会话可用".to_string()
+        (
+            "available".to_string(),
+            "Codex 本地会话可用".to_string(),
+        )
     };
     Ok((
         paths,
         SessionProviderStatus {
             provider: SessionProvider::Codex,
-            status: "available".to_string(),
+            status,
             detail,
             root_path: Some(root.display().to_string()),
         },
@@ -1920,6 +1952,53 @@ mod tests {
         assert_eq!(manifest.provider, SessionProvider::ClaudeCode);
         assert!(validate_manifest_provider(SessionProvider::ClaudeCode, &manifest).is_ok());
         assert!(validate_manifest_provider(SessionProvider::Codex, &manifest).is_err());
+    }
+
+    #[test]
+    fn collect_codex_finds_nested_rollout_jsonl() {
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", dir.path());
+        let nested = dir
+            .path()
+            .join("sessions")
+            .join("2026")
+            .join("08")
+            .join("05");
+        fs::create_dir_all(&nested).unwrap();
+        let rollout = nested.join(
+            "rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl",
+        );
+        File::create(&rollout).unwrap();
+        File::create(nested.join("agent-child.jsonl")).unwrap();
+
+        let result = scan_sessions(Some(SessionProvider::Codex), Some(0), Some(10)).unwrap();
+        std::env::remove_var("CODEX_HOME");
+
+        assert_eq!(result.total, 1, "providers={:?}", result.providers);
+        assert_eq!(result.sessions[0].provider, SessionProvider::Codex);
+        assert!(result.sessions[0]
+            .source_path
+            .replace('\\', "/")
+            .ends_with("rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl"));
+    }
+
+    #[test]
+    fn live_home_codex_scan_finds_sessions_when_enabled() {
+        if std::env::var_os("AI_SWITCHER_LIVE_CODEX_SCAN").is_none() {
+            return;
+        }
+        // Use the real profile CODEX_HOME (do not override).
+        let result = scan_sessions(Some(SessionProvider::Codex), Some(0), Some(5)).unwrap();
+        eprintln!(
+            "live Codex scan total={} detail={:?}",
+            result.total,
+            result.providers.first().map(|p| (&p.status, &p.detail, &p.root_path))
+        );
+        assert!(
+            result.total > 0,
+            "expected real ~/.codex/sessions to be non-empty; providers={:?}",
+            result.providers
+        );
     }
 
     #[test]

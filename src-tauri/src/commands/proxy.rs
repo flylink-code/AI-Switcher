@@ -14,7 +14,7 @@ use crate::store::AppState;
 
 const DEFAULT_PORT: u16 = 15821;
 
-/// Emitted after post-update relaunch recovery finishes (proxy + Codex session sync).
+/// Emitted after post-update relaunch recovery finishes (proxy bind + Codex endpoint repair).
 pub const RUNTIME_RECOVERED_EVENT: &str = "runtime-recovered";
 
 pub type ProxyStatusInfo = ProxyStatus;

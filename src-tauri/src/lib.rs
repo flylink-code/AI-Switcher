@@ -20,6 +20,7 @@ mod mcp_oauth;
 mod mcp_registry;
 mod process_util;
 mod prompts;
+mod runtime_status;
 mod provider;
 mod proxy;
 mod secrets;
@@ -50,7 +51,8 @@ use crate::commands::{
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
-    get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
+    get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
+    get_managed_apps_runtime_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     build_mcp_deeplink, build_provider_deeplink, confirm_import_preview, preview_import_text,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
@@ -214,6 +216,7 @@ pub fn run() {
             read_live_prompt,
             import_live_prompt,
             get_proxy_status,
+            get_managed_apps_runtime_status,
             get_proxy_failover_enabled,
             get_proxy_retryable_status_codes,
             get_proxy_streaming_idle_timeout_secs,

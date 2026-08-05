@@ -102,12 +102,19 @@ body {
 .app-header-status {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
   overflow: hidden;
   padding: 4px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04)) 88%, transparent);
+}
+
+.app-header-runtime-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
 }
 
 .app-header-status-sep {

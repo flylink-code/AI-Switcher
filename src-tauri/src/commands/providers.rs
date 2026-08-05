@@ -777,7 +777,11 @@ impl SwitchSnapshot {
                 }
                 files
             }
-            ProviderTarget::Codex => vec![crate::config::get_codex_config_path(), crate::config::get_codex_auth_path()],
+            ProviderTarget::Codex => vec![
+                crate::config::get_codex_config_path(),
+                crate::config::get_codex_auth_path(),
+                crate::config::get_codex_config_dir().join("ai-switcher-model-catalog.json"),
+            ],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {

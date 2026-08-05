@@ -58,7 +58,7 @@ const PAGE_SIZE = 50;
 const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [], total: 0, offset: 0 };
 /** Matches backend `RUNTIME_RECOVERED_EVENT` after post-update relaunch recovery. */
 const RUNTIME_RECOVERED_EVENT = "runtime-recovered";
-const CODEX_EMPTY_RETRY_DELAYS_MS = [3_000, 8_000] as const;
+const CODEX_EMPTY_RETRY_DELAYS_MS = [2_000, 5_000, 12_000] as const;
 
 export default function SessionsPage() {
   const { t, i18n } = useTranslation();

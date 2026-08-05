@@ -45,6 +45,7 @@ import type {
   CodexOauthPollResult,
   SwitchProviderResult,
   ProxyStatus,
+  ManagedAppRuntimeStatus,
   Skill,
   SkillTarget,
   SkillUpdateStatus,
@@ -416,6 +417,11 @@ export async function getProxyStatus(target?: ProviderTarget): Promise<ProxyStat
       Math.round(performance.now() - startedAt),
     ).catch(() => undefined);
   }
+}
+
+export async function getManagedAppsRuntimeStatus(): Promise<ManagedAppRuntimeStatus> {
+  const invoke = await getInvoke();
+  return invoke<ManagedAppRuntimeStatus>("get_managed_apps_runtime_status");
 }
 
 export async function startProxy(port?: number, target?: ProviderTarget): Promise<ProxyStatus> {

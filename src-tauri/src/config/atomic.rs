@@ -2,8 +2,9 @@
 //!
 //! The pattern is write-to-temp-then-rename, which avoids leaving a config file
 //! in a half-written state if the process is interrupted. On Unix the rename is
-//! atomic; on Windows we remove the destination first (best-effort, since Windows
-//! `rename` refuses to overwrite). Adapted from `examples/cc-switch-main`.
+//! atomic; on Windows we use `MoveFileExW(MOVEFILE_REPLACE_EXISTING)` so the
+//! destination does not need to be deleted first (delete+rename races produce
+//! opaque OS error 183 under updater relaunch / antivirus load).
 
 use crate::error::{io_context, AppError, AppResult};
 use serde::Serialize;
@@ -11,6 +12,7 @@ use serde_json::Value;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -43,12 +45,18 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "file".to_string());
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let mut tmp = parent.to_path_buf();
-    tmp.push(format!("{file_name}.tmp.{ts}"));
+    // PID + nanos + seq: Windows clock resolution can collide across writers.
+    tmp.push(format!(
+        "{file_name}.tmp.{}.{ts}.{seq}",
+        std::process::id()
+    ));
 
     // Write + flush the temp file first.
     {
@@ -67,7 +75,6 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
         }
     }
 
-    // Rename into place. Windows can't rename over an existing file, so remove first.
     #[cfg(windows)]
     {
         if let Err(error) = replace_file_on_windows(&tmp, path) {
@@ -90,70 +97,55 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
     }
 }
 
-/// Windows returns `ERROR_SHARING_VIOLATION` / `ERROR_ACCESS_DENIED` while a
-/// recently relaunched process still has a config file open.  Do not ignore
-/// that removal failure: doing so turns it into an opaque `ERROR_FILE_EXISTS`
-/// from `rename`, and leaves update-time config repair permanently skipped.
+/// Replace `path` with `tmp` without a delete-first race.
 ///
-/// After a successful delete, a concurrent writer can recreate the destination
-/// before our rename (TOCTOU → OS 183). Retry the full remove+rename cycle.
+/// `std::fs::rename` on Windows refuses to overwrite → OS 183 when another
+/// writer (or our own TOCTOU after delete) recreates the destination. Prefer
+/// `MoveFileExW(MOVEFILE_REPLACE_EXISTING)`.
 #[cfg(windows)]
 fn replace_file_on_windows(tmp: &Path, path: &Path) -> AppResult<()> {
-    const MAX_ATTEMPTS: u32 = 20;
-    let mut last_error = None;
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::{GetLastError, FALSE};
+    use windows_sys::Win32::Storage::FileSystem::{
+        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
+    };
+
+    let to_wide = |p: &Path| -> Vec<u16> {
+        p.as_os_str().encode_wide().chain(std::iter::once(0)).collect()
+    };
+    let from = to_wide(tmp);
+    let to = to_wide(path);
+
+    const MAX_ATTEMPTS: u32 = 24;
+    let mut last_os = None;
     for attempt in 0..MAX_ATTEMPTS {
-        if let Err(error) = remove_file_for_windows_replace(path) {
-            return Err(error);
+        let ok = unsafe {
+            MoveFileExW(
+                from.as_ptr(),
+                to.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        };
+        if ok != FALSE {
+            return Ok(());
         }
-        match fs::rename(tmp, path) {
-            Ok(()) => return Ok(()),
-            Err(error) if is_retryable_windows_replace_error(&error) => {
-                last_error = Some(error);
-                std::thread::sleep(Duration::from_millis(75 * u64::from(attempt + 1)));
-            }
-            Err(error) => {
-                return Err(io_context(
-                    format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
-                    error,
-                ));
-            }
+        let err = unsafe { GetLastError() };
+        // 5 ACCESS_DENIED, 32 SHARING_VIOLATION, 33 LOCK_VIOLATION,
+        // 183 ALREADY_EXISTS (should be rare with REPLACE_EXISTING; still retry).
+        if matches!(err, 5 | 32 | 33 | 183) {
+            last_os = Some(err);
+            std::thread::sleep(Duration::from_millis(50 * u64::from(attempt + 1)));
+            continue;
         }
+        return Err(io_context(
+            format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
+            std::io::Error::from_raw_os_error(err as i32),
+        ));
     }
     Err(io_context(
         format!("原子替换重试超时: {} -> {}", tmp.display(), path.display()),
-        last_error.expect("retryable rename error was captured"),
+        std::io::Error::from_raw_os_error(last_os.unwrap_or(32) as i32),
     ))
-}
-
-#[cfg(windows)]
-fn remove_file_for_windows_replace(path: &Path) -> AppResult<()> {
-    const MAX_ATTEMPTS: u32 = 20;
-    let mut last_error = None;
-    for attempt in 0..MAX_ATTEMPTS {
-        match fs::remove_file(path) {
-            Ok(()) => return Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) if is_retryable_windows_replace_error(&error) => {
-                last_error = Some(error);
-                std::thread::sleep(Duration::from_millis(75 * u64::from(attempt + 1)));
-            }
-            Err(error) => {
-                return Err(io_context(
-                    format!("删除待替换配置文件失败: {}", path.display()),
-                    error,
-                ));
-            }
-        }
-    }
-    Err(io_context(
-        format!("等待配置文件锁释放超时: {}", path.display()),
-        last_error.expect("retryable write error was captured"),
-    ))
-}
-
-#[cfg(windows)]
-fn is_retryable_windows_replace_error(error: &std::io::Error) -> bool {
-    matches!(error.raw_os_error(), Some(5 | 32 | 33 | 183))
 }
 
 /// Recursively sort the keys of a JSON value so equivalent configs serialize
@@ -223,6 +215,74 @@ mod tests {
         atomic_write(&target, b"first").unwrap();
         atomic_write(&target, b"second").unwrap();
         assert_eq!(fs::read_to_string(&target).unwrap(), "second");
+    }
+
+    #[test]
+    fn concurrent_atomic_writes_do_not_fail_with_exists() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let dir = tempdir().unwrap();
+        let target = Arc::new(dir.path().join("race.toml"));
+        atomic_write(&target, b"seed").unwrap();
+
+        let mut handles = Vec::new();
+        for i in 0..8 {
+            let path = Arc::clone(&target);
+            handles.push(thread::spawn(move || {
+                for round in 0..20 {
+                    let payload = format!("writer-{i}-round-{round}");
+                    atomic_write(&path, payload.as_bytes()).unwrap_or_else(|error| {
+                        panic!("concurrent atomic_write failed for writer {i}: {error}");
+                    });
+                }
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("writer thread panicked");
+        }
+        assert!(target.exists());
+        assert!(!fs::read_to_string(target.as_path()).unwrap().is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn locked_file_retries_then_succeeds_after_release() {
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+        use std::time::Duration;
+
+        let dir = tempdir().unwrap();
+        let target = Arc::new(dir.path().join("locked.toml"));
+        atomic_write(&target, b"old").unwrap();
+
+        let barrier = Arc::new(Barrier::new(2));
+        let path_for_lock = Arc::clone(&target);
+        let barrier_for_lock = Arc::clone(&barrier);
+        let locker = thread::spawn(move || {
+            let file = fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0) // deny delete/rename while held
+                .open(path_for_lock.as_path())
+                .expect("open locked file");
+            barrier_for_lock.wait();
+            thread::sleep(Duration::from_millis(400));
+            drop(file);
+        });
+
+        let path_for_write = Arc::clone(&target);
+        let barrier_for_write = Arc::clone(&barrier);
+        let writer = thread::spawn(move || {
+            barrier_for_write.wait();
+            atomic_write(path_for_write.as_path(), b"new-after-lock").expect(
+                "atomic_write should succeed once the exclusive lock is released",
+            );
+        });
+
+        locker.join().unwrap();
+        writer.join().unwrap();
+        assert_eq!(fs::read_to_string(target.as_path()).unwrap(), "new-after-lock");
     }
 
     #[test]

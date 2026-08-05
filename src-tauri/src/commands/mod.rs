@@ -18,6 +18,7 @@ pub mod paths;
 pub mod profiles;
 pub mod prompts;
 pub mod recovery;
+pub mod runtime_status;
 pub mod sessions;
 pub mod providers;
 pub mod proxy;
@@ -82,6 +83,7 @@ pub use prompts::{
     read_prompt, rename_prompt, save_prompt,
 };
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
+pub use runtime_status::get_managed_apps_runtime_status;
 pub use sessions::{
     backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
     import_claude_code_session, load_session_messages,
