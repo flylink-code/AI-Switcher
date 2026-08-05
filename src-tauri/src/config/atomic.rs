@@ -13,6 +13,9 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(windows)]
+use std::time::Duration;
+
 /// Write `data` to `path` atomically: create a temp file beside the target,
 /// flush, then rename into place.
 pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
@@ -52,8 +55,9 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
     // Rename into place. Windows can't rename over an existing file, so remove first.
     #[cfg(windows)]
     {
-        if path.exists() {
-            let _ = fs::remove_file(path);
+        if let Err(error) = remove_file_for_windows_replace(path) {
+            let _ = fs::remove_file(&tmp);
+            return Err(error);
         }
     }
     fs::rename(&tmp, path).map_err(|e| {
@@ -66,6 +70,41 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
     })?;
 
     Ok(())
+}
+
+/// Windows returns `ERROR_SHARING_VIOLATION` / `ERROR_ACCESS_DENIED` while a
+/// recently relaunched process still has a config file open.  Do not ignore
+/// that removal failure: doing so turns it into an opaque `ERROR_FILE_EXISTS`
+/// from `rename`, and leaves update-time config repair permanently skipped.
+#[cfg(windows)]
+fn remove_file_for_windows_replace(path: &Path) -> AppResult<()> {
+    const MAX_ATTEMPTS: u32 = 20;
+    let mut last_error = None;
+    for attempt in 0..MAX_ATTEMPTS {
+        match fs::remove_file(path) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) if is_retryable_windows_replace_error(&error) => {
+                last_error = Some(error);
+                std::thread::sleep(Duration::from_millis(75 * u64::from(attempt + 1)));
+            }
+            Err(error) => {
+                return Err(io_context(
+                    format!("删除待替换配置文件失败: {}", path.display()),
+                    error,
+                ));
+            }
+        }
+    }
+    Err(io_context(
+        format!("等待配置文件锁释放超时: {}", path.display()),
+        last_error.expect("retryable write error was captured"),
+    ))
+}
+
+#[cfg(windows)]
+fn is_retryable_windows_replace_error(error: &std::io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(5 | 32 | 33 | 183))
 }
 
 /// Recursively sort the keys of a JSON value so equivalent configs serialize

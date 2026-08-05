@@ -93,13 +93,13 @@ jobs:
 
             ## What's new
 
-            - Fix Codex sessions staying empty immediately after an in-app update
-            - Prevent delayed session scans from overwriting newer results
+            - Fix Windows config-file lock handling during in-app updates
+            - Retry Codex configuration recovery after the updater relaunch
 
             ## 更新内容
 
-            - 修复应用内更新后 Codex 会话暂时显示为空的问题
-            - 防止较晚返回的旧会话扫描结果覆盖最新列表
+            - 修复应用内更新时 Windows 配置文件锁导致 Codex 会话暂时为空的问题
+            - 更新器重启后自动重试 Codex 配置恢复
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

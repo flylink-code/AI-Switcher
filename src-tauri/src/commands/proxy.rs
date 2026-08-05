@@ -403,9 +403,22 @@ pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
 /// action remain responsible for that one-time migration.
 pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppState) {
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-    if let Err(error) = crate::commands::providers::repair_codex_managed_proxy_endpoint(state).await
-    {
-        log::warn!("relaunch recovery: Codex endpoint repair failed: {error}");
+    const MAX_ENDPOINT_REPAIR_ATTEMPTS: u32 = 3;
+    for attempt in 1..=MAX_ENDPOINT_REPAIR_ATTEMPTS {
+        match crate::commands::providers::repair_codex_managed_proxy_endpoint(state).await {
+            Ok(()) => break,
+            Err(error) if attempt < MAX_ENDPOINT_REPAIR_ATTEMPTS => {
+                log::warn!(
+                    "relaunch recovery: Codex endpoint repair attempt {attempt}/{MAX_ENDPOINT_REPAIR_ATTEMPTS} failed: {error}; retrying"
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(u64::from(attempt) * 2)).await;
+            }
+            Err(error) => {
+                log::warn!(
+                    "relaunch recovery: Codex endpoint repair attempt {attempt}/{MAX_ENDPOINT_REPAIR_ATTEMPTS} failed: {error}"
+                );
+            }
+        }
     }
     ensure_runtime_proxies(app, state).await;
 
