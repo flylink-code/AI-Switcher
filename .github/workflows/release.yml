@@ -93,13 +93,13 @@ jobs:
 
             ## What's new
 
-            - Info tips on Providers / Localization / Environment can be dismissed and stay dismissed
-            - Ignore accidental nested `src-tauri/src-tauri/` cargo build caches in git
+            - Fix Codex sessions staying empty immediately after an in-app update
+            - Prevent delayed session scans from overwriting newer results
 
             ## 更新内容
 
-            - 供应商 / 中文化 / 环境页提示支持关闭并记住
-            - `.gitignore` 忽略误生成的嵌套 `src-tauri/src-tauri/` 编译缓存
+            - 修复应用内更新后 Codex 会话暂时显示为空的问题
+            - 防止较晚返回的旧会话扫描结果覆盖最新列表
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

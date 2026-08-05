@@ -92,6 +92,9 @@ export default function SessionsPage() {
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
   const [repairingCodex, setRepairingCodex] = useState(false);
   const emptyRetryRef = useRef(0);
+  // Several post-update recovery paths can request the same list.  Keep only
+  // the newest response so a delayed empty scan cannot overwrite fresh rows.
+  const browseRequestRef = useRef(0);
 
   const needsFullScan =
     directory !== "all" ||
@@ -102,6 +105,7 @@ export default function SessionsPage() {
   const pageForFetch = needsFullScan || contentSearch ? 1 : page;
 
   const loadBrowse = useCallback(async () => {
+    const requestId = ++browseRequestRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -110,6 +114,7 @@ export default function SessionsPage() {
       // for directory/time/query when we fetch a larger first page.
       const limit = needsFullScan ? Math.max(PAGE_SIZE * 20, 500) : PAGE_SIZE;
       const next = await scanSessions(provider, offset, limit);
+      if (requestId !== browseRequestRef.current) return;
       setResult(next);
       setSelected((current) =>
         current
@@ -121,9 +126,12 @@ export default function SessionsPage() {
         return new Set([...current].filter((path) => valid.has(path)));
       });
     } catch (reason) {
+      if (requestId !== browseRequestRef.current) return;
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      setLoading(false);
+      if (requestId === browseRequestRef.current) {
+        setLoading(false);
+      }
     }
   }, [needsFullScan, pageForFetch, provider]);
 
@@ -136,6 +144,13 @@ export default function SessionsPage() {
     if (contentSearch) return;
     void loadBrowse();
   }, [contentSearch, loadBrowse]);
+
+  useEffect(() => {
+    return () => {
+      // Ignore a late IPC response after the page has been unmounted.
+      browseRequestRef.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     setPage(1);

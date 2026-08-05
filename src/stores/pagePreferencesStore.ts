@@ -166,7 +166,6 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
       workspaceTarget,
       providersTarget: workspaceTarget,
       proxyTarget: workspaceTarget,
-      sessionsProvider: sessionProviderFor(workspaceTarget),
     });
     persistSlice(get());
   },
