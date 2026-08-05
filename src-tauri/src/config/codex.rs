@@ -280,6 +280,7 @@ fn write_managed_provider(
 
 /// Built-in OpenAI-family slugs so Codex model pickers are not stuck on the
 /// single default after apply (matches frontend `codexModelSuggestions`).
+/// Only injected when the active default model looks OpenAI-family.
 const CODEX_MODEL_SUGGESTIONS: &[&str] = &[
     "gpt-5.6-sol",
     "gpt-5.6-terra",
@@ -300,6 +301,27 @@ fn model_supports_codex_fast(model: &str) -> bool {
         return true;
     }
     false
+}
+
+/// Whether the default model should get OpenAI GPT picker suggestions.
+fn should_inject_openai_model_suggestions(model: &str) -> bool {
+    let m = model.trim().to_ascii_lowercase();
+    m.starts_with("gpt-") || m.starts_with("o1") || m.starts_with("o3") || m.starts_with("o4")
+}
+
+/// Human-readable catalog label for known third-party / first-party slugs.
+fn codex_model_display_name(slug: &str) -> String {
+    match slug.trim().to_ascii_lowercase().as_str() {
+        "deepseek-v4-flash" => "DeepSeek-V4-Flash".into(),
+        "deepseek-v4-pro" => "DeepSeek-V4-Pro".into(),
+        "kimi-k3" | "k3" => "Kimi K3".into(),
+        "k3-256k" => "Kimi K3 256K".into(),
+        "kimi-k2.6" | "k2.6" => "Kimi K2.6".into(),
+        "glm-5.2" => "GLM-5.2".into(),
+        "qwen3.6-plus" => "Qwen3.6 Plus".into(),
+        "minimax-m3" => "MiniMax M3".into(),
+        _ => slug.trim().to_string(),
+    }
 }
 
 fn write_model_catalog(
@@ -333,7 +355,7 @@ fn write_model_catalog(
     for entry in extra_models {
         push_slug(entry);
     }
-    if !anthropic_upstream {
+    if !anthropic_upstream && should_inject_openai_model_suggestions(model) {
         for entry in CODEX_MODEL_SUGGESTIONS {
             push_slug(entry);
         }
@@ -341,8 +363,17 @@ fn write_model_catalog(
 
     let models: Vec<Value> = slugs
         .iter()
-        .map(|slug| {
-            codex_model_catalog_entry(slug, context_window, anthropic_upstream, web_search_enabled)
+        .enumerate()
+        .map(|(index, slug)| {
+            // Lower priority number = higher list preference in Codex.
+            let priority = 1 + index as i64;
+            codex_model_catalog_entry(
+                slug,
+                context_window,
+                anthropic_upstream,
+                web_search_enabled,
+                priority,
+            )
         })
         .collect();
     let catalog = serde_json::json!({ "models": models });
@@ -359,11 +390,13 @@ fn codex_model_catalog_entry(
     context_window: u64,
     anthropic_upstream: bool,
     web_search_enabled: bool,
+    priority: i64,
 ) -> Value {
+    let display_name = codex_model_display_name(model);
     let mut entry = serde_json::json!({
         "slug": model,
-        "display_name": model,
-        "description": model,
+        "display_name": display_name.clone(),
+        "description": display_name,
         "default_reasoning_level": "medium",
         "supported_reasoning_levels": [
             { "effort": "low", "description": "Fast responses with lighter reasoning" },
@@ -374,7 +407,7 @@ fn codex_model_catalog_entry(
         "shell_type": "shell_command",
         "visibility": "list",
         "supported_in_api": true,
-        "priority": 1000,
+        "priority": priority,
         "base_instructions": "You are Codex, a coding agent. Follow the user's instructions and use tools carefully.",
         "model_messages": {
             "instructions_template": "You are Codex, a coding agent. Follow the user's instructions and use tools carefully.",
@@ -723,7 +756,70 @@ mod tests {
         assert_eq!(models[0]["slug"], "gpt-5");
         assert_eq!(models[0]["supports_reasoning_summaries"], true);
         assert_eq!(models[0]["context_window"], 272_000);
+        assert_eq!(models[0]["priority"], 1);
         assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn third_party_catalog_uses_display_names_without_gpt_suggestions() {
+        let mut provider = sample_codex_provider();
+        provider.name = "DeepSeek".into();
+        provider.model = "deepseek-v4-flash".into();
+        provider.failover_models = vec!["deepseek-v4-pro".into()];
+        provider.protocol_type = ProtocolType::OpenAiResponses;
+        provider.base_url = "https://api.deepseek.com".into();
+        provider.model_context_window = Some(1_048_576);
+
+        let mut doc = DocumentMut::new();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+
+        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+        let models = catalog["models"].as_array().unwrap();
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0]["slug"], "deepseek-v4-flash");
+        assert_eq!(models[0]["display_name"], "DeepSeek-V4-Flash");
+        assert_eq!(models[0]["priority"], 1);
+        assert_eq!(models[1]["slug"], "deepseek-v4-pro");
+        assert_eq!(models[1]["display_name"], "DeepSeek-V4-Pro");
+        assert_eq!(models[1]["priority"], 2);
+        assert!(!models.iter().any(|entry| {
+            entry["slug"]
+                .as_str()
+                .is_some_and(|slug| slug.starts_with("gpt-"))
+        }));
+        assert_eq!(doc["model"].as_str(), Some("deepseek-v4-flash"));
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn kimi_catalog_maps_display_name_without_gpt_suggestions() {
+        let mut provider = sample_codex_provider();
+        provider.name = "Kimi".into();
+        provider.model = "kimi-k3".into();
+        provider.failover_models = vec!["kimi-k2.6".into()];
+        provider.protocol_type = ProtocolType::OpenAiChat;
+        provider.base_url = "https://api.moonshot.cn/v1".into();
+
+        let mut doc = DocumentMut::new();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+
+        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+        let models = catalog["models"].as_array().unwrap();
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0]["display_name"], "Kimi K3");
+        assert_eq!(models[1]["display_name"], "Kimi K2.6");
+        assert!(!models.iter().any(|entry| {
+            entry["slug"]
+                .as_str()
+                .is_some_and(|slug| slug.starts_with("gpt-"))
+        }));
         std::env::remove_var("CODEX_HOME");
     }
 
@@ -736,6 +832,7 @@ mod tests {
             effective_model_context_window(&provider),
             false,
             true,
+            1,
         );
         assert_eq!(entry["context_window"], 200_000);
         assert_eq!(entry["max_context_window"], 200_000);
@@ -744,7 +841,7 @@ mod tests {
 
     #[test]
     fn anthropic_upstream_catalog_disables_incompatible_codex_tools() {
-        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false);
+        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false, 1);
         assert_eq!(entry["apply_patch_tool_type"], "structured");
         assert_eq!(entry["web_search_tool_type"], "disabled");
         assert_eq!(entry["supports_search_tool"], false);
@@ -759,6 +856,7 @@ mod tests {
             effective_model_context_window(&provider),
             false,
             provider.web_search_enabled.unwrap_or(true),
+            1,
         );
         assert_eq!(entry["web_search_tool_type"], "disabled");
         assert_eq!(entry["supports_search_tool"], false);
@@ -782,7 +880,7 @@ mod tests {
 
     #[test]
     fn catalog_advertises_fast_mode_for_sol() {
-        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true);
+        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true, 1);
         assert_eq!(entry["service_tiers"][0]["id"], "fast");
         assert_eq!(entry["additional_speed_tiers"][0], "fast");
         assert!(model_supports_codex_fast("gpt-5.6-sol"));

@@ -11,14 +11,29 @@ use serde_json::Value;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(windows)]
 use std::time::Duration;
 
+/// Serialize in-process config writes so startup repair and user provider
+/// switches cannot interleave remove+rename on the same Windows path (OS 183).
+fn write_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
 /// Write `data` to `path` atomically: create a temp file beside the target,
 /// flush, then rename into place.
 pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
+    let _guard = write_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    atomic_write_unlocked(path, data)
+}
+
+fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
     let parent = path
         .parent()
         .ok_or_else(|| AppError::Path(format!("路径缺少父目录: {}", path.display())))?;
@@ -55,27 +70,61 @@ pub fn atomic_write(path: &Path, data: &[u8]) -> AppResult<()> {
     // Rename into place. Windows can't rename over an existing file, so remove first.
     #[cfg(windows)]
     {
-        if let Err(error) = remove_file_for_windows_replace(path) {
+        if let Err(error) = replace_file_on_windows(&tmp, path) {
             let _ = fs::remove_file(&tmp);
             return Err(error);
         }
+        return Ok(());
     }
-    fs::rename(&tmp, path).map_err(|e| {
-        // Clean up the orphaned temp file on failure.
-        let _ = fs::remove_file(&tmp);
-        io_context(
-            format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
-            e,
-        )
-    })?;
 
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        fs::rename(&tmp, path).map_err(|e| {
+            let _ = fs::remove_file(&tmp);
+            io_context(
+                format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
+                e,
+            )
+        })?;
+        Ok(())
+    }
 }
 
 /// Windows returns `ERROR_SHARING_VIOLATION` / `ERROR_ACCESS_DENIED` while a
 /// recently relaunched process still has a config file open.  Do not ignore
 /// that removal failure: doing so turns it into an opaque `ERROR_FILE_EXISTS`
 /// from `rename`, and leaves update-time config repair permanently skipped.
+///
+/// After a successful delete, a concurrent writer can recreate the destination
+/// before our rename (TOCTOU → OS 183). Retry the full remove+rename cycle.
+#[cfg(windows)]
+fn replace_file_on_windows(tmp: &Path, path: &Path) -> AppResult<()> {
+    const MAX_ATTEMPTS: u32 = 20;
+    let mut last_error = None;
+    for attempt in 0..MAX_ATTEMPTS {
+        if let Err(error) = remove_file_for_windows_replace(path) {
+            return Err(error);
+        }
+        match fs::rename(tmp, path) {
+            Ok(()) => return Ok(()),
+            Err(error) if is_retryable_windows_replace_error(&error) => {
+                last_error = Some(error);
+                std::thread::sleep(Duration::from_millis(75 * u64::from(attempt + 1)));
+            }
+            Err(error) => {
+                return Err(io_context(
+                    format!("原子替换失败: {} -> {}", tmp.display(), path.display()),
+                    error,
+                ));
+            }
+        }
+    }
+    Err(io_context(
+        format!("原子替换重试超时: {} -> {}", tmp.display(), path.display()),
+        last_error.expect("retryable rename error was captured"),
+    ))
+}
+
 #[cfg(windows)]
 fn remove_file_for_windows_replace(path: &Path) -> AppResult<()> {
     const MAX_ATTEMPTS: u32 = 20;
@@ -165,6 +214,15 @@ mod tests {
             .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
             .collect();
         assert!(leftovers.is_empty(), "temp file leaked: {leftovers:?}");
+    }
+
+    #[test]
+    fn atomic_write_overwrites_existing_file() {
+        let dir = tempdir().unwrap();
+        let target = dir.path().join("config.json");
+        atomic_write(&target, b"first").unwrap();
+        atomic_write(&target, b"second").unwrap();
+        assert_eq!(fs::read_to_string(&target).unwrap(), "second");
     }
 
     #[test]

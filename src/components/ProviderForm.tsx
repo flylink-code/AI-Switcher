@@ -378,6 +378,7 @@ export function ProviderForm({
       baseUrl: preset.baseUrl,
       model: preset.model,
       modelContextWindow: preset.modelContextWindow,
+      failoverModels: preset.failoverModels ?? [],
       webSearchEnabled: true,
       providerKind: "standard",
       authBinding: "",

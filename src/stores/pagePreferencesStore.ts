@@ -5,9 +5,10 @@ import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 const STORAGE_KEY = "cs.pagePreferences";
 
 interface PersistedPagePreferences {
-  /** Global workspace context (Code / Desktop / Codex). */
+  /** Last providers-page target (also mirrored as workspaceTarget for legacy). */
   workspaceTarget?: ProviderTarget;
   providersTarget?: ProviderTarget;
+  /** Independent proxy-page target. */
   proxyTarget?: ProviderTarget;
   usagePeriod?: UsagePeriod;
   /** Providers heatmap period; falls back to usagePeriod on first load. */
@@ -170,6 +171,7 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
     persistSlice(get());
   },
   setProvidersTarget: (providersTarget) => {
+    // Keep workspaceTarget aligned for any leftover readers / header migration.
     set({ providersTarget, workspaceTarget: providersTarget });
     persistSlice(get());
   },

@@ -3,10 +3,8 @@ import {
   App as AntApp,
   Badge,
   Button,
-  Divider,
   Layout,
   Menu,
-  Segmented,
   Select,
   Space,
   Tooltip,
@@ -21,7 +19,6 @@ import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
-import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
 import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
 import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
@@ -41,10 +38,10 @@ import { languages } from "@/i18n";
 import type { PageKey } from "@/lib/pageRegistry";
 import { providerListOptions, proxyStatusOptions } from "@/lib/appQueries";
 import { setAppLanguage } from "@/services/api";
-import type { ProviderTarget } from "@/types/backend";
+import { usageSourceIcon } from "@/components/UsageSourceIcons";
 
 const { Sider, Header, Content } = Layout;
-const SHELL_HEADER_HEIGHT = 56;
+const SHELL_HEADER_HEIGHT = 60;
 
 export interface NavItem {
   key: PageKey;
@@ -129,13 +126,13 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
   const setThemeMode = useThemeStore((s) => s.setMode);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
-  const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
-  const setWorkspaceTarget = usePagePreferencesStore((s) => s.setWorkspaceTarget);
+  const providersTarget = usePagePreferencesStore((s) => s.providersTarget);
+  const proxyTarget = usePagePreferencesStore((s) => s.proxyTarget);
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
 
-  const proxyQuery = useQuery(proxyStatusOptions(workspaceTarget));
-  const providersQuery = useQuery(providerListOptions(workspaceTarget));
+  const proxyQuery = useQuery(proxyStatusOptions(proxyTarget));
+  const providersQuery = useQuery(providerListOptions(providersTarget));
   const currentProvider = providersQuery.data?.find((provider) => provider.isCurrent);
 
   useEffect(() => {
@@ -160,11 +157,23 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
     })).filter((group) => (group.children?.length ?? 0) > 0);
   }, [language, t]);
 
-  const workspaceOptions: Array<{ label: string; value: ProviderTarget }> = [
-    { value: "claude_code", label: t("workspace.claude_code") },
-    { value: "claude_desktop", label: t("workspace.claude_desktop") },
-    { value: "codex", label: t("workspace.codex") },
-  ];
+  let providersTargetLabel: string;
+  switch (providersTarget) {
+    case "claude_code":
+      providersTargetLabel = t("workspace.claude_code");
+      break;
+    case "claude_desktop":
+      providersTargetLabel = t("workspace.claude_desktop");
+      break;
+    case "codex":
+      providersTargetLabel = t("workspace.codex");
+      break;
+    default: {
+      const _exhaustive: never = providersTarget;
+      providersTargetLabel = _exhaustive;
+      break;
+    }
+  }
 
   return (
     <Layout style={{ height: "100vh", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
@@ -188,22 +197,27 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             boxSizing: "border-box",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
+            gap: 10,
+            paddingInline: 16,
             flexShrink: 0,
             color: token.colorText,
             fontWeight: 600,
-            fontSize: 16,
+            fontSize: 15,
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
+          <span className="app-brand-mark" aria-hidden>
+            AS
+          </span>
           {updateVersion ? (
             <Badge dot offset={[-2, 3]}>
-              <Button type="link" size="small" icon={<CloudDownloadOutlined />} onClick={onOpenUpdate}>
+              <Button type="link" size="small" className="app-brand-name" onClick={onOpenUpdate}>
                 {t("app.name")}
               </Button>
             </Badge>
           ) : (
-            t("app.name")
+            <span className="app-brand-name">{t("app.name")}</span>
           )}
         </div>
         <Menu
@@ -229,7 +243,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             boxSizing: "border-box",
             flex: "0 0 auto",
             minWidth: 0,
-            background: token.colorBgContainer,
+            background: "transparent",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -237,19 +251,10 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
             paddingBlock: 0,
             paddingInline: 24,
             overflow: "hidden",
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            borderBottom: "none",
           }}
         >
           <div className="app-header-main">
-            <Segmented<ProviderTarget>
-              size="small"
-              value={workspaceTarget}
-              options={workspaceOptions}
-              onChange={setWorkspaceTarget}
-              aria-label={t("workspace.target")}
-              style={{ flexShrink: 0 }}
-            />
-            <Divider type="vertical" className="app-header-divider" />
             <div className="app-header-status">
               <Tooltip title={t("workspace.openProxy")}>
                 <Button
@@ -273,8 +278,8 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
               <Tooltip
                 title={
                   currentProvider
-                    ? t("workspace.currentProvider", { name: currentProvider.name })
-                    : t("workspace.noProvider")
+                    ? `${providersTargetLabel} · ${t("workspace.currentProvider", { name: currentProvider.name })}`
+                    : `${providersTargetLabel} · ${t("workspace.noProvider")}`
                 }
               >
                 <Button
@@ -283,6 +288,9 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
                   className="app-header-status-btn app-header-provider"
                   onClick={() => onNavigate("providers")}
                 >
+                  <span className="app-header-target-icon" aria-hidden>
+                    {usageSourceIcon(providersTarget, { size: 14 })}
+                  </span>
                   <Typography.Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
                     {t("nav.providers")}
                   </Typography.Text>
@@ -333,7 +341,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
         </Header>
         <Content
           className="app-content"
-          style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: 24, background: token.colorBgLayout }}
+          style={{ minWidth: 0, minHeight: 0, overflow: "auto", padding: "20px 28px 28px", background: token.colorBgLayout }}
         >
           {children}
         </Content>

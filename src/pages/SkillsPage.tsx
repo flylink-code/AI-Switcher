@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
+  ConfigProvider,
   Input,
   Modal,
+  Segmented,
   Space,
   Switch,
   Tag,
   Table,
+  Tooltip,
   Typography,
   message,
+  theme,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import DownloadOutlined from "@ant-design/icons/es/icons/DownloadOutlined";
@@ -19,6 +23,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import type { RepositorySkill, Skill, SkillTarget, SkillUpdateStatus, UnmanagedSkill } from "@/types/backend";
 import {
   deleteSkill,
@@ -35,7 +40,6 @@ import {
   updateGithubSkills,
 } from "@/services/api";
 import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
-import { skillCompatibleTarget, usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text } = Typography;
 const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
@@ -43,11 +47,8 @@ const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { token } = theme.useToken();
   const [target, setTarget] = useState<SkillTarget>("claude_code");
-  const workspaceTarget = usePagePreferencesStore((state) => state.workspaceTarget);
-  useEffect(() => {
-    setTarget(skillCompatibleTarget(workspaceTarget));
-  }, [workspaceTarget]);
   const skillsQuery = useQuery(skillsOptions(target));
   const repositoryQuery = useQuery(skillRepositoryOptions);
   const skills = skillsQuery.data ?? [];
@@ -268,11 +269,50 @@ export default function SkillsPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
-    <Text type="secondary">
-      {t("workspace.currentProvider", {
-        name: target === "codex" ? "Codex" : t("providers.claudeCode"),
-      })}
-    </Text>
+    <ConfigProvider
+      theme={{
+        components: {
+          Segmented: {
+            trackBg: token.colorBgContainer,
+            itemSelectedBg: token.colorFillSecondary,
+            itemHoverBg: token.colorFillTertiary,
+            trackPadding: 2,
+          },
+        },
+      }}
+    >
+      <Segmented<SkillTarget>
+        className="heatmap-source-filter"
+        size="middle"
+        value={target}
+        aria-label={t("workspace.target")}
+        onChange={setTarget}
+        style={{
+          border: `1px solid ${token.colorBorder}`,
+          borderRadius: token.borderRadiusLG ?? token.borderRadius,
+          height: token.controlHeight,
+          boxSizing: "border-box",
+        }}
+        options={[
+          {
+            value: "claude_code",
+            label: (
+              <Tooltip title={t("workspace.claude_code")}>
+                {usageSourceSegmentLabel("claude_code", t("workspace.claude_code"))}
+              </Tooltip>
+            ),
+          },
+          {
+            value: "codex",
+            label: (
+              <Tooltip title={t("workspace.codex")}>
+                {usageSourceSegmentLabel("codex", t("workspace.codex"))}
+              </Tooltip>
+            ),
+          },
+        ]}
+      />
+    </ConfigProvider>
     <Card
       size="small"
       title={t("skills.discoveryTitle")}

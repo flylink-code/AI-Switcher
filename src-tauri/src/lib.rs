@@ -28,6 +28,7 @@ mod skills;
 mod store;
 mod tray;
 mod usage;
+mod usage_events;
 
 #[cfg(windows)]
 mod autostart_windows;
@@ -88,6 +89,8 @@ use crate::commands::{
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
 use crate::store::AppState;
+
+const SESSION_USAGE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -367,6 +370,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&app_config_dir)?;
     std::fs::create_dir_all(config::get_backup_dir())?;
     log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
+    usage_events::init(app.handle().clone());
 
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
@@ -475,7 +479,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Background Codex session JSONL → DB sync: first run after ~8s, then every 60s.
+/// Background Codex session JSONL → DB sync: first run after ~8s, then every 30s.
 /// Skips overlapping runs so a slow sync cannot stack with the next tick.
 /// Each file uses a short DB lock so UI queries can interleave.
 fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
@@ -490,6 +494,7 @@ fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
             match sync_result {
                 Ok(Ok(result)) => {
                     if result.inserted_rows > 0 {
+                        usage_events::notify_log_recorded();
                         log::info!(
                             "Codex session usage sync: scanned={}, inserted={}, skipped={}",
                             result.scanned_files,
@@ -511,12 +516,12 @@ fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
                     log::warn!("Codex session usage sync task join failed: {error}");
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
         }
     });
 }
 
-/// Background Claude Code project JSONL → DB sync: first run after ~12s, then every 60s.
+/// Background Claude Code project JSONL → DB sync: first run after ~12s, then every 30s.
 fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(12)).await;
@@ -529,6 +534,7 @@ fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
             match sync_result {
                 Ok(Ok(result)) => {
                     if result.inserted_rows > 0 {
+                        usage_events::notify_log_recorded();
                         log::info!(
                             "Claude Code session usage sync: scanned={}, inserted={}, skipped={}",
                             result.scanned_files,
@@ -550,7 +556,7 @@ fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
                     log::warn!("Claude Code session usage sync task join failed: {error}");
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
         }
     });
 }

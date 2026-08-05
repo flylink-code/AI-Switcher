@@ -1039,6 +1039,8 @@ async fn proxy_handler(
                                 )
                             }) {
                                 log::error!("更新代理请求 Token 用量失败: {error}");
+                            } else {
+                                crate::usage_events::notify_log_recorded();
                             }
                         }
                         if output.is_empty() && done {
@@ -1332,6 +1334,8 @@ async fn proxy_handler(
                                         )
                                     }) {
                                         log::error!("更新代理请求 Token 用量失败: {e}");
+                                    } else {
+                                        crate::usage_events::notify_log_recorded();
                                     }
                                 }
                             }
@@ -1517,7 +1521,10 @@ pub(crate) fn log_request(
             error_category.map(error_diagnostic),
         )
     }) {
-        Ok(id) => Some(id),
+        Ok(id) => {
+            crate::usage_events::notify_log_recorded();
+            Some(id)
+        }
         Err(e) => {
             log::error!("写入代理请求日志失败: {e}");
             None
@@ -1564,6 +1571,8 @@ pub(crate) fn log_early_failure(
         .map(|_| ())
     }) {
         log::error!("写入代理早期失败日志失败: {error}");
+    } else {
+        crate::usage_events::notify_log_recorded();
     }
 }
 
@@ -1670,6 +1679,8 @@ fn update_log_usage(state: &ProxyState, provider: &Provider, id: &str, usage: Op
         )
     }) {
         log::error!("更新代理请求 Token 用量失败: {e}");
+    } else {
+        crate::usage_events::notify_log_recorded();
     }
 }
 

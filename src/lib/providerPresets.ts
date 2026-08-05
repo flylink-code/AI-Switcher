@@ -9,11 +9,14 @@ export interface ProviderPreset {
   model: string;
   /** Optional Codex context window hint. */
   modelContextWindow?: number;
+  /** Extra models written into failover / Codex catalog. */
+  failoverModels?: string[];
   notes?: string;
   /** Targets that should show this preset. */
   targets: ProviderTarget[];
 }
 
+const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop"];
 const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex"];
 
 /** Built-in quick-fill presets for common third-party gateways. */
@@ -24,8 +27,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "anthropic",
     baseUrl: "https://api.deepseek.com/anthropic",
     model: "deepseek-v4-pro",
-    notes: "DeepSeek Anthropic-compatible gateway",
-    targets: ALL_TARGETS,
+    failoverModels: ["deepseek-v4-flash"],
+    notes: "DeepSeek Anthropic-compatible gateway (deepseek-v4-pro / deepseek-v4-flash)",
+    targets: CODE_DESKTOP,
   },
   {
     id: "deepseek-openai",
@@ -33,8 +37,20 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_chat",
     baseUrl: "https://api.deepseek.com",
     model: "deepseek-v4-pro",
-    notes: "DeepSeek OpenAI-compatible Chat Completions",
-    targets: ALL_TARGETS,
+    failoverModels: ["deepseek-v4-flash"],
+    notes: "DeepSeek OpenAI-compatible Chat Completions (deepseek-v4-pro / deepseek-v4-flash)",
+    targets: CODE_DESKTOP,
+  },
+  {
+    id: "deepseek-codex",
+    name: "DeepSeek",
+    protocolType: "openai_responses",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-v4-flash",
+    failoverModels: ["deepseek-v4-pro"],
+    modelContextWindow: 1_048_576,
+    notes: "DeepSeek Responses API for Codex (flash default; pro as failover)",
+    targets: ["codex"],
   },
   {
     id: "kimi-cn",
@@ -42,6 +58,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_chat",
     baseUrl: "https://api.moonshot.cn/v1",
     model: "kimi-k3",
+    failoverModels: ["kimi-k2.6"],
     notes: "Moonshot / Kimi China OpenAI-compatible API",
     targets: ALL_TARGETS,
   },
@@ -51,6 +68,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_chat",
     baseUrl: "https://api.moonshot.ai/v1",
     model: "kimi-k3",
+    failoverModels: ["kimi-k2.6"],
     notes: "Moonshot / Kimi international OpenAI-compatible API",
     targets: ALL_TARGETS,
   },

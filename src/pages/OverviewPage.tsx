@@ -84,6 +84,7 @@ export default function OverviewPage() {
 
       <Card
         size="small"
+        className="page-surface"
         title={t("overview.usageSummary")}
         extra={<Text type="secondary">{t("overview.usageHint")}</Text>}
       >
@@ -146,6 +147,7 @@ export default function OverviewPage() {
 
       <Card
         size="small"
+        className="page-surface"
         title={
           <Space>
             <CalendarOutlined />

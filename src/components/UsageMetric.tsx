@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card, Col, Statistic } from "antd";
+import { Col, Statistic } from "antd";
 import { formatCompactNumber } from "@/utils/formatCompact";
 
 export function UsageMetric({
@@ -21,7 +21,7 @@ export function UsageMetric({
 }) {
   return (
     <Col xs={24} sm={12} xl={6}>
-      <Card size="small">
+      <div className="usage-metric-tile">
         <Statistic
           title={title}
           value={value}
@@ -30,7 +30,7 @@ export function UsageMetric({
           precision={precision}
           formatter={compact ? (v) => formatCompactNumber(Number(v)) : undefined}
         />
-      </Card>
+      </div>
     </Col>
   );
 }

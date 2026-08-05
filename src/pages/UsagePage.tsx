@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -31,6 +31,7 @@ import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutli
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import {
   Area,
   AreaChart,
@@ -108,6 +109,9 @@ export default function UsagePage() {
   const [form] = Form.useForm<ModelPricingInput>();
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const [trendExpanded, setTrendExpanded] = useState(false);
+  const logRefreshTimerRef = useRef<number | null>(null);
+  const lastLogRefreshAtRef = useRef(0);
+  const lastDashboardRefreshAtRef = useRef(0);
 
   const dashboardQuery = useQuery({
     ...usageDashboardOptions(period, logTargetApp),
@@ -150,6 +154,46 @@ export default function UsagePage() {
     }, 60_000);
     return () => window.clearInterval(interval);
   }, [dashboardQuery.refetch, logsQuery.refetch, maintaining, saving]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+
+    const refreshFromLogEvent = () => {
+      if (disposed || document.visibilityState !== "visible") return;
+      if (logRefreshTimerRef.current !== null) return;
+
+      const delay = Math.max(0, 1_000 - (Date.now() - lastLogRefreshAtRef.current));
+      logRefreshTimerRef.current = window.setTimeout(() => {
+        logRefreshTimerRef.current = null;
+        if (disposed || document.visibilityState !== "visible") return;
+
+        lastLogRefreshAtRef.current = Date.now();
+        void logsQuery.refetch({ cancelRefetch: false });
+
+        if (lastLogRefreshAtRef.current - lastDashboardRefreshAtRef.current >= 5_000) {
+          lastDashboardRefreshAtRef.current = lastLogRefreshAtRef.current;
+          void dashboardQuery.refetch({ cancelRefetch: false });
+        }
+      }, delay);
+    };
+
+    void listen("usage-log-recorded", refreshFromLogEvent)
+      .then((disposeListener) => {
+        if (disposed) disposeListener();
+        else unlisten = disposeListener;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      if (logRefreshTimerRef.current !== null) {
+        window.clearTimeout(logRefreshTimerRef.current);
+        logRefreshTimerRef.current = null;
+      }
+      unlisten?.();
+    };
+  }, [dashboardQuery.refetch, logsQuery.refetch]);
 
   const savePricing = async () => {
     try {
@@ -246,7 +290,14 @@ export default function UsagePage() {
   const refreshOverview = async () => {
     setRefreshing(true);
     try {
+      // Direct Claude Code/Codex sessions are imported from local JSONL files,
+      // not through the HTTP proxy. A user-initiated refresh must import their
+      // latest incremental records before querying the dashboard database.
+      if (includesClaudeCode) await syncClaudeCodeSessionUsage();
+      if (includesCodex) await syncCodexSessionUsage();
       await Promise.all([dashboardQuery.refetch(), logsQuery.refetch(), metaQuery.refetch()]);
+    } catch (e) {
+      void message.error(errMsg(e));
     } finally {
       setRefreshing(false);
     }

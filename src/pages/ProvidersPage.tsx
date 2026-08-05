@@ -38,6 +38,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import {
   buildProviderDeeplink,
   confirmImportPreview,
@@ -57,7 +58,8 @@ export default function ProvidersPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const store = useProvidersStore();
-  const target = usePagePreferencesStore((state) => state.workspaceTarget);
+  const target = usePagePreferencesStore((state) => state.providersTarget);
+  const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
@@ -421,20 +423,48 @@ export default function ProvidersPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: "100%", minWidth: 0 }}>
     {store.error && <Alert type="error" showIcon message={store.error} closable onClose={() => store.clearError()} />}
-    <Space wrap size={[8, 8]} style={{ width: "100%", justifyContent: "flex-end" }}>
-      <Space wrap size={[8, 8]}>
-        {target !== "codex" && (
-          <Button loading={oauthPolling} onClick={() => void handleCodexOauthLogin()}>
-            {t("providers.chatgptLogin")}
+    <div className="providers-toolbar">
+      <WorkspaceTargetSegmented
+        value={target}
+        onChange={setProvidersTarget}
+        t={t}
+        ariaLabel={t("workspace.target")}
+      />
+      <Space wrap size={8} align="center">
+        <div className="providers-action-cluster">
+          {target !== "codex" && (
+            <Button type="text" size="small" loading={oauthPolling} onClick={() => void handleCodexOauthLogin()}>
+              {t("providers.chatgptLogin")}
+            </Button>
+          )}
+          <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
+            {t("providers.importLive")}
           </Button>
-        )}
-        <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>{t("providers.importLive")}</Button>
-        <Button loading={busy} onClick={() => void handleExport()}>{t("providers.export")}</Button>
-        <Button loading={busy} onClick={() => void handleImportClipboard()}>{t("providers.importClipboard")}</Button>
-        <label><Button loading={busy}>{t("providers.importFile")}</Button><input type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleImportFile(file); event.currentTarget.value = ""; }} /></label>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>{t("providers.create")}</Button>
+          <Button type="text" size="small" loading={busy} onClick={() => void handleExport()}>
+            {t("providers.export")}
+          </Button>
+          <Button type="text" size="small" loading={busy} onClick={() => void handleImportClipboard()}>
+            {t("providers.importClipboard")}
+          </Button>
+          <label>
+            <Button type="text" size="small" loading={busy}>{t("providers.importFile")}</Button>
+            <input
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleImportFile(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>
+          {t("providers.create")}
+        </Button>
       </Space>
-    </Space>
+    </div>
     <OnboardingTip
       tipKey="providers_hot_switch"
       type="info"
@@ -461,6 +491,7 @@ export default function ProvidersPage() {
     )}
     <Card
       size="small"
+      className="page-surface"
       title={
         <Space>
           <GlobalOutlined />
@@ -485,6 +516,7 @@ export default function ProvidersPage() {
     </Card>
     <Card
       size="small"
+      className="page-surface"
       styles={{ body: { padding: 12 } }}
       title={
         <Space wrap>
@@ -505,6 +537,7 @@ export default function ProvidersPage() {
         pagination={false}
         tableLayout="fixed"
         scroll={{ x: 1100 }}
+        rowClassName={(row) => (row.isCurrent ? "provider-row-current" : "")}
         locale={{ emptyText: t("providers.empty") }}
       />
     </Card>

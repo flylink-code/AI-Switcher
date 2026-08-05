@@ -19,7 +19,7 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: var(--ant-color-bg-layout, #f5f5f5);
+  background: var(--ant-color-bg-layout, #f4f4f5);
   color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -38,15 +38,49 @@ body {
   opacity: 0.72;
 }
 
+.app-sider .ant-menu-item {
+  width: calc(100% - 16px);
+  margin-inline: 8px;
+}
+
 .app-header.ant-layout-header {
-  height: 56px !important;
+  height: 60px !important;
   line-height: normal !important;
   padding-block: 0;
+  background: color-mix(in srgb, var(--ant-color-bg-container, #fff) 78%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06)) 70%, transparent);
 }
 
 .app-brand,
 .app-header {
   box-sizing: border-box;
+}
+
+.app-brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(145deg, #60a5fa, #3b82f6);
+  box-shadow: 0 6px 14px rgba(59, 130, 246, 0.28);
+}
+
+.app-brand-name,
+.app-brand-name.ant-btn {
+  padding: 0;
+  height: auto;
+  color: var(--ant-color-primary, #3b82f6) !important;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.2;
 }
 
 .app-header-main {
@@ -71,6 +105,9 @@ body {
   gap: 4px;
   min-width: 0;
   overflow: hidden;
+  padding: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04)) 88%, transparent);
 }
 
 .app-header-status-sep {
@@ -84,10 +121,18 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
+  height: 30px;
   max-width: 100%;
   padding-inline: 8px;
   line-height: 1;
+  border-radius: 8px;
+}
+
+.app-header-target-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.88;
 }
 
 .app-header-provider.ant-btn {
@@ -102,6 +147,57 @@ body {
   scroll-behavior: smooth;
 }
 
+.page-surface.ant-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ant-color-text, #000) 4%, transparent);
+}
+
+.providers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.providers-action-cluster {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  border-radius: 12px;
+}
+
+.providers-action-cluster .ant-btn {
+  border: none;
+  box-shadow: none;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.providers-action-cluster .ant-btn-primary {
+  box-shadow: none;
+}
+
+.provider-row-current > td {
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 8%, transparent) !important;
+}
+
+.provider-row-current > td:first-child {
+  box-shadow: inset 3px 0 0 var(--ant-color-primary, #3b82f6);
+}
+
+.usage-metric-tile {
+  height: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+  background: color-mix(in srgb, var(--ant-color-bg-container, #fff) 92%, var(--ant-color-fill-tertiary, #f4f4f5));
+}
+
 .startup-screen {
   width: 100%;
   height: 100%;
@@ -110,8 +206,8 @@ body {
   justify-content: center;
   padding: 32px;
   background:
-    radial-gradient(circle at 50% 35%, rgba(88, 101, 242, 0.12), transparent 36%),
-    var(--ant-color-bg-layout, #f5f5f5);
+    radial-gradient(circle at 50% 35%, rgba(59, 130, 246, 0.12), transparent 36%),
+    var(--ant-color-bg-layout, #f4f4f5);
 }
 
 .startup-mark {
@@ -124,8 +220,8 @@ body {
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 1px;
-  background: linear-gradient(145deg, #6d78f6, #4653d5);
-  box-shadow: 0 16px 40px rgba(70, 83, 213, 0.28);
+  background: linear-gradient(145deg, #60a5fa, #3b82f6);
+  box-shadow: 0 16px 40px rgba(59, 130, 246, 0.28);
 }
 
 /* Providers heatmap source filter: align with adjacent Select (no floating white chip). */
@@ -152,6 +248,7 @@ body {
   line-height: 1;
   display: inline-flex;
   align-items: center;
+  padding-inline: 10px;
 }
 
 .heatmap-source-filter.ant-segmented .ant-segmented-item-selected,

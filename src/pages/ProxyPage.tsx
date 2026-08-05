@@ -33,6 +33,7 @@ import {
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 
 const { Text } = Typography;
 
@@ -47,7 +48,8 @@ export default function ProxyPage() {
   const [retrySaving, setRetrySaving] = useState(false);
   const [idleTimeout, setIdleTimeout] = useState(180);
   const [idleSaving, setIdleSaving] = useState(false);
-  const target = usePagePreferencesStore((state) => state.workspaceTarget);
+  const target = usePagePreferencesStore((state) => state.proxyTarget);
+  const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
   const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
@@ -151,6 +153,21 @@ export default function ProxyPage() {
     }
   };
 
+  const targetLabel = (() => {
+    switch (target) {
+      case "claude_code":
+        return t("providers.claudeCode");
+      case "claude_desktop":
+        return t("providers.claudeDesktop");
+      case "codex":
+        return "Codex";
+      default: {
+        const _exhaustive: never = target;
+        return _exhaustive;
+      }
+    }
+  })();
+
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <OnboardingTip
@@ -167,16 +184,17 @@ export default function ProxyPage() {
           <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
         )}
 
-        <Typography.Text type="secondary">
-          {t("workspace.currentProvider", {
-            name:
-              target === "claude_code"
-                ? t("providers.claudeCode")
-                : target === "claude_desktop"
-                  ? t("providers.claudeDesktop")
-                  : "Codex",
-          })}
-        </Typography.Text>
+        <Space wrap size={[12, 8]} style={{ width: "100%", justifyContent: "space-between" }}>
+          <WorkspaceTargetSegmented
+            value={target}
+            onChange={setProxyTarget}
+            t={t}
+            ariaLabel={t("workspace.target")}
+          />
+          <Typography.Text type="secondary">
+            {t("workspace.currentProvider", { name: targetLabel })}
+          </Typography.Text>
+        </Space>
 
         <Card
           size="small"
