@@ -1035,9 +1035,11 @@ fn collect_jsonl_files_with_mtime(
             continue;
         }
         let metadata = entry.metadata().ok();
-        if metadata.as_ref().is_some_and(is_risky_cloud_placeholder) {
-            continue;
-        }
+        // This list view never opens JSONL contents. A recall/offline
+        // attribute therefore must not hide an otherwise valid local session:
+        // it made existing Codex histories disappear in the UI while the
+        // usage scanner could still see the same files. Opening content stays
+        // deferred until the user selects a row.
         if file_type.is_dir() {
             let (child_truncated, child_timeout) =
                 collect_jsonl_files_with_mtime(&path, files, depth + 1, deadline)?;
@@ -1064,25 +1066,6 @@ fn collect_jsonl_files_with_mtime(
         }
     }
     Ok((truncated, timed_out))
-}
-
-#[cfg(windows)]
-fn is_risky_cloud_placeholder(metadata: &fs::Metadata) -> bool {
-    use std::os::windows::fs::MetadataExt;
-    const FILE_ATTRIBUTE_OFFLINE: u32 = 0x1000;
-    const FILE_ATTRIBUTE_RECALL_ON_OPEN: u32 = 0x4_0000;
-    const FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS: u32 = 0x40_0000;
-    let attrs = metadata.file_attributes();
-    attrs
-        & (FILE_ATTRIBUTE_OFFLINE
-            | FILE_ATTRIBUTE_RECALL_ON_OPEN
-            | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS)
-        != 0
-}
-
-#[cfg(not(windows))]
-fn is_risky_cloud_placeholder(_metadata: &fs::Metadata) -> bool {
-    false
 }
 
 /// Build list-row metadata without opening the jsonl (avoids OS freezes).

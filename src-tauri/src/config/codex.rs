@@ -6,6 +6,10 @@
 use std::fs;
 use std::collections::BTreeMap;
 use std::path::Path;
+#[cfg(windows)]
+use std::thread;
+#[cfg(windows)]
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -133,6 +137,37 @@ pub fn apply_provider(
     proxy_port: Option<u16>,
     extra_models: &[String],
 ) -> AppResult<()> {
+    // `MoveFileExW` removes the delete-then-rename race, but Windows can still
+    // return ERROR_ALREADY_EXISTS while NSIS, Defender, or a just-relaunched
+    // Codex process settles directory state. Retry the complete multi-file
+    // write so each attempt reloads a coherent config.toml snapshot.
+    const MAX_ATTEMPTS: u32 = 6;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match apply_provider_once(provider, api_key, proxy_port, extra_models) {
+            Ok(()) => return Ok(()),
+            Err(error) if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS => {
+                let delay_ms = 500u64.saturating_mul(u64::from(attempt)).min(2_500);
+                log::warn!(
+                    "Codex 配置写入遇到 Windows 文件冲突 (attempt {attempt}/{MAX_ATTEMPTS}): {error}; {}ms 后重试",
+                    delay_ms
+                );
+                #[cfg(windows)]
+                thread::sleep(Duration::from_millis(delay_ms));
+                #[cfg(not(windows))]
+                let _ = delay_ms;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    unreachable!("Codex config retry loop always returns")
+}
+
+fn apply_provider_once(
+    provider: &Provider,
+    api_key: &str,
+    proxy_port: Option<u16>,
+    extra_models: &[String],
+) -> AppResult<()> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
     let auth_path = get_codex_auth_path();
@@ -149,6 +184,24 @@ pub fn apply_provider(
         api_key
     };
     write_auth_api_key(&auth_path, auth_key)
+}
+
+fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
+    #[cfg(windows)]
+    {
+        return matches!(
+            error,
+            AppError::Io(message)
+                if ["os error 5", "os error 32", "os error 33", "os error 80", "os error 183"]
+                    .iter()
+                    .any(|code| message.contains(code))
+        );
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = error;
+        false
+    }
 }
 
 fn write_auth_api_key(path: &Path, api_key: &str) -> AppResult<()> {

@@ -19,7 +19,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use tauri::Emitter;
 
@@ -27,6 +27,14 @@ const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
 const MAX_MODEL_NAME_CHARS: usize = 256;
 const CODEX_OWNERSHIP_KEY: &str = "v040.codex_managed";
+
+/// A Codex switch updates config.toml, auth.json, and the model catalog as one
+/// logical operation. Startup repair and a user click must not interleave their
+/// snapshots, writes, or rollback decisions after an updater relaunch.
+fn codex_switch_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
 
 #[tauri::command]
 pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
@@ -615,6 +623,11 @@ async fn apply_target_provider(
         })?
     };
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
+    let _codex_switch_guard = if runtime_provider.target_app == ProviderTarget::Codex {
+        Some(codex_switch_lock().lock().await)
+    } else {
+        None
+    };
     let mut snapshot = SwitchSnapshot::capture(state, runtime_provider.target_app).await?;
     if runtime_provider.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
