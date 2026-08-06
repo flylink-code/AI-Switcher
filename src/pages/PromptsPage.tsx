@@ -10,7 +10,6 @@ import {
   List,
   Modal,
   Popconfirm,
-  Segmented,
   Space,
   Tooltip,
   Typography,
@@ -27,6 +26,7 @@ import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import type { PromptDetail, PromptInfo, PromptTarget } from "@/types/backend";
 import {
   activatePrompt,
@@ -167,13 +167,11 @@ export default function PromptsPage() {
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {promptsQuery.error && <Alert type="error" showIcon message={errMsg(promptsQuery.error)} />}
         <OnboardingTip tipKey="prompts" message={t("prompts.title")} description={t("prompts.description")} />
-        <Segmented<PromptTarget>
+        <WorkspaceTargetSegmented<PromptTarget>
           value={target}
           onChange={setTarget}
-          options={[
-            { value: "claude_code", label: "Claude Code" },
-            { value: "codex", label: "Codex" },
-          ]}
+          t={t}
+          targets={["claude_code", "codex"]}
         />
 
         <Card

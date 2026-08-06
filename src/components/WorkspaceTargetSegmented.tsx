@@ -13,10 +13,12 @@ const LABEL_KEYS: Record<ProviderTarget, string> = {
   codex: "workspace.codex",
 };
 
-type Props = {
-  value: ProviderTarget;
-  onChange: (value: ProviderTarget) => void;
+type Props<T extends ProviderTarget> = {
+  value: T;
+  onChange: (value: T) => void;
   t: (key: string) => string;
+  /** Subset of targets to show; defaults to all three apps. */
+  targets?: readonly T[];
   /** Optional aria-label for accessibility. */
   ariaLabel?: string;
   size?: "small" | "middle";
@@ -24,15 +26,17 @@ type Props = {
 };
 
 /** Code / Desktop / Codex target switcher styled like Overview/Usage filters. */
-export function WorkspaceTargetSegmented({
+export function WorkspaceTargetSegmented<T extends ProviderTarget>({
   value,
   onChange,
   t,
+  targets,
   ariaLabel,
   size = "middle",
   className,
-}: Props) {
+}: Props<T>) {
   const { token } = theme.useToken();
+  const options: readonly T[] = targets ?? (TARGET_OPTIONS as unknown as T[]);
 
   return (
     <ConfigProvider
@@ -47,7 +51,7 @@ export function WorkspaceTargetSegmented({
         },
       }}
     >
-      <Segmented<ProviderTarget>
+      <Segmented<T>
         className={["heatmap-source-filter", className].filter(Boolean).join(" ")}
         size={size}
         value={value}
@@ -59,7 +63,7 @@ export function WorkspaceTargetSegmented({
           height: size === "small" ? token.controlHeightSM : token.controlHeight,
           boxSizing: "border-box",
         }}
-        options={TARGET_OPTIONS.map((option) => {
+        options={options.map((option) => {
           const label = t(LABEL_KEYS[option]);
           return {
             value: option,

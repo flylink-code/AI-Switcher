@@ -156,7 +156,7 @@ body {
 
 .page-surface.ant-card {
   border-radius: 12px;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--ant-color-text, #000) 4%, transparent);
+  border-color: var(--as-border-card, var(--ant-color-border-secondary));
 }
 
 .providers-toolbar {
@@ -261,4 +261,349 @@ body {
 .heatmap-source-filter.ant-segmented .ant-segmented-item-selected,
 .heatmap-source-filter.ant-segmented .ant-segmented-thumb {
   box-shadow: none;
+}
+
+/* Custom frameless title bar */
+.app-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  padding-left: 14px;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.app-titlebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.72;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+.app-titlebar-controls button {
+  width: 46px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: default;
+  transition: background-color 0.12s ease;
+}
+
+.app-titlebar-controls button:hover {
+  background: color-mix(in srgb, var(--ant-color-text, #000) 10%, transparent);
+}
+
+.app-titlebar-controls button:active {
+  background: color-mix(in srgb, var(--ant-color-text, #000) 16%, transparent);
+}
+
+.app-titlebar-controls .app-titlebar-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.app-titlebar-controls .app-titlebar-close:active {
+  background: #c50e1f;
+  color: #fff;
+}
+
+/* Title bar: drag region + embedded theme/language selects */
+.app-titlebar {
+  padding-left: 0;
+}
+
+.app-titlebar-drag {
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 14px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-titlebar-settings {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding-right: 8px;
+}
+
+.app-titlebar-settings .ant-select {
+  font-size: 12px;
+}
+
+.app-titlebar-icon-btn {
+  width: 32px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+
+.app-titlebar-icon-btn:hover {
+  background: color-mix(in srgb, var(--ant-color-text, #000) 10%, transparent);
+  opacity: 1;
+}
+
+.app-titlebar-back {
+  margin-left: 8px;
+  margin-right: 2px;
+  flex: 0 0 auto;
+}
+
+.app-titlebar-update {
+  margin-left: 10px;
+  border: none;
+  border-radius: 999px;
+  padding: 1px 10px;
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 14%, transparent);
+  color: var(--ant-color-primary, #3b82f6);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.app-titlebar-update:hover {
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 22%, transparent);
+}
+
+/* ===== UI Optimization Guide v1.0 palette (light / dark via data-theme) ===== */
+:root {
+  --as-bg-section: #f0f1f3;
+  --as-border-card: #e4e5e7;
+  --as-border-divider: #ebedf0;
+  --as-text-tertiary: #8a8a8a;
+  --as-status-running: #22c55e;
+  --as-status-stopped: #9ca3af;
+  --as-status-error: #ef4444;
+  --as-brand-claude: #d97757;
+  --as-brand-codex: #10b981;
+  --as-cost: #ef4444;
+  --as-chart-empty: #e4e5e7;
+  --as-chart-low: #bbf7d0;
+  --as-chart-mid: #86efac;
+  --as-chart-high: #4ade80;
+  --as-chart-peak: #22c55e;
+}
+
+:root[data-theme="dark"] {
+  --as-bg-section: #141414;
+  --as-border-card: #2a2a2a;
+  --as-border-divider: #333333;
+  --as-text-tertiary: #6b6b6b;
+  --as-status-running: #4ade80;
+  --as-status-stopped: #6b7280;
+  --as-status-error: #f87171;
+  --as-brand-claude: #e88d6f;
+  --as-brand-codex: #34d399;
+  --as-cost: #f87171;
+  --as-chart-empty: #2a2a2a;
+  --as-chart-low: #14532d;
+  --as-chart-mid: #166534;
+  --as-chart-high: #15803d;
+  --as-chart-peak: #22c55e;
+}
+
+/* ===== Workbench service cards: status via brand-tinted icon chip ===== */
+.workbench-app-card {
+  --as-card-accent: var(--as-status-running);
+}
+.workbench-app-card[data-app="claude_code"],
+.workbench-app-card[data-app="claude_desktop"] {
+  --as-card-accent: var(--as-brand-claude);
+}
+.workbench-app-card[data-app="codex"] {
+  --as-card-accent: var(--as-brand-codex);
+}
+/* Icon chip: brand-tinted when running, neutral gray when stopped — status is
+   readable at the title row without any bars slicing the card. */
+.workbench-app-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--as-card-accent) 14%, transparent);
+  color: var(--as-card-accent);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.workbench-app-card[data-status="stopped"] .workbench-app-icon {
+  background: color-mix(in srgb, var(--as-status-stopped) 14%, transparent);
+  color: var(--as-status-stopped);
+}
+.workbench-app-card[data-status="stopped"] .ant-card-body {
+  opacity: 0.7;
+}
+:root[data-theme="dark"] .workbench-app-card[data-status="running"].ant-card {
+  border-color: color-mix(in srgb, var(--as-card-accent) 30%, var(--as-border-card));
+}
+:root[data-theme="dark"] .workbench-app-card[data-status="stopped"].ant-card {
+  background: transparent;
+}
+:root[data-theme="dark"] .workbench-app-card[data-status="stopped"] .ant-card-body {
+  opacity: 0.6;
+}
+
+/* ===== Usage section: grouped background + 2×2 summary grid with dividers ===== */
+.usage-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--as-bg-section);
+}
+
+.usage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--as-border-divider);
+  border: 1px solid var(--as-border-divider);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.usage-summary-cell {
+  background: var(--ant-color-bg-container, #fff);
+  padding: 16px 20px;
+  min-width: 0;
+}
+
+.usage-cell-label {
+  font-size: 14px;
+  color: var(--ant-color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.usage-hero-value {
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--as-cost);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-major-value {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ant-color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-minor-value {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ant-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-cell-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--as-text-tertiary);
+}
+
+@media (max-width: 768px) {
+  .usage-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Hourly bar chart (24h / today usage trend) ===== */
+.hourly-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  height: 128px;
+  /* Reserve headroom so the peak label never overlaps the tallest bar. */
+  padding-top: 14px;
+}
+
+.hourly-bars-col {
+  flex: 1 1 0;
+  min-width: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.hourly-bars-bar {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  background: var(--as-chart-empty);
+  transition: height 0.3s ease-out;
+}
+.hourly-bars-bar[data-level="1"] { background: var(--as-chart-low); }
+.hourly-bars-bar[data-level="2"] { background: var(--as-chart-mid); }
+.hourly-bars-bar[data-level="3"] { background: var(--as-chart-high); }
+.hourly-bars-bar[data-level="4"] { background: var(--as-chart-peak); }
+
+.hourly-bars-peak-label {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--as-status-running);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.hourly-bars-axis {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.hourly-bars-axis-label {
+  flex: 1 1 0;
+  min-width: 8px;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--as-text-tertiary);
 }

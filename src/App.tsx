@@ -32,6 +32,7 @@ import {
   preloadPage,
   type PageKey,
 } from "@/lib/pageRegistry";
+import { NavigationContext } from "@/lib/navigation";
 import type { ImportPreview } from "@/types/backend";
 import { message as staticMessage } from "antd";
 
@@ -41,7 +42,7 @@ export default function App() {
   const language = useAppStore((s) => s.language);
 
   // Default to Overview as the workspace home.
-  const [activeKey, setActiveKey] = useState<PageKey>("overview");
+  const [activeKey, setActiveKey] = useState<PageKey>("workbench");
   const [startupReady, setStartupReady] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [rememberCloseChoice, setRememberCloseChoice] = useState(false);
@@ -95,7 +96,7 @@ export default function App() {
 
   useEffect(() => {
     if (language !== "zh-CN" && activeKey === "localization") {
-      setActiveKey("providers");
+      setActiveKey("workbench");
     }
   }, [activeKey, language]);
 
@@ -182,43 +183,46 @@ export default function App() {
       cssVar: { key: "ai-switcher" },
       zeroRuntime: false,
       token: resolved === "dark" ? {
+        // UI Optimization Guide v1.0 dark palette: neutral near-black, visible
+        // borders, high-contrast text (no blue tint, no glow).
         colorPrimary: "#58a6ff",
-        colorBgBase: "#0c0e14",
-        colorBgLayout: "#12141c",
-        colorBgContainer: "#181b24",
-        colorBgElevated: "#1c2030",
-        colorFillSecondary: "#252a38",
-        colorFillTertiary: "#1f2430",
-        colorBorder: "#2e3444",
-        colorBorderSecondary: "#232836",
-        colorText: "#e8ecf4",
-        colorTextSecondary: "#9aa3b5",
+        colorBgBase: "#0f0f0f",
+        colorBgLayout: "#0f0f0f",
+        colorBgContainer: "#1a1a1a",
+        colorBgElevated: "#242424",
+        colorFillSecondary: "#262626",
+        colorFillTertiary: "#1f1f1f",
+        colorBorder: "#3d3d3d",
+        colorBorderSecondary: "#2a2a2a",
+        colorText: "#e8e8e8",
+        colorTextSecondary: "#a0a0a0",
+        colorTextTertiary: "#6b6b6b",
         borderRadius: 10,
         borderRadiusLG: 12,
       } : {
         colorPrimary: "#3b82f6",
-        colorBgLayout: "#f4f4f5",
-        colorFillTertiary: "#ececef",
-        colorBorderSecondary: "#e4e4e7",
+        colorBgLayout: "#f5f6f8",
+        colorFillTertiary: "#f0f1f3",
+        colorBorderSecondary: "#e4e5e7",
         borderRadius: 10,
         borderRadiusLG: 12,
       },
       components: resolved === "dark" ? {
         Layout: {
-          bodyBg: "#12141c",
+          bodyBg: "#0f0f0f",
           headerBg: "transparent",
-          headerColor: "#e8ecf4",
-          siderBg: "#10131a",
+          headerColor: "#e8e8e8",
+          siderBg: "#141414",
         },
         Menu: {
-          darkItemBg: "#10131a",
-          darkSubMenuItemBg: "#10131a",
-          darkItemColor: "#9aa3b5",
-          darkItemHoverColor: "#e8ecf4",
-          darkItemHoverBg: "#1f2430",
-          darkItemSelectedColor: "#e8ecf4",
+          darkItemBg: "#141414",
+          darkSubMenuItemBg: "#141414",
+          darkItemColor: "#a0a0a0",
+          darkItemHoverColor: "#e8e8e8",
+          darkItemHoverBg: "#1f1f1f",
+          darkItemSelectedColor: "#e8e8e8",
           darkItemSelectedBg: "#2563eb",
-          darkGroupTitleColor: "#9aa3b5",
+          darkGroupTitleColor: "#a0a0a0",
           itemBorderRadius: 8,
           itemMarginInline: 8,
         },
@@ -324,17 +328,19 @@ export default function App() {
         {!startupReady ? (
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
-          <AppLayout
-            activeKey={activeKey}
-            onNavigate={handleNavigate}
-            updateVersion={availableUpdate?.version}
-            onOpenUpdate={() => {
-              setUpdateError(null);
-              setUpdatePromptOpen(true);
-            }}
-          >
-            <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
-          </AppLayout>
+          <NavigationContext.Provider value={handleNavigate}>
+            <AppLayout
+              activeKey={activeKey}
+              onNavigate={handleNavigate}
+              updateVersion={availableUpdate?.version}
+              onOpenUpdate={() => {
+                setUpdateError(null);
+                setUpdatePromptOpen(true);
+              }}
+            >
+              <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
+            </AppLayout>
+          </NavigationContext.Provider>
         )}
         <Modal
           open={closeDialogOpen}

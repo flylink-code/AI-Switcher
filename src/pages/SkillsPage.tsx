@@ -2,18 +2,14 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
-  ConfigProvider,
   Input,
   Modal,
-  Segmented,
   Space,
   Switch,
   Tag,
   Table,
-  Tooltip,
   Typography,
   message,
-  theme,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import DownloadOutlined from "@ant-design/icons/es/icons/DownloadOutlined";
@@ -23,7 +19,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import type { RepositorySkill, Skill, SkillTarget, SkillUpdateStatus, UnmanagedSkill } from "@/types/backend";
 import {
   deleteSkill,
@@ -47,7 +43,6 @@ const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const { token } = theme.useToken();
   const [target, setTarget] = useState<SkillTarget>("claude_code");
   const skillsQuery = useQuery(skillsOptions(target));
   const repositoryQuery = useQuery(skillRepositoryOptions);
@@ -57,6 +52,7 @@ export default function SkillsPage() {
   const [checkingSkill, setCheckingSkill] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [zipOpen, setZipOpen] = useState(false);
+  const [repositoryOpen, setRepositoryOpen] = useState(false);
   const [zipPath, setZipPath] = useState("");
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [repositorySkills, setRepositorySkills] = useState<RepositorySkill[]>([]);
@@ -269,50 +265,12 @@ export default function SkillsPage() {
 
   return <Space direction="vertical" size="middle" style={{ width: "100%" }}>
     <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
-    <ConfigProvider
-      theme={{
-        components: {
-          Segmented: {
-            trackBg: token.colorBgContainer,
-            itemSelectedBg: token.colorFillSecondary,
-            itemHoverBg: token.colorFillTertiary,
-            trackPadding: 2,
-          },
-        },
-      }}
-    >
-      <Segmented<SkillTarget>
-        className="heatmap-source-filter"
-        size="middle"
-        value={target}
-        aria-label={t("workspace.target")}
-        onChange={setTarget}
-        style={{
-          border: `1px solid ${token.colorBorder}`,
-          borderRadius: token.borderRadiusLG ?? token.borderRadius,
-          height: token.controlHeight,
-          boxSizing: "border-box",
-        }}
-        options={[
-          {
-            value: "claude_code",
-            label: (
-              <Tooltip title={t("workspace.claude_code")}>
-                {usageSourceSegmentLabel("claude_code", t("workspace.claude_code"))}
-              </Tooltip>
-            ),
-          },
-          {
-            value: "codex",
-            label: (
-              <Tooltip title={t("workspace.codex")}>
-                {usageSourceSegmentLabel("codex", t("workspace.codex"))}
-              </Tooltip>
-            ),
-          },
-        ]}
-      />
-    </ConfigProvider>
+    <WorkspaceTargetSegmented<SkillTarget>
+      value={target}
+      onChange={setTarget}
+      t={t}
+      targets={["claude_code", "codex"]}
+    />
     <Card
       size="small"
       title={t("skills.discoveryTitle")}
@@ -373,51 +331,9 @@ export default function SkillsPage() {
     </Card>
     <Card
       size="small"
-      title={t("skills.repositoryTitle")}
-      extra={<Space>
-        <Button disabled={scanning || busy} onClick={() => void restoreDefaultRepository()}>{t("skills.restoreDefaultRepository")}</Button>
-        <Button icon={<ReloadOutlined />} loading={scanning} disabled={!repositoryUrl.trim() || busy} onClick={() => void scanRepository()}>
-          {t("skills.scanRepository")}
-        </Button>
-        <Button type="primary" icon={<DownloadOutlined />} loading={busy} disabled={!selectedPaths.length || scanning} onClick={() => void installSelected()}>
-          {t("skills.installSelected", { count: selectedPaths.length })}
-        </Button>
-      </Space>}
-    >
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Input
-          prefix={<GithubOutlined />}
-          placeholder="https://github.com/anthropics/skills"
-          value={repositoryUrl}
-          onChange={(e) => setRepositoryUrl(e.target.value)}
-          onPressEnter={() => void scanRepository()}
-        />
-        <Text type="secondary">{t("skills.repositoryHelp")}</Text>
-        <Text type="secondary">{t("skills.savedRepository", { repository: repositoryQuery.data?.repositoryUrl ?? DEFAULT_SKILL_REPOSITORY })}</Text>
-        {repositoryQuery.data?.fetchedAt && <Text type="secondary">{t("skills.repositoryLastUpdated", { time: new Date(repositoryQuery.data.fetchedAt).toLocaleString() })}</Text>}
-        <Table
-          size="small"
-          rowKey="path"
-          dataSource={repositorySkills}
-          loading={scanning}
-          pagination={{ pageSize: 10, hideOnSinglePage: true }}
-          rowSelection={{
-            selectedRowKeys: selectedPaths,
-            onChange: (keys) => setSelectedPaths(keys.map(String)),
-          }}
-          locale={{ emptyText: t("skills.repositoryEmpty") }}
-          columns={[
-            { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
-            { title: t("skills.path"), dataIndex: "path", render: (path: string) => path || <Text type="secondary">/</Text> },
-            { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
-          ]}
-        />
-      </Space>
-    </Card>
-    <Card
-      size="small"
       title={t("skills.installedTitle")}
       extra={<Space>
+        <Button icon={<GithubOutlined />} disabled={busy || scanning} onClick={() => setRepositoryOpen(true)}>{t("skills.repositoryTitle")}</Button>
         <Button loading={checkingUpdates} disabled={busy || scanning} onClick={() => void checkAllUpdates()}>{t("skills.checkAllUpdates")}</Button>
         <Button type="primary" disabled={!updateAvailableNames.length || busy || scanning} onClick={() => confirmUpdates(updateAvailableNames)}>{t("skills.updateSelected", { count: updateAvailableNames.length })}</Button>
         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void refreshSkills()}>{t("common.refresh")}</Button>
@@ -441,6 +357,52 @@ export default function SkillsPage() {
         ]}
       />
     </Card>
+    <Modal
+      title={t("skills.repositoryTitle")}
+      open={repositoryOpen}
+      width={840}
+      footer={null}
+      onCancel={() => setRepositoryOpen(false)}
+    >
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Input
+          prefix={<GithubOutlined />}
+          placeholder="https://github.com/anthropics/skills"
+          value={repositoryUrl}
+          onChange={(e) => setRepositoryUrl(e.target.value)}
+          onPressEnter={() => void scanRepository()}
+        />
+        <Text type="secondary">{t("skills.repositoryHelp")}</Text>
+        <Text type="secondary">{t("skills.savedRepository", { repository: repositoryQuery.data?.repositoryUrl ?? DEFAULT_SKILL_REPOSITORY })}</Text>
+        {repositoryQuery.data?.fetchedAt && <Text type="secondary">{t("skills.repositoryLastUpdated", { time: new Date(repositoryQuery.data.fetchedAt).toLocaleString() })}</Text>}
+        <Space wrap>
+          <Button disabled={scanning || busy} onClick={() => void restoreDefaultRepository()}>{t("skills.restoreDefaultRepository")}</Button>
+          <Button icon={<ReloadOutlined />} loading={scanning} disabled={!repositoryUrl.trim() || busy} onClick={() => void scanRepository()}>
+            {t("skills.scanRepository")}
+          </Button>
+          <Button type="primary" icon={<DownloadOutlined />} loading={busy} disabled={!selectedPaths.length || scanning} onClick={() => void installSelected()}>
+            {t("skills.installSelected", { count: selectedPaths.length })}
+          </Button>
+        </Space>
+        <Table
+          size="small"
+          rowKey="path"
+          dataSource={repositorySkills}
+          loading={scanning}
+          pagination={{ pageSize: 10, hideOnSinglePage: true }}
+          rowSelection={{
+            selectedRowKeys: selectedPaths,
+            onChange: (keys) => setSelectedPaths(keys.map(String)),
+          }}
+          locale={{ emptyText: t("skills.repositoryEmpty") }}
+          columns={[
+            { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
+            { title: t("skills.path"), dataIndex: "path", render: (path: string) => path || <Text type="secondary">/</Text> },
+            { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
+          ]}
+        />
+      </Space>
+    </Modal>
     <Modal title={t("skills.installZip")} open={zipOpen} confirmLoading={busy} onOk={() => void installZip()} onCancel={() => setZipOpen(false)}>
       <Space direction="vertical" style={{ width: "100%" }}>
         <Text type="secondary">{t("skills.zipHelp")}</Text>

@@ -131,12 +131,22 @@ fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
 /// `extra_models` (discovery cache / failover extras) are merged into
 /// `ai-switcher-model-catalog.json` so Codex can switch models beyond the
 /// single default slug.
+/// Outcome of a Codex provider apply, used to surface desktop-app hints.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CodexApplyInfo {
+    /// True when auth.json carried official ChatGPT login material: the vendor
+    /// credential went into a provider-scoped `experimental_bearer_token` in
+    /// config.toml and auth.json was left untouched, so the Codex desktop app
+    /// keeps seeing the official login that gates custom-model visibility.
+    pub preserved_official_login: bool,
+}
+
 pub fn apply_provider(
     provider: &Provider,
     api_key: &str,
     proxy_port: Option<u16>,
     extra_models: &[String],
-) -> AppResult<()> {
+) -> AppResult<CodexApplyInfo> {
     // `MoveFileExW` removes the delete-then-rename race, but Windows can still
     // return ERROR_ALREADY_EXISTS while NSIS, Defender, or a just-relaunched
     // Codex process settles directory state. Retry the complete multi-file
@@ -144,7 +154,7 @@ pub fn apply_provider(
     const MAX_ATTEMPTS: u32 = 6;
     for attempt in 1..=MAX_ATTEMPTS {
         match apply_provider_once(provider, api_key, proxy_port, extra_models) {
-            Ok(()) => return Ok(()),
+            Ok(info) => return Ok(info),
             Err(error) if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS => {
                 let delay_ms = 500u64.saturating_mul(u64::from(attempt)).min(2_500);
                 log::warn!(
@@ -167,23 +177,61 @@ fn apply_provider_once(
     api_key: &str,
     proxy_port: Option<u16>,
     extra_models: &[String],
-) -> AppResult<()> {
+) -> AppResult<CodexApplyInfo> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
     let auth_path = get_codex_auth_path();
     backup_once(&config_path, CONFIG_BACKUP)?;
     backup_once(&auth_path, AUTH_BACKUP)?;
 
+    // When auth.json holds an official ChatGPT login, never overwrite it: the
+    // Codex desktop app gates custom-model visibility on that login state.
+    let existing_auth = read_auth_json(&auth_path)?;
+
     let mut doc = load_document(&config_path)?;
     write_managed_provider(&mut doc, provider, proxy_port, extra_models)?;
+    let preserved_official_login =
+        apply_auth_strategy(&mut doc, existing_auth.as_ref(), proxy_port, api_key);
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
-    let auth_key = if proxy_port.is_some() {
-        PROXY_MANAGED_API_KEY
-    } else {
-        api_key
-    };
-    write_auth_api_key(&auth_path, auth_key)
+    if !preserved_official_login {
+        let auth_key = if proxy_port.is_some() {
+            PROXY_MANAGED_API_KEY
+        } else {
+            api_key
+        };
+        write_auth_api_key(&auth_path, auth_key)?;
+    }
+    Ok(CodexApplyInfo { preserved_official_login })
+}
+
+/// Decide where the vendor credential goes and update the managed provider
+/// entry accordingly. Returns true when official login is preserved.
+///
+/// Preserve mode (auth.json carries ChatGPT OAuth material): authenticate the
+/// managed provider with a provider-scoped `experimental_bearer_token` — Codex
+/// uses it for requests to this provider regardless of the OAuth tokens kept
+/// in auth.json — and leave auth.json untouched. Normal mode: strip any stale
+/// injected token so auth falls back to the auth.json key written afterwards.
+fn apply_auth_strategy(
+    doc: &mut DocumentMut,
+    existing_auth: Option<&Value>,
+    proxy_port: Option<u16>,
+    api_key: &str,
+) -> bool {
+    let preserved = existing_auth.is_some_and(auth_has_credential_login_material);
+    let entry = &mut ensure_table(doc, "model_providers")[MANAGED_PROVIDER_ID];
+    if preserved {
+        let auth_key = if proxy_port.is_some() {
+            PROXY_MANAGED_API_KEY
+        } else {
+            api_key
+        };
+        entry["experimental_bearer_token"] = value(auth_key);
+    } else if let Some(table) = entry.as_table_mut() {
+        table.remove("experimental_bearer_token");
+    }
+    preserved
 }
 
 fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
@@ -209,13 +257,17 @@ fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
     }
 }
 
+fn read_auth_json(path: &Path) -> AppResult<Option<Value>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let value = serde_json::from_slice::<Value>(&fs::read(path)?)
+        .map_err(|error| AppError::Config(format!("Codex auth.json 格式无效：{error}")))?;
+    Ok(Some(value))
+}
+
 fn write_auth_api_key(path: &Path, api_key: &str) -> AppResult<()> {
-    let mut auth = if path.exists() {
-        serde_json::from_slice::<Value>(&fs::read(path)?)
-            .map_err(|error| AppError::Config(format!("Codex auth.json 格式无效：{error}")))?
-    } else {
-        Value::Object(Map::new())
-    };
+    let mut auth = read_auth_json(path)?.unwrap_or_else(|| Value::Object(Map::new()));
     let object = auth
         .as_object_mut()
         .ok_or_else(|| AppError::Config("Codex auth.json 必须是 JSON 对象".to_string()))?;
@@ -370,8 +422,8 @@ fn should_inject_openai_model_suggestions(model: &str) -> bool {
 /// Human-readable catalog label for known third-party / first-party slugs.
 fn codex_model_display_name(slug: &str) -> String {
     match slug.trim().to_ascii_lowercase().as_str() {
-        "deepseek-v4-flash" => "DeepSeek-V4-Flash".into(),
-        "deepseek-v4-pro" => "DeepSeek-V4-Pro".into(),
+        "deepseek-v4-flash" => "DeepSeek V4 Flash".into(),
+        "deepseek-v4-pro" => "DeepSeek V4 Pro".into(),
         "kimi-k3" | "k3" => "Kimi K3".into(),
         "k3-256k" => "Kimi K3 256K".into(),
         "kimi-k2.6" | "k2.6" => "Kimi K2.6".into(),
@@ -839,10 +891,10 @@ mod tests {
         let models = catalog["models"].as_array().unwrap();
         assert_eq!(models.len(), 2);
         assert_eq!(models[0]["slug"], "deepseek-v4-flash");
-        assert_eq!(models[0]["display_name"], "DeepSeek-V4-Flash");
+        assert_eq!(models[0]["display_name"], "DeepSeek V4 Flash");
         assert_eq!(models[0]["priority"], 1);
         assert_eq!(models[1]["slug"], "deepseek-v4-pro");
-        assert_eq!(models[1]["display_name"], "DeepSeek-V4-Pro");
+        assert_eq!(models[1]["display_name"], "DeepSeek V4 Pro");
         assert_eq!(models[1]["priority"], 2);
         assert!(!models.iter().any(|entry| {
             entry["slug"]
@@ -1069,5 +1121,76 @@ mod tests {
         let value: Value = serde_json::from_slice(&fs::read(&oauth).unwrap()).unwrap();
         assert_eq!(value["tokens"]["access_token"], "keep");
         assert_eq!(value["OPENAI_API_KEY"], "sk-vendor");
+    }
+
+    fn doc_with_managed_entry() -> (DocumentMut, tempfile::TempDir) {
+        let provider = sample_codex_provider();
+        let mut doc = DocumentMut::new();
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        std::env::remove_var("CODEX_HOME");
+        (doc, temp)
+    }
+
+    #[test]
+    fn preserve_mode_injects_bearer_token_into_managed_provider() {
+        let (mut doc, _temp) = doc_with_managed_entry();
+        let auth = serde_json::json!({
+            "tokens": { "access_token": "official" },
+            "auth_mode": "chatgpt"
+        });
+
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor");
+
+        assert!(preserved);
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        assert_eq!(
+            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            Some("sk-vendor")
+        );
+    }
+
+    #[test]
+    fn preserve_mode_with_proxy_injects_proxy_managed_token() {
+        let (mut doc, _temp) = doc_with_managed_entry();
+        let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
+
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor");
+
+        assert!(preserved);
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        assert_eq!(
+            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            Some(PROXY_MANAGED_API_KEY)
+        );
+    }
+
+    #[test]
+    fn normal_mode_strips_stale_bearer_token() {
+        let (mut doc, _temp) = doc_with_managed_entry();
+        doc["model_providers"][MANAGED_PROVIDER_ID]["experimental_bearer_token"] =
+            value("sk-stale");
+
+        // API-key-only auth (no official login) and missing auth both fall
+        // back to writing auth.json, so any injected token must go.
+        for existing_auth in [
+            Some(serde_json::json!({ "auth_mode": "apikey", "OPENAI_API_KEY": "sk-old" })),
+            None,
+        ] {
+            let preserved =
+                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor");
+            assert!(!preserved);
+            assert!(
+                doc["model_providers"][MANAGED_PROVIDER_ID]
+                    .as_table()
+                    .unwrap()
+                    .get("experimental_bearer_token")
+                    .is_none()
+            );
+            // Re-seed for the second iteration.
+            doc["model_providers"][MANAGED_PROVIDER_ID]["experimental_bearer_token"] =
+                value("sk-stale");
+        }
     }
 }

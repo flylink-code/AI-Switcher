@@ -12,7 +12,6 @@ import {
   Pagination,
   Popconfirm,
   Row,
-  Segmented,
   Select,
   Space,
   Spin,
@@ -48,6 +47,7 @@ import type {
   SessionProvider,
   SessionScanResult,
 } from "@/types/backend";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 type DirectoryFilter = "all" | "yes" | "no";
@@ -487,16 +487,15 @@ export default function SessionsPage() {
         />
       ) : null}
 
+      <WorkspaceTargetSegmented<SessionProvider>
+        value={provider}
+        onChange={setSessionsProvider}
+        t={t}
+        targets={["claude_code", "codex"]}
+      />
+
       <Card size="small">
         <Space wrap>
-          <Segmented<SessionProvider>
-            value={provider}
-            onChange={setSessionsProvider}
-            options={[
-              { value: "claude_code", label: "Claude Code" },
-              { value: "codex", label: "Codex" },
-            ]}
-          />
           <Input
             allowClear
             value={query}

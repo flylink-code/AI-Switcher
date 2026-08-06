@@ -99,9 +99,14 @@ export interface CodexProviderSyncResult {
   skippedLockedFiles: string[];
 }
 
+export type CodexSwitchNotice =
+  | "preserved_official_login"
+  | "official_login_required";
+
 export interface SwitchProviderResult {
   provider: Provider;
   sessionSync?: CodexProviderSyncResult | null;
+  codexNotice?: CodexSwitchNotice | null;
 }
 
 export interface ModelDiscoveryResult {

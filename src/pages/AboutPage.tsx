@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Collapse,
   Descriptions,
   Space,
   Tag,
@@ -385,53 +386,62 @@ export default function AboutPage() {
           }
         >
           <Space direction="vertical" style={{ width: "100%" }}>
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("about.nodeRuntimeVersion")}>
-                {nodeRuntime?.version ? (
-                  <Text code>{nodeRuntime.version}</Text>
-                ) : (
-                  <Tag>{t("about.notInstalled")}</Tag>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.claudeStatus")}>
-                <Tag color={nodeRuntime?.meetsMinimum ? "green" : "orange"}>
-                  {nodeStatusLabel()}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.nodeRuntimeSource")}>
-                <Text>{nodeRuntime?.source ?? "—"}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("about.nodeRuntimeNpm")}>
-                <Text code copyable={Boolean(nodeRuntime?.npmPath)}>
-                  {nodeRuntime?.npmPath ?? "—"}
-                </Text>
-              </Descriptions.Item>
-            </Descriptions>
-            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              {t("about.nodeRuntimeHint")}
-            </Paragraph>
-            {nodeRuntime?.meetsMinimum && nodeRuntime.npmPath && (
-              <Alert
-                type="success"
-                showIcon
-                message={t("about.nodeRuntimeReady")}
-                description={
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    npm: <Text code>{nodeRuntime.npmPath}</Text>
-                  </Text>
-                }
-              />
-            )}
+            <Space wrap size="middle" align="center">
+              <Tag color={nodeRuntime?.meetsMinimum ? "green" : "orange"}>
+                {nodeStatusLabel()}
+              </Tag>
+              {nodeRuntime?.version ? (
+                <Text code>{nodeRuntime.version}</Text>
+              ) : (
+                <Text type="secondary">{t("about.notInstalled")}</Text>
+              )}
+              <Button
+                size="small"
+                type={nodeRuntime?.meetsMinimum ? "default" : "primary"}
+                loading={installingNode}
+                onClick={() => void installNodeViaFnm()}
+              >
+                {installingNode ? t("about.installingNodeViaFnm") : t("about.installNodeViaFnm")}
+              </Button>
+            </Space>
+
             {!nodeRuntime?.meetsMinimum && (
               <Alert type="warning" showIcon message={nodeRuntime?.installHint ?? t("about.nodeRuntimeMissing")} />
             )}
-            <Button
-              type={nodeRuntime?.meetsMinimum ? "default" : "primary"}
-              loading={installingNode}
-              onClick={() => void installNodeViaFnm()}
-            >
-              {installingNode ? t("about.installingNodeViaFnm") : t("about.installNodeViaFnm")}
-            </Button>
+
+            <Collapse
+              ghost
+              items={[
+                {
+                  key: "details",
+                  label: t("about.details"),
+                  children: (
+                    <Space direction="vertical" style={{ width: "100%" }}>
+                      <Descriptions column={1} size="small" bordered>
+                        <Descriptions.Item label={t("about.nodeRuntimeVersion")}>
+                          {nodeRuntime?.version ? (
+                            <Text code>{nodeRuntime.version}</Text>
+                          ) : (
+                            <Tag>{t("about.notInstalled")}</Tag>
+                          )}
+                        </Descriptions.Item>
+                        <Descriptions.Item label={t("about.nodeRuntimeSource")}>
+                          <Text>{nodeRuntime?.source ?? "—"}</Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label={t("about.nodeRuntimeNpm")}>
+                          <Text code copyable={Boolean(nodeRuntime?.npmPath)}>
+                            {nodeRuntime?.npmPath ?? "—"}
+                          </Text>
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                        {t("about.nodeRuntimeHint")}
+                      </Paragraph>
+                    </Space>
+                  ),
+                },
+              ]}
+            />
           </Space>
         </Card>
 
@@ -460,6 +470,7 @@ export default function AboutPage() {
             updateAvailable: t("about.updateAvailable"),
             upToDate: t("about.upToDate"),
             refresh: t("common.refresh"),
+            details: t("about.details"),
           }}
         />
 
@@ -493,6 +504,7 @@ export default function AboutPage() {
             updateAvailable: t("about.updateAvailable"),
             upToDate: t("about.upToDate"),
             refresh: t("common.refresh"),
+            details: t("about.details"),
           }}
         />
       </Space>
@@ -538,9 +550,35 @@ function CliToolCard({
     updateAvailable: string;
     upToDate: string;
     refresh: string;
+    details: string;
   };
 }) {
   const command = info?.installed ? info.updateCommand : info?.installCommand ?? "";
+  const statusTag = info?.updateAvailable ? (
+    <Tag color="orange">{labels.updateAvailable}</Tag>
+  ) : info?.installedButBroken ? (
+    <Tag color="red">{labels.broken}</Tag>
+  ) : info?.installed ? (
+    <Tag color="green">{labels.upToDate}</Tag>
+  ) : (
+    <Tag>{labels.notInstalled}</Tag>
+  );
+  const versionSummary = info?.installedButBroken ? (
+    <Text type="secondary">{labels.unknown}</Text>
+  ) : info?.installed ? (
+    <Text>
+      <Text code>{info.currentVersion ?? labels.unknown}</Text>
+      {info.latestVersion && info.latestVersion !== info.currentVersion ? (
+        <>
+          {" → "}
+          <Text code>{info.latestVersion}</Text>
+        </>
+      ) : null}
+    </Text>
+  ) : (
+    <Text type="secondary">{labels.notInstalled}</Text>
+  );
+
   return (
     <Card
       size="small"
@@ -557,64 +595,71 @@ function CliToolCard({
       }
     >
       <Space direction="vertical" style={{ width: "100%" }}>
-        <Descriptions column={1} size="small" bordered>
-          <Descriptions.Item label={labels.current}>
-            {info?.installedButBroken ? (
-              <Tag color="red">{labels.broken}</Tag>
-            ) : info?.installed ? (
-              <Text code>{info.currentVersion ?? labels.unknown}</Text>
-            ) : (
-              <Tag>{labels.notInstalled}</Tag>
-            )}
-          </Descriptions.Item>
-          <Descriptions.Item label={labels.latest}>
-            <Text code>{info?.latestVersion ?? labels.unknown}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label={labels.status}>
-            {info?.updateAvailable ? (
-              <Tag color="orange">{labels.updateAvailable}</Tag>
-            ) : info?.installedButBroken ? (
-              <Tag color="red">{labels.broken}</Tag>
-            ) : info?.installed ? (
-              <Tag color="green">{labels.upToDate}</Tag>
-            ) : (
-              <Tag>{labels.notInstalled}</Tag>
-            )}
-          </Descriptions.Item>
-          <Descriptions.Item label={labels.environment}>
-            <Space size="small">
-              <Tag>{info?.environment ?? "—"}</Tag>
-              {"wslDistro" in (info ?? {}) && (info as ClaudeCodeVersionInfo).wslDistro && (
-                <Text code>{(info as ClaudeCodeVersionInfo).wslDistro}</Text>
-              )}
-            </Space>
-          </Descriptions.Item>
-          <Descriptions.Item label={labels.source}>
-            <Text>{info?.source ?? "—"}</Text>
-          </Descriptions.Item>
-          <Descriptions.Item label={labels.executable}>
-            <Text code copyable={Boolean(info?.executablePath)}>
-              {info?.executablePath ?? "—"}
-            </Text>
-          </Descriptions.Item>
-        </Descriptions>
-
-        {info?.error && <Alert type="warning" showIcon message={info.error} />}
-
-        <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          {labels.hint}
-        </Paragraph>
-        <Space wrap>
-          <Text code copyable>
-            {command}
-          </Text>
-          <Button size="small" icon={<CopyOutlined />} onClick={() => onCopy(command)}>
-            {labels.copy}
-          </Button>
+        <Space wrap size="middle" align="center">
+          {statusTag}
+          {versionSummary}
           <Button size="small" type="primary" loading={updating} onClick={onInstallOrUpdate}>
             {primaryLabel ?? (info?.installed ? labels.update : labels.install)}
           </Button>
         </Space>
+
+        {info?.error && <Alert type="warning" showIcon message={info.error} />}
+
+        <Collapse
+          ghost
+          items={[
+            {
+              key: "details",
+              label: labels.details,
+              children: (
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Descriptions column={1} size="small" bordered>
+                    <Descriptions.Item label={labels.current}>
+                      {info?.installedButBroken ? (
+                        <Tag color="red">{labels.broken}</Tag>
+                      ) : info?.installed ? (
+                        <Text code>{info.currentVersion ?? labels.unknown}</Text>
+                      ) : (
+                        <Tag>{labels.notInstalled}</Tag>
+                      )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={labels.latest}>
+                      <Text code>{info?.latestVersion ?? labels.unknown}</Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={labels.environment}>
+                      <Space size="small">
+                        <Tag>{info?.environment ?? "—"}</Tag>
+                        {"wslDistro" in (info ?? {}) && (info as ClaudeCodeVersionInfo).wslDistro && (
+                          <Text code>{(info as ClaudeCodeVersionInfo).wslDistro}</Text>
+                        )}
+                      </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={labels.source}>
+                      <Text>{info?.source ?? "—"}</Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={labels.executable}>
+                      <Text code copyable={Boolean(info?.executablePath)}>
+                        {info?.executablePath ?? "—"}
+                      </Text>
+                    </Descriptions.Item>
+                  </Descriptions>
+
+                  <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                    {labels.hint}
+                  </Paragraph>
+                  <Space wrap>
+                    <Text code copyable>
+                      {command}
+                    </Text>
+                    <Button size="small" icon={<CopyOutlined />} onClick={() => onCopy(command)}>
+                      {labels.copy}
+                    </Button>
+                  </Space>
+                </Space>
+              ),
+            },
+          ]}
+        />
       </Space>
     </Card>
   );

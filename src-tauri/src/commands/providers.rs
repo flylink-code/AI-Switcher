@@ -73,6 +73,11 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
 pub struct SwitchProviderResult {
     pub provider: Provider,
     pub session_sync: Option<CodexProviderSyncResult>,
+    /// Codex-only hint for the frontend: `preserved_official_login` when the
+    /// vendor key went into config.toml and auth.json kept its ChatGPT login,
+    /// `official_login_required` when no official login exists and the Codex
+    /// desktop app will hide custom models until the user logs in once.
+    pub codex_notice: Option<&'static str>,
 }
 
 /// Activate a provider only for the application that owns it.
@@ -114,10 +119,11 @@ pub async fn switch_provider_for_target(
         return Ok(SwitchProviderResult {
             provider,
             session_sync: None,
+            codex_notice: None,
         });
     }
     let started = Instant::now();
-    let (snapshot, session_sync) = apply_target_provider(&provider, state).await?;
+    let (snapshot, session_sync, codex_notice) = apply_target_provider(&provider, state).await?;
     let applied_ms = started.elapsed().as_millis();
     if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, id)) {
         return rollback_switch(snapshot, state, error).await;
@@ -132,6 +138,7 @@ pub async fn switch_provider_for_target(
     Ok(SwitchProviderResult {
         provider,
         session_sync,
+        codex_notice,
     })
 }
 
@@ -609,7 +616,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
 async fn apply_target_provider(
     provider: &Provider,
     state: &AppState,
-) -> AppResult<(SwitchSnapshot, Option<CodexProviderSyncResult>)> {
+) -> AppResult<(SwitchSnapshot, Option<CodexProviderSyncResult>, Option<&'static str>)> {
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
     // for config writing; it is never serialized or persisted.
     let mut runtime_provider = provider.clone();
@@ -633,7 +640,7 @@ async fn apply_target_provider(
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
     let uses_proxy = runtime_provider.is_codex_oauth() || runtime_provider.requires_local_proxy();
-    let result: AppResult<Option<CodexProviderSyncResult>> = async {
+    let result: AppResult<(Option<CodexProviderSyncResult>, Option<&'static str>)> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
                 let mut ownership = prepare_code_ownership(
@@ -659,7 +666,7 @@ async fn apply_target_provider(
                 // match Claude Code / JSON normalization instead of our preview.
                 ownership.written = code_managed_fields()?;
                 commit_code_ownership(state, ownership)?;
-                Ok(None)
+                Ok((None, None))
             }
             ProviderTarget::ClaudeDesktop => {
                 let original_applied_id = prepare_desktop_ownership(state)?;
@@ -673,7 +680,7 @@ async fn apply_target_provider(
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;
                 commit_desktop_ownership(state, original_applied_id)?;
-                Ok(None)
+                Ok((None, None))
             }
             ProviderTarget::Codex => {
                 if uses_proxy {
@@ -689,7 +696,7 @@ async fn apply_target_provider(
                     .unwrap_or_default();
                 let provider = runtime_provider.clone();
                 let api_key = runtime_provider.api_key.clone();
-                tauri::async_runtime::spawn_blocking(move || {
+                let apply_info = tauri::async_runtime::spawn_blocking(move || {
                     codex::apply_provider(
                         &provider,
                         &api_key,
@@ -699,6 +706,11 @@ async fn apply_target_provider(
                 })
                 .await
                 .map_err(|error| AppError::Tauri(format!("Codex 配置写入任务失败: {error}")))??;
+                let codex_notice = if apply_info.preserved_official_login {
+                    Some("preserved_official_login")
+                } else {
+                    Some("official_login_required")
+                };
                 // Config write succeeded. Session rewrite failures must not roll
                 // back the provider switch; surface them as a warning instead.
                 let session_sync = match codex_provider_sync::sync_to_managed_provider() {
@@ -724,12 +736,12 @@ async fn apply_target_provider(
                         }
                     }
                 };
-                Ok(Some(session_sync))
+                Ok((Some(session_sync), codex_notice))
             }
         }
     }.await;
-    let session_sync = match result {
-        Ok(session_sync) => session_sync,
+    let (session_sync, codex_notice) = match result {
+        Ok(outcome) => outcome,
         Err(error) => {
             if let Err(mark_error) = snapshot.capture_last_written_files() {
                 return rollback_switch(snapshot, state, AppError::Config(format!("{error}；无法安全确认配置写入状态：{mark_error}"))).await;
@@ -743,7 +755,7 @@ async fn apply_target_provider(
     if !uses_proxy {
         state.proxy.lock().await.stop_target(runtime_provider.target_app);
     }
-    Ok((snapshot, session_sync))
+    Ok((snapshot, session_sync, codex_notice))
 }
 
 struct SwitchSnapshot {

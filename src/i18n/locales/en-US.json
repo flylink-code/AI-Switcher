@@ -44,6 +44,7 @@
     }
   },
   "nav": {
+    "workbench": "Workbench",
     "overview": "Overview",
     "providers": "Providers",
     "profiles": "Projects",
@@ -61,7 +62,8 @@
     "groupCore": "Core",
     "groupExtensions": "Extensions",
     "groupData": "Data",
-    "groupSystem": "System"
+    "groupSystem": "System",
+    "settings": "Settings"
   },
   "workspace": {
     "target": "Workspace",
@@ -96,7 +98,10 @@
     "save": "Save",
     "refresh": "Refresh",
     "enabled": "On",
-    "disabled": "Off"
+    "disabled": "Off",
+    "minimize": "Minimize",
+    "maximize": "Maximize / Restore",
+    "close": "Close"
   },
   "sessions": {
     "title": "Session Manager",
@@ -304,6 +309,8 @@
     "deleted": "Provider deleted",
     "switched": "Switched to {{name}}",
     "sessionSyncSummary": "Synced history sessions: {{files}} files, {{rows}} index rows",
+    "codexPreservedOfficialLogin": "Kept your Codex official login: the vendor key went into config.toml, so the desktop app can list custom models",
+    "codexOfficialLoginRequired": "No Codex official login detected: the desktop app may only show \"Custom\". Sign in to Codex once with an official account, then switch again (the CLI is unaffected)",
     "switchedOfficial": "Switched to official login",
     "imported": "Imported current config",
     "missingKey": "This provider has no API key yet — edit it to add one before switching",
@@ -367,7 +374,7 @@
   },
   "mcp": {
     "title": "MCP Servers",
-    "description": "Manage MCP servers for Claude Code and Claude Desktop in one place. Saving or toggling a server synchronizes its target configuration after a backup.",
+    "description": "Description",
     "registryBrowse": "Browse official Registry",
     "registryTitle": "Official MCP Registry",
     "registryNotice": "Only Registry entries that can be safely converted to Claude configuration are listed; entries requiring secrets, URL templates, or other package managers need manual setup.",
@@ -394,7 +401,6 @@
     "empty": "No MCP servers yet. Import existing configuration or add one manually.",
     "colName": "Name",
     "colConfig": "Connection config",
-    "description": "Description",
     "colActions": "Actions",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
@@ -506,6 +512,9 @@
     "today": "Today",
     "last24Hours": "Last 24 hours",
     "requests": "Requests",
+    "requestCountUnit": "{{count}} requests",
+    "avgTokensPerRequest": "avg {{value}}/req",
+    "failedCount": "{{count}} failed",
     "successRate": "Success rate",
     "totalTokens": "Total tokens",
     "inputTokens": "Input tokens",
@@ -528,6 +537,7 @@
     "activeHours": "Active hours",
     "dailyPeak": "Daily peak",
     "hourlyPeak": "Hourly peak",
+    "hourlyPeakShare": "{{pct}}% of peak",
     "calendarTotal": "Period total",
     "calendarLegend": "Daily tokens relative to the peak day",
     "calendarLevelNone": "No usage",
@@ -991,7 +1001,8 @@
     "cliInstallNeedNode": "Install Node.js ≥22 first (use the fnm button above)",
     "cliInstallNodeMissing": "npm was not found. Install Node.js ≥22 first.",
     "cliInstallNodeTooOld": "Node.js is too old. Upgrade to ≥22 and try again.",
-    "cliInstallNetworkOrRegistry": "npm/Node download failed (network or registry). Install already tried npmmirror — check your network and retry."
+    "cliInstallNetworkOrRegistry": "npm/Node download failed (network or registry). Install already tried npmmirror — check your network and retry.",
+    "details": "Details"
   },
   "deeplink": {
     "previewTitle": "Confirm import",
@@ -1004,5 +1015,21 @@
     "linkCopied": "Share link copied (no secrets)",
     "expectMcp": "Clipboard content is not MCP import data",
     "invalid": "Deep Link is invalid or could not be parsed"
+  },
+  "workbench": {
+    "title": "Workbench",
+    "currentProvider": "Current provider",
+    "switchSuccess": "Switched provider for {{name}}",
+    "running": "Running",
+    "stopped": "Stopped",
+    "proxyRunning": "Proxy :{{port}}",
+    "proxyStopped": "Proxy stopped",
+    "manage": "Manage",
+    "usageSection": "Usage",
+    "viewUsageDetail": "View details"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back"
   }
 }

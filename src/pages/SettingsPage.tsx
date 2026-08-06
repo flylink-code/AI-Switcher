@@ -1,0 +1,125 @@
+import { useEffect, useState, type ComponentType } from "react";
+import { Layout, Menu, Spin, Typography, theme } from "antd";
+import { useTranslation } from "react-i18next";
+import {
+  getLoadedPage,
+  preloadPage,
+  type PageKey,
+} from "@/lib/pageRegistry";
+import { useAppStore } from "@/stores/appStore";
+
+const { Sider, Content } = Layout;
+
+/**
+ * Low-frequency configuration pages embedded in the settings view.
+ * Order = display order in the left sub-navigation.
+ */
+const SETTINGS_PAGES: PageKey[] = [
+  "profiles",
+  "mcp",
+  "prompts",
+  "skills",
+  "agents",
+  "codexPlugins",
+  "sessions",
+  "localization",
+  "environment",
+  "about",
+];
+
+export default function SettingsPage() {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
+  const language = useAppStore((s) => s.language);
+
+  const visiblePages = SETTINGS_PAGES.filter(
+    (key) => key !== "localization" || language === "zh-CN",
+  );
+  const [activeKey, setActiveKey] = useState<PageKey>(visiblePages[0]);
+  const effectiveKey = visiblePages.includes(activeKey) ? activeKey : visiblePages[0];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+        height: "100%",
+        minHeight: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "0 0 auto" }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          {t("settings.title")}
+        </Typography.Title>
+      </div>
+      <Layout
+        style={{
+          flex: 1,
+          minHeight: 0,
+          background: "transparent",
+          overflow: "hidden",
+        }}
+      >
+        <Sider
+          width={200}
+          style={{
+            background: "transparent",
+            overflow: "auto",
+            minHeight: 0,
+          }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[effectiveKey]}
+            onClick={({ key }) => setActiveKey(key as PageKey)}
+            items={visiblePages.map((key) => ({ key, label: t(`nav.${key}`) }))}
+            style={{ borderInlineEnd: "none", background: "transparent" }}
+          />
+        </Sider>
+        <Content
+          style={{
+            minWidth: 0,
+            minHeight: 0,
+            overflow: "auto",
+            paddingLeft: 24,
+            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+          }}
+        >
+          <EmbeddedPage pageKey={effectiveKey} />
+        </Content>
+      </Layout>
+    </div>
+  );
+}
+
+/** Lazy-loads and renders a registered page inside the settings view. */
+function EmbeddedPage({ pageKey }: { pageKey: PageKey }) {
+  const [Page, setPage] = useState<ComponentType | undefined>(() =>
+    getLoadedPage(pageKey),
+  );
+
+  useEffect(() => {
+    const loaded = getLoadedPage(pageKey);
+    if (loaded) {
+      setPage(() => loaded);
+      return;
+    }
+    let cancelled = false;
+    void preloadPage(pageKey).then((P) => {
+      if (!cancelled) setPage(() => P);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageKey]);
+
+  if (!Page) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", paddingTop: 48 }}>
+        <Spin />
+      </div>
+    );
+  }
+  return <Page />;
+}

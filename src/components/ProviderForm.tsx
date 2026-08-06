@@ -135,6 +135,7 @@ export function ProviderForm({
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
+  const watchedFailoverModels = Form.useWatch("failoverModels", form) ?? [];
   const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
@@ -320,8 +321,15 @@ export function ProviderForm({
   const visibleRoleFields = roleFields.filter(
     (role) => !role.codeOnly || (editing?.targetApp ?? target) === "claude_code",
   );
-  const modelOptions = [...new Set(isCodex ? [...codexModelSuggestions, ...models] : models)]
-    .map((model) => ({ value: model }));
+  const modelOptions = [
+    ...new Set(
+      [
+        ...(isCodex ? codexModelSuggestions : []),
+        ...models,
+        ...(watchedFailoverModels ?? []),
+      ].filter((model) => model?.trim()),
+    ),
+  ].map((model) => ({ value: model }));
   const modelCacheText = modelResult
     ? modelResult.source === "cache"
       ? t(modelResult.stale ? "providers.modelCacheStale" : "providers.modelCacheFresh", {
@@ -388,7 +396,9 @@ export function ProviderForm({
         ? { ...EMPTY_MODEL_MAPPING }
         : mappingFromModel(preset.model, target),
     });
-    setModels([]);
+    // Seed the suggestion list with the preset's own models so the user can
+    // switch between e.g. deepseek-v4-flash / deepseek-v4-pro immediately.
+    setModels([...new Set([preset.model, ...(preset.failoverModels ?? [])])]);
     setModelResult(null);
   };
 

@@ -16,9 +16,7 @@ const { Text } = Typography;
 /** Industry-standard contribution-graph sizing (HeatmapKit / calendar-heatmap). */
 const CELL_GAP = 3;
 const WEEKDAY_GUTTER = 28;
-const HOUR_LABEL_GAP = 18;
 const DAY_CELL = { min: 10, max: 18 } as const;
-const HOUR_CELL = { min: 12, max: 28 } as const;
 
 type Level = { color: string; label: string };
 
@@ -57,8 +55,6 @@ export function UsageCalendar({
       <HourlyHeatmap
         period={period === "today" ? "today" : "24h"}
         byDate={byDate}
-        levels={levels}
-        border={token.colorBorderSecondary}
         t={t}
       />
     );
@@ -306,21 +302,19 @@ function ContributionHeatmap({
   );
 }
 
+/**
+ * Guide §3.3: hourly usage as a bar chart — one bar per hour, color banded by
+ * share of the period peak, peak value labeled, tooltip on hover.
+ */
 function HourlyHeatmap({
   period,
   byDate,
-  levels,
-  border,
   t,
 }: {
   period: "24h" | "today";
   byDate: Map<string, UsageDashboard["trend"][number]>;
-  levels: Level[];
-  border: string;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const [viewportWidth, setViewportWidth] = useState(0);
   const keys = usagePeriodHourKeys(period);
   const hourly = keys.map((key) => {
     const row = byDate.get(key);
@@ -332,29 +326,6 @@ function HourlyHeatmap({
   const max = Math.max(...hourly.map((item) => item.tokens), 0);
   const activeHours = hourly.filter((item) => item.tokens > 0).length;
   const total = hourly.reduce((sum, item) => sum + item.tokens, 0);
-
-  useEffect(() => {
-    const node = scrollerRef.current;
-    if (!node) return;
-    const update = () => setViewportWidth(node.clientWidth);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  const cellSize = useMemo(
-    () => fitCellSize(viewportWidth, keys.length, CELL_GAP, HOUR_CELL.min, HOUR_CELL.max),
-    [keys.length, viewportWidth],
-  );
-  const gridWidth = keys.length * cellSize + Math.max(keys.length - 1, 0) * CELL_GAP;
-  const needsScroll = viewportWidth > 0 && gridWidth > viewportWidth + 1;
-
-  useEffect(() => {
-    const node = scrollerRef.current;
-    if (!node || !needsScroll) return;
-    node.scrollLeft = node.scrollWidth;
-  }, [needsScroll, cellSize, keys.length]);
 
   return (
     <Space direction="vertical" size={14} style={{ width: "100%" }}>
@@ -375,78 +346,56 @@ function HourlyHeatmap({
           )}
         />
       </Space>
-      <div
-        ref={scrollerRef}
-        style={{
-          width: "100%",
-          overflowX: needsScroll ? "auto" : "hidden",
-          paddingBottom: needsScroll ? 4 : 0,
-        }}
-      >
+      <div>
         <div
-          role="grid"
+          role="img"
           aria-label={t("usage.hourlyStatistics")}
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${keys.length}, ${cellSize}px)`,
-            gap: CELL_GAP,
-            width: gridWidth,
-            marginInline: needsScroll ? 0 : "auto",
-          }}
+          className="hourly-bars"
         >
           {hourly.map((item) => {
             const level = intensityLevel(item.tokens, max);
-            const hourLabel = item.key.slice(11, 16);
+            const isPeak = max > 0 && item.tokens === max;
+            const heightPct = max > 0 ? (item.tokens / max) * 100 : 0;
+            const peakPct = max > 0 ? Math.round((item.tokens / max) * 100) : 0;
             const tooltip = item.row
-              ? `${item.key}: ${formatCompactNumber(item.tokens)} Token (${formatFullNumber(item.tokens)}) · ${item.row.requestCount} ${t("usage.requests")}`
+              ? `${item.key}: ${formatFullNumber(item.tokens)} Token · ${item.row.requestCount} ${t("usage.requests")} · ${t("usage.hourlyPeakShare", { pct: peakPct })}`
               : `${item.key}: 0 Token`;
             return (
               <Tooltip key={item.key} title={tooltip}>
                 <button
                   type="button"
-                  role="gridcell"
                   aria-label={tooltip}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 4,
-                    width: cellSize,
-                    padding: 0,
-                    border: "none",
-                    background: "transparent",
-                    cursor: "default",
-                  }}
+                  className="hourly-bars-col"
                 >
+                  {isPeak ? (
+                    <span className="hourly-bars-peak-label">
+                      {formatCompactNumber(item.tokens)}
+                    </span>
+                  ) : null}
                   <span
+                    className="hourly-bars-bar"
+                    data-level={level}
                     style={{
-                      display: "block",
-                      width: cellSize,
-                      height: cellSize,
-                      border: `1px solid ${border}`,
-                      borderRadius: 2,
-                      background: levels[level].color,
+                      height: `${heightPct}%`,
+                      minHeight: item.tokens > 0 ? 2 : 1,
                     }}
                   />
-                  <Text
-                    type="secondary"
-                    style={{
-                      fontSize: 10,
-                      lineHeight: 1,
-                      height: HOUR_LABEL_GAP,
-                      // Label every 3 hours to reduce clutter on dense rows.
-                      visibility: Number(hourLabel.slice(0, 2)) % 3 === 0 ? "visible" : "hidden",
-                    }}
-                  >
-                    {hourLabel.slice(0, 2)}
-                  </Text>
                 </button>
               </Tooltip>
             );
           })}
         </div>
+        <div className="hourly-bars-axis" aria-hidden>
+          {hourly.map((item) => {
+            const hour = item.key.slice(11, 13);
+            return (
+              <span key={item.key} className="hourly-bars-axis-label">
+                {Number(hour) % 3 === 0 ? hour : ""}
+              </span>
+            );
+          })}
+        </div>
       </div>
-      <CalendarLegend levels={levels} legend={t("usage.calendarLegend")} border={border} />
     </Space>
   );
 }

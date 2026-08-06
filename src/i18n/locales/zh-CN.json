@@ -44,6 +44,7 @@
     }
   },
   "nav": {
+    "workbench": "工作台",
     "overview": "总览",
     "providers": "供应商",
     "profiles": "项目",
@@ -61,7 +62,8 @@
     "groupCore": "核心",
     "groupExtensions": "扩展",
     "groupData": "数据",
-    "groupSystem": "系统"
+    "groupSystem": "系统",
+    "settings": "设置"
   },
   "workspace": {
     "target": "当前工具",
@@ -96,7 +98,10 @@
     "save": "保存",
     "refresh": "刷新",
     "enabled": "启用",
-    "disabled": "停用"
+    "disabled": "停用",
+    "minimize": "最小化",
+    "maximize": "最大化 / 还原",
+    "close": "关闭"
   },
   "sessions": {
     "title": "会话管理",
@@ -304,6 +309,8 @@
     "deleted": "已删除供应商",
     "switched": "已切换到 {{name}}",
     "sessionSyncSummary": "已同步历史会话：{{files}} 个文件，{{rows}} 条索引",
+    "codexPreservedOfficialLogin": "已保留 Codex 官方登录：第三方 Key 已写入 config.toml，桌面端可显示自定义模型",
+    "codexOfficialLoginRequired": "未检测到 Codex 官方登录：桌面端模型列表可能只显示「自定义」。先用官方账号登录一次 Codex 再重新切换即可显示（CLI 不受影响）",
     "switchedOfficial": "已切换到官方登录",
     "imported": "已导入当前配置",
     "missingKey": "该供应商未填写 API Key，请先编辑填入后再切换",
@@ -367,7 +374,7 @@
   },
   "mcp": {
     "title": "MCP 服务器",
-    "description": "统一管理 Claude Code 和 Claude Desktop 的 MCP 服务器。保存或切换开关后会自动同步到对应配置文件，并在写入前备份。",
+    "description": "说明",
     "registryBrowse": "浏览官方 Registry",
     "registryTitle": "官方 MCP Registry",
     "registryNotice": "仅显示可安全转换为 Claude 配置的 Registry 条目；需要密钥、URL 模板或其他包管理器的条目请手动配置。",
@@ -394,7 +401,6 @@
     "empty": "暂无 MCP 服务器，可从现有配置导入或手动新增",
     "colName": "名称",
     "colConfig": "连接配置",
-    "description": "说明",
     "colActions": "操作",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
@@ -506,6 +512,9 @@
     "today": "今天",
     "last24Hours": "最近 24 小时",
     "requests": "请求数",
+    "requestCountUnit": "{{count}} 次请求",
+    "avgTokensPerRequest": "平均 {{value}}/次",
+    "failedCount": "失败 {{count}} 次",
     "successRate": "成功率",
     "totalTokens": "总 Token",
     "inputTokens": "输入 Token",
@@ -528,6 +537,7 @@
     "activeHours": "活跃小时",
     "dailyPeak": "单日峰值",
     "hourlyPeak": "单小时峰值",
+    "hourlyPeakShare": "占峰值 {{pct}}%",
     "calendarTotal": "本周期总量",
     "calendarLegend": "每日 Token 相对单日峰值",
     "calendarLevelNone": "无用量",
@@ -991,7 +1001,8 @@
     "cliInstallNeedNode": "请先安装 Node.js ≥22（可用上方的 fnm 按钮）",
     "cliInstallNodeMissing": "未找到 npm。请先安装 Node.js ≥22。",
     "cliInstallNodeTooOld": "Node.js 版本过低。请升级到 ≥22 后再试。",
-    "cliInstallNetworkOrRegistry": "npm/Node 下载失败（网络或源站）。安装已尝试 npmmirror；请检查网络后重试。"
+    "cliInstallNetworkOrRegistry": "npm/Node 下载失败（网络或源站）。安装已尝试 npmmirror；请检查网络后重试。",
+    "details": "详情"
   },
   "deeplink": {
     "previewTitle": "确认导入",
@@ -1004,5 +1015,21 @@
     "linkCopied": "分享链接已复制到剪贴板（不含密钥）",
     "expectMcp": "剪贴板内容不是 MCP 导入数据",
     "invalid": "Deep Link 无效或无法解析"
+  },
+  "workbench": {
+    "title": "工作台",
+    "currentProvider": "当前供应商",
+    "switchSuccess": "已切换 {{name}} 的供应商",
+    "running": "运行中",
+    "stopped": "未运行",
+    "proxyRunning": "代理 :{{port}}",
+    "proxyStopped": "代理未运行",
+    "manage": "管理",
+    "usageSection": "用量统计",
+    "viewUsageDetail": "查看明细"
+  },
+  "settings": {
+    "title": "设置",
+    "back": "返回"
   }
 }

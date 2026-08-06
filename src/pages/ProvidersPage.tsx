@@ -39,6 +39,7 @@ import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
+import { showCodexSwitchNotice } from "@/lib/codexNotice";
 import {
   buildProviderDeeplink,
   confirmImportPreview,
@@ -154,6 +155,7 @@ export default function ProvidersPage() {
           );
         }
       }
+      showCodexSwitchNotice(result.codexNotice, message, t);
     } catch (e) {
       void message.error(errMsg(e));
     } finally { setBusy(false); }
