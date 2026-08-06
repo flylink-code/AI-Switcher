@@ -440,13 +440,134 @@ body {
   --as-chart-peak: #22c55e;
 }
 
-/* ===== Workbench layout v2: left stats rail / right app cards, 1:1 ===== */
-.workbench-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) 1fr;
-  gap: 20px;
-  align-items: start;
+/* ===== CC Switch style Provider Cards ===== */
+.cc-workbench-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   width: 100%;
+}
+
+.cc-workbench-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.cc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cc-provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.cc-provider-card {
+  border-radius: 14px;
+  border: 1px solid var(--as-border-card, #e4e5e7);
+  background: var(--ant-color-bg-container, #ffffff);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.cc-provider-card:hover {
+  border-color: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 40%, var(--as-border-card));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.cc-provider-card.cc-provider-card-active {
+  border: 1.5px solid var(--ant-color-primary, #3b82f6);
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 5%, var(--ant-color-bg-container, #ffffff));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ant-color-primary, #3b82f6) 10%, transparent);
+}
+
+:root[data-theme="dark"] .cc-provider-card {
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .cc-provider-card.cc-provider-card-active {
+  border-color: var(--ant-color-primary, #3b82f6);
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 12%, #141414);
+}
+
+.cc-provider-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.cc-provider-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cc-provider-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 10%, transparent);
+  color: var(--ant-color-primary, #3b82f6);
+}
+
+.cc-provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cc-provider-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cc-provider-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ant-color-text);
+}
+
+.cc-provider-meta {
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cc-provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .workbench-section-header {
@@ -458,29 +579,11 @@ body {
   margin-bottom: 12px;
 }
 
-.workbench-stats,
-.workbench-apps-column {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.workbench-stats-cards,
-.workbench-apps {
-  display: flex;
-  flex-direction: column;
+.workbench-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 14px;
-  min-width: 0;
-}
-
-/* Narrow fallback (dev scaling only; min window is 1000px): cards on top. */
-@media (max-width: 960px) {
-  .workbench-layout {
-    grid-template-columns: 1fr;
-  }
-  .workbench-apps-column {
-    order: -1;
-  }
+  width: 100%;
 }
 
 /* Stats rail toolbar: source segmented filter + view detail shortcut button. */
@@ -539,19 +642,47 @@ body {
 }
 
 /* Compact bars inside the workbench stats rail only (UsagePage keeps 128px). */
-.workbench-stats-cards .hourly-bars {
+.workbench-charts-grid .hourly-bars {
   height: 96px;
 }
 
-/* KPI: compact 2×2 grid in the narrow stats rail (no sub-lines). */
+/* KPI: 4 columns across full width on desktop, 2 columns on mobile */
 .usage-summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   background: var(--as-border-divider);
   border: 1px solid var(--as-border-divider);
   border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 768px) {
+  .usage-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Bottom charts grid: heatmap & hourly bars side-by-side */
+.workbench-charts-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 14px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.workbench-chart-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+@media (max-width: 960px) {
+  .workbench-charts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .usage-summary-cell {
