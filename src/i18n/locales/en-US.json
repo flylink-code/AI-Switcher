@@ -533,6 +533,7 @@
     "expandChart": "Expand chart",
     "dailyStatistics": "Daily statistics",
     "hourlyStatistics": "Hourly statistics",
+    "dailyBars": "Daily usage",
     "activeDays": "Active days",
     "activeHours": "Active hours",
     "dailyPeak": "Daily peak",
@@ -1026,7 +1027,8 @@
     "proxyStopped": "Proxy stopped",
     "manage": "Manage",
     "usageSection": "Usage",
-    "viewUsageDetail": "View details"
+    "viewUsageDetail": "View details",
+    "yearlyHeatmap": "Yearly heatmap"
   },
   "settings": {
     "title": "Settings",

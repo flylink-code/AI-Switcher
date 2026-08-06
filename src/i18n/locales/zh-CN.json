@@ -533,6 +533,7 @@
     "expandChart": "放大查看",
     "dailyStatistics": "按日期统计",
     "hourlyStatistics": "按小时统计",
+    "dailyBars": "每日用量",
     "activeDays": "活跃天数",
     "activeHours": "活跃小时",
     "dailyPeak": "单日峰值",
@@ -1026,7 +1027,8 @@
     "proxyStopped": "代理未运行",
     "manage": "管理",
     "usageSection": "用量统计",
-    "viewUsageDetail": "查看明细"
+    "viewUsageDetail": "查看明细",
+    "yearlyHeatmap": "近一年热力图"
   },
   "settings": {
     "title": "设置",

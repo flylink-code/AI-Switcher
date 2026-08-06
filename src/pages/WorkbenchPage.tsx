@@ -5,8 +5,6 @@ import {
   Badge,
   Button,
   Card,
-  Col,
-  Row,
   Select,
   Space,
   Tag,
@@ -14,11 +12,12 @@ import {
   Typography,
 } from "antd";
 import CalendarOutlined from "@ant-design/icons/es/icons/CalendarOutlined";
+import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { UsageCalendar } from "@/components/UsageCalendar";
+import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
 import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import {
@@ -36,6 +35,7 @@ import type { Provider, ProviderTarget } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
 import {
   USAGE_PERIOD_VALUES,
+  usagePeriodGranularity,
   usagePeriodLabelKey,
 } from "@/utils/usagePeriod";
 
@@ -62,6 +62,8 @@ export default function WorkbenchPage() {
 
   const dashboardQuery = useQuery(usageDashboardOptions(heatmapPeriod, heatmapSource));
   const trendQuery = useQuery(usageTrendOptions(heatmapPeriod, heatmapSource));
+  // The 365-day heatmap is decoupled from the period filter (fixed yearly view).
+  const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   const summary = dashboardQuery.data?.summary;
   const totalTokens =
@@ -71,11 +73,11 @@ export default function WorkbenchPage() {
     (summary?.outputTokens ?? 0);
 
   const periodSourceFilters = (
-    <Space wrap size={8} align="center">
+    <div className="usage-filters">
       <Select
         size="middle"
         value={heatmapPeriod}
-        style={{ width: 160 }}
+        style={{ width: "100%" }}
         options={USAGE_PERIOD_VALUES.map((value) => ({
           value,
           label:
@@ -85,12 +87,15 @@ export default function WorkbenchPage() {
         }))}
         onChange={setHeatmapPeriod}
       />
-      <UsageSourceFilterSegmented
-        value={heatmapSource}
-        onChange={setHeatmapSource}
-        t={t}
-      />
-    </Space>
+      <div className="usage-filters-segmented">
+        <UsageSourceFilterSegmented
+          value={heatmapSource}
+          onChange={setHeatmapSource}
+          t={t}
+          iconOnly
+        />
+      </div>
+    </div>
   );
 
   return (
@@ -109,73 +114,90 @@ export default function WorkbenchPage() {
         </Title>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {WORKBENCH_APPS.map((app) => (
-          <Col xs={24} md={12} xl={8} key={app.target}>
+      <div className="workbench-layout">
+        <div className="workbench-stats">
+          <div className="usage-section">
+            <Space size={12} align="center">
+              <Title level={5} style={{ margin: 0 }}>
+                {t("workbench.usageSection")}
+              </Title>
+              <UsageDetailLink />
+            </Space>
+
+            {periodSourceFilters}
+
+            {dashboardQuery.error ? (
+              <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
+            ) : (
+              <UsageSummaryGrid
+                estimatedCost={summary?.estimatedCost ?? 0}
+                costCurrency={summary?.estimatedCostCurrency}
+                totalTokens={totalTokens}
+                requestCount={summary?.requestCount ?? 0}
+                successfulRequestCount={summary?.successfulRequestCount ?? 0}
+              />
+            )}
+
+            <Card
+              size="small"
+              className="page-surface"
+              title={
+                <Space>
+                  <CalendarOutlined />
+                  {t("workbench.yearlyHeatmap")}
+                </Space>
+              }
+            >
+              {yearTrendQuery.error ? (
+                <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
+              ) : (
+                <UsageCalendar
+                  data={yearTrendQuery.data?.trend ?? []}
+                  period={365}
+                  compact
+                />
+              )}
+            </Card>
+
+            <Card
+              size="small"
+              className="page-surface"
+              title={
+                <Space>
+                  <BarChartOutlined />
+                  {usagePeriodGranularity(heatmapPeriod) === "hour"
+                    ? t("usage.hourlyStatistics")
+                    : t("usage.dailyBars")}
+                </Space>
+              }
+            >
+              {trendQuery.error ? (
+                <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
+              ) : (
+                <UsageTrendBars data={trendQuery.data?.trend ?? []} period={heatmapPeriod} compact />
+              )}
+            </Card>
+          </div>
+        </div>
+
+        <div className="workbench-apps">
+          {WORKBENCH_APPS.map((app) => (
             <AppStatusCard
+              key={app.target}
               target={app.target}
               runningKey={app.runningKey}
               labelKey={app.labelKey}
             />
-          </Col>
-        ))}
-      </Row>
-
-      <div className="usage-section">
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Space size={12} align="center">
-            <Title level={5} style={{ margin: 0 }}>
-              {t("workbench.usageSection")}
-            </Title>
-            <UsageDetailLink />
-          </Space>
-          {periodSourceFilters}
+          ))}
         </div>
-
-        {dashboardQuery.error ? (
-          <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
-        ) : (
-          <UsageSummaryGrid
-            estimatedCost={summary?.estimatedCost ?? 0}
-            costCurrency={summary?.estimatedCostCurrency}
-            totalTokens={totalTokens}
-            requestCount={summary?.requestCount ?? 0}
-            successfulRequestCount={summary?.successfulRequestCount ?? 0}
-          />
-        )}
-
-        <Card
-          size="small"
-          className="page-surface"
-          title={
-            <Space>
-              <CalendarOutlined />
-              {t("usage.dailyStatistics")}
-            </Space>
-          }
-        >
-          {trendQuery.error ? (
-            <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
-          ) : (
-            <UsageCalendar data={trendQuery.data?.trend ?? []} period={heatmapPeriod} />
-          )}
-        </Card>
       </div>
     </Space>
   );
 }
 
 /**
- * Guide §3.2: 2×2 grid — cost is the hero (28px, red), total tokens major
- * (24px), requests/success minor (16px secondary) with sub-lines.
+ * Compact 2×2 KPI grid — cost is the hero (red), tokens major,
+ * requests/success minor. No sub-lines; details live on the usage page.
  */
 function UsageSummaryGrid({
   estimatedCost,
@@ -191,8 +213,6 @@ function UsageSummaryGrid({
   successfulRequestCount: number;
 }) {
   const { t } = useTranslation();
-  const failedCount = Math.max(requestCount - successfulRequestCount, 0);
-  const avgTokens = requestCount > 0 ? Math.round(totalTokens / requestCount) : 0;
   const rate = successRate(requestCount, successfulRequestCount);
 
   return (
@@ -213,16 +233,10 @@ function UsageSummaryGrid({
         <div className="usage-minor-value">
           {t("usage.requestCountUnit", { count: requestCount })}
         </div>
-        <div className="usage-cell-sub">
-          {t("usage.avgTokensPerRequest", { value: formatCompactNumber(avgTokens) })}
-        </div>
       </div>
       <div className="usage-summary-cell">
         <div className="usage-cell-label">{t("usage.successRate")}</div>
         <div className="usage-minor-value">{rate}%</div>
-        <div className="usage-cell-sub">
-          {t("usage.failedCount", { count: failedCount })}
-        </div>
       </div>
     </div>
   );
@@ -318,14 +332,14 @@ function AppStatusCard({
         </Tooltip>
       }
     >
-      <Space direction="vertical" size={10} style={{ width: "100%" }}>
-        <div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+      <div className="workbench-app-body">
+        <div className="workbench-app-provider">
+          <Text type="secondary" className="workbench-app-provider-label">
             {t("workbench.currentProvider")}
           </Text>
           <Select
             size="middle"
-            style={{ width: "100%", marginTop: 4 }}
+            className="workbench-app-provider-select"
             loading={providersQuery.isLoading || switching}
             value={current?.id ?? OFFICIAL_VALUE}
             onChange={(value) => void handleSwitch(value)}
@@ -334,22 +348,11 @@ function AppStatusCard({
               ...providers.map((p) => ({ value: p.id, label: p.name })),
             ]}
           />
-          <Text
-            type="secondary"
-            ellipsis
-            style={{ fontSize: 12, display: "block", marginTop: 4, minHeight: 20 }}
-          >
+          <Text type="secondary" ellipsis className="workbench-app-model">
             {current ? current.model : " "}
           </Text>
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
-        >
+        <div className="workbench-app-actions">
           <Tag
             icon={<NodeIndexOutlined />}
             color={proxy?.running ? "green" : undefined}
@@ -370,7 +373,7 @@ function AppStatusCard({
             {t("workbench.manage")}
           </Button>
         </div>
-      </Space>
+      </div>
     </Card>
   );
 }

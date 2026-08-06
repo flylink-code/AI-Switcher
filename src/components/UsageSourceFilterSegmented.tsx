@@ -1,6 +1,7 @@
 import { ConfigProvider, Segmented, Tooltip, theme } from "antd";
 import {
   USAGE_SOURCE_FILTER_OPTIONS,
+  usageSourceIcon,
   usageSourceSegmentLabel,
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
@@ -10,10 +11,12 @@ type Props = {
   onChange: (value: UsageSourceFilter) => void;
   /** i18n `t` for option labels. */
   t: (key: string) => string;
+  /** Icon-only items for narrow rails (labels remain as tooltips). */
+  iconOnly?: boolean;
 };
 
 /** Source filter Segmented styled to match adjacent middle-size Select controls. */
-export function UsageSourceFilterSegmented({ value, onChange, t }: Props) {
+export function UsageSourceFilterSegmented({ value, onChange, t, iconOnly = false }: Props) {
   const { token } = theme.useToken();
 
   return (
@@ -46,7 +49,13 @@ export function UsageSourceFilterSegmented({ value, onChange, t }: Props) {
             value: option.value,
             label: (
               <Tooltip title={label}>
-                {usageSourceSegmentLabel(option.value, label)}
+                {iconOnly ? (
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    {usageSourceIcon(option.value, { size: 16 })}
+                  </span>
+                ) : (
+                  usageSourceSegmentLabel(option.value, label)
+                )}
               </Tooltip>
             ),
           };
