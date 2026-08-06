@@ -1027,6 +1027,7 @@
     "proxyStopped": "代理未运行",
     "manage": "管理",
     "usageSection": "用量统计",
+    "appsSection": "应用服务",
     "viewUsageDetail": "查看明细",
     "yearlyHeatmap": "近一年热力图"
   },

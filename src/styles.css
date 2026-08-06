@@ -157,6 +157,12 @@ body {
 .page-surface.ant-card {
   border-radius: 12px;
   border-color: var(--as-border-card, var(--ant-color-border-secondary));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+:root[data-theme="dark"] .page-surface.ant-card {
+  box-shadow: none;
 }
 
 .providers-toolbar {
@@ -438,20 +444,32 @@ body {
 .workbench-layout {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) 1fr;
-  gap: 16px;
+  gap: 20px;
   align-items: start;
   width: 100%;
 }
 
-.workbench-stats {
+.workbench-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  margin-bottom: 12px;
+}
+
+.workbench-stats,
+.workbench-apps-column {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
-/* App cards: one app per row, full rail width, stacked top-to-bottom. */
+.workbench-stats-cards,
 .workbench-apps {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -460,17 +478,17 @@ body {
   .workbench-layout {
     grid-template-columns: 1fr;
   }
-  .workbench-apps {
+  .workbench-apps-column {
     order: -1;
   }
 }
 
-/* Stats rail filters: stacked, never wider than the rail. */
-.usage-filters {
+/* Stats rail toolbar: source segmented filter + view detail shortcut button. */
+.usage-filters-toolbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  align-items: stretch;
 }
 
 .usage-filters-segmented {
@@ -520,18 +538,8 @@ body {
   opacity: 0.6;
 }
 
-/* ===== Usage section: grouped background + 2×2 summary grid with dividers ===== */
-.usage-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-  background: var(--as-bg-section);
-}
-
 /* Compact bars inside the workbench stats rail only (UsagePage keeps 128px). */
-.usage-section .hourly-bars {
+.workbench-stats-cards .hourly-bars {
   height: 96px;
 }
 

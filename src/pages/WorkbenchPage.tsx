@@ -13,6 +13,7 @@ import {
 } from "antd";
 import CalendarOutlined from "@ant-design/icons/es/icons/CalendarOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
+import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,11 +34,6 @@ import { switchProvider, switchToOfficial } from "@/services/api";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { Provider, ProviderTarget } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
-import {
-  USAGE_PERIOD_VALUES,
-  usagePeriodGranularity,
-  usagePeriodLabelKey,
-} from "@/utils/usagePeriod";
 
 const { Text, Title } = Typography;
 
@@ -55,14 +51,13 @@ const WORKBENCH_APPS: Array<{
 
 export default function WorkbenchPage() {
   const { t } = useTranslation();
-  const heatmapPeriod = usePagePreferencesStore((state) => state.heatmapPeriod);
-  const setHeatmapPeriod = usePagePreferencesStore((state) => state.setHeatmapPeriod);
+  const navigate = useNavigatePage();
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
   const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
 
-  const dashboardQuery = useQuery(usageDashboardOptions(heatmapPeriod, heatmapSource));
-  const trendQuery = useQuery(usageTrendOptions(heatmapPeriod, heatmapSource));
-  // The 365-day heatmap is decoupled from the period filter (fixed yearly view).
+  // Workbench uses fixed 24h for dashboard summary and hourly bars, fixed 365 for yearly heatmap.
+  const dashboardQuery = useQuery(usageDashboardOptions("24h", heatmapSource));
+  const trendQuery = useQuery(usageTrendOptions("24h", heatmapSource));
   const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   const summary = dashboardQuery.data?.summary;
@@ -72,21 +67,8 @@ export default function WorkbenchPage() {
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
 
-  const periodSourceFilters = (
-    <div className="usage-filters">
-      <Select
-        size="middle"
-        value={heatmapPeriod}
-        style={{ width: "100%" }}
-        options={USAGE_PERIOD_VALUES.map((value) => ({
-          value,
-          label:
-            typeof value === "number"
-              ? t("usage.lastDays", { days: value })
-              : t(usagePeriodLabelKey(value)),
-        }))}
-        onChange={setHeatmapPeriod}
-      />
+  const sourceFilterToolbar = (
+    <div className="usage-filters-toolbar">
       <div className="usage-filters-segmented">
         <UsageSourceFilterSegmented
           value={heatmapSource}
@@ -95,91 +77,85 @@ export default function WorkbenchPage() {
           iconOnly
         />
       </div>
+      <Tooltip title={t("workbench.viewUsageDetail")}>
+        <Button
+          size="middle"
+          icon={<LineChartOutlined />}
+          onClick={() => navigate("usage")}
+        />
+      </Tooltip>
     </div>
   );
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-        }}
-      >
-        <Title level={4} style={{ margin: 0 }}>
-          {t("workbench.title")}
-        </Title>
-      </div>
-
-      <div className="workbench-layout">
-        <div className="workbench-stats">
-          <div className="usage-section">
-            <Space size={12} align="center">
-              <Title level={5} style={{ margin: 0 }}>
-                {t("workbench.usageSection")}
-              </Title>
-              <UsageDetailLink />
-            </Space>
-
-            {periodSourceFilters}
-
-            {dashboardQuery.error ? (
-              <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
-            ) : (
-              <UsageSummaryGrid
-                estimatedCost={summary?.estimatedCost ?? 0}
-                costCurrency={summary?.estimatedCostCurrency}
-                totalTokens={totalTokens}
-                requestCount={summary?.requestCount ?? 0}
-                successfulRequestCount={summary?.successfulRequestCount ?? 0}
-              />
-            )}
-
-            <Card
-              size="small"
-              className="page-surface"
-              title={
-                <Space>
-                  <CalendarOutlined />
-                  {t("workbench.yearlyHeatmap")}
-                </Space>
-              }
-            >
-              {yearTrendQuery.error ? (
-                <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
-              ) : (
-                <UsageCalendar
-                  data={yearTrendQuery.data?.trend ?? []}
-                  period={365}
-                  compact
-                />
-              )}
-            </Card>
-
-            <Card
-              size="small"
-              className="page-surface"
-              title={
-                <Space>
-                  <BarChartOutlined />
-                  {usagePeriodGranularity(heatmapPeriod) === "hour"
-                    ? t("usage.hourlyStatistics")
-                    : t("usage.dailyBars")}
-                </Space>
-              }
-            >
-              {trendQuery.error ? (
-                <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
-              ) : (
-                <UsageTrendBars data={trendQuery.data?.trend ?? []} period={heatmapPeriod} compact />
-              )}
-            </Card>
-          </div>
+    <div className="workbench-layout">
+      <div className="workbench-stats">
+        <div className="workbench-section-header">
+          <Title level={5} style={{ margin: 0 }}>
+            {t("workbench.usageSection")}
+          </Title>
+          {sourceFilterToolbar}
         </div>
 
+        <div className="workbench-stats-cards">
+          {dashboardQuery.error ? (
+            <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
+          ) : (
+            <UsageSummaryGrid
+              estimatedCost={summary?.estimatedCost ?? 0}
+              costCurrency={summary?.estimatedCostCurrency}
+              totalTokens={totalTokens}
+              requestCount={summary?.requestCount ?? 0}
+              successfulRequestCount={summary?.successfulRequestCount ?? 0}
+            />
+          )}
+
+          <Card
+            size="small"
+            className="page-surface"
+            title={
+              <Space>
+                <CalendarOutlined />
+                {t("workbench.yearlyHeatmap")}
+              </Space>
+            }
+          >
+            {yearTrendQuery.error ? (
+              <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
+            ) : (
+              <UsageCalendar
+                data={yearTrendQuery.data?.trend ?? []}
+                period={365}
+                compact
+              />
+            )}
+          </Card>
+
+          <Card
+            size="small"
+            className="page-surface"
+            title={
+              <Space>
+                <BarChartOutlined />
+                {t("usage.hourlyStatistics")}
+              </Space>
+            }
+          >
+            {trendQuery.error ? (
+              <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
+            ) : (
+              <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
+            )}
+          </Card>
+        </div>
+      </div>
+
+      <div className="workbench-apps-column">
+        <div className="workbench-section-header">
+          <Title level={5} style={{ margin: 0 }}>
+            {t("workbench.appsSection")}
+          </Title>
+        </div>
         <div className="workbench-apps">
           {WORKBENCH_APPS.map((app) => (
             <AppStatusCard
@@ -191,7 +167,7 @@ export default function WorkbenchPage() {
           ))}
         </div>
       </div>
-    </Space>
+    </div>
   );
 }
 
@@ -375,21 +351,6 @@ function AppStatusCard({
         </div>
       </div>
     </Card>
-  );
-}
-
-function UsageDetailLink() {
-  const { t } = useTranslation();
-  const navigate = useNavigatePage();
-  return (
-    <Button
-      type="link"
-      size="small"
-      style={{ paddingInline: 0 }}
-      onClick={() => navigate("usage")}
-    >
-      {t("workbench.viewUsageDetail")}
-    </Button>
   );
 }
 

@@ -1027,6 +1027,7 @@
     "proxyStopped": "Proxy stopped",
     "manage": "Manage",
     "usageSection": "Usage",
+    "appsSection": "Managed Apps",
     "viewUsageDetail": "View details",
     "yearlyHeatmap": "Yearly heatmap"
   },
