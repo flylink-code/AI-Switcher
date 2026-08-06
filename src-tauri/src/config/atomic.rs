@@ -39,7 +39,7 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
     let parent = path
         .parent()
         .ok_or_else(|| AppError::Path(format!("路径缺少父目录: {}", path.display())))?;
-    fs::create_dir_all(parent)?;
+    ensure_dir_with_context(parent)?;
 
     let file_name = path
         .file_name()
@@ -95,6 +95,54 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
         })?;
         Ok(())
     }
+}
+
+/// Create a directory tree with path context attached. A Windows junction (or
+/// symlink) whose target is unreachable fails `create_dir_all` with a bare,
+/// misleading OS 183 — the link itself exists, so `create_dir` refuses it —
+/// while `metadata`/`exists` report NotFound. Detect that case and translate
+/// it into an actionable message.
+pub fn ensure_dir_with_context(path: &Path) -> AppResult<()> {
+    match fs::create_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let context = match broken_link_note(path) {
+                Some(note) => format!("创建配置目录失败: {}（{note}）", path.display()),
+                None => format!("创建配置目录失败: {}", path.display()),
+            };
+            Err(io_context(context, error))
+        }
+    }
+}
+
+/// If `path` (or one of its ancestors) is a symlink/junction whose target is
+/// currently unreachable, return a human-readable note naming the link and its
+/// target. `symlink_metadata` does not follow links, so it still sees the link
+/// itself when the target drive is offline / spun down / being rebuilt.
+///
+/// Ancestors are checked because the broken link is usually a parent (e.g.
+/// `~/.codex` → `J:\...`) rather than the directory being created itself.
+pub fn broken_link_note(path: &Path) -> Option<String> {
+    for ancestor in path.ancestors() {
+        let Ok(meta) = fs::symlink_metadata(ancestor) else {
+            continue;
+        };
+        if !meta.file_type().is_symlink() {
+            continue;
+        }
+        // The link node exists; if following it fails, its target is unreachable.
+        if fs::metadata(ancestor).is_err() {
+            let target = fs::read_link(ancestor)
+                .map(|t| t.display().to_string())
+                .unwrap_or_else(|_| "未知位置".to_string());
+            return Some(format!(
+                "{} 是指向 {} 的链接，目标当前不可达（请确认对应磁盘已就绪/已唤醒）",
+                ancestor.display(),
+                target
+            ));
+        }
+    }
+    None
 }
 
 /// Replace `path` with `tmp` without a delete-first race.
@@ -283,6 +331,21 @@ mod tests {
         locker.join().unwrap();
         writer.join().unwrap();
         assert_eq!(fs::read_to_string(target.as_path()).unwrap(), "new-after-lock");
+    }
+
+    #[test]
+    fn ensure_dir_with_context_creates_nested_dirs() {
+        let dir = tempdir().unwrap();
+        let nested = dir.path().join("a/b/c");
+        ensure_dir_with_context(&nested).unwrap();
+        assert!(nested.is_dir());
+    }
+
+    #[test]
+    fn broken_link_note_ignores_plain_paths() {
+        let dir = tempdir().unwrap();
+        assert!(broken_link_note(dir.path()).is_none());
+        assert!(broken_link_note(&dir.path().join("missing/child")).is_none());
     }
 
     #[test]

@@ -195,6 +195,11 @@ fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
                 if ["os error 5", "os error 32", "os error 33", "os error 80", "os error 183"]
                     .iter()
                     .any(|code| message.contains(code))
+                // A junction/symlink with an unreachable target (e.g. the target
+                // drive is offline) is not a transient conflict — retrying
+                // milliseconds apart can never fix it. Fail fast; the startup
+                // long-window retry recovers it once the drive is back.
+                && !message.contains("目标当前不可达")
         );
     }
     #[cfg(not(windows))]
@@ -431,7 +436,7 @@ fn write_model_catalog(
         .collect();
     let catalog = serde_json::json!({ "models": models });
     let dir = get_codex_config_dir();
-    fs::create_dir_all(&dir)?;
+    crate::config::ensure_dir_with_context(&dir)?;
     let path = dir.join(MODEL_CATALOG_FILENAME);
     atomic_write(&path, serde_json::to_string_pretty(&catalog)?.as_bytes())
 }

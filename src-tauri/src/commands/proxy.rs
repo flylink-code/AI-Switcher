@@ -404,9 +404,13 @@ pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
 pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppState) {
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     const MAX_ENDPOINT_REPAIR_ATTEMPTS: u32 = 3;
+    let mut repaired = false;
     for attempt in 1..=MAX_ENDPOINT_REPAIR_ATTEMPTS {
         match crate::commands::providers::repair_codex_managed_proxy_endpoint(state).await {
-            Ok(()) => break,
+            Ok(()) => {
+                repaired = true;
+                break;
+            }
             Err(error) if attempt < MAX_ENDPOINT_REPAIR_ATTEMPTS => {
                 log::warn!(
                     "relaunch recovery: Codex endpoint repair attempt {attempt}/{MAX_ENDPOINT_REPAIR_ATTEMPTS} failed: {error}; retrying"
@@ -424,6 +428,40 @@ pub async fn recover_runtime_after_relaunch(app: &tauri::AppHandle, state: &AppS
 
     if let Err(error) = app.emit(RUNTIME_RECOVERED_EVENT, ()) {
         log::warn!("relaunch recovery: emit {RUNTIME_RECOVERED_EVENT} failed: {error}");
+    }
+
+    // A junction/symlinked CODEX_HOME whose target drive is temporarily
+    // unreachable (spin-down, cleanup tool rebuilding the dir, …) makes the
+    // fast attempts above fail within ~40s — far shorter than real outages.
+    // Keep retrying in the background for up to 20 minutes so the repair
+    // applies itself once the drive is back, without an app restart.
+    if !repaired {
+        let retry_handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            const RETRY_INTERVAL_SECS: u64 = 30;
+            const MAX_LONG_ATTEMPTS: u32 = 40; // 30s × 40 = 20 minutes
+            for attempt in 1..=MAX_LONG_ATTEMPTS {
+                tokio::time::sleep(std::time::Duration::from_secs(RETRY_INTERVAL_SECS)).await;
+                let state = retry_handle.state::<AppState>();
+                match crate::commands::providers::repair_codex_managed_proxy_endpoint(&state).await
+                {
+                    Ok(()) => {
+                        log::info!(
+                            "long-window Codex endpoint repair succeeded (attempt {attempt}/{MAX_LONG_ATTEMPTS})"
+                        );
+                        return;
+                    }
+                    Err(error) => {
+                        log::warn!(
+                            "long-window Codex endpoint repair attempt {attempt}/{MAX_LONG_ATTEMPTS} failed: {error}"
+                        );
+                    }
+                }
+            }
+            log::warn!(
+                "long-window Codex endpoint repair exhausted {MAX_LONG_ATTEMPTS} attempts; giving up until next launch"
+            );
+        });
     }
 }
 

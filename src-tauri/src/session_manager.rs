@@ -829,12 +829,24 @@ fn collect_codex_session_paths_once() -> AppResult<(Vec<(PathBuf, i64)>, Session
         let mut paths = Vec::new();
         merge_codex_sqlite_rollout_paths(&mut paths);
         if paths.is_empty() {
+            // A junction/symlink root with an unreachable target (drive offline)
+            // reports NotFound too — but that is transient, not "no sessions".
+            let (status, detail) = match config::broken_link_note(&root) {
+                Some(note) => (
+                    "degraded".to_string(),
+                    format!("Codex 会话目录暂不可达：{note}"),
+                ),
+                None => (
+                    "not_found".to_string(),
+                    "未发现 Codex 本地会话目录".to_string(),
+                ),
+            };
             return Ok((
                 Vec::new(),
                 SessionProviderStatus {
                     provider: SessionProvider::Codex,
-                    status: "not_found".to_string(),
-                    detail: "未发现 Codex 本地会话目录".to_string(),
+                    status,
+                    detail,
                     root_path: Some(root.display().to_string()),
                 },
                 false,

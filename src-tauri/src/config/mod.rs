@@ -23,6 +23,6 @@ pub use paths::{
 // Foundational helpers (used from P1+). Re-exported for convenience; the
 // `#[allow(unused)]` keeps the crate warning-clean during scaffolding.
 #[allow(unused_imports)]
-pub use atomic::{atomic_write, read_json_file, write_json_file};
+pub use atomic::{atomic_write, broken_link_note, ensure_dir_with_context, read_json_file, write_json_file};
 #[allow(unused_imports)]
 pub use atomic::sort_json_keys;
