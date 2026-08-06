@@ -5,6 +5,7 @@ import { useAppStore } from "@/stores/appStore";
 import type { PageKey } from "@/lib/pageRegistry";
 import { setAppLanguage } from "@/services/api";
 import { TitleBar } from "@/components/TitleBar";
+import appLogo from "@/assets/app-logo.png";
 
 const { Content } = Layout;
 
@@ -48,12 +49,23 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
           minWidth: 0,
           minHeight: 0,
           overflow: "auto",
-          padding: "20px 28px 28px",
+          padding: "20px 24px 24px",
           background: token.colorBgLayout,
         }}
       >
         {children}
       </Content>
+      <footer className="app-status-footer">
+        <div className="app-status-footer-left">
+          <img src={appLogo} alt="AI-Switcher" className="app-status-logo" />
+          <span className="app-status-title">AI-Switcher</span>
+          <span className="app-status-divider">·</span>
+          <span>{t("workbench.running", { defaultValue: "运行中" })}</span>
+        </div>
+        <div className="app-status-footer-right">
+          <span>v1.1.0</span>
+        </div>
+      </footer>
     </div>
   );
 }

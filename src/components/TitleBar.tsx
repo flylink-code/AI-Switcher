@@ -16,10 +16,11 @@ import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
+import appLogo from "@/assets/app-logo.png";
 
 const appWindow = getCurrentWindow();
 
-export const TITLE_BAR_HEIGHT = 36;
+export const TITLE_BAR_HEIGHT = 38;
 
 const themeIcons: Record<ThemeMode, React.ReactNode> = {
   light: <BulbOutlined />,
@@ -97,7 +98,10 @@ export function TitleBar({ showBack, onBack, updateVersion, onOpenUpdate }: Titl
           void appWindow.toggleMaximize();
         }}
       >
-        <span className="app-titlebar-title">{t("app.name")}</span>
+        <div className="app-titlebar-brand">
+          <img src={appLogo} alt="AI-Switcher" className="app-titlebar-logo" />
+          <span className="app-titlebar-title">{t("app.name")}</span>
+        </div>
         {updateVersion ? (
           <Badge dot offset={[-2, 4]}>
             <button

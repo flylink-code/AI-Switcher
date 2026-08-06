@@ -22,8 +22,9 @@ import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
-import CheckCircleOutlined from "@ant-design/icons/es/icons/CheckCircleOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
+import PayCircleOutlined from "@ant-design/icons/es/icons/PayCircleOutlined";
+import CheckCircleOutlined from "@ant-design/icons/es/icons/CheckCircleOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
@@ -350,7 +351,7 @@ export default function WorkbenchPage() {
                 <div className="cc-provider-title-row">
                   <span className="cc-provider-name">{t("providers.officialMode")}</span>
                   {officialCurrent && (
-                    <Tag color="green" icon={<CheckCircleOutlined />}>
+                    <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
                       {t("providers.current")}
                     </Tag>
                   )}
@@ -361,12 +362,8 @@ export default function WorkbenchPage() {
               </div>
             </div>
             <div className="cc-provider-actions">
-              {officialCurrent ? (
-                <Tag color="success" style={{ margin: 0, padding: "4px 12px", fontSize: 12 }}>
-                  {t("workbench.running")}
-                </Tag>
-              ) : (
-                <Button type="primary" ghost size="middle" loading={busy} onClick={() => void handleOfficial()}>
+              {!officialCurrent && (
+                <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={busy} onClick={() => void handleOfficial()}>
                   {t("providers.switchTo")}
                 </Button>
               )}
@@ -391,17 +388,13 @@ export default function WorkbenchPage() {
                     <div className="cc-provider-title-row">
                       <span className="cc-provider-name">{provider.name}</span>
                       {isCurrent && (
-                        <Tag color="green" icon={<CheckCircleOutlined />}>
+                        <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
                           {t("providers.current")}
                         </Tag>
                       )}
-                      {provider.healthStatus && (
-                        <Tag color={provider.healthStatus === "healthy" ? "green" : "red"}>
-                          {provider.healthLatencyMs != null
-                            ? `${provider.healthLatencyMs}ms`
-                            : provider.healthStatus === "healthy"
-                            ? t("providers.healthy")
-                            : t("providers.unhealthy")}
+                      {provider.healthStatus && provider.healthLatencyMs != null && (
+                        <Tag color="success" style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
+                          {provider.healthLatencyMs}ms
                         </Tag>
                       )}
                     </div>
@@ -410,21 +403,18 @@ export default function WorkbenchPage() {
                       <Text type="secondary" ellipsis style={{ maxWidth: 280 }}>
                         {provider.baseUrl}
                       </Text>
-                      <Tag color={provider.protocolType === "anthropic" ? "blue" : "orange"} style={{ margin: 0 }}>
+                      <Tag color={provider.protocolType === "anthropic" ? "processing" : "warning"} style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
                         {provider.protocolType}
                       </Tag>
                     </div>
                   </div>
                 </div>
                 <div className="cc-provider-actions">
-                  {isCurrent ? (
-                    <Tag color="success" style={{ margin: 0, padding: "4px 12px", fontSize: 12 }}>
-                      {t("workbench.running")}
-                    </Tag>
-                  ) : (
+                  {!isCurrent && (
                     <Button
                       type="primary"
                       size="middle"
+                      style={{ borderRadius: 8 }}
                       loading={busy}
                       onClick={() => void handleSwitch(provider)}
                     >
@@ -576,25 +566,47 @@ function UsageSummaryGrid({
   return (
     <div className="usage-summary-grid">
       <div className="usage-summary-cell">
-        <div className="usage-cell-label">{t("usage.estimatedCost")}</div>
-        <div className="usage-hero-value">
-          {currencyPrefix(costCurrency)}
-          {estimatedCost.toFixed(4)}
+        <div className="usage-cell-icon usage-cell-icon-cost">
+          <PayCircleOutlined />
+        </div>
+        <div className="usage-cell-content">
+          <div className="usage-cell-label">{t("usage.estimatedCost")}</div>
+          <div className="usage-hero-value">
+            {currencyPrefix(costCurrency)}
+            {estimatedCost.toFixed(4)}
+          </div>
         </div>
       </div>
       <div className="usage-summary-cell">
-        <div className="usage-cell-label">{t("usage.totalTokens")}</div>
-        <div className="usage-major-value">{formatCompactNumber(totalTokens)}</div>
-      </div>
-      <div className="usage-summary-cell">
-        <div className="usage-cell-label">{t("usage.requests")}</div>
-        <div className="usage-minor-value">
-          {t("usage.requestCountUnit", { count: requestCount })}
+        <div className="usage-cell-icon usage-cell-icon-tokens">
+          <ThunderboltOutlined />
+        </div>
+        <div className="usage-cell-content">
+          <div className="usage-cell-label">{t("usage.totalTokens")}</div>
+          <div className="usage-hero-value usage-value-tokens">
+            {formatCompactNumber(totalTokens)}
+          </div>
         </div>
       </div>
       <div className="usage-summary-cell">
-        <div className="usage-cell-label">{t("usage.successRate")}</div>
-        <div className="usage-minor-value">{rate}%</div>
+        <div className="usage-cell-icon usage-cell-icon-requests">
+          <BarChartOutlined />
+        </div>
+        <div className="usage-cell-content">
+          <div className="usage-cell-label">{t("usage.requests")}</div>
+          <div className="usage-hero-value usage-value-requests">
+            {t("usage.requestCountUnit", { count: requestCount })}
+          </div>
+        </div>
+      </div>
+      <div className="usage-summary-cell">
+        <div className="usage-cell-icon usage-cell-icon-rate">
+          <CheckCircleOutlined />
+        </div>
+        <div className="usage-cell-content">
+          <div className="usage-cell-label">{t("usage.successRate")}</div>
+          <div className="usage-hero-value usage-value-rate">{rate}%</div>
+        </div>
       </div>
     </div>
   );
