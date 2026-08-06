@@ -563,6 +563,7 @@ export default function UsagePage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}
           extra={<Button size="small" icon={<ExpandOutlined />} onClick={() => setTrendExpanded(true)}>{t("usage.expandChart")}</Button>}
         >
@@ -580,6 +581,7 @@ export default function UsagePage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
         >
           {isCodexOnly && (

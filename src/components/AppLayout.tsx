@@ -63,7 +63,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
           <span>{t("workbench.running", { defaultValue: "运行中" })}</span>
         </div>
         <div className="app-status-footer-right">
-          <span>v1.1.0</span>
+          <span>v1.2.0</span>
         </div>
       </footer>
     </div>

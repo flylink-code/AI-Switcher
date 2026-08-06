@@ -606,7 +606,7 @@ export default function McpPage() {
             }
           />
         )}
-        <Card size="small" title={t("mcp.oauthTitle")}>
+        <Card size="small" className="page-surface" title={t("mcp.oauthTitle")}>
           {oauthQuery.error ? (
             <Alert type="error" showIcon message={errMsg(oauthQuery.error)} />
           ) : (
@@ -654,6 +654,7 @@ export default function McpPage() {
         </Card>
         <Card
           size="small"
+          className="page-surface"
           title={t("mcp.title")}
           extra={
             <Space>

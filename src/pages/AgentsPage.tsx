@@ -122,6 +122,7 @@ export default function AgentsPage() {
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <OnboardingTip tipKey="agents" type="info" message={t("agents.tip")} />
       <Card
+        className="page-surface"
         title={t("agents.title")}
         extra={
           <Space wrap>

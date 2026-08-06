@@ -170,55 +170,74 @@ export default function ProxyPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <OnboardingTip
-          tipKey="proxy"
-          message={t("proxy.title")}
-          description={
-            <Space direction="vertical" size={4}>
-              <Text type="secondary">{t("proxy.description")}</Text>
-              <Text type="secondary">{t("proxy.hotSwitchDescription")}</Text>
-            </Space>
-          }
+      <OnboardingTip
+        tipKey="proxy"
+        message={t("proxy.title")}
+        description={
+          <Space direction="vertical" size={4}>
+            <Text type="secondary">{t("proxy.description")}</Text>
+            <Text type="secondary">{t("proxy.hotSwitchDescription")}</Text>
+          </Space>
+        }
+      />
+      {statusQuery.error && (
+        <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <WorkspaceTargetSegmented
+          value={target}
+          onChange={setProxyTarget}
+          t={t}
+          ariaLabel={t("workspace.target")}
         />
-        {statusQuery.error && (
-          <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
-        )}
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          {t("workspace.currentProvider", { name: targetLabel })}
+        </Typography.Text>
+      </div>
 
-        <Space wrap size={[12, 8]} style={{ width: "100%", justifyContent: "space-between" }}>
-          <WorkspaceTargetSegmented
-            value={target}
-            onChange={setProxyTarget}
-            t={t}
-            ariaLabel={t("workspace.target")}
-          />
-          <Typography.Text type="secondary">
-            {t("workspace.currentProvider", { name: targetLabel })}
-          </Typography.Text>
-        </Space>
-
-        <Card
-          size="small"
-          title={
-            <Space>
-              <ApiOutlined />
-              {t("proxy.status")}
-            </Space>
-          }
-          extra={
-            <Button
-              icon={<ReloadOutlined />}
-              loading={refreshing}
-              onClick={() => void handleRefresh()}
-            >
-              {t("proxy.refresh")}
-            </Button>
-          }
-        >
-          {!status ? (
-            <Text type="secondary">{t("proxy.statusUnavailable")}</Text>
-          ) : (
-            <Descriptions column={1} size="small" bordered>
-              <Descriptions.Item label={t("proxy.fieldRunning")}>
+      <Card
+        size="small"
+        className="page-surface"
+        title={
+          <Space align="center">
+            <ApiOutlined style={{ color: "var(--ant-color-primary)" }} />
+            <Text strong>{t("proxy.status")}</Text>
+          </Space>
+        }
+        extra={
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            loading={refreshing}
+            onClick={() => void handleRefresh()}
+          >
+            {t("proxy.refresh")}
+          </Button>
+        }
+      >
+        {!status ? (
+          <Text type="secondary">{t("proxy.statusUnavailable")}</Text>
+        ) : (
+          <Descriptions column={1} size="small" bordered style={{ borderRadius: 8, overflow: "hidden" }}>
+            <Descriptions.Item label={t("proxy.fieldRunning")}>
+              <Space align="center" size={8}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: status.running
+                      ? "var(--as-status-running, #34c759)"
+                      : status.phase === "starting"
+                        ? "#1677ff"
+                        : "var(--as-status-stopped, #8e8e93)",
+                    boxShadow: status.running
+                      ? "0 0 6px var(--as-status-running, #34c759)"
+                      : "none",
+                  }}
+                />
                 {status.phase === "starting" ? (
                   <Tag color="processing">{t("proxy.starting")}</Tag>
                 ) : status.running ? (
@@ -228,40 +247,42 @@ export default function ProxyPage() {
                 ) : (
                   <Tag>{t("proxy.stopped")}</Tag>
                 )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("proxy.fieldPort")}>
-                <Text code>{status.port}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label={t("proxy.fieldTarget")}>
-                {status.targetProvider ? (
-                  <Text>{status.targetProvider}</Text>
-                ) : (
-                  <Text type="secondary">{t("proxy.noTarget")}</Text>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("proxy.fieldEndpoint")}>
-                <Text copyable code>
-                  {target === "codex"
-                    ? `http://127.0.0.1:${status.port}/v1/responses`
-                    : `http://127.0.0.1:${status.port}/v1/messages`}
-                </Text>
-              </Descriptions.Item>
-            </Descriptions>
-          )}
-          {status?.lastError && (
-            <Alert
-              style={{ marginTop: 12 }}
-              type="error"
-              showIcon
-              message={status.lastError}
-            />
-          )}
-        </Card>
+              </Space>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("proxy.fieldPort")}>
+              <Text code>{status.port}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("proxy.fieldTarget")}>
+              {status.targetProvider ? (
+                <Text strong>{status.targetProvider}</Text>
+              ) : (
+                <Text type="secondary">{t("proxy.noTarget")}</Text>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label={t("proxy.fieldEndpoint")}>
+              <Text copyable code style={{ fontSize: 12 }}>
+                {target === "codex"
+                  ? `http://127.0.0.1:${status.port}/v1/responses`
+                  : `http://127.0.0.1:${status.port}/v1/messages`}
+              </Text>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+        {status?.lastError && (
+          <Alert
+            style={{ marginTop: 12 }}
+            type="error"
+            showIcon
+            message={status.lastError}
+          />
+        )}
+      </Card>
 
-        <Card size="small" title={t("proxy.failoverTitle")}>
-          <Space direction="vertical" style={{ width: "100%" }}>
-            <Text type="secondary">{t("proxy.failoverDescription")}</Text>
-            <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
+      <Card size="small" className="page-surface" title={t("proxy.failoverTitle")}>
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <Text type="secondary">{t("proxy.failoverDescription")}</Text>
+          <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Switch
               checked={failoverQuery.data ?? false}
               loading={failoverQuery.isPending || failoverSaving}
@@ -270,75 +291,80 @@ export default function ProxyPage() {
               unCheckedChildren={t("common.disabled")}
               onChange={(enabled) => void handleFailoverChange(enabled)}
             />
-            <Text type="secondary">{t("proxy.retryCodesHint")}</Text>
-            <Space.Compact style={{ width: "100%" }}>
-              <Input
-                value={retryCodes}
-                onChange={(event) => setRetryCodes(event.target.value)}
-                placeholder="400-404,408,429,500-599"
-              />
-              <Button loading={retrySaving} onClick={() => void handleRetryCodesSave()}>
-                {t("common.save")}
-              </Button>
-            </Space.Compact>
-            <Text type="secondary">{t("proxy.idleTimeoutHint")}</Text>
-            <Space>
-              <InputNumber
-                min={5}
-                max={3600}
-                value={idleTimeout}
-                onChange={(value) => value != null && setIdleTimeout(value)}
-              />
-              <Button loading={idleSaving} onClick={() => void handleIdleTimeoutSave()}>
-                {t("common.save")}
-              </Button>
-            </Space>
+            <Text style={{ fontSize: 13 }}>
+              {failoverQuery.data ? t("proxy.failoverEnabled") : t("proxy.failoverDisabled")}
+            </Text>
+          </div>
+          <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.retryCodesHint")}</Text>
+          <Space.Compact style={{ width: "100%", maxWidth: 460 }}>
+            <Input
+              value={retryCodes}
+              onChange={(event) => setRetryCodes(event.target.value)}
+              placeholder="400-404,408,429,500-599"
+            />
+            <Button loading={retrySaving} onClick={() => void handleRetryCodesSave()}>
+              {t("common.save")}
+            </Button>
+          </Space.Compact>
+          <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.idleTimeoutHint")}</Text>
+          <Space>
+            <InputNumber
+              min={5}
+              max={3600}
+              value={idleTimeout}
+              onChange={(value) => value != null && setIdleTimeout(value)}
+            />
+            <Button loading={idleSaving} onClick={() => void handleIdleTimeoutSave()}>
+              {t("common.save")}
+            </Button>
           </Space>
-        </Card>
+        </Space>
+      </Card>
 
-        <Card
-          size="small"
-          title={
-            <Space>
-              <GlobalOutlined />
-              {t("proxy.control")}
-            </Space>
-          }
-        >
-          <Space wrap>
-            <Space>
-              <Text>{t("proxy.port")}</Text>
-              <InputNumber
-                min={1024}
-                max={65535}
-                value={port}
-                onChange={(v) => v != null && setPort(v)}
-                disabled={busy || status?.running || status?.phase === "starting"}
-                style={{ width: 120 }}
-              />
-            </Space>
-            {status?.running ? (
-              <Button
-                type="primary"
-                danger
-                icon={<StopOutlined />}
-                loading={busy}
-                onClick={handleStop}
-              >
-                {t("proxy.stop")}
-              </Button>
-            ) : (
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                loading={busy}
-                onClick={handleStart}
-              >
-                {t("proxy.start")}
-              </Button>
-            )}
+      <Card
+        size="small"
+        className="page-surface"
+        title={
+          <Space align="center">
+            <GlobalOutlined />
+            <Text strong>{t("proxy.control")}</Text>
           </Space>
-        </Card>
+        }
+      >
+        <Space wrap align="center" size={16}>
+          <Space align="center">
+            <Text>{t("proxy.port")}</Text>
+            <InputNumber
+              min={1024}
+              max={65535}
+              value={port}
+              onChange={(v) => v != null && setPort(v)}
+              disabled={busy || status?.running || status?.phase === "starting"}
+              style={{ width: 120 }}
+            />
+          </Space>
+          {status?.running ? (
+            <Button
+              type="primary"
+              danger
+              icon={<StopOutlined />}
+              loading={busy}
+              onClick={handleStop}
+            >
+              {t("proxy.stop")}
+            </Button>
+          ) : (
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              loading={busy}
+              onClick={handleStart}
+            >
+              {t("proxy.start")}
+            </Button>
+          )}
+        </Space>
+      </Card>
     </Space>
   );
 }

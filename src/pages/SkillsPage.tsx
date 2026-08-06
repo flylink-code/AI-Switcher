@@ -273,6 +273,7 @@ export default function SkillsPage() {
     />
     <Card
       size="small"
+      className="page-surface"
       title={t("skills.discoveryTitle")}
       extra={
         <Button icon={<ReloadOutlined />} loading={discovering} disabled={busy || scanning} onClick={() => void discoverUnmanaged()}>
@@ -331,6 +332,7 @@ export default function SkillsPage() {
     </Card>
     <Card
       size="small"
+      className="page-surface"
       title={t("skills.installedTitle")}
       extra={<Space>
         <Button icon={<GithubOutlined />} disabled={busy || scanning} onClick={() => setRepositoryOpen(true)}>{t("skills.repositoryTitle")}</Button>

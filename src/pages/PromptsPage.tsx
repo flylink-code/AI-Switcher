@@ -176,6 +176,7 @@ export default function PromptsPage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={t("prompts.liveTitle")}
           extra={
             <Button
@@ -209,6 +210,7 @@ export default function PromptsPage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={t("prompts.presetsTitle")}
           extra={
             <Space>

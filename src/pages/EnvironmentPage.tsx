@@ -601,6 +601,7 @@ export default function EnvironmentPage() {
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Card
           size="small"
+          className="page-surface"
           title={t("env.doctorTitle")}
           extra={
             <Space size={8}>
@@ -654,6 +655,7 @@ export default function EnvironmentPage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={t("env.webSearchTitle")}
           extra={
             <Button size="small" onClick={() => void loadWebSearch()}>
@@ -697,7 +699,7 @@ export default function EnvironmentPage() {
               label: t("env.tabs.recovery"),
               children: (
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Card size="small" title={t("env.sections.recovery")} extra={<Space>
+        <Card size="small" className="page-surface" title={t("env.sections.recovery")} extra={<Space>
           <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
           <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
           <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
@@ -761,7 +763,7 @@ export default function EnvironmentPage() {
               label: t("env.tabs.sync"),
               children: (
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Card size="small" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
+        <Card size="small" className="page-surface" title={t("env.sections.sync")} extra={<Button size="small" onClick={() => { setSyncModalOpen(true); void discoverWsl(); }}>{t("env.addSyncTarget")}</Button>}>
           <OnboardingTip tipKey="environment_sync" message={t("env.syncDescription")} style={{ marginBottom: 12 }} />
           <List
             size="small"
@@ -776,7 +778,7 @@ export default function EnvironmentPage() {
         </Card>
 
         {db && (
-          <Card size="small" title={<><DatabaseOutlined /> {t("env.sections.db")}</>}>
+          <Card size="small" className="page-surface" title={<><DatabaseOutlined /> {t("env.sections.db")}</>}>
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label={t("env.fields.schemaVersion")}>
                 <Tag color="blue">v{db.schemaVersion}</Tag>
@@ -795,7 +797,7 @@ export default function EnvironmentPage() {
               label: t("env.tabs.system"),
               children: (
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Card size="small" title={t("env.sections.system")}>
+        <Card size="small" className="page-surface" title={t("env.sections.system")}>
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label={t("env.fields.autostart")}>
               <Select<AutostartMode>
@@ -848,7 +850,7 @@ export default function EnvironmentPage() {
         </Card>
 
         {paths && (
-          <Card size="small" title={t("env.sections.app")}>
+          <Card size="small" className="page-surface" title={t("env.sections.app")}>
             <Space direction="vertical" style={{ width: "100%" }}>
               <Text type="secondary">{t("env.dataRootDescription")}</Text>
               <Descriptions column={1} size="small" bordered>
@@ -946,14 +948,14 @@ export default function EnvironmentPage() {
       >
         {paths && (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <Card size="small" title={t("env.sections.home")}>
+            <Card size="small" className="page-surface" title={t("env.sections.home")}>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label={t("env.fields.home")}>
                   <PathValue value={paths.home} />
                 </Descriptions.Item>
               </Descriptions>
             </Card>
-            <Card size="small" title={t("env.sections.claude")}>
+            <Card size="small" className="page-surface" title={t("env.sections.claude")}>
               <Descriptions column={1} size="small" bordered>
                 {claudeRows.map((r) => (
                   <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
@@ -962,7 +964,7 @@ export default function EnvironmentPage() {
                 ))}
               </Descriptions>
             </Card>
-            <Card size="small" title={t("env.sections.claudeDesktop")}>
+            <Card size="small" className="page-surface" title={t("env.sections.claudeDesktop")}>
               <Descriptions column={1} size="small" bordered>
                 {desktopRows.map((r) => (
                   <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
@@ -971,7 +973,7 @@ export default function EnvironmentPage() {
                 ))}
               </Descriptions>
             </Card>
-            <Card size="small" title={t("env.sections.codex")}>
+            <Card size="small" className="page-surface" title={t("env.sections.codex")}>
               <Descriptions column={1} size="small" bordered>
                 {codexRows.map((r) => (
                   <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
@@ -980,7 +982,7 @@ export default function EnvironmentPage() {
                 ))}
               </Descriptions>
             </Card>
-            <Card size="small" title={t("env.sections.app")}>
+            <Card size="small" className="page-surface" title={t("env.sections.app")}>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label={t("env.fields.appConfigDir")}>
                   <PathValue value={paths.appConfigDir} />

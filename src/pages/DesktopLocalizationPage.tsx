@@ -140,6 +140,7 @@ export default function DesktopLocalizationPage() {
       />
       <Card
         size="small"
+        className="page-surface"
         title={t("env.localization.claudeCodeTitle")}
         extra={<Button size="small" icon={<ReloadOutlined spin={hubQuery.isFetching} />} disabled={busy} onClick={() => void hubQuery.refetch()}>{t("common.refresh")}</Button>}
       >
@@ -169,7 +170,7 @@ export default function DesktopLocalizationPage() {
           </Descriptions>
         )}
       </Card>
-      <Card size="small" title={t("env.localization.editorTitle")}>
+      <Card size="small" className="page-surface" title={t("env.localization.editorTitle")}>
         {hubQuery.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             {hubQuery.data?.editors.map((editor) => (
@@ -233,6 +234,7 @@ export default function DesktopLocalizationPage() {
       />
       <Card
         size="small"
+        className="page-surface"
         title={t("env.localization.title")}
         extra={
           <Button

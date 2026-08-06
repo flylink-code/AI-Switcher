@@ -321,7 +321,7 @@ export default function AboutPage() {
           description={t("about.description")}
         />
 
-        <Card size="small" title={t("about.appSection")}>
+        <Card size="small" className="page-surface" title={t("about.appSection")}>
           <Space direction="vertical" style={{ width: "100%" }}>
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label={t("about.appName")}>
@@ -374,6 +374,7 @@ export default function AboutPage() {
 
         <Card
           size="small"
+          className="page-surface"
           title={t("about.nodeRuntimeSection")}
           extra={
             <Button
@@ -582,6 +583,7 @@ function CliToolCard({
   return (
     <Card
       size="small"
+      className="page-surface"
       title={
         <Space>
           <CodeOutlined />

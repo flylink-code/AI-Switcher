@@ -494,7 +494,7 @@ export default function SessionsPage() {
         targets={["claude_code", "codex"]}
       />
 
-      <Card size="small">
+      <Card size="small" className="page-surface">
         <Space wrap>
           <Input
             allowClear
@@ -571,6 +571,7 @@ export default function SessionsPage() {
           <Col xs={24} lg={9}>
             <Card
               size="small"
+              className="page-surface"
               title={t("sessions.listTitle", { count: listTotal })}
               styles={{ body: { padding: 0, maxHeight: "62vh", overflow: "auto" } }}
             >
@@ -704,7 +705,7 @@ function SessionDetail({
   const { t } = useTranslation();
   if (!session) {
     return (
-      <Card style={{ minHeight: 480 }}>
+      <Card className="page-surface" style={{ minHeight: 480 }}>
         <Empty description={t("sessions.selectHint")} />
       </Card>
     );
@@ -719,6 +720,7 @@ function SessionDetail({
   return (
     <Card
       size="small"
+      className="page-surface"
       title={
         <Space>
           {session.pinned ? <Tag color="gold">{t("sessions.pinned")}</Tag> : null}

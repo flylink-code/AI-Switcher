@@ -204,6 +204,7 @@ export default function ProfilesPage() {
   return (
     <div>
       <Card
+        className="page-surface"
         title={t("profiles.title")}
         extra={
           <Space>

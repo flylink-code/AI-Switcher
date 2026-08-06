@@ -110,6 +110,7 @@ export default function CodexPluginsPage() {
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Card
+        className="page-surface"
         title={t("codexPlugins.marketplaceTitle")}
         extra={
           <Button icon={<ReloadOutlined />} loading={marketplaceBusy} onClick={() => void refreshMarketplaces()}>
@@ -174,6 +175,7 @@ export default function CodexPluginsPage() {
       </Card>
 
       <Card
+        className="page-surface"
         title={t("codexPlugins.title")}
         extra={
           <Button

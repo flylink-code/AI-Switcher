@@ -1,6 +1,16 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { Layout, Menu, Spin, Typography, theme } from "antd";
 import { useTranslation } from "react-i18next";
+import ControlOutlined from "@ant-design/icons/es/icons/ControlOutlined";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
+import ToolOutlined from "@ant-design/icons/es/icons/ToolOutlined";
+import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
+import BlockOutlined from "@ant-design/icons/es/icons/BlockOutlined";
+import HistoryOutlined from "@ant-design/icons/es/icons/HistoryOutlined";
+import TranslationOutlined from "@ant-design/icons/es/icons/TranslationOutlined";
+import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
+import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import {
   getLoadedPage,
   preloadPage,
@@ -26,6 +36,24 @@ const SETTINGS_PAGES: PageKey[] = [
   "environment",
   "about",
 ];
+
+const SETTINGS_ICONS: Record<PageKey, React.ReactNode> = {
+  profiles: <ControlOutlined />,
+  mcp: <ApiOutlined />,
+  prompts: <FileTextOutlined />,
+  skills: <ToolOutlined />,
+  agents: <RobotOutlined />,
+  codexPlugins: <BlockOutlined />,
+  sessions: <HistoryOutlined />,
+  localization: <TranslationOutlined />,
+  environment: <DesktopOutlined />,
+  about: <InfoCircleOutlined />,
+  workbench: null,
+  providers: null,
+  proxy: null,
+  usage: null,
+  settings: null,
+};
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -73,7 +101,11 @@ export default function SettingsPage() {
             mode="inline"
             selectedKeys={[effectiveKey]}
             onClick={({ key }) => setActiveKey(key as PageKey)}
-            items={visiblePages.map((key) => ({ key, label: t(`nav.${key}`) }))}
+            items={visiblePages.map((key) => ({
+              key,
+              icon: SETTINGS_ICONS[key],
+              label: t(`nav.${key}`),
+            }))}
             style={{ borderInlineEnd: "none", background: "transparent" }}
           />
         </Sider>

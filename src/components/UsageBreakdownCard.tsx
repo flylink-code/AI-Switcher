@@ -34,7 +34,7 @@ export function UsageBreakdownCard({
   const rows = maxRows && data.length > maxRows ? data.slice(0, maxRows) : data;
 
   return (
-    <Card size="small" title={title} loading={loading}>
+    <Card size="small" className="page-surface" title={title} loading={loading}>
       <Table
         size="small"
         pagination={false}
