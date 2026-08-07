@@ -88,8 +88,10 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
             .collect();
         if !declarations.is_empty() {
             request["tools"] = json!([{ "functionDeclarations": declarations }]);
+            // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects many
+            // Desktop tool schemas and can fail streamGenerateContent.
             request["toolConfig"] = json!({
-                "functionCallingConfig": { "mode": "VALIDATED" }
+                "functionCallingConfig": { "mode": "AUTO" }
             });
         }
     }
@@ -212,6 +214,14 @@ pub fn gemini_to_anthropic_response(model: &str, gemini: &Value) -> Value {
         content.push(json!({ "type": "text", "text": "" }));
     }
     let usage = usage_from_gemini(gemini);
+    let stop_reason = stop_reason.unwrap_or_else(|| {
+        if content.iter().any(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
+        {
+            "tool_use".into()
+        } else {
+            "end_turn".into()
+        }
+    });
     json!({
         "id": format!("msg_{}", Uuid::new_v4().simple()),
         "type": "message",
@@ -224,7 +234,13 @@ pub fn gemini_to_anthropic_response(model: &str, gemini: &Value) -> Value {
     })
 }
 
+/// Convert one Gemini stream chunk into Anthropic SSE events.
+///
+/// Only emits `message_delta` / `message_stop` when the chunk carries a real
+/// `finishReason`. Intermediate tokens must not close the stream — doing so
+/// breaks Claude Desktop (premature stop → client abort → apparent 502).
 pub fn gemini_to_anthropic_sse_chunk(model: &str, gemini_chunk: &Value) -> Vec<Value> {
+    let _ = model;
     let (text, tool_uses, stop_reason) = extract_assistant(gemini_chunk);
     let mut events = Vec::new();
     if !text.is_empty() {
@@ -234,22 +250,56 @@ pub fn gemini_to_anthropic_sse_chunk(model: &str, gemini_chunk: &Value) -> Vec<V
             "delta": { "type": "text_delta", "text": text }
         }));
     }
-    for (index, tool) in tool_uses.iter().enumerate() {
+    if !tool_uses.is_empty() {
+        // Anthropic requires closing the text block before tool_use blocks.
         events.push(json!({
-            "type": "content_block_start",
-            "index": index + 1,
-            "content_block": tool,
+            "type": "content_block_stop",
+            "index": 0
         }));
     }
-    if stop_reason != "null" && !stop_reason.is_empty() {
+    for (offset, tool) in tool_uses.iter().enumerate() {
+        let index = offset + 1;
+        let id = tool.get("id").cloned().unwrap_or(json!(format!("toolu_{index}")));
+        let name = tool.get("name").cloned().unwrap_or(json!("tool"));
+        let input = tool.get("input").cloned().unwrap_or(json!({}));
+        events.push(json!({
+            "type": "content_block_start",
+            "index": index,
+            "content_block": {
+                "type": "tool_use",
+                "id": id,
+                "name": name,
+                "input": {}
+            }
+        }));
+        if let Ok(serialized) = serde_json::to_string(&input) {
+            if serialized != "{}" {
+                events.push(json!({
+                    "type": "content_block_delta",
+                    "index": index,
+                    "delta": { "type": "input_json_delta", "partial_json": serialized }
+                }));
+            }
+        }
+        events.push(json!({
+            "type": "content_block_stop",
+            "index": index
+        }));
+    }
+    if let Some(stop_reason) = stop_reason {
         let usage = usage_from_gemini(gemini_chunk);
+        if tool_uses.is_empty() {
+            events.push(json!({
+                "type": "content_block_stop",
+                "index": 0
+            }));
+        }
         events.push(json!({
             "type": "message_delta",
             "delta": { "stop_reason": stop_reason, "stop_sequence": null },
             "usage": { "output_tokens": usage.get("output_tokens").cloned().unwrap_or(json!(0)) }
         }));
         events.push(json!({ "type": "message_stop" }));
-        let _ = model;
     }
     events
 }
@@ -278,10 +328,10 @@ pub fn anthropic_sse_content_block_start() -> Value {
     })
 }
 
-fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
+fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, Option<String>) {
     let mut text = String::new();
     let mut tools = Vec::new();
-    let mut stop_reason = "end_turn".to_string();
+    let mut stop_reason = None;
     let candidates = gemini
         .get("candidates")
         .and_then(Value::as_array)
@@ -294,6 +344,10 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
             .and_then(Value::as_array)
         {
             for part in parts {
+                // Skip model "thought" parts — not Anthropic wire content.
+                if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                    continue;
+                }
                 if let Some(chunk) = part.get("text").and_then(Value::as_str) {
                     text.push_str(chunk);
                 }
@@ -309,22 +363,23 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
                         "name": fc.get("name").cloned().unwrap_or(json!("tool")),
                         "input": fc.get("args").cloned().unwrap_or(json!({})),
                     }));
-                    stop_reason = "tool_use".into();
                 }
             }
         }
         if let Some(reason) = candidate.get("finishReason").and_then(Value::as_str) {
-            stop_reason = match reason {
-                "MAX_TOKENS" => "max_tokens".into(),
-                "STOP" | "FINISH_REASON_UNSPECIFIED" => {
-                    if tools.is_empty() {
-                        "end_turn".into()
-                    } else {
-                        "tool_use".into()
+            if !reason.is_empty() && reason != "FINISH_REASON_UNSPECIFIED" {
+                stop_reason = Some(match reason {
+                    "MAX_TOKENS" => "max_tokens".into(),
+                    "STOP" => {
+                        if tools.is_empty() {
+                            "end_turn".into()
+                        } else {
+                            "tool_use".into()
+                        }
                     }
-                }
-                other => other.to_ascii_lowercase(),
-            };
+                    other => other.to_ascii_lowercase(),
+                });
+            }
         }
     }
     (text, tools, stop_reason)
@@ -352,5 +407,36 @@ mod tests {
         let parts = anthropic_to_gemini_request(&body).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert_eq!(parts.request["contents"][0]["role"], "user");
+    }
+
+    #[test]
+    fn sse_chunk_without_finish_reason_does_not_stop_message() {
+        let chunk = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "Hello" }] }
+            }]
+        });
+        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0]["type"], "content_block_delta");
+        assert!(events.iter().all(|event| event["type"] != "message_stop"));
+    }
+
+    #[test]
+    fn sse_chunk_with_stop_emits_message_stop_once() {
+        let chunk = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "Hi" }] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": { "candidatesTokenCount": 1 }
+        });
+        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk);
+        let stops = events
+            .iter()
+            .filter(|event| event["type"] == "message_stop")
+            .count();
+        assert_eq!(stops, 1);
+        assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
     }
 }

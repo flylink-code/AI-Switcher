@@ -3,14 +3,11 @@
 //! Uses `fetchAvailableModels` + `retrieveUserQuotaSummary` with sandbox → daily → prod
 //! fallbacks. Does not vendor third-party Antigravity-Manager source.
 
-use std::time::Duration;
-
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
-use crate::system_proxy;
 
 const USER_AGENT: &str = "antigravity";
 
@@ -181,14 +178,7 @@ pub async fn fetch_quota(
     access_token: &str,
     cached_project_id: Option<&str>,
 ) -> AppResult<(QuotaSnapshot, Option<String>)> {
-    let client = system_proxy::apply_to_builder(
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(45))
-            .connect_timeout(Duration::from_secs(15))
-            .user_agent(USER_AGENT),
-    )
-    .build()
-    .map_err(|error| AppError::Other(format!("创建配额 HTTP 客户端失败: {error}")))?;
+    let client = crate::antigravity::outbound::build_async_client(15, 45);
 
     // Always call loadCodeAssist so subscription tier (paidTier) refreshes even when
     // project_id is already cached. Fall back to the cached project if meta omits it.

@@ -132,17 +132,24 @@ async fn dispatch_generation(
 
     for hop in 0..MAX_FAILOVER_HOPS {
         let selected = if hop == 0 {
-            state.pool.select(None, session_key.as_deref())
+            state.pool.select_async(None, session_key.as_deref()).await
         } else {
             let failed = exclude.last().cloned().unwrap_or_default();
             state
                 .pool
-                .rotate_after_failure(&failed, 429, session_key.as_deref(), &exclude)
+                .rotate_after_failure_async(&failed, 429, session_key.as_deref(), &exclude)
+                .await
         };
         let (access_token, account) = match selected {
             Ok(value) => value,
             Err(error) => {
-                last_error = error.to_string();
+                let message = error.to_string();
+                // Keep the real upstream/token error when failover only ran out of accounts.
+                if hop == 0 || last_error == "upstream failed" {
+                    last_error = message;
+                } else {
+                    last_error = format!("{last_error}；{message}");
+                }
                 break;
             }
         };
@@ -159,7 +166,7 @@ async fn dispatch_generation(
             Ok(value) => value,
             Err(error) => {
                 last_error = error;
-                let _ = account_store().mark_cooldown(&account.id, 120, &last_error);
+                let _ = account_store().mark_cooldown(&account.id, 45, &last_error);
                 continue;
             }
         };
@@ -173,26 +180,36 @@ async fn dispatch_generation(
             Ok(response) => response,
             Err(error) => {
                 last_error = error.to_string();
-                let _ = account_store().mark_cooldown(&account.id, 60, &last_error);
+                let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
                 continue;
             }
         };
 
         let status = upstream.status();
         if matches!(status.as_u16(), 401 | 403 | 429) {
-            last_error = format!("upstream {status}");
-            let _ = state.pool.rotate_after_failure(
-                &account.id,
-                status.as_u16(),
-                session_key.as_deref(),
-                &exclude,
-            );
+            let text = upstream.text().await.unwrap_or_default();
+            let detail = text.trim();
+            last_error = if detail.is_empty() {
+                format!("upstream {status}")
+            } else {
+                let clipped: String = detail.chars().take(240).collect();
+                format!("upstream {status}: {clipped}")
+            };
+            let _ = state
+                .pool
+                .rotate_after_failure_async(
+                    &account.id,
+                    status.as_u16(),
+                    session_key.as_deref(),
+                    &exclude,
+                )
+                .await;
             continue;
         }
         if !status.is_success() {
             let text = upstream.text().await.unwrap_or_default();
             last_error = format!("upstream {status}: {text}");
-            let _ = account_store().mark_cooldown(&account.id, 30, &last_error);
+            let _ = account_store().mark_cooldown(&account.id, 15, &last_error);
             continue;
         }
 
@@ -205,6 +222,7 @@ async fn dispatch_generation(
             started,
             protocol.is_anthropic(),
             stream,
+            None,
             None,
         );
         if stream {
@@ -240,6 +258,7 @@ async fn dispatch_generation(
         };
     }
 
+    let clipped_error: String = last_error.chars().take(400).collect();
     let _ = usage_log::insert_request(
         &state.db,
         exclude.last().map(String::as_str),
@@ -249,8 +268,9 @@ async fn dispatch_generation(
         protocol.is_anthropic(),
         stream,
         Some("upstream"),
+        Some(&clipped_error),
     );
-    error_json(StatusCode::BAD_GATEWAY, &last_error)
+    error_json(StatusCode::BAD_GATEWAY, &clipped_error)
 }
 
 async fn ensure_project_id(
@@ -288,6 +308,7 @@ async fn stream_response(
             protocol,
             started: false,
             finished: false,
+            closed: false,
             db,
             log_id,
             account_id,
@@ -336,6 +357,8 @@ struct StreamState {
     protocol: Protocol,
     started: bool,
     finished: bool,
+    /// True after Anthropic `message_stop` was emitted (avoid double-close).
+    closed: bool,
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
@@ -395,6 +418,9 @@ impl StreamState {
                     out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
                 }
                 for event in gemini_to_anthropic_sse_chunk(&self.model, &gemini) {
+                    if event.get("type").and_then(Value::as_str) == Some("message_stop") {
+                        self.closed = true;
+                    }
                     out.extend_from_slice(&sse_data(&event));
                 }
                 if out.is_empty() {
@@ -411,24 +437,31 @@ impl StreamState {
         match self.protocol {
             Protocol::OpenAi => Bytes::from("data: [DONE]\n\n"),
             Protocol::Anthropic => {
-                if self.started {
+                if self.closed {
                     return Bytes::new();
                 }
-                self.started = true;
                 let mut out = Vec::new();
-                out.extend_from_slice(&sse_data(&anthropic_sse_message_start(&self.model)));
-                out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
+                if !self.started {
+                    self.started = true;
+                    out.extend_from_slice(&sse_data(&anthropic_sse_message_start(&self.model)));
+                    out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
+                    out.extend_from_slice(&sse_data(&json!({
+                        "type": "content_block_delta",
+                        "index": 0,
+                        "delta": { "type": "text_delta", "text": "" }
+                    })));
+                }
                 out.extend_from_slice(&sse_data(&json!({
-                    "type": "content_block_delta",
-                    "index": 0,
-                    "delta": { "type": "text_delta", "text": "" }
+                    "type": "content_block_stop",
+                    "index": 0
                 })));
                 out.extend_from_slice(&sse_data(&json!({
                     "type": "message_delta",
                     "delta": { "stop_reason": "end_turn", "stop_sequence": null },
-                    "usage": { "output_tokens": 0 }
+                    "usage": { "output_tokens": self.last_output }
                 })));
                 out.extend_from_slice(&sse_data(&json!({ "type": "message_stop" })));
+                self.closed = true;
                 Bytes::from(out)
             }
         }

@@ -5,6 +5,7 @@ import {
   Card,
   Input,
   InputNumber,
+  Select,
   Space,
   Table,
   Tag,
@@ -23,11 +24,13 @@ import {
   getAntigravityGatewayStatus,
   importAntigravityAccounts,
   listAntigravityAccounts,
+  listAntigravityModels,
   refreshAntigravityQuotas,
   removeAntigravityAccount,
   setAntigravityActiveAccount,
   setAntigravityGatewayApiKey,
   setAntigravityGatewayPort,
+  setAntigravityOutboundProxy,
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
@@ -61,6 +64,10 @@ export default function AntigravityPage() {
   const [importJson, setImportJson] = useState("");
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [apiKeyDraft, setApiKeyDraft] = useState<string | null>(null);
+  const [outboundModeDraft, setOutboundModeDraft] = useState<
+    "direct" | "system" | "custom" | null
+  >(null);
+  const [outboundUrlDraft, setOutboundUrlDraft] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
@@ -71,15 +78,31 @@ export default function AntigravityPage() {
     queryFn: getAntigravityGatewayStatus,
     refetchInterval: 5_000,
   });
+  const modelsQuery = useQuery({
+    queryKey: ["antigravity-models"],
+    queryFn: listAntigravityModels,
+  });
 
   const status = statusQuery.data;
   const port = portDraft ?? status?.port ?? 15830;
   const apiKey = apiKeyDraft ?? status?.apiKey ?? "";
+  const outboundMode =
+    outboundModeDraft ??
+    (status?.outboundMode === "direct" || status?.outboundMode === "system"
+      ? status.outboundMode
+      : "custom");
+  const outboundUrl =
+    outboundUrlDraft ?? status?.outboundProxyUrl ?? "socks5://127.0.0.1:17891";
+  const sampleModel =
+    modelsQuery.data?.find((model) => model.id === "claude-sonnet-4-6")?.id ??
+    modelsQuery.data?.[0]?.id ??
+    "claude-sonnet-4-6";
 
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["antigravity-accounts"] }),
       queryClient.invalidateQueries({ queryKey: ["antigravity-gateway"] }),
+      queryClient.invalidateQueries({ queryKey: ["antigravity-models"] }),
     ]);
   };
 
@@ -110,12 +133,28 @@ export default function AntigravityPage() {
       if (apiKeyDraft != null && apiKeyDraft.trim()) {
         await setAntigravityGatewayApiKey(apiKeyDraft.trim());
       }
+      if (outboundModeDraft != null || outboundUrlDraft != null) {
+        await setAntigravityOutboundProxy(outboundMode, outboundUrl);
+      }
       return startAntigravityGateway(port);
     },
     onSuccess: async () => {
       message.success(t("antigravity.started"));
       setPortDraft(null);
       setApiKeyDraft(null);
+      setOutboundModeDraft(null);
+      setOutboundUrlDraft(null);
+      await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error)),
+  });
+
+  const outboundMutation = useMutation({
+    mutationFn: () => setAntigravityOutboundProxy(outboundMode, outboundUrl),
+    onSuccess: async () => {
+      message.success(t("antigravity.outboundSaved"));
+      setOutboundModeDraft(null);
+      setOutboundUrlDraft(null);
       await refresh();
     },
     onError: (error: unknown) => message.error(errMsg(error)),
@@ -135,6 +174,7 @@ export default function AntigravityPage() {
     onSuccess: async () => {
       message.success(t("antigravity.providerReady"));
       await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["providers"] });
     },
     onError: (error: unknown) => message.error(errMsg(error)),
   });
@@ -151,8 +191,8 @@ export default function AntigravityPage() {
   const curlSnippet = useMemo(() => {
     const base = status?.baseUrl ?? `http://127.0.0.1:${port}`;
     const key = apiKey || "sk-ai-switcher-antigravity";
-    return `curl -s ${base}/v1/messages \\\n  -H "x-api-key: ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"claude-sonnet-4-6","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'`;
-  }, [apiKey, port, status?.baseUrl]);
+    return `curl -s ${base}/v1/messages \\\n  -H "x-api-key: ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"${sampleModel}","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'`;
+  }, [apiKey, port, sampleModel, status?.baseUrl]);
 
   const columns = [
     {
@@ -297,6 +337,40 @@ export default function AntigravityPage() {
               addonBefore="API Key"
             />
           </Space>
+          <Space direction="vertical" size={8} style={{ width: "100%" }}>
+            <Text type="secondary">{t("antigravity.outboundHint")}</Text>
+            <Space wrap>
+              <Select
+                style={{ minWidth: 200 }}
+                value={outboundMode}
+                onChange={(value) => setOutboundModeDraft(value)}
+                options={[
+                  { value: "custom", label: t("antigravity.outboundCustom") },
+                  { value: "direct", label: t("antigravity.outboundDirect") },
+                  { value: "system", label: t("antigravity.outboundSystem") },
+                ]}
+              />
+              <Input
+                style={{ width: 280 }}
+                disabled={outboundMode !== "custom"}
+                value={outboundUrl}
+                onChange={(event) => setOutboundUrlDraft(event.target.value)}
+                placeholder="socks5://127.0.0.1:17891"
+                addonBefore={t("antigravity.outboundProxy")}
+              />
+              <Button
+                loading={outboundMutation.isPending}
+                onClick={() => outboundMutation.mutate()}
+              >
+                {t("antigravity.outboundSave")}
+              </Button>
+            </Space>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("antigravity.outboundEffective", {
+                value: status?.effectiveOutboundProxy || t("antigravity.outboundNone"),
+              })}
+            </Text>
+          </Space>
           <Space wrap>
             <Button
               type="primary"
@@ -330,6 +404,23 @@ export default function AntigravityPage() {
           <Paragraph>
             <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{curlSnippet}</pre>
           </Paragraph>
+        </Space>
+      </Card>
+
+      <Card title={t("antigravity.models")} size="small">
+        <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Text type="secondary">{t("antigravity.modelsHint")}</Text>
+          {(modelsQuery.data?.length ?? 0) === 0 ? (
+            <Text type="secondary">{t("antigravity.modelsEmpty")}</Text>
+          ) : (
+            <Space wrap size={[4, 4]}>
+              {(modelsQuery.data ?? []).map((model) => (
+                <Tag key={model.id} color={model.id.startsWith("gemini") ? "blue" : "purple"}>
+                  {model.displayName?.trim() || model.id}
+                </Tag>
+              ))}
+            </Space>
+          )}
         </Space>
       </Card>
 

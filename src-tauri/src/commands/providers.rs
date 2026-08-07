@@ -295,6 +295,9 @@ pub async fn discover_provider_models(
     })?;
     let key = state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id))?;
     let Some(key) = key else {
+        if uses_antigravity_model_catalog(&provider) {
+            return discover_provider_models_with_key(&provider, String::new(), &state, true).await;
+        }
         return cached_or_empty_model_result(
             &provider.id,
             "供应商未配置 API Key",
@@ -339,11 +342,47 @@ async fn discover_provider_models_with_key(
     cache_result: bool,
 ) -> AppResult<ModelDiscoveryResult> {
     let checked_at = Utc::now().timestamp_millis();
+
+    // Built-in / local Antigravity gateway: serve the live Cloud Code catalog.
+    // Avoid HTTP /v1/models against loopback — system proxies (Clash etc.) often
+    // return HTTP 502 for 127.0.0.1, and the gateway may not be running yet while
+    // the user is still filling the provider form.
+    if uses_antigravity_model_catalog(provider) {
+        let models = antigravity_catalog_model_ids();
+        if models.is_empty() {
+            let error = "Antigravity 暂无可用模型，请先在网关页登录账号并刷新额度".to_string();
+            return if cache_result {
+                cached_or_empty_model_result(&provider.id, &error, state)
+            } else {
+                Ok(ModelDiscoveryResult {
+                    models: Vec::new(),
+                    message: error.clone(),
+                    checked_at,
+                    source: "none".to_string(),
+                    stale: false,
+                    expires_at: None,
+                    error: Some(error),
+                })
+            };
+        }
+        if cache_result {
+            state.db.with_conn(|conn| {
+                dao::save_provider_model_cache(conn, &provider.id, &models, checked_at)
+            })?;
+        }
+        return Ok(ModelDiscoveryResult {
+            models,
+            message: "已从 Antigravity Cloud Code 目录加载模型".to_string(),
+            checked_at,
+            source: "antigravity".to_string(),
+            stale: false,
+            expires_at: cache_result.then_some(checked_at + MODEL_CACHE_TTL_MS),
+            error: None,
+        });
+    }
+
     let url = api_endpoint_url(&provider.base_url, "/v1/models")?;
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| AppError::Other(format!("创建连接测试客户端失败: {e}")))?;
+    let client = discovery_http_client(&url)?;
     let response = client
         .get(url)
         .header(header::AUTHORIZATION, format!("Bearer {key}"))
@@ -401,6 +440,55 @@ async fn discover_provider_models_with_key(
             error: Some(error),
         }),
     }
+}
+
+fn uses_antigravity_model_catalog(provider: &Provider) -> bool {
+    provider.is_antigravity() || is_antigravity_gateway_base_url(&provider.base_url)
+}
+
+fn is_antigravity_gateway_base_url(base_url: &str) -> bool {
+    let Ok(normalized) = normalize_base_url(base_url) else {
+        return false;
+    };
+    let lower = normalized.to_ascii_lowercase();
+    let without_scheme = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .unwrap_or(lower.as_str());
+    let host_port = without_scheme.split('/').next().unwrap_or("");
+    matches!(
+        host_port,
+        "127.0.0.1:15830"
+            | "localhost:15830"
+            | "[::1]:15830"
+            | "127.0.0.1:8045"
+            | "localhost:8045"
+            | "[::1]:8045"
+    )
+}
+
+fn antigravity_catalog_model_ids() -> Vec<String> {
+    // Seed from persisted account quotas when the in-memory catalog is cold.
+    let _ = crate::antigravity::list_accounts();
+    crate::antigravity::list_model_ids()
+}
+
+fn discovery_http_client(url: &str) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15));
+    if url_targets_loopback(url) {
+        // Clash/system proxy often 502s loopback API probes.
+        builder = builder.no_proxy();
+    }
+    builder
+        .build()
+        .map_err(|e| AppError::Other(format!("创建连接测试客户端失败: {e}")))
+}
+
+fn url_targets_loopback(url: &str) -> bool {
+    let lower = url.trim().to_ascii_lowercase();
+    lower.contains("://127.0.0.1")
+        || lower.contains("://localhost")
+        || lower.contains("://[::1]")
 }
 
 fn cached_or_empty_model_result(
@@ -1453,13 +1541,11 @@ async fn test_provider_with_key(
 ) -> AppResult<ConnectionTestResult> {
     let checked_at = Utc::now().timestamp_millis();
     let result = if !key.trim().is_empty() && !provider.model.trim().is_empty() {
-            let client = reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(15))
-                .build()
-                .map_err(|e| AppError::Other(format!("创建连接测试客户端失败: {e}")))?;
             let (endpoint, payload) = protocol_test_request(provider);
+            let endpoint_url = api_endpoint_url(&provider.base_url, endpoint)?;
+            let client = discovery_http_client(&endpoint_url)?;
             let mut request = client
-                .post(api_endpoint_url(&provider.base_url, endpoint)?)
+                .post(endpoint_url)
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {key}"))
                 .header("x-api-key", key);
@@ -1469,7 +1555,7 @@ async fn test_provider_with_key(
             let started = std::time::Instant::now();
             let response = request.body(serde_json::to_vec(&payload)?).send().await;
             let latency_ms = Some(started.elapsed().as_millis() as u64);
-            classify_test_response(response, checked_at, provider.protocol_type, latency_ms)
+            classify_test_response(response, checked_at, provider.protocol_type, latency_ms).await
     } else if key.trim().is_empty() {
         ConnectionTestResult { ok: false, category: "authentication".to_string(), message: "供应商未配置 API Key".to_string(), checked_at, latency_ms: None }
     } else {
@@ -1533,7 +1619,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
     })
 }
 
-fn classify_test_response(
+async fn classify_test_response(
     response: Result<reqwest::Response, reqwest::Error>,
     checked_at: i64,
     protocol: ProtocolType,
@@ -1552,16 +1638,25 @@ fn classify_test_response(
         },
         Ok(response) => {
             let status = response.status().as_u16();
+            let body = response.text().await.unwrap_or_default();
+            let detail = extract_upstream_error_detail(&body);
             let (category, message) = match status {
-                401 | 403 => ("authentication", "API Key 被拒绝"),
-                404 | 405 => ("protocol", protocol_endpoint_message(protocol)),
-                400 | 422 => ("model", "模型不可用或不兼容"),
-                _ => ("upstream", "上游服务返回错误"),
+                401 | 403 => ("authentication", "API Key 被拒绝".to_string()),
+                404 | 405 => ("protocol", protocol_endpoint_message(protocol).to_string()),
+                400 | 422 => ("model", "模型不可用或不兼容".to_string()),
+                _ => (
+                    "upstream",
+                    if detail.is_empty() {
+                        format!("上游服务返回错误（HTTP {status}）")
+                    } else {
+                        format!("上游服务返回错误（HTTP {status}）：{detail}")
+                    },
+                ),
             };
             ConnectionTestResult {
                 ok: false,
                 category: category.to_string(),
-                message: message.to_string(),
+                message,
                 checked_at,
                 latency_ms,
             }
@@ -1573,13 +1668,46 @@ fn classify_test_response(
             checked_at,
             latency_ms,
         },
-        Err(_) => ConnectionTestResult {
+        Err(error) => ConnectionTestResult {
             ok: false,
             category: "network".to_string(),
-            message: "无法连接供应商服务".to_string(),
+            message: format!(
+                "无法连接供应商服务（{}）",
+                sanitize_network_error(&error)
+            ),
             checked_at,
             latency_ms,
         },
+    }
+}
+
+fn extract_upstream_error_detail(body: &str) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+        if let Some(message) = value
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .or_else(|| value.get("message").and_then(Value::as_str))
+        {
+            let message = message.trim();
+            if !message.is_empty() {
+                return truncate_chars(message, 180);
+            }
+        }
+    }
+    truncate_chars(trimmed, 120)
+}
+
+fn truncate_chars(value: &str, max: usize) -> String {
+    let count = value.chars().count();
+    if count <= max {
+        value.to_string()
+    } else {
+        let truncated: String = value.chars().take(max).collect();
+        format!("{truncated}…")
     }
 }
 
@@ -1677,6 +1805,17 @@ mod tests {
                 "model-z".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn antigravity_gateway_urls_use_local_catalog() {
+        assert!(is_antigravity_gateway_base_url("http://127.0.0.1:15830"));
+        assert!(is_antigravity_gateway_base_url("http://127.0.0.1:15830/"));
+        assert!(is_antigravity_gateway_base_url("http://localhost:15830/v1"));
+        assert!(is_antigravity_gateway_base_url("http://127.0.0.1:8045"));
+        assert!(!is_antigravity_gateway_base_url("https://api.anthropic.com"));
+        assert!(url_targets_loopback("http://127.0.0.1:15830/v1/models"));
+        assert!(!url_targets_loopback("https://api.deepseek.com/v1/models"));
     }
 
     #[test]

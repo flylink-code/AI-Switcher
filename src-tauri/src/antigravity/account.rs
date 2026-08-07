@@ -3,7 +3,6 @@
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
 
 use chrono::Utc;
 use reqwest::blocking::Client;
@@ -157,7 +156,7 @@ struct StoredAccounts {
 }
 
 pub struct AccountStore {
-    client: Client,
+    client: Mutex<Client>,
     inner: Mutex<StoredAccounts>,
 }
 
@@ -172,32 +171,61 @@ fn accounts_path() -> PathBuf {
 
 impl AccountStore {
     fn new() -> Self {
-        let client = crate::system_proxy::apply_to_builder(
-            Client::builder()
-                .timeout(Duration::from_secs(30))
-                .user_agent("ai-switcher-antigravity"),
-        )
-        .build()
-        .expect("antigravity oauth http client");
+        let client = crate::antigravity::outbound::build_blocking_client(30);
         let inner = load_accounts().unwrap_or_default();
         Self {
-            client,
+            client: Mutex::new(client),
             inner: Mutex::new(inner),
         }
     }
 
+    fn lock_accounts(&self) -> std::sync::MutexGuard<'_, StoredAccounts> {
+        match self.inner.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                log::error!(
+                    "Antigravity account store mutex was poisoned; recovering inner state"
+                );
+                poisoned.into_inner()
+            }
+        }
+    }
+
+    fn lock_http_client(&self) -> std::sync::MutexGuard<'_, Client> {
+        match self.client.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                log::error!(
+                    "Antigravity account HTTP client mutex was poisoned; recovering"
+                );
+                poisoned.into_inner()
+            }
+        }
+    }
+
+    pub fn reload_http_client(&self) {
+        *self.lock_http_client() = crate::antigravity::outbound::build_blocking_client(30);
+    }
+
     pub fn list_public(&self) -> AppResult<Vec<AntigravityAccountPublic>> {
-        let guard = self.inner.lock().map_err(|_| lock_err())?;
+        let guard = self.lock_accounts();
+        crate::antigravity::model_catalog::seed_from_accounts(
+            guard
+                .accounts
+                .iter()
+                .filter_map(|account| account.quota.as_ref())
+                .flat_map(|quota| quota.models.clone()),
+        );
         Ok(guard.accounts.iter().map(AntigravityAccountPublic::from).collect())
     }
 
     pub fn list_accounts(&self) -> AppResult<Vec<AntigravityAccount>> {
-        let guard = self.inner.lock().map_err(|_| lock_err())?;
+        let guard = self.lock_accounts();
         Ok(guard.accounts.clone())
     }
 
     pub fn remove_account(&self, account_id: &str) -> AppResult<()> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let before = guard.accounts.len();
         guard.accounts.retain(|account| account.id != account_id);
         if guard.accounts.len() == before {
@@ -213,7 +241,7 @@ impl AccountStore {
     }
 
     pub fn set_active_account(&self, account_id: &str) -> AppResult<()> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         if !guard.accounts.iter().any(|account| account.id == account_id) {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         }
@@ -240,7 +268,7 @@ impl AccountStore {
     }
 
     pub fn upsert_account(&self, mut account: AntigravityAccount) -> AppResult<AntigravityAccountPublic> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let existing_index = guard
             .accounts
             .iter()
@@ -272,7 +300,7 @@ impl AccountStore {
     }
 
     pub fn mark_cooldown(&self, account_id: &str, seconds: i64, reason: &str) -> AppResult<()> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Ok(());
         };
@@ -286,8 +314,34 @@ impl AccountStore {
         Ok(())
     }
 
+    pub fn clear_cooldown(&self, account_id: &str) -> AppResult<()> {
+        let mut guard = self.lock_accounts();
+        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
+            return Ok(());
+        };
+        if account.cooldown_until.take().is_some() {
+            persist(&guard)?;
+        }
+        Ok(())
+    }
+
+    /// Drop cooldowns for every account (used when starting the gateway / binding Desktop).
+    pub fn clear_all_cooldowns(&self) -> AppResult<()> {
+        let mut guard = self.lock_accounts();
+        let mut changed = false;
+        for account in &mut guard.accounts {
+            if account.cooldown_until.take().is_some() {
+                changed = true;
+            }
+        }
+        if changed {
+            persist(&guard)?;
+        }
+        Ok(())
+    }
+
     pub fn mark_success(&self, account_id: &str) -> AppResult<()> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Ok(());
         };
@@ -299,7 +353,7 @@ impl AccountStore {
     }
 
     pub fn update_project_id(&self, account_id: &str, project_id: &str) -> AppResult<()> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Ok(());
         };
@@ -314,7 +368,7 @@ impl AccountStore {
         quota: QuotaSnapshot,
         project_id: Option<String>,
     ) -> AppResult<AntigravityAccountPublic> {
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         };
@@ -326,6 +380,9 @@ impl AccountStore {
             account.health_score = (account.health_score * 0.5).max(0.05);
         }
         account.quota = Some(quota);
+        if let Some(snapshot) = account.quota.as_ref() {
+            crate::antigravity::model_catalog::update_from_quota_models(&snapshot.models);
+        }
         let public = AntigravityAccountPublic::from(&*account);
         persist(&guard)?;
         Ok(public)
@@ -334,7 +391,7 @@ impl AccountStore {
     /// Return a usable access token, refreshing when close to expiry.
     pub fn ensure_access_token(&self, account_id: &str) -> AppResult<(String, AntigravityAccount)> {
         let snapshot = {
-            let guard = self.inner.lock().map_err(|_| lock_err())?;
+            let guard = self.lock_accounts();
             guard
                 .accounts
                 .iter()
@@ -356,7 +413,7 @@ impl AccountStore {
             return Ok((snapshot.token.access_token.clone(), snapshot));
         }
         let refreshed = self.refresh_token(&snapshot.token.refresh_token)?;
-        let mut guard = self.inner.lock().map_err(|_| lock_err())?;
+        let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         };
@@ -374,8 +431,8 @@ impl AccountStore {
     }
 
     fn refresh_token(&self, refresh_token: &str) -> AppResult<TokenRefreshResponse> {
-        let response = self
-            .client
+        let client = self.lock_http_client().clone();
+        let response = client
             .post(TOKEN_URL)
             .form(&[
                 ("client_id", OAUTH_CLIENT_ID),
@@ -462,10 +519,6 @@ fn persist(stored: &StoredAccounts) -> AppResult<()> {
     let raw = serde_json::to_string_pretty(stored)
         .map_err(|error| AppError::Other(format!("序列化账号失败: {error}")))?;
     crate::config::atomic_write(&path, raw.as_bytes())
-}
-
-fn lock_err() -> AppError {
-    AppError::Other("Antigravity 账号锁不可用".into())
 }
 
 fn parse_import_payload(value: &Value) -> AppResult<Vec<AntigravityAccount>> {

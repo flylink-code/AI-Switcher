@@ -36,10 +36,11 @@ pub use agents::{
 };
 pub use antigravity::{
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
-    import_antigravity_accounts, list_antigravity_accounts, refresh_antigravity_account_quota,
-    refresh_antigravity_quotas, remove_antigravity_account, set_antigravity_active_account,
-    set_antigravity_gateway_api_key, set_antigravity_gateway_port, start_antigravity_gateway,
-    start_antigravity_oauth_login, stop_antigravity_gateway,
+    import_antigravity_accounts, list_antigravity_accounts, list_antigravity_models,
+    refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
+    set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
+    set_antigravity_outbound_proxy, start_antigravity_gateway, start_antigravity_oauth_login,
+    stop_antigravity_gateway,
 };
 pub use codex::{
     get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,

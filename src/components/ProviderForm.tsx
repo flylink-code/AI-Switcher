@@ -27,6 +27,7 @@ import type {
 import {
   discoverProviderModels,
   discoverProviderModelsInput,
+  getAntigravityDefaults,
   getAntigravityGatewayStatus,
   getCachedProviderModels,
   testProviderInput,
@@ -418,21 +419,53 @@ export function ProviderForm({
     setModels([...new Set([preset.model, ...(preset.failoverModels ?? [])])]);
     setModelResult(null);
 
-    if (isBuiltinAg) {
-      void getAntigravityGatewayStatus()
-        .then((status) => {
-          const baseUrl =
-            preset.id === "antigravity-builtin-codex"
-              ? `${status.baseUrl.replace(/\/$/, "")}/v1`
-              : status.baseUrl;
+    if (isBuiltinAg || isAgPreset) {
+      void getAntigravityDefaults()
+        .then((defaults) => {
+          const liveIds = (defaults.models ?? []).map((model) => model.id).filter(Boolean);
+          const defaultModel = defaults.defaultModel?.trim() || preset.model;
+          const flash = defaults.geminiFlash ?? "gemini-3-flash";
+          const pro = defaults.geminiPro ?? "gemini-3.1-pro-high";
+          const failover = liveIds.filter((id) => id !== defaultModel);
+          const baseUrl = isBuiltinAg
+            ? preset.id === "antigravity-builtin-codex"
+              ? `${String(defaults.baseUrl || "http://127.0.0.1:15830").replace(/\/$/, "")}/v1`
+              : String(defaults.baseUrl || "http://127.0.0.1:15830")
+            : preset.baseUrl;
           form.setFieldsValue({
-            baseUrl,
-            apiKey: status.apiKey,
-            providerKind: "antigravity",
+            baseUrl: isBuiltinAg ? baseUrl : preset.baseUrl,
+            apiKey: isBuiltinAg ? defaults.apiKey : form.getFieldValue("apiKey"),
+            providerKind: isBuiltinAg ? "antigravity" : form.getFieldValue("providerKind"),
+            model: defaultModel,
+            failoverModels: failover.length > 0 ? failover : preset.failoverModels ?? [],
+            modelMapping: isCodex
+              ? { ...EMPTY_MODEL_MAPPING }
+              : mappingFromAntigravityPreset(defaultModel, target, {
+                  geminiFlash: flash,
+                  geminiPro: pro,
+                }),
           });
+          prevModelRef.current = defaultModel;
+          setModels([...new Set([defaultModel, ...failover, ...(preset.failoverModels ?? [])])]);
         })
         .catch(() => {
-          // Keep preset defaults when gateway status is unavailable.
+          if (isBuiltinAg) {
+            void getAntigravityGatewayStatus()
+              .then((status) => {
+                const baseUrl =
+                  preset.id === "antigravity-builtin-codex"
+                    ? `${status.baseUrl.replace(/\/$/, "")}/v1`
+                    : status.baseUrl;
+                form.setFieldsValue({
+                  baseUrl,
+                  apiKey: status.apiKey,
+                  providerKind: "antigravity",
+                });
+              })
+              .catch(() => {
+                // Keep preset defaults when gateway status is unavailable.
+              });
+          }
         });
     }
   };

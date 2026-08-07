@@ -224,14 +224,7 @@ struct ExchangedToken {
 }
 
 async fn exchange_code(code: &str, redirect_uri: &str) -> AppResult<ExchangedToken> {
-    let client = crate::system_proxy::apply_to_builder(
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .connect_timeout(Duration::from_secs(15))
-            .user_agent("ai-switcher-antigravity"),
-    )
-    .build()
-    .map_err(|error| AppError::Other(format!("创建 HTTP 客户端失败: {error}")))?;
+    let client = crate::antigravity::outbound::build_async_client(15, 30);
     let response = client
         .post(TOKEN_URL)
         .form(&[
@@ -244,9 +237,11 @@ async fn exchange_code(code: &str, redirect_uri: &str) -> AppResult<ExchangedTok
         .send()
         .await
         .map_err(|error| {
+            let proxy = crate::antigravity::outbound::current_effective_proxy()
+                .or_else(crate::system_proxy::outbound_proxy_url)
+                .unwrap_or_else(|| "未配置".into());
             AppError::Other(format!(
-                "兑换授权码失败: {error}。若浏览器能打开 Google 但应用失败，请检查系统代理（当前检测：{}）",
-                crate::system_proxy::outbound_proxy_url().unwrap_or("未配置")
+                "兑换授权码失败: {error}。若浏览器能打开 Google 但应用失败，请检查 Antigravity 出站代理（当前：{proxy}）"
             ))
         })?;
     let status = response.status();
@@ -285,14 +280,7 @@ async fn exchange_code(code: &str, redirect_uri: &str) -> AppResult<ExchangedTok
 }
 
 async fn fetch_userinfo(access_token: &str) -> AppResult<(String, Option<String>)> {
-    let client = crate::system_proxy::apply_to_builder(
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(20))
-            .connect_timeout(Duration::from_secs(15))
-            .user_agent("ai-switcher-antigravity"),
-    )
-    .build()
-    .map_err(|error| AppError::Other(format!("创建 HTTP 客户端失败: {error}")))?;
+    let client = crate::antigravity::outbound::build_async_client(15, 20);
     let response = client
         .get(USERINFO_URL)
         .bearer_auth(access_token)

@@ -168,18 +168,24 @@ export function presetsForTarget(target: ProviderTarget): ProviderPreset[] {
   return PROVIDER_PRESETS.filter((preset) => preset.targets.includes(target));
 }
 
-/** Claude Code/Desktop role slots for Antigravity: keep Sonnet/Opus on Claude, put Gemini on Haiku. */
 export function mappingFromAntigravityPreset(
   defaultModel: string,
   target: ProviderTarget,
+  options?: {
+    geminiFlash?: string | null;
+    geminiPro?: string | null;
+    opus?: string | null;
+  },
 ): ClaudeModelMapping {
   const sonnet = defaultModel.trim() || "claude-sonnet-4-6";
+  const flash = options?.geminiFlash?.trim() || "gemini-3-flash";
+  const opus = options?.opus?.trim() || "claude-opus-4-6-thinking";
   return {
     sonnet,
-    opus: "claude-opus-4-6-thinking",
-    haiku: "gemini-3-flash",
+    opus,
+    haiku: flash,
     fable: sonnet,
-    subagent: target === "claude_code" ? "gemini-3-flash" : "",
+    subagent: target === "claude_code" ? flash : "",
   };
 }
 

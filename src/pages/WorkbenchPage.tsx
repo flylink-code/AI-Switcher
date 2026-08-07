@@ -71,6 +71,9 @@ export default function WorkbenchPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [batchTesting, setBatchTesting] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importConfirming, setImportConfirming] = useState(false);
 
@@ -116,7 +119,7 @@ export default function WorkbenchPage() {
   };
 
   const handleSubmit = async (input: ProviderInput) => {
-    setBusy(true);
+    // Do not flip the shared card `busy` flag — that made every Switch button spin.
     try {
       if (editing) {
         await store.update(input);
@@ -128,8 +131,7 @@ export default function WorkbenchPage() {
       setFormOpen(false);
     } catch (e) {
       void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
+      throw e;
     }
   };
 
@@ -138,7 +140,7 @@ export default function WorkbenchPage() {
       void message.warning(t("providers.missingKey"));
       return;
     }
-    setBusy(true);
+    setSwitchingId(provider.id);
     try {
       const result = await store.switchTo(provider.id);
       void message.success(t("providers.switched", { name: provider.name }));
@@ -146,24 +148,24 @@ export default function WorkbenchPage() {
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
-      setBusy(false);
+      setSwitchingId(null);
     }
   };
 
   const handleOfficial = async () => {
-    setBusy(true);
+    setSwitchingId("official");
     try {
       await store.useOfficial();
       void message.success(t("providers.switchedOfficial"));
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
-      setBusy(false);
+      setSwitchingId(null);
     }
   };
 
   const handleTest = async (provider: Provider) => {
-    setBusy(true);
+    setTestingId(provider.id);
     try {
       const result = await testProviderConnection(provider.id);
       const notify = result.ok ? message.success : message.error;
@@ -187,28 +189,43 @@ export default function WorkbenchPage() {
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
-      setBusy(false);
+      setTestingId(null);
     }
   };
 
   const handleSpeedtestAll = async () => {
-    setBusy(true);
+    setBatchTesting(true);
     try {
       let count = 0;
       for (const p of store.providers) {
         try {
           const res = await speedtestProviderEndpoint(p.id);
           if (res.ok) count++;
+          useProvidersStore.setState((state) => ({
+            providers: state.providers.map((item) =>
+              item.id === p.id
+                ? {
+                    ...item,
+                    healthLatencyMs: res.latencyMs ?? item.healthLatencyMs ?? null,
+                  }
+                : item,
+            ),
+          }));
         } catch {
           // ignore individual errors during batch test
         }
       }
-      await store.load(target);
-      void message.success(t("providers.testConnectionDone", { defaultValue: `已完成 ${store.providers.length} 个供应商连通性测试` }));
+      void message.success(
+        t("providers.speedtestAllDone", {
+          defaultValue: `已完成 ${store.providers.length} 个供应商测速（成功 ${count}）`,
+          total: store.providers.length,
+          ok: count,
+        }),
+      );
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
-      setBusy(false);
+      setBatchTesting(false);
     }
   };
 
@@ -343,8 +360,12 @@ export default function WorkbenchPage() {
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t("providers.create")}
           </Button>
-          <Button icon={<ThunderboltOutlined />} loading={busy} onClick={() => void handleSpeedtestAll()}>
-            {t("providers.testConnection")}
+          <Button
+            icon={<ThunderboltOutlined />}
+            loading={batchTesting}
+            onClick={() => void handleSpeedtestAll()}
+          >
+            {t("providers.speedtestAll")}
           </Button>
           <Dropdown menu={{ items: importExportItems }}>
             <Button icon={<ImportOutlined />}>
@@ -379,7 +400,7 @@ export default function WorkbenchPage() {
             </div>
             <div className="cc-provider-actions">
               {!officialCurrent && (
-                <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={busy} onClick={() => void handleOfficial()}>
+                <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={switchingId === "official"} onClick={() => void handleOfficial()}>
                   {t("providers.switchTo")}
                 </Button>
               )}
@@ -409,7 +430,10 @@ export default function WorkbenchPage() {
                         </Tag>
                       )}
                       {provider.healthStatus && provider.healthLatencyMs != null && (
-                        <Tag color="success" style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
+                        <Tag
+                          color={provider.healthStatus === "healthy" ? "success" : "error"}
+                          style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
+                        >
                           {provider.healthLatencyMs}ms
                         </Tag>
                       )}
@@ -431,7 +455,7 @@ export default function WorkbenchPage() {
                       type="primary"
                       size="middle"
                       style={{ borderRadius: 8 }}
-                      loading={busy}
+                      loading={switchingId === provider.id}
                       onClick={() => void handleSwitch(provider)}
                     >
                       {t("providers.switchTo")}
@@ -442,6 +466,7 @@ export default function WorkbenchPage() {
                       <Button
                         size="middle"
                         type="text"
+                        loading={testingId === provider.id}
                         icon={<ThunderboltOutlined />}
                         onClick={() => void handleTest(provider)}
                       />

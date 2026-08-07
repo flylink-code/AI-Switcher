@@ -3,16 +3,13 @@
 //! Browser OAuth can succeed while Rust `reqwest` fails when the machine only
 //! reaches Google through the Windows system proxy (common with local VPN clients).
 
-use std::sync::OnceLock;
-
 use log::{info, warn};
 use reqwest::Proxy;
 
 /// Best-effort proxy URL for outbound HTTPS (e.g. `http://127.0.0.1:17891`).
-pub fn outbound_proxy_url() -> Option<&'static str> {
-    static URL: OnceLock<Option<String>> = OnceLock::new();
-    URL.get_or_init(detect_outbound_proxy)
-        .as_deref()
+/// Result is re-detected on each call so Clash toggling is picked up.
+pub fn outbound_proxy_url() -> Option<String> {
+    detect_outbound_proxy()
 }
 
 /// Attach the detected system proxy to a reqwest client builder (async or blocking).
@@ -21,7 +18,7 @@ where
     T: ProxyConfigurable,
 {
     if let Some(url) = outbound_proxy_url() {
-        match Proxy::all(url) {
+        match Proxy::all(&url) {
             Ok(proxy) => {
                 info!("Outbound HTTP client using system proxy: {url}");
                 builder = builder.with_proxy(proxy);
@@ -29,6 +26,23 @@ where
             Err(error) => {
                 warn!("Invalid system proxy URL `{url}`: {error}");
             }
+        }
+    }
+    builder
+}
+
+/// Attach an explicit proxy URL (already normalized, e.g. `http://127.0.0.1:17891`).
+pub fn apply_proxy_url<T>(mut builder: T, url: &str) -> T
+where
+    T: ProxyConfigurable,
+{
+    match Proxy::all(url) {
+        Ok(proxy) => {
+            info!("Outbound HTTP client using configured proxy: {url}");
+            builder = builder.with_proxy(proxy);
+        }
+        Err(error) => {
+            warn!("Invalid configured proxy URL `{url}`: {error}");
         }
     }
     builder

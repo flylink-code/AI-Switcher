@@ -37,9 +37,17 @@ pub fn insert_request(
     is_anthropic: bool,
     is_stream: bool,
     error_category: Option<&str>,
+    diagnostic: Option<&str>,
 ) -> Option<String> {
     let duration_ms = started.elapsed().as_millis() as i64;
     let model = model.trim();
+    let diagnostic = diagnostic
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            let clipped: String = value.chars().take(400).collect();
+            clipped
+        });
     match db.with_conn(|conn| {
         insert_proxy_log(
             conn,
@@ -53,7 +61,7 @@ pub fn insert_request(
             Some(route_for(is_anthropic)),
             is_stream,
             error_category,
-            error_category,
+            diagnostic.as_deref().or(error_category),
         )
     }) {
         Ok(id) => {

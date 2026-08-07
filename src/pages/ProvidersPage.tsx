@@ -117,7 +117,7 @@ export default function ProvidersPage() {
   };
 
   const handleSubmit = async (input: ProviderInput) => {
-    setBusy(true);
+    // Keep card actions usable; do not set global `busy` (it freezes every row).
     try {
       if (editing) {
         await store.update(input);
@@ -129,7 +129,8 @@ export default function ProvidersPage() {
       setFormOpen(false);
     } catch (e) {
       void message.error(errMsg(e));
-    } finally { setBusy(false); }
+      throw e;
+    }
   };
 
   const handleSwitch = async (provider: Provider) => {

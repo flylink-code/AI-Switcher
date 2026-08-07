@@ -1,7 +1,7 @@
 //! Multi-account selection with sticky sessions and cooldown rotation.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
 use uuid::Uuid;
@@ -9,8 +9,8 @@ use uuid::Uuid;
 use super::account::{store, AntigravityAccount};
 use crate::error::{AppError, AppResult};
 
-const DEFAULT_COOLDOWN_SECS: i64 = 60;
-const AUTH_COOLDOWN_SECS: i64 = 300;
+const DEFAULT_COOLDOWN_SECS: i64 = 20;
+const AUTH_COOLDOWN_SECS: i64 = 120;
 
 pub struct AccountPool {
     sticky: Mutex<HashMap<String, String>>,
@@ -23,6 +23,42 @@ impl AccountPool {
         }
     }
 
+    /// Async entry for gateway handlers. Token refresh uses reqwest::blocking and
+    /// must not run on the Tokio worker (it panics / drops the connection).
+    pub async fn select_async(
+        self: &Arc<Self>,
+        preferred_account_id: Option<&str>,
+        session_key: Option<&str>,
+    ) -> AppResult<(String, AntigravityAccount)> {
+        let pool = Arc::clone(self);
+        let preferred = preferred_account_id.map(str::to_owned);
+        let session = session_key.map(str::to_owned);
+        tokio::task::spawn_blocking(move || {
+            pool.select(preferred.as_deref(), session.as_deref())
+        })
+        .await
+        .map_err(|error| AppError::Other(format!("Antigravity 账号选择任务失败: {error}")))?
+    }
+
+    /// See [`Self::select_async`].
+    pub async fn rotate_after_failure_async(
+        self: &Arc<Self>,
+        failed_account_id: &str,
+        status: u16,
+        session_key: Option<&str>,
+        exclude: &[String],
+    ) -> AppResult<(String, AntigravityAccount)> {
+        let pool = Arc::clone(self);
+        let failed = failed_account_id.to_owned();
+        let session = session_key.map(str::to_owned);
+        let exclude = exclude.to_vec();
+        tokio::task::spawn_blocking(move || {
+            pool.rotate_after_failure(&failed, status, session.as_deref(), &exclude)
+        })
+        .await
+        .map_err(|error| AppError::Other(format!("Antigravity 账号轮换任务失败: {error}")))?
+    }
+
     pub fn select(
         &self,
         preferred_account_id: Option<&str>,
@@ -31,13 +67,23 @@ impl AccountPool {
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
         let mut candidates: Vec<_> = accounts
-            .into_iter()
+            .iter()
             .filter(|account| account_is_schedulable(account, now))
+            .cloned()
             .collect();
         if candidates.is_empty() {
-            return Err(AppError::Config(
-                "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into(),
-            ));
+            // Desktop health probes + short upstream blips can cool every account
+            // at once. Prefer a soft retry over hard-failing with "no accounts".
+            if let Some(soft) = soft_select_cooled_account(&accounts, now) {
+                log::warn!(
+                    "Antigravity pool: all accounts cooling; soft-selecting {}",
+                    soft.email
+                );
+                let _ = store().clear_cooldown(&soft.id);
+                candidates.push(soft);
+            } else {
+                return Err(AppError::Other(explain_unavailable(&accounts, now)));
+            }
         }
 
         if let Some(session) = session_key.filter(|value| !value.is_empty()) {
@@ -96,15 +142,34 @@ impl AccountPool {
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
         let mut candidates: Vec<_> = accounts
-            .into_iter()
+            .iter()
             .filter(|account| account.id != failed_account_id)
             .filter(|account| !exclude.contains(&account.id))
             .filter(|account| account_is_schedulable(account, now))
+            .cloned()
             .collect();
         if candidates.is_empty() {
-            return Err(AppError::Config(
-                "账号池已耗尽，没有可轮换的 Antigravity 账号".into(),
-            ));
+            let remaining: Vec<_> = accounts
+                .iter()
+                .filter(|account| account.id != failed_account_id)
+                .filter(|account| !exclude.contains(&account.id))
+                .cloned()
+                .collect();
+            if remaining.is_empty() {
+                return Err(AppError::Other(
+                    "Antigravity 已尝试所有可用账号，上游均失败".into(),
+                ));
+            }
+            if let Some(soft) = soft_select_cooled_account(&remaining, now) {
+                log::warn!(
+                    "Antigravity pool rotate: soft-selecting cooled {}",
+                    soft.email
+                );
+                let _ = store().clear_cooldown(&soft.id);
+                candidates.push(soft);
+            } else {
+                return Err(AppError::Other(explain_unavailable(&remaining, now)));
+            }
         }
         sort_candidates_best_first(&mut candidates);
         let account = &candidates[0];
@@ -155,6 +220,84 @@ fn account_is_schedulable(account: &AntigravityAccount, now: i64) -> bool {
     true
 }
 
+/// When every otherwise-healthy account is only blocked by cooldown, pick the
+/// one that cools down soonest so Desktop probes are not bricked for a full window.
+fn soft_select_cooled_account(
+    accounts: &[AntigravityAccount],
+    now: i64,
+) -> Option<AntigravityAccount> {
+    let non_disabled: Vec<&AntigravityAccount> =
+        accounts.iter().filter(|account| !account.disabled).collect();
+    if non_disabled.is_empty() {
+        return None;
+    }
+    let all_cooling = non_disabled.iter().all(|account| {
+        account.cooldown_until.is_some_and(|until| until > now)
+            && account
+                .quota
+                .as_ref()
+                .map(|quota| quota.has_usable_quota())
+                .unwrap_or(true)
+    });
+    if !all_cooling {
+        return None;
+    }
+    let mut cooled: Vec<&AntigravityAccount> = non_disabled
+        .into_iter()
+        .filter(|account| {
+            account
+                .quota
+                .as_ref()
+                .map(|quota| quota.has_usable_quota())
+                .unwrap_or(true)
+        })
+        .collect();
+    cooled.sort_by_key(|account| account.cooldown_until.unwrap_or(0));
+    cooled.first().map(|account| (*account).clone())
+}
+
+fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
+    if accounts.is_empty() {
+        return "没有可用的 Antigravity 账号（请先在网关页登录或导入）".into();
+    }
+    let disabled = accounts.iter().filter(|account| account.disabled).count();
+    let cooling = accounts
+        .iter()
+        .filter(|account| {
+            !account.disabled && account.cooldown_until.is_some_and(|until| until > now)
+        })
+        .count();
+    let quota_out = accounts
+        .iter()
+        .filter(|account| {
+            !account.disabled
+                && account
+                    .quota
+                    .as_ref()
+                    .is_some_and(|quota| !quota.has_usable_quota())
+        })
+        .count();
+    let max_cool_rem = accounts
+        .iter()
+        .filter_map(|account| account.cooldown_until)
+        .filter(|until| *until > now)
+        .map(|until| until - now)
+        .max()
+        .unwrap_or(0);
+    if cooling > 0 && disabled + quota_out + cooling >= accounts.len() {
+        return format!(
+            "Antigravity 账号冷却中（约 {max_cool_rem}s 后可重试；也可在网关页刷新额度）"
+        );
+    }
+    if quota_out > 0 && disabled + quota_out >= accounts.len() {
+        return "Antigravity 账号额度已耗尽（请等待重置或切换账号）".into();
+    }
+    if disabled == accounts.len() {
+        return "Antigravity 账号均已禁用（请重新登录）".into();
+    }
+    "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into()
+}
+
 fn sort_candidates_best_first(candidates: &mut [AntigravityAccount]) {
     candidates.sort_by(|left, right| {
         right
@@ -168,4 +311,59 @@ fn sort_candidates_best_first(candidates: &mut [AntigravityAccount]) {
                     .cmp(&left.remaining_quota.unwrap_or(0))
             })
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::antigravity::account::AntigravityToken;
+    use crate::antigravity::quota::QuotaSnapshot;
+
+    fn sample(id: &str, cooldown_until: Option<i64>) -> AntigravityAccount {
+        AntigravityAccount {
+            id: id.into(),
+            email: format!("{id}@example.com"),
+            name: None,
+            token: AntigravityToken {
+                access_token: "a".into(),
+                refresh_token: "r".into(),
+                expires_in: 3600,
+                expiry_timestamp: Utc::now().timestamp() + 3600,
+                token_type: "Bearer".into(),
+                email: None,
+                project_id: Some("p".into()),
+                session_id: None,
+            },
+            is_active: id == "a1",
+            created_at: 0,
+            last_used: 0,
+            health_score: 1.0,
+            disabled: false,
+            disabled_reason: None,
+            cooldown_until,
+            remaining_quota: Some(100),
+            quota: Some(QuotaSnapshot {
+                last_updated: Utc::now().timestamp(),
+                ..QuotaSnapshot::default()
+            }),
+        }
+    }
+
+    #[test]
+    fn soft_selects_when_all_accounts_cooling() {
+        let now = Utc::now().timestamp();
+        let accounts = vec![
+            sample("a1", Some(now + 30)),
+            sample("a2", Some(now + 10)),
+        ];
+        let soft = soft_select_cooled_account(&accounts, now).expect("soft");
+        assert_eq!(soft.id, "a2");
+    }
+
+    #[test]
+    fn no_soft_select_when_one_is_ready() {
+        let now = Utc::now().timestamp();
+        let accounts = vec![sample("a1", Some(now + 30)), sample("a2", None)];
+        assert!(soft_select_cooled_account(&accounts, now).is_none());
+    }
 }

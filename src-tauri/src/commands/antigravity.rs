@@ -4,8 +4,9 @@ use crate::antigravity::account::store as account_store;
 use crate::antigravity::quota::fetch_quota;
 use crate::antigravity::{
     gateway_status, import_accounts_json, list_accounts, login_with_browser, remove_account,
-    set_active_account, set_gateway_api_key, set_gateway_port, start_gateway, stop_gateway,
-    AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_GATEWAY_PORT,
+    set_active_account, set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway,
+    stop_gateway, AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
+    DEFAULT_GATEWAY_PORT,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -55,6 +56,19 @@ pub fn set_antigravity_gateway_port(port: u16) -> AppResult<()> {
 #[tauri::command]
 pub fn set_antigravity_gateway_api_key(api_key: String) -> AppResult<()> {
     set_gateway_api_key(api_key)
+}
+
+#[tauri::command]
+pub fn set_antigravity_outbound_proxy(
+    mode: String,
+    proxy_url: Option<String>,
+) -> AppResult<AntigravityGatewayStatus> {
+    set_outbound_proxy(
+        &mode,
+        proxy_url
+            .as_deref()
+            .unwrap_or(DEFAULT_CLASH_PROXY_URL),
+    )
 }
 
 #[tauri::command]
@@ -143,9 +157,23 @@ pub async fn ensure_antigravity_provider(
             .find(|provider| provider.provider_kind == ProviderKind::Antigravity))
     })?;
 
+    // Warm catalog from persisted quotas before binding provider models.
+    let _ = list_accounts();
     let default_model = model
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+        .unwrap_or_else(crate::antigravity::model_catalog::preferred_default_model);
+    let gemini_flash = crate::antigravity::model_catalog::preferred_gemini_flash()
+        .unwrap_or_else(|| "gemini-3-flash".into());
+    let gemini_pro = crate::antigravity::model_catalog::preferred_gemini_pro()
+        .unwrap_or_else(|| "gemini-3.1-pro-high".into());
+    let claude_opus = crate::antigravity::model_catalog::preferred_claude_opus()
+        .unwrap_or_else(|| "claude-opus-4-6-thinking".into());
+    let suggestions = crate::antigravity::model_catalog::provider_suggestion_ids(16);
+    let failover_models: Vec<String> = suggestions
+        .into_iter()
+        .filter(|id| id != &default_model)
+        .collect();
+
     let (protocol_type, base_url, model_mapping) = match target {
         ProviderTarget::Codex => (
             ProtocolType::OpenAiChat,
@@ -157,11 +185,11 @@ pub async fn ensure_antigravity_provider(
             status.base_url.clone(),
             ClaudeModelMapping {
                 sonnet: default_model.clone(),
-                opus: "claude-opus-4-6-thinking".into(),
-                haiku: "gemini-3-flash".into(),
+                opus: claude_opus.clone(),
+                haiku: gemini_flash.clone(),
                 fable: default_model.clone(),
                 subagent: if target == ProviderTarget::ClaudeCode {
-                    "gemini-3-flash".into()
+                    gemini_flash.clone()
                 } else {
                     String::new()
                 },
@@ -188,23 +216,25 @@ pub async fn ensure_antigravity_provider(
         provider_kind: ProviderKind::Antigravity,
         auth_binding: String::new(),
         target_app: target,
-        notes: "Built-in Antigravity account gateway (Haiku → gemini-3-flash)".to_string(),
+        notes: format!(
+            "Built-in Antigravity gateway (live catalog; Haiku→{gemini_flash}, Pro hint→{gemini_pro})"
+        ),
         failover_group: 0,
-        failover_models: vec![
-            "gemini-3-flash".into(),
-            "gemini-3.1-pro-high".into(),
-            "claude-opus-4-6-thinking".into(),
-            "claude-sonnet-4-6-thinking".into(),
-            "gemini-2.5-flash".into(),
-            "gemini-2.5-pro".into(),
-        ],
+        failover_models,
     };
 
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
 }
 
 #[tauri::command]
+pub fn list_antigravity_models() -> AppResult<Vec<crate::antigravity::CatalogModel>> {
+    let _ = list_accounts();
+    Ok(crate::antigravity::list_catalog_models())
+}
+
+#[tauri::command]
 pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
+    let _ = list_accounts();
     let status = gateway_status()?;
     Ok(serde_json::json!({
         "defaultPort": DEFAULT_GATEWAY_PORT,
@@ -213,6 +243,10 @@ pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
         "baseUrl": status.base_url,
         "apiKey": status.api_key,
         "running": status.running,
+        "models": crate::antigravity::list_catalog_models(),
+        "defaultModel": crate::antigravity::model_catalog::preferred_default_model(),
+        "geminiFlash": crate::antigravity::model_catalog::preferred_gemini_flash(),
+        "geminiPro": crate::antigravity::model_catalog::preferred_gemini_pro(),
     }))
 }
 
@@ -224,6 +258,9 @@ pub async fn ensure_gateway_running_for_provider(provider: &Provider) -> AppResu
     let status = gateway_status()?;
     if !status.running {
         start_gateway(None).await?;
+    } else {
+        // Binding Desktop/Code after a failed probe cascade should not stay bricked.
+        let _ = crate::antigravity::account::store().clear_all_cooldowns();
     }
     Ok(())
 }

@@ -8,7 +8,9 @@
 pub mod account;
 pub mod gateway;
 pub mod map;
+pub mod model_catalog;
 pub mod oauth;
+pub mod outbound;
 pub mod pool;
 pub mod quota;
 pub mod upstream;
@@ -19,9 +21,11 @@ pub use account::{
     AntigravityAccountPublic,
 };
 pub use gateway::{
-    gateway_status, set_gateway_api_key, set_gateway_port, start_gateway, stop_gateway,
-    AntigravityGatewayStatus, DEFAULT_GATEWAY_PORT,
+    gateway_status, restore_gateway_if_enabled, set_gateway_api_key, set_gateway_port,
+    set_outbound_proxy, start_gateway, stop_gateway, AntigravityGatewayStatus, DEFAULT_GATEWAY_PORT,
 };
 pub use oauth::login_with_browser;
+pub use model_catalog::{list_catalog_models, list_model_ids, CatalogModel};
+pub use outbound::DEFAULT_CLASH_PROXY_URL;
 pub use pool::AccountPool;
 pub use quota::QuotaSnapshot;

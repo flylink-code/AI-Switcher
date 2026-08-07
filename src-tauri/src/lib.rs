@@ -51,10 +51,11 @@ use crate::commands::{
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
-    import_antigravity_accounts, list_antigravity_accounts, refresh_antigravity_account_quota,
-    refresh_antigravity_quotas, remove_antigravity_account,
+    import_antigravity_accounts, list_antigravity_accounts, list_antigravity_models,
+    refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
     set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
-    start_antigravity_gateway, start_antigravity_oauth_login, stop_antigravity_gateway,
+    set_antigravity_outbound_proxy, start_antigravity_gateway, start_antigravity_oauth_login,
+    stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
@@ -234,12 +235,14 @@ pub fn run() {
             set_proxy_retryable_status_codes,
             set_proxy_streaming_idle_timeout_secs,
             list_antigravity_accounts,
+            list_antigravity_models,
             import_antigravity_accounts,
             remove_antigravity_account,
             set_antigravity_active_account,
             get_antigravity_gateway_status,
             set_antigravity_gateway_port,
             set_antigravity_gateway_api_key,
+            set_antigravity_outbound_proxy,
             start_antigravity_gateway,
             start_antigravity_oauth_login,
             stop_antigravity_gateway,
@@ -456,6 +459,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             proxy_started.elapsed().as_millis(),
             background_started.elapsed().as_millis()
         );
+        crate::antigravity::gateway::restore_gateway_if_enabled().await;
         // Post-update NSIS relaunch can still leave ports busy after the first
         // pass; recover Codex routing + proxy binding a few seconds later.
         let recover_handle = app_handle.clone();

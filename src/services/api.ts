@@ -327,6 +327,9 @@ export interface AntigravityGatewayStatus {
   apiKey: string;
   accountCount: number;
   baseUrl: string;
+  outboundMode?: string;
+  outboundProxyUrl?: string;
+  effectiveOutboundProxy?: string | null;
 }
 
 export interface AntigravityDefaults {
@@ -336,11 +339,25 @@ export interface AntigravityDefaults {
   baseUrl: string;
   apiKey: string;
   running: boolean;
+  models?: AntigravityCatalogModel[];
+  defaultModel?: string;
+  geminiFlash?: string | null;
+  geminiPro?: string | null;
+}
+
+export interface AntigravityCatalogModel {
+  id: string;
+  displayName?: string | null;
 }
 
 export async function listAntigravityAccounts(): Promise<AntigravityAccountPublic[]> {
   const invoke = await getInvoke();
   return invoke<AntigravityAccountPublic[]>("list_antigravity_accounts");
+}
+
+export async function listAntigravityModels(): Promise<AntigravityCatalogModel[]> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityCatalogModel[]>("list_antigravity_models");
 }
 
 export async function importAntigravityAccounts(json: string): Promise<number> {
@@ -376,6 +393,17 @@ export async function setAntigravityGatewayPort(port: number): Promise<void> {
 export async function setAntigravityGatewayApiKey(apiKey: string): Promise<void> {
   const invoke = await getInvoke();
   await invoke("set_antigravity_gateway_api_key", { apiKey });
+}
+
+export async function setAntigravityOutboundProxy(
+  mode: "direct" | "system" | "custom",
+  proxyUrl?: string,
+): Promise<AntigravityGatewayStatus> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityGatewayStatus>("set_antigravity_outbound_proxy", {
+    mode,
+    proxyUrl: proxyUrl ?? null,
+  });
 }
 
 export async function startAntigravityGateway(
