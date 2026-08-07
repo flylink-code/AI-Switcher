@@ -77,7 +77,7 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
                 let description = tool.get("description").cloned().unwrap_or(json!(""));
                 let parameters = tool
                     .get("input_schema")
-                    .cloned()
+                    .map(|schema| sanitize_schema(schema, 0))
                     .unwrap_or_else(|| json!({ "type": "object", "properties": {} }));
                 Some(json!({
                     "name": name,
@@ -101,6 +101,153 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
         request,
         stream,
     })
+}
+
+/// Whitelist-based recursive cleaner for Anthropic `input_schema` → Gemini
+/// function `parameters`. Gemini's Schema proto rejects JSON Schema fields it
+/// doesn't know (`$schema`, `additionalProperties`, `propertyNames`, `format`,
+/// `default`, validation keywords, ...) with a 400, so we keep only the subset
+/// Cloud Code accepts and normalize unions / type arrays.
+fn sanitize_schema(schema: &Value, depth: usize) -> Value {
+    const MAX_DEPTH: usize = 10;
+    const ALLOWED_KEYS: [&str; 8] = [
+        "type",
+        "description",
+        "properties",
+        "required",
+        "items",
+        "enum",
+        "title",
+        "nullable",
+    ];
+    let Value::Object(source) = schema else {
+        // Gemini requires every schema node to be an object; degrade bare
+        // booleans / nulls (legal in JSON Schema) to a generic object.
+        return empty_object_schema();
+    };
+    if depth > MAX_DEPTH {
+        return empty_object_schema();
+    }
+
+    let mut map = source.clone();
+
+    // Resolve union keywords: allOf merges every branch; anyOf/oneOf pick the
+    // richest non-null branch. Branches are cleaned when merged below.
+    if let Some(Value::Array(branches)) = map.remove("allOf") {
+        for branch in branches {
+            if let Value::Object(branch) = branch {
+                for (k, v) in branch {
+                    map.entry(k).or_insert(v);
+                }
+            }
+        }
+    }
+    for key in ["anyOf", "oneOf"] {
+        if let Some(Value::Array(branches)) = map.remove(key) {
+            let mut best: Option<serde_json::Map<String, Value>> = None;
+            for branch in branches {
+                if let Value::Object(branch) = branch {
+                    if branch.get("type").and_then(Value::as_str) == Some("null") {
+                        continue;
+                    }
+                    if best.as_ref().map_or(true, |current| branch.len() > current.len()) {
+                        best = Some(branch);
+                    }
+                }
+            }
+            if let Some(branch) = best {
+                for (k, v) in branch {
+                    map.entry(k).or_insert(v);
+                }
+            }
+        }
+    }
+
+    // Normalize `type`: ["string", "null"] → "string".
+    match map.get("type") {
+        Some(Value::Array(options)) => {
+            let chosen = options
+                .iter()
+                .filter_map(Value::as_str)
+                .find(|t| *t != "null")
+                .unwrap_or("string")
+                .to_string();
+            map.insert("type".into(), json!(chosen));
+        }
+        Some(Value::String(_)) => {}
+        Some(_) => {
+            map.remove("type");
+        }
+        None => {}
+    }
+
+    if let Some(Value::Object(props)) = map.get_mut("properties") {
+        let keys: Vec<String> = props.keys().cloned().collect();
+        for key in keys {
+            if let Some(value) = props.remove(&key) {
+                if value.is_object() {
+                    props.insert(key, sanitize_schema(&value, depth + 1));
+                }
+            }
+        }
+    }
+
+    match map.get("items") {
+        Some(items) if items.is_object() => {
+            let items = items.clone();
+            map.insert("items".into(), sanitize_schema(&items, depth + 1));
+        }
+        Some(_) => {
+            map.remove("items");
+        }
+        None => {}
+    }
+
+    // Only keep fields Gemini understands (also drops $schema, propertyNames,
+    // additionalProperties, format, default, min*/max*, pattern, ...).
+    map.retain(|key, _| ALLOWED_KEYS.contains(&key.as_str()));
+
+    // `required` must reference surviving properties.
+    let kept_required: Option<Vec<Value>> = match (map.get("required"), map.get("properties")) {
+        (Some(Value::Array(required)), Some(Value::Object(props))) => Some(
+            required
+                .iter()
+                .filter(|name| {
+                    name.as_str()
+                        .map(|s| props.contains_key(s))
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect(),
+        ),
+        _ => None,
+    };
+    match kept_required {
+        Some(kept) if kept.is_empty() => {
+            map.remove("required");
+        }
+        Some(kept) => {
+            map.insert("required".into(), Value::Array(kept));
+        }
+        None if map.contains_key("required") && !map.contains_key("properties") => {
+            map.remove("required");
+        }
+        None => {}
+    }
+
+    if map.get("type").and_then(Value::as_str) == Some("object") && !map.contains_key("properties")
+    {
+        map.insert("properties".into(), json!({}));
+    }
+    if map.get("description").map(|d| !d.is_string()).unwrap_or(false) {
+        map.remove("description");
+    }
+
+    Value::Object(map)
+}
+
+fn empty_object_schema() -> Value {
+    json!({ "type": "object", "properties": {} })
 }
 
 fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
@@ -438,5 +585,45 @@ mod tests {
             .count();
         assert_eq!(stops, 1);
         assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
+    }
+
+    #[test]
+    fn tool_parameters_are_sanitized_for_gemini() {
+        let body = json!({
+            "model": "claude-sonnet-4-5",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{
+                "name": "read_file",
+                "description": "Read a file",
+                "input_schema": {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "propertyNames": { "pattern": "^[a-z_]+$" },
+                    "properties": {
+                        "path": { "type": "string", "format": "uri", "default": "." },
+                        "mode": { "type": ["string", "null"], "enum": ["a", "b"] },
+                        "options": {
+                            "anyOf": [{ "type": "null" }, { "type": "object", "properties": { "verbose": { "type": "boolean", "minimum": 1 } } }]
+                        }
+                    },
+                    "required": ["path", "missing_prop"]
+                }
+            }]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let params = &parts.request["tools"][0]["functionDeclarations"][0]["parameters"];
+        assert!(params.get("$schema").is_none());
+        assert!(params.get("additionalProperties").is_none());
+        assert!(params.get("propertyNames").is_none());
+        assert_eq!(params["properties"]["path"].get("format"), None);
+        assert_eq!(params["properties"]["path"].get("default"), None);
+        assert_eq!(params["properties"]["mode"]["type"], json!("string"));
+        assert_eq!(params["properties"]["options"]["type"], json!("object"));
+        assert!(params["properties"]["options"]["properties"]["verbose"]
+            .get("minimum")
+            .is_none());
+        assert_eq!(params["required"], json!(["path"]));
     }
 }

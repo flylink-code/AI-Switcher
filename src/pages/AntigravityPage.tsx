@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   ensureAntigravityProvider,
+  getAntigravityDefaults,
   getAntigravityGatewayStatus,
   importAntigravityAccounts,
   listAntigravityAccounts,
@@ -31,6 +32,7 @@ import {
   setAntigravityGatewayApiKey,
   setAntigravityGatewayPort,
   setAntigravityOutboundProxy,
+  setAntigravityReasoningLevel,
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
@@ -81,6 +83,10 @@ export default function AntigravityPage() {
   const modelsQuery = useQuery({
     queryKey: ["antigravity-models"],
     queryFn: listAntigravityModels,
+  });
+  const defaultsQuery = useQuery({
+    queryKey: ["antigravity-defaults"],
+    queryFn: getAntigravityDefaults,
   });
 
   const status = statusQuery.data;
@@ -156,6 +162,19 @@ export default function AntigravityPage() {
       setOutboundModeDraft(null);
       setOutboundUrlDraft(null);
       await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error)),
+  });
+
+  const reasoningLevel =
+    (defaultsQuery.data?.reasoningLevel as "low" | "medium" | "high" | null | undefined) ??
+    null;
+  const levelMutation = useMutation({
+    mutationFn: (level: "low" | "medium" | "high" | null) =>
+      setAntigravityReasoningLevel(level),
+    onSuccess: async () => {
+      message.success(t("antigravity.reasoningLevelSaved"));
+      await queryClient.invalidateQueries({ queryKey: ["antigravity-defaults"] });
     },
     onError: (error: unknown) => message.error(errMsg(error)),
   });
@@ -410,6 +429,26 @@ export default function AntigravityPage() {
       <Card title={t("antigravity.models")} size="small">
         <Space direction="vertical" style={{ width: "100%" }} size={8}>
           <Text type="secondary">{t("antigravity.modelsHint")}</Text>
+          <Space wrap>
+            <Text>{t("antigravity.reasoningLevel")}</Text>
+            <Select
+              style={{ minWidth: 180 }}
+              loading={defaultsQuery.isLoading || levelMutation.isPending}
+              value={reasoningLevel ?? ""}
+              onChange={(value) =>
+                levelMutation.mutate(value === "" ? null : (value as "low" | "medium" | "high"))
+              }
+              options={[
+                { value: "", label: t("antigravity.reasoningLevelAuto") },
+                { value: "low", label: t("antigravity.reasoningLevelLow") },
+                { value: "medium", label: t("antigravity.reasoningLevelMedium") },
+                { value: "high", label: t("antigravity.reasoningLevelHigh") },
+              ]}
+            />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("antigravity.reasoningLevelHint")}
+            </Text>
+          </Space>
           {(modelsQuery.data?.length ?? 0) === 0 ? (
             <Text type="secondary">{t("antigravity.modelsEmpty")}</Text>
           ) : (

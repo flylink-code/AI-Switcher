@@ -70,7 +70,7 @@ export default function WorkbenchPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [, setBusy] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);

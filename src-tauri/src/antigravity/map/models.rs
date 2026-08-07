@@ -33,7 +33,7 @@ pub fn map_model_id(requested: &str) -> String {
         "gpt-4o" | "gpt-4.1" | "gpt-5" | "o3" | "o4-mini" => {
             model_catalog::preferred_default_model()
         }
-        other => other.to_string(),
+        other => model_catalog::with_reasoning_level(other),
     }
 }
 

@@ -247,7 +247,35 @@ pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
         "defaultModel": crate::antigravity::model_catalog::preferred_default_model(),
         "geminiFlash": crate::antigravity::model_catalog::preferred_gemini_flash(),
         "geminiPro": crate::antigravity::model_catalog::preferred_gemini_pro(),
+        "reasoningLevel": crate::antigravity::model_catalog::reasoning_level(),
     }))
+}
+
+#[tauri::command]
+pub fn set_antigravity_reasoning_level(
+    level: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let normalized = level
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if let Some(value) = normalized {
+        if !crate::antigravity::model_catalog::REASONING_LEVELS.contains(&value) {
+            return Err(AppError::Config(format!(
+                "无效的推理档位：{value}（可选 low / medium / high）"
+            )));
+        }
+    }
+    state.db.with_conn(|conn| {
+        dao::settings::set_setting(
+            conn,
+            crate::antigravity::model_catalog::REASONING_LEVEL_SETTING,
+            normalized.unwrap_or(""),
+        )
+    })?;
+    crate::antigravity::model_catalog::set_reasoning_level(normalized);
+    Ok(())
 }
 
 /// Called from provider switch path when an Antigravity provider becomes current.

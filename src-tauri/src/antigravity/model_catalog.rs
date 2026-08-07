@@ -39,6 +39,77 @@ static CATALOG: RwLock<CatalogState> = RwLock::new(CatalogState {
     updated_at: 0,
 });
 
+/// Centralized Gemini reasoning level ("low" | "medium" | "high").
+///
+/// Cloud Code has no separate reasoning parameter — the level is encoded in the
+/// model id suffix (`gemini-3.6-flash-high`). Clients (Claude Code / Desktop /
+/// Codex) only send a model name, so the gateway applies this preference when
+/// mapping bare Gemini names; ids that already carry an explicit level suffix
+/// are left untouched (explicit client choice wins).
+static REASONING_LEVEL: RwLock<Option<String>> = RwLock::new(None);
+
+pub const REASONING_LEVELS: [&str; 3] = ["low", "medium", "high"];
+
+/// Persisted settings key for the reasoning level.
+pub const REASONING_LEVEL_SETTING: &str = "antigravity_reasoning_level";
+
+pub fn set_reasoning_level(level: Option<&str>) {
+    let normalized = level
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| REASONING_LEVELS.contains(&value.as_str()));
+    let mut guard = match REASONING_LEVEL.write() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    *guard = normalized;
+}
+
+pub fn reasoning_level() -> Option<String> {
+    match REASONING_LEVEL.read() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
+    }
+}
+
+/// Split a model id into (base, explicit level suffix) when it ends with
+/// `-low` / `-medium` / `-high`.
+fn split_level_suffix(id: &str) -> (&str, Option<&str>) {
+    for suffix in ["-low", "-medium", "-high"] {
+        if let Some(base) = id.strip_suffix(suffix) {
+            return (base, Some(&suffix[1..]));
+        }
+    }
+    (id, None)
+}
+
+/// Apply the configured reasoning level to a model id. Only bare Gemini ids
+/// are rewritten (to `{base}-{level}` when that variant exists in the catalog);
+/// everything else — Claude ids, ids with an explicit level suffix — passes
+/// through unchanged.
+pub fn with_reasoning_level(id: &str) -> String {
+    let trimmed = id.trim();
+    let Some(level) = reasoning_level() else {
+        return trimmed.to_string();
+    };
+    let lower = trimmed.to_ascii_lowercase();
+    if !lower.starts_with("gemini-") {
+        return trimmed.to_string();
+    }
+    let (base, explicit) = split_level_suffix(&lower);
+    if explicit.is_some() {
+        return trimmed.to_string();
+    }
+    let candidate = format!("{base}-{level}");
+    if list_model_ids()
+        .iter()
+        .any(|model| model.eq_ignore_ascii_case(&candidate))
+    {
+        candidate
+    } else {
+        trimmed.to_string()
+    }
+}
+
 fn lock_write() -> std::sync::RwLockWriteGuard<'static, CatalogState> {
     match CATALOG.write() {
         Ok(guard) => guard,
@@ -183,19 +254,24 @@ pub fn preferred_default_model() -> String {
 
 pub fn preferred_gemini_flash() -> Option<String> {
     let ids = list_model_ids();
+    let is_flash = |id: &&String| {
+        id.starts_with("gemini-") && id.contains("flash") && !id.contains("image")
+    };
+    if let Some(level) = reasoning_level() {
+        let suffix = format!("-{level}");
+        if let Some(id) = ids.iter().find(|id| is_flash(id) && id.ends_with(&suffix)) {
+            return Some(id.clone());
+        }
+    }
     ids.iter()
         .find(|id| id.as_str() == "gemini-3-flash")
         .cloned()
         .or_else(|| {
             ids.iter()
-                .find(|id| id.starts_with("gemini-3") && id.contains("flash") && !id.contains("image"))
+                .find(|id| id.starts_with("gemini-3") && is_flash(id))
                 .cloned()
         })
-        .or_else(|| {
-            ids.iter()
-                .find(|id| id.starts_with("gemini-") && id.contains("flash"))
-                .cloned()
-        })
+        .or_else(|| ids.iter().find(is_flash).cloned())
 }
 
 pub fn preferred_claude_opus() -> Option<String> {
@@ -207,14 +283,17 @@ pub fn preferred_claude_opus() -> Option<String> {
 
 pub fn preferred_gemini_pro() -> Option<String> {
     let ids = list_model_ids();
+    let is_pro = |id: &&String| id.contains("pro") && id.starts_with("gemini-");
+    if let Some(level) = reasoning_level() {
+        let suffix = format!("-{level}");
+        if let Some(id) = ids.iter().find(|id| is_pro(id) && id.ends_with(&suffix)) {
+            return Some(id.clone());
+        }
+    }
     ids.iter()
         .find(|id| id.as_str() == "gemini-3.1-pro-high")
         .cloned()
-        .or_else(|| {
-            ids.iter()
-                .find(|id| id.contains("pro") && id.starts_with("gemini-"))
-                .cloned()
-        })
+        .or_else(|| ids.iter().find(is_pro).cloned())
 }
 
 /// Failover / suggestion list for providers (default + flash + pro + opus + rest).
@@ -255,5 +334,27 @@ mod tests {
         assert!(!is_agent_facing_model("chat_20706"));
         assert!(!is_agent_facing_model("tab_flash_lite_preview"));
         assert!(!is_agent_facing_model("gemini-3.1-flash-image"));
+    }
+
+    #[test]
+    fn reasoning_level_rewrites_bare_gemini_ids_only() {
+        set_reasoning_level(Some("high"));
+        // Explicit suffix wins — untouched.
+        assert_eq!(with_reasoning_level("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
+        // Claude ids untouched.
+        assert_eq!(with_reasoning_level("claude-sonnet-4-6"), "claude-sonnet-4-6");
+        // Bare gemini: fallback catalog has no -high flash variant → unchanged.
+        assert_eq!(with_reasoning_level("gemini-3-flash"), "gemini-3-flash");
+        set_reasoning_level(None);
+        assert_eq!(reasoning_level(), None);
+    }
+
+    #[test]
+    fn invalid_reasoning_level_is_ignored() {
+        set_reasoning_level(Some("ultra"));
+        assert_eq!(reasoning_level(), None);
+        set_reasoning_level(Some(" medium "));
+        assert_eq!(reasoning_level().as_deref(), Some("medium"));
+        set_reasoning_level(None);
     }
 }

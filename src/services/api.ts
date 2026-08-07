@@ -343,6 +343,7 @@ export interface AntigravityDefaults {
   defaultModel?: string;
   geminiFlash?: string | null;
   geminiPro?: string | null;
+  reasoningLevel?: string | null;
 }
 
 export interface AntigravityCatalogModel {
@@ -393,6 +394,13 @@ export async function setAntigravityGatewayPort(port: number): Promise<void> {
 export async function setAntigravityGatewayApiKey(apiKey: string): Promise<void> {
   const invoke = await getInvoke();
   await invoke("set_antigravity_gateway_api_key", { apiKey });
+}
+
+export async function setAntigravityReasoningLevel(
+  level: "low" | "medium" | "high" | null,
+): Promise<void> {
+  const invoke = await getInvoke();
+  await invoke("set_antigravity_reasoning_level", { level });
 }
 
 export async function setAntigravityOutboundProxy(
