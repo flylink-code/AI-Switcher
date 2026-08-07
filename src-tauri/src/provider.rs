@@ -99,6 +99,8 @@ pub enum ProviderKind {
     Standard,
     /// ChatGPT Plus/Pro subscription via local proxy (OAuth tokens stay in app data).
     CodexOauth,
+    /// Built-in Antigravity Google-account gateway.
+    Antigravity,
 }
 
 impl ProviderKind {
@@ -106,12 +108,14 @@ impl ProviderKind {
         match self {
             ProviderKind::Standard => "standard",
             ProviderKind::CodexOauth => "codex_oauth",
+            ProviderKind::Antigravity => "antigravity",
         }
     }
 
     pub fn from_str_lossy(value: &str) -> Self {
         match value {
             "codex_oauth" => ProviderKind::CodexOauth,
+            "antigravity" => ProviderKind::Antigravity,
             _ => ProviderKind::Standard,
         }
     }
@@ -186,6 +190,13 @@ pub fn effective_model_context_window(provider: &Provider) -> u64 {
 /// Provider URLs are HTTPS origins or gateway path prefixes. Known request
 /// endpoint suffixes are stripped so the selected protocol remains the single
 /// source of truth for the final upstream path.
+fn is_local_http_host(host: &str) -> bool {
+    matches!(
+        host.to_ascii_lowercase().as_str(),
+        "localhost" | "127.0.0.1" | "::1"
+    )
+}
+
 pub fn normalize_base_url(value: &str) -> AppResult<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -193,12 +204,15 @@ pub fn normalize_base_url(value: &str) -> AppResult<String> {
     }
 
     let mut url = reqwest::Url::parse(trimmed)
-        .map_err(|_| AppError::Config("API 基础地址不是有效的 HTTPS URL".to_string()))?;
-    if url.scheme() != "https" {
-        return Err(AppError::Config("API 基础地址必须使用 https://".to_string()));
-    }
-    if url.host_str().is_none() {
-        return Err(AppError::Config("API 基础地址缺少有效域名".to_string()));
+        .map_err(|_| AppError::Config("API 基础地址不是有效的 URL".to_string()))?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| AppError::Config("API 基础地址缺少有效域名".to_string()))?;
+    let allow_local_http = url.scheme() == "http" && is_local_http_host(host);
+    if url.scheme() != "https" && !allow_local_http {
+        return Err(AppError::Config(
+            "API 基础地址必须使用 https://（本地网关可用 http://127.0.0.1）".to_string(),
+        ));
     }
     if !url.username().is_empty() || url.password().is_some() {
         return Err(AppError::Config("API 基础地址不能包含用户名或密码".to_string()));
@@ -482,9 +496,19 @@ impl Provider {
         self.provider_kind == ProviderKind::CodexOauth
     }
 
+    pub fn is_antigravity(&self) -> bool {
+        self.provider_kind == ProviderKind::Antigravity
+    }
+
     pub fn requires_local_proxy(&self) -> bool {
         if self.is_codex_oauth() {
             return true;
+        }
+        // Built-in Antigravity gateway already speaks Anthropic/OpenAI; Code/Codex
+        // can point at it directly. Desktop may still need the local proxy for
+        // role-based model rewriting.
+        if self.is_antigravity() {
+            return self.target_app == ProviderTarget::ClaudeDesktop;
         }
         // Codex speaks OpenAI wire APIs natively. Keep OpenAI-compatible Codex
         // providers on the real upstream so chat works without the desktop
@@ -741,6 +765,19 @@ mod tests {
         ] {
             assert!(normalize_base_url(value).is_err(), "{value} should be rejected");
         }
+    }
+
+    #[test]
+    fn normalize_base_url_allows_local_http_gateways() {
+        assert_eq!(
+            normalize_base_url("http://127.0.0.1:8045").unwrap(),
+            "http://127.0.0.1:8045"
+        );
+        assert_eq!(
+            normalize_base_url("http://localhost:15830/v1/messages").unwrap(),
+            "http://localhost:15830/v1"
+        );
+        assert!(normalize_base_url("http://example.com").is_err());
     }
 
     #[test]

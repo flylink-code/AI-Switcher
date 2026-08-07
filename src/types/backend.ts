@@ -5,7 +5,7 @@
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex";
-export type ProviderKind = "standard" | "codex_oauth";
+export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
 export interface ClaudeModelMapping {
   sonnet: string;

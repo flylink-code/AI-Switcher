@@ -99,6 +99,52 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     notes: "MiniMax OpenAI-compatible API",
     targets: ALL_TARGETS,
   },
+  {
+    id: "antigravity-gateway-external",
+    name: "Antigravity Gateway",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:8045",
+    model: "claude-sonnet-4-6",
+    failoverModels: ["gemini-3-flash", "claude-opus-4-6-thinking"],
+    notes:
+      "External Antigravity-Manager gateway (start AG Manager first; fill its API key). For the built-in gateway use Settings → Antigravity.",
+    targets: CODE_DESKTOP,
+  },
+  {
+    id: "antigravity-gateway-external-codex",
+    name: "Antigravity Gateway",
+    protocolType: "openai_chat",
+    baseUrl: "http://127.0.0.1:8045/v1",
+    model: "claude-sonnet-4-6",
+    failoverModels: ["gemini-3-flash"],
+    modelContextWindow: 200_000,
+    notes:
+      "External Antigravity-Manager OpenAI-compatible endpoint for Codex. Start AG Manager and fill its API key.",
+    targets: ["codex"],
+  },
+  {
+    id: "antigravity-builtin",
+    name: "Antigravity (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15830",
+    model: "claude-sonnet-4-6",
+    failoverModels: ["gemini-3-flash", "claude-opus-4-6-thinking"],
+    notes:
+      "AI-Switcher built-in Antigravity gateway. Manage accounts on the Antigravity page, then start the gateway.",
+    targets: CODE_DESKTOP,
+  },
+  {
+    id: "antigravity-builtin-codex",
+    name: "Antigravity (Built-in)",
+    protocolType: "openai_chat",
+    baseUrl: "http://127.0.0.1:15830/v1",
+    model: "claude-sonnet-4-6",
+    failoverModels: ["gemini-3-flash"],
+    modelContextWindow: 200_000,
+    notes:
+      "AI-Switcher built-in Antigravity gateway (OpenAI-compatible) for Codex.",
+    targets: ["codex"],
+  },
 ];
 
 export function presetsForTarget(target: ProviderTarget): ProviderPreset[] {

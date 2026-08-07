@@ -32,6 +32,7 @@ import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmen
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
+import { WorkbenchAntigravityPanel } from "@/components/WorkbenchAntigravityPanel";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import {
   managedAppsRuntimeStatusOptions,
@@ -48,6 +49,7 @@ import {
   buildProviderDeeplink,
   confirmImportPreview,
   exportProviders,
+  getAntigravityGatewayStatus,
   previewImportText,
   speedtestProviderEndpoint,
   testProviderConnection,
@@ -82,6 +84,12 @@ export default function WorkbenchPage() {
   const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
   const proxyQuery = useQuery(proxyStatusOptions(target));
   const proxy = proxyQuery.data;
+  const antigravityQuery = useQuery({
+    queryKey: ["antigravity-gateway"],
+    queryFn: getAntigravityGatewayStatus,
+    refetchInterval: 5_000,
+  });
+  const antigravity = antigravityQuery.data;
 
   const appRunningKey = target === "claude_code" ? "claudeCode" : target === "claude_desktop" ? "claudeDesktop" : "codex";
   const isAppRunning = Boolean(runtimeQuery.data?.[appRunningKey]);
@@ -322,6 +330,15 @@ export default function WorkbenchPage() {
           >
             {proxy?.running ? t("workbench.proxyRunning", { port: proxy.port }) : t("workbench.proxyStopped")}
           </Tag>
+          <Tag
+            color={antigravity?.running ? "purple" : undefined}
+            style={{ cursor: "pointer", margin: 0 }}
+            onClick={() => navigate("antigravity")}
+          >
+            {antigravity?.running
+              ? t("workbench.antigravityRunning", { port: antigravity.port })
+              : t("workbench.antigravityStopped")}
+          </Tag>
         </div>
         <div className="cc-header-right">
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
@@ -525,6 +542,8 @@ export default function WorkbenchPage() {
             )}
           </Card>
         </div>
+
+        {antigravity?.running ? <WorkbenchAntigravityPanel /> : null}
       </div>
 
       {/* Modals for Create/Edit and Import Preview */}

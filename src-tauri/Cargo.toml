@@ -37,7 +37,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"
 
 # HTTP proxy server / client
 axum = "0.7"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "blocking", "json", "system-proxy", "socks"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 futures-util = "0.3"

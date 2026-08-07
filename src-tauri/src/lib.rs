@@ -7,6 +7,7 @@
 
 mod backup;
 mod agents;
+mod antigravity;
 mod codex_oauth;
 mod codex_plugins;
 mod commands;
@@ -27,6 +28,7 @@ mod secrets;
 mod session_manager;
 mod skills;
 mod store;
+mod system_proxy;
 mod tray;
 mod usage;
 mod usage_events;
@@ -48,6 +50,11 @@ use crate::commands::{
     activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
+    ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
+    import_antigravity_accounts, list_antigravity_accounts, refresh_antigravity_account_quota,
+    refresh_antigravity_quotas, remove_antigravity_account,
+    set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
+    start_antigravity_gateway, start_antigravity_oauth_login, stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
@@ -226,6 +233,20 @@ pub fn run() {
             set_proxy_failover_enabled,
             set_proxy_retryable_status_codes,
             set_proxy_streaming_idle_timeout_secs,
+            list_antigravity_accounts,
+            import_antigravity_accounts,
+            remove_antigravity_account,
+            set_antigravity_active_account,
+            get_antigravity_gateway_status,
+            set_antigravity_gateway_port,
+            set_antigravity_gateway_api_key,
+            start_antigravity_gateway,
+            start_antigravity_oauth_login,
+            stop_antigravity_gateway,
+            refresh_antigravity_account_quota,
+            refresh_antigravity_quotas,
+            ensure_antigravity_provider,
+            get_antigravity_defaults,
             list_skills,
             list_agents,
             save_agent,
@@ -402,6 +423,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         )),
         proxy_status: tokio::sync::RwLock::new(initial_proxy_status),
     });
+    crate::antigravity::gateway::init_gateway(Arc::clone(&db));
     commands::proxy::spawn_proxy_lifecycle_listener(
         app.handle().clone(),
         proxy_lifecycle_rx,

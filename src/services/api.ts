@@ -266,6 +266,158 @@ export async function ensureCodexOauthProvider(
   });
 }
 
+export interface AntigravityQuotaBucket {
+  bucketId: string;
+  window: string;
+  remainingFraction: number;
+  resetTime: string;
+  displayName?: string | null;
+}
+
+export interface AntigravityQuotaGroup {
+  displayName: string;
+  buckets: AntigravityQuotaBucket[];
+}
+
+export interface AntigravityModelQuota {
+  name: string;
+  percentage: number;
+  resetTime: string;
+  displayName?: string | null;
+}
+
+export interface AntigravityQuotaSnapshot {
+  models: AntigravityModelQuota[];
+  groups: AntigravityQuotaGroup[];
+  lastUpdated: number;
+  isForbidden: boolean;
+  forbiddenReason?: string | null;
+  subscriptionTier?: string | null;
+}
+
+export interface AntigravityAccountPublic {
+  id: string;
+  email: string;
+  name?: string | null;
+  disabled: boolean;
+  disabledReason?: string | null;
+  isActive: boolean;
+  createdAt: number;
+  lastUsed: number;
+  healthScore: number;
+  cooldownUntil?: number | null;
+  remainingQuota?: number | null;
+  hasProjectId: boolean;
+  tokenExpiresAt: number;
+  subscriptionTier?: string | null;
+  quota5hPercent?: number | null;
+  quotaWeeklyPercent?: number | null;
+  quotaUpdatedAt?: number | null;
+  quotaForbidden?: boolean;
+  quota?: AntigravityQuotaSnapshot | null;
+}
+
+export interface AntigravityGatewayStatus {
+  running: boolean;
+  port: number;
+  apiKey: string;
+  accountCount: number;
+  baseUrl: string;
+}
+
+export interface AntigravityDefaults {
+  defaultPort: number;
+  externalPort: number;
+  port: number;
+  baseUrl: string;
+  apiKey: string;
+  running: boolean;
+}
+
+export async function listAntigravityAccounts(): Promise<AntigravityAccountPublic[]> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityAccountPublic[]>("list_antigravity_accounts");
+}
+
+export async function importAntigravityAccounts(json: string): Promise<number> {
+  const invoke = await getInvoke();
+  return invoke<number>("import_antigravity_accounts", { json });
+}
+
+export async function startAntigravityOauthLogin(): Promise<AntigravityAccountPublic> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityAccountPublic>("start_antigravity_oauth_login");
+}
+
+export async function removeAntigravityAccount(accountId: string): Promise<void> {
+  const invoke = await getInvoke();
+  await invoke("remove_antigravity_account", { accountId });
+}
+
+export async function setAntigravityActiveAccount(accountId: string): Promise<void> {
+  const invoke = await getInvoke();
+  await invoke("set_antigravity_active_account", { accountId });
+}
+
+export async function getAntigravityGatewayStatus(): Promise<AntigravityGatewayStatus> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityGatewayStatus>("get_antigravity_gateway_status");
+}
+
+export async function setAntigravityGatewayPort(port: number): Promise<void> {
+  const invoke = await getInvoke();
+  await invoke("set_antigravity_gateway_port", { port });
+}
+
+export async function setAntigravityGatewayApiKey(apiKey: string): Promise<void> {
+  const invoke = await getInvoke();
+  await invoke("set_antigravity_gateway_api_key", { apiKey });
+}
+
+export async function startAntigravityGateway(
+  port?: number,
+): Promise<AntigravityGatewayStatus> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityGatewayStatus>("start_antigravity_gateway", {
+    port: port ?? null,
+  });
+}
+
+export async function stopAntigravityGateway(): Promise<AntigravityGatewayStatus> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityGatewayStatus>("stop_antigravity_gateway");
+}
+
+export async function refreshAntigravityAccountQuota(
+  accountId: string,
+): Promise<AntigravityAccountPublic> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityAccountPublic>("refresh_antigravity_account_quota", {
+    accountId,
+  });
+}
+
+export async function refreshAntigravityQuotas(): Promise<AntigravityAccountPublic[]> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityAccountPublic[]>("refresh_antigravity_quotas");
+}
+
+export async function ensureAntigravityProvider(
+  target: ProviderTarget,
+  model?: string,
+): Promise<Provider> {
+  const invoke = await getInvoke();
+  return invoke<Provider>("ensure_antigravity_provider", {
+    target,
+    model: model ?? null,
+  });
+}
+
+export async function getAntigravityDefaults(): Promise<AntigravityDefaults> {
+  const invoke = await getInvoke();
+  return invoke<AntigravityDefaults>("get_antigravity_defaults");
+}
+
 export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {
   const invoke = await getInvoke();
   return invoke<Provider | null>("get_current_provider", { target });

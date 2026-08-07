@@ -981,3 +981,65 @@ body {
 .app-status-divider {
   opacity: 0.5;
 }
+
+/* Antigravity quota bars (workbench + gateway page) */
+.ag-quota-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ag-quota-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ant-color-fill-secondary, #f0f0f0) 90%, transparent);
+  overflow: hidden;
+}
+
+.ag-quota-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.ag-quota-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ant-color-text-secondary, #8c8c8c);
+  line-height: 1.2;
+}
+
+.workbench-ag-panel {
+  margin-top: 14px;
+}
+
+.workbench-ag-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.workbench-ag-account-card {
+  border: 1px solid var(--as-border-card, #e3e3e8);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--ant-color-bg-container, #fff);
+  min-width: 0;
+}
+
+.workbench-ag-account-card[data-disabled] {
+  opacity: 0.55;
+}
+
+.workbench-ag-account-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+

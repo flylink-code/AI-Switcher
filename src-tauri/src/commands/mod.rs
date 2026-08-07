@@ -2,6 +2,7 @@
 
 pub mod backend;
 pub mod agents;
+pub mod antigravity;
 pub mod codex;
 pub mod codex_plugins;
 pub mod codex_oauth;
@@ -32,6 +33,13 @@ pub mod usage;
 pub use backend::ping;
 pub use agents::{
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
+};
+pub use antigravity::{
+    ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
+    import_antigravity_accounts, list_antigravity_accounts, refresh_antigravity_account_quota,
+    refresh_antigravity_quotas, remove_antigravity_account, set_antigravity_active_account,
+    set_antigravity_gateway_api_key, set_antigravity_gateway_port, start_antigravity_gateway,
+    start_antigravity_oauth_login, stop_antigravity_gateway,
 };
 pub use codex::{
     get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,

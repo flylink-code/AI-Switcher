@@ -23,6 +23,7 @@ const { Sider, Content } = Layout;
 /**
  * Low-frequency configuration pages embedded in the settings view.
  * Order = display order in the left sub-navigation.
+ * Antigravity is a top-level page (like proxy), not embedded here.
  */
 const SETTINGS_PAGES: PageKey[] = [
   "profiles",
@@ -51,6 +52,7 @@ const SETTINGS_ICONS: Record<PageKey, React.ReactNode> = {
   workbench: null,
   providers: null,
   proxy: null,
+  antigravity: null,
   usage: null,
   settings: null,
 };

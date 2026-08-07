@@ -620,8 +620,55 @@ async fn apply_target_provider(
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
     // for config writing; it is never serialized or persisted.
     let mut runtime_provider = provider.clone();
+    if runtime_provider.is_antigravity() {
+        crate::commands::antigravity::ensure_gateway_running_for_provider(&runtime_provider).await?;
+        let gateway = crate::antigravity::gateway_status()?;
+        if runtime_provider.api_key.trim().is_empty()
+            || state
+                .db
+                .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+                .ok()
+                .flatten()
+                .is_none()
+        {
+            // Persist gateway key so subsequent resolves succeed.
+            let _ = state.db.with_conn(|conn| {
+                dao::upsert_provider(
+                    conn,
+                    &ProviderInput {
+                        id: Some(provider.id.clone()),
+                        name: provider.name.clone(),
+                        base_url: gateway.base_url.clone(),
+                        api_key: gateway.api_key.clone(),
+                        clear_api_key: false,
+                        model: provider.model.clone(),
+                        model_context_window: provider.model_context_window,
+                        auto_review_model_override: provider.auto_review_model_override.clone(),
+                        web_search_enabled: provider.web_search_enabled,
+                        model_mapping: provider.model_mapping.clone(),
+                        protocol_type: provider.protocol_type,
+                        provider_kind: provider.provider_kind,
+                        auth_binding: provider.auth_binding.clone(),
+                        target_app: provider.target_app,
+                        notes: provider.notes.clone(),
+                        failover_group: provider.failover_group,
+                        failover_models: provider.failover_models.clone(),
+                    },
+                )
+            });
+            runtime_provider.base_url = gateway.base_url;
+        }
+    }
     runtime_provider.api_key = if provider.is_codex_oauth() {
         "PROXY_MANAGED".to_string()
+    } else if provider.is_antigravity() {
+        state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| crate::antigravity::gateway::builtin_api_key())
     } else {
         state.db.with_conn(|conn| {
             dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| {

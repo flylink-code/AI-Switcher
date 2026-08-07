@@ -27,6 +27,18 @@
       "allow": [
         {
           "url": "claude://claude.ai/*"
+        },
+        {
+          "url": "https://accounts.google.com/*"
+        },
+        {
+          "url": "https://*.google.com/*"
+        },
+        {
+          "url": "http://127.0.0.1:*/*"
+        },
+        {
+          "url": "http://localhost:*/*"
         }
       ]
     },

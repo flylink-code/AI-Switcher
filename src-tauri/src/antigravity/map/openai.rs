@@ -1,0 +1,359 @@
+//! OpenAI Chat Completions ↔ Gemini request/response mapping.
+
+use serde_json::{json, Value};
+use uuid::Uuid;
+
+use super::models::map_model_id;
+
+pub struct GeminiRequestParts {
+    pub model: String,
+    pub request: Value,
+    pub stream: bool,
+}
+
+pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
+    let model = map_model_id(body.get("model").and_then(Value::as_str).unwrap_or(""));
+    let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    let mut contents = Vec::new();
+    let mut system_parts = Vec::new();
+
+    let messages = body
+        .get("messages")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for message in messages {
+        let role = message
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("user");
+        match role {
+            "system" | "developer" => {
+                push_text_content(message.get("content").unwrap_or(&Value::Null), &mut system_parts);
+            }
+            "assistant" => {
+                let mut parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
+                if let Some(tool_calls) = message.get("tool_calls").and_then(Value::as_array) {
+                    for call in tool_calls {
+                        let name = call
+                            .get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("tool");
+                        let args_raw = call
+                            .get("function")
+                            .and_then(|f| f.get("arguments"))
+                            .and_then(Value::as_str)
+                            .unwrap_or("{}");
+                        let args: Value =
+                            serde_json::from_str(args_raw).unwrap_or_else(|_| json!({}));
+                        let mut fc = json!({ "name": name, "args": args });
+                        if let Some(id) = call.get("id") {
+                            fc["id"] = id.clone();
+                        }
+                        parts.push(json!({ "functionCall": fc }));
+                    }
+                }
+                if !parts.is_empty() {
+                    contents.push(json!({ "role": "model", "parts": parts }));
+                }
+            }
+            "tool" => {
+                let name = message
+                    .get("name")
+                    .or_else(|| message.get("tool_call_id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool");
+                let response = message.get("content").cloned().unwrap_or(json!(""));
+                contents.push(json!({
+                    "role": "user",
+                    "parts": [{
+                        "functionResponse": {
+                            "name": name,
+                            "response": { "content": response }
+                        }
+                    }]
+                }));
+            }
+            _ => {
+                let parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
+                if !parts.is_empty() {
+                    contents.push(json!({ "role": "user", "parts": parts }));
+                }
+            }
+        }
+    }
+
+    if contents.is_empty() {
+        return Err("messages 不能为空".into());
+    }
+
+    let mut request = json!({ "contents": contents });
+    if !system_parts.is_empty() {
+        request["systemInstruction"] = json!({
+            "role": "user",
+            "parts": system_parts,
+        });
+    }
+
+    let mut generation = json!({});
+    if let Some(max_tokens) = body
+        .get("max_tokens")
+        .or_else(|| body.get("max_completion_tokens"))
+        .and_then(Value::as_u64)
+    {
+        generation["maxOutputTokens"] = json!(max_tokens);
+    }
+    if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
+        generation["temperature"] = json!(temperature);
+    }
+    if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
+        generation["topP"] = json!(top_p);
+    }
+    if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
+        request["generationConfig"] = generation;
+    }
+
+    if let Some(tools) = body.get("tools").and_then(Value::as_array) {
+        let declarations: Vec<Value> = tools
+            .iter()
+            .filter_map(|tool| {
+                let function = tool.get("function")?;
+                let name = function.get("name").and_then(Value::as_str)?;
+                Some(json!({
+                    "name": name,
+                    "description": function.get("description").cloned().unwrap_or(json!("")),
+                    "parameters": function.get("parameters").cloned().unwrap_or(json!({
+                        "type": "object",
+                        "properties": {}
+                    })),
+                }))
+            })
+            .collect();
+        if !declarations.is_empty() {
+            request["tools"] = json!([{ "functionDeclarations": declarations }]);
+            request["toolConfig"] = json!({
+                "functionCallingConfig": { "mode": "VALIDATED" }
+            });
+        }
+    }
+
+    Ok(GeminiRequestParts {
+        model,
+        request,
+        stream,
+    })
+}
+
+fn push_text_content(content: &Value, out: &mut Vec<Value>) {
+    match content {
+        Value::String(text) if !text.is_empty() => out.push(json!({ "text": text })),
+        Value::Array(items) => {
+            for item in items {
+                if let Some(text) = item.as_str() {
+                    if !text.is_empty() {
+                        out.push(json!({ "text": text }));
+                    }
+                } else if item.get("type").and_then(Value::as_str) == Some("text") {
+                    if let Some(text) = item.get("text").and_then(Value::as_str) {
+                        if !text.is_empty() {
+                            out.push(json!({ "text": text }));
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn content_to_parts(content: &Value) -> Vec<Value> {
+    match content {
+        Value::String(text) => {
+            if text.is_empty() {
+                Vec::new()
+            } else {
+                vec![json!({ "text": text })]
+            }
+        }
+        Value::Array(items) => {
+            let mut parts = Vec::new();
+            for item in items {
+                match item.get("type").and_then(Value::as_str).unwrap_or("") {
+                    "text" => {
+                        if let Some(text) = item.get("text").and_then(Value::as_str) {
+                            if !text.is_empty() {
+                                parts.push(json!({ "text": text }));
+                            }
+                        }
+                    }
+                    "image_url" => {
+                        if let Some(url) = item
+                            .get("image_url")
+                            .and_then(|v| v.get("url"))
+                            .and_then(Value::as_str)
+                        {
+                            if let Some((mime, data)) = parse_data_url(url) {
+                                parts.push(json!({
+                                    "inlineData": { "mimeType": mime, "data": data }
+                                }));
+                            }
+                        }
+                    }
+                    _ => {
+                        if let Some(text) = item.as_str() {
+                            if !text.is_empty() {
+                                parts.push(json!({ "text": text }));
+                            }
+                        }
+                    }
+                }
+            }
+            parts
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn parse_data_url(url: &str) -> Option<(String, String)> {
+    let rest = url.strip_prefix("data:")?;
+    let (meta, data) = rest.split_once(',')?;
+    let mime = meta.split(';').next().unwrap_or("image/png").to_string();
+    Some((mime, data.to_string()))
+}
+
+pub fn gemini_to_openai_response(model: &str, gemini: &Value) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini);
+    let mut message = json!({
+        "role": "assistant",
+        "content": text,
+    });
+    if !tool_calls.is_empty() {
+        message["tool_calls"] = json!(tool_calls);
+        message["content"] = Value::Null;
+    }
+    let usage = usage_from_gemini(gemini);
+    json!({
+        "id": format!("chatcmpl-{}", Uuid::new_v4().simple()),
+        "object": "chat.completion",
+        "created": chrono::Utc::now().timestamp(),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "message": message,
+            "finish_reason": finish_reason,
+        }],
+        "usage": usage,
+    })
+}
+
+pub fn gemini_to_openai_sse_chunk(model: &str, gemini_chunk: &Value) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk);
+    let mut delta = json!({ "role": "assistant" });
+    if !text.is_empty() {
+        delta["content"] = json!(text);
+    }
+    if !tool_calls.is_empty() {
+        delta["tool_calls"] = json!(tool_calls);
+    }
+    json!({
+        "id": format!("chatcmpl-{}", Uuid::new_v4().simple()),
+        "object": "chat.completion.chunk",
+        "created": chrono::Utc::now().timestamp(),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "delta": delta,
+            "finish_reason": if finish_reason == "null" { Value::Null } else { json!(finish_reason) },
+        }]
+    })
+}
+
+fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
+    let mut text = String::new();
+    let mut tool_calls = Vec::new();
+    let mut finish_reason = "stop".to_string();
+    let candidates = gemini
+        .get("candidates")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if let Some(candidate) = candidates.first() {
+        if let Some(parts) = candidate
+            .get("content")
+            .and_then(|c| c.get("parts"))
+            .and_then(Value::as_array)
+        {
+            for (index, part) in parts.iter().enumerate() {
+                if let Some(chunk) = part.get("text").and_then(Value::as_str) {
+                    text.push_str(chunk);
+                }
+                if let Some(fc) = part.get("functionCall") {
+                    let id = fc
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                        .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
+                    let args = fc.get("args").cloned().unwrap_or(json!({}));
+                    tool_calls.push(json!({
+                        "id": id,
+                        "index": index,
+                        "type": "function",
+                        "function": {
+                            "name": fc.get("name").cloned().unwrap_or(json!("tool")),
+                            "arguments": args.to_string(),
+                        }
+                    }));
+                    finish_reason = "tool_calls".into();
+                }
+            }
+        }
+        if let Some(reason) = candidate.get("finishReason").and_then(Value::as_str) {
+            finish_reason = match reason {
+                "MAX_TOKENS" => "length".into(),
+                "STOP" => {
+                    if tool_calls.is_empty() {
+                        "stop".into()
+                    } else {
+                        "tool_calls".into()
+                    }
+                }
+                other => other.to_ascii_lowercase(),
+            };
+        }
+    }
+    (text, tool_calls, finish_reason)
+}
+
+fn usage_from_gemini(gemini: &Value) -> Value {
+    let meta = gemini.get("usageMetadata").cloned().unwrap_or(json!({}));
+    let prompt = meta.get("promptTokenCount").and_then(Value::as_u64).unwrap_or(0);
+    let completion = meta
+        .get("candidatesTokenCount")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    json!({
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": prompt + completion,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_openai_chat() {
+        let body = json!({
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "system", "content": "be brief"},
+                {"role": "user", "content": "hi"}
+            ]
+        });
+        let parts = openai_to_gemini_request(&body).unwrap();
+        assert_eq!(parts.model, "claude-sonnet-4-6");
+        assert!(parts.request.get("systemInstruction").is_some());
+    }
+}

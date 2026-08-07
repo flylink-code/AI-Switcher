@@ -48,3 +48,6 @@ bug.md
 CLAUDE.md
 AGENTS.md
 ui-test.html
+
+# Local secrets (never commit; use .env.example as template)
+.env

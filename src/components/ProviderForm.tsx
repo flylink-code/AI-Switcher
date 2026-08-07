@@ -27,6 +27,7 @@ import type {
 import {
   discoverProviderModels,
   discoverProviderModelsInput,
+  getAntigravityGatewayStatus,
   getCachedProviderModels,
   testProviderInput,
 } from "@/services/api";
@@ -63,7 +64,12 @@ const codexModelSuggestions = [
   "gpt-5.3-codex",
 ];
 
-/** Validate and convert a pasted request endpoint into a reusable HTTPS Base URL. */
+function isLocalHttpHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
+}
+
+/** Validate and convert a pasted request endpoint into a reusable Base URL. */
 function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim();
   let url: URL;
@@ -72,7 +78,8 @@ function normalizeBaseUrl(value: string): string {
   } catch {
     throw new Error("invalidBaseUrl");
   }
-  if (url.protocol !== "https:") throw new Error("baseUrlMustUseHttps");
+  const allowLocalHttp = url.protocol === "http:" && isLocalHttpHost(url.hostname);
+  if (url.protocol !== "https:" && !allowLocalHttp) throw new Error("baseUrlMustUseHttps");
   if (url.username || url.password) throw new Error("baseUrlNoCredentials");
   if (url.search || url.hash) throw new Error("baseUrlNoQueryOrFragment");
 
@@ -380,6 +387,8 @@ export function ProviderForm({
 
   const applyPresetValues = (preset: ProviderPreset) => {
     prevModelRef.current = preset.model.trim();
+    const isBuiltinAg =
+      preset.id === "antigravity-builtin" || preset.id === "antigravity-builtin-codex";
     form.setFieldsValue({
       name: preset.name,
       protocolType: preset.protocolType,
@@ -388,7 +397,7 @@ export function ProviderForm({
       modelContextWindow: preset.modelContextWindow,
       failoverModels: preset.failoverModels ?? [],
       webSearchEnabled: true,
-      providerKind: "standard",
+      providerKind: isBuiltinAg ? "antigravity" : "standard",
       authBinding: "",
       notes: preset.notes ?? "",
       targetApp: target,
@@ -400,6 +409,24 @@ export function ProviderForm({
     // switch between e.g. deepseek-v4-flash / deepseek-v4-pro immediately.
     setModels([...new Set([preset.model, ...(preset.failoverModels ?? [])])]);
     setModelResult(null);
+
+    if (isBuiltinAg) {
+      void getAntigravityGatewayStatus()
+        .then((status) => {
+          const baseUrl =
+            preset.id === "antigravity-builtin-codex"
+              ? `${status.baseUrl.replace(/\/$/, "")}/v1`
+              : status.baseUrl;
+          form.setFieldsValue({
+            baseUrl,
+            apiKey: status.apiKey,
+            providerKind: "antigravity",
+          });
+        })
+        .catch(() => {
+          // Keep preset defaults when gateway status is unavailable.
+        });
+    }
   };
 
   const createPresets = presetsForTarget(target);
