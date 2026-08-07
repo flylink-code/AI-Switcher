@@ -312,6 +312,10 @@ export interface AntigravityAccountPublic {
   subscriptionTier?: string | null;
   quota5hPercent?: number | null;
   quotaWeeklyPercent?: number | null;
+  quotaGemini5hPercent?: number | null;
+  quotaGeminiWeeklyPercent?: number | null;
+  quotaClaude5hPercent?: number | null;
+  quotaClaudeWeeklyPercent?: number | null;
   quotaUpdatedAt?: number | null;
   quotaForbidden?: boolean;
   quota?: AntigravityQuotaSnapshot | null;
@@ -1013,7 +1017,7 @@ export async function restoreDesktopLocalization(): Promise<DesktopLocalizationA
 
 export async function getUsageDashboard(
   range: { days?: number; hours?: number; today?: boolean } | number = 30,
-  source: ProviderTarget | "all" = "all",
+  source: ProviderTarget | "all" | "antigravity" = "all",
 ): Promise<UsageDashboard> {
   const invoke = await getInvoke();
   const params =

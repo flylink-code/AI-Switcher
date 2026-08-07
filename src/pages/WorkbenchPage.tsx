@@ -32,7 +32,6 @@ import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmen
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
-import { WorkbenchAntigravityPanel } from "@/components/WorkbenchAntigravityPanel";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import {
   managedAppsRuntimeStatusOptions,
@@ -542,8 +541,6 @@ export default function WorkbenchPage() {
             )}
           </Card>
         </div>
-
-        {antigravity?.running ? <WorkbenchAntigravityPanel /> : null}
       </div>
 
       {/* Modals for Create/Edit and Import Preview */}

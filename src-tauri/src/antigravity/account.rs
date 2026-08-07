@@ -99,6 +99,14 @@ pub struct AntigravityAccountPublic {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota_weekly_percent: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quota_gemini_5h_percent: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quota_gemini_weekly_percent: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quota_claude_5h_percent: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quota_claude_weekly_percent: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota_updated_at: Option<i64>,
     #[serde(default)]
     pub quota_forbidden: bool,
@@ -130,6 +138,10 @@ impl From<&AntigravityAccount> for AntigravityAccountPublic {
             subscription_tier: quota.and_then(|q| q.subscription_tier.clone()),
             quota_5h_percent: quota.and_then(|q| q.window_percent("5h")),
             quota_weekly_percent: quota.and_then(|q| q.window_percent("weekly")),
+            quota_gemini_5h_percent: quota.and_then(|q| q.gemini_window_percent("5h")),
+            quota_gemini_weekly_percent: quota.and_then(|q| q.gemini_window_percent("weekly")),
+            quota_claude_5h_percent: quota.and_then(|q| q.claude_window_percent("5h")),
+            quota_claude_weekly_percent: quota.and_then(|q| q.claude_window_percent("weekly")),
             quota_updated_at: quota.map(|q| q.last_updated),
             quota_forbidden: quota.is_some_and(|q| q.is_forbidden),
             quota: account.quota.clone(),

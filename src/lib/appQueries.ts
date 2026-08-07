@@ -28,6 +28,7 @@ import {
   readLivePrompt,
 } from "@/services/api";
 import type { PromptTarget, ProviderTarget, SkillTarget } from "@/types/backend";
+import type { UsageSourceFilter } from "@/components/UsageSourceIcons";
 import type { UsagePeriod } from "@/utils/usagePeriod";
 import { usagePeriodToQuery } from "@/utils/usagePeriod";
 
@@ -105,7 +106,7 @@ export const skillRepositoryOptions = queryOptions({
 
 export const usageDashboardOptions = (
   period: UsagePeriod,
-  target: ProviderTarget | "all",
+  target: UsageSourceFilter,
 ) =>
   queryOptions({
     queryKey: ["usage-dashboard", period, target] as const,
@@ -116,7 +117,7 @@ export const usageDashboardOptions = (
 export const usageLogsOptions = (
   period: UsagePeriod,
   logPage: number,
-  target: ProviderTarget | "all",
+  target: UsageSourceFilter,
 ) =>
   queryOptions({
     queryKey: ["usage-logs", period, logPage, target] as const,
@@ -146,7 +147,7 @@ export const usageMetaOptions = queryOptions({
 export const usageOverviewOptions = (
   period: UsagePeriod,
   logPage: number,
-  target: ProviderTarget | "all",
+  target: UsageSourceFilter,
 ) =>
   queryOptions({
     queryKey: ["usage-overview", period, logPage, target] as const,
@@ -171,7 +172,7 @@ export const usageOverviewOptions = (
 /** Lightweight trend-only fetch for Providers calendar (no logs/pricing). */
 export const usageTrendOptions = (
   period: UsagePeriod,
-  target: ProviderTarget | "all" = "all",
+  target: UsageSourceFilter = "all",
 ) =>
   queryOptions({
     queryKey: ["usage-trend", period, target] as const,

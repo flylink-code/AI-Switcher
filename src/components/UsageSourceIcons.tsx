@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ProviderTarget } from "@/types/backend";
 
-export type UsageSourceFilter = ProviderTarget | "all";
+export type UsageSourceFilter = ProviderTarget | "all" | "antigravity";
 
 /** Claude brand orange (Anthropic “Crail”). */
 const CLAUDE_ORANGE = "#D97757";
+const ANTIGRAVITY_PURPLE = "#7C5CFC";
 
 type IconProps = {
   size?: number;
@@ -83,6 +84,22 @@ export function OpenAiBlossomIcon(props: IconProps) {
   );
 }
 
+/** Orbit mark for Antigravity gateway usage. */
+export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: ANTIGRAVITY_PURPLE, ...style }}>
+      <circle cx="12" cy="12" r="2.4" />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        d="M12 3.5a8.5 8.5 0 1 1-7.4 4.2"
+      />
+      <path d="M4.2 6.8 7.1 5.6 5.4 8.3Z" />
+    </SvgShell>
+  );
+}
+
 export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): ReactNode {
   switch (source) {
     case "all":
@@ -93,6 +110,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <ClaudeDesktopIcon {...props} />;
     case "codex":
       return <OpenAiBlossomIcon {...props} />;
+    case "antigravity":
+      return <AntigravityOrbitIcon {...props} />;
     default: {
       const _exhaustive: never = source;
       return _exhaustive;
@@ -128,4 +147,5 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "claude_code", labelKey: "usage.sourceClaudeCode" },
   { value: "claude_desktop", labelKey: "usage.sourceClaudeDesktop" },
   { value: "codex", labelKey: "usage.sourceCodex" },
+  { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];

@@ -32,6 +32,7 @@ import {
   testProviderInput,
 } from "@/services/api";
 import {
+  mappingFromAntigravityPreset,
   mappingFromModel,
   presetsForTarget,
   syncMappingOnDefaultChange,
@@ -387,6 +388,11 @@ export function ProviderForm({
 
   const applyPresetValues = (preset: ProviderPreset) => {
     prevModelRef.current = preset.model.trim();
+    const isAgPreset =
+      preset.id === "antigravity-builtin" ||
+      preset.id === "antigravity-builtin-codex" ||
+      preset.id === "antigravity-gateway-external" ||
+      preset.id === "antigravity-gateway-external-codex";
     const isBuiltinAg =
       preset.id === "antigravity-builtin" || preset.id === "antigravity-builtin-codex";
     form.setFieldsValue({
@@ -403,7 +409,9 @@ export function ProviderForm({
       targetApp: target,
       modelMapping: isCodex
         ? { ...EMPTY_MODEL_MAPPING }
-        : mappingFromModel(preset.model, target),
+        : isAgPreset
+          ? mappingFromAntigravityPreset(preset.model, target)
+          : mappingFromModel(preset.model, target),
     });
     // Seed the suggestion list with the preset's own models so the user can
     // switch between e.g. deepseek-v4-flash / deepseek-v4-pro immediately.

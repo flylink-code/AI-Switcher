@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ProviderTarget, SessionProvider } from "@/types/backend";
+import type { UsageSourceFilter } from "@/components/UsageSourceIcons";
 import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 
 const STORAGE_KEY = "cs.pagePreferences";
@@ -13,8 +14,8 @@ interface PersistedPagePreferences {
   usagePeriod?: UsagePeriod;
   /** Providers heatmap period; falls back to usagePeriod on first load. */
   heatmapPeriod?: UsagePeriod;
-  usageLogTarget?: ProviderTarget | "all";
-  heatmapSource?: ProviderTarget | "all";
+  usageLogTarget?: UsageSourceFilter;
+  heatmapSource?: UsageSourceFilter;
   sessionsProvider?: SessionProvider;
 }
 
@@ -25,8 +26,8 @@ interface PagePreferencesState {
   usagePeriod: UsagePeriod;
   heatmapPeriod: UsagePeriod;
   usageLogPage: number;
-  usageLogTarget: ProviderTarget | "all";
-  heatmapSource: ProviderTarget | "all";
+  usageLogTarget: UsageSourceFilter;
+  heatmapSource: UsageSourceFilter;
   sessionsProvider: SessionProvider;
   setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
@@ -34,8 +35,8 @@ interface PagePreferencesState {
   setUsagePeriod: (period: UsagePeriod) => void;
   setHeatmapPeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
-  setUsageLogTarget: (target: ProviderTarget | "all") => void;
-  setHeatmapSource: (target: ProviderTarget | "all") => void;
+  setUsageLogTarget: (target: UsageSourceFilter) => void;
+  setHeatmapSource: (target: UsageSourceFilter) => void;
   setSessionsProvider: (provider: SessionProvider) => void;
 }
 
@@ -72,8 +73,8 @@ function isUsagePeriod(value: unknown): value is UsagePeriod {
   return USAGE_PERIOD_VALUES.some((period) => period === value);
 }
 
-function isUsageLogTarget(value: unknown): value is ProviderTarget | "all" {
-  return value === "all" || isProviderTarget(value);
+function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
+  return value === "all" || value === "antigravity" || isProviderTarget(value);
 }
 
 function sessionProviderFor(target: ProviderTarget): SessionProvider {

@@ -12,6 +12,7 @@ pub mod oauth;
 pub mod pool;
 pub mod quota;
 pub mod upstream;
+pub mod usage_log;
 
 pub use account::{
     import_accounts_json, list_accounts, remove_account, set_active_account, AntigravityAccount,

@@ -126,6 +126,40 @@ impl QuotaSnapshot {
             .max()
     }
 
+    /// Remaining-% for Gemini buckets (`gemini-*` / display name contains Gemini).
+    pub fn gemini_window_percent(&self, window: &str) -> Option<i32> {
+        self.group_window_percent(window, QuotaFamily::Gemini)
+    }
+
+    /// Remaining-% for Claude + GPT / third-party buckets (`3p-*` or non-Gemini groups).
+    pub fn claude_window_percent(&self, window: &str) -> Option<i32> {
+        self.group_window_percent(window, QuotaFamily::ClaudeGpt)
+    }
+
+    fn group_window_percent(&self, window: &str, family: QuotaFamily) -> Option<i32> {
+        self.groups
+            .iter()
+            .flat_map(|group| {
+                let group_is_gemini = group_looks_gemini(&group.display_name);
+                group.buckets.iter().filter(move |bucket| {
+                    if !bucket.window.eq_ignore_ascii_case(window) {
+                        return false;
+                    }
+                    match family {
+                        QuotaFamily::Gemini => {
+                            bucket_looks_gemini(&bucket.bucket_id) || group_is_gemini
+                        }
+                        QuotaFamily::ClaudeGpt => {
+                            bucket_looks_claude_gpt(&bucket.bucket_id)
+                                || (!group_is_gemini && !bucket_looks_gemini(&bucket.bucket_id))
+                        }
+                    }
+                })
+            })
+            .map(|bucket| (bucket.remaining_fraction * 100.0).round() as i32)
+            .max()
+    }
+
     pub fn has_usable_quota(&self) -> bool {
         if self.is_forbidden {
             return false;
@@ -156,14 +190,14 @@ pub async fn fetch_quota(
     .build()
     .map_err(|error| AppError::Other(format!("创建配额 HTTP 客户端失败: {error}")))?;
 
-    let meta = if let Some(pid) = cached_project_id.filter(|value| !value.trim().is_empty()) {
-        ProjectMeta {
-            project_id: Some(pid.to_string()),
-            subscription_tier: None,
+    // Always call loadCodeAssist so subscription tier (paidTier) refreshes even when
+    // project_id is already cached. Fall back to the cached project if meta omits it.
+    let mut meta = fetch_project_meta(&client, access_token).await;
+    if meta.project_id.is_none() {
+        if let Some(pid) = cached_project_id.filter(|value| !value.trim().is_empty()) {
+            meta.project_id = Some(pid.to_string());
         }
-    } else {
-        fetch_project_meta(&client, access_token).await
-    };
+    }
 
     let mut snapshot = fetch_models_quota(
         &client,
@@ -223,20 +257,118 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
     }
 }
 
-fn extract_tier(value: &Value) -> Option<String> {
+#[derive(Clone, Copy)]
+enum QuotaFamily {
+    Gemini,
+    ClaudeGpt,
+}
+
+fn group_looks_gemini(display_name: &str) -> bool {
+    display_name.to_ascii_lowercase().contains("gemini")
+}
+
+fn bucket_looks_gemini(bucket_id: &str) -> bool {
+    let id = bucket_id.to_ascii_lowercase();
+    id.starts_with("gemini-") || id.contains("gemini")
+}
+
+fn bucket_looks_claude_gpt(bucket_id: &str) -> bool {
+    let id = bucket_id.to_ascii_lowercase();
+    id.starts_with("3p-")
+        || id.contains("claude")
+        || id.contains("gpt")
+        || id.contains("openai")
+}
+
+fn tier_field_value(tier: &Value) -> Option<&str> {
+    // Prefer human-readable name (AG Manager does the same); id is often a slug
+    // like `free-tier` even when a paid plan name is present elsewhere.
+    tier.get("name")
+        .or_else(|| tier.get("id"))
+        .or_else(|| tier.get("slug"))
+        .or_else(|| tier.get("quotaTier"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn extract_tier_from_key(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(|tier| {
+        if let Some(text) = tier_field_value(tier) {
+            return Some(text.to_string());
+        }
+        tier.as_array()
+            .and_then(|items| items.first())
+            .and_then(tier_field_value)
+            .map(str::to_string)
+    })
+}
+
+fn is_ineligible(value: &Value) -> bool {
     value
-        .get("currentTier")
-        .and_then(|tier| {
-            tier.get("id")
-                .or_else(|| tier.get("name"))
-                .and_then(Value::as_str)
-        })
-        .or_else(|| {
-            value
-                .pointer("/currentTier/0/id")
-                .and_then(Value::as_str)
-        })
-        .map(str::to_string)
+        .get("ineligibleTiers")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+}
+
+fn extract_default_allowed_tier(value: &Value) -> Option<String> {
+    let tiers = value.get("allowedTiers")?.as_array()?;
+    let default = tiers.iter().find(|tier| {
+        tier.get("isDefault")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    });
+    default
+        .or_else(|| tiers.first())
+        .and_then(tier_field_value)
+        .map(|text| format!("{text} (Restricted)"))
+}
+
+/// Prefer `paidTier` (AI Pro / Ultra) over `currentTier` (often free-tier).
+/// Mirrors Antigravity-Manager's multi-level fallback including ineligible/allowed.
+fn extract_tier(value: &Value) -> Option<String> {
+    let paid = extract_tier_from_key(value, "paidTier");
+    if let Some(paid) = paid {
+        log::info!(
+            "Antigravity tier from paidTier={paid} current={:?}",
+            extract_tier_from_key(value, "currentTier")
+        );
+        return Some(normalize_tier_label(paid));
+    }
+
+    if is_ineligible(value) {
+        let restricted = extract_default_allowed_tier(value);
+        log::info!("Antigravity tier ineligible → {restricted:?}");
+        return restricted.map(normalize_tier_label);
+    }
+
+    let current = extract_tier_from_key(value, "currentTier");
+    log::info!(
+        "Antigravity tier from currentTier={current:?} (no paidTier); keys={:?}",
+        value
+            .as_object()
+            .map(|obj| obj.keys().cloned().collect::<Vec<_>>())
+    );
+    current.map(normalize_tier_label)
+}
+
+fn normalize_tier_label(raw: String) -> String {
+    let upper = raw.trim().to_ascii_uppercase();
+    if upper.contains("ULTRA") {
+        return "ULTRA".to_string();
+    }
+    // Avoid matching the substring in unrelated ids; require PRO as a token-ish hit.
+    if upper.contains("PRO") && !upper.contains("PROMPT") {
+        return "PRO".to_string();
+    }
+    if upper.contains("FREE") {
+        return "FREE".to_string();
+    }
+    // Google often returns id/slug `free-tier`.
+    if upper == "FREE-TIER" || upper == "FREE_TIER" || upper.ends_with("-FREE") {
+        return "FREE".to_string();
+    }
+    raw.trim().to_string()
 }
 
 async fn fetch_models_quota(
@@ -444,24 +576,71 @@ mod tests {
         assert_eq!(snapshot.models[0].percentage, 42);
 
         let summary = json!({
-            "groups": [{
-                "displayName": "Gemini Models",
-                "buckets": [
-                    { "bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0.8, "resetTime": "t1" },
-                    { "bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.55, "resetTime": "t2" }
-                ]
-            }]
+            "groups": [
+                {
+                    "displayName": "Gemini Models",
+                    "buckets": [
+                        { "bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0.8, "resetTime": "t1" },
+                        { "bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.55, "resetTime": "t2" }
+                    ]
+                },
+                {
+                    "displayName": "Claude + GPT",
+                    "buckets": [
+                        { "bucketId": "3p-claude-5h", "window": "5h", "remainingFraction": 0.3, "resetTime": "t3" },
+                        { "bucketId": "3p-claude-weekly", "window": "weekly", "remainingFraction": 0.2, "resetTime": "t4" }
+                    ]
+                }
+            ]
         });
         let groups = parse_summary_groups(&summary);
-        assert_eq!(groups.len(), 1);
+        assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].buckets.len(), 2);
 
         let mut full = snapshot;
         full.groups = groups;
         assert_eq!(full.window_percent("5h"), Some(80));
         assert_eq!(full.window_percent("weekly"), Some(55));
+        assert_eq!(full.gemini_window_percent("5h"), Some(80));
+        assert_eq!(full.gemini_window_percent("weekly"), Some(55));
+        assert_eq!(full.claude_window_percent("5h"), Some(30));
+        assert_eq!(full.claude_window_percent("weekly"), Some(20));
         assert_eq!(full.remaining_hint_percent(), Some(80));
         assert!(full.has_usable_quota());
+    }
+
+    #[test]
+    fn extract_tier_prefers_paid_over_current() {
+        let paid = json!({
+            "paidTier": { "id": "AI_PRO", "name": "Google AI Pro" },
+            "currentTier": { "id": "free-tier", "name": "Free" }
+        });
+        assert_eq!(extract_tier(&paid).as_deref(), Some("PRO"));
+
+        let free_only = json!({ "currentTier": { "name": "free-tier" } });
+        assert_eq!(extract_tier(&free_only).as_deref(), Some("FREE"));
+
+        let ultra = json!({ "paidTier": [{ "id": "ULTRA_PLAN" }] });
+        assert_eq!(extract_tier(&ultra).as_deref(), Some("ULTRA"));
+
+        // Prefer name over id (id can look free-like while name is Pro).
+        let name_wins = json!({
+            "paidTier": { "id": "tier-1", "name": "AI Pro" },
+            "currentTier": { "id": "free-tier" }
+        });
+        assert_eq!(extract_tier(&name_wins).as_deref(), Some("PRO"));
+
+        let restricted = json!({
+            "currentTier": { "id": "free-tier" },
+            "ineligibleTiers": [{ "reasonCode": "REGION" }],
+            "allowedTiers": [
+                { "id": "standard", "name": "Standard", "isDefault": true }
+            ]
+        });
+        assert_eq!(
+            extract_tier(&restricted).as_deref(),
+            Some("Standard (Restricted)")
+        );
     }
 
     #[test]

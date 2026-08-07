@@ -1,6 +1,8 @@
 //! Gateway HTTP handlers.
 
 use std::convert::Infallible;
+use std::sync::Arc;
+use std::time::Instant;
 
 use axum::body::Body;
 use axum::extract::State;
@@ -20,8 +22,10 @@ use crate::antigravity::map::anthropic::{
 use crate::antigravity::map::openai::{
     gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
 };
-use crate::antigravity::map::{list_public_models};
+use crate::antigravity::map::list_public_models;
 use crate::antigravity::upstream::{unwrap_v1internal, wrap_v1internal};
+use crate::antigravity::usage_log;
+use crate::database::Database;
 
 const MAX_FAILOVER_HOPS: usize = 3;
 
@@ -59,8 +63,15 @@ pub async fn anthropic_messages(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
-    dispatch_generation(&state, &headers, mapped.model, mapped.request, mapped.stream, Protocol::Anthropic)
-        .await
+    dispatch_generation(
+        &state,
+        &headers,
+        mapped.model,
+        mapped.request,
+        mapped.stream,
+        Protocol::Anthropic,
+    )
+    .await
 }
 
 pub async fn openai_chat_completions(
@@ -79,14 +90,27 @@ pub async fn openai_chat_completions(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
-    dispatch_generation(&state, &headers, mapped.model, mapped.request, mapped.stream, Protocol::OpenAi)
-        .await
+    dispatch_generation(
+        &state,
+        &headers,
+        mapped.model,
+        mapped.request,
+        mapped.stream,
+        Protocol::OpenAi,
+    )
+    .await
 }
 
 #[derive(Clone, Copy)]
 enum Protocol {
     Anthropic,
     OpenAi,
+}
+
+impl Protocol {
+    fn is_anthropic(self) -> bool {
+        matches!(self, Self::Anthropic)
+    }
 }
 
 async fn dispatch_generation(
@@ -97,6 +121,7 @@ async fn dispatch_generation(
     stream: bool,
     protocol: Protocol,
 ) -> Response {
+    let started = Instant::now();
     let session_key = headers
         .get("x-session-id")
         .or_else(|| headers.get("x-claude-session-id"))
@@ -109,10 +134,7 @@ async fn dispatch_generation(
         let selected = if hop == 0 {
             state.pool.select(None, session_key.as_deref())
         } else {
-            let failed = exclude
-                .last()
-                .cloned()
-                .unwrap_or_else(|| String::new());
+            let failed = exclude.last().cloned().unwrap_or_default();
             state
                 .pool
                 .rotate_after_failure(&failed, 429, session_key.as_deref(), &exclude)
@@ -126,7 +148,14 @@ async fn dispatch_generation(
         };
         exclude.push(account.id.clone());
 
-        let project_id = match ensure_project_id(state, &access_token, &account.id, account.token.project_id.as_deref()).await {
+        let project_id = match ensure_project_id(
+            state,
+            &access_token,
+            &account.id,
+            account.token.project_id.as_deref(),
+        )
+        .await
+        {
             Ok(value) => value,
             Err(error) => {
                 last_error = error;
@@ -168,12 +197,33 @@ async fn dispatch_generation(
         }
 
         state.pool.note_success(&account.id);
+        let log_id = usage_log::insert_request(
+            &state.db,
+            Some(&account.id),
+            &model,
+            Some(status.as_u16() as i64),
+            started,
+            protocol.is_anthropic(),
+            stream,
+            None,
+        );
         if stream {
-            return stream_response(upstream, model.clone(), protocol).await;
+            return stream_response(
+                upstream,
+                model.clone(),
+                protocol,
+                state.db.clone(),
+                log_id,
+                Some(account.id.clone()),
+            )
+            .await;
         }
         return match upstream.json::<Value>().await {
             Ok(value) => {
                 let gemini = unwrap_v1internal(&value);
+                if let Some(id) = log_id.as_deref() {
+                    usage_log::update_usage_from_gemini(&state.db, id, Some(&account.id), &gemini);
+                }
                 match protocol {
                     Protocol::Anthropic => {
                         Json(gemini_to_anthropic_response(&model, &gemini)).into_response()
@@ -190,6 +240,16 @@ async fn dispatch_generation(
         };
     }
 
+    let _ = usage_log::insert_request(
+        &state.db,
+        exclude.last().map(String::as_str),
+        &model,
+        Some(StatusCode::BAD_GATEWAY.as_u16() as i64),
+        started,
+        protocol.is_anthropic(),
+        stream,
+        Some("upstream"),
+    );
     error_json(StatusCode::BAD_GATEWAY, &last_error)
 }
 
@@ -215,6 +275,9 @@ async fn stream_response(
     upstream: reqwest::Response,
     model: String,
     protocol: Protocol,
+    db: Arc<Database>,
+    log_id: Option<String>,
+    account_id: Option<String>,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let stream = futures_util::stream::unfold(
@@ -225,6 +288,11 @@ async fn stream_response(
             protocol,
             started: false,
             finished: false,
+            db,
+            log_id,
+            account_id,
+            last_input: 0,
+            last_output: 0,
         },
         |mut state| async move {
             if state.finished {
@@ -240,6 +308,7 @@ async fn stream_response(
                     }
                     Some(Err(_)) | None => {
                         let trailing = state.finish_events();
+                        state.flush_usage();
                         state.finished = true;
                         if trailing.is_empty() {
                             return None;
@@ -267,9 +336,37 @@ struct StreamState {
     protocol: Protocol,
     started: bool,
     finished: bool,
+    db: Arc<Database>,
+    log_id: Option<String>,
+    account_id: Option<String>,
+    last_input: i64,
+    last_output: i64,
 }
 
 impl StreamState {
+    fn note_usage(&mut self, gemini: &Value) {
+        let (input, output) = usage_log::tokens_from_gemini(gemini);
+        if input > 0 {
+            self.last_input = input;
+        }
+        if output > 0 {
+            self.last_output = output;
+        }
+    }
+
+    fn flush_usage(&self) {
+        let Some(log_id) = self.log_id.as_deref() else {
+            return;
+        };
+        usage_log::update_usage_tokens(
+            &self.db,
+            log_id,
+            self.account_id.as_deref(),
+            self.last_input,
+            self.last_output,
+        );
+    }
+
     fn take_line_event(&mut self) -> Option<Bytes> {
         let idx = self.buffer.find('\n')?;
         let line = self.buffer[..idx].trim_end_matches('\r').to_string();
@@ -288,6 +385,7 @@ impl StreamState {
             return None;
         };
         let gemini = unwrap_v1internal(&value);
+        self.note_usage(&gemini);
         match self.protocol {
             Protocol::Anthropic => {
                 let mut out = Vec::new();

@@ -55,11 +55,15 @@ export function formatTierLabel(tier: string | null | undefined): string | null 
 }
 
 export function accountQuotaSummary(account: AntigravityAccountPublic): {
-  fiveHour: number | null;
-  weekly: number | null;
+  geminiFiveHour: number | null;
+  geminiWeekly: number | null;
+  claudeFiveHour: number | null;
+  claudeWeekly: number | null;
 } {
   return {
-    fiveHour: account.quota5hPercent ?? null,
-    weekly: account.quotaWeeklyPercent ?? null,
+    geminiFiveHour: account.quotaGemini5hPercent ?? null,
+    geminiWeekly: account.quotaGeminiWeeklyPercent ?? null,
+    claudeFiveHour: account.quotaClaude5hPercent ?? null,
+    claudeWeekly: account.quotaClaudeWeeklyPercent ?? null,
   };
 }

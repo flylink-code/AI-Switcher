@@ -180,13 +180,28 @@ export default function AntigravityPage() {
     {
       title: t("antigravity.quota"),
       key: "quota",
-      width: 220,
+      width: 280,
       render: (_: unknown, row: AntigravityAccountPublic) => {
-        const { fiveHour, weekly } = accountQuotaSummary(row);
+        const { geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly } =
+          accountQuotaSummary(row);
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <QuotaMiniBar label={t("antigravity.quota5h")} percent={fiveHour} />
-            <QuotaMiniBar label={t("antigravity.quota7d")} percent={weekly} />
+            <QuotaMiniBar
+              label={t("antigravity.quotaGemini5h")}
+              percent={geminiFiveHour}
+            />
+            <QuotaMiniBar
+              label={t("antigravity.quotaGemini7d")}
+              percent={geminiWeekly}
+            />
+            <QuotaMiniBar
+              label={t("antigravity.quotaClaude5h")}
+              percent={claudeFiveHour}
+            />
+            <QuotaMiniBar
+              label={t("antigravity.quotaClaude7d")}
+              percent={claudeWeekly}
+            />
           </div>
         );
       },

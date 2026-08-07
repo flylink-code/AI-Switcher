@@ -33,6 +33,7 @@ enum UsageSource {
     ClaudeCode,
     ClaudeDesktop,
     Codex,
+    Antigravity,
 }
 
 impl UsageSource {
@@ -42,6 +43,7 @@ impl UsageSource {
             "claude_code" => Ok(Self::ClaudeCode),
             "claude_desktop" => Ok(Self::ClaudeDesktop),
             "codex" => Ok(Self::Codex),
+            "antigravity" => Ok(Self::Antigravity),
             _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
         }
     }
@@ -53,6 +55,7 @@ impl UsageSource {
             Self::ClaudeDesktop => Some(Some("claude_desktop")),
             // Codex rows live in proxy_request_logs (proxy HTTP + session sync).
             Self::Codex => Some(Some("codex")),
+            Self::Antigravity => Some(Some("antigravity")),
         }
     }
 

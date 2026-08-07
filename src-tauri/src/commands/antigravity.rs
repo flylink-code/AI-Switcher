@@ -157,11 +157,11 @@ pub async fn ensure_antigravity_provider(
             status.base_url.clone(),
             ClaudeModelMapping {
                 sonnet: default_model.clone(),
-                opus: default_model.clone(),
-                haiku: default_model.clone(),
+                opus: "claude-opus-4-6-thinking".into(),
+                haiku: "gemini-3-flash".into(),
                 fable: default_model.clone(),
                 subagent: if target == ProviderTarget::ClaudeCode {
-                    default_model.clone()
+                    "gemini-3-flash".into()
                 } else {
                     String::new()
                 },
@@ -188,9 +188,16 @@ pub async fn ensure_antigravity_provider(
         provider_kind: ProviderKind::Antigravity,
         auth_binding: String::new(),
         target_app: target,
-        notes: "Built-in Antigravity account gateway".to_string(),
+        notes: "Built-in Antigravity account gateway (Haiku → gemini-3-flash)".to_string(),
         failover_group: 0,
-        failover_models: vec!["gemini-3-flash".into(), "claude-opus-4-6-thinking".into()],
+        failover_models: vec![
+            "gemini-3-flash".into(),
+            "gemini-3.1-pro-high".into(),
+            "claude-opus-4-6-thinking".into(),
+            "claude-sonnet-4-6-thinking".into(),
+            "gemini-2.5-flash".into(),
+            "gemini-2.5-pro".into(),
+        ],
     };
 
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))

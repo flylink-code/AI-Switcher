@@ -105,9 +105,14 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "anthropic",
     baseUrl: "http://127.0.0.1:8045",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3-flash", "claude-opus-4-6-thinking"],
+    failoverModels: [
+      "gemini-3-flash",
+      "gemini-3.1-pro-high",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+    ],
     notes:
-      "External Antigravity-Manager gateway (start AG Manager first; fill its API key). For the built-in gateway use Settings → Antigravity.",
+      "External Antigravity-Manager gateway (start AG Manager first; fill its API key). For the built-in gateway use the Antigravity page.",
     targets: CODE_DESKTOP,
   },
   {
@@ -116,7 +121,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_chat",
     baseUrl: "http://127.0.0.1:8045/v1",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3-flash"],
+    failoverModels: ["gemini-3-flash", "gemini-3.1-pro-high", "claude-opus-4-6-thinking"],
     modelContextWindow: 200_000,
     notes:
       "External Antigravity-Manager OpenAI-compatible endpoint for Codex. Start AG Manager and fill its API key.",
@@ -128,9 +133,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "anthropic",
     baseUrl: "http://127.0.0.1:15830",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3-flash", "claude-opus-4-6-thinking"],
+    failoverModels: [
+      "gemini-3-flash",
+      "gemini-3.1-pro-high",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+    ],
     notes:
-      "AI-Switcher built-in Antigravity gateway. Manage accounts on the Antigravity page, then start the gateway.",
+      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到 gemini-3-flash；也可在模型映射里改成其他 Gemini。",
     targets: CODE_DESKTOP,
   },
   {
@@ -139,16 +151,36 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_chat",
     baseUrl: "http://127.0.0.1:15830/v1",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3-flash"],
+    failoverModels: [
+      "gemini-3-flash",
+      "gemini-3.1-pro-high",
+      "claude-opus-4-6-thinking",
+      "gemini-2.5-pro",
+    ],
     modelContextWindow: 200_000,
     notes:
-      "AI-Switcher built-in Antigravity gateway (OpenAI-compatible) for Codex.",
+      "Built-in Antigravity gateway (OpenAI-compatible) for Codex — failover/catalog includes Gemini.",
     targets: ["codex"],
   },
 ];
 
 export function presetsForTarget(target: ProviderTarget): ProviderPreset[] {
   return PROVIDER_PRESETS.filter((preset) => preset.targets.includes(target));
+}
+
+/** Claude Code/Desktop role slots for Antigravity: keep Sonnet/Opus on Claude, put Gemini on Haiku. */
+export function mappingFromAntigravityPreset(
+  defaultModel: string,
+  target: ProviderTarget,
+): ClaudeModelMapping {
+  const sonnet = defaultModel.trim() || "claude-sonnet-4-6";
+  return {
+    sonnet,
+    opus: "claude-opus-4-6-thinking",
+    haiku: "gemini-3-flash",
+    fable: sonnet,
+    subagent: target === "claude_code" ? "gemini-3-flash" : "",
+  };
 }
 
 export function mappingFromModel(

@@ -12,7 +12,7 @@ use crate::error::AppResult;
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
 /// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
-const CATALOG_VERSION: &str = "2026-08-03-fast";
+const CATALOG_VERSION: &str = "2026-08-07-ag2";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -71,6 +71,17 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "xAI", model: "grok-4.1-fast", input: 0.2, cache_read: 0.0, cache_write: 0.0, output: 0.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.x.ai/docs/models" },
     DefaultPricing { provider: "Mistral", model: "mistral-large-3", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.mistral.ai/platform/pricing/" },
     DefaultPricing { provider: "Mistral", model: "mistral-small-4", input: 0.15, cache_read: 0.0, cache_write: 0.0, output: 0.6, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://docs.mistral.ai/platform/pricing/" },
+    // Antigravity gateway public model ids (subscription traffic; rates mirror public API list for estimates).
+    DefaultPricing { provider: "Antigravity", model: "claude-sonnet-4-6", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "claude-sonnet-4-6-thinking", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "claude-opus-4-6-thinking", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3-flash", input: 0.5, cache_read: 0.0, cache_write: 0.0, output: 3.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3-flash-agent", input: 0.5, cache_read: 0.0, cache_write: 0.0, output: 3.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3-pro-high", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.1-pro-high", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.1-pro-low", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-2.5-flash", input: 0.3, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-2.5-pro", input: 1.25, cache_read: 0.0, cache_write: 0.0, output: 10.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
 ];
 
 pub fn run_seed(conn: &rusqlite::Connection) -> AppResult<()> {
