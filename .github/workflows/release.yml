@@ -96,13 +96,19 @@ jobs:
 
             ## What's new
 
-            - Fix Windows config-file lock handling during in-app updates
-            - Retry Codex configuration recovery after the updater relaunch
+            - Built-in Antigravity gateway (default `:15830`): Anthropic Messages, OpenAI Chat, and OpenAI Responses for Claude Code / Desktop / Codex
+            - Multi-account OAuth pool with quota scheduling, cooldown rotation, and live model catalog
+            - Session-sticky Gemini effort (bare Gemini defaults to high); Claude Desktop role routing for the native effort slider
+            - Codex Antigravity binding uses `openai_responses` (`/v1/responses`)
+            - README docs for the Antigravity gateway
 
             ## 更新内容
 
-            - 修复应用内更新时 Windows 配置文件锁导致 Codex 会话暂时为空的问题
-            - 更新器重启后自动重试 Codex 配置恢复
+            - 内建 Antigravity 网关（默认 `:15830`）：Anthropic Messages / OpenAI Chat / OpenAI Responses，供 Claude Code、Desktop、Codex 使用
+            - 多账号 OAuth、额度调度、冷却轮换与实时模型目录
+            - Gemini 会话粘性 effort（裸名无 effort 默认 high）；Desktop 角色路由唤起原生滑条
+            - Codex 绑定 Antigravity 使用 `openai_responses`（`/v1/responses`）
+            - README 补充 Antigravity 网关说明
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

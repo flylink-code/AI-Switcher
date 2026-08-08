@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.0.5**
+> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.3.0**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -61,6 +61,17 @@
 ### 本地代理
 
 Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
+
+### Antigravity 网关（1.3）
+
+内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex 使用：
+
+- **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
+- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录
+- **一键绑定**：在 Antigravity 页「确保供应商」后即可在各工具切换使用
+- **推理档位**：Gemini 可用 `-low` / `-medium` / `-high` 后缀；Claude Desktop 靠角色路由（`claude-sonnet-5` + `labelOverride`）唤起原生滑条；网关按会话粘性记住最近 effort，裸 Gemini 无 effort 时默认 high
+- **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
+- **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
@@ -172,12 +183,13 @@ scripts/              Windows 开发 / 构建脚本
 
 ## 当前边界
 
-- 产品范围：Claude Code + Claude Desktop + Codex（不做 Grok / Gemini 等）
+- 产品客户端范围：Claude Code + Claude Desktop + Codex；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
 - Codex Plugins 仅本地探测与启停，不做完整官方商店
 - 会话「恢复」只复制命令，不自动开终端
 - 不同步自动合并远端冲突，不做团队分享
 - Claude Code 与 Desktop 的供应商列表与激活状态始终独立
 - 不解析 Claude Desktop 私有会话格式
+- Antigravity 双账号额度耗尽时上游仍可能 429（网关会轮换，无法凭空扩额）
 
 ---
 
@@ -188,6 +200,8 @@ scripts/              Windows 开发 / 构建脚本
 | 项目 | 参考方向 | 上游 |
 |---|---|---|
 | AI Toolbox | 多工具配置、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
+| Antigravity-Manager | Antigravity / Cloud Code 反代、账号池与协议映射思路 | 本地参考（见仓库 `examples/`） |
+| CLIProxyAPI | 多协议网关与上游适配思路 | 本地参考（见仓库 `examples/`） |
 | cc Proxy | Desktop 本地代理与模型替换 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | 供应商切换、Tauri、会话与托盘 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
 | Claude Code VS Code 中文包 | 扩展定位与汉化流程 | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.0.5**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.3.0**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -61,6 +61,17 @@ Install Claude Code, Claude Desktop, or the Codex CLI as needed.
 ### Local proxy
 
 Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default). **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
+
+### Antigravity gateway (1.3)
+
+Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, and Codex:
+
+- **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
+- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog
+- **One-click bind**: use **Ensure Provider** on the Antigravity page, then switch from each tool’s provider list
+- **Reasoning tiers**: Gemini supports `-low` / `-medium` / `-high` suffixes; Claude Desktop unlocks the native effort slider via role routing (`claude-sonnet-5` + `labelOverride`); the gateway keeps session-sticky effort and defaults bare Gemini to high when effort is absent
+- **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
+- **Note**: personal-use gateway — review account and upstream terms yourself; do not use it as a commercial relay
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
@@ -172,12 +183,13 @@ scripts/              Windows develop / build scripts
 
 ## Current limitations
 
-- Product scope: Claude Code + Claude Desktop + Codex only (no Grok / Gemini / …)
+- Client scope: Claude Code + Claude Desktop + Codex; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
 - Codex Plugins are local detect/enable only — not a full official marketplace
 - Session “resume” copies a command; it does not launch a terminal
 - No auto-merge of remote sync conflicts; no team sharing
 - Claude Code and Desktop provider lists and active selections stay independent
 - Claude Desktop private session formats are not parsed
+- When Antigravity dual-account quotas are exhausted, upstream may still return 429 (rotation helps; it cannot invent quota)
 
 ---
 
@@ -188,6 +200,8 @@ Independent project; not affiliated with the repositories below or with Anthropi
 | Project | Area referenced | Upstream |
 |---|---|---|
 | AI Toolbox | Multi-tool config, sessions, desktop IA | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
+| Antigravity-Manager | Antigravity / Cloud Code proxy, account pool, protocol mapping ideas | Local reference (see `examples/`) |
+| CLIProxyAPI | Multi-protocol gateway and upstream adaptation ideas | Local reference (see `examples/`) |
 | cc Proxy | Desktop local proxy and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | Provider switching, Tauri, sessions, tray | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
 | Claude Code VS Code Chinese pack | Extension discovery and localization flow | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
