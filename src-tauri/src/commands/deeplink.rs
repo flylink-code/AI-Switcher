@@ -27,6 +27,7 @@ pub fn confirm_import_preview(
             let inputs = provider_inputs_from_preview(&preview)?;
             let mut imported = 0usize;
             let mut skipped = 0usize;
+            let mut touched_opencode = false;
             for input in inputs {
                 let existing = state
                     .db
@@ -37,8 +38,14 @@ pub fn confirm_import_preview(
                     skipped += 1;
                     continue;
                 }
+                if input.target_app == crate::provider::ProviderTarget::OpenCode {
+                    touched_opencode = true;
+                }
                 state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
                 imported += 1;
+            }
+            if touched_opencode {
+                crate::commands::providers::sync_opencode_providers_to_live(&state)?;
             }
             Ok(import_result_label(ImportResource::Provider, imported, skipped))
         }

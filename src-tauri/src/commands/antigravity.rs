@@ -180,6 +180,12 @@ pub async fn ensure_antigravity_provider(
             format!("{}/v1", status.base_url),
             ClaudeModelMapping::default(),
         ),
+        // OpenCode 经 `@ai-sdk/anthropic` 直连网关；baseURL 需带 /v1 供 SDK 拼 /messages。
+        ProviderTarget::OpenCode => (
+            ProtocolType::Anthropic,
+            format!("{}/v1", status.base_url.trim_end_matches('/')),
+            ClaudeModelMapping::default(),
+        ),
         ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => (
             ProtocolType::Anthropic,
             status.base_url.clone(),

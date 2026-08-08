@@ -225,6 +225,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         auth_token,
         model,
         model_mapping,
+        protocol_type: crate::provider::ProtocolType::Anthropic,
     }))
 }
 

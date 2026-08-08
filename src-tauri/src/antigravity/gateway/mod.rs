@@ -343,6 +343,7 @@ pub async fn restore_gateway_if_enabled() {
                 ProviderTarget::ClaudeCode,
                 ProviderTarget::ClaudeDesktop,
                 ProviderTarget::Codex,
+                ProviderTarget::OpenCode,
             ] {
                 if let Some(provider) = dao::get_current_provider(conn, target)? {
                     if provider.provider_kind == ProviderKind::Antigravity {

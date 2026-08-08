@@ -60,10 +60,12 @@ import {
   previewModelPricingXlsx,
   rebuildCodexSessionUsage,
   rebuildClaudeCodeSessionUsage,
+  rebuildOpenCodeSessionUsage,
   saveModelPricing,
   saveLogMaintenancePolicy,
   syncCodexSessionUsage,
   syncClaudeCodeSessionUsage,
+  syncOpenCodeSessionUsage,
 } from "@/services/api";
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -295,6 +297,7 @@ export default function UsagePage() {
       // latest incremental records before querying the dashboard database.
       if (includesClaudeCode) await syncClaudeCodeSessionUsage();
       if (includesCodex) await syncCodexSessionUsage();
+      if (includesOpenCode) await syncOpenCodeSessionUsage();
       await Promise.all([dashboardQuery.refetch(), logsQuery.refetch(), metaQuery.refetch()]);
     } catch (e) {
       void message.error(errMsg(e));
@@ -311,6 +314,7 @@ export default function UsagePage() {
     (summary?.outputTokens ?? 0);
   const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
   const isCodexOnly = logTargetApp === "codex";
+  const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
   const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
   const isClaudeCodeOnly = logTargetApp === "claude_code";
   const localClaude = dashboard?.localClaudeCode;
@@ -343,6 +347,42 @@ export default function UsagePage() {
         t("usage.codexRebuildDone", {
           inserted: result.insertedRows,
           scanned: result.scannedFiles,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const syncOpenCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await syncOpenCodeSessionUsage();
+      void message.success(
+        t("usage.opencodeSyncDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedSessions,
+        }),
+      );
+      await invalidateUsageQueries(queryClient);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const rebuildOpenCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildOpenCodeSessionUsage();
+      void message.success(
+        t("usage.opencodeRebuildDone", {
+          inserted: result.insertedRows,
+          scanned: result.scannedSessions,
         }),
       );
       await invalidateUsageQueries(queryClient);
@@ -529,6 +569,16 @@ export default function UsagePage() {
                 </Button>
               </>
             )}
+            {includesOpenCode && (
+              <>
+                <Button loading={refreshing} onClick={() => void syncOpenCodeSessions()}>
+                  {t("usage.syncOpenCodeSessions")}
+                </Button>
+                <Button loading={refreshing} onClick={() => void rebuildOpenCodeSessions()}>
+                  {t("usage.rebuildOpenCodeSessions")}
+                </Button>
+              </>
+            )}
             <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
               {t("usage.configurePricing")}
             </Button>
@@ -631,7 +681,9 @@ export default function UsagePage() {
                 render: (v: string | null, row: PaginatedProxyLogs["data"][number]) =>
                   row.dataSource === "codex_session"
                     ? t("usage.codexSessionSource")
-                    : (v ?? "—"),
+                    : row.dataSource === "opencode_session"
+                      ? t("usage.opencodeSessionSource")
+                      : (v ?? "—"),
               },
               {
                 title: t("usage.model"),

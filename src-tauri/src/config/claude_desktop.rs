@@ -590,6 +590,7 @@ pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LivePro
         auth_token,
         model,
         model_mapping,
+        protocol_type: crate::provider::ProtocolType::Anthropic,
     }))
 }
 

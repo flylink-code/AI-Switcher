@@ -5,12 +5,13 @@ import {
 } from "@/components/UsageSourceIcons";
 import type { ProviderTarget } from "@/types/backend";
 
-const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex"];
+const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
 
 const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
   claude_desktop: "workspace.claude_desktop",
   codex: "workspace.codex",
+  opencode: "workspace.opencode",
 };
 
 type Props<T extends ProviderTarget> = {

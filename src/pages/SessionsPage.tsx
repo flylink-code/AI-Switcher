@@ -261,7 +261,8 @@ export default function SessionsPage() {
   }, [contentSearch, filteredSessions, needsFullScan, page]);
 
   const batchableSessions = useMemo(
-    () => visibleSessions,
+    // OpenCode 会话是 opencode.db 行，后端不支持归档/导出/回收站。
+    () => visibleSessions.filter((session) => session.provider !== "opencode"),
     [visibleSessions],
   );
   const selectedSessions = batchableSessions.filter((session) => selectedPaths.has(session.sourcePath));
@@ -491,7 +492,7 @@ export default function SessionsPage() {
         value={provider}
         onChange={setSessionsProvider}
         t={t}
-        targets={["claude_code", "codex"]}
+        targets={["claude_code", "codex", "opencode"]}
       />
 
       <Card size="small" className="page-surface">
@@ -554,8 +555,12 @@ export default function SessionsPage() {
           <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void exportSelected()}>
             {t("sessions.exportSelected", { count: selectedPaths.size })}
           </Button>
-          <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
-          <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
+          {provider !== "opencode" && (
+            <>
+              <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
+              <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
+            </>
+          )}
           {provider === "codex" ? (
             <Tooltip title={t("sessions.codexRepairHint")}>
               <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
@@ -589,7 +594,7 @@ export default function SessionsPage() {
                           ? token.colorFillSecondary
                           : undefined,
                     }}
-                    actions={[
+                    actions={session.provider === "opencode" ? undefined : [
                       <Checkbox
                         key="select"
                         checked={selectedPaths.has(session.sourcePath)}
@@ -602,7 +607,9 @@ export default function SessionsPage() {
                     <List.Item.Meta
                       title={
                         <Space>
-                          <Tag color={session.provider === "codex" ? "green" : "purple"}>{session.provider === "codex" ? "Codex" : "Claude Code"}</Tag>
+                          <Tag color={session.provider === "codex" ? "green" : session.provider === "opencode" ? "cyan" : "purple"}>
+                            {session.provider === "codex" ? "Codex" : session.provider === "opencode" ? "OpenCode" : "Claude Code"}
+                          </Tag>
                           {session.pinned ? <Tag color="gold">{t("sessions.pinned")}</Tag> : null}
                           <Typography.Text ellipsis style={{ maxWidth: 200 }}>
                             {session.title || session.sessionId}

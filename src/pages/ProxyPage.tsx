@@ -161,6 +161,8 @@ export default function ProxyPage() {
         return t("providers.claudeDesktop");
       case "codex":
         return "Codex";
+      case "opencode":
+        return "OpenCode";
       default: {
         const _exhaustive: never = target;
         return _exhaustive;
@@ -216,7 +218,9 @@ export default function ProxyPage() {
           </Button>
         }
       >
-        {!status ? (
+        {target === "opencode" ? (
+          <Alert type="info" showIcon message={t("proxy.opencodeDirectHint")} />
+        ) : !status ? (
           <Text type="secondary">{t("proxy.statusUnavailable")}</Text>
         ) : (
           <Descriptions column={1} size="small" bordered style={{ borderRadius: 8, overflow: "hidden" }}>
@@ -278,93 +282,97 @@ export default function ProxyPage() {
         )}
       </Card>
 
-      <Card size="small" className="page-surface" title={t("proxy.failoverTitle")}>
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Text type="secondary">{t("proxy.failoverDescription")}</Text>
-          <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Switch
-              checked={failoverQuery.data ?? false}
-              loading={failoverQuery.isPending || failoverSaving}
-              disabled={failoverSaving}
-              checkedChildren={t("common.enabled")}
-              unCheckedChildren={t("common.disabled")}
-              onChange={(enabled) => void handleFailoverChange(enabled)}
-            />
-            <Text style={{ fontSize: 13 }}>
-              {failoverQuery.data ? t("proxy.failoverEnabled") : t("proxy.failoverDisabled")}
-            </Text>
-          </div>
-          <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.retryCodesHint")}</Text>
-          <Space.Compact style={{ width: "100%", maxWidth: 460 }}>
-            <Input
-              value={retryCodes}
-              onChange={(event) => setRetryCodes(event.target.value)}
-              placeholder="400-404,408,429,500-599"
-            />
-            <Button loading={retrySaving} onClick={() => void handleRetryCodesSave()}>
-              {t("common.save")}
-            </Button>
-          </Space.Compact>
-          <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.idleTimeoutHint")}</Text>
-          <Space>
-            <InputNumber
-              min={5}
-              max={3600}
-              value={idleTimeout}
-              onChange={(value) => value != null && setIdleTimeout(value)}
-            />
-            <Button loading={idleSaving} onClick={() => void handleIdleTimeoutSave()}>
-              {t("common.save")}
-            </Button>
-          </Space>
-        </Space>
-      </Card>
+      {target !== "opencode" && (
+        <>
+          <Card size="small" className="page-surface" title={t("proxy.failoverTitle")}>
+            <Space direction="vertical" style={{ width: "100%" }} size={12}>
+              <Text type="secondary">{t("proxy.failoverDescription")}</Text>
+              <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Switch
+                  checked={failoverQuery.data ?? false}
+                  loading={failoverQuery.isPending || failoverSaving}
+                  disabled={failoverSaving}
+                  checkedChildren={t("common.enabled")}
+                  unCheckedChildren={t("common.disabled")}
+                  onChange={(enabled) => void handleFailoverChange(enabled)}
+                />
+                <Text style={{ fontSize: 13 }}>
+                  {failoverQuery.data ? t("proxy.failoverEnabled") : t("proxy.failoverDisabled")}
+                </Text>
+              </div>
+              <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.retryCodesHint")}</Text>
+              <Space.Compact style={{ width: "100%", maxWidth: 460 }}>
+                <Input
+                  value={retryCodes}
+                  onChange={(event) => setRetryCodes(event.target.value)}
+                  placeholder="400-404,408,429,500-599"
+                />
+                <Button loading={retrySaving} onClick={() => void handleRetryCodesSave()}>
+                  {t("common.save")}
+                </Button>
+              </Space.Compact>
+              <Text type="secondary" style={{ marginTop: 4 }}>{t("proxy.idleTimeoutHint")}</Text>
+              <Space>
+                <InputNumber
+                  min={5}
+                  max={3600}
+                  value={idleTimeout}
+                  onChange={(value) => value != null && setIdleTimeout(value)}
+                />
+                <Button loading={idleSaving} onClick={() => void handleIdleTimeoutSave()}>
+                  {t("common.save")}
+                </Button>
+              </Space>
+            </Space>
+          </Card>
 
-      <Card
-        size="small"
-        className="page-surface"
-        title={
-          <Space align="center">
-            <GlobalOutlined />
-            <Text strong>{t("proxy.control")}</Text>
-          </Space>
-        }
-      >
-        <Space wrap align="center" size={16}>
-          <Space align="center">
-            <Text>{t("proxy.port")}</Text>
-            <InputNumber
-              min={1024}
-              max={65535}
-              value={port}
-              onChange={(v) => v != null && setPort(v)}
-              disabled={busy || status?.running || status?.phase === "starting"}
-              style={{ width: 120 }}
-            />
-          </Space>
-          {status?.running ? (
-            <Button
-              type="primary"
-              danger
-              icon={<StopOutlined />}
-              loading={busy}
-              onClick={handleStop}
-            >
-              {t("proxy.stop")}
-            </Button>
-          ) : (
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              loading={busy}
-              onClick={handleStart}
-            >
-              {t("proxy.start")}
-            </Button>
-          )}
-        </Space>
-      </Card>
+          <Card
+            size="small"
+            className="page-surface"
+            title={
+              <Space align="center">
+                <GlobalOutlined />
+                <Text strong>{t("proxy.control")}</Text>
+              </Space>
+            }
+          >
+            <Space wrap align="center" size={16}>
+              <Space align="center">
+                <Text>{t("proxy.port")}</Text>
+                <InputNumber
+                  min={1024}
+                  max={65535}
+                  value={port}
+                  onChange={(v) => v != null && setPort(v)}
+                  disabled={busy || status?.running || status?.phase === "starting"}
+                  style={{ width: 120 }}
+                />
+              </Space>
+              {status?.running ? (
+                <Button
+                  type="primary"
+                  danger
+                  icon={<StopOutlined />}
+                  loading={busy}
+                  onClick={handleStop}
+                >
+                  {t("proxy.stop")}
+                </Button>
+              ) : (
+                <Button
+                  type="primary"
+                  icon={<PlayCircleOutlined />}
+                  loading={busy}
+                  onClick={handleStart}
+                >
+                  {t("proxy.start")}
+                </Button>
+              )}
+            </Space>
+          </Card>
+        </>
+      )}
     </Space>
   );
 }

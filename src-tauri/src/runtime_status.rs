@@ -11,6 +11,7 @@ pub struct ManagedAppRuntimeStatus {
     pub claude_code: bool,
     pub claude_desktop: bool,
     pub codex: bool,
+    pub opencode: bool,
 }
 
 pub fn get_managed_apps_runtime_status() -> ManagedAppRuntimeStatus {
@@ -29,6 +30,7 @@ enum AppKind {
     ClaudeCode,
     ClaudeDesktop,
     Codex,
+    OpenCode,
 }
 
 fn classify_process(image_path: &str) -> Option<AppKind> {
@@ -40,6 +42,10 @@ fn classify_process(image_path: &str) -> Option<AppKind> {
 
     if file_name == "codex.exe" || file_name == "codex" {
         return Some(AppKind::Codex);
+    }
+
+    if file_name == "opencode.exe" || file_name == "opencode" {
+        return Some(AppKind::OpenCode);
     }
 
     if file_name != "claude.exe" && file_name != "claude" {
@@ -86,6 +92,7 @@ fn windows_status() -> ManagedAppRuntimeStatus {
         claude_code: false,
         claude_desktop: false,
         codex: false,
+        opencode: false,
     };
 
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
@@ -109,7 +116,7 @@ fn windows_status() -> ManagedAppRuntimeStatus {
 
         let interesting = matches!(
             exe_name.as_str(),
-            "claude.exe" | "claude" | "codex.exe" | "codex"
+            "claude.exe" | "claude" | "codex.exe" | "codex" | "opencode.exe" | "opencode"
         );
         if interesting {
             let image = process_image_path(entry.th32ProcessID).unwrap_or(exe_name.clone());
@@ -117,11 +124,12 @@ fn windows_status() -> ManagedAppRuntimeStatus {
                 Some(AppKind::ClaudeCode) => status.claude_code = true,
                 Some(AppKind::ClaudeDesktop) => status.claude_desktop = true,
                 Some(AppKind::Codex) => status.codex = true,
+                Some(AppKind::OpenCode) => status.opencode = true,
                 None => {}
             }
         }
 
-        if status.claude_code && status.claude_desktop && status.codex {
+        if status.claude_code && status.claude_desktop && status.codex && status.opencode {
             break;
         }
         ok = unsafe { Process32NextW(snapshot, &mut entry) };
@@ -170,6 +178,7 @@ fn unix_status() -> ManagedAppRuntimeStatus {
         claude_code: false,
         claude_desktop: false,
         codex: false,
+        opencode: false,
     };
 
     let Ok(output) = Command::new("ps").args(["-ax", "-o", "command="]).output() else {
@@ -181,9 +190,10 @@ fn unix_status() -> ManagedAppRuntimeStatus {
             Some(AppKind::ClaudeCode) => status.claude_code = true,
             Some(AppKind::ClaudeDesktop) => status.claude_desktop = true,
             Some(AppKind::Codex) => status.codex = true,
+            Some(AppKind::OpenCode) => status.opencode = true,
             None => {}
         }
-        if status.claude_code && status.claude_desktop && status.codex {
+        if status.claude_code && status.claude_desktop && status.codex && status.opencode {
             break;
         }
     }
@@ -207,6 +217,10 @@ mod tests {
         assert_eq!(
             classify_process(r"C:\Users\a\AppData\Roaming\npm\codex.exe"),
             Some(AppKind::Codex)
+        );
+        assert_eq!(
+            classify_process(r"C:\Users\a\.opencode\bin\opencode.exe"),
+            Some(AppKind::OpenCode)
         );
         assert_eq!(
             classify_process(r"C:\Program Files\Something\Claude.exe"),

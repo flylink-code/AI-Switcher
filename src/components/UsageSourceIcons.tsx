@@ -84,6 +84,16 @@ export function OpenAiBlossomIcon(props: IconProps) {
   );
 }
 
+/** Terminal prompt mark for OpenCode. */
+export function OpenCodeTerminalIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={style}>
+      <path d="M4 5.5 9.5 12 4 18.5h3.4l5.5-6.5L7.4 5.5H4Z" />
+      <rect x="13" y="16.4" width="7" height="2.2" rx="1.1" />
+    </SvgShell>
+  );
+}
+
 /** Orbit mark for Antigravity gateway usage. */
 export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps) {
   return (
@@ -110,6 +120,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <ClaudeDesktopIcon {...props} />;
     case "codex":
       return <OpenAiBlossomIcon {...props} />;
+    case "opencode":
+      return <OpenCodeTerminalIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
     default: {
@@ -147,5 +159,6 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "claude_code", labelKey: "usage.sourceClaudeCode" },
   { value: "claude_desktop", labelKey: "usage.sourceClaudeDesktop" },
   { value: "codex", labelKey: "usage.sourceCodex" },
+  { value: "opencode", labelKey: "usage.sourceOpenCode" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];

@@ -34,6 +34,7 @@ enum UsageSource {
     ClaudeDesktop,
     Codex,
     Antigravity,
+    OpenCode,
 }
 
 impl UsageSource {
@@ -44,6 +45,7 @@ impl UsageSource {
             "claude_desktop" => Ok(Self::ClaudeDesktop),
             "codex" => Ok(Self::Codex),
             "antigravity" => Ok(Self::Antigravity),
+            "opencode" => Ok(Self::OpenCode),
             _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
         }
     }
@@ -56,6 +58,8 @@ impl UsageSource {
             // Codex rows live in proxy_request_logs (proxy HTTP + session sync).
             Self::Codex => Some(Some("codex")),
             Self::Antigravity => Some(Some("antigravity")),
+            // OpenCode rows come from opencode.db session sync.
+            Self::OpenCode => Some(Some("opencode")),
         }
     }
 
@@ -65,6 +69,10 @@ impl UsageSource {
 
     fn includes_local_claude_code(self) -> bool {
         matches!(self, Self::All | Self::ClaudeCode)
+    }
+
+    fn includes_local_opencode(self) -> bool {
+        matches!(self, Self::All | Self::OpenCode)
     }
 }
 
@@ -79,6 +87,7 @@ pub struct UsageDashboard {
     pub trend_granularity: String,
     pub local_codex: LocalCodexUsage,
     pub local_claude_code: LocalCodexUsage,
+    pub local_opencode: LocalCodexUsage,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -290,6 +299,35 @@ pub async fn get_usage_dashboard(
             } else {
                 local_codex_not_selected()
             };
+            let local_opencode = if source.includes_local_opencode() {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM proxy_request_logs
+                     WHERE target_app = 'opencode' AND created_at >= ?
+                       AND COALESCE(data_source, 'proxy') = 'opencode_session';",
+                    rusqlite::params![since],
+                    |row| row.get(0),
+                )?;
+                let sessions: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM session_log_sync
+                         WHERE replace(lower(file_path), '\\', '/') LIKE '%/opencode.db:%';",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+                LocalCodexUsage {
+                    available: count > 0,
+                    session_count: sessions,
+                    event_count: count,
+                    message: if count > 0 {
+                        "OpenCode usage includes synced opencode.db session token events".to_string()
+                    } else {
+                        "No OpenCode usage rows yet; session sync runs in the background or via Sync".to_string()
+                    },
+                }
+            } else {
+                local_codex_not_selected()
+            };
             let target = source.proxy_target();
             Ok(if let Some(target) = target {
                 let pricing = list_pricing(conn)?;
@@ -314,6 +352,7 @@ pub async fn get_usage_dashboard(
                     trend_granularity: trend_granularity.clone(),
                     local_codex,
                     local_claude_code,
+                    local_opencode: local_opencode.clone(),
                 }
             } else {
                 UsageDashboard {
@@ -324,6 +363,7 @@ pub async fn get_usage_dashboard(
                     trend_granularity,
                     local_codex,
                     local_claude_code,
+                    local_opencode,
                 }
             })
         })
@@ -378,6 +418,30 @@ pub async fn rebuild_claude_code_session_usage_cmd(
     })
     .await
     .map_err(|e| AppError::Database(format!("claude code session rebuild task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn sync_opencode_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_opencode::OpenCodeSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_opencode::sync_opencode_session_usage_db_blocking(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("opencode session sync task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn rebuild_opencode_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_opencode::OpenCodeSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_opencode::rebuild_opencode_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("opencode session rebuild task failed: {e}")))?
 }
 
 #[derive(Debug)]

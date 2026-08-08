@@ -12,8 +12,10 @@ use crate::error::AppResult;
 pub const DATA_SOURCE_PROXY: &str = "proxy";
 pub const DATA_SOURCE_CODEX_SESSION: &str = "codex_session";
 pub const DATA_SOURCE_CLAUDE_CODE_SESSION: &str = "claude_code_session";
+pub const DATA_SOURCE_OPENCODE_SESSION: &str = "opencode_session";
 pub const CODEX_SESSION_PROVIDER_ID: &str = "_codex_session";
 pub const CLAUDE_CODE_SESSION_PROVIDER_ID: &str = "_claude_code_session";
+pub const OPENCODE_SESSION_PROVIDER_ID: &str = "_opencode_session";
 /// Hide session rows when a matching proxy row exists within ±10 minutes.
 const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 
@@ -307,6 +309,25 @@ pub fn should_skip_claude_code_session_insert(
     )
 }
 
+pub fn should_skip_opencode_session_insert(
+    conn: &Connection,
+    created_at: i64,
+    model: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<bool> {
+    should_skip_session_insert_for_target(
+        conn,
+        "opencode",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )
+}
+
 fn should_skip_session_insert_for_target(
     conn: &Connection,
     target_app: &str,
@@ -437,6 +458,20 @@ pub fn reset_claude_code_session_usage(conn: &Connection) -> AppResult<i64> {
         "DELETE FROM session_log_sync
          WHERE replace(lower(file_path), '\\', '/') LIKE '%/.claude/projects/%'
             OR replace(lower(file_path), '\\', '/') LIKE '%/claude/projects/%';",
+        [],
+    )?;
+    Ok(deleted)
+}
+
+pub fn reset_opencode_session_usage(conn: &Connection) -> AppResult<i64> {
+    let deleted = conn.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = ?;",
+        params![DATA_SOURCE_OPENCODE_SESSION],
+    )? as i64;
+    // 同步游标键为 `<db路径>` 或 `<db路径>:<session_id>`（见 usage/session_usage_opencode.rs）。
+    conn.execute(
+        "DELETE FROM session_log_sync
+         WHERE replace(lower(file_path), '\\', '/') LIKE '%/opencode.db%';",
         [],
     )?;
     Ok(deleted)

@@ -1,12 +1,13 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
-use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync};
+use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync, opencode};
 use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, normalize_base_url, protocol_endpoint_path, ConnectionTestResult,
+    api_endpoint_url, normalize_base_url, protocol_endpoint_path, ClaudeModelMapping,
+    ConnectionTestResult,
     EndpointSpeedtestResult, LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle,
     ProviderExportEntry, normalized_model_mapping, normalized_auto_review_model_override,
     validate_target_protocol, ProviderImportResult, ProviderInput, ProviderKind, ProviderTarget,
@@ -27,6 +28,7 @@ const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
 const MAX_MODEL_NAME_CHARS: usize = 256;
 const CODEX_OWNERSHIP_KEY: &str = "v040.codex_managed";
+const OPENCODE_OWNERSHIP_KEY: &str = "v131.opencode_managed";
 
 /// A Codex switch updates config.toml, auth.json, and the model catalog as one
 /// logical operation. Startup repair and a user click must not interleave their
@@ -48,7 +50,11 @@ pub fn get_current_provider(target: ProviderTarget, state: tauri::State<'_, AppS
 
 #[tauri::command]
 pub fn create_provider(input: ProviderInput, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
-    state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
+    let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
+    if provider.target_app == ProviderTarget::OpenCode {
+        sync_opencode_providers_to_live(&state)?;
+    }
+    Ok(provider)
 }
 
 #[tauri::command]
@@ -57,7 +63,9 @@ pub async fn update_provider(input: ProviderInput, state: tauri::State<'_, AppSt
         return Err(AppError::Config("更新供应商时缺少 id".to_string()));
     }
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    if provider.is_current {
+    if provider.target_app == ProviderTarget::OpenCode {
+        sync_opencode_providers_to_live(&state)?;
+    } else if provider.is_current {
         let _ = apply_target_provider(&provider, &state).await?;
     }
     Ok(provider)
@@ -65,7 +73,16 @@ pub async fn update_provider(input: ProviderInput, state: tauri::State<'_, AppSt
 
 #[tauri::command]
 pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    state.db.with_conn(|conn| dao::delete_provider(conn, &id))
+    let target = state.db.with_conn(|conn| {
+        dao::get_provider(conn, &id)?
+            .map(|provider| provider.target_app)
+            .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
+    })?;
+    state.db.with_conn(|conn| dao::delete_provider(conn, &id))?;
+    if target == ProviderTarget::OpenCode {
+        sync_opencode_providers_to_live(&state)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -587,6 +604,13 @@ pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppSt
                         AppError::Tauri(format!("Codex 官方配置恢复任务失败: {error}"))
                     })??;
             }
+            ProviderTarget::OpenCode => {
+                tauri::async_runtime::spawn_blocking(opencode::clear_provider)
+                    .await
+                    .map_err(|error| {
+                        AppError::Tauri(format!("OpenCode 托管配置移除任务失败: {error}"))
+                    })??;
+            }
         }
         state.proxy.lock().await.stop_target(target);
         state.db.with_conn(|conn| dao::clear_current_provider(conn, target))?;
@@ -622,15 +646,123 @@ pub fn reorder_providers(ordered_ids: Vec<String>, target: ProviderTarget, state
 /// Import a live third-party configuration into its matching application list.
 #[tauri::command]
 pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    if target == ProviderTarget::OpenCode {
+        return import_opencode_live_providers(&state);
+    }
     let live = match target {
         ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
         ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
         ProviderTarget::Codex => codex::read_current_live_provider()?,
+        ProviderTarget::OpenCode => unreachable!(),
     };
     let Some(live) = live else {
         return Ok(());
     };
     import_live_provider(live, target, &state)
+}
+
+/// OpenCode 配置可携带多个自有供应商（provider 段 + 顶层 model 引用当前项）。
+/// 全部同步：base_url 已存在则更新名称/模型/密钥/协议；否则新建。
+/// 顶层 model 指向的供应商同步后设为当前。
+fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
+    let live_providers = opencode::read_live_providers()?;
+    if live_providers.is_empty() {
+        let config_path = crate::config::get_opencode_config_path();
+        return Err(AppError::Config(format!(
+            "未在 OpenCode 配置中找到可导入的供应商（{}）。请确认 provider 段含 baseURL；托管项 aisw-* / ai-switcher 不会导入。若同时存在 opencode.json 与 opencode.jsonc，将优先读取含 provider 的文件。",
+            config_path.display()
+        )));
+    }
+    let existing = state.db.with_conn(|conn| dao::list_providers(conn, ProviderTarget::OpenCode))?;
+    let mut current_provider_id: Option<String> = None;
+    for live in &live_providers {
+        let normalized_base_url = normalize_base_url(&live.base_url)?;
+        let default_model = live
+            .current_model
+            .clone()
+            .or_else(|| live.models.first().cloned())
+            .unwrap_or_default();
+        if default_model.trim().is_empty() {
+            continue;
+        }
+        let failover_models: Vec<String> = live
+            .models
+            .iter()
+            .filter(|model| model.as_str() != default_model)
+            .cloned()
+            .collect();
+        let matched = existing.iter().find(|p| p.base_url == normalized_base_url);
+        let provider = state.db.with_conn(|conn| {
+            dao::upsert_provider(
+                conn,
+                &ProviderInput {
+                    id: matched.map(|p| p.id.clone()),
+                    name: live.name.clone(),
+                    base_url: normalized_base_url,
+                    api_key: live.auth_token.clone(),
+                    clear_api_key: false,
+                    model: default_model,
+                    model_context_window: matched.and_then(|p| p.model_context_window),
+                    auto_review_model_override: None,
+                    web_search_enabled: matched.and_then(|p| p.web_search_enabled),
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: live.protocol_type,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::OpenCode,
+                    notes: matched
+                        .map(|p| p.notes.clone())
+                        .filter(|notes| !notes.trim().is_empty())
+                        .unwrap_or_else(|| {
+                            format!("从 OpenCode 配置同步（provider: {}）", live.id)
+                        }),
+                    failover_group: matched.map(|p| p.failover_group).unwrap_or(0),
+                    failover_models,
+                },
+            )
+        })?;
+        if live.current_model.is_some() {
+            current_provider_id = Some(provider.id);
+        }
+    }
+    if let Some(provider_id) = current_provider_id {
+        state.db.with_conn(|conn| dao::set_current_provider(conn, &provider_id))?;
+    }
+    // 导入只更新 DB；OpenCode 侧用户自有项已存在，再把 AI-Switcher 托管项同步出去。
+    sync_opencode_providers_to_live(state)?;
+    Ok(())
+}
+
+/// 把 DB 中全部 OpenCode 供应商写入 `opencode.json`（多供应商并存，无需切换）。
+pub(crate) fn sync_opencode_providers_to_live(state: &AppState) -> AppResult<()> {
+    let providers = state
+        .db
+        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::OpenCode))?;
+    let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
+    for provider in providers {
+        let mut runtime = provider.clone();
+        runtime.api_key = state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let mut extra_models = state
+            .db
+            .with_conn(|conn| {
+                Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                    .map(|cache| cache.models)
+                    .unwrap_or_default())
+            })
+            .unwrap_or_default();
+        for model in &provider.failover_models {
+            if !extra_models.iter().any(|item| item == model) {
+                extra_models.push(model.clone());
+            }
+        }
+        entries.push((runtime, extra_models));
+    }
+    opencode::apply_all_providers(&entries)
 }
 
 /// Export provider metadata only. API keys and keyring references are never
@@ -668,6 +800,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     }
     let mut imported = 0;
     let mut skipped = 0;
+    let mut touched_opencode = false;
     for entry in bundle.providers {
         let normalized_base_url = normalize_base_url(&entry.base_url)?;
         let existing = state.db.with_conn(|conn| dao::list_providers(conn, entry.target_app))?;
@@ -677,6 +810,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             skipped += 1;
             continue;
         }
+        let target_app = entry.target_app;
         state.db.with_conn(|conn| dao::upsert_provider(conn, &ProviderInput {
             id: None,
             name: entry.name,
@@ -691,12 +825,18 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             protocol_type: entry.protocol_type,
             provider_kind: ProviderKind::Standard,
             auth_binding: String::new(),
-            target_app: entry.target_app,
+            target_app,
             notes: entry.notes,
             failover_group: entry.failover_group,
             failover_models: entry.failover_models,
         }))?;
+        if target_app == ProviderTarget::OpenCode {
+            touched_opencode = true;
+        }
         imported += 1;
+    }
+    if touched_opencode {
+        sync_opencode_providers_to_live(&state)?;
     }
     Ok(ProviderImportResult { imported, skipped })
 }
@@ -873,6 +1013,11 @@ async fn apply_target_provider(
                 };
                 Ok((Some(session_sync), codex_notice))
             }
+            ProviderTarget::OpenCode => {
+                // OpenCode 多供应商并存：切换仅同步全部托管项，不改顶层 model。
+                sync_opencode_providers_to_live(state)?;
+                Ok((None, None))
+            }
         }
     }.await;
     let (session_sync, codex_notice) = match result {
@@ -942,12 +1087,14 @@ impl SwitchSnapshot {
                 crate::config::get_codex_auth_path(),
                 crate::config::get_codex_config_dir().join("ai-switcher-model-catalog.json"),
             ],
+            ProviderTarget::OpenCode => vec![crate::config::get_opencode_config_path()],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
             ProviderTarget::ClaudeCode => CODE_OWNERSHIP_KEY,
             ProviderTarget::ClaudeDesktop => DESKTOP_OWNERSHIP_KEY,
             ProviderTarget::Codex => CODEX_OWNERSHIP_KEY,
+            ProviderTarget::OpenCode => OPENCODE_OWNERSHIP_KEY,
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {
@@ -1756,7 +1903,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         auto_review_model_override: None,
         web_search_enabled: None,
         model_mapping: live.model_mapping,
-        protocol_type: ProtocolType::Anthropic,
+        protocol_type: live.protocol_type,
         provider_kind: ProviderKind::Standard,
         auth_binding: String::new(),
         target_app: target,
@@ -1773,13 +1920,15 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         ProviderTarget::ClaudeCode => "proxy_port_claude_code",
         ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
         ProviderTarget::Codex => "proxy_port_codex",
+        // OpenCode 直连写入，不使用本地代理；仅为穷尽匹配保留键名。
+        ProviderTarget::OpenCode => "proxy_port_opencode",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
         .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
-        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 15823 })
+        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 15823, ProviderTarget::OpenCode => 15824 })
 }
 
 #[cfg(test)]

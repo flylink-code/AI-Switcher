@@ -37,6 +37,9 @@ const MAX_CONTENT_SEARCH_OPENS: usize = 40;
 pub enum SessionProvider {
     ClaudeCode,
     Codex,
+    /// Keep wire format `opencode` (not `open_code`) to match ProviderTarget / frontend.
+    #[serde(rename = "opencode")]
+    OpenCode,
 }
 
 impl Default for SessionProvider {
@@ -138,12 +141,37 @@ struct SessionBatchArchiveManifest {
     sessions: Vec<SessionArchiveManifest>,
 }
 
+/// 扫描中间项：Claude/Codex 走惰性文件路径（列表页绝不开文件），
+/// OpenCode 会话来自 SQLite/JSON 存储，元数据在扫描时已完整物化。
+enum ScanItem {
+    File(i64, PathBuf, SessionProvider),
+    Materialized(SessionMeta),
+}
+
+impl ScanItem {
+    fn sort_ts(&self) -> i64 {
+        match self {
+            ScanItem::File(mtime, _, _) => *mtime,
+            ScanItem::Materialized(meta) => {
+                meta.last_active_at.or(meta.created_at).unwrap_or(0)
+            }
+        }
+    }
+
+    fn tie_key(&self) -> String {
+        match self {
+            ScanItem::File(_, path, _) => path.to_string_lossy().into_owned(),
+            ScanItem::Materialized(meta) => meta.session_id.clone(),
+        }
+    }
+}
+
 pub fn scan_sessions(
     provider: Option<SessionProvider>,
     offset: Option<usize>,
     limit: Option<usize>,
 ) -> AppResult<SessionScanResult> {
-    let mut indexed: Vec<(i64, PathBuf, SessionProvider)> = Vec::new();
+    let mut indexed: Vec<ScanItem> = Vec::new();
     let mut providers = Vec::new();
     let mut truncated = false;
     let mut timed_out = false;
@@ -153,7 +181,7 @@ pub fn scan_sessions(
         truncated |= was_truncated;
         timed_out |= walk_timed_out;
         for (path, mtime) in paths {
-            indexed.push((mtime, path, SessionProvider::ClaudeCode));
+            indexed.push(ScanItem::File(mtime, path, SessionProvider::ClaudeCode));
         }
         providers.push(status);
     }
@@ -162,14 +190,21 @@ pub fn scan_sessions(
         truncated |= was_truncated;
         timed_out |= walk_timed_out;
         for (path, mtime) in paths {
-            indexed.push((mtime, path, SessionProvider::Codex));
+            indexed.push(ScanItem::File(mtime, path, SessionProvider::Codex));
+        }
+        providers.push(status);
+    }
+    if provider.is_none() || provider == Some(SessionProvider::OpenCode) {
+        let (metas, status) = scan_opencode_sessions();
+        for meta in metas {
+            indexed.push(ScanItem::Materialized(meta));
         }
         providers.push(status);
     }
 
     let codex_index = if indexed
         .iter()
-        .any(|(_, _, session_provider)| *session_provider == SessionProvider::Codex)
+        .any(|item| matches!(item, ScanItem::File(_, _, SessionProvider::Codex)))
     {
         load_codex_thread_index()
     } else {
@@ -177,20 +212,22 @@ pub fn scan_sessions(
     };
 
     indexed.sort_by(|left, right| {
-        let left_pinned = left.2 == SessionProvider::Codex
-            && codex_index.lookup(&left.1).is_some_and(|meta| meta.pinned);
-        let right_pinned = right.2 == SessionProvider::Codex
-            && codex_index.lookup(&right.1).is_some_and(|meta| meta.pinned);
-        right_pinned
-            .cmp(&left_pinned)
-            .then_with(|| right.0.cmp(&left.0))
-            .then_with(|| left.1.cmp(&right.1))
+        let pinned = |item: &ScanItem| match item {
+            ScanItem::File(_, path, SessionProvider::Codex) => {
+                codex_index.lookup(path).is_some_and(|meta| meta.pinned)
+            }
+            _ => false,
+        };
+        pinned(right)
+            .cmp(&pinned(left))
+            .then_with(|| right.sort_ts().cmp(&left.sort_ts()))
+            .then_with(|| left.tie_key().cmp(&right.tie_key()))
     });
 
     let total = indexed.len();
     let offset = offset.unwrap_or(0).min(total);
     let limit = limit.filter(|value| *value > 0);
-    let page: Vec<(i64, PathBuf, SessionProvider)> = match limit {
+    let page: Vec<ScanItem> = match limit {
         Some(limit) => indexed.into_iter().skip(offset).take(limit).collect(),
         None if offset > 0 => indexed.into_iter().skip(offset).collect(),
         None => indexed,
@@ -201,12 +238,15 @@ pub fn scan_sessions(
     // Codex names / pins come from SQLite thread index instead.
     let sessions = page
         .into_iter()
-        .filter_map(|(mtime, path, session_provider)| {
-            let mut session = session_meta_from_path(session_provider, &path, mtime)?;
-            if session_provider == SessionProvider::Codex {
-                apply_codex_thread_meta(&mut session, &path, &codex_index);
+        .filter_map(|item| match item {
+            ScanItem::File(mtime, path, session_provider) => {
+                let mut session = session_meta_from_path(session_provider, &path, mtime)?;
+                if session_provider == SessionProvider::Codex {
+                    apply_codex_thread_meta(&mut session, &path, &codex_index);
+                }
+                Some(session)
             }
-            Some(session)
+            ScanItem::Materialized(meta) => Some(meta),
         })
         .collect();
 
@@ -289,6 +329,7 @@ pub fn load_session_messages(
             let source = validate_session_path_in_root(&root, Path::new(source_path))?;
             load_codex_messages(&source)
         }
+        SessionProvider::OpenCode => load_opencode_messages(source_path),
     }
 }
 
@@ -570,6 +611,11 @@ fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
     match provider {
         SessionProvider::ClaudeCode => Ok(claude_code_session_root()),
         SessionProvider::Codex => Ok(codex_session_root()),
+        // OpenCode 会话是 opencode.db 行 / storage JSON 目录，不是独立文件，
+        // 归档/回收站/导入本期不支持。
+        SessionProvider::OpenCode => Err(AppError::Config(
+            "OpenCode 会话暂不支持归档、回收站与导入操作".to_string(),
+        )),
     }
 }
 
@@ -577,6 +623,7 @@ fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<Ses
     match provider {
         SessionProvider::ClaudeCode => parse_claude_code_session(path),
         SessionProvider::Codex => parse_codex_session(path),
+        SessionProvider::OpenCode => Ok(None),
     }
 }
 
@@ -622,7 +669,11 @@ fn import_target(provider: SessionProvider, relative_path: &str) -> AppResult<Pa
 }
 
 fn session_trash_dir(provider: SessionProvider) -> PathBuf {
-    let target = match provider { SessionProvider::Codex => "codex", _ => "claude-code" };
+    let target = match provider {
+        SessionProvider::Codex => "codex",
+        SessionProvider::OpenCode => "opencode",
+        _ => "claude-code",
+    };
     config::get_app_config_dir().join("session-trash").join(target)
 }
 
@@ -1097,11 +1148,13 @@ fn session_meta_from_path(
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
             .map(|name| name.replace('-', "/")),
-        SessionProvider::Codex => None,
+        SessionProvider::Codex | SessionProvider::OpenCode => None,
     };
     let resume = match provider {
         SessionProvider::ClaudeCode => resume_command(&session_id),
         SessionProvider::Codex => Some(format!("codex resume {session_id}")),
+        // OpenCode 元数据走 Materialized 路径，不会经过这里。
+        SessionProvider::OpenCode => Some(format!("opencode -s {session_id}")),
     };
     Some(SessionMeta {
         provider,
@@ -1417,6 +1470,11 @@ fn session_metadata_contains(session: &SessionMeta, query: &str) -> bool {
 }
 
 fn file_contains(provider: SessionProvider, path: &str, query: &str) -> AppResult<bool> {
+    // OpenCode 会话不在独立 .jsonl 文件里（SQLite 行 / storage 目录），
+    // 内容搜索只匹配元数据。
+    if provider == SessionProvider::OpenCode {
+        return Ok(false);
+    }
     let root = session_root(provider)?;
     let source = validate_session_path_in_root(&root, Path::new(path))?;
     let file = File::open(&source)
@@ -1837,6 +1895,383 @@ fn resume_command(session_id: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+// ---- OpenCode sessions (SQLite opencode.db + legacy JSON storage) -----------
+//
+// 参考 cc-switch `session_manager/providers/opencode.rs`：新版 OpenCode 会话
+// 存于 `~/.local/share/opencode/opencode.db`（session/message/part 三表），
+// 旧版为 `storage/session|message|part/**/*.json`。SQLite 优先，JSON 补充去重。
+// SQLite 会话的 source_path 是合成引用 `sqlite:<db路径>:<session_id>`。
+
+fn opencode_storage_dir() -> PathBuf {
+    config::get_opencode_data_dir().join("storage")
+}
+
+fn scan_opencode_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
+    let mut sessions = scan_opencode_sessions_sqlite();
+    let json_sessions = scan_opencode_sessions_json();
+    if !json_sessions.is_empty() {
+        let known: HashSet<String> = sessions.iter().map(|s| s.session_id.clone()).collect();
+        for meta in json_sessions {
+            if !known.contains(&meta.session_id) {
+                sessions.push(meta);
+            }
+        }
+    }
+    let data_dir = config::get_opencode_data_dir();
+    let exists = data_dir.exists();
+    let status = if exists {
+        SessionProviderStatus {
+            provider: SessionProvider::OpenCode,
+            status: "available".to_string(),
+            detail: format!("OpenCode 本地会话可用（{} 个）", sessions.len()),
+            root_path: Some(data_dir.display().to_string()),
+        }
+    } else {
+        SessionProviderStatus {
+            provider: SessionProvider::OpenCode,
+            status: "not_found".to_string(),
+            detail: "未发现 OpenCode 本地数据目录".to_string(),
+            root_path: Some(data_dir.display().to_string()),
+        }
+    };
+    (sessions, status)
+}
+
+fn scan_opencode_sessions_sqlite() -> Vec<SessionMeta> {
+    let db_path = config::get_opencode_db_path();
+    if !db_path.exists() {
+        return Vec::new();
+    }
+    let conn = match Connection::open_with_flags(
+        &db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    ) {
+        Ok(conn) => conn,
+        Err(error) => {
+            log::warn!("无法打开 OpenCode 数据库 {}: {error}", db_path.display());
+            return Vec::new();
+        }
+    };
+    let mut stmt = match conn.prepare(
+        "SELECT id, title, directory, time_created, time_updated FROM session ORDER BY time_updated DESC",
+    ) {
+        Ok(stmt) => stmt,
+        Err(error) => {
+            log::warn!("OpenCode 数据库 session 表查询失败: {error}");
+            return Vec::new();
+        }
+    };
+    let rows = match stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)?,
+        ))
+    }) {
+        Ok(rows) => rows,
+        Err(error) => {
+            log::warn!("OpenCode 数据库 session 读取失败: {error}");
+            return Vec::new();
+        }
+    };
+    let db_display = db_path.display().to_string();
+    let mut sessions = Vec::new();
+    for row in rows.flatten() {
+        let (session_id, title, directory, created, updated) = row;
+        let display_title = if title.is_empty() {
+            opencode_path_basename(&directory).map(str::to_string)
+        } else {
+            Some(title)
+        };
+        sessions.push(SessionMeta {
+            provider: SessionProvider::OpenCode,
+            session_id: session_id.clone(),
+            title: display_title.clone(),
+            summary: display_title,
+            project_dir: (!directory.is_empty()).then_some(directory),
+            created_at: Some(created),
+            last_active_at: Some(updated),
+            source_path: format!("sqlite:{db_display}:{session_id}"),
+            resume_command: Some(format!("opencode -s {session_id}")),
+            pinned: false,
+        });
+    }
+    sessions
+}
+
+fn scan_opencode_sessions_json() -> Vec<SessionMeta> {
+    let session_dir = opencode_storage_dir().join("session");
+    if !session_dir.is_dir() {
+        return Vec::new();
+    }
+    let mut files = Vec::new();
+    collect_opencode_json_files(&session_dir, &mut files, 0);
+    files
+        .iter()
+        .filter_map(|path| parse_opencode_session_json(path))
+        .collect()
+}
+
+/// storage/session/<project>/<session>.json 为两层结构，限制深度防止符号链接扩散。
+fn collect_opencode_json_files(dir: &Path, out: &mut Vec<PathBuf>, depth: u32) {
+    if depth > 3 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        // 不跟随目录符号链接，避免扩大读取边界。
+        let Ok(meta) = fs::symlink_metadata(entry.path()) else { continue };
+        let path = entry.path();
+        if meta.is_dir() {
+            collect_opencode_json_files(&path, out, depth + 1);
+        } else if meta.is_file()
+            && path.extension().and_then(|value| value.to_str()) == Some("json")
+        {
+            out.push(path);
+        }
+    }
+}
+
+fn parse_opencode_session_json(path: &Path) -> Option<SessionMeta> {
+    let data = fs::read_to_string(path).ok()?;
+    let value: Value = serde_json::from_str(&data).ok()?;
+    let session_id = value.get("id").and_then(Value::as_str)?.to_string();
+    let directory = value
+        .get("directory")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let title = value
+        .get("title")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or_else(|| directory.as_deref().and_then(opencode_path_basename).map(str::to_string));
+    let created_at = value
+        .pointer("/time/created")
+        .and_then(parse_opencode_timestamp_ms);
+    let updated_at = value
+        .pointer("/time/updated")
+        .and_then(parse_opencode_timestamp_ms);
+
+    Some(SessionMeta {
+        provider: SessionProvider::OpenCode,
+        session_id: session_id.clone(),
+        title: title.clone(),
+        summary: title,
+        project_dir: directory,
+        created_at,
+        last_active_at: updated_at.or(created_at),
+        // JSON 存储的消息在 storage/message/<sessionID>/ 目录下。
+        source_path: opencode_storage_dir()
+            .join("message")
+            .join(&session_id)
+            .display()
+            .to_string(),
+        resume_command: Some(format!("opencode -s {session_id}")),
+        pinned: false,
+    })
+}
+
+fn parse_opencode_timestamp_ms(value: &Value) -> Option<i64> {
+    if let Some(num) = value.as_i64() {
+        // OpenCode 存毫秒；兼容秒级时间戳。
+        return Some(if num < 10_000_000_000 { num * 1000 } else { num });
+    }
+    value
+        .as_str()
+        .and_then(|text| chrono::DateTime::parse_from_rfc3339(text).ok())
+        .map(|dt| dt.timestamp_millis())
+}
+
+fn opencode_path_basename(path: &str) -> Option<&str> {
+    path.trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\'])
+        .next()
+        .filter(|name| !name.is_empty())
+}
+
+/// 解析 `sqlite:<db路径>:<session_id>`。session_id 在最后一段（Windows 路径含盘符冒号）。
+fn parse_opencode_sqlite_source(source: &str) -> Option<(PathBuf, String)> {
+    let rest = source.strip_prefix("sqlite:")?;
+    let (db_path, session_id) = rest.rsplit_once(':')?;
+    if db_path.is_empty() || session_id.is_empty() {
+        return None;
+    }
+    Some((PathBuf::from(db_path), session_id.to_string()))
+}
+
+fn load_opencode_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
+    if source_path.starts_with("sqlite:") {
+        let (db_path, session_id) = parse_opencode_sqlite_source(source_path)
+            .ok_or_else(|| AppError::Path(format!("OpenCode 会话引用无效: {source_path}")))?;
+        return load_opencode_messages_sqlite(&db_path, &session_id);
+    }
+    // JSON 存储：source_path = storage/message/<sessionID>/ 目录。
+    let dir = PathBuf::from(source_path);
+    let storage = opencode_storage_dir();
+    let dir_key = normalize_path_key(&dir);
+    let root_key = normalize_path_key(&storage.join("message"));
+    if !dir_key.starts_with(&root_key) {
+        return Err(AppError::Path(format!(
+            "OpenCode 会话目录不在允许的目录内: {}",
+            dir.display()
+        )));
+    }
+    load_opencode_messages_json(&storage, &dir)
+}
+
+fn load_opencode_messages_sqlite(db_path: &Path, session_id: &str) -> AppResult<Vec<SessionMessage>> {
+    let conn = Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|error| AppError::Config(format!("无法打开 OpenCode 数据库: {error}")))?;
+
+    let mut msg_stmt = conn
+        .prepare("SELECT id, time_created, data FROM message WHERE session_id = ?1 ORDER BY time_created ASC")
+        .map_err(|error| AppError::Config(format!("OpenCode 消息查询失败: {error}")))?;
+    let msg_rows = msg_stmt
+        .query_map([session_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|error| AppError::Config(format!("OpenCode 消息读取失败: {error}")))?;
+
+    let mut part_stmt = conn
+        .prepare("SELECT message_id, data FROM part WHERE session_id = ?1 ORDER BY time_created ASC")
+        .map_err(|error| AppError::Config(format!("OpenCode 消息块查询失败: {error}")))?;
+    let part_rows = part_stmt
+        .query_map([session_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| AppError::Config(format!("OpenCode 消息块读取失败: {error}")))?;
+
+    let mut parts_map: HashMap<String, Vec<String>> = HashMap::new();
+    for row in part_rows.flatten() {
+        let (message_id, data) = row;
+        parts_map.entry(message_id).or_default().push(data);
+    }
+
+    let mut messages = Vec::new();
+    for row in msg_rows.flatten() {
+        let (msg_id, ts, data) = row;
+        let value: Value = match serde_json::from_str(&data) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let role = value
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let mut texts = Vec::new();
+        if let Some(parts) = parts_map.get(&msg_id) {
+            for part_data in parts {
+                if let Ok(part_value) = serde_json::from_str::<Value>(part_data) {
+                    if let Some(text) = extract_opencode_part_text(&part_value) {
+                        texts.push(text);
+                    }
+                }
+            }
+        }
+        let content = texts.join("\n\n");
+        if content.trim().is_empty() {
+            continue;
+        }
+        messages.push(SessionMessage {
+            role,
+            content,
+            timestamp: (ts > 0).then_some(ts),
+        });
+    }
+    Ok(messages)
+}
+
+fn load_opencode_messages_json(storage: &Path, msg_dir: &Path) -> AppResult<Vec<SessionMessage>> {
+    if !msg_dir.is_dir() {
+        return Err(AppError::Path(format!(
+            "找不到 OpenCode 会话消息目录: {}",
+            msg_dir.display()
+        )));
+    }
+    let mut files = Vec::new();
+    collect_opencode_json_files(msg_dir, &mut files, 0);
+
+    let mut entries: Vec<(i64, String, String)> = Vec::new();
+    for path in files {
+        let value: Value = fs::read_to_string(&path)
+            .ok()
+            .and_then(|data| serde_json::from_str(&data).ok())
+            .unwrap_or(Value::Null);
+        let Some(msg_id) = value.get("id").and_then(Value::as_str) else { continue };
+        let role = value
+            .get("role")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let created = value
+            .pointer("/time/created")
+            .and_then(parse_opencode_timestamp_ms)
+            .unwrap_or(0);
+        let text = collect_opencode_parts_text(&storage.join("part").join(msg_id));
+        if text.trim().is_empty() {
+            continue;
+        }
+        entries.push((created, role, text));
+    }
+    entries.sort_by_key(|(ts, _, _)| *ts);
+    Ok(entries
+        .into_iter()
+        .map(|(ts, role, content)| SessionMessage {
+            role,
+            content,
+            timestamp: (ts > 0).then_some(ts),
+        })
+        .collect())
+}
+
+fn extract_opencode_part_text(part: &Value) -> Option<String> {
+    match part.get("type").and_then(Value::as_str) {
+        Some("text") => part
+            .get("text")
+            .and_then(Value::as_str)
+            .filter(|text| !text.trim().is_empty())
+            .map(str::to_string),
+        Some("tool") => {
+            let tool = part.get("tool").and_then(Value::as_str).unwrap_or("unknown");
+            Some(format!("[Tool: {tool}]"))
+        }
+        _ => None,
+    }
+}
+
+fn collect_opencode_parts_text(part_dir: &Path) -> String {
+    if !part_dir.is_dir() {
+        return String::new();
+    }
+    let mut files = Vec::new();
+    collect_opencode_json_files(part_dir, &mut files, 0);
+    let mut texts = Vec::new();
+    for path in files {
+        let value: Value = match fs::read_to_string(&path)
+            .ok()
+            .and_then(|data| serde_json::from_str(&data).ok())
+        {
+            Some(value) => value,
+            None => continue,
+        };
+        if let Some(text) = extract_opencode_part_text(&value) {
+            texts.push(text);
+        }
+    }
+    texts.join("\n\n")
 }
 
 #[cfg(test)]

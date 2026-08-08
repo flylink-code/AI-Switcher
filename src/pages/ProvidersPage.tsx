@@ -297,7 +297,9 @@ export default function ProvidersPage() {
     setBusy(true);
     try {
       await store.importLive();
-      void message.success(t("providers.imported"));
+      void message.success(
+        target === "opencode" ? t("providers.syncOpenCodeLiveDone") : t("providers.imported"),
+      );
     } catch (e) {
       void message.error(errMsg(e));
     } finally { setBusy(false); }
@@ -307,7 +309,7 @@ export default function ProvidersPage() {
     { title: t("providers.colName"), dataIndex: "name", render: (_: string, row) => (
       <Space>
         <Text strong>{row.name}</Text>
-        {row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}
+        {target !== "opencode" && row.isCurrent && <Tag color="green">{t("providers.current")}</Tag>}
         {row.healthStatus && (
           <Tag color={row.healthStatus === "healthy" ? "green" : "red"}>
             {row.healthStatus === "healthy" ? t("providers.healthy") : t("providers.unhealthy")}
@@ -323,7 +325,7 @@ export default function ProvidersPage() {
       width: 210,
       ellipsis: true,
       render: (_: string, row) => {
-        if (row.targetApp === "codex") {
+        if (row.targetApp === "codex" || row.targetApp === "opencode") {
           return <Text ellipsis={{ tooltip: row.model }}>{row.model}</Text>;
         }
         const count = Object.entries(row.modelMapping)
@@ -403,15 +405,17 @@ export default function ProvidersPage() {
         ];
         return (
           <Space size="small">
-            <Button
-              size="small"
-              type={row.isCurrent ? "default" : "primary"}
-              disabled={row.isCurrent || busy}
-              icon={<ThunderboltOutlined />}
-              onClick={() => void handleSwitch(row)}
-            >
-              {t("providers.switch")}
-            </Button>
+            {target !== "opencode" && (
+              <Button
+                size="small"
+                type={row.isCurrent ? "default" : "primary"}
+                disabled={row.isCurrent || busy}
+                icon={<ThunderboltOutlined />}
+                onClick={() => void handleSwitch(row)}
+              >
+                {t("providers.switch")}
+              </Button>
+            )}
             <Tooltip title={t("providers.edit")}>
               <Button size="small" icon={<EditOutlined />} disabled={busy} onClick={() => openEdit(row)} />
             </Tooltip>
@@ -435,13 +439,13 @@ export default function ProvidersPage() {
       />
       <Space wrap size={8} align="center">
         <div className="providers-action-cluster">
-          {target !== "codex" && (
+          {target !== "codex" && target !== "opencode" && (
             <Button type="text" size="small" loading={oauthPolling} onClick={() => void handleCodexOauthLogin()}>
               {t("providers.chatgptLogin")}
             </Button>
           )}
           <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
-            {t("providers.importLive")}
+            {target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive")}
           </Button>
           <Button type="text" size="small" loading={busy} onClick={() => void handleExport()}>
             {t("providers.export")}
@@ -468,12 +472,22 @@ export default function ProvidersPage() {
         </Button>
       </Space>
     </div>
-    <OnboardingTip
-      tipKey="providers_hot_switch"
-      type="info"
-      message={t("providers.hotSwitchTitle")}
-      description={t("providers.hotSwitchDescription")}
-    />
+    {target !== "opencode" && (
+      <OnboardingTip
+        tipKey="providers_hot_switch"
+        type="info"
+        message={t("providers.hotSwitchTitle")}
+        description={t("providers.hotSwitchDescription")}
+      />
+    )}
+    {target === "opencode" && (
+      <OnboardingTip
+        tipKey="providers_opencode_multi"
+        type="info"
+        message={t("providers.opencodeNoSwitchTitle")}
+        description={t("providers.opencodeNoSwitchDescription")}
+      />
+    )}
     {target === "codex" && (
       <OnboardingTip
         tipKey="providers_codex_auth"
@@ -492,6 +506,7 @@ export default function ProvidersPage() {
         }
       />
     )}
+    {target !== "opencode" && (
     <Card
       size="small"
       className="page-surface"
@@ -517,6 +532,7 @@ export default function ProvidersPage() {
     >
       <Text type="secondary">{t("providers.officialModeDescription")}</Text>
     </Card>
+    )}
     <Card
       size="small"
       className="page-surface"
@@ -526,7 +542,13 @@ export default function ProvidersPage() {
           <GlobalOutlined />
           {t("providers.title")}
           <Text type="secondary" style={{ fontWeight: "normal", fontSize: 12 }}>
-            {target === "claude_code" ? t("providers.codeSubtitle") : target === "claude_desktop" ? t("providers.desktopSubtitle") : "管理 ~/.codex/config.toml 中的直连模型提供方"}
+            {target === "claude_code"
+              ? t("providers.codeSubtitle")
+              : target === "claude_desktop"
+                ? t("providers.desktopSubtitle")
+                : target === "opencode"
+                  ? t("providers.opencodeSubtitle")
+                  : "管理 ~/.codex/config.toml 中的直连模型提供方"}
           </Text>
         </Space>
       }

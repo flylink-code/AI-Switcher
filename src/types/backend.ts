@@ -4,7 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
-export type ProviderTarget = "claude_code" | "claude_desktop" | "codex";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
 export interface ClaudeModelMapping {
@@ -333,11 +333,12 @@ export interface ProxyStatus {
   checkedAt: number;
 }
 
-/** Whether Claude Code / Desktop / Codex client processes are running. */
+/** Whether Claude Code / Desktop / Codex / OpenCode client processes are running. */
 export interface ManagedAppRuntimeStatus {
   claudeCode: boolean;
   claudeDesktop: boolean;
   codex: boolean;
+  opencode: boolean;
 }
 
 export interface ProxyStatusUpdated {
@@ -811,6 +812,27 @@ export interface CodexCliVersionInfo {
   installedButBroken: boolean;
 }
 
+export interface OpenCodeCliVersionInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
+}
+
+export interface OpenCodeDesktopStatus {
+  installed: boolean;
+  version: string | null;
+  installPath: string | null;
+  source: string | null;
+}
+
 export interface NodeRuntimeStatus {
   installed: boolean;
   version: string | null;
@@ -822,7 +844,7 @@ export interface NodeRuntimeStatus {
   installHint: string;
 }
 
-export type SessionProvider = "claude_code" | "codex";
+export type SessionProvider = "claude_code" | "codex" | "opencode";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;

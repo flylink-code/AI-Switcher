@@ -3,6 +3,7 @@ import {
   getAutostartConfig,
   getClaudeCodeVersion,
   getCodexCliVersion,
+  getOpenCodeCliVersion,
   getNodeRuntimeStatus,
   getCloseBehavior,
   getDbInfo,
@@ -235,6 +236,18 @@ export const localCodexCliVersionOptions = queryOptions({
 export const codexCliVersionOptions = queryOptions({
   queryKey: ["codex-cli-version", "latest"] as const,
   queryFn: () => getCodexCliVersion(true),
+  staleTime: 5 * 60_000,
+});
+
+export const localOpenCodeCliVersionOptions = queryOptions({
+  queryKey: ["opencode-cli-version", "local"] as const,
+  queryFn: () => getOpenCodeCliVersion(false),
+  staleTime: 5 * 60_000,
+});
+
+export const opencodeCliVersionOptions = queryOptions({
+  queryKey: ["opencode-cli-version", "latest"] as const,
+  queryFn: () => getOpenCodeCliVersion(true),
   staleTime: 5 * 60_000,
 });
 

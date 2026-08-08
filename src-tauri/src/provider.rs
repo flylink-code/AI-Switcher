@@ -34,6 +34,9 @@ pub enum ProviderTarget {
     ClaudeCode,
     ClaudeDesktop,
     Codex,
+    /// Keep wire format `opencode` (not `open_code`) to match frontend / DB values.
+    #[serde(rename = "opencode")]
+    OpenCode,
 }
 
 impl ProviderTarget {
@@ -42,6 +45,7 @@ impl ProviderTarget {
             ProviderTarget::ClaudeCode => "claude_code",
             ProviderTarget::ClaudeDesktop => "claude_desktop",
             ProviderTarget::Codex => "codex",
+            ProviderTarget::OpenCode => "opencode",
         }
     }
 
@@ -49,6 +53,7 @@ impl ProviderTarget {
         match value {
             "claude_desktop" => ProviderTarget::ClaudeDesktop,
             "codex" => ProviderTarget::Codex,
+            "opencode" => ProviderTarget::OpenCode,
             _ => ProviderTarget::ClaudeCode,
         }
     }
@@ -134,6 +139,16 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
             "Codex 供应商仅支持 OpenAI Chat、OpenAI Responses 或 Anthropic Messages 协议".to_string(),
         ));
     }
+    if target == ProviderTarget::OpenCode
+        && !matches!(
+            protocol,
+            ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
+        )
+    {
+        return Err(AppError::Config(
+            "OpenCode 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+        ));
+    }
     Ok(())
 }
 
@@ -149,7 +164,7 @@ pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> App
 }
 
 pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
-    if target == ProviderTarget::Codex {
+    if matches!(target, ProviderTarget::Codex | ProviderTarget::OpenCode) {
         ClaudeModelMapping::default()
     } else {
         mapping
@@ -259,13 +274,14 @@ pub fn ensure_openai_v1_suffix(base_url: &str) -> AppResult<String> {
 
 /// Normalize Base URL for persistence. Codex OpenAI providers auto-append `/v1`
 /// when the path is empty so `config.toml` base_url matches OpenAI-compatible gateways.
+/// OpenCode 的 `@ai-sdk/openai-compatible` 同样需要以 `/v1` 结尾的 baseURL。
 pub fn normalize_provider_base_url(
     target: ProviderTarget,
     protocol: ProtocolType,
     base_url: &str,
 ) -> AppResult<String> {
     let normalized = normalize_base_url(base_url)?;
-    if target == ProviderTarget::Codex
+    if matches!(target, ProviderTarget::Codex | ProviderTarget::OpenCode)
         && matches!(protocol, ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses)
     {
         ensure_openai_v1_suffix(&normalized)
@@ -516,6 +532,11 @@ impl Provider {
         if self.target_app == ProviderTarget::Codex {
             return self.protocol_type == ProtocolType::Anthropic;
         }
+        // OpenCode 通过 AI SDK 包（@ai-sdk/anthropic / @ai-sdk/openai-compatible）
+        // 原生支持各协议，直连写入 baseURL/apiKey 即可，无需本地代理。
+        if self.target_app == ProviderTarget::OpenCode {
+            return false;
+        }
         if self.protocol_type.uses_proxy() {
             return true;
         }
@@ -682,6 +703,10 @@ pub struct LiveProviderInfo {
     pub auth_token: String,
     pub model: String,
     pub model_mapping: ClaudeModelMapping,
+    /// 导入时使用的协议。历史目标（Claude/Codex）构造时保持 Anthropic 默认值，
+    /// 与导入流程原先硬编码的行为一致；OpenCode 按 npm 包名推断。
+    #[serde(default)]
+    pub protocol_type: ProtocolType,
 }
 
 #[cfg(test)]

@@ -16,8 +16,8 @@ export interface ProviderPreset {
   targets: ProviderTarget[];
 }
 
-const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop"];
-const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex"];
+const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode"];
+const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
 
 /** Built-in quick-fill presets for common third-party gateways. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [

@@ -62,11 +62,11 @@ const DEFAULTS: Pick<
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
-  return value === "claude_code" || value === "claude_desktop" || value === "codex";
+  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode";
 }
 
 function isSessionProvider(value: unknown): value is SessionProvider {
-  return value === "claude_code" || value === "codex";
+  return value === "claude_code" || value === "codex" || value === "opencode";
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
@@ -78,7 +78,9 @@ function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
 }
 
 function sessionProviderFor(target: ProviderTarget): SessionProvider {
-  return target === "codex" ? "codex" : "claude_code";
+  if (target === "codex") return "codex";
+  if (target === "opencode") return "opencode";
+  return "claude_code";
 }
 
 function skillCompatibleTarget(target: ProviderTarget): "claude_code" | "codex" {

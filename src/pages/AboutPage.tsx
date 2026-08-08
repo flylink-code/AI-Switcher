@@ -27,6 +27,7 @@ import {
   restoreOnboardingTips,
   runClaudeCodeUpdate,
   runCodexCliUpdate,
+  runOpenCodeCliUpdate,
   setUpdateMirrorSettings,
 } from "@/services/api";
 import {
@@ -34,13 +35,16 @@ import {
   codexCliVersionOptions,
   localClaudeVersionOptions,
   localCodexCliVersionOptions,
+  localOpenCodeCliVersionOptions,
   nodeRuntimeStatusOptions,
+  opencodeCliVersionOptions,
 } from "@/lib/appQueries";
 import { checkForAppUpdate, installAvailableAppUpdate, isAppUpdatePackagePendingError, isNoAppUpdateAvailableError } from "@/lib/appUpdater";
 import type {
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
   NodeRuntimeStatus,
+  OpenCodeCliVersionInfo,
   UpdateMirrorSettings,
 } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
@@ -88,6 +92,7 @@ export default function AboutPage() {
   const [checkingApp, setCheckingApp] = useState(false);
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
+  const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
   const [installingNode, setInstallingNode] = useState(false);
   const [restoringTips, setRestoringTips] = useState(false);
   const [updateMirrorSettings, setUpdateMirrorSettingsState] = useState<UpdateMirrorSettings | null>(null);
@@ -106,6 +111,12 @@ export default function AboutPage() {
     placeholderData: () => localCodexQuery.data,
   });
   const codexInfo = codexQuery.data ?? localCodexQuery.data ?? null;
+  const localOpenCodeQuery = useQuery(localOpenCodeCliVersionOptions);
+  const opencodeQuery = useQuery({
+    ...opencodeCliVersionOptions,
+    placeholderData: () => localOpenCodeQuery.data,
+  });
+  const opencodeInfo = opencodeQuery.data ?? localOpenCodeQuery.data ?? null;
 
   useEffect(() => {
     void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
@@ -295,6 +306,27 @@ export default function AboutPage() {
         void message.error(formatCliInstallError(errMsg(e), t));
       } finally {
         setUpdatingCodex(false);
+      }
+    };
+
+    if (!nodeRuntime?.meetsMinimum) {
+      await ensureNodeThen(runInstall);
+      return;
+    }
+    await runInstall();
+  };
+
+  const updateOpenCodeCli = async () => {
+    const runInstall = async () => {
+      setUpdatingOpenCode(true);
+      try {
+        const result = await runOpenCodeCliUpdate();
+        void message.success(result);
+        await queryClient.invalidateQueries({ queryKey: ["opencode-cli-version"] });
+      } catch (e) {
+        void message.error(formatCliInstallError(errMsg(e), t));
+      } finally {
+        setUpdatingOpenCode(false);
       }
     };
 
@@ -508,12 +540,46 @@ export default function AboutPage() {
             details: t("about.details"),
           }}
         />
+
+        <CliToolCard
+          title={t("about.opencodeCliSection")}
+          info={opencodeInfo}
+          fetching={opencodeQuery.isFetching}
+          updating={updatingOpenCode || installingNode}
+          onRefresh={() => void opencodeQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateOpenCodeCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !opencodeInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
+          labels={{
+            current: t("about.opencodeCurrentVersion"),
+            latest: t("about.opencodeLatestVersion"),
+            status: t("about.opencodeStatus"),
+            environment: t("about.opencodeEnvironment"),
+            source: t("about.opencodeInstallSource"),
+            executable: t("about.opencodeExecutablePath"),
+            hint: t("about.opencodeCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runOpenCodeInstall"),
+            update: t("about.runOpenCodeUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
       </Space>
     </>
   );
 }
 
-type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo;
+type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo;
 
 function CliToolCard({
   title,

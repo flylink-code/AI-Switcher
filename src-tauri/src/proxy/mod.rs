@@ -102,6 +102,8 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
+            // OpenCode uses direct provider URLs; no local proxy runtime.
+            ProviderTarget::OpenCode => None,
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -110,6 +112,7 @@ impl ProxyManager {
                 ProviderTarget::ClaudeCode => DEFAULT_PORT,
                 ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
                 ProviderTarget::Codex => DEFAULT_PORT + 2,
+                ProviderTarget::OpenCode => DEFAULT_PORT + 3,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -122,10 +125,16 @@ impl ProxyManager {
 
     /// Start or replace one app's proxy without interrupting the other app.
     pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
+        if target == ProviderTarget::OpenCode {
+            return Err(AppError::Config(
+                "OpenCode 使用直连，不启动本地代理".to_string(),
+            ));
+        }
         let current = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
+            ProviderTarget::OpenCode => None,
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -205,6 +214,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.replace(runtime),
             ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
             ProviderTarget::Codex => self.codex.replace(runtime),
+            ProviderTarget::OpenCode => None,
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -238,6 +248,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
+            ProviderTarget::OpenCode => None,
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
@@ -250,6 +261,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
+            ProviderTarget::OpenCode => None,
         };
         let Some(runtime) = runtime else {
             return;

@@ -70,7 +70,7 @@ export default function WorkbenchPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
-  const [, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [batchTesting, setBatchTesting] = useState(false);
@@ -93,7 +93,7 @@ export default function WorkbenchPage() {
   });
   const antigravity = antigravityQuery.data;
 
-  const appRunningKey = target === "claude_code" ? "claudeCode" : target === "claude_desktop" ? "claudeDesktop" : "codex";
+  const appRunningKey = target === "claude_code" ? "claudeCode" : target === "claude_desktop" ? "claudeDesktop" : target === "opencode" ? "opencode" : "codex";
   const isAppRunning = Boolean(runtimeQuery.data?.[appRunningKey]);
 
   // Usage queries
@@ -265,6 +265,18 @@ export default function WorkbenchPage() {
     }
   };
 
+  const handleSyncOpenCodeLive = async () => {
+    setBusy(true);
+    try {
+      await store.importLive();
+      void message.success(t("providers.syncOpenCodeLiveDone"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleImportClipboard = async () => {
     setBusy(true);
     try {
@@ -360,6 +372,15 @@ export default function WorkbenchPage() {
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t("providers.create")}
           </Button>
+          {target === "opencode" && (
+            <Button
+              icon={<ImportOutlined />}
+              loading={busy}
+              onClick={() => void handleSyncOpenCodeLive()}
+            >
+              {t("providers.syncOpenCodeLive")}
+            </Button>
+          )}
           <Button
             icon={<ThunderboltOutlined />}
             loading={batchTesting}
@@ -377,7 +398,8 @@ export default function WorkbenchPage() {
 
       {/* Main CC Switch Provider Card List */}
       <div className="cc-provider-list">
-        {/* Official Provider Card */}
+        {/* Official Provider Card — OpenCode 多供应商并存，无需官方/切换 */}
+        {target !== "opencode" && (
         <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
           <div className="cc-provider-card-body">
             <div className="cc-provider-main">
@@ -407,6 +429,7 @@ export default function WorkbenchPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Custom Provider Cards */}
         {store.providers.map((provider) => {
@@ -414,7 +437,7 @@ export default function WorkbenchPage() {
           return (
             <div
               key={provider.id}
-              className={`cc-provider-card ${isCurrent ? "cc-provider-card-active" : ""}`}
+              className={`cc-provider-card ${target !== "opencode" && isCurrent ? "cc-provider-card-active" : ""}`}
             >
               <div className="cc-provider-card-body">
                 <div className="cc-provider-main">
@@ -424,7 +447,7 @@ export default function WorkbenchPage() {
                   <div className="cc-provider-info">
                     <div className="cc-provider-title-row">
                       <span className="cc-provider-name">{provider.name}</span>
-                      {isCurrent && (
+                      {target !== "opencode" && isCurrent && (
                         <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
                           {t("providers.current")}
                         </Tag>
@@ -450,7 +473,7 @@ export default function WorkbenchPage() {
                   </div>
                 </div>
                 <div className="cc-provider-actions">
-                  {!isCurrent && (
+                  {target !== "opencode" && !isCurrent && (
                     <Button
                       type="primary"
                       size="middle"

@@ -151,6 +151,9 @@ export function ProviderForm({
 
   const isEdit = editing !== null;
   const isCodex = (editing?.targetApp ?? target) === "codex";
+  const isOpenCode = (editing?.targetApp ?? target) === "opencode";
+  // OpenCode 与 Codex 一样直连 baseURL/apiKey，不做 Claude 角色模型映射。
+  const isDirect = isCodex || isOpenCode;
   const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
   // Seed with the loaded default so the sync effect never treats open/edit as a "change".
   const prevModelRef = useRef<string>("");
@@ -216,7 +219,7 @@ export function ProviderForm({
 
   useEffect(() => {
     if (!open) return;
-    if (isCodex) return;
+    if (isDirect) return;
     const model = watchedDefaultModel?.trim() ?? "";
     if (!model || model === prevModelRef.current) return;
     const previous = prevModelRef.current;
@@ -228,19 +231,19 @@ export function ProviderForm({
       mappingTarget,
     );
     form.setFieldValue("modelMapping", nextMapping);
-  }, [open, watchedDefaultModel, mappingTarget, form, isCodex]);
+  }, [open, watchedDefaultModel, mappingTarget, form, isDirect]);
 
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
       let baseUrl = normalizeBaseUrl(values.baseUrl);
-      if (isCodex && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
+      if (isDirect && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
         baseUrl = ensureOpenAiV1Suffix(baseUrl);
       }
       const normalized = {
         ...values,
         baseUrl,
-        modelMapping: isCodex
+        modelMapping: isDirect
           ? { ...EMPTY_MODEL_MAPPING }
           : (values.modelMapping ?? { ...EMPTY_MODEL_MAPPING }),
       };
@@ -408,7 +411,7 @@ export function ProviderForm({
       authBinding: "",
       notes: preset.notes ?? "",
       targetApp: target,
-      modelMapping: isCodex
+      modelMapping: isDirect
         ? { ...EMPTY_MODEL_MAPPING }
         : isAgPreset
           ? mappingFromAntigravityPreset(preset.model, target)
@@ -438,7 +441,7 @@ export function ProviderForm({
             providerKind: isBuiltinAg ? "antigravity" : form.getFieldValue("providerKind"),
             model: defaultModel,
             failoverModels: failover.length > 0 ? failover : preset.failoverModels ?? [],
-            modelMapping: isCodex
+            modelMapping: isDirect
               ? { ...EMPTY_MODEL_MAPPING }
               : mappingFromAntigravityPreset(defaultModel, target, {
                   geminiFlash: flash,
@@ -569,7 +572,7 @@ export function ProviderForm({
               ) : (
                 <Typography.Text type="secondary">{t("providers.baseUrlHint")}</Typography.Text>
               )}
-              {isCodex
+              {isDirect
                 && (watchedProtocol === "openai_chat" || watchedProtocol === "openai_responses")
                 && typeof watchedBaseUrl === "string"
                 && needsOpenAiV1Suffix(watchedBaseUrl) && (
@@ -686,7 +689,7 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        {!isCodex && (
+        {!isDirect && (
           <>
             <div
               style={{

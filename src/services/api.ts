@@ -74,6 +74,8 @@ import type {
   PaginatedProxyLogs,
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
+  OpenCodeCliVersionInfo,
+  OpenCodeDesktopStatus,
   NodeRuntimeStatus,
   AutostartConfig,
   AutostartMode,
@@ -1089,6 +1091,23 @@ export async function rebuildClaudeCodeSessionUsage(): Promise<CodexSessionSyncR
   return invoke<CodexSessionSyncResult>("rebuild_claude_code_session_usage_cmd", {});
 }
 
+export interface OpenCodeSessionSyncResult {
+  scannedSessions: number;
+  insertedRows: number;
+  skippedRows: number;
+  message: string;
+}
+
+export async function syncOpenCodeSessionUsage(): Promise<OpenCodeSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<OpenCodeSessionSyncResult>("sync_opencode_session_usage_cmd", {});
+}
+
+export async function rebuildOpenCodeSessionUsage(): Promise<OpenCodeSessionSyncResult> {
+  const invoke = await getInvoke();
+  return invoke<OpenCodeSessionSyncResult>("rebuild_opencode_session_usage_cmd", {});
+}
+
 export async function listModelPricing(): Promise<ModelPricing[]> {
   const invoke = await getInvoke();
   return invoke<ModelPricing[]>("list_model_pricing", {});
@@ -1164,6 +1183,21 @@ export async function getCodexCliVersion(includeLatest = true): Promise<CodexCli
 export async function runCodexCliUpdate(): Promise<string> {
   const invoke = await getInvoke();
   return invoke<string>("run_codex_cli_update", {});
+}
+
+export async function getOpenCodeCliVersion(includeLatest = true): Promise<OpenCodeCliVersionInfo> {
+  const invoke = await getInvoke();
+  return invoke<OpenCodeCliVersionInfo>("get_opencode_cli_version", { includeLatest });
+}
+
+export async function runOpenCodeCliUpdate(): Promise<string> {
+  const invoke = await getInvoke();
+  return invoke<string>("run_opencode_cli_update", {});
+}
+
+export async function getOpenCodeDesktopStatus(): Promise<OpenCodeDesktopStatus> {
+  const invoke = await getInvoke();
+  return invoke<OpenCodeDesktopStatus>("get_opencode_desktop_status", {});
 }
 
 export async function getNodeRuntimeStatus(): Promise<NodeRuntimeStatus> {

@@ -629,6 +629,7 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
         auth_token: String::new(),
         model,
         model_mapping: ClaudeModelMapping::default(),
+        protocol_type: crate::provider::ProtocolType::Anthropic,
     }))
 }
 

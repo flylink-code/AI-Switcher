@@ -131,6 +131,105 @@ pub fn get_codex_plugins_cache_dir() -> PathBuf {
     get_codex_config_dir().join("plugins").join("cache")
 }
 
+/// OpenCode 配置目录（CLI 与 Desktop 应用共享）：`~/.config/opencode`。
+pub fn get_opencode_config_dir() -> PathBuf {
+    get_home_dir().join(".config").join("opencode")
+}
+
+/// OpenCode 生效配置文件。优先级：`OPENCODE_CONFIG` 环境变量（指向文件）>
+/// 若 `opencode.json` 与 `opencode.jsonc` 同时存在，优先含用户自有 `provider` 的那份
+/// （避免空的 json 盖住有内容的 jsonc）> 已存在的 `opencode.json` > `opencode.jsonc` > 默认 `opencode.json`。
+/// 写回一律走该生效路径，避免双文件分叉。
+pub fn get_opencode_config_path() -> PathBuf {
+    if let Some(custom) = std::env::var_os("OPENCODE_CONFIG").filter(|v| !v.is_empty()) {
+        let path = PathBuf::from(custom);
+        if path.is_absolute() {
+            return path;
+        }
+    }
+    let dir = get_opencode_config_dir();
+    let json = dir.join("opencode.json");
+    let jsonc = dir.join("opencode.jsonc");
+    let json_exists = json.is_file();
+    let jsonc_exists = jsonc.is_file();
+    if json_exists && jsonc_exists {
+        let json_has = opencode_file_has_user_providers(&json);
+        let jsonc_has = opencode_file_has_user_providers(&jsonc);
+        return match (json_has, jsonc_has) {
+            (true, false) => json,
+            (false, true) => jsonc,
+            (true, true) => pick_newer_opencode_config(&json, &jsonc),
+            (false, false) => json,
+        };
+    }
+    if json_exists {
+        return json;
+    }
+    if jsonc_exists {
+        return jsonc;
+    }
+    json
+}
+
+fn pick_newer_opencode_config(json: &Path, jsonc: &Path) -> PathBuf {
+    let json_mtime = fs::metadata(json).and_then(|m| m.modified()).ok();
+    let jsonc_mtime = fs::metadata(jsonc).and_then(|m| m.modified()).ok();
+    match (json_mtime, jsonc_mtime) {
+        (Some(a), Some(b)) if b > a => jsonc.to_path_buf(),
+        _ => json.to_path_buf(),
+    }
+}
+
+/// 配置文件是否含至少一个可导入的用户自有 provider（有 baseURL，且非托管槽）。
+fn opencode_file_has_user_providers(path: &Path) -> bool {
+    let Ok(content) = fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(value) = json5::from_str::<serde_json::Value>(&content) else {
+        return false;
+    };
+    let Some(providers) = value.get("provider").and_then(serde_json::Value::as_object) else {
+        return false;
+    };
+    providers.iter().any(|(provider_id, entry)| {
+        !is_managed_opencode_provider_id(provider_id)
+            && opencode_provider_entry_has_base_url(entry)
+    })
+}
+
+fn is_managed_opencode_provider_id(provider_id: &str) -> bool {
+    provider_id == "ai-switcher" || provider_id.starts_with("aisw-")
+}
+
+fn opencode_provider_entry_has_base_url(entry: &serde_json::Value) -> bool {
+    entry
+        .pointer("/options/baseURL")
+        .or_else(|| entry.pointer("/options/baseUrl"))
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
+/// OpenCode 数据目录（会话/用量存储）。OpenCode 遵循 XDG basedir，
+/// 所有平台默认落在 `~/.local/share/opencode`。
+pub fn get_opencode_data_dir() -> PathBuf {
+    if let Some(xdg) = std::env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty()) {
+        return PathBuf::from(xdg).join("opencode");
+    }
+    get_home_dir().join(".local").join("share").join("opencode")
+}
+
+/// OpenCode SQLite 数据库路径：`OPENCODE_DB` 环境变量 > 数据目录下 `opencode.db`。
+pub fn get_opencode_db_path() -> PathBuf {
+    if let Some(custom) = std::env::var_os("OPENCODE_DB").filter(|v| !v.is_empty()) {
+        let path = PathBuf::from(custom);
+        if path.is_absolute() {
+            return path;
+        }
+        return get_opencode_data_dir().join(path);
+    }
+    get_opencode_data_dir().join("opencode.db")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +243,31 @@ mod tests {
             home.join(APP_DIR_NAME).join(APP_DB_NAME)
         );
         assert_eq!(get_claude_settings_path(), home.join(".claude").join("settings.json"));
+    }
+
+    #[test]
+    fn opencode_config_path_prefers_jsonc_when_json_has_no_providers() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let json = temp.path().join("opencode.json");
+        let jsonc = temp.path().join("opencode.jsonc");
+        fs::write(
+            &json,
+            r#"{"$schema":"https://opencode.ai/config.json","plugin":["./p.js"]}"#,
+        )
+        .expect("write json");
+        fs::write(
+            &jsonc,
+            r#"{
+  "provider": {
+    "acme": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": { "baseURL": "https://acme.test/v1" }
+    }
+  }
+}"#,
+        )
+        .expect("write jsonc");
+        assert!(opencode_file_has_user_providers(&jsonc));
+        assert!(!opencode_file_has_user_providers(&json));
     }
 }
