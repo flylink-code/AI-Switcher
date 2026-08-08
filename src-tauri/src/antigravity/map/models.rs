@@ -33,11 +33,6 @@ pub fn map_model_id(requested: &str) -> String {
         "gpt-4o" | "gpt-4.1" | "gpt-5" | "o3" | "o4-mini" => {
             model_catalog::preferred_default_model()
         }
-        // Claude Desktop effort-slider alias (see GEMINI_FLASH_ALIAS_ID):
-        // resolves to the Gemini 3.6 Flash bare base; the reasoning level is
-        // chosen by the request's effort field or the bare-name fallback.
-        model_catalog::GEMINI_FLASH_ALIAS_ID => model_catalog::preferred_gemini_36_flash_base()
-            .unwrap_or_else(|| "gemini-3.6-flash".into()),
         other => other.to_string(),
     };
     // Explicit level suffixes pass through; bare Gemini names compose to a
@@ -86,12 +81,10 @@ mod tests {
     }
 
     #[test]
-    fn desktop_alias_maps_to_gemini_flash() {
-        // Fallback catalog has no gemini-3.6 flash; the alias degrades to the
-        // best available flash base (gemini-3-flash here).
-        let mapped = map_model_id(model_catalog::GEMINI_FLASH_ALIAS_ID);
-        assert!(mapped.starts_with("gemini-"));
-        assert!(mapped.contains("flash"));
+    fn claude_sonnet_5_is_not_remapped_to_flash() {
+        // Desktop role id may still appear on the wire via role routing; AG no
+        // longer synthesizes a Flash alias — pass through as a Claude id.
+        assert_eq!(map_model_id("claude-sonnet-5"), "claude-sonnet-5");
     }
 
     #[test]

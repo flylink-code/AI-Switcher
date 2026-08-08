@@ -1064,7 +1064,7 @@
     "outboundNone": "Direct (no proxy)",
     "models": "Available models (from Cloud Code)",
     "modelsEmpty": "No model catalog yet. Sign in and click Refresh quota.",
-    "modelsHint": "Refreshing quota syncs live Antigravity models; /v1/models and provider binding use this list. Prefer Gemini level suffixes (e.g. gemini-3.6-flash-low / -high) in each client's model picker. In Claude Desktop, DeepSeek-style display names are usually labelOverride while the effort slider is still gated by Claude role ids (claude-sonnet-5, …). The claude-sonnet-5 alias unlocks that slider and routes to Gemini Flash (defaults to high when effort is absent). For Codex, re-run Ensure Provider — protocol is openai_responses (/v1/responses).",
+    "modelsHint": "Refreshing quota syncs live Antigravity models; /v1/models and provider binding use this list. Prefer Gemini level suffixes (e.g. gemini-3.6-flash-low / -high) in each client's model picker. In Claude Desktop, use role routing (name=claude-sonnet-5 + labelOverride=gemini-3.6-flash) for the native effort slider; the gateway keeps the last explicit effort per session and defaults bare Gemini to high when effort is absent. For Codex, re-run Ensure Provider — protocol is openai_responses (/v1/responses).",
     "accounts": "Accounts",
     "running": "Running",
     "stoppedState": "Stopped",

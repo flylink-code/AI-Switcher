@@ -1064,7 +1064,7 @@
     "outboundNone": "直连（无代理）",
     "models": "可用模型（来自 Cloud Code）",
     "modelsEmpty": "暂无模型目录。请先登录账号并点击「刷新额度」。",
-    "modelsHint": "刷新额度后会同步 Antigravity 当前可用模型；网关 /v1/models 与绑定供应商都会使用这份列表。Gemini 推理档位优先用后缀模型名（如 gemini-3.6-flash-low / -high）在客户端模型选择器里切换。Claude Desktop 列表里像 DeepSeek 那样显示的「真名」多半是 labelOverride，门控滑条仍靠 claude-sonnet-5 等角色 ID；别名条目 claude-sonnet-5 可唤起原生滑条并路由到 Gemini Flash（无 effort 时默认 high）。Codex 请重新「确保供应商」，协议为 openai_responses（/v1/responses）。",
+    "modelsHint": "刷新额度后会同步 Antigravity 当前可用模型；网关 /v1/models 与绑定供应商都会使用这份列表。Gemini 推理档位优先用后缀模型名（如 gemini-3.6-flash-low / -high）在客户端模型选择器里切换。Claude Desktop 用角色路由（name=claude-sonnet-5 + labelOverride=gemini-3.6-flash）唤起原生滑条；网关按会话记住最近显式 effort，裸 Gemini 无 effort 时默认 high。Codex 请重新「确保供应商」，协议为 openai_responses（/v1/responses）。",
     "accounts": "账号",
     "running": "运行中",
     "stoppedState": "已停止",

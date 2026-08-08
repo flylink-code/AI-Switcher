@@ -48,12 +48,6 @@ static CATALOG: RwLock<CatalogState> = RwLock::new(CatalogState {
 /// when a client sends a bare Gemini name with no suffix.
 const LEVEL_SUFFIXES: [&str; 3] = ["low", "medium", "high"];
 
-/// Client-facing alias id for Gemini 3.6 Flash. Claude Desktop's reasoning
-/// effort slider is gated by a hardcoded model table (`claude-sonnet-5` is in
-/// it), so the alias makes the slider available; the gateway maps it back to
-/// the real Gemini flash variant at request time.
-pub const GEMINI_FLASH_ALIAS_ID: &str = "claude-sonnet-5";
-
 /// Split a model id into (base, explicit level suffix) when it ends with
 /// `-low` / `-medium` / `-high`.
 fn split_level_suffix(id: &str) -> (&str, Option<&str>) {
@@ -63,6 +57,16 @@ fn split_level_suffix(id: &str) -> (&str, Option<&str>) {
         }
     }
     (id, None)
+}
+
+/// Explicit `-low` / `-medium` / `-high` suffix on a client-requested model id.
+pub fn explicit_level_suffix(id: &str) -> Option<&'static str> {
+    match split_level_suffix(&id.trim().to_ascii_lowercase()).1 {
+        Some("low") => Some("low"),
+        Some("medium") => Some("medium"),
+        Some("high") => Some("high"),
+        _ => None,
+    }
 }
 
 /// Compose the real upstream model id from a (possibly bare) Gemini name.
@@ -103,8 +107,8 @@ pub fn with_reasoning_level(id: &str) -> String {
 /// fall back to the first available variant via [`with_reasoning_level`].
 ///
 /// When the catalog only has a bare id (no `-low`/`-medium`/`-high` siblings),
-/// still return the composed suffix so Desktop effort / alias defaults are not
-/// silently dropped to the bare name.
+/// still return the composed suffix so Desktop effort is not silently dropped
+/// to the bare name.
 pub fn with_forced_level(id: &str, level: &str) -> String {
     let trimmed = id.trim();
     let lower = trimmed.to_ascii_lowercase();
@@ -126,36 +130,6 @@ pub fn with_forced_level(id: &str, level: &str) -> String {
         return with_reasoning_level(base);
     }
     candidate
-}
-
-/// Prefer the Gemini 3.6 Flash bare base (target of [`GEMINI_FLASH_ALIAS_ID`]);
-/// fall back to any flash bare base in the catalog.
-pub fn preferred_gemini_36_flash_base() -> Option<String> {
-    let ids = list_model_ids();
-    let is_flash = |id: &&String| {
-        id.starts_with("gemini-") && id.contains("flash") && !id.contains("image")
-    };
-    let pick = ids
-        .iter()
-        .find(|id| id.starts_with("gemini-3.6") && is_flash(id))
-        .or_else(|| ids.iter().find(is_flash))?;
-    let lower_pick = pick.to_ascii_lowercase();
-    let (base, _) = split_level_suffix(&lower_pick);
-    Some(base.to_string())
-}
-
-/// Catalog plus the synthetic Gemini-flash alias entry (see
-/// [`GEMINI_FLASH_ALIAS_ID`]). Used for `/v1/models` and provider model lists
-/// so clients can bind the alias directly.
-pub fn list_catalog_models_with_alias() -> Vec<CatalogModel> {
-    let mut models = list_catalog_models();
-    if !models.iter().any(|model| model.id == GEMINI_FLASH_ALIAS_ID) {
-        models.push(CatalogModel {
-            id: GEMINI_FLASH_ALIAS_ID.to_string(),
-            display_name: Some("Gemini Flash (Desktop 推理档位别名)".to_string()),
-        });
-    }
-    models
 }
 
 fn lock_write() -> std::sync::RwLockWriteGuard<'static, CatalogState> {
@@ -270,10 +244,9 @@ pub fn list_model_ids() -> Vec<String> {
 }
 
 /// OpenAI-compatible `/v1/models` payload — full upstream catalog, Gemini
-/// level variants included so clients can pick the reasoning level directly,
-/// plus the synthetic Gemini-flash alias for Claude Desktop's effort slider.
+/// level variants included so clients can pick the reasoning level directly.
 pub fn list_openai_models_payload() -> Value {
-    let data: Vec<Value> = list_catalog_models_with_alias()
+    let data: Vec<Value> = list_catalog_models()
         .into_iter()
         .map(|model| {
             json!({
@@ -413,12 +386,10 @@ mod tests {
     }
 
     #[test]
-    fn catalog_with_alias_adds_desktop_alias_once() {
-        let models = list_catalog_models_with_alias();
-        let count = models
-            .iter()
-            .filter(|model| model.id == GEMINI_FLASH_ALIAS_ID)
-            .count();
-        assert_eq!(count, 1);
+    fn catalog_has_no_synthetic_claude_sonnet_5_alias() {
+        let models = list_catalog_models();
+        assert!(!models.iter().any(|model| model.id == "claude-sonnet-5"));
+        assert_eq!(explicit_level_suffix("gemini-3.6-flash-high"), Some("high"));
+        assert_eq!(explicit_level_suffix("gemini-3.6-flash"), None);
     }
 }

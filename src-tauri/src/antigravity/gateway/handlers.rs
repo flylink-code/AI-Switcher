@@ -63,10 +63,17 @@ pub async fn anthropic_messages(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
     };
-    let mapped = match anthropic_to_gemini_request(&payload) {
+    let session_key = session_key_from_headers(&headers);
+    let sticky = session_key
+        .as_deref()
+        .and_then(crate::antigravity::session_effort::get);
+    let mapped = match anthropic_to_gemini_request(&payload, sticky) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
+    if let (Some(session), Some(level)) = (session_key.as_deref(), mapped.remember_effort) {
+        crate::antigravity::session_effort::set(session, level);
+    }
     let diagnostic = effort_mapping_diagnostic(&payload, &mapped.model);
     dispatch_generation(
         &state,
@@ -185,11 +192,7 @@ async fn dispatch_generation(
     diagnostic: Option<String>,
 ) -> Response {
     let started = Instant::now();
-    let session_key = headers
-        .get("x-session-id")
-        .or_else(|| headers.get("x-claude-session-id"))
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string);
+    let session_key = session_key_from_headers(headers);
     let mut exclude: Vec<String> = Vec::new();
     let mut last_error = String::from("upstream failed");
 
@@ -610,6 +613,16 @@ impl StreamState {
 
 fn sse_data(value: &Value) -> Bytes {
     Bytes::from(format!("data: {}\n\n", value))
+}
+
+fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-session-id")
+        .or_else(|| headers.get("x-claude-session-id"))
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), Response> {

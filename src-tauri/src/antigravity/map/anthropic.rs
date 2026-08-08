@@ -10,11 +10,16 @@ pub struct GeminiRequestParts {
     pub model: String,
     pub request: Value,
     pub stream: bool,
+    /// Explicit effort/suffix/`thinking.disabled` to remember for the session.
+    pub remember_effort: Option<&'static str>,
 }
 
-pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
+pub fn anthropic_to_gemini_request(
+    body: &Value,
+    sticky_effort: Option<&str>,
+) -> Result<GeminiRequestParts, String> {
     let requested_model = body.get("model").and_then(Value::as_str).unwrap_or("");
-    let from_flash_alias = requested_model.eq_ignore_ascii_case(model_catalog::GEMINI_FLASH_ALIAS_ID);
+    let requested_explicit = model_catalog::explicit_level_suffix(requested_model);
     let mut model = map_model_id(requested_model);
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
 
@@ -32,19 +37,26 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
     // (Cloud Code converts back for Claude models); Gemini targets encode the
     // level in the model id suffix instead.
     let mut claude_thinking_level: Option<&'static str> = None;
+    let mut remember_effort: Option<&'static str> = None;
     let lower_model = model.to_ascii_lowercase();
     if lower_model.starts_with("gemini-") {
         if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
             model = model_catalog::with_forced_level(&model, level);
+            remember_effort = Some(level);
         } else if thinking_kind.as_deref() == Some("disabled") {
             model = model_catalog::with_forced_level(&model, "low");
-        } else if from_flash_alias
-            || matches!(thinking_kind.as_deref(), Some("adaptive") | Some("enabled"))
-        {
-            // Desktop Flash alias / adaptive thinking without explicit effort:
-            // default high (matches Claude Sonnet 5 API default), not low-first
-            // bare-name catalog fallback.
-            model = model_catalog::with_forced_level(&model, "high");
+            remember_effort = Some("low");
+        } else if let Some(level) = requested_explicit {
+            // Client already picked a suffixed id — pass through (map_model_id
+            // kept it) and remember for bare follow-up turns in the session.
+            remember_effort = Some(level);
+        } else {
+            // Bare Gemini, no effort: reuse session sticky, else default high
+            // (Desktop side requests often omit effort after the user set high).
+            let level = sticky_effort
+                .and_then(map_effort_to_suffix)
+                .unwrap_or("high");
+            model = model_catalog::with_forced_level(&model, level);
         }
     } else if lower_model.starts_with("claude-") {
         claude_thinking_level = match effort.as_deref().and_then(map_effort_to_suffix) {
@@ -164,6 +176,7 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
         model,
         request,
         stream,
+        remember_effort,
     })
 }
 
@@ -696,7 +709,7 @@ mod tests {
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert_eq!(parts.request["contents"][0]["role"], "user");
     }
@@ -749,7 +762,7 @@ mod tests {
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         let response = &parts.request["contents"][2]["parts"][0]["functionResponse"];
         assert_eq!(response["id"], json!("toolu_1"));
         assert_eq!(response["name"], json!("read_file"));
@@ -783,7 +796,7 @@ mod tests {
                 }
             }]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         let params = &parts.request["tools"][0]["functionDeclarations"][0]["parameters"];
         assert!(params.get("$schema").is_none());
         assert!(params.get("additionalProperties").is_none());
@@ -799,21 +812,21 @@ mod tests {
     }
 
     #[test]
-    fn effort_drives_gemini_suffix_for_desktop_alias() {
+    fn effort_drives_gemini_suffix() {
         let body = json!({
-            "model": "claude-sonnet-5",
+            "model": "gemini-3.6-flash",
             "max_tokens": 128,
             "output_config": { "effort": "high" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
-        assert!(parts.model.contains("flash"));
         assert!(
             parts.model.ends_with("-high") || parts.model.contains("-high"),
             "expected high suffix, got {}",
             parts.model
         );
+        assert_eq!(parts.remember_effort, Some("high"));
         // Anthropic-only fields never leak into the Gemini request body.
         assert!(parts.request.get("output_config").is_none());
         assert!(parts.request.get("thinking").is_none());
@@ -821,38 +834,72 @@ mod tests {
     }
 
     #[test]
-    fn alias_without_effort_defaults_to_high() {
+    fn bare_gemini_without_effort_defaults_to_high() {
         let body = json!({
-            "model": "claude-sonnet-5",
+            "model": "gemini-3.6-flash",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
         assert!(
             parts.model.ends_with("-high") || parts.model.contains("-high"),
-            "alias without effort should default high, got {}",
+            "bare gemini without effort should default high, got {}",
             parts.model
         );
+        assert_eq!(parts.remember_effort, None);
         let diag = effort_mapping_diagnostic(&body, &parts.model);
         assert!(diag.contains("effort=none"));
         assert!(diag.contains("mapped="));
     }
 
     #[test]
+    fn sticky_effort_reused_when_request_omits_effort() {
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "side"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, Some("high")).unwrap();
+        assert!(
+            parts.model.ends_with("-high") || parts.model.contains("-high"),
+            "sticky high should apply, got {}",
+            parts.model
+        );
+        assert_eq!(parts.remember_effort, None);
+    }
+
+    #[test]
+    fn explicit_suffix_beats_sticky_effort() {
+        let body = json!({
+            "model": "gemini-3.6-flash-low",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, Some("high")).unwrap();
+        assert!(
+            parts.model.ends_with("-low"),
+            "explicit -low should win over sticky high, got {}",
+            parts.model
+        );
+        assert_eq!(parts.remember_effort, Some("low"));
+    }
+
+    #[test]
     fn nested_effort_object_is_parsed() {
         let body = json!({
-            "model": "claude-sonnet-5",
+            "model": "gemini-3.6-flash",
             "max_tokens": 128,
             "output_config": { "effort": { "type": "low" } },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert!(
             parts.model.ends_with("-low") || parts.model.contains("-low"),
             "expected low suffix from nested effort object, got {}",
             parts.model
         );
+        assert_eq!(parts.remember_effort, Some("low"));
     }
 
     #[test]
@@ -863,8 +910,14 @@ mod tests {
             "thinking": { "type": "disabled" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
+        assert!(
+            parts.model.ends_with("-low") || parts.model.contains("-low"),
+            "thinking.disabled should force low, got {}",
+            parts.model
+        );
+        assert_eq!(parts.remember_effort, Some("low"));
         assert!(parts.request.get("thinking").is_none());
     }
 
@@ -876,7 +929,7 @@ mod tests {
             "output_config": { "effort": "medium" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
@@ -892,7 +945,7 @@ mod tests {
             "thinking": { "type": "adaptive" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None).unwrap();
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("high")

@@ -229,7 +229,7 @@ pub async fn ensure_antigravity_provider(
 #[tauri::command]
 pub fn list_antigravity_models() -> AppResult<Vec<crate::antigravity::CatalogModel>> {
     let _ = list_accounts();
-    Ok(crate::antigravity::list_catalog_models_with_alias())
+    Ok(crate::antigravity::list_catalog_models())
 }
 
 #[tauri::command]
@@ -243,7 +243,7 @@ pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
         "baseUrl": status.base_url,
         "apiKey": status.api_key,
         "running": status.running,
-        "models": crate::antigravity::list_catalog_models_with_alias(),
+        "models": crate::antigravity::list_catalog_models(),
         "defaultModel": crate::antigravity::model_catalog::preferred_default_model(),
         "geminiFlash": crate::antigravity::model_catalog::preferred_gemini_flash(),
         "geminiPro": crate::antigravity::model_catalog::preferred_gemini_pro(),
