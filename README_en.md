@@ -200,8 +200,8 @@ Independent project; not affiliated with the repositories below or with Anthropi
 | Project | Area referenced | Upstream |
 |---|---|---|
 | AI Toolbox | Multi-tool config, sessions, desktop IA | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
-| Antigravity-Manager | Antigravity / Cloud Code proxy, account pool, protocol mapping ideas | Local reference (see `examples/`) |
-| CLIProxyAPI | Multi-protocol gateway and upstream adaptation ideas | Local reference (see `examples/`) |
+| Antigravity-Manager | Antigravity / Cloud Code proxy, account pool, protocol mapping ideas | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
+| CLIProxyAPI | Multi-protocol gateway and upstream adaptation ideas | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
 | cc Proxy | Desktop local proxy and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | Provider switching, Tauri, sessions, tray | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
 | Claude Code VS Code Chinese pack | Extension discovery and localization flow | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |

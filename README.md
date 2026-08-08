@@ -200,8 +200,8 @@ scripts/              Windows 开发 / 构建脚本
 | 项目 | 参考方向 | 上游 |
 |---|---|---|
 | AI Toolbox | 多工具配置、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
-| Antigravity-Manager | Antigravity / Cloud Code 反代、账号池与协议映射思路 | 本地参考（见仓库 `examples/`） |
-| CLIProxyAPI | 多协议网关与上游适配思路 | 本地参考（见仓库 `examples/`） |
+| Antigravity-Manager | Antigravity / Cloud Code 反代、账号池与协议映射思路 | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
+| CLIProxyAPI | 多协议网关与上游适配思路 | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
 | cc Proxy | Desktop 本地代理与模型替换 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | 供应商切换、Tauri、会话与托盘 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
 | Claude Code VS Code 中文包 | 扩展定位与汉化流程 | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
