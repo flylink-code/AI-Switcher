@@ -4,7 +4,7 @@
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
-Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, and Codex providers and active configs independent.
+Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, Codex, and OpenCode providers independent (OpenCode keeps multiple providers side by side; save to sync).
 
 Works locally by default: API keys go in the OS credential store, writes are backed up first, and sessions only read local JSONL.
 
@@ -35,7 +35,7 @@ Download the latest build from [GitHub Releases](https://github.com/flylink-code
 - **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
 - **Linux**: prefer the `.AppImage` (`chmod +x`, then run).
 
-Install Claude Code, Claude Desktop, or the Codex CLI as needed.
+Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) as needed.
 
 ---
 
@@ -67,7 +67,8 @@ Anthropic Messages-compatible forwarding, model mapping, credential injection, s
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, and Codex:
 
 - **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
-- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog
+- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog; background auto-refresh every 5 minutes
+- **Model catalog**: prefers Gemini 3.6 tiers (`-low` / `-medium` / `-high`); hides retired 2.5 / 3.1 / 3.5 and similar legacy IDs
 - **One-click bind**: use **Ensure Provider** on the Antigravity page, then switch from each tool’s provider list
 - **Reasoning tiers**: Gemini supports `-low` / `-medium` / `-high` suffixes; Claude Desktop unlocks the native effort slider via role routing (`claude-sonnet-5` + `labelOverride`); the gateway keeps session-sticky effort and defaults bare Gemini to high when effort is absent
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
@@ -96,7 +97,7 @@ Snapshot provider / MCP / Skills / Prompt selections per Claude Code, Desktop, o
 
 ### Sessions
 
-Browse, filter, and search local Claude Code and Codex JSONL sessions; export / import / backup / trash. Claude Desktop private history formats are not parsed.
+Browse, filter, and search local Claude Code, Codex, and OpenCode sessions; export / import / backup / trash (OpenCode does not support archive/export/trash yet). Claude Desktop private history formats are not parsed.
 
 ### Localization
 
@@ -104,7 +105,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates (headline picks the largest absolute amount); Opus / Codex Fast tier (`*-fast`) matching
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates (headline picks the largest absolute amount); Opus / Codex Fast tier (`*-fast`) matching
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`); environment page organized with Tabs
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 
@@ -116,6 +117,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 |---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` |
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl` (default `~/.codex/sessions/`) |
+| OpenCode | `~/.local/share/opencode/opencode.db` (plus legacy JSON storage) |
 
 The list view reads metadata only; message bodies load for details or full-text search. Paths must stay under the session root. Browsing never modifies originals.
 
@@ -133,6 +135,8 @@ For Claude Desktop, the app only detects the data directory and offers the offic
 | `~/.claude/skills/` | Claude Code Skills |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party profiles (Windows) |
 | `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills, Plugins |
+| `~/.config/opencode/opencode.json` | OpenCode providers (shared by CLI and Desktop; `opencode.jsonc` also supported) |
+| `~/.local/share/opencode/` | OpenCode session database |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
@@ -191,7 +195,7 @@ scripts/              Windows develop / build scripts
 
 ## Current limitations
 
-- Client scope: Claude Code + Claude Desktop + Codex; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
+- Client scope: Claude Code + Claude Desktop + Codex + OpenCode; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
 - Codex Plugins are local detect/enable only — not a full official marketplace
 - Session “resume” copies a command; it does not launch a terminal
 - No auto-merge of remote sync conflicts; no team sharing

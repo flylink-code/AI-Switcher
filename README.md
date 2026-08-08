@@ -4,7 +4,7 @@
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
-基于 **Tauri 2 + Rust + React**。把分散在配置文件、系统凭据库和本地目录里的能力收进一个界面；Claude Code、Claude Desktop、Codex 的供应商与当前激活配置彼此独立。
+基于 **Tauri 2 + Rust + React**。把分散在配置文件、系统凭据库和本地目录里的能力收进一个界面；Claude Code、Claude Desktop、Codex、OpenCode 的供应商与当前激活配置彼此独立（OpenCode 为多供应商并存、保存即同步）。
 
 默认只在本机工作：API Key 进系统凭据库，改配置前自动备份，会话只读本地 JSONL。
 
@@ -35,7 +35,7 @@
 - **Windows**：优先 NSIS 安装包（当前用户安装，通常无需管理员）。安装后主程序为 `AISwitcher.exe`。
 - **Linux**：优先 `.AppImage`（`chmod +x` 后运行）。
 
-按需安装 Claude Code、Claude Desktop 或 Codex CLI。
+按需安装 Claude Code、Claude Desktop、Codex CLI 或 OpenCode（CLI / Desktop）。
 
 ---
 
@@ -67,7 +67,8 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
-- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录
+- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录；后台每 5 分钟自动刷新额度
+- **模型目录**：优先 Gemini 3.6 档位（`-low` / `-medium` / `-high`）；自动隐藏已退役的 2.5 / 3.1 / 3.5 等旧型号
 - **一键绑定**：在 Antigravity 页「确保供应商」后即可在各工具切换使用
 - **推理档位**：Gemini 可用 `-low` / `-medium` / `-high` 后缀；Claude Desktop 靠角色路由（`claude-sonnet-5` + `labelOverride`）唤起原生滑条；网关按会话粘性记住最近 effort，裸 Gemini 无 effort 时默认 high
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
@@ -96,7 +97,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 会话
 
-浏览、筛选、搜索 Claude Code 与 Codex 本地 JSONL；支持导出 / 导入 / 备份 / 回收站。不解析 Claude Desktop 私有历史格式。
+浏览、筛选、搜索 Claude Code、Codex 与 OpenCode 本地会话；支持导出 / 导入 / 备份 / 回收站（OpenCode 暂不支持归档/导出/回收站）。不解析 Claude Desktop 私有历史格式。
 
 ### 中文化
 
@@ -104,7 +105,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估（汇总按最大绝对值选主币种）；识别 Opus / Codex Fast tier（`*-fast`）
+- 用量：合并代理日志与 Codex / Claude Code / OpenCode 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估（汇总按最大绝对值选主币种）；识别 Opus / Codex Fast tier（`*-fast`）
 - 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）；环境页按 Tabs 组织
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 
@@ -116,6 +117,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 |---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` |
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl`（默认 `~/.codex/sessions/`） |
+| OpenCode | `~/.local/share/opencode/opencode.db`（及 legacy JSON storage） |
 
 列表只读元数据；打开详情或全文搜索时才读消息。路径限制在会话根目录内。浏览不改原文件。
 
@@ -133,6 +135,8 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 | `~/.claude/skills/` | Claude Code Skills |
 | `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方配置（Windows） |
 | `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话、Skills、Plugins |
+| `~/.config/opencode/opencode.json` | OpenCode 供应商（CLI 与 Desktop 共享；亦支持 `opencode.jsonc`） |
+| `~/.local/share/opencode/` | OpenCode 会话数据库 |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/`（可改） | 本应用资料库：数据库、备份、日志 |
 
