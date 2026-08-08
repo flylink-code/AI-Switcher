@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
@@ -18,6 +18,7 @@ import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import {
   ensureAntigravityProvider,
@@ -46,6 +47,8 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text, Paragraph, Title } = Typography;
 const { TextArea } = Input;
+const ANTIGRAVITY_QUOTA_REFRESH_MS = 5 * 60_000;
+const ANTIGRAVITY_QUOTA_REFRESH_EVENT = "antigravity-quota-refreshed";
 
 function errMsg(error: unknown): string {
   if (typeof error === "string" && error.trim()) return error;
@@ -72,6 +75,7 @@ export default function AntigravityPage() {
   const accountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
     queryFn: listAntigravityAccounts,
+    refetchInterval: ANTIGRAVITY_QUOTA_REFRESH_MS,
   });
   const statusQuery = useQuery({
     queryKey: ["antigravity-gateway"],
@@ -105,6 +109,25 @@ export default function AntigravityPage() {
       queryClient.invalidateQueries({ queryKey: ["antigravity-models"] }),
     ]);
   };
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+
+    void listen(ANTIGRAVITY_QUOTA_REFRESH_EVENT, () => {
+      void refresh();
+    })
+      .then((disposeListener) => {
+        if (disposed) disposeListener();
+        else unlisten = disposeListener;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [queryClient]);
 
   const oauthMutation = useMutation({
     mutationFn: startAntigravityOauthLogin,

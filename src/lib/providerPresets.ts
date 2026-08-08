@@ -106,8 +106,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:8045",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3-flash",
-      "gemini-3.1-pro-high",
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -121,7 +121,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:8045/v1",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3-flash", "gemini-3.1-pro-high", "claude-opus-4-6-thinking"],
+    failoverModels: ["gemini-3.6-flash-high", "gemini-3.6-flash-low", "claude-opus-4-6-thinking"],
     modelContextWindow: 200_000,
     notes:
       "External Antigravity-Manager OpenAI Responses endpoint for Codex (wire_api=responses). Start AG Manager and fill its API key.",
@@ -134,15 +134,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3-flash",
-      "gemini-3.1-pro-high",
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
     ],
     notes:
-      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到 gemini-3-flash；也可在模型映射里改成其他 Gemini。",
+      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到 gemini-3.6-flash；也可在模型映射里改成其他 Gemini。",
     targets: CODE_DESKTOP,
   },
   {
@@ -152,10 +150,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830/v1",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3-flash",
-      "gemini-3.1-pro-high",
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
       "claude-opus-4-6-thinking",
-      "gemini-2.5-pro",
     ],
     modelContextWindow: 200_000,
     notes:
@@ -178,7 +175,7 @@ export function mappingFromAntigravityPreset(
   },
 ): ClaudeModelMapping {
   const sonnet = defaultModel.trim() || "claude-sonnet-4-6";
-  const flash = options?.geminiFlash?.trim() || "gemini-3-flash";
+  const flash = options?.geminiFlash?.trim() || "gemini-3.6-flash-high";
   const opus = options?.opus?.trim() || "claude-opus-4-6-thinking";
   return {
     sonnet,

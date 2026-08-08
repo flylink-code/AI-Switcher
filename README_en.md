@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, and **Codex**. **v1.3.0**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.1**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -44,13 +44,13 @@ Install Claude Code, Claude Desktop, or the Codex CLI as needed.
 ### Workspace shell (1.0)
 
 - **Overview**: usage summary metrics plus a GitHub-style daily activity heatmap (adaptive layout for short and long ranges)
-- **Global tool switcher**: header Segmented control for Claude Code / Desktop / Codex; sidebar and pages follow the same workspace context
+- **Global tool switcher**: header Segmented control for Claude Code / Desktop / Codex / OpenCode; sidebar and pages follow the same workspace context
 - **Status strip**: proxy phase/port and active provider in the header, with one-click navigation
 - **Grouped sidebar**: Core / Extensions / Data / System
 
 ### Providers and switching
 
-- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex separately
+- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode separately
 - Codex providers can toggle catalog **Web Search** (writes `supports_search_tool` / `web_search_tool_type`)
 - Environment page can set top-level `web_search`: `disabled | cached | indexed | live` (separate from catalog toggles; does not write deprecated `features.web_search*`)
 - One-click switch with backups; restore official login configs
@@ -72,6 +72,14 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Googl
 - **Reasoning tiers**: Gemini supports `-low` / `-medium` / `-high` suffixes; Claude Desktop unlocks the native effort slider via role routing (`claude-sonnet-5` + `labelOverride`); the gateway keeps session-sticky effort and defaults bare Gemini to high when effort is absent
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
 - **Note**: personal-use gateway — review account and upstream terms yourself; do not use it as a commercial relay
+
+### OpenCode (1.3.1)
+
+Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Multiple providers coexist; save to sync — no switch step:
+
+- **Provider sync**: save/delete/import writes `aisw-<id>` entries; pick models inside OpenCode
+- **Import from local config**: **Update from local config** on Workbench/Providers syncs from `opencode.json(c)` (skips managed entries and Desktop built-in connectors)
+- **Sessions & usage**: scans `opencode.db`; About page detects/updates OpenCode CLI (Node required)
 
 ### MCP / Prompts / Skills / Agents / Plugins
 

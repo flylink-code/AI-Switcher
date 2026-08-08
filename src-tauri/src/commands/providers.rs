@@ -760,6 +760,9 @@ pub(crate) fn sync_opencode_providers_to_live(state: &AppState) -> AppResult<()>
                 extra_models.push(model.clone());
             }
         }
+        if uses_antigravity_model_catalog(&provider) {
+            extra_models = crate::antigravity::model_catalog::filter_listable_model_ids(&extra_models);
+        }
         entries.push((runtime, extra_models));
     }
     opencode::apply_all_providers(&entries)

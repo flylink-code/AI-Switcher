@@ -1,12 +1,10 @@
 //! Tauri commands for the built-in Antigravity gateway.
 
-use crate::antigravity::account::store as account_store;
-use crate::antigravity::quota::fetch_quota;
 use crate::antigravity::{
-    gateway_status, import_accounts_json, list_accounts, login_with_browser, remove_account,
-    set_active_account, set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway,
-    stop_gateway, AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
-    DEFAULT_GATEWAY_PORT,
+    gateway_status, import_accounts_json, list_accounts, login_with_browser, refresh_all_account_quotas,
+    refresh_one_account_quota, remove_account, set_active_account, set_gateway_api_key,
+    set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway, AntigravityAccountPublic,
+    AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL, DEFAULT_GATEWAY_PORT,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -90,36 +88,7 @@ pub async fn refresh_antigravity_account_quota(
 
 #[tauri::command]
 pub async fn refresh_antigravity_quotas() -> AppResult<Vec<AntigravityAccountPublic>> {
-    let accounts = account_store().list_accounts()?;
-    let mut results = Vec::with_capacity(accounts.len());
-    let mut errors = Vec::new();
-    for account in accounts {
-        match refresh_one_account_quota(&account.id).await {
-            Ok(public) => results.push(public),
-            Err(error) => {
-                log::warn!(
-                    "Antigravity quota refresh failed for {}: {error}",
-                    account.email
-                );
-                errors.push(format!("{}: {error}", account.email));
-                results.push(AntigravityAccountPublic::from(&account));
-            }
-        }
-    }
-    if results.is_empty() && !errors.is_empty() {
-        return Err(AppError::Other(format!(
-            "刷新额度失败: {}",
-            errors.join("; ")
-        )));
-    }
-    Ok(results)
-}
-
-async fn refresh_one_account_quota(account_id: &str) -> AppResult<AntigravityAccountPublic> {
-    let (access_token, account) = account_store().ensure_access_token(account_id)?;
-    let (quota, project_id) =
-        fetch_quota(&access_token, account.token.project_id.as_deref()).await?;
-    account_store().update_quota(account_id, quota, project_id)
+    refresh_all_account_quotas().await
 }
 
 #[tauri::command]
@@ -163,9 +132,9 @@ pub async fn ensure_antigravity_provider(
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(crate::antigravity::model_catalog::preferred_default_model);
     let gemini_flash = crate::antigravity::model_catalog::preferred_gemini_flash()
-        .unwrap_or_else(|| "gemini-3-flash".into());
+        .unwrap_or_else(|| "gemini-3.6-flash-high".into());
     let gemini_pro = crate::antigravity::model_catalog::preferred_gemini_pro()
-        .unwrap_or_else(|| "gemini-3.1-pro-high".into());
+        .unwrap_or_else(|| gemini_flash.clone());
     let claude_opus = crate::antigravity::model_catalog::preferred_claude_opus()
         .unwrap_or_else(|| "claude-opus-4-6-thinking".into());
     let suggestions = crate::antigravity::model_catalog::provider_suggestion_ids(16);

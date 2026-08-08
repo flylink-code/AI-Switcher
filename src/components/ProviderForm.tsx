@@ -427,8 +427,8 @@ export function ProviderForm({
         .then((defaults) => {
           const liveIds = (defaults.models ?? []).map((model) => model.id).filter(Boolean);
           const defaultModel = defaults.defaultModel?.trim() || preset.model;
-          const flash = defaults.geminiFlash ?? "gemini-3-flash";
-          const pro = defaults.geminiPro ?? "gemini-3.1-pro-high";
+          const flash = defaults.geminiFlash ?? "gemini-3.6-flash-high";
+          const pro = defaults.geminiPro ?? flash;
           const failover = liveIds.filter((id) => id !== defaultModel);
           const baseUrl = isBuiltinAg
             ? preset.id === "antigravity-builtin-codex"

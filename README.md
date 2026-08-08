@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop** 与 **Codex** 的本地配置与供应商管理器。**v1.3.0**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.1**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -44,13 +44,13 @@
 ### 工作区壳层（1.0）
 
 - **总览**：用量四指标汇总 + 每日活跃热力图（GitHub 风格，短/长周期自适应排布）
-- **全局工具切换**：顶栏在 Claude Code / Desktop / Codex 间切换，侧栏与页面跟随同一工作区上下文
+- **全局工具切换**：顶栏在 Claude Code / Desktop / Codex / OpenCode 间切换，侧栏与页面跟随同一工作区上下文
 - **状态台**：顶栏显示代理状态与当前供应商，可一键跳转对应页面
 - **侧栏分组**：核心 / 扩展 / 数据 / 系统
 
 ### 供应商与切换
 
-- 分别管理 Claude Code / Desktop / Codex 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- 分别管理 Claude Code / Desktop / Codex / OpenCode 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
 - Codex 供应商可开关 catalog **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`）
 - 环境页可设置全局顶层 `web_search`：`disabled | cached | indexed | live`（与 catalog 开关层次不同；不写已弃用 `features.web_search*`）
 - 一键切换并备份；可恢复官方登录配置
@@ -72,6 +72,14 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **推理档位**：Gemini 可用 `-low` / `-medium` / `-high` 后缀；Claude Desktop 靠角色路由（`claude-sonnet-5` + `labelOverride`）唤起原生滑条；网关按会话粘性记住最近 effort，裸 Gemini 无 effort 时默认 high
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转
+
+### OpenCode（1.3.1）
+
+读写 `~/.config/opencode/opencode.json`（CLI 与 Desktop 共享），多供应商并存、保存即同步，无需切换：
+
+- **供应商同步**：保存/删除/导入后写入 `aisw-<id>` 段；OpenCode 内直接选模型
+- **从本地导入**：工作台/供应商页「更新本地已有配置」从 `opencode.json(c)` 批量同步（跳过托管项与 Desktop 内置连接器）
+- **会话与用量**：扫描 `opencode.db`；关于页检测/更新 OpenCode CLI（需 Node）
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
@@ -183,7 +191,7 @@ scripts/              Windows 开发 / 构建脚本
 
 ## 当前边界
 
-- 产品客户端范围：Claude Code + Claude Desktop + Codex；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
+- 产品客户端范围：Claude Code + Claude Desktop + Codex + OpenCode；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
 - Codex Plugins 仅本地探测与启停，不做完整官方商店
 - 会话「恢复」只复制命令，不自动开终端
 - 不同步自动合并远端冲突，不做团队分享

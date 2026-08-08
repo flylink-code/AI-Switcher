@@ -480,6 +480,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_codex_session_usage_sync(Arc::clone(&db));
     spawn_claude_code_session_usage_sync(Arc::clone(&db));
     spawn_opencode_session_usage_sync(Arc::clone(&db));
+    spawn_antigravity_quota_refresh(app.handle().clone());
 
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {
@@ -634,6 +635,36 @@ fn spawn_opencode_session_usage_sync(db: Arc<database::Database>) {
                 }
             }
             tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
+        }
+    });
+}
+
+/// Background Antigravity quota refresh: first run after ~45s, then every 5 minutes.
+fn spawn_antigravity_quota_refresh(app: tauri::AppHandle) {
+    use crate::antigravity::{
+        try_refresh_all_quotas, QUOTA_REFRESH_EVENT, QUOTA_REFRESH_INTERVAL_SECS,
+    };
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(45)).await;
+        let interval = std::time::Duration::from_secs(QUOTA_REFRESH_INTERVAL_SECS);
+        loop {
+            match try_refresh_all_quotas().await {
+                Ok(summary) if summary.attempted > 0 => {
+                    log::info!(
+                        "Antigravity quota auto-refresh: attempted={}, ok={}, failed={}",
+                        summary.attempted,
+                        summary.succeeded,
+                        summary.failed
+                    );
+                    if let Err(error) = app.emit(QUOTA_REFRESH_EVENT, ()) {
+                        log::debug!("Antigravity quota refresh event emit failed: {error}");
+                    }
+                }
+                Ok(_) => {}
+                Err(error) => log::warn!("Antigravity quota auto-refresh failed: {error}"),
+            }
+            tokio::time::sleep(interval).await;
         }
     });
 }
