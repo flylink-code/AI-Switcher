@@ -39,37 +39,20 @@ static CATALOG: RwLock<CatalogState> = RwLock::new(CatalogState {
     updated_at: 0,
 });
 
-/// Centralized Gemini reasoning level ("low" | "medium" | "high").
+/// Gemini reasoning levels, ordered low → high for bare-name fallback.
 ///
 /// Cloud Code has no separate reasoning parameter — the level is encoded in the
-/// model id suffix (`gemini-3.6-flash-high`). Clients (Claude Code / Desktop /
-/// Codex) only send a model name, so the gateway applies this preference when
-/// mapping bare Gemini names; ids that already carry an explicit level suffix
-/// are left untouched (explicit client choice wins).
-static REASONING_LEVEL: RwLock<Option<String>> = RwLock::new(None);
+/// model id suffix (`gemini-3.6-flash-high`). Level variants are exposed to
+/// clients (Claude Code / Desktop / Codex) as-is so each client picks its own
+/// level in its model selector; the gateway only composes a fallback variant
+/// when a client sends a bare Gemini name with no suffix.
+const LEVEL_SUFFIXES: [&str; 3] = ["low", "medium", "high"];
 
-pub const REASONING_LEVELS: [&str; 3] = ["low", "medium", "high"];
-
-/// Persisted settings key for the reasoning level.
-pub const REASONING_LEVEL_SETTING: &str = "antigravity_reasoning_level";
-
-pub fn set_reasoning_level(level: Option<&str>) {
-    let normalized = level
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| REASONING_LEVELS.contains(&value.as_str()));
-    let mut guard = match REASONING_LEVEL.write() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    *guard = normalized;
-}
-
-pub fn reasoning_level() -> Option<String> {
-    match REASONING_LEVEL.read() {
-        Ok(guard) => guard.clone(),
-        Err(poisoned) => poisoned.into_inner().clone(),
-    }
-}
+/// Client-facing alias id for Gemini 3.6 Flash. Claude Desktop's reasoning
+/// effort slider is gated by a hardcoded model table (`claude-sonnet-5` is in
+/// it), so the alias makes the slider available; the gateway maps it back to
+/// the real Gemini flash variant at request time.
+pub const GEMINI_FLASH_ALIAS_ID: &str = "claude-sonnet-5";
 
 /// Split a model id into (base, explicit level suffix) when it ends with
 /// `-low` / `-medium` / `-high`.
@@ -82,15 +65,15 @@ fn split_level_suffix(id: &str) -> (&str, Option<&str>) {
     (id, None)
 }
 
-/// Apply the configured reasoning level to a model id. Only bare Gemini ids
-/// are rewritten (to `{base}-{level}` when that variant exists in the catalog);
-/// everything else — Claude ids, ids with an explicit level suffix — passes
-/// through unchanged.
+/// Compose the real upstream model id from a (possibly bare) Gemini name.
+///
+/// - Non-Gemini ids and ids with an explicit level suffix pass through
+///   unchanged (explicit client choice wins — clients select the level via the
+///   suffixed ids exposed in `/v1/models`).
+/// - Bare Gemini names: keep the bare id when it exists upstream; otherwise
+///   pick the first available variant in low → medium → high order.
 pub fn with_reasoning_level(id: &str) -> String {
     let trimmed = id.trim();
-    let Some(level) = reasoning_level() else {
-        return trimmed.to_string();
-    };
     let lower = trimmed.to_ascii_lowercase();
     if !lower.starts_with("gemini-") {
         return trimmed.to_string();
@@ -99,15 +82,80 @@ pub fn with_reasoning_level(id: &str) -> String {
     if explicit.is_some() {
         return trimmed.to_string();
     }
-    let candidate = format!("{base}-{level}");
-    if list_model_ids()
-        .iter()
-        .any(|model| model.eq_ignore_ascii_case(&candidate))
-    {
-        candidate
-    } else {
-        trimmed.to_string()
+    let ids = list_model_ids();
+    let exists = |candidate: &str| {
+        ids.iter().any(|model| model.eq_ignore_ascii_case(candidate))
+    };
+    if exists(&lower) {
+        return trimmed.to_string();
     }
+    for level in LEVEL_SUFFIXES {
+        let candidate = format!("{base}-{level}");
+        if exists(&candidate) {
+            return candidate;
+        }
+    }
+    trimmed.to_string()
+}
+
+/// Force a specific level variant for a Gemini id: strip any existing suffix
+/// and compose `base-{level}` when that variant exists upstream; otherwise
+/// fall back to the first available variant via [`with_reasoning_level`].
+///
+/// When the catalog only has a bare id (no `-low`/`-medium`/`-high` siblings),
+/// still return the composed suffix so Desktop effort / alias defaults are not
+/// silently dropped to the bare name.
+pub fn with_forced_level(id: &str, level: &str) -> String {
+    let trimmed = id.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if !lower.starts_with("gemini-") {
+        return trimmed.to_string();
+    }
+    let (base, _) = split_level_suffix(&lower);
+    let ids = list_model_ids();
+    let candidate = format!("{base}-{level}");
+    if ids.iter().any(|model| model.eq_ignore_ascii_case(&candidate)) {
+        return candidate;
+    }
+    let has_any_level = LEVEL_SUFFIXES.iter().any(|suffix| {
+        let sibling = format!("{base}-{suffix}");
+        ids.iter()
+            .any(|model| model.eq_ignore_ascii_case(&sibling))
+    });
+    if has_any_level {
+        return with_reasoning_level(base);
+    }
+    candidate
+}
+
+/// Prefer the Gemini 3.6 Flash bare base (target of [`GEMINI_FLASH_ALIAS_ID`]);
+/// fall back to any flash bare base in the catalog.
+pub fn preferred_gemini_36_flash_base() -> Option<String> {
+    let ids = list_model_ids();
+    let is_flash = |id: &&String| {
+        id.starts_with("gemini-") && id.contains("flash") && !id.contains("image")
+    };
+    let pick = ids
+        .iter()
+        .find(|id| id.starts_with("gemini-3.6") && is_flash(id))
+        .or_else(|| ids.iter().find(is_flash))?;
+    let lower_pick = pick.to_ascii_lowercase();
+    let (base, _) = split_level_suffix(&lower_pick);
+    Some(base.to_string())
+}
+
+/// Catalog plus the synthetic Gemini-flash alias entry (see
+/// [`GEMINI_FLASH_ALIAS_ID`]). Used for `/v1/models` and provider model lists
+/// so clients can bind the alias directly.
+pub fn list_catalog_models_with_alias() -> Vec<CatalogModel> {
+    let mut models = list_catalog_models();
+    if !models.iter().any(|model| model.id == GEMINI_FLASH_ALIAS_ID) {
+        models.push(CatalogModel {
+            id: GEMINI_FLASH_ALIAS_ID.to_string(),
+            display_name: Some("Gemini Flash (Desktop 推理档位别名)".to_string()),
+        });
+    }
+    models
 }
 
 fn lock_write() -> std::sync::RwLockWriteGuard<'static, CatalogState> {
@@ -221,9 +269,11 @@ pub fn list_model_ids() -> Vec<String> {
         .collect()
 }
 
-/// OpenAI-compatible `/v1/models` payload.
+/// OpenAI-compatible `/v1/models` payload — full upstream catalog, Gemini
+/// level variants included so clients can pick the reasoning level directly,
+/// plus the synthetic Gemini-flash alias for Claude Desktop's effort slider.
 pub fn list_openai_models_payload() -> Value {
-    let data: Vec<Value> = list_catalog_models()
+    let data: Vec<Value> = list_catalog_models_with_alias()
         .into_iter()
         .map(|model| {
             json!({
@@ -257,21 +307,14 @@ pub fn preferred_gemini_flash() -> Option<String> {
     let is_flash = |id: &&String| {
         id.starts_with("gemini-") && id.contains("flash") && !id.contains("image")
     };
-    if let Some(level) = reasoning_level() {
-        let suffix = format!("-{level}");
-        if let Some(id) = ids.iter().find(|id| is_flash(id) && id.ends_with(&suffix)) {
-            return Some(id.clone());
-        }
-    }
     ids.iter()
         .find(|id| id.as_str() == "gemini-3-flash")
-        .cloned()
         .or_else(|| {
             ids.iter()
                 .find(|id| id.starts_with("gemini-3") && is_flash(id))
-                .cloned()
         })
-        .or_else(|| ids.iter().find(is_flash).cloned())
+        .or_else(|| ids.iter().find(is_flash))
+        .cloned()
 }
 
 pub fn preferred_claude_opus() -> Option<String> {
@@ -284,16 +327,10 @@ pub fn preferred_claude_opus() -> Option<String> {
 pub fn preferred_gemini_pro() -> Option<String> {
     let ids = list_model_ids();
     let is_pro = |id: &&String| id.contains("pro") && id.starts_with("gemini-");
-    if let Some(level) = reasoning_level() {
-        let suffix = format!("-{level}");
-        if let Some(id) = ids.iter().find(|id| is_pro(id) && id.ends_with(&suffix)) {
-            return Some(id.clone());
-        }
-    }
     ids.iter()
         .find(|id| id.as_str() == "gemini-3.1-pro-high")
+        .or_else(|| ids.iter().find(is_pro))
         .cloned()
-        .or_else(|| ids.iter().find(is_pro).cloned())
 }
 
 /// Failover / suggestion list for providers (default + flash + pro + opus + rest).
@@ -314,8 +351,8 @@ pub fn provider_suggestion_ids(limit: usize) -> Vec<String> {
     if let Some(id) = preferred_claude_opus() {
         push(&mut out, id);
     }
-    for id in list_model_ids() {
-        push(&mut out, id);
+    for model in list_catalog_models() {
+        push(&mut out, model.id);
         if out.len() >= limit {
             break;
         }
@@ -337,24 +374,51 @@ mod tests {
     }
 
     #[test]
-    fn reasoning_level_rewrites_bare_gemini_ids_only() {
-        set_reasoning_level(Some("high"));
+    fn with_reasoning_level_passthrough_and_bare_fallback() {
+        // Fallback catalog: gemini-3-flash (bare), gemini-3.1-pro-high, gemini-2.5-*.
         // Explicit suffix wins — untouched.
         assert_eq!(with_reasoning_level("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
+        assert_eq!(with_reasoning_level("gemini-3.6-flash-high"), "gemini-3.6-flash-high");
         // Claude ids untouched.
         assert_eq!(with_reasoning_level("claude-sonnet-4-6"), "claude-sonnet-4-6");
-        // Bare gemini: fallback catalog has no -high flash variant → unchanged.
+        // Bare id that exists upstream as-is stays bare.
         assert_eq!(with_reasoning_level("gemini-3-flash"), "gemini-3-flash");
-        set_reasoning_level(None);
-        assert_eq!(reasoning_level(), None);
+        // Bare base with only a -high variant composes to it.
+        assert_eq!(with_reasoning_level("gemini-3.1-pro"), "gemini-3.1-pro-high");
+        // Unknown bare id with no catalog variant passes through.
+        assert_eq!(with_reasoning_level("gemini-9.9-flash"), "gemini-9.9-flash");
     }
 
     #[test]
-    fn invalid_reasoning_level_is_ignored() {
-        set_reasoning_level(Some("ultra"));
-        assert_eq!(reasoning_level(), None);
-        set_reasoning_level(Some(" medium "));
-        assert_eq!(reasoning_level().as_deref(), Some("medium"));
-        set_reasoning_level(None);
+    fn catalog_exposes_gemini_level_variants() {
+        // Level variants are listed as-is so clients can pick the level.
+        let ids = list_model_ids();
+        assert!(ids.iter().any(|id| id == "gemini-3.1-pro-high"));
+        assert!(!ids.iter().any(|id| id == "gemini-3.1-pro"));
+        // Preferred picks expose real upstream ids too.
+        assert_eq!(preferred_gemini_pro().as_deref(), Some("gemini-3.1-pro-high"));
+    }
+
+    #[test]
+    fn with_forced_level_composes_or_falls_back() {
+        // Existing variant composes (suffix stripped first).
+        assert_eq!(with_forced_level("gemini-3.1-pro-high", "high"), "gemini-3.1-pro-high");
+        // Missing variant in a leveled family falls back to an available sibling.
+        assert_eq!(with_forced_level("gemini-3.1-pro-high", "low"), "gemini-3.1-pro-high");
+        // Bare-only family (fallback catalog has gemini-3-flash, no -high sibling)
+        // still honors the forced suffix so effort is not dropped.
+        assert_eq!(with_forced_level("gemini-3-flash", "high"), "gemini-3-flash-high");
+        // Non-Gemini ids pass through untouched.
+        assert_eq!(with_forced_level("claude-sonnet-4-6", "low"), "claude-sonnet-4-6");
+    }
+
+    #[test]
+    fn catalog_with_alias_adds_desktop_alias_once() {
+        let models = list_catalog_models_with_alias();
+        let count = models
+            .iter()
+            .filter(|model| model.id == GEMINI_FLASH_ALIAS_ID)
+            .count();
+        assert_eq!(count, 1);
     }
 }

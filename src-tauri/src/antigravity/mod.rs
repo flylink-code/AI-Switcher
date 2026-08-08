@@ -25,7 +25,9 @@ pub use gateway::{
     set_outbound_proxy, start_gateway, stop_gateway, AntigravityGatewayStatus, DEFAULT_GATEWAY_PORT,
 };
 pub use oauth::login_with_browser;
-pub use model_catalog::{list_catalog_models, list_model_ids, CatalogModel};
+pub use model_catalog::{
+    list_catalog_models, list_catalog_models_with_alias, list_model_ids, CatalogModel,
+};
 pub use outbound::DEFAULT_CLASH_PROXY_URL;
 pub use pool::AccountPool;
 pub use quota::QuotaSnapshot;

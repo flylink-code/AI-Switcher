@@ -11,19 +11,25 @@ use crate::database::Database;
 pub const TARGET_APP: &str = "antigravity";
 pub const PROVIDER_NAME: &str = "Antigravity";
 
-pub fn protocol_label(is_anthropic: bool) -> &'static str {
-    if is_anthropic {
-        "anthropic"
-    } else {
-        "openai"
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WireProtocol {
+    Anthropic,
+    OpenAiChat,
+    OpenAiResponses,
+}
+
+pub fn protocol_label(protocol: WireProtocol) -> &'static str {
+    match protocol {
+        WireProtocol::Anthropic => "anthropic",
+        WireProtocol::OpenAiChat | WireProtocol::OpenAiResponses => "openai",
     }
 }
 
-pub fn route_for(is_anthropic: bool) -> &'static str {
-    if is_anthropic {
-        "/v1/messages"
-    } else {
-        "/v1/chat/completions"
+pub fn route_for(protocol: WireProtocol) -> &'static str {
+    match protocol {
+        WireProtocol::Anthropic => "/v1/messages",
+        WireProtocol::OpenAiChat => "/v1/chat/completions",
+        WireProtocol::OpenAiResponses => "/v1/responses",
     }
 }
 
@@ -34,7 +40,7 @@ pub fn insert_request(
     model: &str,
     status_code: Option<i64>,
     started: Instant,
-    is_anthropic: bool,
+    protocol: WireProtocol,
     is_stream: bool,
     error_category: Option<&str>,
     diagnostic: Option<&str>,
@@ -57,8 +63,8 @@ pub fn insert_request(
             status_code,
             duration_ms,
             Some(TARGET_APP),
-            Some(protocol_label(is_anthropic)),
-            Some(route_for(is_anthropic)),
+            Some(protocol_label(protocol)),
+            Some(route_for(protocol)),
             is_stream,
             error_category,
             diagnostic.as_deref().or(error_category),

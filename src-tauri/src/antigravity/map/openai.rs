@@ -3,7 +3,8 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::models::map_model_id;
+use super::models::{map_effort_to_suffix, map_model_id};
+use crate::antigravity::model_catalog;
 
 pub struct GeminiRequestParts {
     pub model: String,
@@ -12,8 +13,34 @@ pub struct GeminiRequestParts {
 }
 
 pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
-    let model = map_model_id(body.get("model").and_then(Value::as_str).unwrap_or(""));
+    let mut model = map_model_id(body.get("model").and_then(Value::as_str).unwrap_or(""));
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+
+    // OpenAI / Codex `reasoning_effort` ("minimal"|"low"|"medium"|"high"):
+    // Gemini targets encode it in the model id suffix; Claude targets get it
+    // as generationConfig.thinkingConfig.thinkingLevel.
+    let effort = body
+        .get("reasoning_effort")
+        .and_then(Value::as_str)
+        .map(str::to_ascii_lowercase)
+        .and_then(|effort| {
+            if effort == "minimal" {
+                Some("low".to_string())
+            } else {
+                Some(effort)
+            }
+        })
+        .and_then(|effort| map_effort_to_suffix(&effort));
+    let mut claude_thinking_level: Option<&'static str> = None;
+    let lower_model = model.to_ascii_lowercase();
+    if let Some(level) = effort {
+        if lower_model.starts_with("gemini-") {
+            model = model_catalog::with_forced_level(&model, level);
+        } else if lower_model.starts_with("claude-") {
+            claude_thinking_level = Some(level);
+        }
+    }
+
     let mut contents = Vec::new();
     let mut system_parts = Vec::new();
 
@@ -22,6 +49,26 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    // tool_call_id → function name, so tool messages can reference the real
+    // function name (tool messages only carry tool_call_id).
+    let mut tool_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for message in &messages {
+        if message.get("role").and_then(Value::as_str) != Some("assistant") {
+            continue;
+        }
+        if let Some(tool_calls) = message.get("tool_calls").and_then(Value::as_array) {
+            for call in tool_calls {
+                if let (Some(id), Some(name)) = (
+                    call.get("id").and_then(Value::as_str),
+                    call.get("function")
+                        .and_then(|f| f.get("name"))
+                        .and_then(Value::as_str),
+                ) {
+                    tool_names.insert(id.to_string(), name.to_string());
+                }
+            }
+        }
+    }
     for message in messages {
         let role = message
             .get("role")
@@ -59,20 +106,36 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
                 }
             }
             "tool" => {
+                let tool_call_id = message
+                    .get("tool_call_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let name = message
                     .get("name")
-                    .or_else(|| message.get("tool_call_id"))
                     .and_then(Value::as_str)
-                    .unwrap_or("tool");
-                let response = message.get("content").cloned().unwrap_or(json!(""));
+                    .map(str::to_string)
+                    .or_else(|| tool_names.get(tool_call_id).cloned())
+                    .unwrap_or_else(|| {
+                        if tool_call_id.is_empty() {
+                            "tool".to_string()
+                        } else {
+                            tool_call_id.to_string()
+                        }
+                    });
+                let result = super::anthropic::tool_result_text(
+                    message.get("content").unwrap_or(&Value::Null),
+                );
+                let mut function_response =
+                    json!({ "name": name, "response": { "result": result } });
+                // Cloud Code converts back to Anthropic format for Claude
+                // models; without `id` it emits tool_result without
+                // tool_use_id and upstream 400s ("Field required").
+                if !tool_call_id.is_empty() {
+                    function_response["id"] = json!(tool_call_id);
+                }
                 contents.push(json!({
                     "role": "user",
-                    "parts": [{
-                        "functionResponse": {
-                            "name": name,
-                            "response": { "content": response }
-                        }
-                    }]
+                    "parts": [{ "functionResponse": function_response }]
                 }));
             }
             _ => {
@@ -110,6 +173,9 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
     }
+    if let Some(level) = claude_thinking_level {
+        generation["thinkingConfig"] = json!({ "thinkingLevel": level });
+    }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
     }
@@ -123,17 +189,22 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
                 Some(json!({
                     "name": name,
                     "description": function.get("description").cloned().unwrap_or(json!("")),
-                    "parameters": function.get("parameters").cloned().unwrap_or(json!({
-                        "type": "object",
-                        "properties": {}
-                    })),
+                    "parameters": function
+                        .get("parameters")
+                        .map(|schema| super::anthropic::sanitize_schema(schema, 0))
+                        .unwrap_or(json!({
+                            "type": "object",
+                            "properties": {}
+                        })),
                 }))
             })
             .collect();
         if !declarations.is_empty() {
             request["tools"] = json!([{ "functionDeclarations": declarations }]);
+            // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects
+            // many real-world tool schemas and can fail streamGenerateContent.
             request["toolConfig"] = json!({
-                "functionCallingConfig": { "mode": "VALIDATED" }
+                "functionCallingConfig": { "mode": "AUTO" }
             });
         }
     }
@@ -355,5 +426,60 @@ mod tests {
         let parts = openai_to_gemini_request(&body).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert!(parts.request.get("systemInstruction").is_some());
+    }
+
+    #[test]
+    fn tool_message_keeps_call_id_and_real_name() {
+        let body = json!({
+            "model": "gpt-4o",
+            "messages": [
+                { "role": "user", "content": "hi" },
+                { "role": "assistant", "content": null, "tool_calls": [
+                    { "id": "call_1", "type": "function", "function": { "name": "read_file", "arguments": "{\"path\":\"a.txt\"}" } }
+                ]},
+                { "role": "tool", "tool_call_id": "call_1", "content": "file body" }
+            ],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "parameters": { "$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "properties": { "path": { "type": "string" } } }
+                }
+            }]
+        });
+        let parts = openai_to_gemini_request(&body).unwrap();
+        let response = &parts.request["contents"][2]["parts"][0]["functionResponse"];
+        assert_eq!(response["id"], json!("call_1"));
+        assert_eq!(response["name"], json!("read_file"));
+        assert_eq!(response["response"]["result"], json!("file body"));
+        let params = &parts.request["tools"][0]["functionDeclarations"][0]["parameters"];
+        assert!(params.get("$schema").is_none());
+        assert_eq!(
+            parts.request["toolConfig"]["functionCallingConfig"]["mode"],
+            json!("AUTO")
+        );
+    }
+
+    #[test]
+    fn reasoning_effort_maps_gemini_suffix_and_claude_thinking_level() {
+        let gemini = openai_to_gemini_request(&json!({
+            "model": "gemini-3.6-flash",
+            "reasoning_effort": "high",
+            "messages": [{"role": "user", "content": "hi"}]
+        }))
+        .unwrap();
+        assert!(gemini.model.starts_with("gemini-"));
+        assert!(gemini.request.get("reasoning_effort").is_none());
+
+        let claude = openai_to_gemini_request(&json!({
+            "model": "claude-sonnet-4-6",
+            "reasoning_effort": "low",
+            "messages": [{"role": "user", "content": "hi"}]
+        }))
+        .unwrap();
+        assert_eq!(
+            claude.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("low")
+        );
     }
 }

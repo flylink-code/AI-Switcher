@@ -260,7 +260,11 @@ pub fn build_async_client(connect_secs: u64, timeout_secs: u64) -> reqwest::Clie
         reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(connect_secs))
             .timeout(Duration::from_secs(timeout_secs))
-            .pool_max_idle_per_host(8)
+            // Pool tuning mirrors Antigravity-Manager's upstream client
+            // (20 idle per host / 90s idle / 60s TCP keepalive).
+            .pool_max_idle_per_host(20)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .tcp_keepalive(Duration::from_secs(60))
             .user_agent("antigravity"),
     )
     .build()

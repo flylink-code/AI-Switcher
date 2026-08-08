@@ -1,6 +1,7 @@
 //! Cloud Code v1internal upstream client (independent implementation).
 
 use std::sync::RwLock;
+use std::time::Duration;
 
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -14,6 +15,29 @@ const UPSTREAM_FALLBACKS: [&str; 3] = [
 ];
 
 const USER_AGENT: &str = "antigravity";
+
+/// Anthropic beta marker for Claude models served via Cloud Code
+/// (mirrors Antigravity-Manager's claude.rs handling).
+const ANTHROPIC_BETA_CLAUDE_CODE: &str = "claude-code-20250219";
+
+/// Parse the `Retry-After` header as whole seconds (integer form only).
+pub fn retry_after_secs(response: &reqwest::Response) -> Option<u64> {
+    response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(parse_retry_after)
+}
+
+fn parse_retry_after(value: &str) -> Option<u64> {
+    value.trim().parse::<u64>().ok()
+}
+
+/// Seconds to back off before retrying a 503/529 on the same host
+/// (exponential 10s → 20s, mirroring Antigravity-Manager's 10s~60s policy).
+fn server_error_backoff(attempt: u32) -> Duration {
+    Duration::from_secs(10 << attempt.min(2))
+}
 
 #[derive(Clone)]
 pub struct UpstreamClient {
@@ -95,6 +119,10 @@ impl UpstreamClient {
             "generateContent"
         };
         let query = if stream { Some("alt=sse") } else { None };
+        let is_claude = body
+            .get("model")
+            .and_then(Value::as_str)
+            .is_some_and(|model| model.starts_with("claude-"));
         let mut last_error = String::from("upstream request failed");
         let client = self.http();
         for base in UPSTREAM_FALLBACKS {
@@ -102,32 +130,61 @@ impl UpstreamClient {
                 Some(q) => format!("{base}:{method}?{q}"),
                 None => format!("{base}:{method}"),
             };
-            let request = client
-                .post(&url)
-                .bearer_auth(access_token)
-                .header("Content-Type", "application/json")
-                .header("User-Agent", USER_AGENT)
-                .header("x-client-name", "antigravity")
-                .json(body);
-            // Intentionally omit x-goog-user-project: consumer Antigravity OAuth
-            // often gets a phantom cloudaicompanionProject that cannot enable
-            // cloudcode-pa (403 SERVICE_DISABLED) when that header is set.
-            match request.send().await {
-                Ok(response) => {
-                    let status = response.status();
-                    if status.is_success() {
-                        return Ok(response);
-                    }
-                    // Account-level auth / rate limits should bubble for pool failover.
-                    // Endpoint-specific 403/404/5xx should try the next Cloud Code host
-                    // (sandbox often 403s while production still works).
-                    if matches!(status.as_u16(), 401 | 429) {
-                        return Ok(response);
-                    }
-                    let text = response.text().await.unwrap_or_default();
-                    last_error = format!("upstream {status}: {text}");
+            let mut server_error_attempt = 0u32;
+            let mut retried_429_in_place = false;
+            loop {
+                let mut request = client
+                    .post(&url)
+                    .bearer_auth(access_token)
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", USER_AGENT)
+                    .header("x-client-name", "antigravity")
+                    .json(body);
+                if is_claude {
+                    request = request.header("anthropic-beta", ANTHROPIC_BETA_CLAUDE_CODE);
                 }
-                Err(error) => last_error = error.to_string(),
+                // Intentionally omit x-goog-user-project: consumer Antigravity OAuth
+                // often gets a phantom cloudaicompanionProject that cannot enable
+                // cloudcode-pa (403 SERVICE_DISABLED) when that header is set.
+                match request.send().await {
+                    Ok(response) => {
+                        let status = response.status();
+                        if status.is_success() {
+                            return Ok(response);
+                        }
+                        // 429: honor a short Retry-After in place once; otherwise bubble
+                        // for pool failover (the handler reads Retry-After for cooldown).
+                        if status.as_u16() == 429 {
+                            let retry_after = retry_after_secs(&response);
+                            if !retried_429_in_place && retry_after.is_some_and(|s| s <= 2) {
+                                retried_429_in_place = true;
+                                tokio::time::sleep(Duration::from_secs(retry_after.unwrap_or(1).max(1)))
+                                    .await;
+                                continue;
+                            }
+                            return Ok(response);
+                        }
+                        if status.as_u16() == 401 {
+                            return Ok(response);
+                        }
+                        // 503/529 are usually transient: back off on the same host before
+                        // failing over to the next Cloud Code host.
+                        if matches!(status.as_u16(), 503 | 529) && server_error_attempt < 2 {
+                            tokio::time::sleep(server_error_backoff(server_error_attempt)).await;
+                            server_error_attempt += 1;
+                            continue;
+                        }
+                        // Endpoint-specific 403/404/5xx should try the next Cloud Code host
+                        // (sandbox often 403s while production still works).
+                        let text = response.text().await.unwrap_or_default();
+                        last_error = format!("upstream {status}: {text}");
+                        break;
+                    }
+                    Err(error) => {
+                        last_error = error.to_string();
+                        break;
+                    }
+                }
             }
         }
         Err(AppError::Other(last_error))
@@ -160,4 +217,28 @@ pub fn unwrap_v1internal(response: &Value) -> Value {
         .get("response")
         .cloned()
         .unwrap_or_else(|| response.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_retry_after_seconds() {
+        assert_eq!(parse_retry_after("5"), Some(5));
+        assert_eq!(parse_retry_after(" 3 "), Some(3));
+        assert_eq!(parse_retry_after("0"), Some(0));
+        // HTTP-date form is not supported — treated as absent.
+        assert_eq!(parse_retry_after("Wed, 21 Oct 2015 07:28:00 GMT"), None);
+        assert_eq!(parse_retry_after(""), None);
+    }
+
+    #[test]
+    fn server_error_backoff_grows_exponentially() {
+        assert_eq!(server_error_backoff(0), Duration::from_secs(10));
+        assert_eq!(server_error_backoff(1), Duration::from_secs(20));
+        assert_eq!(server_error_backoff(2), Duration::from_secs(40));
+        // Capped shift — attempts beyond 2 stay at 40s.
+        assert_eq!(server_error_backoff(9), Duration::from_secs(40));
+    }
 }

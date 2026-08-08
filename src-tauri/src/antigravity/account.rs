@@ -314,6 +314,19 @@ impl AccountStore {
         Ok(())
     }
 
+    /// Adjust only the cooldown window (e.g. honor an upstream Retry-After
+    /// after the pool already applied its default cooldown) without the
+    /// health-score penalty of [`Self::mark_cooldown`].
+    pub fn adjust_cooldown_secs(&self, account_id: &str, seconds: i64) -> AppResult<()> {
+        let mut guard = self.lock_accounts();
+        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
+            return Ok(());
+        };
+        account.cooldown_until = Some(Utc::now().timestamp() + seconds.max(1));
+        persist(&guard)?;
+        Ok(())
+    }
+
     pub fn clear_cooldown(&self, account_id: &str) -> AppResult<()> {
         let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {

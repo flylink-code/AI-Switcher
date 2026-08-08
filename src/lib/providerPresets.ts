@@ -118,13 +118,13 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "antigravity-gateway-external-codex",
     name: "Antigravity Gateway",
-    protocolType: "openai_chat",
+    protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:8045/v1",
     model: "claude-sonnet-4-6",
     failoverModels: ["gemini-3-flash", "gemini-3.1-pro-high", "claude-opus-4-6-thinking"],
     modelContextWindow: 200_000,
     notes:
-      "External Antigravity-Manager OpenAI-compatible endpoint for Codex. Start AG Manager and fill its API key.",
+      "External Antigravity-Manager OpenAI Responses endpoint for Codex (wire_api=responses). Start AG Manager and fill its API key.",
     targets: ["codex"],
   },
   {
@@ -148,7 +148,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "antigravity-builtin-codex",
     name: "Antigravity (Built-in)",
-    protocolType: "openai_chat",
+    protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:15830/v1",
     model: "claude-sonnet-4-6",
     failoverModels: [
@@ -159,7 +159,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     modelContextWindow: 200_000,
     notes:
-      "Built-in Antigravity gateway (OpenAI-compatible) for Codex — failover/catalog includes Gemini.",
+      "Built-in Antigravity gateway (OpenAI Responses) for Codex — wire_api=responses; failover/catalog includes Gemini.",
     targets: ["codex"],
   },
 ];

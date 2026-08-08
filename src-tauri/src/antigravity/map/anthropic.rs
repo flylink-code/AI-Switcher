@@ -3,7 +3,8 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::models::map_model_id;
+use super::models::{map_effort_to_suffix, map_model_id};
+use crate::antigravity::model_catalog;
 
 pub struct GeminiRequestParts {
     pub model: String,
@@ -12,8 +13,51 @@ pub struct GeminiRequestParts {
 }
 
 pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
-    let model = map_model_id(body.get("model").and_then(Value::as_str).unwrap_or(""));
+    let requested_model = body.get("model").and_then(Value::as_str).unwrap_or("");
+    let from_flash_alias = requested_model.eq_ignore_ascii_case(model_catalog::GEMINI_FLASH_ALIAS_ID);
+    let mut model = map_model_id(requested_model);
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+
+    // Reasoning effort (Claude Desktop slider / Claude Code): GA wire format is
+    // `output_config.effort`; beta-era clients send a top-level `effort`; some
+    // put it under `thinking.effort`.
+    let effort = extract_effort(body);
+    let thinking_kind = body
+        .get("thinking")
+        .and_then(|thinking| thinking.get("type"))
+        .and_then(Value::as_str)
+        .map(str::to_ascii_lowercase);
+
+    // Claude targets get the effort as generationConfig.thinkingConfig
+    // (Cloud Code converts back for Claude models); Gemini targets encode the
+    // level in the model id suffix instead.
+    let mut claude_thinking_level: Option<&'static str> = None;
+    let lower_model = model.to_ascii_lowercase();
+    if lower_model.starts_with("gemini-") {
+        if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
+            model = model_catalog::with_forced_level(&model, level);
+        } else if thinking_kind.as_deref() == Some("disabled") {
+            model = model_catalog::with_forced_level(&model, "low");
+        } else if from_flash_alias
+            || matches!(thinking_kind.as_deref(), Some("adaptive") | Some("enabled"))
+        {
+            // Desktop Flash alias / adaptive thinking without explicit effort:
+            // default high (matches Claude Sonnet 5 API default), not low-first
+            // bare-name catalog fallback.
+            model = model_catalog::with_forced_level(&model, "high");
+        }
+    } else if lower_model.starts_with("claude-") {
+        claude_thinking_level = match effort.as_deref().and_then(map_effort_to_suffix) {
+            Some(level) => Some(level),
+            // Adaptive/enabled thinking without an explicit effort: default high
+            // (matches Antigravity-Manager's claude mapper).
+            None if matches!(thinking_kind.as_deref(), Some("adaptive") | Some("enabled")) => {
+                Some("high")
+            }
+            None => None,
+        };
+    }
+
     let mut contents = Vec::new();
     let mut system_parts = Vec::new();
 
@@ -26,6 +70,23 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
+    // tool_use.id → tool name, so tool_result can reference the real function
+    // name (Anthropic tool_result blocks only carry tool_use_id).
+    let mut tool_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for message in &messages {
+        if let Some(blocks) = message.get("content").and_then(Value::as_array) {
+            for block in blocks {
+                if block.get("type").and_then(Value::as_str) == Some("tool_use") {
+                    if let (Some(id), Some(name)) = (
+                        block.get("id").and_then(Value::as_str),
+                        block.get("name").and_then(Value::as_str),
+                    ) {
+                        tool_names.insert(id.to_string(), name.to_string());
+                    }
+                }
+            }
+        }
+    }
     for message in messages {
         let role = message
             .get("role")
@@ -36,7 +97,7 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
             continue;
         }
         let gemini_role = if role == "assistant" { "model" } else { "user" };
-        let parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
+        let parts = content_to_parts(message.get("content").unwrap_or(&Value::Null), &tool_names);
         if parts.is_empty() {
             continue;
         }
@@ -64,6 +125,9 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
     }
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
+    }
+    if let Some(level) = claude_thinking_level {
+        generation["thinkingConfig"] = json!({ "thinkingLevel": level });
     }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
@@ -108,7 +172,7 @@ pub fn anthropic_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, S
 /// doesn't know (`$schema`, `additionalProperties`, `propertyNames`, `format`,
 /// `default`, validation keywords, ...) with a 400, so we keep only the subset
 /// Cloud Code accepts and normalize unions / type arrays.
-fn sanitize_schema(schema: &Value, depth: usize) -> Value {
+pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
     const MAX_DEPTH: usize = 10;
     const ALLOWED_KEYS: [&str; 8] = [
         "type",
@@ -250,6 +314,47 @@ fn empty_object_schema() -> Value {
     json!({ "type": "object", "properties": {} })
 }
 
+/// Reasoning effort from whichever Anthropic wire shape the client used:
+/// GA `output_config.effort` → beta top-level `effort` → `thinking.effort`.
+/// Accepts string values and a few nested object shapes Desktop may send.
+fn extract_effort(body: &Value) -> Option<String> {
+    body.get("output_config")
+        .and_then(|config| config.get("effort"))
+        .and_then(effort_value_to_string)
+        .or_else(|| body.get("effort").and_then(effort_value_to_string))
+        .or_else(|| {
+            body.get("thinking")
+                .and_then(|thinking| thinking.get("effort"))
+                .and_then(effort_value_to_string)
+        })
+}
+
+fn effort_value_to_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) if !text.trim().is_empty() => Some(text.trim().to_string()),
+        Value::Object(map) => map
+            .get("type")
+            .or_else(|| map.get("level"))
+            .or_else(|| map.get("value"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string),
+        _ => None,
+    }
+}
+
+/// Compact diagnostic for usage logs: effort / thinking / mapped model only.
+pub fn effort_mapping_diagnostic(body: &Value, mapped_model: &str) -> String {
+    let effort = extract_effort(body).unwrap_or_else(|| "none".into());
+    let thinking = body
+        .get("thinking")
+        .and_then(|thinking| thinking.get("type"))
+        .and_then(Value::as_str)
+        .unwrap_or("none");
+    format!("effort={effort} thinking={thinking} mapped={mapped_model}")
+}
+
 fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
     match system {
         Value::String(text) if !text.is_empty() => {
@@ -283,7 +388,34 @@ fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
     }
 }
 
-fn content_to_parts(content: &Value) -> Vec<Value> {
+pub(super) fn tool_result_text(content: &Value) -> String {
+    match content {
+        Value::String(text) => text.clone(),
+        Value::Array(blocks) => blocks
+            .iter()
+            .filter_map(|block| {
+                if let Some(text) = block.as_str() {
+                    Some(text.to_string())
+                } else if block.get("type").and_then(Value::as_str) == Some("text") {
+                    block
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    }
+}
+
+fn content_to_parts(
+    content: &Value,
+    tool_names: &std::collections::HashMap<String, String>,
+) -> Vec<Value> {
     match content {
         Value::String(text) => {
             if text.is_empty() {
@@ -315,17 +447,30 @@ fn content_to_parts(content: &Value) -> Vec<Value> {
                         parts.push(json!({ "functionCall": fc }));
                     }
                     "tool_result" => {
-                        let name = block
+                        let tool_use_id = block
                             .get("tool_use_id")
                             .and_then(Value::as_str)
-                            .unwrap_or("tool");
-                        let response = block.get("content").cloned().unwrap_or(json!(""));
-                        parts.push(json!({
-                            "functionResponse": {
-                                "name": name,
-                                "response": { "content": response },
-                            }
-                        }));
+                            .unwrap_or("");
+                        let name = tool_names
+                            .get(tool_use_id)
+                            .cloned()
+                            .unwrap_or_else(|| {
+                                if tool_use_id.is_empty() {
+                                    "tool".to_string()
+                                } else {
+                                    tool_use_id.to_string()
+                                }
+                            });
+                        let result = tool_result_text(block.get("content").unwrap_or(&Value::Null));
+                        let mut function_response =
+                            json!({ "name": name, "response": { "result": result } });
+                        // Cloud Code converts back to Anthropic format for Claude
+                        // models; without `id` it emits tool_result without
+                        // tool_use_id and upstream 400s ("Field required").
+                        if !tool_use_id.is_empty() {
+                            function_response["id"] = json!(tool_use_id);
+                        }
+                        parts.push(json!({ "functionResponse": function_response }));
                     }
                     "image" => {
                         if let Some(source) = block.get("source") {
@@ -588,6 +733,32 @@ mod tests {
     }
 
     #[test]
+    fn tool_result_keeps_tool_use_id_and_real_name() {
+        let body = json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "read Cargo.toml" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "toolu_1", "name": "read_file", "input": { "path": "Cargo.toml" } }
+                ]},
+                { "role": "user", "content": [
+                    { "type": "tool_result", "tool_use_id": "toolu_1", "content": [
+                        { "type": "text", "text": "[package]" }
+                    ]}
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        let response = &parts.request["contents"][2]["parts"][0]["functionResponse"];
+        assert_eq!(response["id"], json!("toolu_1"));
+        assert_eq!(response["name"], json!("read_file"));
+        assert_eq!(response["response"]["result"], json!("[package]"));
+        let call = &parts.request["contents"][1]["parts"][0]["functionCall"];
+        assert_eq!(call["id"], json!("toolu_1"));
+    }
+
+    #[test]
     fn tool_parameters_are_sanitized_for_gemini() {
         let body = json!({
             "model": "claude-sonnet-4-5",
@@ -625,5 +796,106 @@ mod tests {
             .get("minimum")
             .is_none());
         assert_eq!(params["required"], json!(["path"]));
+    }
+
+    #[test]
+    fn effort_drives_gemini_suffix_for_desktop_alias() {
+        let body = json!({
+            "model": "claude-sonnet-5",
+            "max_tokens": 128,
+            "output_config": { "effort": "high" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert!(parts.model.starts_with("gemini-"));
+        assert!(parts.model.contains("flash"));
+        assert!(
+            parts.model.ends_with("-high") || parts.model.contains("-high"),
+            "expected high suffix, got {}",
+            parts.model
+        );
+        // Anthropic-only fields never leak into the Gemini request body.
+        assert!(parts.request.get("output_config").is_none());
+        assert!(parts.request.get("thinking").is_none());
+        assert!(parts.request.get("effort").is_none());
+    }
+
+    #[test]
+    fn alias_without_effort_defaults_to_high() {
+        let body = json!({
+            "model": "claude-sonnet-5",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert!(parts.model.starts_with("gemini-"));
+        assert!(
+            parts.model.ends_with("-high") || parts.model.contains("-high"),
+            "alias without effort should default high, got {}",
+            parts.model
+        );
+        let diag = effort_mapping_diagnostic(&body, &parts.model);
+        assert!(diag.contains("effort=none"));
+        assert!(diag.contains("mapped="));
+    }
+
+    #[test]
+    fn nested_effort_object_is_parsed() {
+        let body = json!({
+            "model": "claude-sonnet-5",
+            "max_tokens": 128,
+            "output_config": { "effort": { "type": "low" } },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert!(
+            parts.model.ends_with("-low") || parts.model.contains("-low"),
+            "expected low suffix from nested effort object, got {}",
+            parts.model
+        );
+    }
+
+    #[test]
+    fn thinking_disabled_forces_low_for_gemini() {
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "thinking": { "type": "disabled" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert!(parts.model.starts_with("gemini-"));
+        assert!(parts.request.get("thinking").is_none());
+    }
+
+    #[test]
+    fn effort_becomes_thinking_level_for_claude() {
+        let body = json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 128,
+            "output_config": { "effort": "medium" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert_eq!(parts.model, "claude-sonnet-4-6");
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("medium")
+        );
+    }
+
+    #[test]
+    fn adaptive_thinking_defaults_to_high_for_claude() {
+        let body = json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 128,
+            "thinking": { "type": "adaptive" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body).unwrap();
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("high")
+        );
     }
 }

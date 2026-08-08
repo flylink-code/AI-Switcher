@@ -17,14 +17,18 @@ use super::GatewayState;
 use crate::antigravity::account::store as account_store;
 use crate::antigravity::map::anthropic::{
     anthropic_sse_content_block_start, anthropic_sse_message_start, anthropic_to_gemini_request,
-    gemini_to_anthropic_response, gemini_to_anthropic_sse_chunk,
+    effort_mapping_diagnostic, gemini_to_anthropic_response, gemini_to_anthropic_sse_chunk,
 };
 use crate::antigravity::map::openai::{
     gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
 };
+use crate::antigravity::map::responses::{
+    gemini_to_responses_response, responses_compact_stub, responses_to_gemini_request,
+    ResponsesStreamEncoder,
+};
 use crate::antigravity::map::list_public_models;
 use crate::antigravity::upstream::{unwrap_v1internal, wrap_v1internal};
-use crate::antigravity::usage_log;
+use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
 
 const MAX_FAILOVER_HOPS: usize = 3;
@@ -63,13 +67,15 @@ pub async fn anthropic_messages(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
+    let diagnostic = effort_mapping_diagnostic(&payload, &mapped.model);
     dispatch_generation(
         &state,
         &headers,
         mapped.model,
         mapped.request,
         mapped.stream,
-        Protocol::Anthropic,
+        WireProtocol::Anthropic,
+        Some(diagnostic),
     )
     .await
 }
@@ -96,21 +102,77 @@ pub async fn openai_chat_completions(
         mapped.model,
         mapped.request,
         mapped.stream,
-        Protocol::OpenAi,
+        WireProtocol::OpenAiChat,
+        None,
     )
     .await
 }
 
-#[derive(Clone, Copy)]
-enum Protocol {
-    Anthropic,
-    OpenAi,
+pub async fn openai_responses(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
+    }
+    let payload: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+    };
+    let mapped = match responses_to_gemini_request(&payload) {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
+    };
+    dispatch_generation(
+        &state,
+        &headers,
+        mapped.model,
+        mapped.request,
+        mapped.stream,
+        WireProtocol::OpenAiResponses,
+        None,
+    )
+    .await
 }
 
-impl Protocol {
-    fn is_anthropic(self) -> bool {
-        matches!(self, Self::Anthropic)
+/// Minimal compact endpoint so Codex does not 404 on `/v1/responses/compact`.
+pub async fn openai_responses_compact(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
     }
+    let payload: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+    };
+    if payload.get("stream").and_then(Value::as_bool).unwrap_or(false) {
+        return error_json(
+            StatusCode::BAD_REQUEST,
+            "Codex /responses/compact 不支持显式 stream=true",
+        );
+    }
+    let compact = responses_compact_stub(&payload);
+    let model = compact
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let _ = usage_log::insert_request(
+        &state.db,
+        None,
+        &model,
+        Some(StatusCode::OK.as_u16() as i64),
+        Instant::now(),
+        WireProtocol::OpenAiResponses,
+        false,
+        None,
+        Some("compact=stub"),
+    );
+    Json(compact).into_response()
 }
 
 async fn dispatch_generation(
@@ -119,7 +181,8 @@ async fn dispatch_generation(
     model: String,
     request: Value,
     stream: bool,
-    protocol: Protocol,
+    protocol: WireProtocol,
+    diagnostic: Option<String>,
 ) -> Response {
     let started = Instant::now();
     let session_key = headers
@@ -172,11 +235,35 @@ async fn dispatch_generation(
         };
 
         let wrapped = wrap_v1internal(&project_id, &model, request.clone());
-        let upstream = match state
-            .upstream
-            .generate(&access_token, &wrapped, stream)
-            .await
-        {
+        // 500/502/504 are usually transient blips: retry the same account with
+        // a short backoff before burning a rotation (503/529 already got
+        // per-host backoff inside `generate`).
+        let mut server_error_retry = 0u32;
+        let upstream = loop {
+            match state
+                .upstream
+                .generate(&access_token, &wrapped, stream)
+                .await
+            {
+                Ok(response) => {
+                    let status = response.status();
+                    if matches!(status.as_u16(), 500 | 502 | 504) && server_error_retry < 2 {
+                        server_error_retry += 1;
+                        log::warn!(
+                            "Antigravity upstream {status}; same-account retry {server_error_retry}/2"
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            2 << server_error_retry,
+                        ))
+                        .await;
+                        continue;
+                    }
+                    break Ok(response);
+                }
+                Err(error) => break Err(error),
+            }
+        };
+        let upstream = match upstream {
             Ok(response) => response,
             Err(error) => {
                 last_error = error.to_string();
@@ -187,6 +274,7 @@ async fn dispatch_generation(
 
         let status = upstream.status();
         if matches!(status.as_u16(), 401 | 403 | 429) {
+            let retry_after = crate::antigravity::upstream::retry_after_secs(&upstream);
             let text = upstream.text().await.unwrap_or_default();
             let detail = text.trim();
             last_error = if detail.is_empty() {
@@ -204,6 +292,12 @@ async fn dispatch_generation(
                     &exclude,
                 )
                 .await;
+            // Honor the upstream Retry-After as the cooldown window for 429.
+            if status.as_u16() == 429 {
+                if let Some(seconds) = retry_after {
+                    let _ = account_store().adjust_cooldown_secs(&account.id, seconds as i64);
+                }
+            }
             continue;
         }
         if !status.is_success() {
@@ -220,10 +314,10 @@ async fn dispatch_generation(
             &model,
             Some(status.as_u16() as i64),
             started,
-            protocol.is_anthropic(),
+            protocol,
             stream,
             None,
-            None,
+            diagnostic.as_deref(),
         );
         if stream {
             return stream_response(
@@ -243,11 +337,14 @@ async fn dispatch_generation(
                     usage_log::update_usage_from_gemini(&state.db, id, Some(&account.id), &gemini);
                 }
                 match protocol {
-                    Protocol::Anthropic => {
+                    WireProtocol::Anthropic => {
                         Json(gemini_to_anthropic_response(&model, &gemini)).into_response()
                     }
-                    Protocol::OpenAi => {
+                    WireProtocol::OpenAiChat => {
                         Json(gemini_to_openai_response(&model, &gemini)).into_response()
+                    }
+                    WireProtocol::OpenAiResponses => {
+                        Json(gemini_to_responses_response(&model, &gemini)).into_response()
                     }
                 }
             }
@@ -265,7 +362,7 @@ async fn dispatch_generation(
         &model,
         Some(StatusCode::BAD_GATEWAY.as_u16() as i64),
         started,
-        protocol.is_anthropic(),
+        protocol,
         stream,
         Some("upstream"),
         Some(&clipped_error),
@@ -294,12 +391,14 @@ async fn ensure_project_id(
 async fn stream_response(
     upstream: reqwest::Response,
     model: String,
-    protocol: Protocol,
+    protocol: WireProtocol,
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
+    let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
+        .then(|| ResponsesStreamEncoder::new(&model));
     let stream = futures_util::stream::unfold(
         StreamState {
             upstream: byte_stream,
@@ -314,6 +413,7 @@ async fn stream_response(
             account_id,
             last_input: 0,
             last_output: 0,
+            responses_encoder,
         },
         |mut state| async move {
             if state.finished {
@@ -323,11 +423,32 @@ async fn stream_response(
                 if let Some(event) = state.take_line_event() {
                     return Some((Ok::<Bytes, Infallible>(event), state));
                 }
-                match state.upstream.next().await {
-                    Some(Ok(bytes)) => {
+                // Idle-timeout each upstream frame (mirrors Antigravity-Manager's
+                // 300s per-frame guard) so a stalled upstream cannot hang the
+                // client connection forever.
+                let next_frame = tokio::time::timeout(
+                    std::time::Duration::from_secs(300),
+                    state.upstream.next(),
+                )
+                .await;
+                match next_frame {
+                    Ok(Some(Ok(bytes))) => {
                         state.buffer.push_str(&String::from_utf8_lossy(&bytes));
                     }
-                    Some(Err(_)) | None => {
+                    Ok(Some(Err(_))) | Ok(None) => {
+                        let trailing = state.finish_events();
+                        state.flush_usage();
+                        state.finished = true;
+                        if trailing.is_empty() {
+                            return None;
+                        }
+                        return Some((Ok::<Bytes, Infallible>(trailing), state));
+                    }
+                    Err(_) => {
+                        log::error!(
+                            "Antigravity stream idle for 300s; closing (model {})",
+                            state.model
+                        );
                         let trailing = state.finish_events();
                         state.flush_usage();
                         state.finished = true;
@@ -354,7 +475,7 @@ struct StreamState {
     upstream: futures_util::stream::BoxStream<'static, Result<Bytes, reqwest::Error>>,
     buffer: String,
     model: String,
-    protocol: Protocol,
+    protocol: WireProtocol,
     started: bool,
     finished: bool,
     /// True after Anthropic `message_stop` was emitted (avoid double-close).
@@ -364,6 +485,7 @@ struct StreamState {
     account_id: Option<String>,
     last_input: i64,
     last_output: i64,
+    responses_encoder: Option<ResponsesStreamEncoder>,
 }
 
 impl StreamState {
@@ -410,7 +532,7 @@ impl StreamState {
         let gemini = unwrap_v1internal(&value);
         self.note_usage(&gemini);
         match self.protocol {
-            Protocol::Anthropic => {
+            WireProtocol::Anthropic => {
                 let mut out = Vec::new();
                 if !self.started {
                     self.started = true;
@@ -429,14 +551,32 @@ impl StreamState {
                     Some(Bytes::from(out))
                 }
             }
-            Protocol::OpenAi => Some(sse_data(&gemini_to_openai_sse_chunk(&self.model, &gemini))),
+            WireProtocol::OpenAiChat => Some(sse_data(&gemini_to_openai_sse_chunk(&self.model, &gemini))),
+            WireProtocol::OpenAiResponses => {
+                let Some(encoder) = self.responses_encoder.as_mut() else {
+                    return None;
+                };
+                let bytes = encoder.encode_gemini_chunk(&gemini);
+                if bytes.is_empty() {
+                    None
+                } else {
+                    Some(Bytes::from(bytes))
+                }
+            }
         }
     }
 
     fn finish_events(&mut self) -> Bytes {
         match self.protocol {
-            Protocol::OpenAi => Bytes::from("data: [DONE]\n\n"),
-            Protocol::Anthropic => {
+            WireProtocol::OpenAiChat => Bytes::from("data: [DONE]\n\n"),
+            WireProtocol::OpenAiResponses => {
+                if let Some(encoder) = self.responses_encoder.as_mut() {
+                    Bytes::from(encoder.finish())
+                } else {
+                    Bytes::new()
+                }
+            }
+            WireProtocol::Anthropic => {
                 if self.closed {
                     return Bytes::new();
                 }

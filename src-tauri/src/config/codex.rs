@@ -582,7 +582,15 @@ pub fn restore_official() -> AppResult<()> {
         atomic_write(&config_path, &fs::read(config_backup)?)?;
     }
     if auth_backup.exists() {
-        atomic_write(&auth_path, &fs::read(auth_backup)?)?;
+        let backup_bytes = fs::read(&auth_backup)?;
+        let live = read_auth_json(&auth_path)?;
+        if auth_restore_would_downgrade_login(live.as_ref(), &backup_bytes) {
+            // backup_once 只捕获史上第一份 auth.json，常早于用户的 ChatGPT
+            // 官方登录；盲目回写会把登录抹掉（切几次供应商后「登录被切掉」）。
+            log::info!("Codex restore_official: 保留当前官方登录（备份是登录前的旧快照）");
+        } else {
+            atomic_write(&auth_path, &backup_bytes)?;
+        }
     } else {
         // No pre-switch auth snapshot: a third-party apply may have created
         // auth.json from scratch. Leaving that vendor key behind sends Codex
@@ -591,6 +599,16 @@ pub fn restore_official() -> AppResult<()> {
         clear_stale_third_party_auth_if_needed(&auth_path)?;
     }
     Ok(())
+}
+
+/// True when restoring `backup_bytes` over the live auth.json would downgrade
+/// a live official login (OAuth tokens / PAT) to a pre-login snapshot.
+fn auth_restore_would_downgrade_login(live: Option<&Value>, backup_bytes: &[u8]) -> bool {
+    if !live.is_some_and(auth_has_credential_login_material) {
+        return false;
+    }
+    let backup = serde_json::from_slice::<Value>(backup_bytes).ok();
+    !backup.as_ref().is_some_and(auth_has_credential_login_material)
 }
 
 pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
@@ -1121,6 +1139,33 @@ mod tests {
         let value: Value = serde_json::from_slice(&fs::read(&oauth).unwrap()).unwrap();
         assert_eq!(value["tokens"]["access_token"], "keep");
         assert_eq!(value["OPENAI_API_KEY"], "sk-vendor");
+    }
+
+    #[test]
+    fn restore_never_downgrades_live_login_to_prelogin_backup() {
+        let live_login = serde_json::json!({
+            "tokens": { "access_token": "keep" },
+            "auth_mode": "chatgpt"
+        });
+        let prelogin_backup = br#"{"auth_mode":"apikey","OPENAI_API_KEY":"sk-old"}"#;
+        // Live login + stale pre-login backup → keep the live file.
+        assert!(auth_restore_would_downgrade_login(
+            Some(&live_login),
+            prelogin_backup
+        ));
+        // Backup that also carries login material restores normally.
+        let login_backup = br#"{"tokens":{"access_token":"older"},"auth_mode":"chatgpt"}"#;
+        assert!(!auth_restore_would_downgrade_login(
+            Some(&live_login),
+            login_backup
+        ));
+        // No live login → backup restore is safe regardless.
+        let third_party_live = serde_json::json!({ "OPENAI_API_KEY": "sk-vendor" });
+        assert!(!auth_restore_would_downgrade_login(
+            Some(&third_party_live),
+            prelogin_backup
+        ));
+        assert!(!auth_restore_would_downgrade_login(None, prelogin_backup));
     }
 
     fn doc_with_managed_entry() -> (DocumentMut, tempfile::TempDir) {

@@ -82,17 +82,6 @@ fn lock_manager() -> std::sync::MutexGuard<'static, Option<GatewayManager>> {
 
 pub fn init_gateway(db: Arc<Database>) {
     crate::antigravity::outbound::warm_from_db(&db);
-    // Restore the centralized Gemini reasoning level preference.
-    let saved_level = db
-        .with_conn(|conn| {
-            get_setting(
-                conn,
-                crate::antigravity::model_catalog::REASONING_LEVEL_SETTING,
-            )
-        })
-        .ok()
-        .flatten();
-    crate::antigravity::model_catalog::set_reasoning_level(saved_level.as_deref());
     // Warm the account store on a sync thread so its blocking reqwest client is
     // not first created inside an async task (that panics Tokio).
     let _ = super::account::store();
@@ -278,6 +267,10 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .route("/v1/messages", any(handlers::anthropic_messages))
         .route("/v1/chat/completions", any(handlers::openai_chat_completions))
         .route("/chat/completions", any(handlers::openai_chat_completions))
+        .route("/v1/responses", any(handlers::openai_responses))
+        .route("/responses", any(handlers::openai_responses))
+        .route("/v1/responses/compact", any(handlers::openai_responses_compact))
+        .route("/responses/compact", any(handlers::openai_responses_compact))
         .with_state(state)
         .layer(CorsLayer::permissive());
 
