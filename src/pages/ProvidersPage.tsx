@@ -14,12 +14,13 @@ import {
   type MenuProps,
   type TableColumnsType,
 } from "antd";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
+import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
@@ -38,6 +39,7 @@ import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
   ensureCodexOauthProvider,
   getCodexAuthStatus,
+  getPaths,
   pollCodexOauthLogin,
   startCodexOauthLogin,
 } from "@/services/api";
@@ -89,6 +91,15 @@ export default function ProvidersPage() {
   const openEdit = (provider: Provider) => {
     setEditing(provider);
     setFormOpen(true);
+  };
+
+  const handleOpenOpencodeConfig = async () => {
+    try {
+      const paths = await getPaths();
+      await revealItemInDir(paths.opencodeConfigPath);
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
   };
 
   const handleCodexOauthLogin = async () => {
@@ -263,6 +274,11 @@ export default function ProvidersPage() {
           <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={() => void handleImportLive()}>
             {target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive")}
           </Button>
+          {target === "opencode" && (
+            <Button type="text" size="small" icon={<FolderOpenOutlined />} onClick={() => void handleOpenOpencodeConfig()}>
+              {t("providers.opencodeOpenConfig")}
+            </Button>
+          )}
           <Button type="text" size="small" loading={busy} onClick={() => void handleExport()}>
             {t("providers.export")}
           </Button>

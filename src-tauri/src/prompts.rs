@@ -14,7 +14,10 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use crate::backup::backup_file_named;
-use crate::config::{atomic_write, get_app_config_dir, get_claude_config_dir, get_codex_config_dir};
+use crate::config::{
+    atomic_write, get_app_config_dir, get_claude_config_dir, get_codex_config_dir,
+    get_opencode_config_dir,
+};
 use crate::error::{AppError, AppResult};
 
 /// Subdirectory of the app data dir holding prompt presets.
@@ -24,12 +27,18 @@ const LIVE_BACKUP_KEEP: usize = 10;
 /// Live file name inside `~/.claude`.
 const LIVE_FILE_NAME: &str = "CLAUDE.md";
 const CODEX_LIVE_FILE_NAME: &str = "AGENTS.md";
+/// OpenCode 全局指令文件（OpenCode 自动加载，无需改 opencode.json 的 instructions）。
+const OPENCODE_LIVE_FILE_NAME: &str = "AGENTS.md";
+/// OpenCode live 文件的备份名（与 Codex 的 AGENTS.md 备份区分）。
+const OPENCODE_BACKUP_NAME: &str = "opencode-AGENTS.md";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PromptTarget {
     ClaudeCode,
     Codex,
+    #[serde(rename = "opencode")]
+    OpenCode,
 }
 
 impl Default for PromptTarget {
@@ -70,6 +79,7 @@ pub fn prompts_dir(target: PromptTarget) -> PathBuf {
     match target {
         PromptTarget::ClaudeCode => base,
         PromptTarget::Codex => base.join("codex"),
+        PromptTarget::OpenCode => base.join("opencode"),
     }
 }
 
@@ -77,6 +87,7 @@ pub fn live_prompt_path(target: PromptTarget) -> PathBuf {
     match target {
         PromptTarget::ClaudeCode => get_claude_config_dir().join(LIVE_FILE_NAME),
         PromptTarget::Codex => get_codex_config_dir().join(CODEX_LIVE_FILE_NAME),
+        PromptTarget::OpenCode => get_opencode_config_dir().join(OPENCODE_LIVE_FILE_NAME),
     }
 }
 
@@ -190,6 +201,7 @@ pub fn activate_prompt(target: PromptTarget, name: &str) -> AppResult<()> {
         let backup_name = match target {
             PromptTarget::ClaudeCode => LIVE_FILE_NAME,
             PromptTarget::Codex => CODEX_LIVE_FILE_NAME,
+            PromptTarget::OpenCode => OPENCODE_BACKUP_NAME,
         };
         backup_file_named(&live, backup_name, LIVE_BACKUP_KEEP)?;
     }

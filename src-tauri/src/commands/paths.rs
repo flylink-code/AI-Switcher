@@ -8,6 +8,7 @@ use crate::config::{
     get_claude_config_dir, get_claude_json_path, get_claude_settings_path, get_home_dir,
     get_codex_auth_path, get_codex_config_dir, get_codex_config_path,
     get_codex_plugins_cache_dir, get_codex_skills_dir,
+    get_opencode_config_dir, get_opencode_config_path,
 };
 
 #[derive(Debug, Serialize)]
@@ -25,6 +26,8 @@ pub struct PathsInfo {
     pub codex_plugins_cache_dir: String,
     pub codex_sessions_dir: String,
     pub codex_agents_path: String,
+    pub opencode_config_dir: String,
+    pub opencode_config_path: String,
     pub app_config_dir: String,
     pub app_db_path: String,
     pub backup_dir: String,
@@ -57,6 +60,8 @@ pub fn get_paths() -> PathsInfo {
         codex_plugins_cache_dir: s(&get_codex_plugins_cache_dir()),
         codex_sessions_dir: s(&get_codex_config_dir().join("sessions")),
         codex_agents_path: s(&get_codex_config_dir().join("AGENTS.md")),
+        opencode_config_dir: s(&get_opencode_config_dir()),
+        opencode_config_path: s(&get_opencode_config_path()),
         app_config_dir: s(&get_app_config_dir()),
         app_db_path: s(&get_app_db_path()),
         backup_dir: s(&get_backup_dir()),

@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 20;
+pub const SCHEMA_VERSION: u32 = 21;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -72,6 +72,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             enabled_claude_code    BOOLEAN NOT NULL DEFAULT 0,
             enabled_claude_desktop BOOLEAN NOT NULL DEFAULT 0,
             enabled_codex          BOOLEAN NOT NULL DEFAULT 0,
+            enabled_opencode       BOOLEAN NOT NULL DEFAULT 0,
             sort_index    INTEGER NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
@@ -215,6 +216,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 20 {
         migrate_v19_to_v20(conn)?;
+    }
+    if current < 21 {
+        migrate_v20_to_v21(conn)?;
     }
     Ok(())
 }
@@ -708,6 +712,33 @@ fn migrate_v19_to_v20(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 20)
+}
+
+/// OpenCode participation for MCP servers: new enable flag, same pattern as v11.
+fn migrate_v20_to_v21(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS mcp_servers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            server_config TEXT NOT NULL DEFAULT '{}',
+            enabled_claude_code BOOLEAN NOT NULL DEFAULT 0,
+            enabled_claude_desktop BOOLEAN NOT NULL DEFAULT 0,
+            enabled_codex BOOLEAN NOT NULL DEFAULT 0,
+            enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('mcp_servers') WHERE name = 'enabled_opencode';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE mcp_servers ADD COLUMN enabled_opencode BOOLEAN NOT NULL DEFAULT 0;",
+        )?;
+    }
+    set_user_version(conn, 21)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

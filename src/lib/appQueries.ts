@@ -4,6 +4,7 @@ import {
   getClaudeCodeVersion,
   getCodexCliVersion,
   getOpenCodeCliVersion,
+  getOpenCodeDesktopStatus,
   getNodeRuntimeStatus,
   getCloseBehavior,
   getDbInfo,
@@ -249,6 +250,12 @@ export const opencodeCliVersionOptions = queryOptions({
   queryKey: ["opencode-cli-version", "latest"] as const,
   queryFn: () => getOpenCodeCliVersion(true),
   staleTime: 5 * 60_000,
+});
+
+export const opencodeDesktopStatusOptions = queryOptions({
+  queryKey: ["opencode-desktop-status"] as const,
+  queryFn: getOpenCodeDesktopStatus,
+  staleTime: 60_000,
 });
 
 export const nodeRuntimeStatusOptions = queryOptions({

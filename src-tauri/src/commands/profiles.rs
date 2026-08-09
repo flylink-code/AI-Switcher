@@ -477,6 +477,7 @@ impl McpServerEnabled for crate::mcp::McpServer {
             McpTarget::ClaudeCode => self.enabled_claude_code,
             McpTarget::ClaudeDesktop => self.enabled_claude_desktop,
             McpTarget::Codex => self.enabled_codex,
+            McpTarget::OpenCode => self.enabled_opencode,
         }
     }
 }

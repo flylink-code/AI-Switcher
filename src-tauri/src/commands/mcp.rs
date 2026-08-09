@@ -76,6 +76,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
     let code = mcp::read_code_mcp_servers()?;
     let desktop = mcp::read_desktop_mcp_servers()?;
     let codex = crate::config::codex::read_mcp_servers()?;
+    let opencode = crate::config::opencode::read_mcp_servers()?;
 
     state.db.with_conn(|conn| {
         let mut imported = 0i64;
@@ -83,7 +84,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
 
         for (name, cfg) in &code {
             let in_desktop = desktop.contains_key(name);
-            if dao::import_mcp_entry(conn, name, cfg, true, in_desktop, codex.contains_key(name))? {
+            if dao::import_mcp_entry(conn, name, cfg, true, in_desktop, codex.contains_key(name), opencode.contains_key(name))? {
                 imported += 1;
             } else {
                 updated += 1;
@@ -93,7 +94,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
             if code.contains_key(name) {
                 continue; // already handled above
             }
-            if dao::import_mcp_entry(conn, name, cfg, false, true, codex.contains_key(name))? {
+            if dao::import_mcp_entry(conn, name, cfg, false, true, codex.contains_key(name), opencode.contains_key(name))? {
                 imported += 1;
             } else {
                 updated += 1;
@@ -101,7 +102,11 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
         }
         for (name, cfg) in &codex {
             if code.contains_key(name) || desktop.contains_key(name) { continue; }
-            if dao::import_mcp_entry(conn, name, cfg, false, false, true)? { imported += 1; } else { updated += 1; }
+            if dao::import_mcp_entry(conn, name, cfg, false, false, true, opencode.contains_key(name))? { imported += 1; } else { updated += 1; }
+        }
+        for (name, cfg) in &opencode {
+            if code.contains_key(name) || desktop.contains_key(name) || codex.contains_key(name) { continue; }
+            if dao::import_mcp_entry(conn, name, cfg, false, false, false, true)? { imported += 1; } else { updated += 1; }
         }
         Ok(McpImportSummary { imported, updated })
     })
@@ -130,6 +135,7 @@ pub async fn install_mcp_registry_server(
         enabled_claude_code,
         enabled_claude_desktop,
         enabled_codex: false,
+        enabled_opencode: false,
     };
     let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
     sync_all(&state)?;
@@ -161,5 +167,6 @@ pub fn get_mcp_desktop_conflict_status(
 pub fn sync_all(state: &AppState) -> AppResult<()> {
     let servers = state.db.with_conn(|conn| dao::list_mcp_servers(conn))?;
     mcp::sync_to_files(&servers)?;
-    crate::config::codex::sync_mcp_servers(&servers)
+    crate::config::codex::sync_mcp_servers(&servers)?;
+    crate::config::opencode::sync_mcp_servers(&servers)
 }

@@ -13,6 +13,7 @@ use serde_json::{json, Map, Value};
 use crate::config::atomic::write_json_file;
 use crate::config::paths::get_opencode_config_path;
 use crate::error::{AppError, AppResult};
+use crate::mcp::McpServer;
 use crate::provider::{ClaudeModelMapping, LiveProviderInfo, ProtocolType, Provider};
 
 /// 旧版单槽托管 provider ID（兼容清理）。
@@ -393,6 +394,128 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     read_current_live_provider_at(&get_opencode_config_path())
 }
 
+// ---- MCP 服务器同步 ---------------------------------------------------------
+//
+// OpenCode 的 MCP 配置在 `mcp` 段，格式与 Claude 不同：
+//   本地: {"type": "local", "command": ["cmd", ...args], "enabled": true, "environment": {...}}
+//   远程: {"type": "remote", "url": "...", "enabled": true, "headers": {...}}
+// 只管理 DB 中同名的键（含已禁用/已删除的会被清掉），用户自写的其它键保留。
+
+/// 将 Claude 格式的 server_config 转成 OpenCode `mcp` 段条目；无法识别返回 None。
+fn mcp_entry_to_opencode(config: &Value) -> Option<Value> {
+    let obj = config.as_object()?;
+    if let Some(url) = obj.get("url").and_then(Value::as_str) {
+        let mut out = Map::new();
+        out.insert("type".to_string(), json!("remote"));
+        out.insert("url".to_string(), json!(url));
+        out.insert("enabled".to_string(), json!(true));
+        if let Some(headers) = obj.get("headers").and_then(Value::as_object) {
+            if !headers.is_empty() {
+                out.insert("headers".to_string(), Value::Object(headers.clone()));
+            }
+        }
+        return Some(Value::Object(out));
+    }
+    let command = obj.get("command").and_then(Value::as_str)?;
+    let mut cmd = vec![json!(command)];
+    if let Some(args) = obj.get("args").and_then(Value::as_array) {
+        cmd.extend(args.iter().filter_map(Value::as_str).map(|s| json!(s)));
+    }
+    let mut out = Map::new();
+    out.insert("type".to_string(), json!("local"));
+    out.insert("command".to_string(), Value::Array(cmd));
+    out.insert("enabled".to_string(), json!(true));
+    if let Some(env) = obj.get("env").and_then(Value::as_object) {
+        if !env.is_empty() {
+            out.insert("environment".to_string(), Value::Object(env.clone()));
+        }
+    }
+    Some(Value::Object(out))
+}
+
+/// OpenCode `mcp` 段条目转回 Claude 格式（导入用）；无法识别返回 None。
+fn mcp_entry_from_opencode(config: &Value) -> Option<Value> {
+    let obj = config.as_object()?;
+    match obj.get("type").and_then(Value::as_str) {
+        Some("remote") => {
+            let url = obj.get("url").and_then(Value::as_str)?;
+            let mut out = Map::new();
+            out.insert("type".to_string(), json!("http"));
+            out.insert("url".to_string(), json!(url));
+            if let Some(headers) = obj.get("headers").and_then(Value::as_object) {
+                if !headers.is_empty() {
+                    out.insert("headers".to_string(), Value::Object(headers.clone()));
+                }
+            }
+            Some(Value::Object(out))
+        }
+        Some("local") => {
+            let cmd = obj.get("command").and_then(Value::as_array)?;
+            let mut parts = cmd.iter().filter_map(Value::as_str);
+            let command = parts.next()?;
+            let args: Vec<Value> = parts.map(|s| json!(s)).collect();
+            let mut out = Map::new();
+            out.insert("command".to_string(), json!(command));
+            if !args.is_empty() {
+                out.insert("args".to_string(), Value::Array(args));
+            }
+            if let Some(env) = obj.get("environment").and_then(Value::as_object) {
+                if !env.is_empty() {
+                    out.insert("env".to_string(), Value::Object(env.clone()));
+                }
+            }
+            Some(Value::Object(out))
+        }
+        _ => None,
+    }
+}
+
+/// 把启用了 OpenCode 的 MCP 服务器写入 `mcp` 段（指定路径，便于测试）。
+pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> {
+    let _guard = lock_opencode_config()?;
+    let mut config = read_opencode_config_at(path)?;
+    let obj = config.as_object_mut().expect("read_opencode_config_at 保证对象");
+    let managed: std::collections::HashSet<&str> =
+        servers.iter().map(|s| s.name.as_str()).collect();
+
+    let mut mcp = obj
+        .get("mcp")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    mcp.retain(|key, _| !managed.contains(key.as_str()));
+    for server in servers.iter().filter(|s| s.enabled_opencode) {
+        if let Some(entry) = mcp_entry_to_opencode(&server.server_config) {
+            mcp.insert(server.name.clone(), entry);
+        }
+    }
+    if mcp.is_empty() {
+        obj.remove("mcp");
+    } else {
+        obj.insert("mcp".to_string(), Value::Object(mcp));
+    }
+    write_opencode_config_at(path, &config)
+}
+
+/// 把启用了 OpenCode 的 MCP 服务器同步到 live `opencode.json`。
+pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
+    sync_mcp_servers_at(&get_opencode_config_path(), servers)
+}
+
+/// 读取 `mcp` 段并转回 Claude 格式（「导入 live 配置」用）。
+pub fn read_mcp_servers() -> AppResult<Map<String, Value>> {
+    let config = read_opencode_config()?;
+    let mut out = Map::new();
+    if let Some(mcp) = config.get("mcp").and_then(Value::as_object) {
+        for (name, entry) in mcp {
+            if let Some(converted) = mcp_entry_from_opencode(entry) {
+                out.insert(name.clone(), converted);
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -718,5 +841,81 @@ mod tests {
         let acme = &providers[0];
         assert_eq!(acme.current_model.as_deref(), Some("gpt-5.5-fast"));
         assert!(acme.models.iter().any(|m| m == "gpt-5.5-fast"), "当前模型必须并入 models");
+    }
+
+    fn mcp_server(name: &str, enabled_opencode: bool, config: Value) -> McpServer {
+        McpServer {
+            id: format!("mcp_{name}"),
+            name: name.to_string(),
+            server_config: config,
+            enabled_claude_code: false,
+            enabled_claude_desktop: false,
+            enabled_codex: false,
+            enabled_opencode,
+            sort_index: 0,
+            created_at: 0,
+        }
+    }
+
+    #[test]
+    fn sync_mcp_converts_formats_and_preserves_unmanaged() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("opencode.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "mcp": {
+    "user-own": { "type": "local", "command": ["foo"], "enabled": true },
+    "stale-managed": { "type": "remote", "url": "https://old.test/mcp" }
+  }
+}"#,
+        )
+        .expect("write");
+
+        let servers = vec![
+            mcp_server(
+                "fs",
+                true,
+                json!({"command": "npx", "args": ["-y", "srv"], "env": {"KEY": "v"}}),
+            ),
+            mcp_server(
+                "web",
+                true,
+                json!({"type": "sse", "url": "https://web.test/mcp", "headers": {"A": "b"}}),
+            ),
+            // DB 中存在但未启用 OpenCode → 其同名键应从 mcp 段清除
+            mcp_server("stale-managed", false, json!({"command": "x"})),
+        ];
+        sync_mcp_servers_at(&path, &servers).expect("sync");
+
+        let config = read_opencode_config_at(&path).expect("reload");
+        let mcp = config["mcp"].as_object().expect("mcp object");
+        assert!(mcp.contains_key("user-own"), "用户自有键必须保留");
+        assert!(!mcp.contains_key("stale-managed"), "托管但禁用的键必须清除");
+        assert_eq!(
+            mcp["fs"],
+            json!({"type": "local", "command": ["npx", "-y", "srv"], "enabled": true, "environment": {"KEY": "v"}})
+        );
+        assert_eq!(
+            mcp["web"],
+            json!({"type": "remote", "url": "https://web.test/mcp", "enabled": true, "headers": {"A": "b"}})
+        );
+    }
+
+    #[test]
+    fn mcp_entry_from_opencode_round_trips() {
+        let local = mcp_entry_from_opencode(&json!({
+            "type": "local", "command": ["npx", "-y", "srv"], "environment": {"K": "v"}
+        }))
+        .expect("local");
+        assert_eq!(local, json!({"command": "npx", "args": ["-y", "srv"], "env": {"K": "v"}}));
+
+        let remote = mcp_entry_from_opencode(&json!({
+            "type": "remote", "url": "https://x.test/mcp", "headers": {"A": "b"}
+        }))
+        .expect("remote");
+        assert_eq!(remote, json!({"type": "http", "url": "https://x.test/mcp", "headers": {"A": "b"}}));
+
+        assert!(mcp_entry_from_opencode(&json!({"type": "unknown"})).is_none());
     }
 }

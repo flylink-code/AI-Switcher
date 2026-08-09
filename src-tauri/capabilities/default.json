@@ -43,6 +43,7 @@
       ]
     },
     "autostart:default",
-    "deep-link:default"
+    "deep-link:default",
+    "opener:allow-reveal-item-in-dir"
   ]
 }

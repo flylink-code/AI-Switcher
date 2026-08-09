@@ -70,6 +70,7 @@ interface FormValues {
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
+  enabledOpencode: boolean;
 }
 
 const EXAMPLE_CONFIG: Record<string, unknown> = {
@@ -226,6 +227,7 @@ export default function McpPage() {
       enabledClaudeCode: true,
       enabledClaudeDesktop: false,
       enabledCodex: false,
+      enabledOpencode: false,
     });
     setFormOpen(true);
   };
@@ -239,6 +241,7 @@ export default function McpPage() {
       enabledClaudeCode: server.enabledClaudeCode,
       enabledClaudeDesktop: server.enabledClaudeDesktop,
       enabledCodex: server.enabledCodex,
+      enabledOpencode: server.enabledOpencode,
     });
     setFormOpen(true);
   };
@@ -277,6 +280,7 @@ export default function McpPage() {
         enabledClaudeCode: values.enabledClaudeCode,
         enabledClaudeDesktop: values.enabledClaudeDesktop,
         enabledCodex: values.enabledCodex,
+        enabledOpencode: values.enabledOpencode,
       };
       await saveMcpServer(input);
       void message.success(t(editing ? "mcp.updated" : "mcp.created"));
@@ -306,6 +310,7 @@ export default function McpPage() {
                 enabledClaudeDesktop:
                   target === "claude_desktop" ? enabled : item.enabledClaudeDesktop,
                 enabledCodex: target === "codex" ? enabled : item.enabledCodex,
+                enabledOpencode: target === "opencode" ? enabled : item.enabledOpencode,
               }
             : item,
         ),
@@ -535,6 +540,21 @@ export default function McpPage() {
           checkedChildren={t("common.enabled")}
           unCheckedChildren={t("common.disabled")}
           onChange={(value) => void handleToggle(server, "codex", value)}
+        />
+      ),
+    },
+    {
+      title: "OpenCode",
+      dataIndex: "enabledOpencode",
+      width: 120,
+      render: (enabled: boolean, server) => (
+        <Switch
+          size="small"
+          checked={enabled}
+          disabled={busy}
+          checkedChildren={t("common.enabled")}
+          unCheckedChildren={t("common.disabled")}
+          onChange={(value) => void handleToggle(server, "opencode", value)}
         />
       ),
     },
@@ -864,6 +884,9 @@ export default function McpPage() {
               </Form.Item>
               <Form.Item name="enabledCodex" valuePropName="checked" noStyle>
                 <Checkbox disabled={busy}>{t("mcp.enableCodex")}</Checkbox>
+              </Form.Item>
+              <Form.Item name="enabledOpencode" valuePropName="checked" noStyle>
+                <Checkbox disabled={busy}>{t("mcp.enableOpencode")}</Checkbox>
               </Form.Item>
             </Space>
           </Form.Item>

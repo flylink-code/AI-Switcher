@@ -264,6 +264,10 @@ export interface PathsInfo {
   codexPluginsCacheDir: string;
   codexSessionsDir: string;
   codexAgentsPath: string;
+  /** `~/.config/opencode` config directory. */
+  opencodeConfigDir: string;
+  /** `opencode.json` (or `opencode.jsonc`) config file path. */
+  opencodeConfigPath: string;
   /** Application data directory (`~/.claude-switcher`). */
   appConfigDir: string;
   /** Main SQLite database path. */
@@ -366,6 +370,7 @@ export interface McpServer {
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
+  enabledOpencode: boolean;
   sortIndex: number;
   createdAt: number;
 }
@@ -378,9 +383,10 @@ export interface McpServerInput {
   enabledClaudeCode: boolean;
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
+  enabledOpencode: boolean;
 }
 
-export type McpTarget = "claude_code" | "claude_desktop" | "codex";
+export type McpTarget = "claude_code" | "claude_desktop" | "codex" | "opencode";
 
 export interface CodexAuthStatus {
   configPath: string;
@@ -448,7 +454,7 @@ export interface PromptInfo {
   updatedAt: number;
 }
 
-export type PromptTarget = "claude_code" | "codex";
+export type PromptTarget = "claude_code" | "codex" | "opencode";
 
 export interface PromptDetail extends PromptInfo {
   content: string;

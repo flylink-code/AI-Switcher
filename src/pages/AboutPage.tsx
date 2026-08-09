@@ -16,10 +16,13 @@ import {
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import CodeOutlined from "@ant-design/icons/es/icons/CodeOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
+import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
+import LinkOutlined from "@ant-design/icons/es/icons/LinkOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ensureNodeRuntimeViaFnm,
   getUpdateMirrorSettings,
@@ -38,6 +41,7 @@ import {
   localOpenCodeCliVersionOptions,
   nodeRuntimeStatusOptions,
   opencodeCliVersionOptions,
+  opencodeDesktopStatusOptions,
 } from "@/lib/appQueries";
 import { checkForAppUpdate, installAvailableAppUpdate, isAppUpdatePackagePendingError, isNoAppUpdateAvailableError } from "@/lib/appUpdater";
 import type {
@@ -117,6 +121,8 @@ export default function AboutPage() {
     placeholderData: () => localOpenCodeQuery.data,
   });
   const opencodeInfo = opencodeQuery.data ?? localOpenCodeQuery.data ?? null;
+  const opencodeDesktopQuery = useQuery(opencodeDesktopStatusOptions);
+  const opencodeDesktopStatus = opencodeDesktopQuery.data ?? null;
 
   useEffect(() => {
     void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
@@ -574,6 +580,63 @@ export default function AboutPage() {
             details: t("about.details"),
           }}
         />
+
+        <Card
+          size="small"
+          className="page-surface"
+          title={
+            <Space>
+              <DesktopOutlined />
+              {t("about.opencodeDesktopSection")}
+            </Space>
+          }
+          extra={
+            <Button
+              size="small"
+              icon={<ReloadOutlined spin={opencodeDesktopQuery.isFetching} />}
+              onClick={() => void opencodeDesktopQuery.refetch()}
+            >
+              {t("common.refresh")}
+            </Button>
+          }
+        >
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Space wrap size="middle" align="center">
+              {opencodeDesktopStatus?.installed ? (
+                <Tag color="green">{t("about.opencodeDesktopInstalled")}</Tag>
+              ) : (
+                <Tag>{t("about.opencodeDesktopNotFound")}</Tag>
+              )}
+              {opencodeDesktopStatus?.version ? (
+                <Text code>{opencodeDesktopStatus.version}</Text>
+              ) : null}
+              {!opencodeDesktopStatus?.installed && (
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<LinkOutlined />}
+                  onClick={() => void openUrl("https://opencode.ai")}
+                >
+                  {t("about.opencodeDesktopDownload")}
+                </Button>
+              )}
+            </Space>
+            <Descriptions column={1} size="small" bordered>
+              <Descriptions.Item label={t("about.opencodeDesktopInstallPath")}>
+                <Text
+                  code
+                  copyable={Boolean(opencodeDesktopStatus?.installPath)}
+                  style={{ wordBreak: "break-all" }}
+                >
+                  {opencodeDesktopStatus?.installPath ?? "—"}
+                </Text>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("about.opencodeDesktopSource")}>
+                <Text>{opencodeDesktopStatus?.source ?? "—"}</Text>
+              </Descriptions.Item>
+            </Descriptions>
+          </Space>
+        </Card>
       </Space>
     </>
   );

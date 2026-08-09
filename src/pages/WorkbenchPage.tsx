@@ -187,11 +187,13 @@ export default function WorkbenchPage() {
           />
           <Tag
             icon={<NodeIndexOutlined />}
-            color={proxy?.running ? "green" : undefined}
+            color={target === "opencode" ? "blue" : proxy?.running ? "green" : undefined}
             style={{ cursor: "pointer", margin: 0 }}
             onClick={() => navigate("proxy")}
           >
-            {proxy?.running ? t("workbench.proxyRunning", { port: proxy.port }) : t("workbench.proxyStopped")}
+            {target === "opencode"
+              ? t("workbench.proxyDirect")
+              : proxy?.running ? t("workbench.proxyRunning", { port: proxy.port }) : t("workbench.proxyStopped")}
           </Tag>
           <Tag
             color={antigravity?.running ? "purple" : undefined}

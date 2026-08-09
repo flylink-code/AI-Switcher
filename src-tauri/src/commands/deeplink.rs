@@ -107,6 +107,7 @@ pub fn build_mcp_deeplink(
         enabled_claude_code: server.enabled_claude_code,
         enabled_claude_desktop: server.enabled_claude_desktop,
         enabled_codex: server.enabled_codex,
+        enabled_opencode: server.enabled_opencode,
     })
 }
 

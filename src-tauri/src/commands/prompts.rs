@@ -35,14 +35,19 @@ pub fn rename_prompt(
 ) -> AppResult<()> {
     let target = target.unwrap_or_default();
     prompts::rename_prompt(target, &old_name, &new_name)?;
+    // Profiles 只引用 claude/codex 作用域的 prompt；opencode 预设无需级联。
     let scope = match target {
-        PromptTarget::ClaudeCode => PromptRenameScope::ClaudeCode,
-        PromptTarget::Codex => PromptRenameScope::Codex,
+        PromptTarget::ClaudeCode => Some(PromptRenameScope::ClaudeCode),
+        PromptTarget::Codex => Some(PromptRenameScope::Codex),
+        PromptTarget::OpenCode => None,
     };
-    state.db.with_conn(|conn| {
-        dao::rewrite_prompt_id(conn, scope, old_name.trim(), new_name.trim())?;
-        Ok(())
-    })
+    if let Some(scope) = scope {
+        state.db.with_conn(|conn| {
+            dao::rewrite_prompt_id(conn, scope, old_name.trim(), new_name.trim())?;
+            Ok(())
+        })?;
+    }
+    Ok(())
 }
 
 /// Delete a preset (idempotent).

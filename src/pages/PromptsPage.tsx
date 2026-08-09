@@ -66,7 +66,7 @@ export default function PromptsPage() {
     setEditing(null);
     form.setFieldsValue({
       name: "",
-      content: target === "codex" ? "# Global Instructions\n\n" : "# Project Instructions\n\n",
+      content: target === "claude_code" ? "# Project Instructions\n\n" : "# Global Instructions\n\n",
     });
     setFormOpen(true);
   };
@@ -171,7 +171,7 @@ export default function PromptsPage() {
           value={target}
           onChange={setTarget}
           t={t}
-          targets={["claude_code", "codex"]}
+          targets={["claude_code", "codex", "opencode"]}
         />
 
         <Card
