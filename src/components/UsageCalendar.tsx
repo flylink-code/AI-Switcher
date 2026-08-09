@@ -457,6 +457,7 @@ function HourlyHeatmap({
   const max = Math.max(...hourly.map((item) => item.tokens), 0);
   const activeHours = hourly.filter((item) => item.tokens > 0).length;
   const total = hourly.reduce((sum, item) => sum + item.tokens, 0);
+  const avg = total / keys.length;
 
   return (
     <Space direction="vertical" size={14} style={{ width: "100%" }}>
@@ -485,6 +486,16 @@ function HourlyHeatmap({
           aria-label={t("usage.hourlyStatistics")}
           className="hourly-bars"
         >
+          {max > 0 && avg > 0 ? (
+            <span
+              className="hourly-bars-refline"
+              style={{ bottom: `calc((100% - 14px) * ${(avg / max) * 100} / 100)` }}
+            >
+              <span className="hourly-bars-refline-label">
+                {t("usage.chartAverage")} {formatCompactNumber(avg)}
+              </span>
+            </span>
+          ) : null}
           {hourly.map((item) => {
             const level = intensityLevel(item.tokens, max);
             const isPeak = max > 0 && item.tokens === max;
@@ -594,6 +605,7 @@ function DailyBars({
   const max = Math.max(...daily.map((item) => item.tokens), 0);
   const activeDays = daily.filter((item) => item.tokens > 0).length;
   const total = daily.reduce((sum, item) => sum + item.tokens, 0);
+  const avg = total / days;
   const labelStep = Math.max(1, Math.ceil(days / 12));
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -639,6 +651,16 @@ function DailyBars({
             aria-label={t("usage.dailyStatistics")}
             className="hourly-bars"
           >
+            {max > 0 && avg > 0 ? (
+              <span
+                className="hourly-bars-refline"
+                style={{ bottom: `calc((100% - 14px) * ${(avg / max) * 100} / 100)` }}
+              >
+                <span className="hourly-bars-refline-label">
+                  {t("usage.chartAverage")} {formatCompactNumber(avg)}
+                </span>
+              </span>
+            ) : null}
             {daily.map((item) => {
               const level = intensityLevel(item.tokens, max);
               const isPeak = max > 0 && item.tokens === max;

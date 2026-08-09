@@ -930,3 +930,89 @@ export interface ApplyProfileResult {
   profile: Profile;
   warnings: string[];
 }
+
+// --- Antigravity gateway ---
+
+export interface AntigravityQuotaBucket {
+  bucketId: string;
+  window: string;
+  remainingFraction: number;
+  resetTime: string;
+  displayName?: string | null;
+}
+
+export interface AntigravityQuotaGroup {
+  displayName: string;
+  buckets: AntigravityQuotaBucket[];
+}
+
+export interface AntigravityModelQuota {
+  name: string;
+  percentage: number;
+  resetTime: string;
+  displayName?: string | null;
+}
+
+export interface AntigravityQuotaSnapshot {
+  models: AntigravityModelQuota[];
+  groups: AntigravityQuotaGroup[];
+  lastUpdated: number;
+  isForbidden: boolean;
+  forbiddenReason?: string | null;
+  subscriptionTier?: string | null;
+}
+
+export interface AntigravityAccountPublic {
+  id: string;
+  email: string;
+  name?: string | null;
+  disabled: boolean;
+  disabledReason?: string | null;
+  isActive: boolean;
+  createdAt: number;
+  lastUsed: number;
+  healthScore: number;
+  cooldownUntil?: number | null;
+  remainingQuota?: number | null;
+  hasProjectId: boolean;
+  tokenExpiresAt: number;
+  subscriptionTier?: string | null;
+  quota5hPercent?: number | null;
+  quotaWeeklyPercent?: number | null;
+  quotaGemini5hPercent?: number | null;
+  quotaGeminiWeeklyPercent?: number | null;
+  quotaClaude5hPercent?: number | null;
+  quotaClaudeWeeklyPercent?: number | null;
+  quotaUpdatedAt?: number | null;
+  quotaForbidden?: boolean;
+  quota?: AntigravityQuotaSnapshot | null;
+}
+
+export interface AntigravityGatewayStatus {
+  running: boolean;
+  port: number;
+  apiKey: string;
+  accountCount: number;
+  baseUrl: string;
+  outboundMode?: string;
+  outboundProxyUrl?: string;
+  effectiveOutboundProxy?: string | null;
+}
+
+export interface AntigravityCatalogModel {
+  id: string;
+  displayName?: string | null;
+}
+
+export interface AntigravityDefaults {
+  defaultPort: number;
+  externalPort: number;
+  port: number;
+  baseUrl: string;
+  apiKey: string;
+  running: boolean;
+  models?: AntigravityCatalogModel[];
+  defaultModel?: string;
+  geminiFlash?: string | null;
+  geminiPro?: string | null;
+}

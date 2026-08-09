@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.1**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.2**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -81,6 +81,11 @@ Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Mul
 - **Provider sync**: save/delete/import writes `aisw-<id>` entries; pick models inside OpenCode
 - **Import from local config**: **Update from local config** on Workbench/Providers syncs from `opencode.json(c)` (skips managed entries and Desktop built-in connectors)
 - **Sessions & usage**: scans `opencode.db`; About page detects/updates OpenCode CLI (Node required)
+
+### Workbench & structure (1.3.2)
+
+- Dynamic footer version; shared provider-actions hook; IPC split by domain
+- Workbench provider brand badges; total-token day-over-day; average reference lines on usage bar charts
 
 ### MCP / Prompts / Skills / Agents / Plugins
 

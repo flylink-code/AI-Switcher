@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.1**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.2**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -81,6 +81,11 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **供应商同步**：保存/删除/导入后写入 `aisw-<id>` 段；OpenCode 内直接选模型
 - **从本地导入**：工作台/供应商页「更新本地已有配置」从 `opencode.json(c)` 批量同步（跳过托管项与 Desktop 内置连接器）
 - **会话与用量**：扫描 `opencode.db`；关于页检测/更新 OpenCode CLI（需 Node）
+
+### 工作台与结构（1.3.2）
+
+- Footer 版本号动态读取；供应商操作抽成共用 Hook；IPC 按领域拆分
+- 工作台供应商卡品牌色徽章；用量总 Token 环比；24h/日柱状图均值参考线
 
 ### MCP / Prompts / Skills / Agents / Plugins
 

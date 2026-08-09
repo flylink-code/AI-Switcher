@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
-  App as AntApp,
   Badge,
   Button,
   Card,
@@ -32,6 +31,7 @@ import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmen
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
+import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import {
   managedAppsRuntimeStatusOptions,
@@ -40,26 +40,18 @@ import {
   usageTrendOptions,
 } from "@/lib/appQueries";
 import { useNavigatePage } from "@/lib/navigation";
-import { showCodexSwitchNotice } from "@/lib/codexNotice";
+import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
-import type { ImportPreview, Provider, ProviderInput } from "@/types/backend";
-import {
-  buildProviderDeeplink,
-  confirmImportPreview,
-  exportProviders,
-  getAntigravityGatewayStatus,
-  previewImportText,
-  speedtestProviderEndpoint,
-  testProviderConnection,
-} from "@/services/api";
+import type { Provider } from "@/types/backend";
+import { getAntigravityGatewayStatus } from "@/services/api";
 import { formatCompactNumber } from "@/utils/formatCompact";
+import { localDateKey } from "@/utils/usagePeriod";
 
 const { Text, Title } = Typography;
 
 export default function WorkbenchPage() {
   const { t } = useTranslation();
-  const { message } = AntApp.useApp();
   const navigate = useNavigatePage();
   const store = useProvidersStore();
 
@@ -70,12 +62,26 @@ export default function WorkbenchPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [switchingId, setSwitchingId] = useState<string | null>(null);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const [batchTesting, setBatchTesting] = useState(false);
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
-  const [importConfirming, setImportConfirming] = useState(false);
+  const {
+    busy,
+    switchingId,
+    testingId,
+    batchTesting,
+    importPreview,
+    importConfirming,
+    setImportPreview,
+    handleSubmit,
+    handleSwitch,
+    handleOfficial,
+    handleTest,
+    handleSpeedtestAll,
+    handleShareLink,
+    handleDelete,
+    handleExport,
+    handleImportLive,
+    handleImportClipboard,
+    handleConfirmImport,
+  } = useProviderActions({ target, editing, closeForm: () => setFormOpen(false) });
 
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
 
@@ -108,6 +114,24 @@ export default function WorkbenchPage() {
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
 
+  // Day-over-day token delta: yesterday vs the day before (from the 24h trend rows).
+  const trendByDate = new Map((trendQuery.data?.trend ?? []).map((row) => [row.date, row]));
+  const dayTokens = (offset: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - offset);
+    const row = trendByDate.get(localDateKey(date));
+    return row
+      ? row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens
+      : 0;
+  };
+  const yesterdayTokens = dayTokens(1);
+  const dayBeforeTokens = dayTokens(2);
+  const tokensVsYesterday =
+    yesterdayTokens > 0 && dayBeforeTokens > 0
+      ? Math.round(((yesterdayTokens - dayBeforeTokens) / dayBeforeTokens) * 100)
+      : null;
+
   const openCreate = () => {
     setEditing(null);
     setFormOpen(true);
@@ -116,195 +140,6 @@ export default function WorkbenchPage() {
   const openEdit = (provider: Provider) => {
     setEditing(provider);
     setFormOpen(true);
-  };
-
-  const handleSubmit = async (input: ProviderInput) => {
-    // Do not flip the shared card `busy` flag — that made every Switch button spin.
-    try {
-      if (editing) {
-        await store.update(input);
-        void message.success(t("providers.updated"));
-      } else {
-        await store.create(input);
-        void message.success(t("providers.created"));
-      }
-      setFormOpen(false);
-    } catch (e) {
-      void message.error(errMsg(e));
-      throw e;
-    }
-  };
-
-  const handleSwitch = async (provider: Provider) => {
-    if (!provider.apiKeySet) {
-      void message.warning(t("providers.missingKey"));
-      return;
-    }
-    setSwitchingId(provider.id);
-    try {
-      const result = await store.switchTo(provider.id);
-      void message.success(t("providers.switched", { name: provider.name }));
-      showCodexSwitchNotice(result.codexNotice, message, t);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setSwitchingId(null);
-    }
-  };
-
-  const handleOfficial = async () => {
-    setSwitchingId("official");
-    try {
-      await store.useOfficial();
-      void message.success(t("providers.switchedOfficial"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setSwitchingId(null);
-    }
-  };
-
-  const handleTest = async (provider: Provider) => {
-    setTestingId(provider.id);
-    try {
-      const result = await testProviderConnection(provider.id);
-      const notify = result.ok ? message.success : message.error;
-      void notify(
-        result.latencyMs != null
-          ? `${result.message} · ${t("providers.latencyMs", { ms: result.latencyMs })}`
-          : result.message,
-      );
-      useProvidersStore.setState((state) => ({
-        providers: state.providers.map((item) =>
-          item.id === provider.id
-            ? {
-                ...item,
-                healthStatus: result.ok ? "healthy" : "error",
-                healthCheckedAt: result.checkedAt,
-                healthLatencyMs: result.latencyMs ?? null,
-              }
-            : item,
-        ),
-      }));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setTestingId(null);
-    }
-  };
-
-  const handleSpeedtestAll = async () => {
-    setBatchTesting(true);
-    try {
-      let count = 0;
-      for (const p of store.providers) {
-        try {
-          const res = await speedtestProviderEndpoint(p.id);
-          if (res.ok) count++;
-          useProvidersStore.setState((state) => ({
-            providers: state.providers.map((item) =>
-              item.id === p.id
-                ? {
-                    ...item,
-                    healthLatencyMs: res.latencyMs ?? item.healthLatencyMs ?? null,
-                  }
-                : item,
-            ),
-          }));
-        } catch {
-          // ignore individual errors during batch test
-        }
-      }
-      void message.success(
-        t("providers.speedtestAllDone", {
-          defaultValue: `已完成 ${store.providers.length} 个供应商测速（成功 ${count}）`,
-          total: store.providers.length,
-          ok: count,
-        }),
-      );
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBatchTesting(false);
-    }
-  };
-
-  const handleShareLink = async (provider: Provider) => {
-    try {
-      const link = await buildProviderDeeplink(provider.id);
-      await navigator.clipboard.writeText(link);
-      void message.success(t("deeplink.linkCopied"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    }
-  };
-
-  const handleDelete = async (provider: Provider) => {
-    setBusy(true);
-    try {
-      await store.remove(provider.id);
-      void message.success(t("providers.deleted"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const json = await exportProviders(target);
-      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `claude-switcher-providers-${target}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      void message.error(errMsg(e));
-    }
-  };
-
-  const handleSyncOpenCodeLive = async () => {
-    setBusy(true);
-    try {
-      await store.importLive();
-      void message.success(t("providers.syncOpenCodeLiveDone"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleImportClipboard = async () => {
-    setBusy(true);
-    try {
-      const text = await navigator.clipboard.readText();
-      const preview = await previewImportText(text);
-      setImportPreview(preview);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleConfirmImport = async () => {
-    if (!importPreview) return;
-    setImportConfirming(true);
-    try {
-      const result = await confirmImportPreview(importPreview);
-      void message.success(
-        t("providers.importSummary", { imported: result.imported, skipped: result.skipped }),
-      );
-      setImportPreview(null);
-      await store.load(target);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setImportConfirming(false);
-    }
   };
 
   const importExportItems: MenuProps["items"] = [
@@ -376,7 +211,7 @@ export default function WorkbenchPage() {
             <Button
               icon={<ImportOutlined />}
               loading={busy}
-              onClick={() => void handleSyncOpenCodeLive()}
+              onClick={() => void handleImportLive()}
             >
               {t("providers.syncOpenCodeLive")}
             </Button>
@@ -441,9 +276,7 @@ export default function WorkbenchPage() {
             >
               <div className="cc-provider-card-body">
                 <div className="cc-provider-main">
-                  <div className="cc-provider-icon">
-                    {usageSourceIcon(provider.targetApp, { size: 22 })}
-                  </div>
+                  <ProviderBrandIcon provider={provider} size={42} />
                   <div className="cc-provider-info">
                     <div className="cc-provider-title-row">
                       <span className="cc-provider-name">{provider.name}</span>
@@ -545,6 +378,7 @@ export default function WorkbenchPage() {
             estimatedCost={summary?.estimatedCost ?? 0}
             costCurrency={summary?.estimatedCostCurrency}
             totalTokens={totalTokens}
+            tokensVsYesterday={tokensVsYesterday}
             requestCount={summary?.requestCount ?? 0}
             successfulRequestCount={summary?.successfulRequestCount ?? 0}
           />
@@ -615,12 +449,15 @@ function UsageSummaryGrid({
   estimatedCost,
   costCurrency,
   totalTokens,
+  tokensVsYesterday,
   requestCount,
   successfulRequestCount,
 }: {
   estimatedCost: number;
   costCurrency?: string | null;
   totalTokens: number;
+  /** Day-over-day token change in percent (yesterday vs day before); null when unknown. */
+  tokensVsYesterday?: number | null;
   requestCount: number;
   successfulRequestCount: number;
 }) {
@@ -650,6 +487,16 @@ function UsageSummaryGrid({
           <div className="usage-hero-value usage-value-tokens">
             {formatCompactNumber(totalTokens)}
           </div>
+          {tokensVsYesterday != null && (
+            <div className="usage-hero-sub">
+              {t(
+                tokensVsYesterday >= 0
+                  ? "usage.totalTokensVsYesterdayUp"
+                  : "usage.totalTokensVsYesterdayDown",
+                { pct: Math.abs(tokensVsYesterday) },
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="usage-summary-cell">
@@ -687,8 +534,4 @@ function currencyPrefix(currency?: string | null) {
   if (normalized === "GBP") return "£";
   if (normalized === "USD" || normalized === "") return "$";
   return `${normalized} `;
-}
-
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { App as AntApp, Layout, theme } from "antd";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 import { useAppStore } from "@/stores/appStore";
 import type { PageKey } from "@/lib/pageRegistry";
 import { setAppLanguage } from "@/services/api";
@@ -27,6 +28,11 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
   const language = useAppStore((s) => s.language);
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
 
   useEffect(() => {
     void setAppLanguage(language).catch(() => {
@@ -63,7 +69,7 @@ export function AppLayout({ activeKey, onNavigate, updateVersion, onOpenUpdate, 
           <span>{t("workbench.running", { defaultValue: "运行中" })}</span>
         </div>
         <div className="app-status-footer-right">
-          <span>v1.2.0</span>
+          <span>{appVersion ? `v${appVersion}` : ""}</span>
         </div>
       </footer>
     </div>

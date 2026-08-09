@@ -27,30 +27,19 @@ import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertific
 import FieldTimeOutlined from "@ant-design/icons/es/icons/FieldTimeOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import { useTranslation } from "react-i18next";
-import type {
-  CodexOauthDeviceStart,
-  ImportPreview,
-  Provider,
-  ProviderInput,
-} from "@/types/backend";
+import type { CodexOauthDeviceStart, Provider } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
-import { showCodexSwitchNotice } from "@/lib/codexNotice";
+import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
-  buildProviderDeeplink,
-  confirmImportPreview,
   ensureCodexOauthProvider,
-  exportProviders,
   getCodexAuthStatus,
-  previewImportText,
   pollCodexOauthLogin,
   startCodexOauthLogin,
-  speedtestProviderEndpoint,
-  testProviderConnection,
 } from "@/services/api";
 
 const { Text } = Typography;
@@ -63,12 +52,28 @@ export default function ProvidersPage() {
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
-  const [importConfirming, setImportConfirming] = useState(false);
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
+  const {
+    busy,
+    setBusy,
+    importPreview,
+    importConfirming,
+    setImportPreview,
+    handleSubmit,
+    handleSwitch,
+    handleOfficial,
+    handleTest,
+    handleSpeedtest,
+    handleShareLink,
+    handleDelete,
+    handleExport,
+    handleImportLive,
+    handleImportClipboard,
+    handleImportFile,
+    handleConfirmImport,
+  } = useProviderActions({ target, editing, closeForm: () => setFormOpen(false) });
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
 
   useEffect(() => { void store.load(target); }, [store.load, target]);
@@ -114,195 +119,6 @@ export default function ProvidersPage() {
       setOauthPolling(false);
       setBusy(false);
     }
-  };
-
-  const handleSubmit = async (input: ProviderInput) => {
-    // Keep card actions usable; do not set global `busy` (it freezes every row).
-    try {
-      if (editing) {
-        await store.update(input);
-        void message.success(t("providers.updated"));
-      } else {
-        await store.create(input);
-        void message.success(t("providers.created"));
-      }
-      setFormOpen(false);
-    } catch (e) {
-      void message.error(errMsg(e));
-      throw e;
-    }
-  };
-
-  const handleSwitch = async (provider: Provider) => {
-    if (!provider.apiKeySet) {
-      void message.warning(t("providers.missingKey"));
-      return;
-    }
-    setBusy(true);
-    try {
-      const result = await store.switchTo(provider.id);
-      void message.success(t("providers.switched", { name: provider.name }));
-      void message.info(t("providers.hotSwitchHint"));
-      const sync = result.sessionSync;
-      if (sync) {
-        if (sync.status === "warning") {
-          void message.warning(sync.message);
-        } else if (sync.changedSessionFiles > 0 || sync.sqliteRowsUpdated > 0) {
-          void message.success(
-            t("providers.sessionSyncSummary", {
-              files: sync.changedSessionFiles,
-              rows: sync.sqliteRowsUpdated,
-            }),
-          );
-        }
-      }
-      showCodexSwitchNotice(result.codexNotice, message, t);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally { setBusy(false); }
-  };
-
-  const handleTest = async (provider: Provider) => {
-    setBusy(true);
-    try {
-      const result = await testProviderConnection(provider.id);
-      const notify = result.ok ? message.success : message.error;
-      void notify(
-        result.latencyMs != null
-          ? `${result.message} · ${t("providers.latencyMs", { ms: result.latencyMs })}`
-          : result.message,
-      );
-      useProvidersStore.setState((state) => ({
-        providers: state.providers.map((item) =>
-          item.id === provider.id
-            ? {
-                ...item,
-                healthStatus: result.ok ? "healthy" : "error",
-                healthCheckedAt: result.checkedAt,
-                healthLatencyMs: result.latencyMs ?? null,
-              }
-            : item,
-        ),
-      }));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally { setBusy(false); }
-  };
-
-  const handleSpeedtest = async (provider: Provider) => {
-    setBusy(true);
-    try {
-      const result = await speedtestProviderEndpoint(provider.id);
-      const notify = result.ok ? message.success : message.warning;
-      void notify(result.message);
-      useProvidersStore.setState((state) => ({
-        providers: state.providers.map((item) =>
-          item.id === provider.id
-            ? {
-                ...item,
-                healthLatencyMs: result.latencyMs ?? item.healthLatencyMs ?? null,
-              }
-            : item,
-        ),
-      }));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      const json = await exportProviders(target);
-      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `claude-switcher-providers-${target}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (e) { void message.error(errMsg(e)); }
-  };
-
-  const handleImportFile = async (file: File) => {
-    setBusy(true);
-    try {
-      const preview = await previewImportText(await file.text());
-      setImportPreview(preview);
-    } catch (e) { void message.error(errMsg(e)); }
-    finally { setBusy(false); }
-  };
-
-  const handleImportClipboard = async () => {
-    setBusy(true);
-    try {
-      const text = await navigator.clipboard.readText();
-      const preview = await previewImportText(text);
-      setImportPreview(preview);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleConfirmImport = async () => {
-    if (!importPreview) return;
-    setImportConfirming(true);
-    try {
-      const result = await confirmImportPreview(importPreview);
-      void message.success(
-        t("providers.importSummary", { imported: result.imported, skipped: result.skipped }),
-      );
-      setImportPreview(null);
-      await store.load(target);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setImportConfirming(false);
-    }
-  };
-
-  const handleShareLink = async (provider: Provider) => {
-    try {
-      const link = await buildProviderDeeplink(provider.id);
-      await navigator.clipboard.writeText(link);
-      void message.success(t("deeplink.linkCopied"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    }
-  };
-
-  const handleOfficial = async () => {
-    setBusy(true);
-    try {
-      await store.useOfficial();
-      void message.success(t("providers.switchedOfficial"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally { setBusy(false); }
-  };
-
-  const handleDelete = async (provider: Provider) => {
-    setBusy(true);
-    try {
-      await store.remove(provider.id);
-      void message.success(t("providers.deleted"));
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally { setBusy(false); }
-  };
-
-  const handleImport = async () => {
-    setBusy(true);
-    try {
-      await store.importLive();
-      void message.success(
-        target === "opencode" ? t("providers.syncOpenCodeLiveDone") : t("providers.imported"),
-      );
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally { setBusy(false); }
   };
 
   const columns: TableColumnsType<Provider> = [
@@ -444,7 +260,7 @@ export default function ProvidersPage() {
               {t("providers.chatgptLogin")}
             </Button>
           )}
-          <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
+          <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={() => void handleImportLive()}>
             {target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive")}
           </Button>
           <Button type="text" size="small" loading={busy} onClick={() => void handleExport()}>
@@ -606,5 +422,3 @@ export default function ProvidersPage() {
     </Modal>
   </Space>;
 }
-
-function errMsg(e: unknown): string { return e instanceof Error ? e.message : String(e); }
