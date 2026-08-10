@@ -4,7 +4,6 @@ import {
   Card,
   Input,
   InputNumber,
-  Paragraph,
   Select,
   Space,
   Tag,
@@ -18,7 +17,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useTranslation } from "react-i18next";
 import type { AntigravityGatewayStatus, CatalogModel } from "@/services/api";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface GatewayCardProps {
   status?: AntigravityGatewayStatus;

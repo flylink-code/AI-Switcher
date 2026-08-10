@@ -1,6 +1,7 @@
 //! Protocol mappers: Anthropic / OpenAI chat / Responses → Gemini → wire formats.
 
 pub mod anthropic;
+pub mod args_fix;
 pub mod models;
 pub mod openai;
 pub mod responses;

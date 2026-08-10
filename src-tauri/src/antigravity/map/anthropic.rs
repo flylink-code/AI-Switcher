@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use super::args_fix::{correct_tool_args, param_keys_from_declarations, ToolParamKeys};
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
 use crate::antigravity::thought_sig;
@@ -11,6 +12,9 @@ pub struct GeminiRequestParts {
     pub model: String,
     pub request: Value,
     pub stream: bool,
+    /// 本次请求的工具声明参数键名（工具名 → 已声明参数），响应侧用于
+    /// 纠偏模型拼错的 args key（如 `-n` 被归一成 `n`）。
+    pub tool_params: ToolParamKeys,
     /// Explicit effort/suffix/`thinking.disabled` to remember for the session.
     pub remember_effort: Option<&'static str>,
     /// 客户端开启了 thinking（enabled/adaptive 或显式 effort）→ 请求
@@ -175,6 +179,7 @@ pub fn anthropic_to_gemini_request(
         request["generationConfig"] = generation;
     }
 
+    let mut tool_params = ToolParamKeys::new();
     if let Some(tools) = body.get("tools").and_then(Value::as_array) {
         let declarations: Vec<Value> = tools
             .iter()
@@ -193,6 +198,7 @@ pub fn anthropic_to_gemini_request(
             })
             .collect();
         if !declarations.is_empty() {
+            tool_params = param_keys_from_declarations(&declarations);
             request["tools"] = json!([{ "functionDeclarations": declarations }]);
             // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects many
             // Desktop tool schemas and can fail streamGenerateContent.
@@ -206,6 +212,7 @@ pub fn anthropic_to_gemini_request(
         model,
         request,
         stream,
+        tool_params,
         remember_effort,
         thoughts_allowed,
     })
@@ -572,8 +579,9 @@ pub fn gemini_to_anthropic_response(
     gemini: &Value,
     session_key: Option<&str>,
     thoughts_allowed: bool,
+    tool_params: &ToolParamKeys,
 ) -> Value {
-    let assistant = extract_assistant(gemini, session_key, thoughts_allowed);
+    let assistant = extract_assistant(gemini, session_key, thoughts_allowed, tool_params);
     let mut content = Vec::new();
     // thinking blocks 必须在 text/tool_use 之前（Anthropic 协议要求）。
     if !assistant.thought_text.is_empty() {
@@ -707,6 +715,7 @@ pub fn gemini_to_anthropic_sse_chunk(
     gemini_chunk: &Value,
     session_key: Option<&str>,
     thoughts_allowed: bool,
+    tool_params: &ToolParamKeys,
 ) -> Vec<Value> {
     let mut events = Vec::new();
     if state.closed {
@@ -716,7 +725,7 @@ pub fn gemini_to_anthropic_sse_chunk(
         state.started = true;
         events.push(anthropic_sse_message_start(model));
     }
-    let assistant = extract_assistant(gemini_chunk, session_key, thoughts_allowed);
+    let assistant = extract_assistant(gemini_chunk, session_key, thoughts_allowed, tool_params);
 
     if !assistant.thought_text.is_empty() {
         let index = state.open_block_if_needed(BlockKind::Thinking, &mut events);
@@ -821,6 +830,7 @@ fn extract_assistant(
     gemini: &Value,
     session_key: Option<&str>,
     thoughts_allowed: bool,
+    tool_params: &ToolParamKeys,
 ) -> AssistantContent {
     let mut content = AssistantContent {
         thought_text: String::new(),
@@ -882,11 +892,17 @@ fn extract_assistant(
                             thought_sig::cache_session_signature(session, sig);
                         }
                     }
+                    let name = fc.get("name").cloned().unwrap_or(json!("tool"));
+                    let args = correct_tool_args(
+                        name.as_str().unwrap_or("tool"),
+                        fc.get("args").cloned().unwrap_or(json!({})),
+                        tool_params,
+                    );
                     content.tools.push(json!({
                         "type": "tool_use",
                         "id": id,
-                        "name": fc.get("name").cloned().unwrap_or(json!("tool")),
-                        "input": fc.get("args").cloned().unwrap_or(json!({})),
+                        "name": name,
+                        "input": args,
                     }));
                 }
             }
@@ -923,6 +939,10 @@ mod tests {
     use super::*;
 
     // 注意：缓存是全局共享的，并行测试必须用互不相同的 id/session，勿 clear_all。
+
+    fn no_params() -> ToolParamKeys {
+        ToolParamKeys::new()
+    }
 
     #[test]
     fn gemini_history_tool_use_gets_sentinel_signature_without_cache() {
@@ -967,6 +987,7 @@ mod tests {
             &chunk,
             Some("sess-capture-9"),
             true,
+            &no_params(),
         );
         assert!(events.iter().any(|e| e["type"] == "content_block_start"));
         assert_eq!(
@@ -1079,8 +1100,13 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let response =
-            gemini_to_anthropic_response("gemini-3.6-flash-low", &gemini, Some("sess-cls-1"), false);
+        let response = gemini_to_anthropic_response(
+            "gemini-3.6-flash-low",
+            &gemini,
+            Some("sess-cls-1"),
+            false,
+            &no_params(),
+        );
         let content = response["content"].as_array().unwrap();
         // 无 thinking 块，纯文本；签名仍进会话缓存。
         assert!(content.iter().all(|b| b["type"] != "thinking"));
@@ -1097,9 +1123,58 @@ mod tests {
                 { "thought": true, "text": "内部推理" }
             ] } }]
         });
-        let events =
-            gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-low", &chunk, None, false);
+        let events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-low",
+            &chunk,
+            None,
+            false,
+            &no_params(),
+        );
         assert!(events.iter().all(|e| e["delta"]["type"] != "thinking_delta"));
+    }
+
+    #[test]
+    fn tool_use_input_args_are_corrected_against_declarations() {
+        // 请求侧声明了带连字符的 `-n`；上游把 args key 归一成 `n` → 响应侧改回。
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [{ "role": "user", "content": "grep it" }],
+            "tools": [{
+                "name": "Grep",
+                "description": "search",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "pattern": { "type": "string" },
+                        "-n": { "type": "boolean" }
+                    }
+                }
+            }]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "functionCall": { "id": "toolu_fix_1", "name": "Grep",
+                        "args": { "pattern": "antigravity", "n": true } } }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response = gemini_to_anthropic_response(
+            "gemini-3.6-flash",
+            &gemini,
+            None,
+            false,
+            &parts.tool_params,
+        );
+        let tool = &response["content"][0];
+        assert_eq!(tool["type"], "tool_use");
+        assert_eq!(tool["input"]["-n"], json!(true));
+        assert!(tool["input"].get("n").is_none());
+        assert_eq!(tool["input"]["pattern"], json!("antigravity"));
     }
 
     #[test]
@@ -1122,7 +1197,7 @@ mod tests {
             }]
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
         assert!(events.iter().any(|event| event["type"] == "message_start"));
         assert!(events
             .iter()
@@ -1141,7 +1216,7 @@ mod tests {
             "usageMetadata": { "candidatesTokenCount": 1 }
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
         let stops = events
             .iter()
             .filter(|event| event["type"] == "message_stop")
@@ -1150,7 +1225,7 @@ mod tests {
         assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
         assert!(state.is_closed());
         // closed 之后不再产出事件；finish_events 幂等。
-        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true)
+        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params())
             .is_empty());
         assert!(state.finish_events("gemini-3.6-flash-high", 1).is_empty());
     }
@@ -1166,8 +1241,13 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let response =
-            gemini_to_anthropic_response("gemini-3.6-flash-high", &gemini, Some("sess-nonstream"), true);
+        let response = gemini_to_anthropic_response(
+            "gemini-3.6-flash-high",
+            &gemini,
+            Some("sess-nonstream"),
+            true,
+            &no_params(),
+        );
         let content = response["content"].as_array().unwrap();
         assert_eq!(content[0]["type"], "thinking");
         assert_eq!(content[0]["thinking"], "先看一下文件");
@@ -1185,7 +1265,7 @@ mod tests {
                 { "thought": true, "text": "打算先读配置" }
             ] } }]
         });
-        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None, true);
+        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None, true, &no_params());
         let start = e1
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1200,7 +1280,7 @@ mod tests {
                 { "thought": true, "thoughtSignature": "sig-stream-2" }
             ] } }]
         });
-        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None, true);
+        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None, true, &no_params());
         assert!(e2.iter().any(|e| e["delta"]["type"] == "signature_delta"
             && e["delta"]["signature"] == "sig-stream-2"));
         assert!(e2
@@ -1215,7 +1295,7 @@ mod tests {
             }],
             "usageMetadata": { "candidatesTokenCount": 2 }
         });
-        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None, true);
+        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None, true, &no_params());
         let text_start = e3
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1239,7 +1319,7 @@ mod tests {
                 { "thought": true, "text": "半截思考" }
             ] } }]
         });
-        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
+        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
         let events = state.finish_events("gemini-3.6-flash-high", 3);
         assert!(events
             .iter()

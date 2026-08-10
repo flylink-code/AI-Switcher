@@ -19,6 +19,7 @@ use crate::antigravity::map::anthropic::{
     anthropic_to_gemini_request, effort_mapping_diagnostic, gemini_to_anthropic_response,
     gemini_to_anthropic_sse_chunk, AnthropicStreamState,
 };
+use crate::antigravity::map::args_fix::ToolParamKeys;
 use crate::antigravity::map::openai::{
     gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
 };
@@ -84,6 +85,7 @@ pub async fn anthropic_messages(
         WireProtocol::Anthropic,
         Some(diagnostic),
         mapped.thoughts_allowed,
+        mapped.tool_params,
     )
     .await
 }
@@ -113,6 +115,7 @@ pub async fn openai_chat_completions(
         WireProtocol::OpenAiChat,
         None,
         false,
+        mapped.tool_params,
     )
     .await
 }
@@ -142,6 +145,7 @@ pub async fn openai_responses(
         WireProtocol::OpenAiResponses,
         None,
         false,
+        mapped.tool_params,
     )
     .await
 }
@@ -194,6 +198,7 @@ async fn dispatch_generation(
     protocol: WireProtocol,
     diagnostic: Option<String>,
     thoughts_allowed: bool,
+    tool_params: ToolParamKeys,
 ) -> Response {
     let started = Instant::now();
     let session_key = session_key_from_headers(headers);
@@ -336,6 +341,7 @@ async fn dispatch_generation(
                 Some(account.id.clone()),
                 session_key.clone(),
                 thoughts_allowed,
+                tool_params,
             )
             .await;
         }
@@ -352,14 +358,17 @@ async fn dispatch_generation(
                             &gemini,
                             session_key.as_deref(),
                             thoughts_allowed,
+                            &tool_params,
                         ))
                         .into_response()
                     }
                     WireProtocol::OpenAiChat => {
-                        Json(gemini_to_openai_response(&model, &gemini)).into_response()
+                        Json(gemini_to_openai_response(&model, &gemini, &tool_params))
+                            .into_response()
                     }
                     WireProtocol::OpenAiResponses => {
-                        Json(gemini_to_responses_response(&model, &gemini)).into_response()
+                        Json(gemini_to_responses_response(&model, &gemini, &tool_params))
+                            .into_response()
                     }
                 }
             }
@@ -412,10 +421,11 @@ async fn stream_response(
     account_id: Option<String>,
     session_key: Option<String>,
     thoughts_allowed: bool,
+    tool_params: ToolParamKeys,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
-        .then(|| ResponsesStreamEncoder::new(&model));
+        .then(|| ResponsesStreamEncoder::new(&model, tool_params.clone()));
     let stream = futures_util::stream::unfold(
         StreamState {
             upstream: byte_stream,
@@ -430,6 +440,7 @@ async fn stream_response(
             account_id,
             session_key,
             thoughts_allowed,
+            tool_params,
             last_input: 0,
             last_output: 0,
             responses_encoder,
@@ -503,6 +514,8 @@ struct StreamState {
     account_id: Option<String>,
     session_key: Option<String>,
     thoughts_allowed: bool,
+    /// 本次请求的工具声明参数键名，响应映射时纠偏 args key。
+    tool_params: ToolParamKeys,
     last_input: i64,
     last_output: i64,
     responses_encoder: Option<ResponsesStreamEncoder>,
@@ -562,6 +575,7 @@ impl StreamState {
                     &gemini,
                     session.as_deref(),
                     self.thoughts_allowed,
+                    &self.tool_params,
                 );
                 self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
@@ -574,7 +588,11 @@ impl StreamState {
                     Some(Bytes::from(out))
                 }
             }
-            WireProtocol::OpenAiChat => Some(sse_data(&gemini_to_openai_sse_chunk(&self.model, &gemini))),
+            WireProtocol::OpenAiChat => Some(sse_data(&gemini_to_openai_sse_chunk(
+                &self.model,
+                &gemini,
+                &self.tool_params,
+            ))),
             WireProtocol::OpenAiResponses => {
                 let Some(encoder) = self.responses_encoder.as_mut() else {
                     return None;

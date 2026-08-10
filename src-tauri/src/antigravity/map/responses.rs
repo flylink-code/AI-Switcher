@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use super::args_fix::{correct_tool_args, ToolParamKeys};
 use super::openai::{openai_to_gemini_request, GeminiRequestParts};
 
 /// Convert an OpenAI Responses request into Gemini generateContent parts.
@@ -294,8 +295,8 @@ fn responses_tool_to_chat(tool: &Value) -> Option<Value> {
 }
 
 /// Non-streaming Gemini → Responses JSON.
-pub fn gemini_to_responses_response(model: &str, gemini: &Value) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini);
+pub fn gemini_to_responses_response(model: &str, gemini: &Value, tool_params: &ToolParamKeys) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini, tool_params);
     let mut output = Vec::new();
     if !text.is_empty() {
         output.push(json!({
@@ -337,7 +338,7 @@ pub fn gemini_to_responses_response(model: &str, gemini: &Value) -> Value {
     body
 }
 
-fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
+fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Vec<Value>, String) {
     let mut text = String::new();
     let mut tool_calls = Vec::new();
     let mut finish_reason = "stop".to_string();
@@ -365,13 +366,18 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
-                    let args = fc.get("args").cloned().unwrap_or(json!({}));
+                    let name = fc.get("name").cloned().unwrap_or(json!("tool"));
+                    let args = correct_tool_args(
+                        name.as_str().unwrap_or("tool"),
+                        fc.get("args").cloned().unwrap_or(json!({})),
+                        tool_params,
+                    );
                     tool_calls.push(json!({
                         "id": id,
                         "index": index,
                         "type": "function",
                         "function": {
-                            "name": fc.get("name").cloned().unwrap_or(json!("tool")),
+                            "name": name,
                             "arguments": args.to_string(),
                         }
                     }));
@@ -426,10 +432,12 @@ pub struct ResponsesStreamEncoder {
     sequence: u64,
     /// Completed function_call items for the final `response.completed.output`.
     function_outputs: Vec<Value>,
+    /// 本次请求的工具声明参数键名，用于纠偏 args key。
+    tool_params: ToolParamKeys,
 }
 
 impl ResponsesStreamEncoder {
-    pub fn new(model: &str) -> Self {
+    pub fn new(model: &str, tool_params: ToolParamKeys) -> Self {
         let response_id = format!("resp_{}", Uuid::new_v4().simple());
         Self {
             model: model.to_string(),
@@ -445,6 +453,7 @@ impl ResponsesStreamEncoder {
             full_text: String::new(),
             sequence: 0,
             function_outputs: Vec::new(),
+            tool_params,
         }
     }
 
@@ -461,7 +470,7 @@ impl ResponsesStreamEncoder {
         let mut out = String::new();
         self.ensure_started(&mut out);
         self.note_usage(gemini);
-        let (text, tool_calls, finish_reason) = extract_assistant(gemini);
+        let (text, tool_calls, finish_reason) = extract_assistant(gemini, &self.tool_params);
         if finish_reason == "length" {
             self.status = "incomplete".into();
         }
@@ -886,7 +895,7 @@ mod tests {
 
     #[test]
     fn stream_encoder_emits_created_and_completed() {
-        let mut enc = ResponsesStreamEncoder::new("gemini-3.6-flash-high");
+        let mut enc = ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new());
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "hello" }] },

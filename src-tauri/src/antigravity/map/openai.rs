@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use super::args_fix::{correct_tool_args, param_keys_from_declarations, ToolParamKeys};
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
 
@@ -10,6 +11,8 @@ pub struct GeminiRequestParts {
     pub model: String,
     pub request: Value,
     pub stream: bool,
+    /// 本次请求的工具声明参数键名，响应侧用于纠偏模型拼错的 args key。
+    pub tool_params: ToolParamKeys,
 }
 
 pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
@@ -180,6 +183,7 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
         request["generationConfig"] = generation;
     }
 
+    let mut tool_params = ToolParamKeys::new();
     if let Some(tools) = body.get("tools").and_then(Value::as_array) {
         let declarations: Vec<Value> = tools
             .iter()
@@ -200,6 +204,7 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
             })
             .collect();
         if !declarations.is_empty() {
+            tool_params = param_keys_from_declarations(&declarations);
             request["tools"] = json!([{ "functionDeclarations": declarations }]);
             // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects
             // many real-world tool schemas and can fail streamGenerateContent.
@@ -213,6 +218,7 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
         model,
         request,
         stream,
+        tool_params,
     })
 }
 
@@ -293,8 +299,8 @@ fn parse_data_url(url: &str) -> Option<(String, String)> {
     Some((mime, data.to_string()))
 }
 
-pub fn gemini_to_openai_response(model: &str, gemini: &Value) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini);
+pub fn gemini_to_openai_response(model: &str, gemini: &Value, tool_params: &ToolParamKeys) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini, tool_params);
     let mut message = json!({
         "role": "assistant",
         "content": text,
@@ -318,8 +324,12 @@ pub fn gemini_to_openai_response(model: &str, gemini: &Value) -> Value {
     })
 }
 
-pub fn gemini_to_openai_sse_chunk(model: &str, gemini_chunk: &Value) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk);
+pub fn gemini_to_openai_sse_chunk(
+    model: &str,
+    gemini_chunk: &Value,
+    tool_params: &ToolParamKeys,
+) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk, tool_params);
     let mut delta = json!({ "role": "assistant" });
     if !text.is_empty() {
         delta["content"] = json!(text);
@@ -340,7 +350,7 @@ pub fn gemini_to_openai_sse_chunk(model: &str, gemini_chunk: &Value) -> Value {
     })
 }
 
-fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
+fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Vec<Value>, String) {
     let mut text = String::new();
     let mut tool_calls = Vec::new();
     let mut finish_reason = "stop".to_string();
@@ -365,13 +375,18 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, String) {
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
-                    let args = fc.get("args").cloned().unwrap_or(json!({}));
+                    let name = fc.get("name").cloned().unwrap_or(json!("tool"));
+                    let args = correct_tool_args(
+                        name.as_str().unwrap_or("tool"),
+                        fc.get("args").cloned().unwrap_or(json!({})),
+                        tool_params,
+                    );
                     tool_calls.push(json!({
                         "id": id,
                         "index": index,
                         "type": "function",
                         "function": {
-                            "name": fc.get("name").cloned().unwrap_or(json!("tool")),
+                            "name": name,
                             "arguments": args.to_string(),
                         }
                     }));
@@ -481,5 +496,42 @@ mod tests {
             claude.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("low")
         );
+    }
+
+    #[test]
+    fn tool_call_arguments_are_corrected_against_declarations() {
+        let body = json!({
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "grep it"}],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "Grep",
+                    "parameters": { "type": "object", "properties": {
+                        "pattern": { "type": "string" },
+                        "-n": { "type": "boolean" }
+                    } }
+                }
+            }]
+        });
+        let parts = openai_to_gemini_request(&body).unwrap();
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "functionCall": { "id": "call_fix_1", "name": "Grep",
+                        "args": { "pattern": "x", "n": true } } }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response = gemini_to_openai_response("gpt-4o", &gemini, &parts.tool_params);
+        let args: Value = serde_json::from_str(
+            response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(args["-n"], json!(true));
+        assert!(args.get("n").is_none());
     }
 }
