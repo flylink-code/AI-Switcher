@@ -32,6 +32,7 @@ import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented"
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
+import { FloatingViewSwitcher } from "@/components/FloatingViewSwitcher";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import {
   managedAppsRuntimeStatusOptions,
@@ -57,6 +58,7 @@ export default function WorkbenchPage() {
 
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const workbenchView = usePagePreferencesStore((state) => state.workbenchView);
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
   const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
 
@@ -177,255 +179,262 @@ export default function WorkbenchPage() {
 
   return (
     <div className="cc-workbench-container">
-      {/* CC Switch Header: Target Switcher & Actions */}
-      <div className="cc-workbench-header">
-        <div className="cc-header-left">
-          <WorkspaceTargetSegmented value={target} onChange={setTarget} t={t} />
-          <Badge
-            status={isAppRunning ? "success" : "default"}
-            text={isAppRunning ? t("workbench.running") : t("workbench.stopped")}
-          />
-          <Tag
-            icon={<NodeIndexOutlined />}
-            color={target === "opencode" ? "blue" : proxy?.running ? "green" : undefined}
-            style={{ cursor: "pointer", margin: 0 }}
-            onClick={() => navigate("proxy")}
-          >
-            {target === "opencode"
-              ? t("workbench.proxyDirect")
-              : proxy?.running ? t("workbench.proxyRunning", { port: proxy.port }) : t("workbench.proxyStopped")}
-          </Tag>
-          <Tag
-            color={antigravity?.running ? "purple" : undefined}
-            style={{ cursor: "pointer", margin: 0 }}
-            onClick={() => navigate("antigravity")}
-          >
-            {antigravity?.running
-              ? t("workbench.antigravityRunning", { port: antigravity.port })
-              : t("workbench.antigravityStopped")}
-          </Tag>
-        </div>
-        <div className="cc-header-right">
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t("providers.create")}
-          </Button>
-          {target === "opencode" && (
-            <Button
-              icon={<ImportOutlined />}
-              loading={busy}
-              onClick={() => void handleImportLive()}
-            >
-              {t("providers.syncOpenCodeLive")}
-            </Button>
-          )}
-          <Button
-            icon={<ThunderboltOutlined />}
-            loading={batchTesting}
-            onClick={() => void handleSpeedtestAll()}
-          >
-            {t("providers.speedtestAll")}
-          </Button>
-          <Dropdown menu={{ items: importExportItems }}>
-            <Button icon={<ImportOutlined />}>
-              {t("providers.importExport")}
-            </Button>
-          </Dropdown>
-        </div>
-      </div>
-
-      {/* Main CC Switch Provider Card List */}
-      <div className="cc-provider-list">
-        {/* Official Provider Card — OpenCode 多供应商并存，无需官方/切换 */}
-        {target !== "opencode" && (
-        <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
-          <div className="cc-provider-card-body">
-            <div className="cc-provider-main">
-              <div className="cc-provider-icon">
-                {usageSourceIcon(target, { size: 22 })}
-              </div>
-              <div className="cc-provider-info">
-                <div className="cc-provider-title-row">
-                  <span className="cc-provider-name">{t("providers.officialMode")}</span>
-                  {officialCurrent && (
-                    <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
-                      {t("providers.current")}
-                    </Tag>
-                  )}
-                </div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
-                </Text>
-              </div>
+      {workbenchView === "providers" ? (
+        <>
+          {/* CC Switch Header: Target Switcher & Actions */}
+          <div className="cc-workbench-header">
+            <div className="cc-header-left">
+              <WorkspaceTargetSegmented value={target} onChange={setTarget} t={t} />
+              <Badge
+                status={isAppRunning ? "success" : "default"}
+                text={isAppRunning ? t("workbench.running") : t("workbench.stopped")}
+              />
+              <Tag
+                icon={<NodeIndexOutlined />}
+                color={target === "opencode" ? "blue" : proxy?.running ? "green" : undefined}
+                style={{ cursor: "pointer", margin: 0 }}
+                onClick={() => navigate("proxy")}
+              >
+                {target === "opencode"
+                  ? t("workbench.proxyDirect")
+                  : proxy?.running ? t("workbench.proxyRunning", { port: proxy.port }) : t("workbench.proxyStopped")}
+              </Tag>
+              <Tag
+                color={antigravity?.running ? "purple" : undefined}
+                style={{ cursor: "pointer", margin: 0 }}
+                onClick={() => navigate("antigravity")}
+              >
+                {antigravity?.running
+                  ? t("workbench.antigravityRunning", { port: antigravity.port })
+                  : t("workbench.antigravityStopped")}
+              </Tag>
             </div>
-            <div className="cc-provider-actions">
-              {!officialCurrent && (
-                <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={switchingId === "official"} onClick={() => void handleOfficial()}>
-                  {t("providers.switchTo")}
+            <div className="cc-header-right">
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                {t("providers.create")}
+              </Button>
+              {target === "opencode" && (
+                <Button
+                  icon={<ImportOutlined />}
+                  loading={busy}
+                  onClick={() => void handleImportLive()}
+                >
+                  {t("providers.syncOpenCodeLive")}
                 </Button>
               )}
+              <Button
+                icon={<ThunderboltOutlined />}
+                loading={batchTesting}
+                onClick={() => void handleSpeedtestAll()}
+              >
+                {t("providers.speedtestAll")}
+              </Button>
+              <Dropdown menu={{ items: importExportItems }}>
+                <Button icon={<ImportOutlined />}>
+                  {t("providers.importExport")}
+                </Button>
+              </Dropdown>
             </div>
           </div>
-        </div>
-        )}
 
-        {/* Custom Provider Cards */}
-        {store.providers.map((provider) => {
-          const isCurrent = provider.isCurrent;
-          return (
-            <div
-              key={provider.id}
-              className={`cc-provider-card ${target !== "opencode" && isCurrent ? "cc-provider-card-active" : ""}`}
-            >
+          {/* Main CC Switch Provider Card List */}
+          <div className="cc-provider-list">
+            {/* Official Provider Card — OpenCode 多供应商并存，无需官方/切换 */}
+            {target !== "opencode" && (
+            <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
               <div className="cc-provider-card-body">
                 <div className="cc-provider-main">
-                  <ProviderBrandIcon provider={provider} size={42} />
+                  <div className="cc-provider-icon">
+                    {usageSourceIcon(target, { size: 22 })}
+                  </div>
                   <div className="cc-provider-info">
                     <div className="cc-provider-title-row">
-                      <span className="cc-provider-name">{provider.name}</span>
-                      {target !== "opencode" && isCurrent && (
+                      <span className="cc-provider-name">{t("providers.officialMode")}</span>
+                      {officialCurrent && (
                         <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
                           {t("providers.current")}
                         </Tag>
                       )}
-                      {provider.healthStatus && provider.healthLatencyMs != null && (
-                        <Tag
-                          color={provider.healthStatus === "healthy" ? "success" : "error"}
-                          style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
-                        >
-                          {provider.healthLatencyMs}ms
-                        </Tag>
-                      )}
                     </div>
-                    <div className="cc-provider-meta">
-                      <Text type="secondary">{provider.model}</Text>
-                      <Text type="secondary" ellipsis style={{ maxWidth: 280 }}>
-                        {provider.baseUrl}
-                      </Text>
-                      <Tag color={provider.protocolType === "anthropic" ? "processing" : "warning"} style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
-                        {provider.protocolType}
-                      </Tag>
-                    </div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
+                    </Text>
                   </div>
                 </div>
                 <div className="cc-provider-actions">
-                  {target !== "opencode" && !isCurrent && (
-                    <Button
-                      type="primary"
-                      size="middle"
-                      style={{ borderRadius: 8 }}
-                      loading={switchingId === provider.id}
-                      onClick={() => void handleSwitch(provider)}
-                    >
+                  {!officialCurrent && (
+                    <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={switchingId === "official"} onClick={() => void handleOfficial()}>
                       {t("providers.switchTo")}
                     </Button>
                   )}
-                  <Space size={4}>
-                    <Tooltip title={t("providers.testConnection")}>
-                      <Button
-                        size="middle"
-                        type="text"
-                        loading={testingId === provider.id}
-                        icon={<ThunderboltOutlined />}
-                        onClick={() => void handleTest(provider)}
-                      />
-                    </Tooltip>
-                    <Tooltip title={t("common.edit")}>
-                      <Button
-                        size="middle"
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={() => openEdit(provider)}
-                      />
-                    </Tooltip>
-                    <Tooltip title={t("deeplink.copyLink")}>
-                      <Button
-                        size="middle"
-                        type="text"
-                        icon={<CopyOutlined />}
-                        onClick={() => void handleShareLink(provider)}
-                      />
-                    </Tooltip>
-                    <Popconfirm
-                      title={t("providers.deleteConfirmTitle")}
-                      description={t("providers.deleteConfirmDesc")}
-                      onConfirm={() => void handleDelete(provider)}
-                      okText={t("common.delete")}
-                      cancelText={t("common.cancel")}
-                    >
-                      <Tooltip title={t("common.delete")}>
-                        <Button size="middle" type="text" danger icon={<DeleteOutlined />} />
-                      </Tooltip>
-                    </Popconfirm>
-                  </Space>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Bottom Section: Usage Analytics */}
-      <div className="workbench-usage-section">
-        <div className="workbench-section-header">
-          <Title level={5} style={{ margin: 0 }}>
-            {t("workbench.usageSection")}
-          </Title>
-          {sourceFilterToolbar}
-        </div>
-
-        {dashboardQuery.error ? (
-          <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
-        ) : (
-          <UsageSummaryGrid
-            estimatedCost={summary?.estimatedCost ?? 0}
-            costCurrency={summary?.estimatedCostCurrency}
-            totalTokens={totalTokens}
-            tokensVsYesterday={tokensVsYesterday}
-            requestCount={summary?.requestCount ?? 0}
-            successfulRequestCount={summary?.successfulRequestCount ?? 0}
-          />
-        )}
-
-        <div className="workbench-charts-grid">
-          <Card
-            size="small"
-            className="page-surface workbench-chart-card"
-            title={
-              <Space>
-                <CalendarOutlined />
-                {t("workbench.yearlyHeatmap")}
-              </Space>
-            }
-          >
-            {yearTrendQuery.error ? (
-              <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
-            ) : (
-              <UsageCalendar
-                data={yearTrendQuery.data?.trend ?? []}
-                period={365}
-                compact
-              />
             )}
-          </Card>
 
-          <Card
-            size="small"
-            className="page-surface workbench-chart-card"
-            title={
-              <Space>
-                <BarChartOutlined />
-                {t("usage.hourlyStatistics")}
-              </Space>
-            }
-          >
-            {trendQuery.error ? (
-              <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
-            ) : (
-              <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
-            )}
-          </Card>
+            {/* Custom Provider Cards */}
+            {store.providers.map((provider) => {
+              const isCurrent = provider.isCurrent;
+              return (
+                <div
+                  key={provider.id}
+                  className={`cc-provider-card ${target !== "opencode" && isCurrent ? "cc-provider-card-active" : ""}`}
+                >
+                  <div className="cc-provider-card-body">
+                    <div className="cc-provider-main">
+                      <ProviderBrandIcon provider={provider} size={42} />
+                      <div className="cc-provider-info">
+                        <div className="cc-provider-title-row">
+                          <span className="cc-provider-name">{provider.name}</span>
+                          {target !== "opencode" && isCurrent && (
+                            <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
+                              {t("providers.current")}
+                            </Tag>
+                          )}
+                          {provider.healthStatus && provider.healthLatencyMs != null && (
+                            <Tag
+                              color={provider.healthStatus === "healthy" ? "success" : "error"}
+                              style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
+                            >
+                              {provider.healthLatencyMs}ms
+                            </Tag>
+                          )}
+                        </div>
+                        <div className="cc-provider-meta">
+                          <Text type="secondary">{provider.model}</Text>
+                          <Text type="secondary" ellipsis style={{ maxWidth: 280 }}>
+                            {provider.baseUrl}
+                          </Text>
+                          <Tag color={provider.protocolType === "anthropic" ? "processing" : "warning"} style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
+                            {provider.protocolType}
+                          </Tag>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="cc-provider-actions">
+                      {target !== "opencode" && !isCurrent && (
+                        <Button
+                          type="primary"
+                          size="middle"
+                          style={{ borderRadius: 8 }}
+                          loading={switchingId === provider.id}
+                          onClick={() => void handleSwitch(provider)}
+                        >
+                          {t("providers.switchTo")}
+                        </Button>
+                      )}
+                      <Space size={4}>
+                        <Tooltip title={t("providers.testConnection")}>
+                          <Button
+                            size="middle"
+                            type="text"
+                            loading={testingId === provider.id}
+                            icon={<ThunderboltOutlined />}
+                            onClick={() => void handleTest(provider)}
+                          />
+                        </Tooltip>
+                        <Tooltip title={t("common.edit")}>
+                          <Button
+                            size="middle"
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={() => openEdit(provider)}
+                          />
+                        </Tooltip>
+                        <Tooltip title={t("deeplink.copyLink")}>
+                          <Button
+                            size="middle"
+                            type="text"
+                            icon={<CopyOutlined />}
+                            onClick={() => void handleShareLink(provider)}
+                          />
+                        </Tooltip>
+                        <Popconfirm
+                          title={t("providers.deleteConfirmTitle")}
+                          description={t("providers.deleteConfirmDesc")}
+                          onConfirm={() => void handleDelete(provider)}
+                          okText={t("common.delete")}
+                          cancelText={t("common.cancel")}
+                        >
+                          <Tooltip title={t("common.delete")}>
+                            <Button size="middle" type="text" danger icon={<DeleteOutlined />} />
+                          </Tooltip>
+                        </Popconfirm>
+                      </Space>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        /* Usage Analytics Home View */
+        <div className="workbench-usage-section" style={{ borderTop: "none", paddingTop: 0 }}>
+          <div className="workbench-section-header">
+            <Title level={5} style={{ margin: 0 }}>
+              {t("workbench.usageSection")}
+            </Title>
+            {sourceFilterToolbar}
+          </div>
+
+          {dashboardQuery.error ? (
+            <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
+          ) : (
+            <UsageSummaryGrid
+              estimatedCost={summary?.estimatedCost ?? 0}
+              costCurrency={summary?.estimatedCostCurrency}
+              totalTokens={totalTokens}
+              tokensVsYesterday={tokensVsYesterday}
+              requestCount={summary?.requestCount ?? 0}
+              successfulRequestCount={summary?.successfulRequestCount ?? 0}
+            />
+          )}
+
+          <div className="workbench-charts-grid">
+            <Card
+              size="small"
+              className="page-surface workbench-chart-card"
+              title={
+                <Space>
+                  <CalendarOutlined />
+                  {t("workbench.yearlyHeatmap")}
+                </Space>
+              }
+            >
+              {yearTrendQuery.error ? (
+                <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
+              ) : (
+                <UsageCalendar
+                  data={yearTrendQuery.data?.trend ?? []}
+                  period={365}
+                  compact
+                />
+              )}
+            </Card>
+
+            <Card
+              size="small"
+              className="page-surface workbench-chart-card"
+              title={
+                <Space>
+                  <BarChartOutlined />
+                  {t("usage.hourlyStatistics")}
+                </Space>
+              }
+            >
+              {trendQuery.error ? (
+                <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
+              ) : (
+                <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
+              )}
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Floating View Switcher Button */}
+      <FloatingViewSwitcher />
 
       {/* Modals for Create/Edit and Import Preview */}
       <ProviderForm

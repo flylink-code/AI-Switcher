@@ -92,47 +92,38 @@ pub fn get_session_signature(session_key: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-pub fn clear_all() {
-    let mut guard = lock();
-    guard.tool.clear();
-    guard.session.clear();
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
 
+    // 缓存全局共享且测试并行：一律用唯一键，不要 clear_all。
+
     #[test]
     fn tool_and_session_cache_roundtrip() {
-        clear_all();
-        assert_eq!(get_tool_signature("toolu_1"), None);
-        cache_tool_signature("toolu_1", "sig-abc");
-        assert_eq!(get_tool_signature("toolu_1").as_deref(), Some("sig-abc"));
+        assert_eq!(get_tool_signature("toolu_mod_rt"), None);
+        cache_tool_signature("toolu_mod_rt", "sig-abc");
+        assert_eq!(get_tool_signature("toolu_mod_rt").as_deref(), Some("sig-abc"));
 
-        assert_eq!(get_session_signature("sess-1"), None);
-        cache_session_signature("sess-1", "short");
-        cache_session_signature("sess-1", "longer-signature");
+        assert_eq!(get_session_signature("sess_mod_rt"), None);
+        cache_session_signature("sess_mod_rt", "short");
+        cache_session_signature("sess_mod_rt", "longer-signature");
         assert_eq!(
-            get_session_signature("sess-1").as_deref(),
+            get_session_signature("sess_mod_rt").as_deref(),
             Some("longer-signature")
         );
         // 更短的签名不覆盖已有值。
-        cache_session_signature("sess-1", "tiny");
+        cache_session_signature("sess_mod_rt", "tiny");
         assert_eq!(
-            get_session_signature("sess-1").as_deref(),
+            get_session_signature("sess_mod_rt").as_deref(),
             Some("longer-signature")
         );
-        clear_all();
     }
 
     #[test]
     fn sentinel_and_empty_are_not_cached() {
-        clear_all();
-        cache_tool_signature("toolu_2", SKIP_VALIDATOR_SENTINEL);
-        cache_tool_signature("toolu_2", "  ");
-        cache_session_signature("sess-2", SKIP_VALIDATOR_SENTINEL);
-        assert_eq!(get_tool_signature("toolu_2"), None);
-        assert_eq!(get_session_signature("sess-2"), None);
-        clear_all();
+        cache_tool_signature("toolu_mod_sentinel", SKIP_VALIDATOR_SENTINEL);
+        cache_tool_signature("toolu_mod_sentinel", "  ");
+        cache_session_signature("sess_mod_sentinel", SKIP_VALIDATOR_SENTINEL);
+        assert_eq!(get_tool_signature("toolu_mod_sentinel"), None);
+        assert_eq!(get_session_signature("sess_mod_sentinel"), None);
     }
 }

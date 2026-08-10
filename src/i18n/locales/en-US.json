@@ -1081,7 +1081,9 @@
     "yearlyHeatmap": "Yearly heatmap",
     "antigravityAccounts": "Antigravity accounts",
     "antigravityManage": "Manage",
-    "antigravityNoAccounts": "Gateway is running, but no accounts yet. Open Manage to sign in with Google."
+    "antigravityNoAccounts": "Gateway is running, but no accounts yet. Open Manage to sign in with Google.",
+    "viewProviders": "Providers & Apps",
+    "viewUsage": "Usage & Analytics"
   },
   "antigravity": {
     "title": "Antigravity Gateway",

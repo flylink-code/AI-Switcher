@@ -17,6 +17,7 @@ interface PersistedPagePreferences {
   usageLogTarget?: UsageSourceFilter;
   heatmapSource?: UsageSourceFilter;
   sessionsProvider?: SessionProvider;
+  workbenchView?: "providers" | "usage";
 }
 
 interface PagePreferencesState {
@@ -29,6 +30,7 @@ interface PagePreferencesState {
   usageLogTarget: UsageSourceFilter;
   heatmapSource: UsageSourceFilter;
   sessionsProvider: SessionProvider;
+  workbenchView: "providers" | "usage";
   setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
@@ -38,6 +40,7 @@ interface PagePreferencesState {
   setUsageLogTarget: (target: UsageSourceFilter) => void;
   setHeatmapSource: (target: UsageSourceFilter) => void;
   setSessionsProvider: (provider: SessionProvider) => void;
+  setWorkbenchView: (view: "providers" | "usage") => void;
 }
 
 const DEFAULTS: Pick<
@@ -50,6 +53,7 @@ const DEFAULTS: Pick<
   | "usageLogTarget"
   | "heatmapSource"
   | "sessionsProvider"
+  | "workbenchView"
 > = {
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
@@ -59,6 +63,7 @@ const DEFAULTS: Pick<
   usageLogTarget: "all",
   heatmapSource: "all",
   sessionsProvider: "claude_code",
+  workbenchView: "providers",
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
@@ -134,6 +139,7 @@ function initialState() {
     sessionsProvider: isSessionProvider(stored.sessionsProvider)
       ? stored.sessionsProvider
       : sessionProviderFor(workspaceTarget),
+    workbenchView: stored.workbenchView === "usage" ? "usage" : "providers",
   };
 }
 
@@ -148,6 +154,7 @@ function persistSlice(
     | "usageLogTarget"
     | "heatmapSource"
     | "sessionsProvider"
+    | "workbenchView"
   >,
 ) {
   writePersisted({
@@ -159,6 +166,7 @@ function persistSlice(
     usageLogTarget: state.usageLogTarget,
     heatmapSource: state.heatmapSource,
     sessionsProvider: state.sessionsProvider,
+    workbenchView: state.workbenchView,
   });
 }
 
@@ -201,6 +209,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setSessionsProvider: (sessionsProvider) => {
     set({ sessionsProvider });
+    persistSlice(get());
+  },
+  setWorkbenchView: (workbenchView) => {
+    set({ workbenchView });
     persistSlice(get());
   },
 }));

@@ -1081,7 +1081,9 @@
     "yearlyHeatmap": "近一年热力图",
     "antigravityAccounts": "Antigravity 账号",
     "antigravityManage": "管理",
-    "antigravityNoAccounts": "网关已启动，但还没有账号。打开管理页登录 Google。"
+    "antigravityNoAccounts": "网关已启动，但还没有账号。打开管理页登录 Google。",
+    "viewProviders": "供应商服务",
+    "viewUsage": "用量与统计"
   },
   "antigravity": {
     "title": "Antigravity 网关",

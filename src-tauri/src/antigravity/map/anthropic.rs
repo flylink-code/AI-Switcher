@@ -455,6 +455,16 @@ fn content_to_parts(
             for block in blocks {
                 let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
                 match block_type {
+                    "thinking" | "redacted_thinking" => {
+                        // 客户端回传的 thinking 块不回放给 Gemini（模型不需要
+                        // 思考文本），但其 signature 可作为会话级签名补充来源。
+                        if let (Some(session), Some(sig)) = (
+                            session_key,
+                            block.get("signature").and_then(Value::as_str),
+                        ) {
+                            thought_sig::cache_session_signature(session, sig);
+                        }
+                    }
                     "text" => {
                         if let Some(text) = block.get("text").and_then(Value::as_str) {
                             if !text.is_empty() {
@@ -538,17 +548,25 @@ fn content_to_parts(
 }
 
 pub fn gemini_to_anthropic_response(model: &str, gemini: &Value, session_key: Option<&str>) -> Value {
-    let (text, tool_uses, stop_reason) = extract_assistant(gemini, session_key);
+    let assistant = extract_assistant(gemini, session_key);
     let mut content = Vec::new();
-    if !text.is_empty() {
-        content.push(json!({ "type": "text", "text": text }));
+    // thinking blocks 必须在 text/tool_use 之前（Anthropic 协议要求）。
+    if !assistant.thought_text.is_empty() {
+        let mut block = json!({ "type": "thinking", "thinking": assistant.thought_text });
+        if let Some(sig) = &assistant.thought_signature {
+            block["signature"] = json!(sig);
+        }
+        content.push(block);
     }
-    content.extend(tool_uses);
+    if !assistant.text.is_empty() {
+        content.push(json!({ "type": "text", "text": assistant.text }));
+    }
+    content.extend(assistant.tools.iter().cloned());
     if content.is_empty() {
         content.push(json!({ "type": "text", "text": "" }));
     }
     let usage = usage_from_gemini(gemini);
-    let stop_reason = stop_reason.unwrap_or_else(|| {
+    let stop_reason = assistant.stop_reason.unwrap_or_else(|| {
         if content.iter().any(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
         {
             "tool_use".into()
@@ -568,35 +586,146 @@ pub fn gemini_to_anthropic_response(model: &str, gemini: &Value, session_key: Op
     })
 }
 
+/// Anthropic SSE 输出的跨 chunk 状态：内容块按到达顺序开/关
+/// （thinking → text → tool_use），thinking 块必须先于其它块。
+#[derive(Default)]
+pub struct AnthropicStreamState {
+    started: bool,
+    closed: bool,
+    open_block: Option<(BlockKind, usize)>,
+    next_index: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BlockKind {
+    Thinking,
+    Text,
+}
+
+impl AnthropicStreamState {
+    pub fn is_closed(&self) -> bool {
+        self.closed
+    }
+
+    /// 上游流结束（或无 finishReason 被截断）时的收尾事件：关掉未闭合的块，
+    /// 补 message_delta + message_stop。幂等（closed 后返回空）。
+    pub fn finish_events(&mut self, model: &str, output_tokens: i64) -> Vec<Value> {
+        if self.closed {
+            return Vec::new();
+        }
+        let mut events = Vec::new();
+        if !self.started {
+            self.started = true;
+            events.push(anthropic_sse_message_start(model));
+        }
+        if let Some((_, index)) = self.open_block.take() {
+            events.push(json!({ "type": "content_block_stop", "index": index }));
+        } else {
+            // 什么内容都没来过：补一个空 text 块，保持协议完整。
+            events.push(json!({
+                "type": "content_block_start",
+                "index": self.next_index,
+                "content_block": { "type": "text", "text": "" }
+            }));
+            events.push(json!({ "type": "content_block_stop", "index": self.next_index }));
+        }
+        events.push(json!({
+            "type": "message_delta",
+            "delta": { "stop_reason": "end_turn", "stop_sequence": null },
+            "usage": { "output_tokens": output_tokens }
+        }));
+        events.push(json!({ "type": "message_stop" }));
+        self.closed = true;
+        events
+    }
+
+    fn close_open_block(&mut self, events: &mut Vec<Value>) {
+        if let Some((_, index)) = self.open_block.take() {
+            events.push(json!({ "type": "content_block_stop", "index": index }));
+        }
+    }
+
+    fn open_block_if_needed(&mut self, kind: BlockKind, events: &mut Vec<Value>) -> usize {
+        if let Some((current, index)) = self.open_block {
+            if current == kind {
+                return index;
+            }
+        }
+        self.close_open_block(events);
+        let index = self.next_index;
+        self.next_index += 1;
+        let content_block = match kind {
+            BlockKind::Thinking => json!({ "type": "thinking", "thinking": "" }),
+            BlockKind::Text => json!({ "type": "text", "text": "" }),
+        };
+        events.push(json!({
+            "type": "content_block_start",
+            "index": index,
+            "content_block": content_block
+        }));
+        self.open_block = Some((kind, index));
+        index
+    }
+}
+
 /// Convert one Gemini stream chunk into Anthropic SSE events.
 ///
 /// Only emits `message_delta` / `message_stop` when the chunk carries a real
 /// `finishReason`. Intermediate tokens must not close the stream — doing so
 /// breaks Claude Desktop (premature stop → client abort → apparent 502).
+///
+/// thought parts 透传为 thinking blocks（Desktop 会折叠展示思考过程），
+/// thoughtSignature 以 signature_delta 收尾 thinking 块。
 pub fn gemini_to_anthropic_sse_chunk(
+    state: &mut AnthropicStreamState,
     model: &str,
     gemini_chunk: &Value,
     session_key: Option<&str>,
 ) -> Vec<Value> {
-    let _ = model;
-    let (text, tool_uses, stop_reason) = extract_assistant(gemini_chunk, session_key);
     let mut events = Vec::new();
-    if !text.is_empty() {
+    if state.closed {
+        return events;
+    }
+    if !state.started {
+        state.started = true;
+        events.push(anthropic_sse_message_start(model));
+    }
+    let assistant = extract_assistant(gemini_chunk, session_key);
+
+    if !assistant.thought_text.is_empty() {
+        let index = state.open_block_if_needed(BlockKind::Thinking, &mut events);
         events.push(json!({
             "type": "content_block_delta",
-            "index": 0,
-            "delta": { "type": "text_delta", "text": text }
+            "index": index,
+            "delta": { "type": "thinking_delta", "thinking": assistant.thought_text }
         }));
     }
-    if !tool_uses.is_empty() {
-        // Anthropic requires closing the text block before tool_use blocks.
+    if let Some(sig) = assistant.thought_signature {
+        // 签名到达即收尾 thinking 块（Gemini 在最后一个 thought part 上给签名）。
+        if let Some((BlockKind::Thinking, index)) = state.open_block {
+            events.push(json!({
+                "type": "content_block_delta",
+                "index": index,
+                "delta": { "type": "signature_delta", "signature": sig }
+            }));
+            state.close_open_block(&mut events);
+        }
+    }
+    if !assistant.text.is_empty() {
+        let index = state.open_block_if_needed(BlockKind::Text, &mut events);
         events.push(json!({
-            "type": "content_block_stop",
-            "index": 0
+            "type": "content_block_delta",
+            "index": index,
+            "delta": { "type": "text_delta", "text": assistant.text }
         }));
     }
-    for (offset, tool) in tool_uses.iter().enumerate() {
-        let index = offset + 1;
+    if !assistant.tools.is_empty() {
+        // Anthropic requires closing the previous block before tool_use blocks.
+        state.close_open_block(&mut events);
+    }
+    for tool in &assistant.tools {
+        let index = state.next_index;
+        state.next_index += 1;
         let id = tool.get("id").cloned().unwrap_or(json!(format!("toolu_{index}")));
         let name = tool.get("name").cloned().unwrap_or(json!("tool"));
         let input = tool.get("input").cloned().unwrap_or(json!({}));
@@ -624,20 +753,16 @@ pub fn gemini_to_anthropic_sse_chunk(
             "index": index
         }));
     }
-    if let Some(stop_reason) = stop_reason {
+    if let Some(stop_reason) = assistant.stop_reason {
         let usage = usage_from_gemini(gemini_chunk);
-        if tool_uses.is_empty() {
-            events.push(json!({
-                "type": "content_block_stop",
-                "index": 0
-            }));
-        }
+        state.close_open_block(&mut events);
         events.push(json!({
             "type": "message_delta",
             "delta": { "stop_reason": stop_reason, "stop_sequence": null },
             "usage": { "output_tokens": usage.get("output_tokens").cloned().unwrap_or(json!(0)) }
         }));
         events.push(json!({ "type": "message_stop" }));
+        state.closed = true;
     }
     events
 }
@@ -658,18 +783,22 @@ pub fn anthropic_sse_message_start(model: &str) -> Value {
     })
 }
 
-pub fn anthropic_sse_content_block_start() -> Value {
-    json!({
-        "type": "content_block_start",
-        "index": 0,
-        "content_block": { "type": "text", "text": "" }
-    })
+struct AssistantContent {
+    thought_text: String,
+    thought_signature: Option<String>,
+    text: String,
+    tools: Vec<Value>,
+    stop_reason: Option<String>,
 }
 
-fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<Value>, Option<String>) {
-    let mut text = String::new();
-    let mut tools = Vec::new();
-    let mut stop_reason = None;
+fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> AssistantContent {
+    let mut content = AssistantContent {
+        thought_text: String::new(),
+        thought_signature: None,
+        text: String::new(),
+        tools: Vec::new(),
+        stop_reason: None,
+    };
     let candidates = gemini
         .get("candidates")
         .and_then(Value::as_array)
@@ -684,20 +813,26 @@ fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<
             for part in parts {
                 // 捕获 Gemini 3 thought_signature：thinking part 上的记入会话
                 // 缓存，functionCall part 上的同时按 tool_use_id 精确缓存，
-                // 供下一轮请求回放历史时回注（客户端不会回传该字段）。
+                // 供下一轮请求回放历史时回注。
                 let signature = part
                     .get("thoughtSignature")
                     .or_else(|| part.get("thought_signature"))
                     .and_then(Value::as_str);
-                // Skip model "thought" parts — not Anthropic wire content.
+                // thought parts → Anthropic thinking blocks（透传给 Desktop 展示）。
                 if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
-                    if let (Some(session), Some(sig)) = (session_key, signature) {
-                        thought_sig::cache_session_signature(session, sig);
+                    if let Some(chunk) = part.get("text").and_then(Value::as_str) {
+                        content.thought_text.push_str(chunk);
+                    }
+                    if let Some(sig) = signature {
+                        content.thought_signature = Some(sig.to_string());
+                        if let Some(session) = session_key {
+                            thought_sig::cache_session_signature(session, sig);
+                        }
                     }
                     continue;
                 }
                 if let Some(chunk) = part.get("text").and_then(Value::as_str) {
-                    text.push_str(chunk);
+                    content.text.push_str(chunk);
                 }
                 if let Some(fc) = part.get("functionCall") {
                     let id = fc
@@ -711,7 +846,7 @@ fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<
                             thought_sig::cache_session_signature(session, sig);
                         }
                     }
-                    tools.push(json!({
+                    content.tools.push(json!({
                         "type": "tool_use",
                         "id": id,
                         "name": fc.get("name").cloned().unwrap_or(json!("tool")),
@@ -722,10 +857,10 @@ fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<
         }
         if let Some(reason) = candidate.get("finishReason").and_then(Value::as_str) {
             if !reason.is_empty() && reason != "FINISH_REASON_UNSPECIFIED" {
-                stop_reason = Some(match reason {
+                content.stop_reason = Some(match reason {
                     "MAX_TOKENS" => "max_tokens".into(),
                     "STOP" => {
-                        if tools.is_empty() {
+                        if content.tools.is_empty() {
                             "end_turn".into()
                         } else {
                             "tool_use".into()
@@ -736,7 +871,7 @@ fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<
             }
         }
     }
-    (text, tools, stop_reason)
+    content
 }
 
 fn usage_from_gemini(gemini: &Value) -> Value {
@@ -751,53 +886,58 @@ fn usage_from_gemini(gemini: &Value) -> Value {
 mod tests {
     use super::*;
 
+    // 注意：缓存是全局共享的，并行测试必须用互不相同的 id/session，勿 clear_all。
+
     #[test]
     fn gemini_history_tool_use_gets_sentinel_signature_without_cache() {
-        crate::antigravity::thought_sig::clear_all();
         let body = json!({
             "model": "gemini-3.6-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "run ls" },
                 { "role": "assistant", "content": [
-                    { "type": "tool_use", "id": "toolu_1", "name": "Bash", "input": { "command": "ls" } }
+                    { "type": "tool_use", "id": "toolu_sentinel_case", "name": "Bash", "input": { "command": "ls" } }
                 ]},
                 { "role": "user", "content": [
-                    { "type": "tool_result", "tool_use_id": "toolu_1", "content": "ok" }
+                    { "type": "tool_result", "tool_use_id": "toolu_sentinel_case", "content": "ok" }
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body, None, Some("sess-sig")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-sentinel-case")).unwrap();
         let part = &parts.request["contents"][1]["parts"][0];
         assert_eq!(
             part["thoughtSignature"],
             json!(thought_sig::SKIP_VALIDATOR_SENTINEL)
         );
         assert_eq!(part["thoughtSignature"], part["thought_signature"]);
-        crate::antigravity::thought_sig::clear_all();
     }
 
     #[test]
     fn captured_response_signature_is_reinjected_by_tool_id() {
-        crate::antigravity::thought_sig::clear_all();
         // 响应侧：functionCall part 携带 thoughtSignature → 按 tool id 缓存。
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [
                     { "thought": true, "text": "thinking...", "thoughtSignature": "session-sig-long" },
-                    { "functionCall": { "id": "toolu_9", "name": "Bash", "args": {} },
+                    { "functionCall": { "id": "toolu_capture_9", "name": "Bash", "args": {} },
                       "thoughtSignature": "tool-sig-9" }
                 ] }
             }]
         });
-        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, Some("sess-9"));
+        let mut state = AnthropicStreamState::default();
+        let events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk,
+            Some("sess-capture-9"),
+        );
         assert!(events.iter().any(|e| e["type"] == "content_block_start"));
         assert_eq!(
-            thought_sig::get_tool_signature("toolu_9").as_deref(),
+            thought_sig::get_tool_signature("toolu_capture_9").as_deref(),
             Some("tool-sig-9")
         );
         assert_eq!(
-            thought_sig::get_session_signature("sess-9").as_deref(),
+            thought_sig::get_session_signature("sess-capture-9").as_deref(),
             Some("session-sig-long")
         );
 
@@ -808,57 +948,52 @@ mod tests {
             "messages": [
                 { "role": "user", "content": "run ls" },
                 { "role": "assistant", "content": [
-                    { "type": "tool_use", "id": "toolu_9", "name": "Bash", "input": {} }
+                    { "type": "tool_use", "id": "toolu_capture_9", "name": "Bash", "input": {} }
                 ]},
                 { "role": "user", "content": [
-                    { "type": "tool_result", "tool_use_id": "toolu_9", "content": "ok" }
+                    { "type": "tool_result", "tool_use_id": "toolu_capture_9", "content": "ok" }
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body, None, Some("sess-9")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-capture-9")).unwrap();
         let part = &parts.request["contents"][1]["parts"][0];
         assert_eq!(part["thoughtSignature"], json!("tool-sig-9"));
-        crate::antigravity::thought_sig::clear_all();
     }
 
     #[test]
     fn session_signature_is_fallback_for_unknown_tool_id() {
-        crate::antigravity::thought_sig::clear_all();
-        thought_sig::cache_session_signature("sess-fb", "session-fallback-sig");
+        thought_sig::cache_session_signature("sess-fallback-case", "session-fallback-sig");
         let body = json!({
             "model": "gemini-3.6-flash",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "hi" },
                 { "role": "assistant", "content": [
-                    { "type": "tool_use", "id": "toolu_unknown", "name": "Bash", "input": {} }
+                    { "type": "tool_use", "id": "toolu_unknown_fb", "name": "Bash", "input": {} }
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body, None, Some("sess-fb")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-fallback-case")).unwrap();
         let part = &parts.request["contents"][1]["parts"][0];
         assert_eq!(part["thoughtSignature"], json!("session-fallback-sig"));
-        crate::antigravity::thought_sig::clear_all();
     }
 
     #[test]
     fn claude_target_history_tool_use_has_no_signature_injected() {
-        crate::antigravity::thought_sig::clear_all();
         let body = json!({
             "model": "claude-sonnet-4-6",
             "max_tokens": 128,
             "messages": [
                 { "role": "user", "content": "hi" },
                 { "role": "assistant", "content": [
-                    { "type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {} }
+                    { "type": "tool_use", "id": "toolu_claude_case", "name": "Bash", "input": {} }
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body, None, Some("sess-c")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-claude-case")).unwrap();
         let part = &parts.request["contents"][1]["parts"][0];
         assert!(part.get("thoughtSignature").is_none());
         assert!(part.get("thought_signature").is_none());
-        crate::antigravity::thought_sig::clear_all();
     }
 
     #[test]
@@ -880,10 +1015,14 @@ mod tests {
                 "content": { "parts": [{ "text": "Hello" }] }
             }]
         });
-        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, None);
-        assert_eq!(events.len(), 1);
-        assert_eq!(events[0]["type"], "content_block_delta");
+        let mut state = AnthropicStreamState::default();
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
+        assert!(events.iter().any(|event| event["type"] == "message_start"));
+        assert!(events
+            .iter()
+            .any(|event| event["delta"]["type"] == "text_delta"));
         assert!(events.iter().all(|event| event["type"] != "message_stop"));
+        assert!(!state.is_closed());
     }
 
     #[test]
@@ -895,13 +1034,145 @@ mod tests {
             }],
             "usageMetadata": { "candidatesTokenCount": 1 }
         });
-        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, None);
+        let mut state = AnthropicStreamState::default();
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
         let stops = events
             .iter()
             .filter(|event| event["type"] == "message_stop")
             .count();
         assert_eq!(stops, 1);
         assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
+        assert!(state.is_closed());
+        // closed 之后不再产出事件；finish_events 幂等。
+        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None)
+            .is_empty());
+        assert!(state.finish_events("gemini-3.6-flash-high", 1).is_empty());
+    }
+
+    #[test]
+    fn non_stream_response_includes_thinking_block_with_signature() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "先看一下文件", "thoughtSignature": "sig-nonstream-1" },
+                    { "text": "好的" }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response =
+            gemini_to_anthropic_response("gemini-3.6-flash-high", &gemini, Some("sess-nonstream"));
+        let content = response["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "thinking");
+        assert_eq!(content[0]["thinking"], "先看一下文件");
+        assert_eq!(content[0]["signature"], "sig-nonstream-1");
+        assert_eq!(content[1]["type"], "text");
+        assert_eq!(content[1]["text"], "好的");
+    }
+
+    #[test]
+    fn streaming_thought_parts_become_thinking_block_then_text_block() {
+        let mut state = AnthropicStreamState::default();
+        // chunk 1：思考文本
+        let chunk1 = json!({
+            "candidates": [{ "content": { "parts": [
+                { "thought": true, "text": "打算先读配置" }
+            ] } }]
+        });
+        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None);
+        let start = e1
+            .iter()
+            .find(|e| e["type"] == "content_block_start")
+            .unwrap();
+        assert_eq!(start["index"], 0);
+        assert_eq!(start["content_block"]["type"], "thinking");
+        assert!(e1.iter().any(|e| e["delta"]["type"] == "thinking_delta"));
+
+        // chunk 2：签名到达 → signature_delta + 关闭 thinking 块
+        let chunk2 = json!({
+            "candidates": [{ "content": { "parts": [
+                { "thought": true, "thoughtSignature": "sig-stream-2" }
+            ] } }]
+        });
+        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None);
+        assert!(e2.iter().any(|e| e["delta"]["type"] == "signature_delta"
+            && e["delta"]["signature"] == "sig-stream-2"));
+        assert!(e2
+            .iter()
+            .any(|e| e["type"] == "content_block_stop" && e["index"] == 0));
+
+        // chunk 3：正文 → 新的 text 块（index 1），不重复开 thinking
+        let chunk3 = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "结论" }] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": { "candidatesTokenCount": 2 }
+        });
+        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None);
+        let text_start = e3
+            .iter()
+            .find(|e| e["type"] == "content_block_start")
+            .unwrap();
+        assert_eq!(text_start["index"], 1);
+        assert_eq!(text_start["content_block"]["type"], "text");
+        assert!(e3
+            .iter()
+            .any(|e| e["type"] == "content_block_stop" && e["index"] == 1));
+        assert_eq!(
+            e3.iter().filter(|e| e["type"] == "message_stop").count(),
+            1
+        );
+    }
+
+    #[test]
+    fn finish_events_closes_dangling_thinking_block() {
+        let mut state = AnthropicStreamState::default();
+        let chunk = json!({
+            "candidates": [{ "content": { "parts": [
+                { "thought": true, "text": "半截思考" }
+            ] } }]
+        });
+        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
+        let events = state.finish_events("gemini-3.6-flash-high", 3);
+        assert!(events
+            .iter()
+            .any(|e| e["type"] == "content_block_stop" && e["index"] == 0));
+        assert_eq!(
+            events.iter().filter(|e| e["type"] == "message_stop").count(),
+            1
+        );
+        assert!(state.is_closed());
+    }
+
+    #[test]
+    fn client_thinking_block_signature_feeds_session_cache() {
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "hi" },
+                { "role": "assistant", "content": [
+                    { "type": "thinking", "thinking": "之前的思考", "signature": "client-echo-sig-1" },
+                    { "type": "tool_use", "id": "toolu_echo_case", "name": "Bash", "input": {} }
+                ]},
+                { "role": "user", "content": [
+                    { "type": "tool_result", "tool_use_id": "toolu_echo_case", "content": "ok" }
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-echo-case")).unwrap();
+        // thinking 块不产生 Gemini part，但签名进了会话缓存并回注到 functionCall。
+        let model_msg = &parts.request["contents"][1];
+        assert_eq!(model_msg["parts"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            thought_sig::get_session_signature("sess-echo-case").as_deref(),
+            Some("client-echo-sig-1")
+        );
+        assert_eq!(
+            model_msg["parts"][0]["thoughtSignature"],
+            json!("client-echo-sig-1")
+        );
     }
 
     #[test]

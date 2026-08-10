@@ -16,8 +16,8 @@ use serde_json::{json, Value};
 use super::GatewayState;
 use crate::antigravity::account::store as account_store;
 use crate::antigravity::map::anthropic::{
-    anthropic_sse_content_block_start, anthropic_sse_message_start, anthropic_to_gemini_request,
-    effort_mapping_diagnostic, gemini_to_anthropic_response, gemini_to_anthropic_sse_chunk,
+    anthropic_to_gemini_request, effort_mapping_diagnostic, gemini_to_anthropic_response,
+    gemini_to_anthropic_sse_chunk, AnthropicStreamState,
 };
 use crate::antigravity::map::openai::{
     gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
@@ -411,9 +411,9 @@ async fn stream_response(
             buffer: String::new(),
             model,
             protocol,
-            started: false,
+            anthropic: matches!(protocol, WireProtocol::Anthropic)
+                .then(AnthropicStreamState::default),
             finished: false,
-            closed: false,
             db,
             log_id,
             account_id,
@@ -483,10 +483,9 @@ struct StreamState {
     buffer: String,
     model: String,
     protocol: WireProtocol,
-    started: bool,
     finished: bool,
-    /// True after Anthropic `message_stop` was emitted (avoid double-close).
-    closed: bool,
+    /// Anthropic 协议的跨 chunk 块状态（thinking/text 块开闭、message 生命周期）。
+    anthropic: Option<AnthropicStreamState>,
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
@@ -541,18 +540,14 @@ impl StreamState {
         self.note_usage(&gemini);
         match self.protocol {
             WireProtocol::Anthropic => {
+                let model = self.model.clone();
+                let session = self.session_key.clone();
+                let mut anthropic = self.anthropic.take().unwrap_or_default();
+                let events =
+                    gemini_to_anthropic_sse_chunk(&mut anthropic, &model, &gemini, session.as_deref());
+                self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
-                if !self.started {
-                    self.started = true;
-                    out.extend_from_slice(&sse_data(&anthropic_sse_message_start(&self.model)));
-                    out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
-                }
-                for event in
-                    gemini_to_anthropic_sse_chunk(&self.model, &gemini, self.session_key.as_deref())
-                {
-                    if event.get("type").and_then(Value::as_str) == Some("message_stop") {
-                        self.closed = true;
-                    }
+                for event in events {
                     out.extend_from_slice(&sse_data(&event));
                 }
                 if out.is_empty() {
@@ -587,31 +582,13 @@ impl StreamState {
                 }
             }
             WireProtocol::Anthropic => {
-                if self.closed {
-                    return Bytes::new();
-                }
+                let mut anthropic = self.anthropic.take().unwrap_or_default();
+                let events = anthropic.finish_events(&self.model, self.last_output);
+                self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
-                if !self.started {
-                    self.started = true;
-                    out.extend_from_slice(&sse_data(&anthropic_sse_message_start(&self.model)));
-                    out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
-                    out.extend_from_slice(&sse_data(&json!({
-                        "type": "content_block_delta",
-                        "index": 0,
-                        "delta": { "type": "text_delta", "text": "" }
-                    })));
+                for event in events {
+                    out.extend_from_slice(&sse_data(&event));
                 }
-                out.extend_from_slice(&sse_data(&json!({
-                    "type": "content_block_stop",
-                    "index": 0
-                })));
-                out.extend_from_slice(&sse_data(&json!({
-                    "type": "message_delta",
-                    "delta": { "stop_reason": "end_turn", "stop_sequence": null },
-                    "usage": { "output_tokens": self.last_output }
-                })));
-                out.extend_from_slice(&sse_data(&json!({ "type": "message_stop" })));
-                self.closed = true;
                 Bytes::from(out)
             }
         }
