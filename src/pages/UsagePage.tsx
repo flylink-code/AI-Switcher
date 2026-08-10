@@ -25,7 +25,6 @@ import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
-import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -72,9 +71,10 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
 import { UsageMetric } from "@/components/UsageMetric";
-import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
+import { UsageToolbar } from "@/components/usage";
+import { Stack, Surface, Inline } from "@/components/ui";
 import { formatCompactNumber } from "@/utils/formatCompact";
-import { USAGE_PERIOD_VALUES, usagePeriodGranularity, usagePeriodHourKeys, usagePeriodLabelKey, trendBucketLabel } from "@/utils/usagePeriod";
+import { usagePeriodGranularity, usagePeriodHourKeys, trendBucketLabel } from "@/utils/usagePeriod";
 import type { UsagePeriod } from "@/utils/usagePeriod";
 
 const { Text } = Typography;
@@ -91,12 +91,14 @@ function invalidateUsageQueries(queryClient: ReturnType<typeof useQueryClient>) 
 export default function UsagePage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+
   const period = usePagePreferencesStore((state) => state.usagePeriod);
   const setPeriod = usePagePreferencesStore((state) => state.setUsagePeriod);
   const logPage = usePagePreferencesStore((state) => state.usageLogPage);
   const setLogPage = usePagePreferencesStore((state) => state.setUsageLogPage);
   const logTargetApp = usePagePreferencesStore((state) => state.usageLogTarget);
   const setLogTargetApp = usePagePreferencesStore((state) => state.setUsageLogTarget);
+
   const [pricingManagerOpen, setPricingManagerOpen] = useState(false);
   const [pricingFormOpen, setPricingFormOpen] = useState(false);
   const [pricingImportPath, setPricingImportPath] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export default function UsagePage() {
   const [form] = Form.useForm<ModelPricingInput>();
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const [trendExpanded, setTrendExpanded] = useState(false);
+
   const logRefreshTimerRef = useRef<number | null>(null);
   const lastLogRefreshAtRef = useRef(0);
   const lastDashboardRefreshAtRef = useRef(0);
@@ -292,9 +295,6 @@ export default function UsagePage() {
   const refreshOverview = async () => {
     setRefreshing(true);
     try {
-      // Direct Claude Code/Codex sessions are imported from local JSONL files,
-      // not through the HTTP proxy. A user-initiated refresh must import their
-      // latest incremental records before querying the dashboard database.
       if (includesClaudeCode) await syncClaudeCodeSessionUsage();
       if (includesCodex) await syncCodexSessionUsage();
       if (includesOpenCode) await syncOpenCodeSessionUsage();
@@ -312,6 +312,7 @@ export default function UsagePage() {
     (summary?.cacheReadInputTokens ?? 0) +
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
+
   const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
   const isCodexOnly = logTargetApp === "codex";
   const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
@@ -325,414 +326,213 @@ export default function UsagePage() {
     setRefreshing(true);
     try {
       const result = await syncCodexSessionUsage();
-      void message.success(
-        t("usage.codexSyncDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedFiles,
-        }),
-      );
+      void message.success(t("usage.codexSyncDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
       await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const rebuildCodexSessions = async () => {
-    setRefreshing(true);
-    try {
-      const result = await rebuildCodexSessionUsage();
-      void message.success(
-        t("usage.codexRebuildDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedFiles,
-        }),
-      );
-      await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const syncOpenCodeSessions = async () => {
-    setRefreshing(true);
-    try {
-      const result = await syncOpenCodeSessionUsage();
-      void message.success(
-        t("usage.opencodeSyncDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedSessions,
-        }),
-      );
-      await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const rebuildOpenCodeSessions = async () => {
-    setRefreshing(true);
-    try {
-      const result = await rebuildOpenCodeSessionUsage();
-      void message.success(
-        t("usage.opencodeRebuildDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedSessions,
-        }),
-      );
-      await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
   };
 
   const syncClaudeCodeSessions = async () => {
     setRefreshing(true);
     try {
       const result = await syncClaudeCodeSessionUsage();
-      void message.success(
-        t("usage.claudeCodeSyncDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedFiles,
-        }),
-      );
+      void message.success(t("usage.claudeCodeSyncDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
       await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
   };
 
-  const rebuildClaudeCodeSessions = async () => {
+  const syncOpenCodeSessions = async () => {
     setRefreshing(true);
     try {
-      const result = await rebuildClaudeCodeSessionUsage();
-      void message.success(
-        t("usage.claudeCodeRebuildDone", {
-          inserted: result.insertedRows,
-          scanned: result.scannedFiles,
-        }),
-      );
+      const result = await syncOpenCodeSessionUsage();
+      void message.success(t("usage.opencodeSyncDone", { inserted: result.insertedRows, scanned: result.scannedSessions }));
       await invalidateUsageQueries(queryClient);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setRefreshing(false);
-    }
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
   };
 
   return (
-    <>
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
-        <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
-        {includesCodex && (
-          <OnboardingTip
-            tipKey="usage_codex_local"
-            type={dashboard?.localCodex.available ? "info" : isCodexOnly ? "warning" : "info"}
-            message={t("usage.codexLocalTitle")}
-            description={dashboard?.localCodex.available
-              ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
-              : t("usage.codexLocalUnavailable")}
-          />
-        )}
-        {includesClaudeCode && (
-          <OnboardingTip
-            tipKey="usage_claude_code_local"
-            type={localClaude?.available ? "info" : isClaudeCodeOnly ? "warning" : "info"}
-            message={t("usage.claudeCodeLocalTitle")}
-            description={localClaude?.available
-              ? t("usage.claudeCodeLocalAvailable", { events: localClaude.eventCount, sessions: localClaude.sessionCount })
-              : t("usage.claudeCodeLocalUnavailable")}
-          />
-        )}
-        {emptyClaudeCode && (
+    <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
+      {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
+
+      {/* Onboarding Tips */}
+      <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
+      {includesCodex && (
+        <OnboardingTip
+          tipKey="usage_codex_local"
+          type={dashboard?.localCodex.available ? "info" : isCodexOnly ? "warning" : "info"}
+          message={t("usage.codexLocalTitle")}
+          description={dashboard?.localCodex.available
+            ? t("usage.codexLocalAvailable", { events: dashboard.localCodex.eventCount, sessions: dashboard.localCodex.sessionCount })
+            : t("usage.codexLocalUnavailable")}
+        />
+      )}
+      {includesClaudeCode && (
+        <OnboardingTip
+          tipKey="usage_claude_code_local"
+          type={localClaude?.available ? "info" : isClaudeCodeOnly ? "warning" : "info"}
+          message={t("usage.claudeCodeLocalTitle")}
+          description={localClaude?.available
+            ? t("usage.claudeCodeLocalAvailable", { events: localClaude.eventCount, sessions: localClaude.sessionCount })
+            : t("usage.claudeCodeLocalUnavailable")}
+        />
+      )}
+
+      {/* Toolbar & Filter Bar */}
+      <UsageToolbar
+        period={period}
+        onPeriodChange={(p) => { setPeriod(p); setLogPage(0); }}
+        logTargetApp={logTargetApp}
+        onTargetAppChange={(t) => { setLogTargetApp(t); setLogPage(0); }}
+        refreshing={refreshing}
+        onRefresh={() => void refreshOverview()}
+        onSyncCodex={() => void syncCodexSessions()}
+        onSyncClaudeCode={() => void syncClaudeCodeSessions()}
+        onSyncOpenCode={() => void syncOpenCodeSessions()}
+        onOpenPricing={() => setPricingManagerOpen(true)}
+        onOpenMaintenance={() => void openMaintenance()}
+        maintaining={maintaining}
+      />
+
+      {/* KPI Metrics */}
+      <Row gutter={[16, 16]}>
+        <UsageMetric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
+        <UsageMetric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
+        <UsageMetric title={t("usage.totalTokens")} value={totalTokens} compact />
+        <UsageMetric
+          title={t("usage.estimatedCost")}
+          value={summary?.estimatedCost ?? 0}
+          precision={4}
+          prefix={currencyPrefix(summary?.estimatedCostCurrency)}
+          icon={<DollarOutlined />}
+        />
+      </Row>
+
+      {/* Trend Chart */}
+      <Card
+        size="small"
+        className="page-surface"
+        title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}
+        extra={<Button size="small" icon={<ExpandOutlined />} onClick={() => setTrendExpanded(true)}>{t("usage.expandChart")}</Button>}
+      >
+        <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} />
+      </Card>
+
+      {/* Breakdown Cards Grid */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <UsageBreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} />
+        </Col>
+        <Col xs={24} lg={12}>
+          <UsageBreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} />
+        </Col>
+      </Row>
+
+      {/* Request Records Table */}
+      <Card
+        size="small"
+        className="page-surface"
+        title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
+      >
+        {isCodexOnly && (
           <Alert
             type="info"
             showIcon
-            message={t("usage.claudeCodeEmptyTitle")}
-            description={t("usage.claudeCodeEmptyHint")}
-            action={
-              <Button size="small" loading={refreshing} onClick={() => void syncClaudeCodeSessions()}>
-                {t("usage.syncClaudeCodeSessions")}
-              </Button>
-            }
+            style={{ marginBottom: 12 }}
+            message={t("usage.codexRequestLogsHint")}
           />
         )}
-        {includesCodex && !dashboard?.localCodex.available && (
-          <Alert
-            type={isCodexOnly ? "warning" : "info"}
-            showIcon
-            message={t("usage.codexEmptyTitle")}
-            description={
-              narrowPeriod ? t("usage.codexEmptyNarrowPeriodHint") : t("usage.codexEmptyHint")
-            }
-            action={
-              <Space>
-                {narrowPeriod && (
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setPeriod(7);
-                      setLogPage(0);
-                    }}
-                  >
-                    {t("usage.lastDays", { days: 7 })}
-                  </Button>
-                )}
-                <Button size="small" loading={refreshing} onClick={() => void syncCodexSessions()}>
-                  {t("usage.syncCodexSessions")}
-                </Button>
-              </Space>
-            }
-          />
-        )}
-        <OnboardingTip tipKey="usage_currency" type="info" message={t("usage.currencyLimit")} />
-        <OnboardingTip tipKey="usage_cache_pricing" message={t("usage.cachePricingIncluded")} />
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            width: "100%",
+        <Table
+          size="small"
+          rowKey="id"
+          locale={{ emptyText: t("usage.noData") }}
+          dataSource={requestLogs?.data ?? []}
+          loading={logsQuery.isPending && !logsQuery.data}
+          pagination={{
+            current: (requestLogs?.page ?? 0) + 1,
+            pageSize: requestLogs?.pageSize ?? 20,
+            total: requestLogs?.total ?? 0,
+            showSizeChanger: false,
+            onChange: (page) => setLogPage(page - 1),
           }}
-        >
-          <Space wrap size={[12, 8]} align="center">
-            <Space size={8} align="center">
-              <Text type="secondary">{t("usage.period")}</Text>
-              <Select
-                size="middle"
-                value={period}
-                style={{ width: 160 }}
-                options={USAGE_PERIOD_VALUES.map((value) => ({
-                  value,
-                  label:
-                    typeof value === "number"
-                      ? t("usage.lastDays", { days: value })
-                      : t(usagePeriodLabelKey(value)),
-                }))}
-                onChange={(value) => {
-                  setPeriod(value);
-                  setLogPage(0);
-                }}
-              />
-            </Space>
-            <Space size={8} align="center">
-              <Text type="secondary">{t("usage.statsSource")}</Text>
-              <UsageSourceFilterSegmented
-                value={logTargetApp}
-                onChange={(value) => {
-                  setLogTargetApp(value);
-                  setLogPage(0);
-                }}
-                t={t}
-              />
-            </Space>
-            <Button
-              size="middle"
-              icon={<ReloadOutlined />}
-              loading={refreshing}
-              onClick={() => void refreshOverview()}
-            >
-              {t("common.refresh")}
-            </Button>
-          </Space>
-          <Space wrap size={8}>
-            {includesCodex && (
-              <>
-                <Button loading={refreshing} onClick={() => void syncCodexSessions()}>
-                  {t("usage.syncCodexSessions")}
-                </Button>
-                <Button loading={refreshing} onClick={() => void rebuildCodexSessions()}>
-                  {t("usage.rebuildCodexSessions")}
-                </Button>
-              </>
-            )}
-            {includesClaudeCode && (
-              <>
-                <Button loading={refreshing} onClick={() => void syncClaudeCodeSessions()}>
-                  {t("usage.syncClaudeCodeSessions")}
-                </Button>
-                <Button loading={refreshing} onClick={() => void rebuildClaudeCodeSessions()}>
-                  {t("usage.rebuildClaudeCodeSessions")}
-                </Button>
-              </>
-            )}
-            {includesOpenCode && (
-              <>
-                <Button loading={refreshing} onClick={() => void syncOpenCodeSessions()}>
-                  {t("usage.syncOpenCodeSessions")}
-                </Button>
-                <Button loading={refreshing} onClick={() => void rebuildOpenCodeSessions()}>
-                  {t("usage.rebuildOpenCodeSessions")}
-                </Button>
-              </>
-            )}
-            <Button icon={<DollarOutlined />} onClick={() => setPricingManagerOpen(true)}>
-              {t("usage.configurePricing")}
-            </Button>
-            <Button loading={maintaining} onClick={() => void openMaintenance()}>
-              {t("usage.maintainLogs")}
-            </Button>
-          </Space>
-        </div>
+          onRow={(row) => ({
+            onClick: () => {
+              if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
+            },
+            style: { cursor: row.diagnostic ? "pointer" : "default" },
+          })}
+          columns={[
+            {
+              title: t("usage.logTime"),
+              dataIndex: "createdAt",
+              width: 170,
+              render: (v: number) => new Date(v).toLocaleString(),
+            },
+            {
+              title: t("usage.logApp"),
+              dataIndex: "targetApp",
+              width: 120,
+              render: (v: string | null) => v ?? "—",
+            },
+            {
+              title: t("usage.logProvider"),
+              dataIndex: "providerName",
+              ellipsis: true,
+              render: (v: string | null, row: PaginatedProxyLogs["data"][number]) =>
+                row.dataSource === "codex_session"
+                  ? t("usage.codexSessionSource")
+                  : row.dataSource === "opencode_session"
+                    ? t("usage.opencodeSessionSource")
+                    : (v ?? "—"),
+            },
+            {
+              title: t("usage.model"),
+              dataIndex: "model",
+              ellipsis: true,
+              render: (v: string | null) => v ?? "—",
+            },
+            {
+              title: t("usage.logStatus"),
+              dataIndex: "statusCode",
+              width: 80,
+              render: (v: number | null) => {
+                if (v === null) return "—";
+                const color = v >= 200 && v < 300 ? "green" : "red";
+                return <Tag color={color}>{v}</Tag>;
+              },
+            },
+            {
+              title: t("usage.errorSource"),
+              dataIndex: "errorCategory",
+              width: 105,
+              render: (value: string | null) =>
+                value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
+            },
+            {
+              title: t("usage.logTokens"),
+              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
+                row.usageAvailable
+                  ? `${formatCompactNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatCompactNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatCompactNumber(row.cacheReadInputTokens)})` : ""}`
+                  : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
+            },
+            {
+              title: t("usage.logDuration"),
+              dataIndex: "durationMs",
+              width: 90,
+              render: (v: number) => `${v}ms`,
+            },
+            {
+              title: t("usage.logStream"),
+              dataIndex: "isStream",
+              width: 70,
+              render: (v: boolean) => (v ? t("common.enabled") : "—"),
+            },
+          ]}
+        />
+      </Card>
 
-        <Row gutter={[16, 16]}>
-          <UsageMetric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
-          <UsageMetric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
-          <UsageMetric title={t("usage.totalTokens")} value={totalTokens} compact />
-          <UsageMetric
-            title={t("usage.estimatedCost")}
-            value={summary?.estimatedCost ?? 0}
-            precision={4}
-            prefix={currencyPrefix(summary?.estimatedCostCurrency)}
-            icon={<DollarOutlined />}
-          />
-        </Row>
-        {(summary?.estimatedCostsByCurrency?.length ?? 0) > 1 && (
-          <Alert
-            type="info"
-            showIcon
-            message={t("usage.multiCurrencyTitle")}
-            description={summary?.estimatedCostsByCurrency
-              .map((entry) => `${currencyPrefix(entry.currency)}${entry.amount.toFixed(4)} (${entry.currency})`)
-              .join(" · ")}
-          />
-        )}
-
-        <Card
-          size="small"
-          className="page-surface"
-          title={<Space><LineChartOutlined />{t("usage.trendChart")}</Space>}
-          extra={<Button size="small" icon={<ExpandOutlined />} onClick={() => setTrendExpanded(true)}>{t("usage.expandChart")}</Button>}
-        >
-          <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} />
-        </Card>
-
-        <Row gutter={[16, 16]}>
-            <Col xs={24} lg={12}>
-              <UsageBreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} />
-            </Col>
-            <Col xs={24} lg={12}>
-              <UsageBreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} />
-            </Col>
-        </Row>
-
-        <Card
-          size="small"
-          className="page-surface"
-          title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
-        >
-          {isCodexOnly && (
-            <Alert
-              type="info"
-              showIcon
-              style={{ marginBottom: 12 }}
-              message={t("usage.codexRequestLogsHint")}
-            />
-          )}
-          <Table
-            size="small"
-            rowKey="id"
-            locale={{ emptyText: t("usage.noData") }}
-            dataSource={requestLogs?.data ?? []}
-            loading={logsQuery.isPending && !logsQuery.data}
-            pagination={{
-              current: (requestLogs?.page ?? 0) + 1,
-              pageSize: requestLogs?.pageSize ?? 20,
-              total: requestLogs?.total ?? 0,
-              showSizeChanger: false,
-              onChange: (page) => setLogPage(page - 1),
-            }}
-            onRow={(row) => ({
-              onClick: () => {
-                if (row.diagnostic) setDetailDiagnostic(row.diagnostic);
-              },
-              style: { cursor: row.diagnostic ? "pointer" : "default" },
-            })}
-            columns={[
-              {
-                title: t("usage.logTime"),
-                dataIndex: "createdAt",
-                width: 170,
-                render: (v: number) => new Date(v).toLocaleString(),
-              },
-              {
-                title: t("usage.logApp"),
-                dataIndex: "targetApp",
-                width: 120,
-                render: (v: string | null) => v ?? "—",
-              },
-              {
-                title: t("usage.logProvider"),
-                dataIndex: "providerName",
-                ellipsis: true,
-                render: (v: string | null, row: PaginatedProxyLogs["data"][number]) =>
-                  row.dataSource === "codex_session"
-                    ? t("usage.codexSessionSource")
-                    : row.dataSource === "opencode_session"
-                      ? t("usage.opencodeSessionSource")
-                      : (v ?? "—"),
-              },
-              {
-                title: t("usage.model"),
-                dataIndex: "model",
-                ellipsis: true,
-                render: (v: string | null) => v ?? "—",
-              },
-              {
-                title: t("usage.logStatus"),
-                dataIndex: "statusCode",
-                width: 80,
-                render: (v: number | null) => {
-                  if (v === null) return "—";
-                  const color = v >= 200 && v < 300 ? "green" : "red";
-                  return <Tag color={color}>{v}</Tag>;
-                },
-              },
-              {
-                title: t("usage.errorSource"),
-                dataIndex: "errorCategory",
-                width: 105,
-                render: (value: string | null) =>
-                  value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
-              },
-              {
-                title: t("usage.logTokens"),
-                render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                  row.usageAvailable
-                    ? `${formatCompactNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatCompactNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatCompactNumber(row.cacheReadInputTokens)})` : ""}`
-                    : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
-              },
-              {
-                title: t("usage.logDuration"),
-                dataIndex: "durationMs",
-                width: 90,
-                render: (v: number) => `${v}ms`,
-              },
-              {
-                title: t("usage.logStream"),
-                dataIndex: "isStream",
-                width: 70,
-                render: (v: boolean) => (v ? t("common.enabled") : "—"),
-              },
-            ]}
-          />
-        </Card>
-
-      </Space>
-
+      {/* Modals & Drawers */}
       <Modal
         title={t("usage.pricing")}
         open={pricingManagerOpen}
@@ -793,60 +593,6 @@ export default function UsagePage() {
         </Space>
       </Modal>
 
-      <Modal
-        title={t("usage.importPricing")}
-        open={pricingImportOpen}
-        okText={t("usage.confirmImportPricing")}
-        okButtonProps={{ disabled: !pricingImportPreview || pricingImportPreview.errors.length > 0 }}
-        confirmLoading={saving}
-        onOk={() => void applyPricingImport()}
-        onCancel={() => { setPricingImportOpen(false); setPricingImportPath(null); setPricingImportPreview(null); }}
-      >
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <Text type="secondary" style={{ wordBreak: "break-all" }}>{pricingImportPath}</Text>
-          {pricingImportPreview && <>
-            <Descriptions size="small" column={1} bordered>
-              <Descriptions.Item label={t("usage.importValidRows")}>{pricingImportPreview.validRows}</Descriptions.Item>
-              <Descriptions.Item label={t("usage.importNewModels")}>{pricingImportPreview.newModels.join(", ") || "—"}</Descriptions.Item>
-              <Descriptions.Item label={t("usage.importUpdatedModels")}>{pricingImportPreview.updatedModels.join(", ") || "—"}</Descriptions.Item>
-            </Descriptions>
-            {pricingImportPreview.errors.length > 0 && <Alert type="error" showIcon message={t("usage.importPricingErrors")} description={pricingImportPreview.errors.join("\n")} />}
-          </>}
-        </Space>
-      </Modal>
-
-      <Modal
-        title={t("usage.maintainLogs")}
-        open={maintenanceOpen}
-        confirmLoading={maintaining}
-        okText={t("usage.confirmMaintenance")}
-        onOk={() => void maintainLogs()}
-        onCancel={() => setMaintenanceOpen(false)}
-      >
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <Alert
-            type="warning"
-            showIcon
-            message={t("usage.maintenancePreview", {
-              total: maintenancePreview?.totalRows ?? 0,
-              byAge: maintenancePreview?.deleteByAge ?? 0,
-              byLimit: maintenancePreview?.deleteByLimit ?? 0,
-            })}
-          />
-          <Form layout="vertical">
-            <Form.Item label={t("usage.logRetentionDays")}>
-              <InputNumber min={1} max={3650} style={{ width: "100%" }} value={maintenancePolicy?.retentionDays} onChange={(value) => setMaintenancePolicy((current) => current && { ...current, retentionDays: Number(value ?? 90) })} />
-            </Form.Item>
-            <Form.Item label={t("usage.logMaxRows")}>
-              <InputNumber min={100} max={5000000} style={{ width: "100%" }} value={maintenancePolicy?.maxRows} onChange={(value) => setMaintenancePolicy((current) => current && { ...current, maxRows: Number(value ?? 100000) })} />
-            </Form.Item>
-            <Form.Item label={t("usage.autoMaintain")}>
-              <Switch checked={maintenancePolicy?.autoMaintain ?? false} onChange={(checked) => setMaintenancePolicy((current) => current && { ...current, autoMaintain: checked })} />
-            </Form.Item>
-          </Form>
-        </Space>
-      </Modal>
-
       <Drawer
         title={t("usage.logDetail")}
         open={detailDiagnostic !== null}
@@ -866,7 +612,7 @@ export default function UsagePage() {
       >
         <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} expanded />
       </Modal>
-    </>
+    </Stack>
   );
 }
 
@@ -904,10 +650,12 @@ function UsageTrendChart({
       };
     });
   }, [data, granularity, period]);
+
   const chartCurrency = useMemo(() => {
     const currencies = [...new Set(chartData.map((row) => row.currency).filter((value) => value && value !== "MIXED"))];
     return currencies.length === 1 ? currencies[0] : "USD";
   }, [chartData]);
+
   const colors = {
     input: token.colorInfo,
     output: token.colorSuccess,
@@ -1047,6 +795,7 @@ function UsageTrendChart({
 function successRate(total?: number, successful?: number) {
   return total ? Number((((successful ?? 0) / total) * 100).toFixed(1)) : 0;
 }
+
 function currencyPrefix(currency?: string | null) {
   const normalized = (currency ?? "USD").trim().toUpperCase();
   if (normalized === "CNY" || normalized === "RMB") return "¥";
@@ -1055,7 +804,11 @@ function currencyPrefix(currency?: string | null) {
   if (normalized === "USD" || normalized === "") return "$";
   return `${normalized} `;
 }
+
 function formatCost(value: number, currency?: string | null) {
   return `${currencyPrefix(currency)}${value.toFixed(4)}`;
 }
-function errMsg(e: unknown): string { return e instanceof Error ? e.message : String(e); }
+
+function errMsg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}

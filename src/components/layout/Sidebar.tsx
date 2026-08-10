@@ -1,15 +1,17 @@
 import React from "react";
 import { Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
-import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
-import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
-import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
-import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
-import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
-import FolderOutlined from "@ant-design/icons/es/icons/FolderOutlined";
-import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
-import MenuFoldOutlined from "@ant-design/icons/es/icons/MenuFoldOutlined";
-import MenuUnfoldOutlined from "@ant-design/icons/es/icons/MenuUnfoldOutlined";
+import {
+  AppstoreOutlined,
+  ClusterOutlined,
+  ApiOutlined,
+  BarChartOutlined,
+  UserOutlined,
+  FolderOutlined,
+  SettingOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+} from "@ant-design/icons";
 import type { PageKey } from "@/lib/pageRegistry";
 import appLogo from "@/assets/app-logo.png";
 
