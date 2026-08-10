@@ -13,7 +13,7 @@ import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { AppShell } from "@/components/layout";
+import { AppLayout } from "@/components/AppLayout";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
@@ -335,7 +335,7 @@ export default function App() {
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
           <NavigationContext.Provider value={handleNavigate}>
-            <AppShell
+            <AppLayout
               activeKey={activeKey}
               onNavigate={handleNavigate}
               updateVersion={availableUpdate?.version}
@@ -345,7 +345,7 @@ export default function App() {
               }}
             >
               <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
-            </AppShell>
+            </AppLayout>
           </NavigationContext.Provider>
         )}
         <Modal

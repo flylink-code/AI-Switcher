@@ -1,0 +1,23 @@
+
+/* Floating view switcher button (Bottom Centered Pill) */
+.floating-view-switcher {
+  background: color-mix(in srgb, var(--ant-color-bg-container, #ffffff) 85%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--ant-color-border, #d1d1d6);
+  border-radius: 999px;
+  padding: 3px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-view-switcher:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-theme="dark"] .floating-view-switcher {
+  background: color-mix(in srgb, var(--ant-color-bg-container, #1a1a1a) 85%, transparent);
+  border-color: var(--ant-color-border, #3d3d3d);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}

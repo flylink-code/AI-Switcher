@@ -17,6 +17,7 @@
     "manageProviders": "供应商列表",
     "usageTitle": "最近 24h 用量 (24h Usage)",
     "viewUsage": "用量详情",
+    "viewUsageDetail": "查看用量详情",
     "costTooltip": "根据本地记录的模型 Token 与配置价格估算，不代表供应商最终账单。",
     "quickActionsTitle": "快捷导航 (Quick Actions)"
   },

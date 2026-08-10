@@ -17,6 +17,7 @@
     "manageProviders": "Providers List",
     "usageTitle": "24h Usage Overview",
     "viewUsage": "Usage Analytics",
+    "viewUsageDetail": "View Usage Analytics",
     "costTooltip": "Estimated based on locally recorded model tokens and prices; not an official provider invoice.",
     "quickActionsTitle": "Quick Actions"
   },
