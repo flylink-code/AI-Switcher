@@ -10,6 +10,16 @@
     "expand": "展开边栏",
     "collapse": "收起边栏"
   },
+  "dashboard": {
+    "runtimeTitle": "运行状态概览 (Runtime Overview)",
+    "openProxy": "管理代理",
+    "providerTitle": "当前供应商 (Current Provider)",
+    "manageProviders": "供应商列表",
+    "usageTitle": "最近 24h 用量 (24h Usage)",
+    "viewUsage": "用量详情",
+    "costTooltip": "根据本地记录的模型 Token 与配置价格估算，不代表供应商最终账单。",
+    "quickActionsTitle": "快捷导航 (Quick Actions)"
+  },
   "app": {
     "name": "AI-Switcher",
     "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具",
