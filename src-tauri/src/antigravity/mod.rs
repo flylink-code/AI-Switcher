@@ -15,6 +15,7 @@ pub mod pool;
 pub mod quota;
 pub mod quota_sync;
 pub mod session_effort;
+pub mod thought_sig;
 pub mod upstream;
 pub mod usage_log;
 

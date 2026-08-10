@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
+use crate::antigravity::thought_sig;
 
 pub struct GeminiRequestParts {
     pub model: String,
@@ -17,6 +18,7 @@ pub struct GeminiRequestParts {
 pub fn anthropic_to_gemini_request(
     body: &Value,
     sticky_effort: Option<&str>,
+    session_key: Option<&str>,
 ) -> Result<GeminiRequestParts, String> {
     let requested_model = body.get("model").and_then(Value::as_str).unwrap_or("");
     let requested_explicit = model_catalog::explicit_level_suffix(requested_model);
@@ -109,7 +111,16 @@ pub fn anthropic_to_gemini_request(
             continue;
         }
         let gemini_role = if role == "assistant" { "model" } else { "user" };
-        let parts = content_to_parts(message.get("content").unwrap_or(&Value::Null), &tool_names);
+        // Gemini 3 要求历史 functionCall part 携带 thought_signature；
+        // 仅 Gemini 目标注入（Claude 目标由 Cloud Code 转回 Anthropic 格式，
+        // 多出的字段可能触发上游校验）。
+        let gemini_target = lower_model.starts_with("gemini-");
+        let parts = content_to_parts(
+            message.get("content").unwrap_or(&Value::Null),
+            &tool_names,
+            gemini_target,
+            session_key,
+        );
         if parts.is_empty() {
             continue;
         }
@@ -428,6 +439,8 @@ pub(super) fn tool_result_text(content: &Value) -> String {
 fn content_to_parts(
     content: &Value,
     tool_names: &std::collections::HashMap<String, String>,
+    gemini_target: bool,
+    session_key: Option<&str>,
 ) -> Vec<Value> {
     match content {
         Value::String(text) => {
@@ -457,7 +470,23 @@ fn content_to_parts(
                         if let Some(id) = id {
                             fc["id"] = json!(id);
                         }
-                        parts.push(json!({ "functionCall": fc }));
+                        let mut part = json!({ "functionCall": fc });
+                        if gemini_target {
+                            // Gemini 3 签名校验：优先按 tool_use_id 精确命中，
+                            // 会话最新签名兜底，否则用哨兵值让上游跳过校验。
+                            let signature = id
+                                .and_then(thought_sig::get_tool_signature)
+                                .or_else(|| {
+                                    session_key.and_then(thought_sig::get_session_signature)
+                                })
+                                .unwrap_or_else(|| {
+                                    thought_sig::SKIP_VALIDATOR_SENTINEL.to_string()
+                                });
+                            let signature = json!(signature);
+                            part["thoughtSignature"] = signature.clone();
+                            part["thought_signature"] = signature;
+                        }
+                        parts.push(part);
                     }
                     "tool_result" => {
                         let tool_use_id = block
@@ -508,8 +537,8 @@ fn content_to_parts(
     }
 }
 
-pub fn gemini_to_anthropic_response(model: &str, gemini: &Value) -> Value {
-    let (text, tool_uses, stop_reason) = extract_assistant(gemini);
+pub fn gemini_to_anthropic_response(model: &str, gemini: &Value, session_key: Option<&str>) -> Value {
+    let (text, tool_uses, stop_reason) = extract_assistant(gemini, session_key);
     let mut content = Vec::new();
     if !text.is_empty() {
         content.push(json!({ "type": "text", "text": text }));
@@ -544,9 +573,13 @@ pub fn gemini_to_anthropic_response(model: &str, gemini: &Value) -> Value {
 /// Only emits `message_delta` / `message_stop` when the chunk carries a real
 /// `finishReason`. Intermediate tokens must not close the stream — doing so
 /// breaks Claude Desktop (premature stop → client abort → apparent 502).
-pub fn gemini_to_anthropic_sse_chunk(model: &str, gemini_chunk: &Value) -> Vec<Value> {
+pub fn gemini_to_anthropic_sse_chunk(
+    model: &str,
+    gemini_chunk: &Value,
+    session_key: Option<&str>,
+) -> Vec<Value> {
     let _ = model;
-    let (text, tool_uses, stop_reason) = extract_assistant(gemini_chunk);
+    let (text, tool_uses, stop_reason) = extract_assistant(gemini_chunk, session_key);
     let mut events = Vec::new();
     if !text.is_empty() {
         events.push(json!({
@@ -633,7 +666,7 @@ pub fn anthropic_sse_content_block_start() -> Value {
     })
 }
 
-fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, Option<String>) {
+fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> (String, Vec<Value>, Option<String>) {
     let mut text = String::new();
     let mut tools = Vec::new();
     let mut stop_reason = None;
@@ -649,8 +682,18 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, Option<String>) {
             .and_then(Value::as_array)
         {
             for part in parts {
+                // 捕获 Gemini 3 thought_signature：thinking part 上的记入会话
+                // 缓存，functionCall part 上的同时按 tool_use_id 精确缓存，
+                // 供下一轮请求回放历史时回注（客户端不会回传该字段）。
+                let signature = part
+                    .get("thoughtSignature")
+                    .or_else(|| part.get("thought_signature"))
+                    .and_then(Value::as_str);
                 // Skip model "thought" parts — not Anthropic wire content.
                 if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                    if let (Some(session), Some(sig)) = (session_key, signature) {
+                        thought_sig::cache_session_signature(session, sig);
+                    }
                     continue;
                 }
                 if let Some(chunk) = part.get("text").and_then(Value::as_str) {
@@ -662,6 +705,12 @@ fn extract_assistant(gemini: &Value) -> (String, Vec<Value>, Option<String>) {
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("toolu_{}", Uuid::new_v4().simple()));
+                    if let Some(sig) = signature {
+                        thought_sig::cache_tool_signature(&id, sig);
+                        if let Some(session) = session_key {
+                            thought_sig::cache_session_signature(session, sig);
+                        }
+                    }
                     tools.push(json!({
                         "type": "tool_use",
                         "id": id,
@@ -703,13 +752,123 @@ mod tests {
     use super::*;
 
     #[test]
+    fn gemini_history_tool_use_gets_sentinel_signature_without_cache() {
+        crate::antigravity::thought_sig::clear_all();
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "run ls" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "toolu_1", "name": "Bash", "input": { "command": "ls" } }
+                ]},
+                { "role": "user", "content": [
+                    { "type": "tool_result", "tool_use_id": "toolu_1", "content": "ok" }
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-sig")).unwrap();
+        let part = &parts.request["contents"][1]["parts"][0];
+        assert_eq!(
+            part["thoughtSignature"],
+            json!(thought_sig::SKIP_VALIDATOR_SENTINEL)
+        );
+        assert_eq!(part["thoughtSignature"], part["thought_signature"]);
+        crate::antigravity::thought_sig::clear_all();
+    }
+
+    #[test]
+    fn captured_response_signature_is_reinjected_by_tool_id() {
+        crate::antigravity::thought_sig::clear_all();
+        // 响应侧：functionCall part 携带 thoughtSignature → 按 tool id 缓存。
+        let chunk = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "thinking...", "thoughtSignature": "session-sig-long" },
+                    { "functionCall": { "id": "toolu_9", "name": "Bash", "args": {} },
+                      "thoughtSignature": "tool-sig-9" }
+                ] }
+            }]
+        });
+        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, Some("sess-9"));
+        assert!(events.iter().any(|e| e["type"] == "content_block_start"));
+        assert_eq!(
+            thought_sig::get_tool_signature("toolu_9").as_deref(),
+            Some("tool-sig-9")
+        );
+        assert_eq!(
+            thought_sig::get_session_signature("sess-9").as_deref(),
+            Some("session-sig-long")
+        );
+
+        // 请求侧：客户端回放同一 tool_use id → 回注真实签名而非哨兵。
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "run ls" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "toolu_9", "name": "Bash", "input": {} }
+                ]},
+                { "role": "user", "content": [
+                    { "type": "tool_result", "tool_use_id": "toolu_9", "content": "ok" }
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-9")).unwrap();
+        let part = &parts.request["contents"][1]["parts"][0];
+        assert_eq!(part["thoughtSignature"], json!("tool-sig-9"));
+        crate::antigravity::thought_sig::clear_all();
+    }
+
+    #[test]
+    fn session_signature_is_fallback_for_unknown_tool_id() {
+        crate::antigravity::thought_sig::clear_all();
+        thought_sig::cache_session_signature("sess-fb", "session-fallback-sig");
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "hi" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "toolu_unknown", "name": "Bash", "input": {} }
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-fb")).unwrap();
+        let part = &parts.request["contents"][1]["parts"][0];
+        assert_eq!(part["thoughtSignature"], json!("session-fallback-sig"));
+        crate::antigravity::thought_sig::clear_all();
+    }
+
+    #[test]
+    fn claude_target_history_tool_use_has_no_signature_injected() {
+        crate::antigravity::thought_sig::clear_all();
+        let body = json!({
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "hi" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "toolu_1", "name": "Bash", "input": {} }
+                ]}
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, Some("sess-c")).unwrap();
+        let part = &parts.request["contents"][1]["parts"][0];
+        assert!(part.get("thoughtSignature").is_none());
+        assert!(part.get("thought_signature").is_none());
+        crate::antigravity::thought_sig::clear_all();
+    }
+
+    #[test]
     fn converts_basic_messages() {
         let body = json!({
             "model": "claude-sonnet-4-5",
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert_eq!(parts.request["contents"][0]["role"], "user");
     }
@@ -721,7 +880,7 @@ mod tests {
                 "content": { "parts": [{ "text": "Hello" }] }
             }]
         });
-        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk);
+        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, None);
         assert_eq!(events.len(), 1);
         assert_eq!(events[0]["type"], "content_block_delta");
         assert!(events.iter().all(|event| event["type"] != "message_stop"));
@@ -736,7 +895,7 @@ mod tests {
             }],
             "usageMetadata": { "candidatesTokenCount": 1 }
         });
-        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk);
+        let events = gemini_to_anthropic_sse_chunk("gemini-3.6-flash-high", &chunk, None);
         let stops = events
             .iter()
             .filter(|event| event["type"] == "message_stop")
@@ -762,7 +921,7 @@ mod tests {
                 ]}
             ]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         let response = &parts.request["contents"][2]["parts"][0]["functionResponse"];
         assert_eq!(response["id"], json!("toolu_1"));
         assert_eq!(response["name"], json!("read_file"));
@@ -796,7 +955,7 @@ mod tests {
                 }
             }]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         let params = &parts.request["tools"][0]["functionDeclarations"][0]["parameters"];
         assert!(params.get("$schema").is_none());
         assert!(params.get("additionalProperties").is_none());
@@ -819,7 +978,7 @@ mod tests {
             "output_config": { "effort": "high" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
         assert!(
             parts.model.ends_with("-high") || parts.model.contains("-high"),
@@ -840,7 +999,7 @@ mod tests {
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
         assert!(
             parts.model.ends_with("-high") || parts.model.contains("-high"),
@@ -860,7 +1019,7 @@ mod tests {
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "side"}]
         });
-        let parts = anthropic_to_gemini_request(&body, Some("high")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, Some("high"), None).unwrap();
         assert!(
             parts.model.ends_with("-high") || parts.model.contains("-high"),
             "sticky high should apply, got {}",
@@ -876,7 +1035,7 @@ mod tests {
             "max_tokens": 128,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, Some("high")).unwrap();
+        let parts = anthropic_to_gemini_request(&body, Some("high"), None).unwrap();
         assert!(
             parts.model.ends_with("-low"),
             "explicit -low should win over sticky high, got {}",
@@ -893,7 +1052,7 @@ mod tests {
             "output_config": { "effort": { "type": "low" } },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(
             parts.model.ends_with("-low") || parts.model.contains("-low"),
             "expected low suffix from nested effort object, got {}",
@@ -910,7 +1069,7 @@ mod tests {
             "thinking": { "type": "disabled" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
         assert!(
             parts.model.ends_with("-low") || parts.model.contains("-low"),
@@ -929,7 +1088,7 @@ mod tests {
             "output_config": { "effort": "medium" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
@@ -945,7 +1104,7 @@ mod tests {
             "thinking": { "type": "adaptive" },
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let parts = anthropic_to_gemini_request(&body, None).unwrap();
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("high")

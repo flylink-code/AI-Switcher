@@ -67,7 +67,7 @@ pub async fn anthropic_messages(
     let sticky = session_key
         .as_deref()
         .and_then(crate::antigravity::session_effort::get);
-    let mapped = match anthropic_to_gemini_request(&payload, sticky) {
+    let mapped = match anthropic_to_gemini_request(&payload, sticky, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
@@ -330,6 +330,7 @@ async fn dispatch_generation(
                 state.db.clone(),
                 log_id,
                 Some(account.id.clone()),
+                session_key.clone(),
             )
             .await;
         }
@@ -341,7 +342,8 @@ async fn dispatch_generation(
                 }
                 match protocol {
                     WireProtocol::Anthropic => {
-                        Json(gemini_to_anthropic_response(&model, &gemini)).into_response()
+                        Json(gemini_to_anthropic_response(&model, &gemini, session_key.as_deref()))
+                            .into_response()
                     }
                     WireProtocol::OpenAiChat => {
                         Json(gemini_to_openai_response(&model, &gemini)).into_response()
@@ -398,6 +400,7 @@ async fn stream_response(
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
+    session_key: Option<String>,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
@@ -414,6 +417,7 @@ async fn stream_response(
             db,
             log_id,
             account_id,
+            session_key,
             last_input: 0,
             last_output: 0,
             responses_encoder,
@@ -486,6 +490,7 @@ struct StreamState {
     db: Arc<Database>,
     log_id: Option<String>,
     account_id: Option<String>,
+    session_key: Option<String>,
     last_input: i64,
     last_output: i64,
     responses_encoder: Option<ResponsesStreamEncoder>,
@@ -542,7 +547,9 @@ impl StreamState {
                     out.extend_from_slice(&sse_data(&anthropic_sse_message_start(&self.model)));
                     out.extend_from_slice(&sse_data(&anthropic_sse_content_block_start()));
                 }
-                for event in gemini_to_anthropic_sse_chunk(&self.model, &gemini) {
+                for event in
+                    gemini_to_anthropic_sse_chunk(&self.model, &gemini, self.session_key.as_deref())
+                {
                     if event.get("type").and_then(Value::as_str) == Some("message_stop") {
                         self.closed = true;
                     }
