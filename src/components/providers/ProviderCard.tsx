@@ -121,7 +121,7 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
         {/* Header Row */}
         <Inline justify="space-between" align="center">
           <Inline gap="sm">
-            <ProviderBrandIcon name={provider.name} baseUrl={provider.baseUrl} targetApp={provider.targetApp} size={24} />
+            <ProviderBrandIcon provider={provider} size={24} />
             <Text strong style={{ fontSize: "var(--font-size-lg)", color: "var(--color-text-primary)" }}>
               {provider.name}
             </Text>

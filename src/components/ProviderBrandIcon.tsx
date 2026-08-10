@@ -47,10 +47,13 @@ function hostOf(baseUrl: string): string {
   }
 }
 
-export function providerBrand(provider: Pick<Provider, "name" | "baseUrl">): {
+export function providerBrand(
+  provider?: Partial<Pick<Provider, "name" | "baseUrl">> | null
+): {
   label: string;
   color: string;
 } {
+  if (!provider) return { label: "?", color: "#6b7280" };
   const host = hostOf(provider.baseUrl ?? "");
   const rule = BRAND_RULES.find((r) => r.match.some((m) => host.includes(m)));
   if (rule) return { label: rule.label, color: rule.color };
@@ -61,20 +64,23 @@ export function providerBrand(provider: Pick<Provider, "name" | "baseUrl">): {
   return { label, color: FALLBACK_COLORS[hash % FALLBACK_COLORS.length] };
 }
 
+export interface ProviderBrandIconProps {
+  provider?: Partial<Pick<Provider, "name" | "baseUrl">> | null;
+  name?: string;
+  baseUrl?: string;
+  targetApp?: string;
+  size?: number;
+  style?: CSSProperties;
+}
+
 /**
  * Vendor avatar for provider cards: brand-colored badge when the baseUrl host
  * matches a known vendor, otherwise a neutral first-letter avatar.
  */
-export function ProviderBrandIcon({
-  provider,
-  size = 22,
-  style,
-}: {
-  provider: Pick<Provider, "name" | "baseUrl">;
-  size?: number;
-  style?: CSSProperties;
-}) {
-  const { label, color } = providerBrand(provider);
+export function ProviderBrandIcon(props: ProviderBrandIconProps) {
+  const { provider, name, baseUrl, size = 22, style } = props;
+  const targetProvider = provider ?? { name, baseUrl };
+  const { label, color } = providerBrand(targetProvider);
   return (
     <span
       aria-hidden

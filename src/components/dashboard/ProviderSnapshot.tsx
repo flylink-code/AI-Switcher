@@ -66,7 +66,7 @@ export const ProviderSnapshot: React.FC<ProviderSnapshotProps> = ({
           <Stack gap="xs">
             <Inline justify="space-between" align="center">
               <Inline gap="sm">
-                <ProviderBrandIcon name={currentProvider.name} baseUrl={currentProvider.baseUrl} targetApp={currentProvider.targetApp} size={20} />
+                <ProviderBrandIcon provider={currentProvider} size={20} />
                 <Text strong style={{ fontSize: "var(--font-size-md)", color: "var(--color-text-primary)" }}>
                   {currentProvider.name}
                 </Text>

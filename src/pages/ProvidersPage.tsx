@@ -138,9 +138,9 @@ export default function ProvidersPage() {
       // Search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const matchName = p.name.toLowerCase().includes(query);
-        const matchUrl = p.baseUrl.toLowerCase().includes(query);
-        const matchModel = p.model.toLowerCase().includes(query);
+        const matchName = (p.name ?? "").toLowerCase().includes(query);
+        const matchUrl = (p.baseUrl ?? "").toLowerCase().includes(query);
+        const matchModel = (p.model ?? "").toLowerCase().includes(query);
         return matchName || matchUrl || matchModel;
       }
 

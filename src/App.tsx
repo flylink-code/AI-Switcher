@@ -1,4 +1,49 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ErrorInfo, type ReactNode } from "react";
+
+interface ErrorBoundaryProps {
+  children?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught rendering error:", error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24 }}>
+          <Alert
+            type="error"
+            showIcon
+            message="页面渲染异常"
+            description={this.state.error?.message || "发生了未捕获的渲染错误。"}
+            action={
+              <Button onClick={() => this.setState({ hasError: false, error: null })}>
+                重试
+              </Button>
+            }
+          />
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 import {
   Alert,
   App as AntApp,
@@ -13,7 +58,7 @@ import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { AppLayout } from "@/components/AppLayout";
+import { AppShell } from "@/components/layout/AppShell";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
@@ -373,7 +418,7 @@ export default function App() {
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
           <NavigationContext.Provider value={handleNavigate}>
-            <AppLayout
+            <AppShell
               activeKey={activeKey}
               onNavigate={handleNavigate}
               updateVersion={availableUpdate?.version}
@@ -382,8 +427,10 @@ export default function App() {
                 setUpdatePromptOpen(true);
               }}
             >
-              <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
-            </AppLayout>
+              <ErrorBoundary key={activeKey}>
+                <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
+              </ErrorBoundary>
+            </AppShell>
           </NavigationContext.Provider>
         )}
         <Modal

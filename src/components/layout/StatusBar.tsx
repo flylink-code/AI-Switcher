@@ -26,7 +26,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   const proxyRunning = proxyQuery.data?.running ?? false;
   const proxyPort = proxyQuery.data?.port ?? (target === "codex" ? 15822 : target === "opencode" ? 15824 : 15821);
 
-  const currentProvider = providersQuery.data?.providers.find((p) => p.isCurrent);
+  const providersData = providersQuery.data;
+  const currentProvider = Array.isArray(providersData)
+    ? providersData.find((p) => p.isCurrent)
+    : undefined;
   const providerName = currentProvider ? currentProvider.name : t("workbench.noCurrentProvider", { defaultValue: "无" });
 
   return (
