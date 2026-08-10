@@ -1,0 +1,12 @@
+# Search-tool ignore rules (ripgrep / editor search). Higher priority than
+# .gitignore, and applies to tools that pass --hidden. Keeps whole-workspace
+# searches off the multi-GB directories so they don't hit the 20s timeout.
+
+.git/
+node_modules/
+.pnpm-store/
+dist/
+dist-ssr/
+release/
+**/target/
+examples/
