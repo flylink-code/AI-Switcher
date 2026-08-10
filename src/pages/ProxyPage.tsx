@@ -16,6 +16,7 @@ import {
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { ProxyRuntimeCard, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 
@@ -34,6 +35,7 @@ export default function ProxyPage() {
   const [idleSaving, setIdleSaving] = useState(false);
 
   const target = usePagePreferencesStore((state) => state.proxyTarget);
+  const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
 
@@ -156,7 +158,7 @@ export default function ProxyPage() {
         <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
       )}
 
-      {/* Hero Runtime Control Surface */}
+      {/* Hero Runtime Control Surface（目标切换器在卡片头部右侧） */}
       <ProxyRuntimeCard
         status={status}
         target={target}
@@ -167,6 +169,7 @@ export default function ProxyPage() {
         onStart={() => void handleStart()}
         onStop={() => void handleStop()}
         onRefresh={() => void handleRefresh()}
+        headerExtra={<WorkspaceTargetSegmented value={target} onChange={setTarget} t={t} size="small" />}
       />
 
       {/* Resilience & Failover Control */}

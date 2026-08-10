@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Button, InputNumber, Space, Tag, Typography } from "antd";
+import { Alert, Button, InputNumber, Tag, Typography } from "antd";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -20,6 +20,8 @@ export interface ProxyRuntimeCardProps {
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
+  /** 头部右侧额外内容（如目标切换器）。 */
+  headerExtra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -34,6 +36,7 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   onStart,
   onStop,
   onRefresh,
+  headerExtra,
   className = "",
   style,
 }) => {
@@ -56,11 +59,14 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   if (isOpencode) {
     return (
       <Surface padding="md" className={className} style={style}>
-        <Inline gap="sm" align="center" style={{ marginBottom: "var(--space-3)" }}>
-          <ApiOutlined style={{ fontSize: "20px", color: "var(--color-brand)" }} />
-          <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
-            OpenCode Direct Connection
-          </Text>
+        <Inline justify="space-between" align="center" style={{ marginBottom: "var(--space-3)" }}>
+          <Inline gap="sm" align="center">
+            <ApiOutlined style={{ fontSize: "20px", color: "var(--color-brand)" }} />
+            <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
+              OpenCode Direct Connection
+            </Text>
+          </Inline>
+          {headerExtra}
         </Inline>
         <Alert type="info" showIcon message={t("proxy.opencodeDirectHint")} />
       </Surface>
@@ -79,7 +85,7 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
     >
       <Stack gap="md">
         {/* Header Row */}
-        <Inline justify="space-between" align="center">
+        <Inline justify="space-between" align="center" wrap gap="sm">
           <Inline gap="sm">
             <ApiOutlined style={{ fontSize: "20px", color: isRunning ? "var(--color-brand)" : "var(--color-text-secondary)" }} />
             <Text strong style={{ fontSize: "var(--font-size-xl)", color: "var(--color-text-primary)" }}>
@@ -88,60 +94,68 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
             {getStatusBadge()}
           </Inline>
 
-          <Button
-            size="small"
-            icon={<ReloadOutlined spin={refreshing} />}
-            loading={refreshing}
-            onClick={onRefresh}
-          >
-            {t("proxy.refresh", { defaultValue: "刷新" })}
-          </Button>
+          <Inline gap="sm" align="center">
+            {headerExtra}
+            <Button
+              size="small"
+              icon={<ReloadOutlined spin={refreshing} />}
+              loading={refreshing}
+              onClick={onRefresh}
+            >
+              {t("proxy.refresh", { defaultValue: "刷新" })}
+            </Button>
+          </Inline>
         </Inline>
 
         {/* Runtime Details Surface */}
-        <Surface variant="subtle" padding="sm" style={{ borderRadius: "var(--radius-md)" }}>
-          <Stack gap="sm">
-            <Inline justify="space-between" align="center" wrap gap="sm">
-              <Inline gap="sm">
-                <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)" }}>
-                  {t("proxy.fieldTarget", { defaultValue: "目标供应商" })}:
+        <Surface variant="subtle" padding="md" style={{ borderRadius: "var(--radius-md)" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "var(--space-3) var(--space-5)",
+              alignItems: "center",
+            }}
+          >
+            <Inline gap="sm">
+              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
+                {t("proxy.fieldTarget", { defaultValue: "目标供应商" })}
+              </Text>
+              {status?.targetProvider ? (
+                <Tag color="blue" style={{ margin: 0 }}>
+                  {status.targetProvider}
+                </Tag>
+              ) : (
+                <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
+                  {t("proxy.noTarget", { defaultValue: "未指定" })}
                 </Text>
-                {status?.targetProvider ? (
-                  <Tag color="blue" style={{ margin: 0 }}>
-                    {status.targetProvider}
-                  </Tag>
-                ) : (
-                  <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-                    {t("proxy.noTarget", { defaultValue: "未指定" })}
-                  </Text>
-                )}
-              </Inline>
-
-              <Inline gap="xs" align="center">
-                <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)" }}>
-                  {t("proxy.port", { defaultValue: "端口号" })}:
-                </Text>
-                <InputNumber
-                  min={1024}
-                  max={65535}
-                  value={port}
-                  onChange={(v) => v != null && onPortChange(v)}
-                  disabled={busy || isRunning || status?.phase === "starting"}
-                  size="small"
-                  style={{ width: 90 }}
-                />
-              </Inline>
+              )}
             </Inline>
 
-            <Inline gap="sm" align="center">
-              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)" }}>
-                {t("proxy.fieldEndpoint", { defaultValue: "接入端点" })}:
+            <Inline gap="xs" align="center">
+              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
+                {t("proxy.port", { defaultValue: "端口号" })}
+              </Text>
+              <InputNumber
+                min={1024}
+                max={65535}
+                value={port}
+                onChange={(v) => v != null && onPortChange(v)}
+                disabled={busy || isRunning || status?.phase === "starting"}
+                size="small"
+                style={{ width: 90 }}
+              />
+            </Inline>
+
+            <Inline gap="sm" align="center" style={{ gridColumn: "1 / -1" }}>
+              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
+                {t("proxy.fieldEndpoint", { defaultValue: "接入端点" })}
               </Text>
               <Text copyable code style={{ fontSize: "var(--font-size-xs)", fontFamily: "var(--font-family-mono)" }}>
                 {endpointUrl}
               </Text>
             </Inline>
-          </Stack>
+          </div>
         </Surface>
 
         {/* Error Alert */}

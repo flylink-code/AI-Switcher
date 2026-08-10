@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Input, InputNumber, Space, Switch, Typography } from "antd";
+import { Button, Divider, Input, InputNumber, Space, Switch, Typography } from "antd";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import FieldTimeOutlined from "@ant-design/icons/es/icons/FieldTimeOutlined";
 import { useTranslation } from "react-i18next";
@@ -41,30 +41,28 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Stack gap="md" className={className} style={style}>
-      {/* Failover Surface */}
-      <Surface padding="md">
-        <Stack gap="sm">
-          <Inline justify="space-between" align="center">
-            <Inline gap="sm">
-              <SafetyCertificateOutlined style={{ fontSize: 18, color: "var(--color-brand)" }} />
-              <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
-                {t("proxy.failoverTitle", { defaultValue: "自动故障切换 (Failover)" })}
-              </Text>
-            </Inline>
-
-            <Inline gap="sm" align="center">
-              <Switch
-                checked={failoverEnabled}
-                loading={failoverSaving}
-                disabled={failoverSaving}
-                checkedChildren={t("common.enabled", { defaultValue: "开启" })}
-                unCheckedChildren={t("common.disabled", { defaultValue: "关闭" })}
-                onChange={onFailoverChange}
-              />
-            </Inline>
+    <Surface padding="lg" className={className} style={style}>
+      <Stack gap="md">
+        {/* Failover Header */}
+        <Inline justify="space-between" align="center">
+          <Inline gap="sm">
+            <SafetyCertificateOutlined style={{ fontSize: 18, color: "var(--color-brand)" }} />
+            <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
+              {t("proxy.failoverTitle", { defaultValue: "自动故障切换 (Failover)" })}
+            </Text>
           </Inline>
 
+          <Switch
+            checked={failoverEnabled}
+            loading={failoverSaving}
+            disabled={failoverSaving}
+            checkedChildren={t("common.enabled", { defaultValue: "开启" })}
+            unCheckedChildren={t("common.disabled", { defaultValue: "关闭" })}
+            onChange={onFailoverChange}
+          />
+        </Inline>
+
+        <Stack gap="xs">
           <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
             {t("proxy.failoverDescription")}
           </Text>
@@ -72,11 +70,17 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
             {t("proxy.failoverGroupHint")}
           </Text>
         </Stack>
-      </Surface>
 
-      {/* Resilience Options Surface */}
-      <Surface padding="md">
-        <Stack gap="md">
+        <Divider style={{ margin: 0 }} />
+
+        {/* Resilience Options: two-column grid on wide screens */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: "var(--space-4) var(--space-6)",
+          }}
+        >
           {/* Retry Status Codes */}
           <Stack gap="xs">
             <Text strong style={{ fontSize: "var(--font-size-md)" }}>
@@ -123,8 +127,8 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
               </Button>
             </Inline>
           </Stack>
-        </Stack>
-      </Surface>
-    </Stack>
+        </div>
+      </Stack>
+    </Surface>
   );
 };

@@ -193,7 +193,11 @@ export default function WorkbenchPage() {
                 icon={<NodeIndexOutlined />}
                 color={target === "opencode" ? "blue" : proxy?.running ? "green" : undefined}
                 style={{ cursor: "pointer", margin: 0 }}
-                onClick={() => navigate("proxy")}
+                onClick={() => {
+                  // 深链一致：代理页打开当前工作台所选目标的代理视图。
+                  usePagePreferencesStore.getState().setProxyTarget(target);
+                  navigate("proxy");
+                }}
               >
                 {target === "opencode"
                   ? t("workbench.proxyDirect")
