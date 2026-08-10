@@ -1169,6 +1169,8 @@
     "quotaGemini7d": "Gemini 7d",
     "quotaClaude5h": "Claude+GPT 5h",
     "quotaClaude7d": "Claude+GPT 7d",
+    "quotaUpdated": "更新",
+    "quotaResetAt": "重置",
     "refreshQuota": "刷新额度",
     "quotaRefreshed": "额度已刷新",
     "cooling": "冷却中",

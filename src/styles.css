@@ -801,10 +801,10 @@ body {
   }
 }
 
-/* Bottom charts grid: heatmap & hourly bars side-by-side */
+/* Bottom charts: heatmap & hourly bars stacked (heatmap needs full width for 365 days) */
 .workbench-charts-grid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   width: 100%;
   align-items: stretch;
@@ -814,12 +814,6 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-
-@media (max-width: 1260px) {
-  .workbench-charts-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .usage-summary-cell {

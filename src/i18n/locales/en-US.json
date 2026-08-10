@@ -1169,6 +1169,8 @@
     "quotaGemini7d": "Gemini 7d",
     "quotaClaude5h": "Claude+GPT 5h",
     "quotaClaude7d": "Claude+GPT 7d",
+    "quotaUpdated": "Updated",
+    "quotaResetAt": "Resets",
     "refreshQuota": "Refresh quota",
     "quotaRefreshed": "Quota refreshed",
     "cooling": "Cooling down",

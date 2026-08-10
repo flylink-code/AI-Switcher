@@ -7,6 +7,7 @@ import type { AntigravityAccountPublic } from "@/services/api";
 import {
   QuotaMiniBar,
   accountQuotaSummary,
+  formatQuotaUpdatedAt,
   formatTierLabel,
   tierTagColor,
 } from "@/components/AntigravityQuotaBars";
@@ -32,8 +33,18 @@ export function AccountCard({
   const tier = formatTierLabel(account.subscriptionTier);
   const cooling =
     account.cooldownUntil != null && account.cooldownUntil * 1000 > Date.now();
-  const { geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly } =
-    accountQuotaSummary(account);
+  const {
+    geminiFiveHour,
+    geminiWeekly,
+    claudeFiveHour,
+    claudeWeekly,
+    geminiFiveHourReset,
+    geminiWeeklyReset,
+    claudeFiveHourReset,
+    claudeWeeklyReset,
+    quotaUpdatedAt,
+  } = accountQuotaSummary(account);
+  const quotaUpdated = formatQuotaUpdatedAt(quotaUpdatedAt);
 
   return (
     <Card
@@ -79,18 +90,22 @@ export function AccountCard({
             <QuotaMiniBar
               label={t("antigravity.quotaGemini5h")}
               percent={geminiFiveHour}
+              resetTime={geminiFiveHourReset}
             />
             <QuotaMiniBar
               label={t("antigravity.quotaGemini7d")}
               percent={geminiWeekly}
+              resetTime={geminiWeeklyReset}
             />
             <QuotaMiniBar
               label={t("antigravity.quotaClaude5h")}
               percent={claudeFiveHour}
+              resetTime={claudeFiveHourReset}
             />
             <QuotaMiniBar
               label={t("antigravity.quotaClaude7d")}
               percent={claudeWeekly}
+              resetTime={claudeWeeklyReset}
             />
           </div>
         </Surface>
@@ -111,6 +126,11 @@ export function AccountCard({
                 <Tag style={{ margin: 0, fontSize: 10 }}>{t("antigravity.pending")}</Tag>
               )}
             </Text>
+            {quotaUpdated && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("antigravity.quotaUpdated")}: {quotaUpdated}
+              </Text>
+            )}
           </Space>
 
           <Space size={8}>

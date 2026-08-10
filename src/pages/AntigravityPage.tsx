@@ -274,7 +274,8 @@ export default function AntigravityPage() {
       <ContextHeader
         title={t("antigravity.title")}
         description={t("antigravity.subtitle")}
-        actions={
+        showClientSwitcher={false}
+        extra={
           <Space wrap>
             <Button
               icon={<ReloadOutlined />}
