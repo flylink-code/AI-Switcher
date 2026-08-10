@@ -1,4 +1,15 @@
 {
+  "navigation": {
+    "dashboard": "Dashboard",
+    "providers": "Providers",
+    "proxy": "Proxy",
+    "usage": "Usage",
+    "accounts": "Accounts",
+    "workspace": "Workspace",
+    "settings": "Settings",
+    "expand": "Expand Sidebar",
+    "collapse": "Collapse Sidebar"
+  },
   "app": {
     "name": "AI-Switcher",
     "tagline": "Third-party API configuration tool for Claude Desktop & Claude Code",

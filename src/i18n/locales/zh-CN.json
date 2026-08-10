@@ -1,4 +1,15 @@
 {
+  "navigation": {
+    "dashboard": "概览",
+    "providers": "供应商",
+    "proxy": "代理控制",
+    "usage": "用量统计",
+    "accounts": "账号与额度",
+    "workspace": "工作区资源",
+    "settings": "设置",
+    "expand": "展开边栏",
+    "collapse": "收起边栏"
+  },
   "app": {
     "name": "AI-Switcher",
     "tagline": "Claude Desktop / Claude Code 第三方 API 配置工具",
