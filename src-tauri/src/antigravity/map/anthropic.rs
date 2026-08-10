@@ -13,6 +13,11 @@ pub struct GeminiRequestParts {
     pub stream: bool,
     /// Explicit effort/suffix/`thinking.disabled` to remember for the session.
     pub remember_effort: Option<&'static str>,
+    /// 客户端开启了 thinking（enabled/adaptive 或显式 effort）→ 请求
+    /// includeThoughts 并在响应侧透传 thinking 块。分类器等内部调用
+    /// （thinking disabled、无 effort）必须为 false：它们解析不了 thinking
+    /// 块，会误判模型不可用。
+    pub thoughts_allowed: bool,
 }
 
 pub fn anthropic_to_gemini_request(
@@ -43,7 +48,10 @@ pub fn anthropic_to_gemini_request(
     let lower_model = model.to_ascii_lowercase();
     // Gemini API 默认不返回 thought 文本，必须显式 includeThoughts:true
     // （对照 Antigravity-Manager claude/gemini mapper），否则客户端永远
-    // 看不到思考过程。目录里的 gemini-*-low/medium/high 都是 thinking 变体。
+    // 看不到思考过程。但仅当客户端自己开了 thinking 时才请求——分类器等
+    // thinking=disabled 的内部调用收到 thinking 块会解析失败。
+    let thoughts_allowed = matches!(thinking_kind.as_deref(), Some("enabled") | Some("adaptive"))
+        || effort.is_some();
     let gemini_target = lower_model.starts_with("gemini-");
     if gemini_target {
         if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
@@ -152,13 +160,16 @@ pub fn anthropic_to_gemini_request(
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
     }
-    if gemini_target {
-        // 只要 thinking 变体就请求下发思考文本（level 由模型 id 后缀决定）。
+    if gemini_target && thoughts_allowed {
+        // thinking 变体 + 客户端开了 thinking 才请求下发思考文本
+        // （level 由模型 id 后缀决定）。
         generation["thinkingConfig"] = json!({ "includeThoughts": true });
     }
     if let Some(level) = claude_thinking_level {
         generation["thinkingConfig"]["thinkingLevel"] = json!(level);
-        generation["thinkingConfig"]["includeThoughts"] = json!(true);
+        if thoughts_allowed {
+            generation["thinkingConfig"]["includeThoughts"] = json!(true);
+        }
     }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
@@ -196,6 +207,7 @@ pub fn anthropic_to_gemini_request(
         request,
         stream,
         remember_effort,
+        thoughts_allowed,
     })
 }
 
@@ -555,8 +567,13 @@ fn content_to_parts(
     }
 }
 
-pub fn gemini_to_anthropic_response(model: &str, gemini: &Value, session_key: Option<&str>) -> Value {
-    let assistant = extract_assistant(gemini, session_key);
+pub fn gemini_to_anthropic_response(
+    model: &str,
+    gemini: &Value,
+    session_key: Option<&str>,
+    thoughts_allowed: bool,
+) -> Value {
+    let assistant = extract_assistant(gemini, session_key, thoughts_allowed);
     let mut content = Vec::new();
     // thinking blocks 必须在 text/tool_use 之前（Anthropic 协议要求）。
     if !assistant.thought_text.is_empty() {
@@ -689,6 +706,7 @@ pub fn gemini_to_anthropic_sse_chunk(
     model: &str,
     gemini_chunk: &Value,
     session_key: Option<&str>,
+    thoughts_allowed: bool,
 ) -> Vec<Value> {
     let mut events = Vec::new();
     if state.closed {
@@ -698,7 +716,7 @@ pub fn gemini_to_anthropic_sse_chunk(
         state.started = true;
         events.push(anthropic_sse_message_start(model));
     }
-    let assistant = extract_assistant(gemini_chunk, session_key);
+    let assistant = extract_assistant(gemini_chunk, session_key, thoughts_allowed);
 
     if !assistant.thought_text.is_empty() {
         let index = state.open_block_if_needed(BlockKind::Thinking, &mut events);
@@ -799,7 +817,11 @@ struct AssistantContent {
     stop_reason: Option<String>,
 }
 
-fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> AssistantContent {
+fn extract_assistant(
+    gemini: &Value,
+    session_key: Option<&str>,
+    thoughts_allowed: bool,
+) -> AssistantContent {
     let mut content = AssistantContent {
         thought_text: String::new(),
         thought_signature: None,
@@ -826,15 +848,21 @@ fn extract_assistant(gemini: &Value, session_key: Option<&str>) -> AssistantCont
                     .get("thoughtSignature")
                     .or_else(|| part.get("thought_signature"))
                     .and_then(Value::as_str);
-                // thought parts → Anthropic thinking blocks（透传给 Desktop 展示）。
+                // thought parts：签名照常进缓存（供下轮回注），但思考文本
+                // 只在客户端开了 thinking 时才透传为 thinking 块——分类器等
+                // thinking=disabled 的调用解析不了 thinking 块。
                 if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
-                    if let Some(chunk) = part.get("text").and_then(Value::as_str) {
-                        content.thought_text.push_str(chunk);
-                    }
                     if let Some(sig) = signature {
-                        content.thought_signature = Some(sig.to_string());
                         if let Some(session) = session_key {
                             thought_sig::cache_session_signature(session, sig);
+                        }
+                        if thoughts_allowed {
+                            content.thought_signature = Some(sig.to_string());
+                        }
+                    }
+                    if thoughts_allowed {
+                        if let Some(chunk) = part.get("text").and_then(Value::as_str) {
+                            content.thought_text.push_str(chunk);
                         }
                     }
                     continue;
@@ -938,6 +966,7 @@ mod tests {
             "gemini-3.6-flash-high",
             &chunk,
             Some("sess-capture-9"),
+            true,
         );
         assert!(events.iter().any(|e| e["type"] == "content_block_start"));
         assert_eq!(
@@ -1009,9 +1038,11 @@ mod tests {
         let body = json!({
             "model": "gemini-3.6-flash",
             "max_tokens": 128,
+            "thinking": { "type": "adaptive" },
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert!(parts.thoughts_allowed);
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["includeThoughts"],
             json!(true)
@@ -1020,6 +1051,55 @@ mod tests {
         assert!(parts.request["generationConfig"]["thinkingConfig"]
             .get("thinkingLevel")
             .is_none());
+    }
+
+    #[test]
+    fn classifier_style_request_disables_thoughts() {
+        // Desktop 分类器特征：thinking=disabled、无 effort → 不请求 includeThoughts，
+        // 响应侧的 thought parts 也直接丢弃（客户端解析不了 thinking 块）。
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 64,
+            "thinking": { "type": "disabled" },
+            "messages": [{"role": "user", "content": "classify"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert!(!parts.thoughts_allowed);
+        assert!(parts.request["generationConfig"].get("thinkingConfig").is_none()
+            || parts.request["generationConfig"]["thinkingConfig"]
+                .get("includeThoughts")
+                .is_none());
+
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "内部推理", "thoughtSignature": "sig-cls-1" },
+                    { "text": "allow" }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response =
+            gemini_to_anthropic_response("gemini-3.6-flash-low", &gemini, Some("sess-cls-1"), false);
+        let content = response["content"].as_array().unwrap();
+        // 无 thinking 块，纯文本；签名仍进会话缓存。
+        assert!(content.iter().all(|b| b["type"] != "thinking"));
+        assert_eq!(content[0]["text"], "allow");
+        assert_eq!(
+            thought_sig::get_session_signature("sess-cls-1").as_deref(),
+            Some("sig-cls-1")
+        );
+
+        // 流式同理：thinking=disabled 时不产出 thinking_delta。
+        let mut state = AnthropicStreamState::default();
+        let chunk = json!({
+            "candidates": [{ "content": { "parts": [
+                { "thought": true, "text": "内部推理" }
+            ] } }]
+        });
+        let events =
+            gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-low", &chunk, None, false);
+        assert!(events.iter().all(|e| e["delta"]["type"] != "thinking_delta"));
     }
 
     #[test]
@@ -1042,7 +1122,7 @@ mod tests {
             }]
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
         assert!(events.iter().any(|event| event["type"] == "message_start"));
         assert!(events
             .iter()
@@ -1061,7 +1141,7 @@ mod tests {
             "usageMetadata": { "candidatesTokenCount": 1 }
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
+        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
         let stops = events
             .iter()
             .filter(|event| event["type"] == "message_stop")
@@ -1070,7 +1150,7 @@ mod tests {
         assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
         assert!(state.is_closed());
         // closed 之后不再产出事件；finish_events 幂等。
-        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None)
+        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true)
             .is_empty());
         assert!(state.finish_events("gemini-3.6-flash-high", 1).is_empty());
     }
@@ -1087,7 +1167,7 @@ mod tests {
             }]
         });
         let response =
-            gemini_to_anthropic_response("gemini-3.6-flash-high", &gemini, Some("sess-nonstream"));
+            gemini_to_anthropic_response("gemini-3.6-flash-high", &gemini, Some("sess-nonstream"), true);
         let content = response["content"].as_array().unwrap();
         assert_eq!(content[0]["type"], "thinking");
         assert_eq!(content[0]["thinking"], "先看一下文件");
@@ -1105,7 +1185,7 @@ mod tests {
                 { "thought": true, "text": "打算先读配置" }
             ] } }]
         });
-        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None);
+        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None, true);
         let start = e1
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1120,7 +1200,7 @@ mod tests {
                 { "thought": true, "thoughtSignature": "sig-stream-2" }
             ] } }]
         });
-        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None);
+        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None, true);
         assert!(e2.iter().any(|e| e["delta"]["type"] == "signature_delta"
             && e["delta"]["signature"] == "sig-stream-2"));
         assert!(e2
@@ -1135,7 +1215,7 @@ mod tests {
             }],
             "usageMetadata": { "candidatesTokenCount": 2 }
         });
-        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None);
+        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None, true);
         let text_start = e3
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1159,7 +1239,7 @@ mod tests {
                 { "thought": true, "text": "半截思考" }
             ] } }]
         });
-        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None);
+        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true);
         let events = state.finish_events("gemini-3.6-flash-high", 3);
         assert!(events
             .iter()

@@ -83,6 +83,7 @@ pub async fn anthropic_messages(
         mapped.stream,
         WireProtocol::Anthropic,
         Some(diagnostic),
+        mapped.thoughts_allowed,
     )
     .await
 }
@@ -111,6 +112,7 @@ pub async fn openai_chat_completions(
         mapped.stream,
         WireProtocol::OpenAiChat,
         None,
+        false,
     )
     .await
 }
@@ -139,6 +141,7 @@ pub async fn openai_responses(
         mapped.stream,
         WireProtocol::OpenAiResponses,
         None,
+        false,
     )
     .await
 }
@@ -190,6 +193,7 @@ async fn dispatch_generation(
     stream: bool,
     protocol: WireProtocol,
     diagnostic: Option<String>,
+    thoughts_allowed: bool,
 ) -> Response {
     let started = Instant::now();
     let session_key = session_key_from_headers(headers);
@@ -331,6 +335,7 @@ async fn dispatch_generation(
                 log_id,
                 Some(account.id.clone()),
                 session_key.clone(),
+                thoughts_allowed,
             )
             .await;
         }
@@ -342,8 +347,13 @@ async fn dispatch_generation(
                 }
                 match protocol {
                     WireProtocol::Anthropic => {
-                        Json(gemini_to_anthropic_response(&model, &gemini, session_key.as_deref()))
-                            .into_response()
+                        Json(gemini_to_anthropic_response(
+                            &model,
+                            &gemini,
+                            session_key.as_deref(),
+                            thoughts_allowed,
+                        ))
+                        .into_response()
                     }
                     WireProtocol::OpenAiChat => {
                         Json(gemini_to_openai_response(&model, &gemini)).into_response()
@@ -401,6 +411,7 @@ async fn stream_response(
     log_id: Option<String>,
     account_id: Option<String>,
     session_key: Option<String>,
+    thoughts_allowed: bool,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
@@ -418,6 +429,7 @@ async fn stream_response(
             log_id,
             account_id,
             session_key,
+            thoughts_allowed,
             last_input: 0,
             last_output: 0,
             responses_encoder,
@@ -490,6 +502,7 @@ struct StreamState {
     log_id: Option<String>,
     account_id: Option<String>,
     session_key: Option<String>,
+    thoughts_allowed: bool,
     last_input: i64,
     last_output: i64,
     responses_encoder: Option<ResponsesStreamEncoder>,
@@ -543,8 +556,13 @@ impl StreamState {
                 let model = self.model.clone();
                 let session = self.session_key.clone();
                 let mut anthropic = self.anthropic.take().unwrap_or_default();
-                let events =
-                    gemini_to_anthropic_sse_chunk(&mut anthropic, &model, &gemini, session.as_deref());
+                let events = gemini_to_anthropic_sse_chunk(
+                    &mut anthropic,
+                    &model,
+                    &gemini,
+                    session.as_deref(),
+                    self.thoughts_allowed,
+                );
                 self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
                 for event in events {
