@@ -35,20 +35,27 @@ import {
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
+  listProviders,
   type AntigravityAccountPublic,
 } from "@/services/api";
+import type { ProviderTarget } from "@/types/backend";
 import {
   QuotaMiniBar,
   accountQuotaSummary,
   formatTierLabel,
   tierTagColor,
 } from "@/components/AntigravityQuotaBars";
-import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text, Paragraph, Title } = Typography;
 const { TextArea } = Input;
 const ANTIGRAVITY_QUOTA_REFRESH_MS = 5 * 60_000;
 const ANTIGRAVITY_QUOTA_REFRESH_EVENT = "antigravity-quota-refreshed";
+const BIND_TARGETS: ProviderTarget[] = [
+  "claude_code",
+  "claude_desktop",
+  "codex",
+  "opencode",
+];
 
 function errMsg(error: unknown): string {
   if (typeof error === "string" && error.trim()) return error;
@@ -63,7 +70,6 @@ function errMsg(error: unknown): string {
 export default function AntigravityPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
   const [importJson, setImportJson] = useState("");
   const [portDraft, setPortDraft] = useState<number | null>(null);
   const [apiKeyDraft, setApiKeyDraft] = useState<string | null>(null);
@@ -86,6 +92,23 @@ export default function AntigravityPage() {
     queryKey: ["antigravity-models"],
     queryFn: listAntigravityModels,
   });
+  // 各应用是否已有内建 Antigravity 供应商（用于「已添加」标记）
+  const boundProvidersQuery = useQuery({
+    queryKey: ["antigravity-bound-providers"],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        BIND_TARGETS.map(async (target) => {
+          const providers = await listProviders(target);
+          return [
+            target,
+            providers.some((provider) => provider.providerKind === "antigravity"),
+          ] as const;
+        }),
+      );
+      return new Map<ProviderTarget, boolean>(entries);
+    },
+  });
+  const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
 
   const status = statusQuery.data;
   const port = portDraft ?? status?.port ?? 15830;
@@ -193,13 +216,22 @@ export default function AntigravityPage() {
   });
 
   const ensureMutation = useMutation({
-    mutationFn: () => ensureAntigravityProvider(workspaceTarget),
-    onSuccess: async () => {
-      message.success(t("antigravity.providerReady"));
+    mutationFn: (target: ProviderTarget) => ensureAntigravityProvider(target),
+    onMutate: (target) => setBindingTarget(target),
+    onSuccess: async (_provider, target) => {
+      message.success(
+        t("antigravity.providerReadyForTarget", {
+          target: t(`workspace.${target}`),
+        }),
+      );
       await refresh();
+      await queryClient.invalidateQueries({
+        queryKey: ["antigravity-bound-providers"],
+      });
       await queryClient.invalidateQueries({ queryKey: ["providers"] });
     },
     onError: (error: unknown) => message.error(errMsg(error)),
+    onSettled: () => setBindingTarget(null),
   });
 
   const quotaMutation = useMutation({
@@ -497,16 +529,6 @@ export default function AntigravityPage() {
             pagination={false}
             locale={{ emptyText: t("antigravity.emptyAccounts") }}
           />
-          <Button
-            loading={ensureMutation.isPending}
-            disabled={(accountsQuery.data?.length ?? 0) === 0}
-            onClick={() => ensureMutation.mutate()}
-          >
-            {t("antigravity.bindCurrentApp")}
-          </Button>
-          {(accountsQuery.data?.length ?? 0) === 0 && (
-            <Text type="danger">{t("antigravity.bindNeedsAccount")}</Text>
-          )}
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
             {t("antigravity.importOptional")}
           </Paragraph>
@@ -523,6 +545,30 @@ export default function AntigravityPage() {
           >
             {t("antigravity.import")}
           </Button>
+        </Space>
+      </Card>
+
+      <Card title={t("antigravity.bindApps")} size="small">
+        <Space direction="vertical" style={{ width: "100%" }} size={8}>
+          <Text type="secondary">{t("antigravity.bindAppsHint")}</Text>
+          {BIND_TARGETS.map((target) => (
+            <Space key={target} size={8}>
+              <Button
+                size="small"
+                loading={ensureMutation.isPending && bindingTarget === target}
+                disabled={(accountsQuery.data?.length ?? 0) === 0}
+                onClick={() => ensureMutation.mutate(target)}
+              >
+                {t("antigravity.bindApp", { app: t(`workspace.${target}`) })}
+              </Button>
+              {(boundProvidersQuery.data?.get(target) ?? false) && (
+                <Tag color="green">{t("antigravity.bound")}</Tag>
+              )}
+            </Space>
+          ))}
+          {(accountsQuery.data?.length ?? 0) === 0 && (
+            <Text type="danger">{t("antigravity.bindNeedsAccount")}</Text>
+          )}
         </Space>
       </Card>
     </div>
