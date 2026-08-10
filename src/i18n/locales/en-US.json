@@ -1172,7 +1172,14 @@
     "refreshQuota": "Refresh quota",
     "quotaRefreshed": "Quota refreshed",
     "cooling": "Cooling down",
-    "forbidden": "Restricted"
+    "forbidden": "Restricted",
+    "activeAccount": "Active Account",
+    "availableAccounts": "Available Accounts",
+    "rotationStrategy": "Auto Rotation",
+    "rotationActive": "Active & Intelligent",
+    "rotationHint": "Health score & quota routing",
+    "confirmDeleteTitle": "Remove Account",
+    "confirmDeleteDesc": "Are you sure you want to remove {{email}} from the pool?"
   },
   "settings": {
     "title": "Settings",

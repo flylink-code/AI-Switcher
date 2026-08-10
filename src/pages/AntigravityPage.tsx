@@ -1,22 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
   Card,
-  Input,
-  InputNumber,
-  Select,
+  Empty,
+  Skeleton,
   Space,
-  Table,
   Tag,
   Typography,
   message,
 } from "antd";
-import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
-import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
-import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
+import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
@@ -36,18 +33,19 @@ import {
   startAntigravityOauthLogin,
   stopAntigravityGateway,
   listProviders,
-  type AntigravityAccountPublic,
 } from "@/services/api";
 import type { ProviderTarget } from "@/types/backend";
+import { ContextHeader } from "@/components/layout";
 import {
-  QuotaMiniBar,
-  accountQuotaSummary,
-  formatTierLabel,
-  tierTagColor,
-} from "@/components/AntigravityQuotaBars";
+  AccountPoolOverview,
+  AccountCard,
+  GatewayCard,
+  BindAppsCard,
+  ImportAccountsModal,
+} from "@/components/antigravity";
 
-const { Text, Paragraph, Title } = Typography;
-const { TextArea } = Input;
+const { Text } = Typography;
+
 const ANTIGRAVITY_QUOTA_REFRESH_MS = 5 * 60_000;
 const ANTIGRAVITY_QUOTA_REFRESH_EVENT = "antigravity-quota-refreshed";
 const BIND_TARGETS: ProviderTarget[] = [
@@ -61,8 +59,8 @@ function errMsg(error: unknown): string {
   if (typeof error === "string" && error.trim()) return error;
   if (error instanceof Error && error.message.trim()) return error.message;
   if (error && typeof error === "object" && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === "string" && msg.trim()) return msg;
   }
   return String(error ?? "未知错误");
 }
@@ -70,28 +68,28 @@ function errMsg(error: unknown): string {
 export default function AntigravityPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [importJson, setImportJson] = useState("");
-  const [portDraft, setPortDraft] = useState<number | null>(null);
-  const [apiKeyDraft, setApiKeyDraft] = useState<string | null>(null);
-  const [outboundModeDraft, setOutboundModeDraft] = useState<
-    "direct" | "system" | "custom" | null
-  >(null);
-  const [outboundUrlDraft, setOutboundUrlDraft] = useState<string | null>(null);
+
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
+  const [actionAccountId, setActionAccountId] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
     queryFn: listAntigravityAccounts,
     refetchInterval: ANTIGRAVITY_QUOTA_REFRESH_MS,
   });
+
   const statusQuery = useQuery({
     queryKey: ["antigravity-gateway"],
     queryFn: getAntigravityGatewayStatus,
     refetchInterval: 5_000,
   });
+
   const modelsQuery = useQuery({
     queryKey: ["antigravity-models"],
     queryFn: listAntigravityModels,
   });
+
   // 各应用是否已有内建 Antigravity 供应商（用于「已添加」标记）
   const boundProvidersQuery = useQuery({
     queryKey: ["antigravity-bound-providers"],
@@ -108,22 +106,10 @@ export default function AntigravityPage() {
       return new Map<ProviderTarget, boolean>(entries);
     },
   });
-  const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
 
+  const accounts = accountsQuery.data ?? [];
   const status = statusQuery.data;
-  const port = portDraft ?? status?.port ?? 15830;
-  const apiKey = apiKeyDraft ?? status?.apiKey ?? "";
-  const outboundMode =
-    outboundModeDraft ??
-    (status?.outboundMode === "direct" || status?.outboundMode === "system"
-      ? status.outboundMode
-      : "custom");
-  const outboundUrl =
-    outboundUrlDraft ?? status?.outboundProxyUrl ?? "socks5://127.0.0.1:17891";
-  const sampleModel =
-    modelsQuery.data?.find((model) => model.id === "claude-sonnet-4-6")?.id ??
-    modelsQuery.data?.[0]?.id ??
-    "claude-sonnet-4-6";
+  const models = modelsQuery.data ?? [];
 
   const refresh = async () => {
     await Promise.all([
@@ -164,43 +150,40 @@ export default function AntigravityPage() {
   });
 
   const importMutation = useMutation({
-    mutationFn: () => importAntigravityAccounts(importJson),
+    mutationFn: (importJson: string) => importAntigravityAccounts(importJson),
     onSuccess: async (count) => {
       message.success(t("antigravity.importSuccess", { count }));
-      setImportJson("");
       await refresh();
     },
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
   const startMutation = useMutation({
-    mutationFn: async () => {
-      if (portDraft != null) await setAntigravityGatewayPort(port);
-      if (apiKeyDraft != null && apiKeyDraft.trim()) {
-        await setAntigravityGatewayApiKey(apiKeyDraft.trim());
+    mutationFn: async ({
+      port,
+      apiKey,
+      outboundMode,
+      outboundUrl,
+    }: {
+      port: number;
+      apiKey?: string;
+      outboundMode?: string;
+      outboundUrl?: string;
+    }) => {
+      if (port != null) await setAntigravityGatewayPort(port);
+      if (apiKey != null && apiKey.trim()) {
+        await setAntigravityGatewayApiKey(apiKey.trim());
       }
-      if (outboundModeDraft != null || outboundUrlDraft != null) {
-        await setAntigravityOutboundProxy(outboundMode, outboundUrl);
+      if (outboundMode != null || outboundUrl != null) {
+        await setAntigravityOutboundProxy(
+          outboundMode as "direct" | "system" | "custom",
+          outboundUrl || "socks5://127.0.0.1:17891"
+        );
       }
       return startAntigravityGateway(port);
     },
     onSuccess: async () => {
       message.success(t("antigravity.started"));
-      setPortDraft(null);
-      setApiKeyDraft(null);
-      setOutboundModeDraft(null);
-      setOutboundUrlDraft(null);
-      await refresh();
-    },
-    onError: (error: unknown) => message.error(errMsg(error)),
-  });
-
-  const outboundMutation = useMutation({
-    mutationFn: () => setAntigravityOutboundProxy(outboundMode, outboundUrl),
-    onSuccess: async () => {
-      message.success(t("antigravity.outboundSaved"));
-      setOutboundModeDraft(null);
-      setOutboundUrlDraft(null);
       await refresh();
     },
     onError: (error: unknown) => message.error(errMsg(error)),
@@ -210,6 +193,16 @@ export default function AntigravityPage() {
     mutationFn: stopAntigravityGateway,
     onSuccess: async () => {
       message.success(t("antigravity.stopped"));
+      await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error)),
+  });
+
+  const outboundMutation = useMutation({
+    mutationFn: ({ mode, url }: { mode: "direct" | "system" | "custom"; url: string }) =>
+      setAntigravityOutboundProxy(mode, url),
+    onSuccess: async () => {
+      message.success(t("antigravity.outboundSaved"));
       await refresh();
     },
     onError: (error: unknown) => message.error(errMsg(error)),
@@ -243,233 +236,169 @@ export default function AntigravityPage() {
     onError: (error: unknown) => message.error(errMsg(error), 10),
   });
 
-  const curlSnippet = useMemo(() => {
-    const base = status?.baseUrl ?? `http://127.0.0.1:${port}`;
-    const key = apiKey || "sk-ai-switcher-antigravity";
-    return `curl -s ${base}/v1/messages \\\n  -H "x-api-key: ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"${sampleModel}","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'`;
-  }, [apiKey, port, sampleModel, status?.baseUrl]);
+  const handleSetActive = async (id: string) => {
+    setActionAccountId(id);
+    try {
+      await setAntigravityActiveAccount(id);
+      await refresh();
+    } catch (error) {
+      message.error(errMsg(error));
+    } finally {
+      setActionAccountId(null);
+    }
+  };
 
-  const columns = [
-    {
-      title: t("antigravity.email"),
-      dataIndex: "email",
-      key: "email",
-      render: (_: unknown, row: AntigravityAccountPublic) => {
-        const tier = formatTierLabel(row.subscriptionTier);
-        const cooling =
-          row.cooldownUntil != null && row.cooldownUntil * 1000 > Date.now();
-        return (
-          <Space direction="vertical" size={2}>
-            <Space wrap>
-              <Text>{row.email}</Text>
-              {tier && <Tag color={tierTagColor(row.subscriptionTier)}>{tier}</Tag>}
-              {row.isActive && <Tag color="green">{t("antigravity.active")}</Tag>}
-              {row.disabled && <Tag color="red">{t("antigravity.disabled")}</Tag>}
-              {cooling && <Tag color="orange">{t("antigravity.cooling")}</Tag>}
-              {row.quotaForbidden && <Tag color="red">{t("antigravity.forbidden")}</Tag>}
-            </Space>
-          </Space>
-        );
-      },
-    },
-    {
-      title: t("antigravity.quota"),
-      key: "quota",
-      width: 280,
-      render: (_: unknown, row: AntigravityAccountPublic) => {
-        const { geminiFiveHour, geminiWeekly, claudeFiveHour, claudeWeekly } =
-          accountQuotaSummary(row);
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <QuotaMiniBar
-              label={t("antigravity.quotaGemini5h")}
-              percent={geminiFiveHour}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaGemini7d")}
-              percent={geminiWeekly}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaClaude5h")}
-              percent={claudeFiveHour}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaClaude7d")}
-              percent={claudeWeekly}
-            />
-          </div>
-        );
-      },
-    },
-    {
-      title: t("antigravity.health"),
-      dataIndex: "healthScore",
-      key: "health",
-      width: 90,
-      render: (value: number) => `${Math.round(value * 100)}%`,
-    },
-    {
-      title: t("antigravity.project"),
-      dataIndex: "hasProjectId",
-      key: "project",
-      width: 90,
-      render: (value: boolean) =>
-        value ? <Tag color="blue">OK</Tag> : <Tag>{t("antigravity.pending")}</Tag>,
-    },
-    {
-      title: t("antigravity.actions"),
-      key: "actions",
-      width: 200,
-      render: (_: unknown, row: AntigravityAccountPublic) => (
-        <Space>
-          <Button
-            size="small"
-            disabled={row.isActive || row.disabled}
-            onClick={() => {
-              void setAntigravityActiveAccount(row.id)
-                .then(refresh)
-                .catch((error: unknown) => message.error(errMsg(error)));
-            }}
-          >
-            {t("antigravity.setActive")}
-          </Button>
-          <Button
-            size="small"
-            danger
-            onClick={() => {
-              void removeAntigravityAccount(row.id)
-                .then(async () => {
-                  message.success(t("antigravity.removed"));
-                  await refresh();
-                })
-                .catch((error: unknown) => message.error(errMsg(error)));
-            }}
-          >
-            {t("common.delete")}
-          </Button>
-        </Space>
-      ),
-    },
-  ];
+  const handleRemoveAccount = async (id: string) => {
+    setActionAccountId(id);
+    try {
+      await removeAntigravityAccount(id);
+      message.success(t("antigravity.removed"));
+      await refresh();
+    } catch (error) {
+      message.error(errMsg(error));
+    } finally {
+      setActionAccountId(null);
+    }
+  };
+
+  // 分类排序：Active 账号优先，其余按 Email 保持稳定性
+  const sortedAccounts = [...accounts].sort((a, b) => {
+    if (a.isActive && !b.isActive) return -1;
+    if (!a.isActive && b.isActive) return 1;
+    return a.email.localeCompare(b.email);
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div>
-        <Title level={4} style={{ margin: 0 }}>
-          {t("antigravity.title")}
-        </Title>
-        <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          {t("antigravity.subtitle")}
-        </Paragraph>
-      </div>
+      {/* ContextHeader */}
+      <ContextHeader
+        title={t("antigravity.title")}
+        description={t("antigravity.subtitle")}
+        actions={
+          <Space wrap>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={quotaMutation.isPending}
+              disabled={accounts.length === 0}
+              onClick={() => quotaMutation.mutate()}
+            >
+              {t("antigravity.refreshQuota")}
+            </Button>
+            <Button icon={<ImportOutlined />} onClick={() => setImportModalOpen(true)}>
+              {t("antigravity.import")}
+            </Button>
+            <Button
+              type="primary"
+              icon={<LoginOutlined />}
+              loading={oauthMutation.isPending}
+              onClick={() => oauthMutation.mutate()}
+            >
+              {oauthMutation.isPending
+                ? t("antigravity.oauthWaiting")
+                : t("antigravity.oauthLogin")}
+            </Button>
+          </Space>
+        }
+      />
 
       <Alert type="info" showIcon message={t("antigravity.personalUseNotice")} />
 
-      <Card title={t("antigravity.gateway")} size="small">
+      {/* Pool Overview */}
+      <AccountPoolOverview accounts={accounts} status={status} />
+
+      {/* Account Pool Cards */}
+      <Card
+        title={
+          <Space>
+            <UserOutlined />
+            <span>{t("antigravity.accounts")}</span>
+            <Text type="secondary" style={{ fontSize: 13, fontWeight: "normal" }}>
+              ({accounts.length})
+            </Text>
+          </Space>
+        }
+        size="small"
+      >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Space wrap>
-            <Tag color={status?.running ? "success" : "default"}>
-              {status?.running ? t("antigravity.running") : t("antigravity.stoppedState")}
-            </Tag>
-            <Text type="secondary">
-              {t("antigravity.accountsCount", { count: status?.accountCount ?? 0 })}
-            </Text>
-            <Text code>{status?.baseUrl ?? `http://127.0.0.1:${port}`}</Text>
-          </Space>
-          <Space wrap>
-            <InputNumber
-              min={1024}
-              max={65535}
-              value={port}
-              onChange={(value) => setPortDraft(typeof value === "number" ? value : null)}
-              addonBefore={t("antigravity.port")}
-            />
-            <Input.Password
-              style={{ width: 280 }}
-              value={apiKey}
-              onChange={(event) => setApiKeyDraft(event.target.value)}
-              placeholder="sk-..."
-              addonBefore="API Key"
-            />
-          </Space>
-          <Space direction="vertical" size={8} style={{ width: "100%" }}>
-            <Text type="secondary">{t("antigravity.outboundHint")}</Text>
-            <Space wrap>
-              <Select
-                style={{ minWidth: 200 }}
-                value={outboundMode}
-                onChange={(value) => setOutboundModeDraft(value)}
-                options={[
-                  { value: "custom", label: t("antigravity.outboundCustom") },
-                  { value: "direct", label: t("antigravity.outboundDirect") },
-                  { value: "system", label: t("antigravity.outboundSystem") },
-                ]}
-              />
-              <Input
-                style={{ width: 280 }}
-                disabled={outboundMode !== "custom"}
-                value={outboundUrl}
-                onChange={(event) => setOutboundUrlDraft(event.target.value)}
-                placeholder="socks5://127.0.0.1:17891"
-                addonBefore={t("antigravity.outboundProxy")}
-              />
+          <Alert
+            type="warning"
+            showIcon
+            message={t("antigravity.howToAddTitle")}
+            description={
+              <div>
+                <p style={{ marginBottom: 4 }}>{t("antigravity.howToAddOauth")}</p>
+                <p style={{ marginBottom: 4 }}>{t("antigravity.howToAddNotIde")}</p>
+                <p style={{ marginBottom: 0 }}>{t("antigravity.howToAddJson")}</p>
+              </div>
+            }
+          />
+
+          {accountsQuery.isLoading ? (
+            <Skeleton active paragraph={{ rows: 3 }} />
+          ) : accounts.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={t("antigravity.emptyAccounts")}
+            >
               <Button
-                loading={outboundMutation.isPending}
-                onClick={() => outboundMutation.mutate()}
+                type="primary"
+                icon={<LoginOutlined />}
+                loading={oauthMutation.isPending}
+                onClick={() => oauthMutation.mutate()}
               >
-                {t("antigravity.outboundSave")}
+                {t("antigravity.oauthLogin")}
               </Button>
-            </Space>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t("antigravity.outboundEffective", {
-                value: status?.effectiveOutboundProxy || t("antigravity.outboundNone"),
-              })}
-            </Text>
-          </Space>
-          <Space wrap>
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              loading={startMutation.isPending}
-              onClick={() => startMutation.mutate()}
-            >
-              {t("antigravity.start")}
-            </Button>
-            <Button
-              icon={<StopOutlined />}
-              loading={stopMutation.isPending}
-              onClick={() => stopMutation.mutate()}
-            >
-              {t("antigravity.stop")}
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
-              {t("common.refresh")}
-            </Button>
-            <Button
-              icon={<CopyOutlined />}
-              onClick={() => {
-                void navigator.clipboard.writeText(curlSnippet).then(() => {
-                  message.success(t("antigravity.copied"));
-                });
+            </Empty>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+                gap: 12,
               }}
             >
-              {t("antigravity.copyCurl")}
-            </Button>
-          </Space>
-          <Paragraph>
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{curlSnippet}</pre>
-          </Paragraph>
+              {sortedAccounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  account={account}
+                  onSetActive={handleSetActive}
+                  onRemove={handleRemoveAccount}
+                  isPending={actionAccountId === account.id}
+                />
+              ))}
+            </div>
+          )}
         </Space>
       </Card>
 
+      {/* Gateway Controls */}
+      <GatewayCard
+        status={status}
+        models={models}
+        onStartGateway={async (port, apiKey, outboundMode, outboundUrl) => {
+          await startMutation.mutateAsync({ port, apiKey, outboundMode, outboundUrl });
+        }}
+        onStopGateway={async () => {
+          await stopMutation.mutateAsync();
+        }}
+        onSaveOutbound={async (mode, url) => {
+          await outboundMutation.mutateAsync({ mode, url });
+        }}
+        onRefresh={refresh}
+        isStarting={startMutation.isPending}
+        isStopping={stopMutation.isPending}
+        isSavingOutbound={outboundMutation.isPending}
+      />
+
+      {/* Available Models */}
       <Card title={t("antigravity.models")} size="small">
         <Space direction="vertical" style={{ width: "100%" }} size={8}>
           <Text type="secondary">{t("antigravity.modelsHint")}</Text>
-          {(modelsQuery.data?.length ?? 0) === 0 ? (
+          {models.length === 0 ? (
             <Text type="secondary">{t("antigravity.modelsEmpty")}</Text>
           ) : (
             <Space wrap size={[4, 4]}>
-              {(modelsQuery.data ?? []).map((model) => (
+              {models.map((model) => (
                 <Tag key={model.id} color={model.id.startsWith("gemini") ? "blue" : "purple"}>
                   {model.displayName?.trim() || model.id}
                 </Tag>
@@ -479,98 +408,23 @@ export default function AntigravityPage() {
         </Space>
       </Card>
 
-      <Card
-        title={t("antigravity.accounts")}
-        size="small"
-        extra={
-          <Button
-            size="small"
-            icon={<ReloadOutlined />}
-            loading={quotaMutation.isPending}
-            disabled={(accountsQuery.data?.length ?? 0) === 0}
-            onClick={() => quotaMutation.mutate()}
-          >
-            {t("antigravity.refreshQuota")}
-          </Button>
-        }
-      >
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="warning"
-            showIcon
-            message={t("antigravity.howToAddTitle")}
-            description={
-              <div>
-                <p style={{ marginBottom: 8 }}>{t("antigravity.howToAddOauth")}</p>
-                <p style={{ marginBottom: 8 }}>{t("antigravity.howToAddNotIde")}</p>
-                <p style={{ marginBottom: 0 }}>{t("antigravity.howToAddJson")}</p>
-              </div>
-            }
-          />
-          <Button
-            type="primary"
-            icon={<LoginOutlined />}
-            loading={oauthMutation.isPending}
-            onClick={() => oauthMutation.mutate()}
-          >
-            {oauthMutation.isPending
-              ? t("antigravity.oauthWaiting")
-              : t("antigravity.oauthLogin")}
-          </Button>
-          {(accountsQuery.data?.length ?? 0) === 0 && (
-            <Text type="secondary">{t("antigravity.emptyAccounts")}</Text>
-          )}
-          <Table
-            size="small"
-            rowKey="id"
-            loading={accountsQuery.isLoading || quotaMutation.isPending}
-            dataSource={accountsQuery.data ?? []}
-            columns={columns}
-            pagination={false}
-            locale={{ emptyText: t("antigravity.emptyAccounts") }}
-          />
-          <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            {t("antigravity.importOptional")}
-          </Paragraph>
-          <TextArea
-            rows={5}
-            value={importJson}
-            onChange={(event) => setImportJson(event.target.value)}
-            placeholder={t("antigravity.importPlaceholder")}
-          />
-          <Button
-            loading={importMutation.isPending}
-            disabled={!importJson.trim()}
-            onClick={() => importMutation.mutate()}
-          >
-            {t("antigravity.import")}
-          </Button>
-        </Space>
-      </Card>
+      {/* Bind Apps */}
+      <BindAppsCard
+        boundMap={boundProvidersQuery.data}
+        onEnsureBind={(target) => ensureMutation.mutate(target)}
+        bindingTarget={bindingTarget}
+        accountCount={accounts.length}
+      />
 
-      <Card title={t("antigravity.bindApps")} size="small">
-        <Space direction="vertical" style={{ width: "100%" }} size={8}>
-          <Text type="secondary">{t("antigravity.bindAppsHint")}</Text>
-          {BIND_TARGETS.map((target) => (
-            <Space key={target} size={8}>
-              <Button
-                size="small"
-                loading={ensureMutation.isPending && bindingTarget === target}
-                disabled={(accountsQuery.data?.length ?? 0) === 0}
-                onClick={() => ensureMutation.mutate(target)}
-              >
-                {t("antigravity.bindApp", { app: t(`workspace.${target}`) })}
-              </Button>
-              {(boundProvidersQuery.data?.get(target) ?? false) && (
-                <Tag color="green">{t("antigravity.bound")}</Tag>
-              )}
-            </Space>
-          ))}
-          {(accountsQuery.data?.length ?? 0) === 0 && (
-            <Text type="danger">{t("antigravity.bindNeedsAccount")}</Text>
-          )}
-        </Space>
-      </Card>
+      {/* Import Modal */}
+      <ImportAccountsModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImport={async (json) => {
+          await importMutation.mutateAsync(json);
+        }}
+        isImporting={importMutation.isPending}
+      />
     </div>
   );
 }

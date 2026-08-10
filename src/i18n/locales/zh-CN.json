@@ -1172,7 +1172,14 @@
     "refreshQuota": "刷新额度",
     "quotaRefreshed": "额度已刷新",
     "cooling": "冷却中",
-    "forbidden": "受限"
+    "forbidden": "受限",
+    "activeAccount": "活跃账号",
+    "availableAccounts": "可用账号",
+    "rotationStrategy": "自动轮换",
+    "rotationActive": "智能运行中",
+    "rotationHint": "健康度与额度智能调度",
+    "confirmDeleteTitle": "确认删除账号",
+    "confirmDeleteDesc": "确定要从账号池中移除 {{email}} 吗？"
   },
   "settings": {
     "title": "设置",
