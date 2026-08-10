@@ -41,7 +41,11 @@ pub fn anthropic_to_gemini_request(
     let mut claude_thinking_level: Option<&'static str> = None;
     let mut remember_effort: Option<&'static str> = None;
     let lower_model = model.to_ascii_lowercase();
-    if lower_model.starts_with("gemini-") {
+    // Gemini API 默认不返回 thought 文本，必须显式 includeThoughts:true
+    // （对照 Antigravity-Manager claude/gemini mapper），否则客户端永远
+    // 看不到思考过程。目录里的 gemini-*-low/medium/high 都是 thinking 变体。
+    let gemini_target = lower_model.starts_with("gemini-");
+    if gemini_target {
         if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
             model = model_catalog::with_forced_level(&model, level);
             remember_effort = Some(level);
@@ -114,7 +118,6 @@ pub fn anthropic_to_gemini_request(
         // Gemini 3 要求历史 functionCall part 携带 thought_signature；
         // 仅 Gemini 目标注入（Claude 目标由 Cloud Code 转回 Anthropic 格式，
         // 多出的字段可能触发上游校验）。
-        let gemini_target = lower_model.starts_with("gemini-");
         let parts = content_to_parts(
             message.get("content").unwrap_or(&Value::Null),
             &tool_names,
@@ -149,8 +152,13 @@ pub fn anthropic_to_gemini_request(
     if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
         generation["topP"] = json!(top_p);
     }
+    if gemini_target {
+        // 只要 thinking 变体就请求下发思考文本（level 由模型 id 后缀决定）。
+        generation["thinkingConfig"] = json!({ "includeThoughts": true });
+    }
     if let Some(level) = claude_thinking_level {
-        generation["thinkingConfig"] = json!({ "thinkingLevel": level });
+        generation["thinkingConfig"]["thinkingLevel"] = json!(level);
+        generation["thinkingConfig"]["includeThoughts"] = json!(true);
     }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
@@ -994,6 +1002,24 @@ mod tests {
         let part = &parts.request["contents"][1]["parts"][0];
         assert!(part.get("thoughtSignature").is_none());
         assert!(part.get("thought_signature").is_none());
+    }
+
+    #[test]
+    fn gemini_target_requests_include_thoughts() {
+        let body = json!({
+            "model": "gemini-3.6-flash",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["includeThoughts"],
+            json!(true)
+        );
+        // Gemini 目标的 level 仍只走模型 id 后缀，不写 thinkingLevel。
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("thinkingLevel")
+            .is_none());
     }
 
     #[test]

@@ -370,8 +370,8 @@ export default function WorkbenchPage() {
         </>
       ) : (
         /* Usage Analytics Home View */
-        <div className="workbench-usage-section" style={{ borderTop: "none", paddingTop: 0 }}>
-          <div className="workbench-section-header">
+        <div className="workbench-usage-section" style={{ borderTop: "none", paddingTop: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto" }}>
+          <div className="workbench-section-header" style={{ flexShrink: 0 }}>
             <Title level={5} style={{ margin: 0 }}>
               {t("workbench.usageSection")}
             </Title>
@@ -391,7 +391,7 @@ export default function WorkbenchPage() {
             />
           )}
 
-          <div className="workbench-charts-grid">
+          <div className="workbench-charts-grid" style={{ flex: "1 1 auto", minHeight: 0 }}>
             <Card
               size="small"
               className="page-surface workbench-chart-card"
@@ -408,7 +408,6 @@ export default function WorkbenchPage() {
                 <UsageCalendar
                   data={yearTrendQuery.data?.trend ?? []}
                   period={365}
-                  compact
                 />
               )}
             </Card>
@@ -426,7 +425,7 @@ export default function WorkbenchPage() {
               {trendQuery.error ? (
                 <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
               ) : (
-                <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
+                <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" />
               )}
             </Card>
           </div>

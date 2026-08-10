@@ -489,9 +489,12 @@ body {
   flex-direction: column;
   gap: 16px;
   width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  padding-bottom: 50px;
 }
 
 .cc-workbench-header {
@@ -519,15 +522,22 @@ body {
 }
 
 .cc-provider-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 2px;
+  padding-right: 4px;
+  align-content: start;
+}
+
+@media (min-width: 1024px) {
+  .cc-provider-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .cc-provider-card {
