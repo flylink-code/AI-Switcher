@@ -1,73 +1,73 @@
 /* Semantic Design Tokens - Business & Theme Context Mapping */
 
-/* Light Theme (Default) */
+/* Light Theme (Developer Desktop Control Center) */
 :root {
-  --color-bg-app: var(--gray-50);
+  --color-bg-app: #f4f5f8;
   --color-bg-surface: #ffffff;
-  --color-bg-subtle: var(--gray-100);
+  --color-bg-subtle: #f8f9fa;
   --color-bg-elevated: #ffffff;
 
-  --color-border: var(--gray-200);
-  --color-border-subtle: var(--gray-100);
-  --color-border-strong: var(--gray-300);
+  --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+  --color-border-strong: #cbd5e1;
 
-  --color-text-primary: var(--gray-900);
-  --color-text-secondary: var(--gray-500);
-  --color-text-tertiary: var(--gray-400);
-  --color-text-disabled: var(--gray-300);
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-text-disabled: #cbd5e1;
 
-  --color-brand: var(--blue-600);
-  --color-brand-hover: var(--blue-700);
-  --color-brand-active: var(--blue-700);
-  --color-brand-subtle: var(--blue-50);
+  --color-brand: #007aff;
+  --color-brand-hover: #0066cc;
+  --color-brand-active: #0052a3;
+  --color-brand-subtle: #eff6ff;
 
-  --color-success: var(--green-600);
-  --color-success-subtle: var(--green-50);
-  --color-warning: var(--amber-600);
-  --color-warning-subtle: var(--amber-50);
-  --color-danger: var(--red-600);
-  --color-danger-subtle: var(--red-50);
-  --color-info: var(--blue-500);
-  --color-info-subtle: var(--blue-50);
+  --color-success: #10b981;
+  --color-success-subtle: #ecfdf5;
+  --color-warning: #f59e0b;
+  --color-warning-subtle: #fffbeb;
+  --color-danger: #ef4444;
+  --color-danger-subtle: #fef2f2;
+  --color-info: #3b82f6;
+  --color-info-subtle: #eff6ff;
 
-  /* Layout Dimensions */
+  /* Layout Dimensions & Compact Desktop Density */
   --app-sidebar-width: 220px;
   --app-sidebar-collapsed-width: 64px;
-  --app-header-height: 48px;
+  --app-header-height: 44px;
   --app-statusbar-height: 28px;
-  --page-padding-x: var(--space-6);
-  --page-padding-y: var(--space-5);
-  --card-gap: var(--space-4);
-  --section-gap: var(--space-5);
+  --page-padding-x: 20px;
+  --page-padding-y: 16px;
+  --card-gap: 12px;
+  --section-gap: 16px;
 }
 
 /* Dark Theme */
 [data-theme="dark"] {
-  --color-bg-app: var(--slate-900);
-  --color-bg-surface: var(--slate-800);
-  --color-bg-subtle: var(--slate-850);
-  --color-bg-elevated: var(--slate-700);
+  --color-bg-app: #0b0f19;
+  --color-bg-surface: #111827;
+  --color-bg-subtle: #1f2937;
+  --color-bg-elevated: #1f2937;
 
-  --color-border: var(--slate-500);
-  --color-border-subtle: var(--slate-600);
-  --color-border-strong: var(--gray-600);
+  --color-border: #374151;
+  --color-border-subtle: #1f2937;
+  --color-border-strong: #4b5563;
 
-  --color-text-primary: #e8e8e8;
-  --color-text-secondary: #a0a0a0;
-  --color-text-tertiary: #6b6b6b;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #9ca3af;
+  --color-text-tertiary: #6b7280;
   --color-text-disabled: #4b5563;
 
-  --color-brand: var(--blue-400);
-  --color-brand-hover: var(--blue-500);
-  --color-brand-active: var(--blue-500);
+  --color-brand: #3b82f6;
+  --color-brand-hover: #60a5fa;
+  --color-brand-active: #2563eb;
   --color-brand-subtle: rgba(59, 130, 246, 0.15);
 
-  --color-success: var(--green-500);
-  --color-success-subtle: rgba(34, 197, 94, 0.15);
-  --color-warning: var(--amber-500);
+  --color-success: #10b981;
+  --color-success-subtle: rgba(16, 185, 129, 0.15);
+  --color-warning: #f59e0b;
   --color-warning-subtle: rgba(245, 158, 11, 0.15);
-  --color-danger: var(--red-500);
+  --color-danger: #ef4444;
   --color-danger-subtle: rgba(239, 68, 68, 0.15);
-  --color-info: var(--blue-400);
+  --color-info: #60a5fa;
   --color-info-subtle: rgba(96, 165, 250, 0.15);
 }
