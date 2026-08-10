@@ -139,7 +139,7 @@ function initialState() {
     sessionsProvider: isSessionProvider(stored.sessionsProvider)
       ? stored.sessionsProvider
       : sessionProviderFor(workspaceTarget),
-    workbenchView: stored.workbenchView === "usage" ? "usage" : "providers",
+    workbenchView: (stored.workbenchView === "usage" ? "usage" : "providers") as "providers" | "usage",
   };
 }
 

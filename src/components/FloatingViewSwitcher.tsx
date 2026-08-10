@@ -13,10 +13,10 @@ export function FloatingViewSwitcher() {
     <div
       style={{
         position: "fixed",
-        bottom: 36,
+        bottom: 42,
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 100,
+        zIndex: 9999,
       }}
     >
       <div className="floating-view-switcher">

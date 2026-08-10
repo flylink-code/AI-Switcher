@@ -1,0 +1,73 @@
+/* Semantic Design Tokens - Business & Theme Context Mapping */
+
+/* Light Theme (Default) */
+:root {
+  --color-bg-app: var(--gray-50);
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: var(--gray-100);
+  --color-bg-elevated: #ffffff;
+
+  --color-border: var(--gray-200);
+  --color-border-subtle: var(--gray-100);
+  --color-border-strong: var(--gray-300);
+
+  --color-text-primary: var(--gray-900);
+  --color-text-secondary: var(--gray-500);
+  --color-text-tertiary: var(--gray-400);
+  --color-text-disabled: var(--gray-300);
+
+  --color-brand: var(--blue-600);
+  --color-brand-hover: var(--blue-700);
+  --color-brand-active: var(--blue-700);
+  --color-brand-subtle: var(--blue-50);
+
+  --color-success: var(--green-600);
+  --color-success-subtle: var(--green-50);
+  --color-warning: var(--amber-600);
+  --color-warning-subtle: var(--amber-50);
+  --color-danger: var(--red-600);
+  --color-danger-subtle: var(--red-50);
+  --color-info: var(--blue-500);
+  --color-info-subtle: var(--blue-50);
+
+  /* Layout Dimensions */
+  --app-sidebar-width: 220px;
+  --app-sidebar-collapsed-width: 64px;
+  --app-header-height: 48px;
+  --app-statusbar-height: 28px;
+  --page-padding-x: var(--space-6);
+  --page-padding-y: var(--space-5);
+  --card-gap: var(--space-4);
+  --section-gap: var(--space-5);
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --color-bg-app: var(--slate-900);
+  --color-bg-surface: var(--slate-800);
+  --color-bg-subtle: var(--slate-850);
+  --color-bg-elevated: var(--slate-700);
+
+  --color-border: var(--slate-500);
+  --color-border-subtle: var(--slate-600);
+  --color-border-strong: var(--gray-600);
+
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-disabled: #4b5563;
+
+  --color-brand: var(--blue-400);
+  --color-brand-hover: var(--blue-500);
+  --color-brand-active: var(--blue-500);
+  --color-brand-subtle: rgba(59, 130, 246, 0.15);
+
+  --color-success: var(--green-500);
+  --color-success-subtle: rgba(34, 197, 94, 0.15);
+  --color-warning: var(--amber-500);
+  --color-warning-subtle: rgba(245, 158, 11, 0.15);
+  --color-danger: var(--red-500);
+  --color-danger-subtle: rgba(239, 68, 68, 0.15);
+  --color-info: var(--blue-400);
+  --color-info-subtle: rgba(96, 165, 250, 0.15);
+}

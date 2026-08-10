@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { StatusBadge } from "@/components/ui";
 import type {
   AutostartMode,
   CloseBehavior,
@@ -582,7 +583,7 @@ export default function EnvironmentPage() {
           >
             {t("env.refresh")}
           </Button>
-          {pingResult && <Tag color="green">ping: {pingResult}</Tag>}
+          {pingResult && <StatusBadge status="healthy" label={`ping: ${pingResult}`} />}
         </Space>
 
         {error && <Alert type="error" showIcon message={error} />}

@@ -167,13 +167,6 @@ export default function WorkbenchPage() {
           iconOnly
         />
       </div>
-      <Tooltip title={t("workbench.viewUsageDetail")}>
-        <Button
-          size="middle"
-          icon={<LineChartOutlined />}
-          onClick={() => navigate("usage")}
-        />
-      </Tooltip>
     </div>
   );
 
@@ -243,27 +236,27 @@ export default function WorkbenchPage() {
             {target !== "opencode" && (
             <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
               <div className="cc-provider-card-body">
-                <div className="cc-provider-main">
-                  <div className="cc-provider-icon">
-                    {usageSourceIcon(target, { size: 22 })}
-                  </div>
-                  <div className="cc-provider-info">
-                    <div className="cc-provider-title-row">
-                      <span className="cc-provider-name">{t("providers.officialMode")}</span>
-                      {officialCurrent && (
-                        <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
-                          {t("providers.current")}
-                        </Tag>
-                      )}
+                <div className="cc-provider-card-header">
+                  <div className="cc-provider-main">
+                    <div className="cc-provider-icon" style={{ width: 36, height: 36, borderRadius: 8 }}>
+                      {usageSourceIcon(target, { size: 20 })}
                     </div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
-                    </Text>
+                    <div className="cc-provider-info">
+                      <span className="cc-provider-name">{t("providers.officialMode")}</span>
+                    </div>
                   </div>
+                  {officialCurrent && (
+                    <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
+                      🟢 {t("providers.current")}
+                    </Tag>
+                  )}
                 </div>
-                <div className="cc-provider-actions">
+                <div className="cc-provider-card-footer" style={{ borderTop: "none", paddingTop: 0 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
+                  </Text>
                   {!officialCurrent && (
-                    <Button type="primary" size="middle" style={{ borderRadius: 8 }} loading={switchingId === "official"} onClick={() => void handleOfficial()}>
+                    <Button type="primary" size="small" style={{ borderRadius: 6, fontSize: 12 }} loading={switchingId === "official"} onClick={() => void handleOfficial()}>
                       {t("providers.switchTo")}
                     </Button>
                   )}
@@ -281,86 +274,105 @@ export default function WorkbenchPage() {
                   className={`cc-provider-card ${target !== "opencode" && isCurrent ? "cc-provider-card-active" : ""}`}
                 >
                   <div className="cc-provider-card-body">
-                    <div className="cc-provider-main">
-                      <ProviderBrandIcon provider={provider} size={42} />
-                      <div className="cc-provider-info">
-                        <div className="cc-provider-title-row">
+                    {/* Header Row: Brand Icon & Title & Status Tag */}
+                    <div className="cc-provider-card-header">
+                      <div className="cc-provider-main">
+                        <ProviderBrandIcon provider={provider} size={36} />
+                        <div className="cc-provider-info">
                           <span className="cc-provider-name">{provider.name}</span>
-                          {target !== "opencode" && isCurrent && (
-                            <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 12 }}>
-                              {t("providers.current")}
-                            </Tag>
-                          )}
-                          {provider.healthStatus && provider.healthLatencyMs != null && (
-                            <Tag
-                              color={provider.healthStatus === "healthy" ? "success" : "error"}
-                              style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
-                            >
-                              {provider.healthLatencyMs}ms
-                            </Tag>
-                          )}
-                        </div>
-                        <div className="cc-provider-meta">
-                          <Text type="secondary">{provider.model}</Text>
-                          <Text type="secondary" ellipsis style={{ maxWidth: 280 }}>
-                            {provider.baseUrl}
-                          </Text>
-                          <Tag color={provider.protocolType === "anthropic" ? "processing" : "warning"} style={{ borderRadius: 6, fontSize: 11, margin: 0 }}>
-                            {provider.protocolType}
-                          </Tag>
                         </div>
                       </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {target !== "opencode" && isCurrent && (
+                          <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
+                            🟢 {t("providers.current")}
+                          </Tag>
+                        )}
+                        {provider.healthStatus && provider.healthLatencyMs != null && (
+                          <Tag
+                            color={provider.healthStatus === "healthy" ? "success" : "error"}
+                            style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
+                          >
+                            {provider.healthLatencyMs}ms
+                          </Tag>
+                        )}
+                      </div>
                     </div>
-                    <div className="cc-provider-actions">
-                      {target !== "opencode" && !isCurrent && (
-                        <Button
-                          type="primary"
-                          size="middle"
-                          style={{ borderRadius: 8 }}
-                          loading={switchingId === provider.id}
-                          onClick={() => void handleSwitch(provider)}
-                        >
-                          {t("providers.switchTo")}
-                        </Button>
-                      )}
-                      <Space size={4}>
-                        <Tooltip title={t("providers.testConnection")}>
+
+                    {/* Dashboard Metrics Rail */}
+                    <div className="cc-provider-card-metrics">
+                      <div className="cc-metric-item">
+                        <span className="cc-metric-label">Model</span>
+                        <span className="cc-metric-value" style={{ fontSize: 12 }}>{provider.model || "Default"}</span>
+                      </div>
+                      <div className="cc-metric-item">
+                        <span className="cc-metric-label">Protocol</span>
+                        <span className="cc-metric-value" style={{ fontSize: 12 }}>{provider.protocolType}</span>
+                      </div>
+                      <div className="cc-metric-item">
+                        <span className="cc-metric-label">Latency</span>
+                        <span className="cc-metric-value" style={{ fontSize: 12 }}>
+                          {provider.healthLatencyMs != null ? `${provider.healthLatencyMs}ms` : "--"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer Row: Endpoint BaseURL & Action Control */}
+                    <div className="cc-provider-card-footer">
+                      <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
+                        {provider.baseUrl}
+                      </Text>
+                      <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {target !== "opencode" && !isCurrent && (
                           <Button
-                            size="middle"
-                            type="text"
-                            loading={testingId === provider.id}
-                            icon={<ThunderboltOutlined />}
-                            onClick={() => void handleTest(provider)}
-                          />
-                        </Tooltip>
-                        <Tooltip title={t("common.edit")}>
-                          <Button
-                            size="middle"
-                            type="text"
-                            icon={<EditOutlined />}
-                            onClick={() => openEdit(provider)}
-                          />
-                        </Tooltip>
-                        <Tooltip title={t("deeplink.copyLink")}>
-                          <Button
-                            size="middle"
-                            type="text"
-                            icon={<CopyOutlined />}
-                            onClick={() => void handleShareLink(provider)}
-                          />
-                        </Tooltip>
-                        <Popconfirm
-                          title={t("providers.deleteConfirmTitle")}
-                          description={t("providers.deleteConfirmDesc")}
-                          onConfirm={() => void handleDelete(provider)}
-                          okText={t("common.delete")}
-                          cancelText={t("common.cancel")}
-                        >
-                          <Tooltip title={t("common.delete")}>
-                            <Button size="middle" type="text" danger icon={<DeleteOutlined />} />
+                            type="primary"
+                            size="small"
+                            style={{ borderRadius: 6, fontSize: 12 }}
+                            loading={switchingId === provider.id}
+                            onClick={() => void handleSwitch(provider)}
+                          >
+                            {t("providers.switchTo")}
+                          </Button>
+                        )}
+                        <Space size={2}>
+                          <Tooltip title={t("providers.testConnection")}>
+                            <Button
+                              size="small"
+                              type="text"
+                              loading={testingId === provider.id}
+                              icon={<ThunderboltOutlined />}
+                              onClick={() => void handleTest(provider)}
+                            />
                           </Tooltip>
-                        </Popconfirm>
-                      </Space>
+                          <Tooltip title={t("common.edit")}>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<EditOutlined />}
+                              onClick={() => openEdit(provider)}
+                            />
+                          </Tooltip>
+                          <Tooltip title={t("deeplink.copyLink")}>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<CopyOutlined />}
+                              onClick={() => void handleShareLink(provider)}
+                            />
+                          </Tooltip>
+                          <Popconfirm
+                            title={t("providers.deleteConfirmTitle")}
+                            description={t("providers.deleteConfirmDesc")}
+                            onConfirm={() => void handleDelete(provider)}
+                            okText={t("common.delete")}
+                            cancelText={t("common.cancel")}
+                          >
+                            <Tooltip title={t("common.delete")}>
+                              <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+                            </Tooltip>
+                          </Popconfirm>
+                        </Space>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -370,8 +382,8 @@ export default function WorkbenchPage() {
         </>
       ) : (
         /* Usage Analytics Home View */
-        <div className="workbench-usage-section" style={{ borderTop: "none", paddingTop: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto" }}>
-          <div className="workbench-section-header" style={{ flexShrink: 0 }}>
+        <div className="workbench-usage-section" style={{ borderTop: "none", paddingTop: 0, overflowY: "auto" }}>
+          <div className="workbench-section-header">
             <Title level={5} style={{ margin: 0 }}>
               {t("workbench.usageSection")}
             </Title>
@@ -391,7 +403,7 @@ export default function WorkbenchPage() {
             />
           )}
 
-          <div className="workbench-charts-grid" style={{ flex: "1 1 auto", minHeight: 0 }}>
+          <div className="workbench-charts-grid">
             <Card
               size="small"
               className="page-surface workbench-chart-card"
@@ -408,6 +420,7 @@ export default function WorkbenchPage() {
                 <UsageCalendar
                   data={yearTrendQuery.data?.trend ?? []}
                   period={365}
+                  compact
                 />
               )}
             </Card>
@@ -425,7 +438,7 @@ export default function WorkbenchPage() {
               {trendQuery.error ? (
                 <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
               ) : (
-                <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" />
+                <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
               )}
             </Card>
           </div>

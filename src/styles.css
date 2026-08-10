@@ -1,3 +1,5 @@
+@import "./styles/tokens/index.css";
+
 /* Global resets and base styles. Component-level styling uses Ant Design tokens. */
 html,
 body,
@@ -494,7 +496,7 @@ body {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding-bottom: 50px;
+  padding-bottom: 64px;
 }
 
 .cc-workbench-header {
@@ -545,35 +547,102 @@ body {
   border: 1px solid var(--as-border-card, #e3e3e8);
   background: var(--ant-color-bg-container, #ffffff);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.015);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
 
 .cc-provider-card:hover {
-  border-color: color-mix(in srgb, var(--ant-color-primary, #007aff) 40%, var(--as-border-card));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  border-color: color-mix(in srgb, var(--ant-color-primary, #007aff) 50%, var(--as-border-card));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .cc-provider-card.cc-provider-card-active {
-  border: 1.5px solid var(--ant-color-primary, #007aff);
-  background: color-mix(in srgb, var(--ant-color-primary, #007aff) 3.5%, var(--ant-color-bg-container, #ffffff));
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--ant-color-primary, #007aff) 12%, transparent);
+  border: 2px solid var(--ant-color-primary, #007aff);
+  background: color-mix(in srgb, var(--ant-color-primary, #007aff) 4%, var(--ant-color-bg-container, #ffffff));
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--ant-color-primary, #007aff) 18%, transparent);
+}
+
+:root[data-theme="dark"] {
+  --as-bg-main: #0F1117;
+  --as-card-bg: #171A21;
+  --as-border-card: #252A34;
+  --as-accent-openai: #10a37f;
+  --as-accent-claude: #d97706;
+  --as-accent-gemini: #2563eb;
 }
 
 :root[data-theme="dark"] .cc-provider-card {
-  box-shadow: none;
+  background: var(--as-card-bg, #171A21);
+  border-color: var(--as-border-card, #252A34);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme="dark"] .cc-provider-card:hover {
+  border-color: #3b4252;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 :root[data-theme="dark"] .cc-provider-card.cc-provider-card-active {
   border-color: var(--ant-color-primary, #007aff);
-  background: color-mix(in srgb, var(--ant-color-primary, #007aff) 12%, #141414);
+  background: color-mix(in srgb, var(--ant-color-primary, #007aff) 12%, #171A21);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--ant-color-primary, #007aff) 25%, transparent);
 }
 
 .cc-provider-card-body {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.cc-provider-card-header {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: 12px;
+}
+
+.cc-provider-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--as-bg-subtle, rgba(0, 0, 0, 0.03));
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+:root[data-theme="dark"] .cc-provider-card-metrics {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.cc-metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cc-metric-label {
+  font-size: 11px;
+  color: var(--ant-color-text-secondary, #86868b);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cc-metric-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ant-color-text, #1d1d1f);
+}
+
+.cc-provider-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px dashed var(--as-border-card, #e3e3e8);
+  padding-top: 10px;
+  margin-top: 2px;
 }
 
 .cc-provider-main {
@@ -1046,19 +1115,19 @@ body {
 /* Floating View Switcher Bar */
 .floating-view-switcher {
   padding: 4px 6px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: var(--ant-color-bg-container, #ffffff);
+  border: 1px solid var(--ant-color-border-secondary, #d9d9d9);
   border-radius: 32px;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 :root[data-theme="dark"] .floating-view-switcher {
-  background: rgba(30, 30, 32, 0.85);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  background: #171A21;
+  border-color: #252A34;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
 .app-status-divider {
