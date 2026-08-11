@@ -1,7 +1,5 @@
 import { useEffect } from "react";
-import { Alert, Card, Typography } from "antd";
-import CalendarOutlined from "@ant-design/icons/es/icons/CalendarOutlined";
-import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
+import { Alert, Card } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
@@ -17,14 +15,10 @@ import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { localDateKey } from "@/utils/usagePeriod";
 
-const { Text } = Typography;
-
 /**
  * Overview — Multi-Agent Runtime Command Center.
- * ① AgentRuntimeRail: All 4 agents' runtime in one unified Surface rail
- * ② Two-column row: CurrentRoute (55%) + UsageSnapshot 24h Summary (45%)
- * ③ 24h Hourly trend with unified source filter
- * ④ Yearly heatmap (过去一年)
+ * Structure: Page Header → Agent Runtime Rail → Current Route + 24h Summary →
+ * 24h Trend Section → Yearly Heatmap Section.
  */
 export default function WorkbenchPage() {
   const { t } = useTranslation();
@@ -76,25 +70,36 @@ export default function WorkbenchPage() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "20px",
+        gap: "14px",
         maxWidth: 1360,
         margin: "0 auto",
         width: "100%",
+        boxSizing: "border-box",
       }}
     >
+      {/* Page Header */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+        <span style={{ fontSize: "18px", fontWeight: 600, lineHeight: 1.3 }}>
+          {t("workbench.pageTitle", { defaultValue: "概览" })}
+        </span>
+        <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+          {t("workbench.pageSubtitle", { defaultValue: "运行状态与使用情况" })}
+        </span>
+      </div>
+
       {/* 1. Unified Agent Runtime Rail */}
       <AgentRuntimeRail appRunningStatus={runtimeQuery.data} />
 
-      {/* 2. Two-column split: Current Route (55%) + 24h Summary (45%) */}
+      {/* 2. Two-column row: Current Route (55%) + 24h Usage Summary (45%) */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "55% 45%",
-          gap: "16px",
+          gap: "14px",
           alignItems: "stretch",
         }}
       >
-        <CurrentRoute />
+        <CurrentRoute style={{ height: "100%", minHeight: 0 }} />
 
         <UsageSnapshot
           requestCount={summary?.requestCount ?? 0}
@@ -103,75 +108,58 @@ export default function WorkbenchPage() {
           costCurrency={summary?.estimatedCostCurrency}
           successfulRequestCount={summary?.successfulRequestCount ?? 0}
           tokensVsYesterday={tokensVsYesterday}
+          style={{ height: "100%", minHeight: 0 }}
         />
       </div>
 
-      {/* 3. 24h Hourly Statistics */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "12px",
-          }}
-        >
-          <Text strong style={{ fontSize: "14px", color: "var(--color-text-primary)" }}>
-            {t("workbench.past24hTitle", { defaultValue: "过去 24 小时" })}
-          </Text>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
-              {t("usage.sourceLabel", { defaultValue: "数据来源" })}:
+      {/* 3. Past 24 Hours — section header outside the card */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "14px", fontWeight: 600 }}>
+            {t("workbench.last24h", { defaultValue: "过去 24 小时" })}
+          </span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "11px", color: "var(--color-text-secondary)" }}>
+              {t("usage.sourceLabel", { defaultValue: "数据源" })}:
             </span>
             <UsageSourceFilterSelect
               value={heatmapSource}
               onChange={setHeatmapSource}
               t={t}
             />
-          </span>
+          </div>
         </div>
-
         <Card
           size="small"
           className="page-surface workbench-chart-card"
-          title={
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
-              <BarChartOutlined />
-              {t("usage.hourlyStatistics", { defaultValue: "最近 24 小时请求趋势" })}
-            </span>
-          }
+          style={{ marginBottom: 0 }}
+          styles={{ body: { padding: "10px 12px" } }}
         >
           {trendQuery.error ? (
             <Alert type="error" showIcon message={errMsg(trendQuery.error)} />
           ) : (
-            <div style={{ height: 210 }}>
+            <div style={{ height: 190 }}>
               <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
             </div>
           )}
         </Card>
-      </div>
+      </section>
 
-      {/* 4. Yearly Heatmap */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        <Text strong style={{ fontSize: "14px", color: "var(--color-text-primary)" }}>
-          {t("workbench.pastYearTitle", { defaultValue: "过去一年" })}
-        </Text>
-
+      {/* 4. Past Year — heatmap uses full available width */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <span style={{ fontSize: "14px", fontWeight: 600 }}>
+          {t("workbench.pastYear", { defaultValue: "过去一年" })}
+        </span>
         <Card
           size="small"
           className="page-surface workbench-chart-card"
-          title={
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
-              <CalendarOutlined />
-              {t("workbench.yearlyHeatmap", { defaultValue: "年度用量热力图" })}
-            </span>
-          }
+          style={{ marginBottom: 0 }}
+          styles={{ body: { padding: "10px 12px" } }}
         >
           {yearTrendQuery.error ? (
             <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
           ) : (
-            <div style={{ width: "100%", overflowX: "auto" }}>
+            <div style={{ width: "100%", overflow: "hidden" }}>
               <UsageCalendar
                 data={yearTrendQuery.data?.trend ?? []}
                 period={365}
@@ -180,7 +168,8 @@ export default function WorkbenchPage() {
             </div>
           )}
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
+

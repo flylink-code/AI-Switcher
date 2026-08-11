@@ -75,12 +75,12 @@ export const AgentRuntimeItem: React.FC<AgentRuntimeItemProps> = ({ target, appR
     <div
       style={{
         flex: 1,
-        minWidth: 200,
-        padding: "12px 16px",
+        minWidth: 180,
+        padding: "8px 14px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        gap: "10px",
+        gap: "6px",
       }}
     >
       {/* Header */}
@@ -200,9 +200,9 @@ export const AgentRuntimeRail: React.FC<AgentRuntimeRailProps> = ({
     <Surface padding="none" className={className} style={{ overflow: "hidden", ...style }}>
       <div
         style={{
-          padding: "10px 16px 6px 16px",
+          padding: "6px 14px 4px 14px",
           borderBottom: "1px solid var(--color-border-subtle, rgba(0,0,0,0.06))",
-          fontSize: "12px",
+          fontSize: "11px",
           fontWeight: 600,
           color: "var(--color-text-secondary)",
           letterSpacing: "0.2px",

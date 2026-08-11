@@ -1,5 +1,4 @@
 import React from "react";
-import appLogo from "@/assets/app-logo.png";
 
 export interface StatusBarProps {
   appVersion?: string | null;

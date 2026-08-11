@@ -16,7 +16,7 @@ import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 
 const appWindow = getCurrentWindow();
 
-export const WINDOW_CHROME_HEIGHT = 40;
+export const WINDOW_CHROME_HEIGHT = 42;
 
 const themeIcons: Record<ThemeMode, React.ReactNode> = {
   light: <BulbOutlined />,
@@ -62,12 +62,13 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
         height: WINDOW_CHROME_HEIGHT,
         minHeight: WINDOW_CHROME_HEIGHT,
         display: "flex",
-        alignItems: "center",
+        alignItems: "stretch",
         justifyContent: "space-between",
         paddingLeft: "var(--page-padding-x, 16px)",
-        paddingRight: "8px",
+        paddingRight: 0,
         backgroundColor: "transparent",
         userSelect: "none",
+        boxSizing: "border-box",
       }}
     >
       {/* Left side drag region + optional breadcrumb/back */}
@@ -94,93 +95,190 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
         className="no-drag"
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: "8px",
+          alignItems: "stretch",
+          height: "100%",
+          gap: "6px",
           flexShrink: 0,
         }}
       >
-        {updateVersion ? (
-          <Badge dot offset={[-2, 4]}>
-            <button
-              type="button"
-              className="app-titlebar-update"
-              onClick={onOpenUpdate}
-              style={{
-                fontSize: "12px",
-                padding: "2px 8px",
-                borderRadius: "4px",
-                border: "none",
-                cursor: "pointer",
-                background: "var(--color-bg-subtle, rgba(0,0,0,0.04))",
-                color: token.colorPrimary,
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", paddingRight: "6px" }}>
+          {updateVersion ? (
+            <Badge dot offset={[-2, 4]}>
+              <button
+                type="button"
+                className="app-titlebar-update"
+                onClick={onOpenUpdate}
+                style={{
+                  fontSize: "12px",
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  border: "none",
+                  cursor: "pointer",
+                  background: "var(--color-bg-subtle, rgba(0,0,0,0.04))",
+                  color: token.colorPrimary,
+                }}
+              >
+                {t("about.appUpdateAvailable", { version: updateVersion })}
+              </button>
+            </Badge>
+          ) : null}
+
+          <Tooltip title={t("common.theme")}>
+            <Select<ThemeMode>
+              size="small"
+              variant="borderless"
+              value={themeMode}
+              onChange={setThemeMode}
+              style={{ width: 100 }}
+              suffixIcon={themeIcons[themeMode]}
+              options={[
+                { value: "light", label: t("common.themeLight") },
+                { value: "dark", label: t("common.themeDark") },
+                { value: "system", label: t("common.themeSystem") },
+              ]}
+            />
+          </Tooltip>
+
+          <Tooltip title={t("common.language")}>
+            <Select
+              size="small"
+              variant="borderless"
+              value={language}
+              onChange={(v) => {
+                setLanguage(v);
+                void i18n.changeLanguage(v);
               }}
-            >
-              {t("about.appUpdateAvailable", { version: updateVersion })}
-            </button>
-          </Badge>
-        ) : null}
+              style={{ width: 104 }}
+              suffixIcon={<GlobalOutlined />}
+              options={languages.map((l) => ({ value: l.value, label: l.label }))}
+            />
+          </Tooltip>
+        </div>
 
-        <Tooltip title={t("common.theme")}>
-          <Select<ThemeMode>
-            size="small"
-            variant="borderless"
-            value={themeMode}
-            onChange={setThemeMode}
-            style={{ width: 104 }}
-            suffixIcon={themeIcons[themeMode]}
-            options={[
-              { value: "light", label: t("common.themeLight") },
-              { value: "dark", label: t("common.themeDark") },
-              { value: "system", label: t("common.themeSystem") },
-            ]}
-          />
-        </Tooltip>
-
-        <Tooltip title={t("common.language")}>
-          <Select
-            size="small"
-            variant="borderless"
-            value={language}
-            onChange={(v) => {
-              setLanguage(v);
-              void i18n.changeLanguage(v);
-            }}
-            style={{ width: 108 }}
-            suffixIcon={<GlobalOutlined />}
-            options={languages.map((l) => ({ value: l.value, label: l.label }))}
-          />
-        </Tooltip>
-
+        {/* Windows Standard Frameless Window Controls */}
         <div
           className="app-titlebar-controls"
           style={{
             display: "flex",
-            alignItems: "center",
-            marginLeft: "4px",
+            alignItems: "stretch",
+            height: "100%",
           }}
         >
-          <button
-            type="button"
-            aria-label={t("common.minimize")}
-            onClick={() => void appWindow.minimize()}
+          <Tooltip title={t("common.minimize", { defaultValue: "最小化" })} placement="bottom" mouseEnterDelay={0.3}>
+            <button
+              type="button"
+              onClick={() => void appWindow.minimize()}
+              style={{
+                width: "48px",
+                height: "100%",
+                border: "none",
+                borderRadius: 0,
+                background: "transparent",
+                color: "var(--color-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "background-color 0.15s ease, color 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 14%, transparent)";
+                e.currentTarget.style.color = "var(--color-text-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--color-text-secondary)";
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 22%, transparent)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 14%, transparent)";
+              }}
+            >
+              <MinusOutlined />
+            </button>
+          </Tooltip>
+
+          <Tooltip
+            title={maximized ? t("common.restore", { defaultValue: "向下还原" }) : t("common.maximize", { defaultValue: "最大化" })}
+            placement="bottom"
+            mouseEnterDelay={0.3}
           >
-            <MinusOutlined />
-          </button>
-          <button
-            type="button"
-            aria-label={t("common.maximize")}
-            onClick={() => void appWindow.toggleMaximize()}
-          >
-            {maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-          </button>
-          <button
-            type="button"
-            className="app-titlebar-close"
-            aria-label={t("common.close")}
-            onClick={() => void appWindow.close()}
-          >
-            <CloseOutlined />
-          </button>
+            <button
+              type="button"
+              onClick={() => void appWindow.toggleMaximize()}
+              style={{
+                width: "48px",
+                height: "100%",
+                border: "none",
+                borderRadius: 0,
+                background: "transparent",
+                color: "var(--color-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "background-color 0.15s ease, color 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 14%, transparent)";
+                e.currentTarget.style.color = "var(--color-text-primary)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--color-text-secondary)";
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 22%, transparent)";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-text-primary, #000) 14%, transparent)";
+              }}
+            >
+              {maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+            </button>
+          </Tooltip>
+
+          <Tooltip title={t("common.close", { defaultValue: "关闭" })} placement="bottom" mouseEnterDelay={0.3}>
+            <button
+              type="button"
+              className="app-titlebar-close"
+              onClick={() => void appWindow.close()}
+              style={{
+                width: "48px",
+                height: "100%",
+                border: "none",
+                borderRadius: 0,
+                background: "transparent",
+                color: "var(--color-text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "background-color 0.15s ease, color 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#e81123";
+                e.currentTarget.style.color = "#ffffff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--color-text-secondary)";
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.backgroundColor = "#c50e1f";
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.backgroundColor = "#e81123";
+              }}
+            >
+              <CloseOutlined />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>
