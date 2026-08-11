@@ -29,7 +29,7 @@ export const NAV_ITEMS: NavItemDef[] = [
 /** Map a (possibly sub-page) activeKey to its primary navigation key. */
 export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === activeKey) return true;
-  if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "codexPlugins", "profiles"].includes(activeKey)) {
+  if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "plugins", "profiles"].includes(activeKey)) {
     return true;
   }
   if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization", "proxy"].includes(activeKey)) {

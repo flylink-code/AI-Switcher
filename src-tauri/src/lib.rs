@@ -8,6 +8,7 @@
 mod backup;
 mod agents;
 mod antigravity;
+mod claude_plugins;
 mod codex_oauth;
 mod codex_plugins;
 mod commands;
@@ -44,8 +45,14 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use crate::commands::{
     check_app_update, install_app_update,
     get_codex_auth_status, get_codex_web_search_mode, add_codex_plugin_marketplace,
-    list_codex_plugin_marketplaces, list_codex_plugins, remove_codex_plugin_marketplace,
-    set_codex_plugin_enabled, set_codex_web_search_mode, uninstall_codex_plugin,
+    list_codex_plugin_marketplaces, list_codex_plugin_catalog, list_codex_plugins,
+    remove_codex_plugin_marketplace, set_codex_plugin_enabled, set_codex_web_search_mode,
+    uninstall_codex_plugin, install_codex_plugin, update_codex_plugin,
+    upgrade_codex_plugin_marketplace, check_codex_plugin_update, check_codex_plugin_updates,
+    add_claude_plugin_marketplace, list_claude_plugin_marketplaces, list_claude_plugins,
+    remove_claude_plugin_marketplace, set_claude_plugin_enabled, uninstall_claude_plugin,
+    install_claude_plugin, list_claude_plugin_catalog, update_claude_plugin,
+    update_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
     sync_codex_session_providers,
     activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
@@ -150,9 +157,27 @@ pub fn run() {
             list_codex_plugins,
             set_codex_plugin_enabled,
             list_codex_plugin_marketplaces,
+            list_codex_plugin_catalog,
             add_codex_plugin_marketplace,
             remove_codex_plugin_marketplace,
+            upgrade_codex_plugin_marketplace,
             uninstall_codex_plugin,
+            install_codex_plugin,
+            update_codex_plugin,
+            check_codex_plugin_update,
+            check_codex_plugin_updates,
+            list_claude_plugins,
+            set_claude_plugin_enabled,
+            list_claude_plugin_marketplaces,
+            add_claude_plugin_marketplace,
+            remove_claude_plugin_marketplace,
+            update_claude_plugin_marketplace,
+            uninstall_claude_plugin,
+            install_claude_plugin,
+            update_claude_plugin,
+            check_claude_plugin_update,
+            check_claude_plugin_updates,
+            list_claude_plugin_catalog,
             sync_codex_session_providers,
             check_app_update,
             install_app_update,
@@ -639,14 +664,14 @@ fn spawn_opencode_session_usage_sync(db: Arc<database::Database>) {
     });
 }
 
-/// Background Antigravity quota refresh: first run after ~45s, then every 5 minutes.
+/// Background Antigravity quota refresh: first run after ~20s, then every 5 minutes.
 fn spawn_antigravity_quota_refresh(app: tauri::AppHandle) {
     use crate::antigravity::{
         try_refresh_all_quotas, QUOTA_REFRESH_EVENT, QUOTA_REFRESH_INTERVAL_SECS,
     };
 
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_secs(45)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
         let interval = std::time::Duration::from_secs(QUOTA_REFRESH_INTERVAL_SECS);
         loop {
             match try_refresh_all_quotas().await {

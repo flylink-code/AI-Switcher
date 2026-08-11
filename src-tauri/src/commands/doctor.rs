@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item};
 
+use crate::claude_plugins;
 use crate::codex_plugins;
 use crate::commands::tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_doctor_output,
@@ -15,8 +16,9 @@ use crate::commands::tools::{
 use crate::config::codex;
 use crate::config::codex_provider_sync;
 use crate::config::{
-    get_claude_config_dir, get_claude_settings_path, get_codex_auth_path, get_codex_config_dir,
-    get_codex_config_path, get_codex_plugins_cache_dir, read_json_file, write_json_file,
+    get_claude_config_dir, get_claude_plugins_cache_dir, get_claude_settings_path,
+    get_codex_auth_path, get_codex_config_dir, get_codex_config_path, get_codex_plugins_cache_dir,
+    read_json_file, write_json_file,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -125,6 +127,7 @@ pub async fn run_environment_doctor() -> AppResult<DoctorReport> {
     checks.push(check_claude_settings());
     checks.push(check_claude_code_base_url());
     checks.push(check_claude_code_projects());
+    checks.push(check_claude_plugins());
     checks.push(check_codex_config());
     checks.push(check_codex_auth());
     checks.push(check_codex_model_catalog());
@@ -491,6 +494,24 @@ fn check_codex_sessions() -> DoctorCheck {
         "Codex sessions",
         count > 0,
         format!("发现约 {count} 个会话 JSONL @ {}", root.display()),
+    )
+}
+
+fn check_claude_plugins() -> DoctorCheck {
+    let cache_path = get_claude_plugins_cache_dir();
+    let (config_count, cache_count) = match claude_plugins::list_plugins_snapshot() {
+        Ok(snap) => (snap.config_plugin_count, snap.cache_plugin_count),
+        Err(_) => (0, count_cache_plugin_dirs(&cache_path)),
+    };
+    let ok = config_count > 0 || cache_count > 0 || cache_path.is_dir();
+    DoctorCheck::new(
+        "claude_plugins",
+        "Claude Code plugins",
+        ok,
+        format!(
+            "settings enabledPlugins={config_count}；installed/cache={cache_count} @ {}",
+            cache_path.display()
+        ),
     )
 }
 

@@ -45,23 +45,42 @@ pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<Antigravit
 }
 
 /// Refresh every configured account; partial failures still return the latest snapshots.
+/// Runs account probes concurrently so one slow account does not starve the rest.
 pub async fn refresh_all_account_quotas() -> AppResult<Vec<AntigravityAccountPublic>> {
     let accounts = account_store().list_accounts()?;
-    let mut results = Vec::with_capacity(accounts.len());
-    let mut errors = Vec::new();
+    if accounts.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut handles = Vec::with_capacity(accounts.len());
     for account in accounts {
-        match refresh_one_account_quota(&account.id).await {
+        let id = account.id.clone();
+        let email = account.email.clone();
+        let fallback = AntigravityAccountPublic::from(&account);
+        handles.push(async move {
+            match refresh_one_account_quota(&id).await {
+                Ok(public) => Ok(public),
+                Err(error) => {
+                    log::warn!("Antigravity quota refresh failed for {email}: {error}");
+                    Err((format!("{email}: {error}"), fallback))
+                }
+            }
+        });
+    }
+
+    let settled = futures_util::future::join_all(handles).await;
+    let mut results = Vec::with_capacity(settled.len());
+    let mut errors = Vec::new();
+    for item in settled {
+        match item {
             Ok(public) => results.push(public),
-            Err(error) => {
-                log::warn!(
-                    "Antigravity quota refresh failed for {}: {error}",
-                    account.email
-                );
-                errors.push(format!("{}: {error}", account.email));
-                results.push(AntigravityAccountPublic::from(&account));
+            Err((message, fallback)) => {
+                errors.push(message);
+                results.push(fallback);
             }
         }
     }
+
     if results.is_empty() && !errors.is_empty() {
         return Err(AppError::Other(format!(
             "刷新额度失败: {}",
@@ -86,16 +105,26 @@ pub async fn try_refresh_all_quotas() -> AppResult<QuotaRefreshSummary> {
         attempted: accounts.len(),
         ..QuotaRefreshSummary::default()
     };
+
+    let mut handles = Vec::with_capacity(accounts.len());
     for account in accounts {
-        match refresh_one_account_quota(&account.id).await {
-            Ok(_) => summary.succeeded += 1,
-            Err(error) => {
-                summary.failed += 1;
-                log::warn!(
-                    "Antigravity quota auto-refresh failed for {}: {error}",
-                    account.email
-                );
+        let id = account.id.clone();
+        let email = account.email.clone();
+        handles.push(async move {
+            match refresh_one_account_quota(&id).await {
+                Ok(_) => Ok(()),
+                Err(error) => {
+                    log::warn!("Antigravity quota auto-refresh failed for {email}: {error}");
+                    Err(())
+                }
             }
+        });
+    }
+
+    for item in futures_util::future::join_all(handles).await {
+        match item {
+            Ok(()) => summary.succeeded += 1,
+            Err(()) => summary.failed += 1,
         }
     }
     Ok(summary)

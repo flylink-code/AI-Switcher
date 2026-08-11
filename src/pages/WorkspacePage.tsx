@@ -16,10 +16,21 @@ const WORKSPACE_PAGES: PageKey[] = [
   "prompts",
   "skills",
   "agents",
-  "codexPlugins",
+  "plugins",
 ];
 
 const WORKSPACE_TAB_KEY = "cs.workspaceTab";
+
+/** Old Claude/Codex plugin tabs → unified plugins hub. */
+function migrateWorkspaceTab(key: string): string {
+  if (key === "claudePlugins" || key === "codexPlugins") {
+    if (typeof localStorage !== "undefined" && !localStorage.getItem("cs.pluginsTarget")) {
+      localStorage.setItem("cs.pluginsTarget", key === "codexPlugins" ? "codex" : "claude_code");
+    }
+    return "plugins";
+  }
+  return key;
+}
 
 function isWorkspacePage(key: string): key is PageKey {
   return WORKSPACE_PAGES.some((page) => page === key);
@@ -27,7 +38,7 @@ function isWorkspacePage(key: string): key is PageKey {
 
 /**
  * Workspace: the resource management center (Projects / MCP / Prompts /
- * Skills / Agents / Codex Plugins). Resources are embedded under a compact
+ * Skills / Agents / Plugins). Resources are embedded under a compact
  * segmented navigation instead of living inside Settings.
  */
 export default function WorkspacePage() {
@@ -35,8 +46,8 @@ export default function WorkspacePage() {
 
   const [activeTab, setActiveTab] = useState<PageKey>(() => {
     if (typeof localStorage !== "undefined") {
-      const stored = localStorage.getItem(WORKSPACE_TAB_KEY);
-      if (stored && isWorkspacePage(stored)) return stored;
+      const stored = migrateWorkspaceTab(localStorage.getItem(WORKSPACE_TAB_KEY) ?? "");
+      if (isWorkspacePage(stored)) return stored;
     }
     return "profiles";
   });

@@ -59,20 +59,30 @@ export function AccountCard({
             ? "color-mix(in srgb, var(--ant-color-primary, #1677ff) 4%, var(--ant-color-bg-container, #ffffff))"
             : undefined,
         transition: "border-color 0.15s ease, background 0.15s ease",
+        height: "100%",
       }}
+      styles={{ body: { height: "100%" } }}
     >
-      <Space direction="vertical" style={{ width: "100%" }} size={12}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          height: "100%",
+          minHeight: 0,
+        }}
+      >
         {/* Identity & Status */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <Space align="center" wrap>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+          <Space align="center" wrap style={{ minWidth: 0 }}>
             <UserOutlined style={{ fontSize: 16, color: "var(--ant-color-text-secondary)" }} />
-            <Text strong style={{ fontSize: 14 }}>
+            <Text strong style={{ fontSize: 14 }} ellipsis>
               {account.email}
             </Text>
             {tier && <Tag color={tierTagColor(account.subscriptionTier)}>{tier}</Tag>}
           </Space>
 
-          <Space size={4} wrap>
+          <Space size={4} wrap style={{ flexShrink: 0 }}>
             {account.isActive && (
               <StatusBadge status="running" label={t("antigravity.active")} />
             )}
@@ -112,13 +122,28 @@ export function AccountCard({
           />
         </div>
 
-        {/* Card Footer Actions */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Space size={12}>
+        {/* Footer: meta row + actions row — same structure whether active or not */}
+        <div
+          style={{
+            marginTop: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "4px 12px",
+              minHeight: 22,
+            }}
+          >
             <Text type="secondary" style={{ fontSize: 12 }}>
               {t("antigravity.health")}: {Math.round(account.healthScore * 100)}%
             </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <Text type="secondary" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}>
               {t("antigravity.project")}:{" "}
               {account.hasProjectId ? (
                 <Tag color="blue" style={{ margin: 0, fontSize: 10 }}>
@@ -128,15 +153,21 @@ export function AccountCard({
                 <Tag style={{ margin: 0, fontSize: 10 }}>{t("antigravity.pending")}</Tag>
               )}
             </Text>
-            {quotaUpdated && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("antigravity.quotaUpdated")}: {quotaUpdated}
-              </Text>
-            )}
-          </Space>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("antigravity.quotaUpdated")}: {quotaUpdated ?? "—"}
+            </Text>
+          </div>
 
-          <Space size={8}>
-            {!account.isActive && !account.disabled && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 24,
+            }}
+          >
+            {!account.isActive && !account.disabled ? (
               <Button
                 size="small"
                 icon={<CheckOutlined />}
@@ -145,7 +176,7 @@ export function AccountCard({
               >
                 {t("antigravity.setActive")}
               </Button>
-            )}
+            ) : null}
             <Popconfirm
               title={t("antigravity.confirmDeleteTitle")}
               description={t("antigravity.confirmDeleteDesc", { email: account.email })}
@@ -154,13 +185,13 @@ export function AccountCard({
               okButtonProps={{ danger: true }}
               onConfirm={() => onRemove(account.id)}
             >
-              <Button size="small" danger icon={<DeleteOutlined />}>
+              <Button size="small" danger icon={<DeleteOutlined />} loading={isPending}>
                 {t("common.delete")}
               </Button>
             </Popconfirm>
-          </Space>
+          </div>
         </div>
-      </Space>
+      </div>
     </Card>
   );
 }

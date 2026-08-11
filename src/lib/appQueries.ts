@@ -24,8 +24,14 @@ import {
   listProviders,
   listProxyRequestLogs,
   listSkills,
+  scanUnmanagedSkills,
   listAgents,
   listCodexPlugins,
+  listCodexPluginCatalog,
+  listClaudePlugins,
+  listClaudePluginCatalog,
+  listClaudePluginMarketplaces,
+  listCodexPluginMarketplaces,
   getSkillRepositorySnapshot,
   readLivePrompt,
 } from "@/services/api";
@@ -89,6 +95,13 @@ export const skillsOptions = (target: SkillTarget = "claude_code") => queryOptio
   staleTime: 30_000,
 });
 
+export const unmanagedSkillsOptions = (target: SkillTarget = "claude_code") =>
+  queryOptions({
+    queryKey: ["unmanagedSkills", target] as const,
+    queryFn: () => scanUnmanagedSkills(target),
+    staleTime: 30_000,
+  });
+
 export const agentsOptions = queryOptions({
   queryKey: ["agents"] as const,
   queryFn: listAgents,
@@ -98,6 +111,36 @@ export const agentsOptions = queryOptions({
 export const codexPluginsOptions = queryOptions({
   queryKey: ["codexPlugins"] as const,
   queryFn: listCodexPlugins,
+  staleTime: 30_000,
+});
+
+export const codexPluginMarketplacesOptions = queryOptions({
+  queryKey: ["codexPluginMarketplaces"] as const,
+  queryFn: listCodexPluginMarketplaces,
+  staleTime: 30_000,
+});
+
+export const codexPluginCatalogOptions = queryOptions({
+  queryKey: ["codexPluginCatalog"] as const,
+  queryFn: listCodexPluginCatalog,
+  staleTime: 30_000,
+});
+
+export const claudePluginsOptions = queryOptions({
+  queryKey: ["claudePlugins"] as const,
+  queryFn: listClaudePlugins,
+  staleTime: 30_000,
+});
+
+export const claudePluginCatalogOptions = queryOptions({
+  queryKey: ["claudePluginCatalog"] as const,
+  queryFn: listClaudePluginCatalog,
+  staleTime: 30_000,
+});
+
+export const claudePluginMarketplacesOptions = queryOptions({
+  queryKey: ["claudePluginMarketplaces"] as const,
+  queryFn: listClaudePluginMarketplaces,
   staleTime: 30_000,
 });
 

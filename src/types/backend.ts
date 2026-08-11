@@ -538,6 +538,90 @@ export interface CodexPluginCommandResult {
   stderr: string;
 }
 
+export interface CodexCatalogPlugin {
+  pluginId: string;
+  name: string;
+  marketplace: string;
+  description?: string | null;
+  category?: string | null;
+  version?: string | null;
+}
+
+export interface CodexPluginCatalog {
+  plugins: CodexCatalogPlugin[];
+  marketplacesDir: string;
+}
+
+export interface CodexPluginUpdateStatus {
+  pluginId: string;
+  status: string;
+  message: string;
+  localVersion?: string | null;
+  remoteVersion?: string | null;
+}
+
+export interface ClaudePlugin {
+  pluginId: string;
+  name: string;
+  marketplace: string;
+  version?: string | null;
+  enabled: boolean;
+  installed: boolean;
+  path?: string | null;
+}
+
+export interface ClaudePluginsSnapshot {
+  plugins: ClaudePlugin[];
+  configPath: string;
+  cachePath: string;
+  configPluginCount: number;
+  cachePluginCount: number;
+  parseOk: boolean;
+  parseError?: string | null;
+}
+
+export interface ClaudeMarketplace {
+  name: string;
+  root?: string | null;
+  source?: string | null;
+  raw?: string | null;
+}
+
+export interface ClaudeMarketplaceListResult {
+  marketplaces: ClaudeMarketplace[];
+  rawOutput: string;
+  usedJson: boolean;
+}
+
+export interface ClaudePluginCommandResult {
+  ok: boolean;
+  message: string;
+  stdout: string;
+  stderr: string;
+}
+
+export interface ClaudeCatalogPlugin {
+  pluginId: string;
+  name: string;
+  marketplace: string;
+  description?: string | null;
+  category?: string | null;
+  version?: string | null;
+}
+
+export interface ClaudePluginCatalog {
+  plugins: ClaudeCatalogPlugin[];
+  marketplacesDir: string;
+}
+
+export interface ClaudePluginUpdateStatus {
+  pluginId: string;
+  status: string;
+  message: string;
+  localVersion?: string | null;
+  remoteVersion?: string | null;
+}
+
 export type CodexWebSearchMode = "disabled" | "cached" | "indexed" | "live";
 
 export interface CodexWebSearchSnapshot {

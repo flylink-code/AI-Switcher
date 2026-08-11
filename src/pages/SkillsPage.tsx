@@ -31,23 +31,38 @@ import {
   installZipSkill,
   refreshGithubRepositorySkills,
   registerUnmanagedSkill,
-  scanUnmanagedSkills,
   setSkillRepository,
   setSkillEnabled,
   updateGithubSkills,
 } from "@/services/api";
-import { skillRepositoryOptions, skillsOptions } from "@/lib/appQueries";
+import {
+  skillRepositoryOptions,
+  skillsOptions,
+  unmanagedSkillsOptions,
+} from "@/lib/appQueries";
 
 const { Text } = Typography;
 const DEFAULT_SKILL_REPOSITORY = "https://github.com/anthropics/skills";
+const SKILLS_TARGET_KEY = "cs.skillsTarget";
+const DISCOVERY_PAGE_SIZE = 5;
+const INSTALLED_PAGE_SIZE = 8;
+
+function readSkillsTarget(): SkillTarget {
+  if (typeof localStorage === "undefined") return "claude_code";
+  const stored = localStorage.getItem(SKILLS_TARGET_KEY);
+  if (stored === "codex" || stored === "claude_code") return stored;
+  return "claude_code";
+}
 
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<SkillTarget>("claude_code");
+  const [target, setTarget] = useState<SkillTarget>(readSkillsTarget);
   const skillsQuery = useQuery(skillsOptions(target));
+  const unmanagedQuery = useQuery(unmanagedSkillsOptions(target));
   const repositoryQuery = useQuery(skillRepositoryOptions);
   const skills = skillsQuery.data ?? [];
+  const unmanagedSkills = unmanagedQuery.data ?? [];
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingSkill, setCheckingSkill] = useState<string | null>(null);
@@ -60,9 +75,14 @@ export default function SkillsPage() {
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [updateStatuses, setUpdateStatuses] = useState<Record<string, SkillUpdateStatus>>({});
   const [checkingUpdates, setCheckingUpdates] = useState(false);
-  const [discovering, setDiscovering] = useState(false);
-  const [unmanagedSkills, setUnmanagedSkills] = useState<UnmanagedSkill[]>([]);
   const [discoveryBusy, setDiscoveryBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(SKILLS_TARGET_KEY, target);
+    }
+    setUpdateStatuses({});
+  }, [target]);
 
   useEffect(() => {
     if (!repositoryQuery.data) return;
@@ -225,15 +245,12 @@ export default function SkillsPage() {
   const updateAvailableNames = skills.filter((skill) => updateStatuses[skill.name]?.status === "update_available").map((skill) => skill.name);
 
   const discoverUnmanaged = async () => {
-    setDiscovering(true);
     try {
-      const found = await scanUnmanagedSkills(target);
-      setUnmanagedSkills(found);
-      void message.info(t("skills.discoveryFound", { count: found.length }));
+      const found = await unmanagedQuery.refetch();
+      if (found.error) throw found.error;
+      void message.info(t("skills.discoveryFound", { count: found.data?.length ?? 0 }));
     } catch (e) {
       void message.error(errMsg(e));
-    } finally {
-      setDiscovering(false);
     }
   };
 
@@ -242,8 +259,10 @@ export default function SkillsPage() {
     try {
       await registerUnmanagedSkill(skill.path, target);
       void message.success(t("skills.discoveryRegistered", { name: skill.directory }));
-      setUnmanagedSkills((current) => current.filter((item) => item.path !== skill.path));
-      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["skills", target] }),
+        queryClient.invalidateQueries({ queryKey: ["unmanagedSkills", target] }),
+      ]);
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -256,7 +275,7 @@ export default function SkillsPage() {
     try {
       await ignoreUnmanagedSkill(skill.path);
       void message.success(t("skills.discoveryIgnored", { name: skill.directory }));
-      setUnmanagedSkills((current) => current.filter((item) => item.path !== skill.path));
+      await queryClient.invalidateQueries({ queryKey: ["unmanagedSkills", target] });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -277,7 +296,12 @@ export default function SkillsPage() {
       className="page-surface"
       title={t("skills.discoveryTitle")}
       extra={
-        <Button icon={<ReloadOutlined />} loading={discovering} disabled={busy || scanning} onClick={() => void discoverUnmanaged()}>
+        <Button
+          icon={<ReloadOutlined />}
+          loading={unmanagedQuery.isFetching}
+          disabled={busy || scanning}
+          onClick={() => void discoverUnmanaged()}
+        >
           {t("skills.discoveryScan")}
         </Button>
       }
@@ -288,8 +312,14 @@ export default function SkillsPage() {
         style={{ marginTop: 8 }}
         rowKey="path"
         dataSource={unmanagedSkills}
-        loading={discovering}
-        pagination={false}
+        loading={unmanagedQuery.isLoading}
+        pagination={{
+          pageSize: DISCOVERY_PAGE_SIZE,
+          showSizeChanger: true,
+          pageSizeOptions: ["5", "10", "20"],
+          showTotal: (total) => t("skills.tableTotal", { total }),
+          hideOnSinglePage: false,
+        }}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.discoveryEmpty")} /> }}
         columns={[
           { title: t("skills.name"), dataIndex: "directory", render: (name: string) => <Text strong>{name}</Text> },
@@ -348,7 +378,13 @@ export default function SkillsPage() {
         rowKey="name"
         dataSource={skills}
         loading={skillsQuery.isPending}
-        pagination={false}
+        pagination={{
+          pageSize: INSTALLED_PAGE_SIZE,
+          showSizeChanger: true,
+          pageSizeOptions: ["8", "15", "30"],
+          showTotal: (total) => t("skills.tableTotal", { total }),
+          hideOnSinglePage: false,
+        }}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.empty")} /> }}
         columns={[
           { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
@@ -392,7 +428,13 @@ export default function SkillsPage() {
           rowKey="path"
           dataSource={repositorySkills}
           loading={scanning}
-          pagination={{ pageSize: 10, hideOnSinglePage: true }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50"],
+            showTotal: (total) => t("skills.tableTotal", { total }),
+            hideOnSinglePage: false,
+          }}
           rowSelection={{
             selectedRowKeys: selectedPaths,
             onChange: (keys) => setSelectedPaths(keys.map(String)),

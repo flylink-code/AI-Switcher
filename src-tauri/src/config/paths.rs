@@ -106,6 +106,31 @@ pub fn get_claude_agents_dir() -> PathBuf {
     get_claude_config_dir().join("agents")
 }
 
+/// `~/.claude/plugins` — Claude Code plugin marketplace installs and cache.
+pub fn get_claude_plugins_dir() -> PathBuf {
+    get_claude_config_dir().join("plugins")
+}
+
+/// `~/.claude/plugins/cache` — versioned plugin install cache.
+pub fn get_claude_plugins_cache_dir() -> PathBuf {
+    get_claude_plugins_dir().join("cache")
+}
+
+/// `~/.claude/plugins/installed_plugins.json` — install manifest (scope/path/version).
+pub fn get_claude_installed_plugins_path() -> PathBuf {
+    get_claude_plugins_dir().join("installed_plugins.json")
+}
+
+/// `~/.claude/plugins/known_marketplaces.json` — configured marketplace sources.
+pub fn get_claude_known_marketplaces_path() -> PathBuf {
+    get_claude_plugins_dir().join("known_marketplaces.json")
+}
+
+/// `~/.claude/plugins/marketplaces` — cloned marketplace checkouts.
+pub fn get_claude_marketplaces_dir() -> PathBuf {
+    get_claude_plugins_dir().join("marketplaces")
+}
+
 /// Codex's configuration root. Respect CODEX_HOME so test and portable
 /// installations never accidentally modify the user's default profile.
 pub fn get_codex_config_dir() -> PathBuf {

@@ -2,9 +2,16 @@ import { call } from "./ipc";
 import type {
   Agent,
   AgentDraft,
+  ClaudeMarketplaceListResult,
+  ClaudePluginCatalog,
+  ClaudePluginCommandResult,
+  ClaudePluginsSnapshot,
   CodexMarketplaceListResult,
+  CodexPluginCatalog,
   CodexPluginCommandResult,
+  CodexPluginUpdateStatus,
   CodexPluginsSnapshot,
+  ClaudePluginUpdateStatus,
   CodexWebSearchMode,
   CodexWebSearchSnapshot,
   RepositorySkill,
@@ -67,6 +74,10 @@ export async function listCodexPluginMarketplaces(): Promise<CodexMarketplaceLis
   return call<CodexMarketplaceListResult>("list_codex_plugin_marketplaces", {});
 }
 
+export async function listCodexPluginCatalog(): Promise<CodexPluginCatalog> {
+  return call<CodexPluginCatalog>("list_codex_plugin_catalog", {});
+}
+
 export async function addCodexPluginMarketplace(source: string): Promise<CodexPluginCommandResult> {
   return call<CodexPluginCommandResult>("add_codex_plugin_marketplace", { source });
 }
@@ -77,6 +88,76 @@ export async function removeCodexPluginMarketplace(name: string): Promise<CodexP
 
 export async function uninstallCodexPlugin(pluginId: string): Promise<CodexPluginCommandResult> {
   return call<CodexPluginCommandResult>("uninstall_codex_plugin", { pluginId });
+}
+
+export async function installCodexPlugin(pluginId: string): Promise<CodexPluginCommandResult> {
+  return call<CodexPluginCommandResult>("install_codex_plugin", { pluginId });
+}
+
+export async function updateCodexPlugin(pluginId: string): Promise<CodexPluginCommandResult> {
+  return call<CodexPluginCommandResult>("update_codex_plugin", { pluginId });
+}
+
+export async function upgradeCodexPluginMarketplace(name?: string | null): Promise<CodexPluginCommandResult> {
+  return call<CodexPluginCommandResult>("upgrade_codex_plugin_marketplace", { name: name ?? null });
+}
+
+export async function checkCodexPluginUpdate(pluginId: string): Promise<CodexPluginUpdateStatus> {
+  return call<CodexPluginUpdateStatus>("check_codex_plugin_update", { pluginId });
+}
+
+export async function checkCodexPluginUpdates(): Promise<CodexPluginUpdateStatus[]> {
+  return call<CodexPluginUpdateStatus[]>("check_codex_plugin_updates", {});
+}
+
+// ---- Claude Code Plugins ----------------------------------------------------
+
+export async function listClaudePlugins(): Promise<ClaudePluginsSnapshot> {
+  return call<ClaudePluginsSnapshot>("list_claude_plugins", {});
+}
+
+export async function setClaudePluginEnabled(pluginId: string, enabled: boolean): Promise<void> {
+  return call<void>("set_claude_plugin_enabled", { pluginId, enabled });
+}
+
+export async function listClaudePluginMarketplaces(): Promise<ClaudeMarketplaceListResult> {
+  return call<ClaudeMarketplaceListResult>("list_claude_plugin_marketplaces", {});
+}
+
+export async function listClaudePluginCatalog(): Promise<ClaudePluginCatalog> {
+  return call<ClaudePluginCatalog>("list_claude_plugin_catalog", {});
+}
+
+export async function addClaudePluginMarketplace(source: string): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("add_claude_plugin_marketplace", { source });
+}
+
+export async function removeClaudePluginMarketplace(name: string): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("remove_claude_plugin_marketplace", { name });
+}
+
+export async function uninstallClaudePlugin(pluginId: string): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("uninstall_claude_plugin", { pluginId });
+}
+
+export async function installClaudePlugin(pluginId: string): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("install_claude_plugin", { pluginId });
+}
+
+export async function updateClaudePlugin(pluginId: string): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("update_claude_plugin", { pluginId });
+}
+
+export async function updateClaudePluginMarketplace(name?: string | null): Promise<ClaudePluginCommandResult> {
+  return call<ClaudePluginCommandResult>("update_claude_plugin_marketplace", { name: name ?? null });
+}
+
+export async function checkClaudePluginUpdate(pluginId: string): Promise<ClaudePluginUpdateStatus> {
+  return call<ClaudePluginUpdateStatus>("check_claude_plugin_update", { pluginId });
+}
+
+export async function checkClaudePluginUpdates(): Promise<ClaudePluginUpdateStatus[]> {
+  return call<ClaudePluginUpdateStatus[]>("check_claude_plugin_updates", {});
 }
 
 export async function getCodexWebSearchMode(): Promise<CodexWebSearchSnapshot> {

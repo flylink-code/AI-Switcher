@@ -6,40 +6,40 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  codexPluginCatalogOptions,
-  codexPluginMarketplacesOptions,
-  codexPluginsOptions,
+  claudePluginCatalogOptions,
+  claudePluginMarketplacesOptions,
+  claudePluginsOptions,
 } from "@/lib/appQueries";
 import {
-  addCodexPluginMarketplace,
-  checkCodexPluginUpdate,
-  checkCodexPluginUpdates,
-  installCodexPlugin,
-  removeCodexPluginMarketplace,
-  setCodexPluginEnabled,
-  uninstallCodexPlugin,
-  updateCodexPlugin,
-  upgradeCodexPluginMarketplace,
+  addClaudePluginMarketplace,
+  checkClaudePluginUpdate,
+  checkClaudePluginUpdates,
+  installClaudePlugin,
+  removeClaudePluginMarketplace,
+  setClaudePluginEnabled,
+  uninstallClaudePlugin,
+  updateClaudePlugin,
+  updateClaudePluginMarketplace,
 } from "@/services/api";
-import type { CodexCatalogPlugin, CodexMarketplace, CodexPlugin, CodexPluginUpdateStatus } from "@/types/backend";
+import type { ClaudeCatalogPlugin, ClaudeMarketplace, ClaudePlugin, ClaudePluginUpdateStatus } from "@/types/backend";
 
 const { Paragraph, Text } = Typography;
 
 const MARKETPLACE_PAGE_SIZE = 5;
 const PLUGIN_PAGE_SIZE = 8;
 
-export default function CodexPluginsPage() {
+export default function ClaudePluginsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const pluginsQuery = useQuery(codexPluginsOptions);
-  const catalogQuery = useQuery(codexPluginCatalogOptions);
-  const marketplacesQuery = useQuery(codexPluginMarketplacesOptions);
+  const pluginsQuery = useQuery(claudePluginsOptions);
+  const catalogQuery = useQuery(claudePluginCatalogOptions);
+  const marketplacesQuery = useQuery(claudePluginMarketplacesOptions);
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null);
   const [marketplaceBusy, setMarketplaceBusy] = useState(false);
   const [marketplaceSource, setMarketplaceSource] = useState("");
   const [installId, setInstallId] = useState<string | undefined>(undefined);
   const [installBusy, setInstallBusy] = useState(false);
-  const [updateStatuses, setUpdateStatuses] = useState<Record<string, CodexPluginUpdateStatus>>({});
+  const [updateStatuses, setUpdateStatuses] = useState<Record<string, ClaudePluginUpdateStatus>>({});
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [checkingPluginId, setCheckingPluginId] = useState<string | null>(null);
   const [updatingPluginId, setUpdatingPluginId] = useState<string | null>(null);
@@ -64,25 +64,25 @@ export default function CodexPluginsPage() {
 
   const refreshAll = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["codexPlugins"] }),
-      queryClient.invalidateQueries({ queryKey: ["codexPluginCatalog"] }),
-      queryClient.invalidateQueries({ queryKey: ["codexPluginMarketplaces"] }),
+      queryClient.invalidateQueries({ queryKey: ["claudePlugins"] }),
+      queryClient.invalidateQueries({ queryKey: ["claudePluginCatalog"] }),
+      queryClient.invalidateQueries({ queryKey: ["claudePluginMarketplaces"] }),
     ]);
   };
 
   const refreshMarketplaces = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["codexPluginMarketplaces"] }),
-      queryClient.invalidateQueries({ queryKey: ["codexPluginCatalog"] }),
+      queryClient.invalidateQueries({ queryKey: ["claudePluginMarketplaces"] }),
+      queryClient.invalidateQueries({ queryKey: ["claudePluginCatalog"] }),
     ]);
   };
 
-  const toggleEnabled = async (plugin: CodexPlugin, enabled: boolean) => {
+  const toggleEnabled = async (plugin: ClaudePlugin, enabled: boolean) => {
     setBusyPluginId(plugin.pluginId);
     try {
-      await setCodexPluginEnabled(plugin.pluginId, enabled);
-      await queryClient.invalidateQueries({ queryKey: ["codexPlugins"] });
-      void message.success(t("codexPlugins.toggled"));
+      await setClaudePluginEnabled(plugin.pluginId, enabled);
+      await queryClient.invalidateQueries({ queryKey: ["claudePlugins"] });
+      void message.success(t("claudePlugins.toggled"));
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -90,11 +90,11 @@ export default function CodexPluginsPage() {
     }
   };
 
-  const uninstall = async (plugin: CodexPlugin) => {
+  const uninstall = async (plugin: ClaudePlugin) => {
     setBusyPluginId(plugin.pluginId);
     try {
-      const result = await uninstallCodexPlugin(plugin.pluginId);
-      void message.success(result.message || t("codexPlugins.uninstalled"));
+      const result = await uninstallClaudePlugin(plugin.pluginId);
+      void message.success(result.message || t("claudePlugins.uninstalled"));
       await refreshAll();
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
@@ -106,10 +106,10 @@ export default function CodexPluginsPage() {
   const addMarketplace = async () => {
     if (!marketplaceSource.trim()) return;
     setMarketplaceBusy(true);
-    const hide = message.loading(t("codexPlugins.marketplaceAdding"), 0);
+    const hide = message.loading(t("claudePlugins.marketplaceAdding"), 0);
     try {
-      const result = await addCodexPluginMarketplace(marketplaceSource.trim());
-      void message.success(result.message || t("codexPlugins.marketplaceAdded"));
+      const result = await addClaudePluginMarketplace(marketplaceSource.trim());
+      void message.success(result.message || t("claudePlugins.marketplaceAdded"));
       setMarketplaceSource("");
       await refreshMarketplaces();
     } catch (error) {
@@ -123,8 +123,8 @@ export default function CodexPluginsPage() {
   const removeMarketplace = async (name: string) => {
     setMarketplaceBusy(true);
     try {
-      const result = await removeCodexPluginMarketplace(name);
-      void message.success(result.message || t("codexPlugins.marketplaceRemoved"));
+      const result = await removeClaudePluginMarketplace(name);
+      void message.success(result.message || t("claudePlugins.marketplaceRemoved"));
       await refreshMarketplaces();
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
@@ -137,10 +137,10 @@ export default function CodexPluginsPage() {
     const pluginId = installId?.trim();
     if (!pluginId) return;
     setInstallBusy(true);
-    const hide = message.loading(t("codexPlugins.installing"), 0);
+    const hide = message.loading(t("claudePlugins.installing"), 0);
     try {
-      const result = await installCodexPlugin(pluginId);
-      void message.success(result.message || t("codexPlugins.installed"));
+      const result = await installClaudePlugin(pluginId);
+      void message.success(result.message || t("claudePlugins.installed"));
       setInstallId(undefined);
       await refreshAll();
     } catch (error) {
@@ -153,10 +153,10 @@ export default function CodexPluginsPage() {
 
   const refreshMarketplaceSources = async () => {
     setMarketplaceBusy(true);
-    const hide = message.loading(t("codexPlugins.marketplaceUpdating"), 0);
+    const hide = message.loading(t("claudePlugins.marketplaceUpdating"), 0);
     try {
-      const result = await upgradeCodexPluginMarketplace(null);
-      void message.success(result.message || t("codexPlugins.marketplaceUpdated"));
+      const result = await updateClaudePluginMarketplace(null);
+      void message.success(result.message || t("claudePlugins.marketplaceUpdated"));
       await refreshMarketplaces();
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
@@ -166,10 +166,10 @@ export default function CodexPluginsPage() {
     }
   };
 
-  const checkOneUpdate = async (plugin: CodexPlugin) => {
+  const checkOneUpdate = async (plugin: ClaudePlugin) => {
     setCheckingPluginId(plugin.pluginId);
     try {
-      const status = await checkCodexPluginUpdate(plugin.pluginId);
+      const status = await checkClaudePluginUpdate(plugin.pluginId);
       setUpdateStatuses((current) => ({ ...current, [plugin.pluginId]: status }));
       void message.info(status.message);
     } catch (error) {
@@ -181,12 +181,12 @@ export default function CodexPluginsPage() {
 
   const checkAllUpdates = async () => {
     setCheckingUpdates(true);
-    const hide = message.loading(t("codexPlugins.checkingUpdates"), 0);
+    const hide = message.loading(t("claudePlugins.checkingUpdates"), 0);
     try {
-      const statuses = await checkCodexPluginUpdates();
+      const statuses = await checkClaudePluginUpdates();
       setUpdateStatuses(Object.fromEntries(statuses.map((status) => [status.pluginId, status])));
       const available = statuses.filter((status) => status.status === "update_available").length;
-      void message.success(t("codexPlugins.checkUpdatesDone", { available, total: statuses.length }));
+      void message.success(t("claudePlugins.checkUpdatesDone", { available, total: statuses.length }));
       await refreshAll();
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
@@ -196,13 +196,13 @@ export default function CodexPluginsPage() {
     }
   };
 
-  const applyUpdate = async (plugin: CodexPlugin) => {
+  const applyUpdate = async (plugin: ClaudePlugin) => {
     setUpdatingPluginId(plugin.pluginId);
-    const hide = message.loading(t("codexPlugins.updating"), 0);
+    const hide = message.loading(t("claudePlugins.updating"), 0);
     try {
-      const result = await updateCodexPlugin(plugin.pluginId);
-      void message.success(result.message || t("codexPlugins.updated"));
-      const status = await checkCodexPluginUpdate(plugin.pluginId);
+      const result = await updateClaudePlugin(plugin.pluginId);
+      void message.success(result.message || t("claudePlugins.updated"));
+      const status = await checkClaudePluginUpdate(plugin.pluginId);
       setUpdateStatuses((current) => ({ ...current, [plugin.pluginId]: status }));
       await refreshAll();
     } catch (error) {
@@ -225,10 +225,11 @@ export default function CodexPluginsPage() {
     }
   };
 
-  const catalogOptions = catalog.map((item: CodexCatalogPlugin) => ({
+  const catalogOptions = catalog.map((item: ClaudeCatalogPlugin) => ({
     value: item.pluginId,
+    // Compact string for the closed Select; rich UI is in optionRender.
     label: installedIds.has(item.pluginId)
-      ? `${item.name} @${item.marketplace} · ${t("codexPlugins.alreadyInstalled")}`
+      ? `${item.name} @${item.marketplace} · ${t("claudePlugins.alreadyInstalled")}`
       : `${item.name} @${item.marketplace}`,
     name: item.name,
     marketplace: item.marketplace,
@@ -243,7 +244,7 @@ export default function CodexPluginsPage() {
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Card
         className="page-surface"
-        title={t("codexPlugins.marketplaceTitle")}
+        title={t("claudePlugins.marketplaceTitle")}
         extra={
           <Space>
             <Button
@@ -251,22 +252,22 @@ export default function CodexPluginsPage() {
               disabled={marketplaceBusyUi}
               onClick={() => void refreshMarketplaceSources()}
             >
-              {t("codexPlugins.marketplaceUpdate")}
+              {t("claudePlugins.marketplaceUpdate")}
             </Button>
             <Button
               icon={<ReloadOutlined />}
               loading={marketplaceBusyUi}
               onClick={() => void refreshMarketplaces()}
             >
-              {t("codexPlugins.marketplaceRefresh")}
+              {t("claudePlugins.marketplaceRefresh")}
             </Button>
           </Space>
         }
       >
-        <Paragraph type="secondary">{t("codexPlugins.marketplaceDescription")}</Paragraph>
+        <Paragraph type="secondary">{t("claudePlugins.marketplaceDescription")}</Paragraph>
         <Space.Compact style={{ width: "100%", marginBottom: 12 }}>
           <Input
-            placeholder={t("codexPlugins.marketplaceSourcePlaceholder")}
+            placeholder={t("claudePlugins.marketplaceSourcePlaceholder")}
             value={marketplaceSource}
             onChange={(event) => setMarketplaceSource(event.target.value)}
             onPressEnter={() => void addMarketplace()}
@@ -278,7 +279,7 @@ export default function CodexPluginsPage() {
             disabled={!marketplaceSource.trim()}
             onClick={() => void addMarketplace()}
           >
-            {t("codexPlugins.marketplaceAdd")}
+            {t("claudePlugins.marketplaceAdd")}
           </Button>
         </Space.Compact>
         {marketplaceError ? (
@@ -286,7 +287,7 @@ export default function CodexPluginsPage() {
             type="error"
             showIcon
             style={{ marginBottom: 12 }}
-            message={t("codexPlugins.marketplaceLoadError")}
+            message={t("claudePlugins.marketplaceLoadError")}
             description={marketplaceError}
           />
         ) : null}
@@ -299,36 +300,36 @@ export default function CodexPluginsPage() {
             pageSize: MARKETPLACE_PAGE_SIZE,
             showSizeChanger: true,
             pageSizeOptions: ["5", "10", "20"],
-            showTotal: (total) => t("codexPlugins.tableTotal", { total }),
+            showTotal: (total) => t("claudePlugins.tableTotal", { total }),
             hideOnSinglePage: false,
           }}
           locale={{
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={t("codexPlugins.marketplaceEmpty")}
+                description={t("claudePlugins.marketplaceEmpty")}
               />
             ),
           }}
           columns={[
-            { title: t("codexPlugins.marketplace"), dataIndex: "name" },
+            { title: t("claudePlugins.marketplace"), dataIndex: "name" },
             {
-              title: t("codexPlugins.path"),
+              title: t("claudePlugins.path"),
               dataIndex: "root",
               ellipsis: true,
-              render: (_: unknown, row: CodexMarketplace) =>
+              render: (_: unknown, row: ClaudeMarketplace) =>
                 row.root || row.source || <Text type="secondary">—</Text>,
             },
             {
-              title: t("codexPlugins.actions"),
+              title: t("claudePlugins.actions"),
               width: 100,
-              render: (_: unknown, row: CodexMarketplace) => (
+              render: (_: unknown, row: ClaudeMarketplace) => (
                 <Popconfirm
-                  title={t("codexPlugins.confirmRemoveMarketplace")}
+                  title={t("claudePlugins.confirmRemoveMarketplace")}
                   onConfirm={() => void removeMarketplace(row.name)}
                 >
                   <Button size="small" danger icon={<DeleteOutlined />} disabled={marketplaceBusyUi}>
-                    {t("codexPlugins.marketplaceRemove")}
+                    {t("claudePlugins.marketplaceRemove")}
                   </Button>
                 </Popconfirm>
               ),
@@ -339,7 +340,7 @@ export default function CodexPluginsPage() {
 
       <Card
         className="page-surface"
-        title={t("codexPlugins.title")}
+        title={t("claudePlugins.title")}
         extra={
           <Space>
             <Button
@@ -347,26 +348,26 @@ export default function CodexPluginsPage() {
               disabled={installBusy || marketplaceBusy || plugins.length === 0}
               onClick={() => void checkAllUpdates()}
             >
-              {t("codexPlugins.checkAllUpdates")}
+              {t("claudePlugins.checkAllUpdates")}
             </Button>
             <Button
               type="primary"
               disabled={!updateAvailableIds.length || checkingUpdates || updatingPluginId !== null}
               onClick={() => void applyAvailableUpdates()}
             >
-              {t("codexPlugins.updateSelected", { count: updateAvailableIds.length })}
+              {t("claudePlugins.updateSelected", { count: updateAvailableIds.length })}
             </Button>
             <Button
               icon={<ReloadOutlined />}
               loading={pluginsQuery.isFetching || catalogQuery.isFetching}
               onClick={() => void refreshAll()}
             >
-              {t("codexPlugins.refresh")}
+              {t("claudePlugins.refresh")}
             </Button>
           </Space>
         }
       >
-        <Paragraph type="secondary">{t("codexPlugins.description")}</Paragraph>
+        <Paragraph type="secondary">{t("claudePlugins.description")}</Paragraph>
         <div
           style={{
             display: "flex",
@@ -381,7 +382,7 @@ export default function CodexPluginsPage() {
             showSearch
             allowClear
             style={{ flex: 1, minWidth: 0 }}
-            placeholder={t("codexPlugins.installSelectPlaceholder")}
+            placeholder={t("claudePlugins.installSelectPlaceholder")}
             value={installId}
             loading={catalogQuery.isLoading}
             disabled={installBusy}
@@ -395,7 +396,7 @@ export default function CodexPluginsPage() {
                     <Text>{data.name}</Text>
                     <Text type="secondary"> @{data.marketplace}</Text>
                     {data.installed ? (
-                      <Text type="success"> · {t("codexPlugins.alreadyInstalled")}</Text>
+                      <Text type="success"> · {t("claudePlugins.alreadyInstalled")}</Text>
                     ) : null}
                   </div>
                   {data.description ? (
@@ -434,11 +435,7 @@ export default function CodexPluginsPage() {
               catalogQuery.isLoading ? null : (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={
-                    marketplaces.length > 0
-                      ? t("codexPlugins.catalogEmptyWithMarkets")
-                      : t("codexPlugins.catalogEmpty")
-                  }
+                  description={t("claudePlugins.catalogEmpty")}
                 />
               )
             }
@@ -451,18 +448,18 @@ export default function CodexPluginsPage() {
             onClick={() => void install()}
             style={{ flexShrink: 0 }}
           >
-            {t("codexPlugins.install")}
+            {t("claudePlugins.install")}
           </Button>
         </div>
         <Text type="secondary" style={{ display: "block", marginBottom: 12, fontSize: 12 }}>
-          {t("codexPlugins.installHint")}
+          {t("claudePlugins.installHint")}
         </Text>
         {queryError ? (
           <Alert
             type="error"
             showIcon
             style={{ marginBottom: 16 }}
-            message={t("codexPlugins.loadError")}
+            message={t("claudePlugins.loadError")}
             description={queryError}
           />
         ) : null}
@@ -471,7 +468,7 @@ export default function CodexPluginsPage() {
             type="warning"
             showIcon
             style={{ marginBottom: 16 }}
-            message={t("codexPlugins.parseError")}
+            message={t("claudePlugins.parseError")}
             description={snapshot.parseError ?? undefined}
           />
         ) : null}
@@ -480,8 +477,8 @@ export default function CodexPluginsPage() {
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message={t("codexPlugins.empty")}
-            description={t("codexPlugins.emptyHint", {
+            message={t("claudePlugins.empty")}
+            description={t("claudePlugins.emptyHint", {
               configPath: snapshot.configPath,
               cachePath: snapshot.cachePath,
               configCount: snapshot.configPluginCount,
@@ -497,22 +494,22 @@ export default function CodexPluginsPage() {
             pageSize: PLUGIN_PAGE_SIZE,
             showSizeChanger: true,
             pageSizeOptions: ["8", "15", "30"],
-            showTotal: (total) => t("codexPlugins.tableTotal", { total }),
+            showTotal: (total) => t("claudePlugins.tableTotal", { total }),
             hideOnSinglePage: false,
           }}
           locale={{
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={queryError ? t("codexPlugins.loadError") : t("codexPlugins.empty")}
+                description={queryError ? t("claudePlugins.loadError") : t("claudePlugins.empty")}
               />
             ),
           }}
           columns={[
             {
-              title: t("codexPlugins.name"),
+              title: t("claudePlugins.name"),
               dataIndex: "name",
-              render: (name: string, plugin: CodexPlugin) => (
+              render: (name: string, plugin: ClaudePlugin) => (
                 <Space direction="vertical" size={0}>
                   <Text strong>{name}</Text>
                   <Text type="secondary">{plugin.pluginId}</Text>
@@ -520,34 +517,34 @@ export default function CodexPluginsPage() {
               ),
             },
             {
-              title: t("codexPlugins.marketplace"),
+              title: t("claudePlugins.marketplace"),
               dataIndex: "marketplace",
               width: 180,
             },
             {
-              title: t("codexPlugins.version"),
+              title: t("claudePlugins.version"),
               dataIndex: "version",
               width: 120,
               render: (version?: string | null) => version ?? "—",
             },
             {
-              title: t("codexPlugins.updateStatus"),
+              title: t("claudePlugins.updateStatus"),
               width: 150,
-              render: (_: unknown, plugin: CodexPlugin) => (
-                <PluginUpdateStatusTag status={updateStatuses[plugin.pluginId]} t={t} ns="codexPlugins" />
+              render: (_: unknown, plugin: ClaudePlugin) => (
+                <PluginUpdateStatusTag status={updateStatuses[plugin.pluginId]} t={t} ns="claudePlugins" />
               ),
             },
             {
-              title: t("codexPlugins.path"),
+              title: t("claudePlugins.path"),
               dataIndex: "path",
               ellipsis: true,
               render: (path?: string | null) =>
                 path ? <Text copyable={{ text: path }}>{path}</Text> : <Text type="secondary">—</Text>,
             },
             {
-              title: t("codexPlugins.enabled"),
+              title: t("claudePlugins.enabled"),
               width: 100,
-              render: (_: unknown, plugin: CodexPlugin) => (
+              render: (_: unknown, plugin: ClaudePlugin) => (
                 <Switch
                   checked={plugin.enabled}
                   loading={busyPluginId === plugin.pluginId}
@@ -557,9 +554,9 @@ export default function CodexPluginsPage() {
               ),
             },
             {
-              title: t("codexPlugins.actions"),
+              title: t("claudePlugins.actions"),
               width: 220,
-              render: (_: unknown, plugin: CodexPlugin) => (
+              render: (_: unknown, plugin: ClaudePlugin) => (
                 <Space size="small" wrap>
                   <Button
                     type="link"
@@ -572,7 +569,7 @@ export default function CodexPluginsPage() {
                     }
                     onClick={() => void checkOneUpdate(plugin)}
                   >
-                    {t("codexPlugins.checkUpdate")}
+                    {t("claudePlugins.checkUpdate")}
                   </Button>
                   {(updateStatuses[plugin.pluginId]?.status === "update_available" ||
                     updateStatuses[plugin.pluginId]?.status === "unknown") && (
@@ -583,11 +580,11 @@ export default function CodexPluginsPage() {
                       disabled={updatingPluginId !== null && updatingPluginId !== plugin.pluginId}
                       onClick={() => void applyUpdate(plugin)}
                     >
-                      {t("codexPlugins.update")}
+                      {t("claudePlugins.update")}
                     </Button>
                   )}
                   <Popconfirm
-                    title={t("codexPlugins.confirmUninstall")}
+                    title={t("claudePlugins.confirmUninstall")}
                     onConfirm={() => void uninstall(plugin)}
                   >
                     <Button
@@ -597,7 +594,7 @@ export default function CodexPluginsPage() {
                       loading={busyPluginId === plugin.pluginId}
                       disabled={busyPluginId !== null && busyPluginId !== plugin.pluginId}
                     >
-                      {t("codexPlugins.uninstall")}
+                      {t("claudePlugins.uninstall")}
                     </Button>
                   </Popconfirm>
                 </Space>
@@ -615,9 +612,9 @@ function PluginUpdateStatusTag({
   t,
   ns,
 }: {
-  status?: CodexPluginUpdateStatus;
+  status?: ClaudePluginUpdateStatus;
   t: (key: string) => string;
-  ns: "codexPlugins";
+  ns: "claudePlugins";
 }) {
   if (!status) return <Text type="secondary">—</Text>;
   const color =

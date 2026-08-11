@@ -76,7 +76,6 @@ export default function AntigravityPage() {
   const accountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
     queryFn: listAntigravityAccounts,
-    refetchInterval: ANTIGRAVITY_QUOTA_REFRESH_MS,
   });
 
   const statusQuery = useQuery({
@@ -137,6 +136,42 @@ export default function AntigravityPage() {
       unlisten?.();
     };
   }, [queryClient]);
+
+  // While this page is open, refresh ALL account quotas on enter + on an interval.
+  // Listing alone only re-reads the local store and will not hit Cloud Code.
+  useEffect(() => {
+    if (accounts.length === 0) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const refreshAllQuotas = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        await refreshAntigravityQuotas();
+        if (!cancelled) {
+          await queryClient.invalidateQueries({ queryKey: ["antigravity-accounts"] });
+          await queryClient.invalidateQueries({ queryKey: ["antigravity-gateway"] });
+          await queryClient.invalidateQueries({ queryKey: ["antigravity-models"] });
+        }
+      } catch {
+        // Keep quiet for background refresh; manual button still surfaces errors.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void refreshAllQuotas();
+    const timer = window.setInterval(() => {
+      void refreshAllQuotas();
+    }, ANTIGRAVITY_QUOTA_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [accounts.length, queryClient]);
 
   const oauthMutation = useMutation({
     mutationFn: startAntigravityOauthLogin,
@@ -240,6 +275,11 @@ export default function AntigravityPage() {
     setActionAccountId(id);
     try {
       await setAntigravityActiveAccount(id);
+      try {
+        await refreshAntigravityQuotas();
+      } catch {
+        // Active switch still succeeds even if a quota probe fails.
+      }
       await refresh();
     } catch (error) {
       message.error(errMsg(error));

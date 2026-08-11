@@ -1,4 +1,4 @@
-//! Codex Agent Plugins discovery and enable/disable via config.toml.
+//! Codex Agent Plugins discovery, marketplace catalog, and install/remove.
 //!
 //! Installed plugins live under `~/.codex/plugins/cache/<marketplace>/<name>/<version>/`.
 //! Enable state is stored as:
@@ -6,7 +6,8 @@
 //! [plugins."name@marketplace"]
 //! enabled = true
 //! ```
-//! No marketplace/store install in this first slice.
+//! Install uses `codex plugin add name@marketplace`. Catalog is scanned from
+//! each marketplace snapshot's `marketplace.json` (`.agents/plugins/…` or legacy paths).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -224,6 +225,416 @@ pub fn uninstall_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> 
     Ok(result)
 }
 
+/// Install a plugin via `codex plugin add <name@marketplace>`.
+pub fn install_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
+    let plugin_id = plugin_id.trim();
+    if plugin_id.is_empty() || !plugin_id.contains('@') {
+        return Err(AppError::Config(format!(
+            "无效的 Codex 插件 ID: {plugin_id}（格式应为 name@marketplace）"
+        )));
+    }
+    let output = run_codex_plugin_args(&["plugin", "add", plugin_id])?;
+    let result = if output.status.success() {
+        command_result(output, "已安装插件")?
+    } else {
+        // Older CLIs accepted `plugin install`.
+        let fallback = run_codex_plugin_args(&["plugin", "install", plugin_id])?;
+        command_result(fallback, "已安装插件")?
+    };
+    let _ = set_plugin_enabled(plugin_id, true);
+    Ok(result)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexCatalogPlugin {
+    pub plugin_id: String,
+    pub name: String,
+    pub marketplace: String,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPluginCatalog {
+    pub plugins: Vec<CodexCatalogPlugin>,
+    pub marketplaces_dir: String,
+}
+
+/// List installable plugins declared by configured marketplace snapshots.
+pub fn list_plugin_catalog() -> AppResult<CodexPluginCatalog> {
+    let listed = list_marketplaces().unwrap_or(CodexMarketplaceListResult {
+        marketplaces: Vec::new(),
+        raw_output: String::new(),
+        used_json: false,
+    });
+    let mut catalog = list_plugin_catalog_from_marketplaces(&listed.marketplaces)?;
+    if catalog.plugins.is_empty() {
+        // CLI list may omit usable roots in some environments; fall back to known local trees.
+        let discovered = discover_local_marketplace_roots();
+        if !discovered.is_empty() {
+            catalog = list_plugin_catalog_from_marketplaces(&discovered)?;
+        }
+    }
+    Ok(catalog)
+}
+
+pub fn list_plugin_catalog_from_marketplaces(
+    marketplaces: &[CodexMarketplace],
+) -> AppResult<CodexPluginCatalog> {
+    let mut plugins = Vec::new();
+    let mut roots_seen = Vec::new();
+    for market in marketplaces {
+        let root = resolve_marketplace_root(market);
+        let Some(root) = root else { continue };
+        let root_display = root.to_string_lossy().into_owned();
+        if roots_seen.iter().any(|seen: &String| seen == &root_display) {
+            continue;
+        }
+        roots_seen.push(root_display);
+        let Some(manifest) = find_marketplace_manifest(&root) else {
+            continue;
+        };
+        append_catalog_from_manifest(&root, &manifest, &market.name, &mut plugins);
+    }
+    plugins.sort_by(|a, b| {
+        a.marketplace
+            .cmp(&b.marketplace)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    let marketplaces_dir = roots_seen.first().cloned().unwrap_or_else(|| {
+        get_codex_config_path()
+            .parent()
+            .map(|p| p.join("plugins").to_string_lossy().into_owned())
+            .unwrap_or_default()
+    });
+    Ok(CodexPluginCatalog {
+        plugins,
+        marketplaces_dir,
+    })
+}
+
+fn resolve_marketplace_root(market: &CodexMarketplace) -> Option<PathBuf> {
+    if let Some(root) = market.root.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let path = normalize_fs_path(root);
+        if path.is_dir() {
+            return Some(path);
+        }
+    }
+    let name = market.name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    let codex_home = get_codex_config_path().parent()?.to_path_buf();
+    let candidates = [
+        codex_home.join("plugins").join(name),
+        codex_home.join("plugins").join("marketplaces").join(name),
+        codex_home.join(".tmp").join("marketplaces").join(name),
+        codex_home.join(".tmp").join("plugins"),
+        codex_home.join(".agents").join("plugins").join(name),
+    ];
+    candidates.into_iter().find(|path| path.is_dir())
+}
+
+fn normalize_fs_path(raw: &str) -> PathBuf {
+    let trimmed = raw.trim();
+    let without_verbatim = trimmed
+        .strip_prefix(r"\\?\")
+        .or_else(|| trimmed.strip_prefix("//?/"))
+        .unwrap_or(trimmed);
+    PathBuf::from(without_verbatim)
+}
+
+fn discover_local_marketplace_roots() -> Vec<CodexMarketplace> {
+    let Some(codex_home) = get_codex_config_path().parent().map(Path::to_path_buf) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let user_home = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| codex_home.clone());
+    let candidates = [
+        (
+            "openai-curated",
+            codex_home.join(".tmp").join("plugins"),
+        ),
+        (
+            "openai-primary-runtime",
+            user_home
+                .join(".cache")
+                .join("codex-runtimes")
+                .join("codex-primary-runtime")
+                .join("plugins")
+                .join("openai-primary-runtime"),
+        ),
+    ];
+    for (name, root) in candidates {
+        if root.is_dir() && find_marketplace_manifest(&root).is_some() {
+            out.push(CodexMarketplace {
+                name: name.to_string(),
+                root: Some(root.to_string_lossy().into_owned()),
+                source: None,
+                raw: None,
+            });
+        }
+    }
+    let markets_dir = codex_home.join(".tmp").join("marketplaces");
+    if let Ok(entries) = fs::read_dir(&markets_dir) {
+        for entry in entries.flatten() {
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let root = entry.path();
+            if find_marketplace_manifest(&root).is_some() {
+                out.push(CodexMarketplace {
+                    name,
+                    root: Some(root.to_string_lossy().into_owned()),
+                    source: None,
+                    raw: None,
+                });
+            }
+        }
+    }
+    out
+}
+
+fn find_marketplace_manifest(root: &Path) -> Option<PathBuf> {
+    let candidates = [
+        root.join(".agents").join("plugins").join("marketplace.json"),
+        root.join(".claude-plugin").join("marketplace.json"),
+        root.join("marketplace.json"),
+        root.join("plugins").join("marketplace.json"),
+    ];
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+fn append_catalog_from_manifest(
+    market_root: &Path,
+    manifest: &Path,
+    fallback_marketplace: &str,
+    plugins: &mut Vec<CodexCatalogPlugin>,
+) {
+    let Ok(raw) = fs::read_to_string(manifest) else {
+        return;
+    };
+    let Ok(Value::Object(root)) = serde_json::from_str::<Value>(&raw) else {
+        return;
+    };
+    let marketplace_name = root
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback_marketplace)
+        .to_string();
+    let Some(items) = root.get("plugins").and_then(Value::as_array) else {
+        return;
+    };
+    for item in items {
+        let Some(obj) = item.as_object() else { continue };
+        let Some(name) = obj.get("name").and_then(Value::as_str).map(str::trim) else {
+            continue;
+        };
+        if name.is_empty() {
+            continue;
+        }
+        let description = obj
+            .get("description")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .or_else(|| {
+                obj.get("interface")
+                    .and_then(Value::as_object)
+                    .and_then(|iface| iface.get("displayName").or_else(|| iface.get("description")))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            });
+        let source_path = obj
+            .get("source")
+            .and_then(|source| {
+                source
+                    .as_str()
+                    .map(str::to_string)
+                    .or_else(|| {
+                        source
+                            .as_object()
+                            .and_then(|o| o.get("path"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+            });
+        plugins.push(CodexCatalogPlugin {
+            plugin_id: format!("{name}@{marketplace_name}"),
+            name: name.to_string(),
+            marketplace: marketplace_name.clone(),
+            description,
+            category: obj
+                .get("category")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            version: obj
+                .get("version")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+                .or_else(|| {
+                    resolve_codex_plugin_manifest_version(market_root, name, source_path.as_deref())
+                }),
+        });
+    }
+}
+
+fn resolve_codex_plugin_manifest_version(
+    market_root: &Path,
+    plugin_name: &str,
+    source_path: Option<&str>,
+) -> Option<String> {
+    let mut dirs = Vec::new();
+    if let Some(rel) = source_path.map(str::trim).filter(|s| !s.is_empty()) {
+        let cleaned = rel.trim_start_matches("./");
+        dirs.push(market_root.join(cleaned));
+    }
+    dirs.push(market_root.join("plugins").join(plugin_name));
+    dirs.push(market_root.join(plugin_name));
+    for dir in dirs {
+        let candidates = [
+            dir.join(".codex-plugin").join("plugin.json"),
+            dir.join(".claude-plugin").join("plugin.json"),
+            dir.join("plugin.json"),
+        ];
+        for path in candidates {
+            if let Ok(raw) = fs::read_to_string(&path) {
+                if let Ok(Value::Object(obj)) = serde_json::from_str::<Value>(&raw) {
+                    if let Some(version) = obj.get("version").and_then(Value::as_str) {
+                        let trimmed = version.trim();
+                        if !trimmed.is_empty() {
+                            return Some(trimmed.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPluginUpdateStatus {
+    pub plugin_id: String,
+    pub status: String,
+    pub message: String,
+    pub local_version: Option<String>,
+    pub remote_version: Option<String>,
+}
+
+/// Refresh marketplace snapshot(s): `codex plugin marketplace upgrade [name]`.
+pub fn upgrade_marketplace(name: Option<&str>) -> AppResult<CodexPluginCommandResult> {
+    let mut args = vec!["plugin", "marketplace", "upgrade"];
+    let owned;
+    if let Some(name) = name.map(str::trim).filter(|s| !s.is_empty()) {
+        owned = name.to_string();
+        args.push(owned.as_str());
+    }
+    let output = run_codex_plugin_args(&args)?;
+    command_result(output, "已刷新 marketplace")
+}
+
+/// Reinstall/update a plugin from the latest marketplace snapshot via `codex plugin add`.
+pub fn update_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
+    let plugin_id = plugin_id.trim();
+    if plugin_id.is_empty() || !plugin_id.contains('@') {
+        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+    }
+    let (_, marketplace) = split_plugin_id(plugin_id);
+    if !marketplace.is_empty() {
+        let _ = upgrade_marketplace(Some(&marketplace));
+    }
+    install_plugin(plugin_id)
+}
+
+pub fn check_plugin_update(plugin_id: &str) -> AppResult<CodexPluginUpdateStatus> {
+    let plugin_id = plugin_id.trim();
+    if plugin_id.is_empty() || !plugin_id.contains('@') {
+        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+    }
+    let (_, marketplace) = split_plugin_id(plugin_id);
+    if !marketplace.is_empty() {
+        let _ = upgrade_marketplace(Some(&marketplace));
+    }
+    Ok(evaluate_codex_update_status(plugin_id))
+}
+
+pub fn check_plugin_updates() -> AppResult<Vec<CodexPluginUpdateStatus>> {
+    let _ = upgrade_marketplace(None);
+    let snap = list_plugins_snapshot()?;
+    let mut out = Vec::new();
+    for plugin in snap.plugins.into_iter().filter(|p| p.installed) {
+        out.push(evaluate_codex_update_status(&plugin.plugin_id));
+    }
+    Ok(out)
+}
+
+fn evaluate_codex_update_status(plugin_id: &str) -> CodexPluginUpdateStatus {
+    let snap = list_plugins_snapshot().ok();
+    let local = snap
+        .as_ref()
+        .and_then(|s| s.plugins.iter().find(|p| p.plugin_id == plugin_id))
+        .cloned();
+    let local_version = local.as_ref().and_then(|p| p.version.clone());
+    let catalog = list_plugin_catalog().ok();
+    let remote_version = catalog
+        .as_ref()
+        .and_then(|c| c.plugins.iter().find(|p| p.plugin_id == plugin_id))
+        .and_then(|p| p.version.clone());
+
+    match (local_version.as_deref(), remote_version.as_deref()) {
+        (Some(local), Some(remote)) if versions_equal(local, remote) => CodexPluginUpdateStatus {
+            plugin_id: plugin_id.to_string(),
+            status: "up_to_date".into(),
+            message: format!("已是最新（{local}）"),
+            local_version,
+            remote_version,
+        },
+        (Some(local), Some(remote)) => CodexPluginUpdateStatus {
+            plugin_id: plugin_id.to_string(),
+            status: "update_available".into(),
+            message: format!("可更新：{local} → {remote}"),
+            local_version,
+            remote_version,
+        },
+        (local_v, remote_v) => CodexPluginUpdateStatus {
+            plugin_id: plugin_id.to_string(),
+            status: if local.as_ref().is_some_and(|p| p.installed) {
+                "unknown".into()
+            } else {
+                "not_installed".into()
+            },
+            message: if local.as_ref().is_some_and(|p| p.installed) {
+                "无法比较版本（市场或安装记录缺少 version）；仍可尝试更新".to_string()
+            } else {
+                "插件未安装或不在本地清单中".to_string()
+            },
+            local_version: local_v.map(str::to_string),
+            remote_version: remote_v.map(str::to_string),
+        },
+    }
+}
+
+fn versions_equal(a: &str, b: &str) -> bool {
+    normalize_version(a) == normalize_version(b)
+}
+
+fn normalize_version(raw: &str) -> String {
+    raw.trim()
+        .trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_ascii_lowercase()
+}
+
 fn command_result(output: std::process::Output, success_message: &str) -> AppResult<CodexPluginCommandResult> {
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -303,9 +714,18 @@ fn parse_marketplace_json(stdout: &str) -> Vec<CodexMarketplace> {
                     .map(str::to_string),
                 source: obj
                     .get("source")
-                    .or_else(|| obj.get("url"))
                     .and_then(Value::as_str)
-                    .map(str::to_string),
+                    .map(str::to_string)
+                    .or_else(|| {
+                        obj.get("marketplaceSource")
+                            .and_then(Value::as_object)
+                            .and_then(|source| source.get("source"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+                    .or_else(|| {
+                        obj.get("url").and_then(Value::as_str).map(str::to_string)
+                    }),
                 raw: Some(item.to_string()),
             })
         })
@@ -553,5 +973,80 @@ enabled = false
         assert!(calendar.installed);
 
         std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn catalog_reads_agents_marketplace_json() {
+        let _guard = env_lock().lock().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let market_root = root.path().join("openai-curated");
+        let manifest_dir = market_root.join(".agents").join("plugins");
+        fs::create_dir_all(&manifest_dir).unwrap();
+        fs::write(
+            manifest_dir.join("marketplace.json"),
+            r#"{
+              "name": "openai-curated",
+              "plugins": [
+                {
+                  "name": "slack",
+                  "description": "Slack helpers",
+                  "category": "Productivity",
+                  "source": { "source": "local", "path": "./plugins/slack" }
+                },
+                {
+                  "name": "google-calendar",
+                  "category": "Productivity",
+                  "source": "./plugins/google-calendar"
+                }
+              ]
+            }"#,
+        )
+        .unwrap();
+
+        let catalog = list_plugin_catalog_from_marketplaces(&[CodexMarketplace {
+            name: "openai-curated".into(),
+            root: Some(market_root.to_string_lossy().into_owned()),
+            source: None,
+            raw: None,
+        }])
+        .unwrap();
+
+        assert_eq!(catalog.plugins.len(), 2);
+        assert_eq!(catalog.plugins[0].plugin_id, "google-calendar@openai-curated");
+        assert_eq!(catalog.plugins[1].plugin_id, "slack@openai-curated");
+        assert_eq!(catalog.plugins[1].description.as_deref(), Some("Slack helpers"));
+    }
+
+    #[test]
+    fn catalog_reads_claude_plugin_marketplace_layout() {
+        let root = tempfile::tempdir().unwrap();
+        let market_root = root.path().join("caveman");
+        let manifest_dir = market_root.join(".claude-plugin");
+        fs::create_dir_all(&manifest_dir).unwrap();
+        fs::write(
+            manifest_dir.join("marketplace.json"),
+            r#"{
+              "name": "caveman",
+              "plugins": [{ "name": "caveman", "description": "Caveman mode" }]
+            }"#,
+        )
+        .unwrap();
+
+        let catalog = list_plugin_catalog_from_marketplaces(&[CodexMarketplace {
+            name: "caveman".into(),
+            root: Some(market_root.to_string_lossy().into_owned()),
+            source: None,
+            raw: None,
+        }])
+        .unwrap();
+
+        assert_eq!(catalog.plugins.len(), 1);
+        assert_eq!(catalog.plugins[0].plugin_id, "caveman@caveman");
+    }
+
+    #[test]
+    fn normalize_fs_path_strips_windows_verbatim_prefix() {
+        let path = normalize_fs_path(r"\\?\C:\Users\admin\.codex\.tmp\plugins");
+        assert_eq!(path, PathBuf::from(r"C:\Users\admin\.codex\.tmp\plugins"));
     }
 }

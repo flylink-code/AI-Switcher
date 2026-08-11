@@ -3,6 +3,7 @@
 pub mod backend;
 pub mod agents;
 pub mod antigravity;
+pub mod claude_plugins;
 pub mod codex;
 pub mod codex_plugins;
 pub mod codex_oauth;
@@ -42,13 +43,21 @@ pub use antigravity::{
     set_antigravity_outbound_proxy, start_antigravity_gateway,
     start_antigravity_oauth_login, stop_antigravity_gateway,
 };
+pub use claude_plugins::{
+    add_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
+    install_claude_plugin, list_claude_plugin_catalog, list_claude_plugin_marketplaces,
+    list_claude_plugins, remove_claude_plugin_marketplace, set_claude_plugin_enabled,
+    uninstall_claude_plugin, update_claude_plugin, update_claude_plugin_marketplace,
+};
 pub use codex::{
     get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,
     sync_codex_session_providers,
 };
 pub use codex_plugins::{
-    add_codex_plugin_marketplace, list_codex_plugin_marketplaces, list_codex_plugins,
-    remove_codex_plugin_marketplace, set_codex_plugin_enabled, uninstall_codex_plugin,
+    add_codex_plugin_marketplace, check_codex_plugin_update, check_codex_plugin_updates,
+    install_codex_plugin, list_codex_plugin_catalog, list_codex_plugin_marketplaces,
+    list_codex_plugins, remove_codex_plugin_marketplace, set_codex_plugin_enabled,
+    uninstall_codex_plugin, update_codex_plugin, upgrade_codex_plugin_marketplace,
 };
 pub use codex_oauth::{
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
