@@ -16,6 +16,7 @@ import {
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
 import { ProxyRuntimeCard, ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 
@@ -34,8 +35,9 @@ export default function ProxyPage() {
   const [idleSaving, setIdleSaving] = useState(false);
 
   // Page-local Agent target (independent persisted slice, switched from the
-  // ContextHeader extra). No global Agent context anymore.
+  // runtime card header). No global Agent context anymore.
   const target = usePagePreferencesStore((state) => state.proxyTarget);
+  const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
 
@@ -158,7 +160,7 @@ export default function ProxyPage() {
         <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
       )}
 
-      {/* Hero Runtime Control（上下文来自全局 Client 选择器） */}
+      {/* Hero Runtime Control（页内 Agent 切换器在卡片头部） */}
       <ProxyRuntimeCard
         status={status}
         target={target}
@@ -168,6 +170,9 @@ export default function ProxyPage() {
         onStart={() => void handleStart()}
         onStop={() => void handleStop()}
         onRefresh={() => void handleRefresh()}
+        headerExtra={
+          <AgentTargetSwitcher value={target} onChange={setProxyTarget} />
+        }
       />
 
       {/* Route + Resilience balanced columns */}

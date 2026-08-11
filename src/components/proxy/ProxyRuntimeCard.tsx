@@ -13,20 +13,22 @@ const { Text } = Typography;
 export interface ProxyRuntimeCardProps {
   status: ProxyStatus | null;
   target: ProviderTarget;
-  /** Localized label of the global Current Client context. */
+  /** Localized label of the page-local Agent target. */
   clientLabel: string;
   busy: boolean;
   refreshing: boolean;
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
+  /** Page-local Agent switcher, rendered at the left of the header row. */
+  headerExtra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }
 
 /**
  * Runtime hero: current proxy state + context line + dominant start/stop.
- * The global Client context is authoritative; no selector is rendered here.
+ * The Agent switcher lives in the header row (page-local target).
  */
 export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   status,
@@ -37,6 +39,7 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   onStart,
   onStop,
   onRefresh,
+  headerExtra,
   className = "",
   style,
 }) => {
@@ -56,6 +59,7 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
     return (
       <Surface padding="md" className={className} style={style}>
         <Inline gap="sm" align="center" style={{ marginBottom: "var(--space-3)" }}>
+          {headerExtra}
           <ApiOutlined style={{ fontSize: "20px", color: "var(--color-brand)" }} />
           <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
             OpenCode Direct Connection
@@ -79,6 +83,7 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
       <Stack gap="sm">
         <Inline justify="space-between" align="center" wrap gap="sm">
           <Inline gap="sm" align="center">
+            {headerExtra}
             <ApiOutlined style={{ fontSize: "20px", color: isRunning ? "var(--color-brand)" : "var(--color-text-secondary)" }} />
             <Text strong style={{ fontSize: "var(--font-size-lg)", color: "var(--color-text-primary)" }}>
               {t("proxy.runtime", { defaultValue: "Proxy Runtime" })}

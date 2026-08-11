@@ -1,7 +1,7 @@
 import React from "react";
 import { ConfigProvider, Segmented, Tooltip, theme } from "antd";
 import { useTranslation } from "react-i18next";
-import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
+import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import type { ProviderTarget } from "@/types/backend";
 
 export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
@@ -25,6 +25,8 @@ export interface AgentTargetSwitcherProps {
   onChange: (target: ProviderTarget) => void;
   /** Stretch the segmented control to the container width (dashboard cards). */
   block?: boolean;
+  /** Icons only (full name in tooltip) — for tight spaces like dashboard cards. */
+  iconOnly?: boolean;
   className?: string;
 }
 
@@ -37,6 +39,7 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
   value,
   onChange,
   block = false,
+  iconOnly = false,
   className,
 }) => {
   const { t } = useTranslation();
@@ -73,10 +76,12 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
             value: option,
             label: (
               <Tooltip title={fullLabel}>
-                {usageSourceSegmentLabel(
-                  option,
-                  t(SHORT_LABEL_KEYS[option], { defaultValue: fullLabel }),
-                )}
+                {iconOnly
+                  ? usageSourceIcon(option, { size: 15 })
+                  : usageSourceSegmentLabel(
+                      option,
+                      t(SHORT_LABEL_KEYS[option], { defaultValue: fullLabel }),
+                    )}
               </Tooltip>
             ),
           };

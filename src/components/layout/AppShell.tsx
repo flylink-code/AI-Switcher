@@ -6,9 +6,8 @@ import { TitleBar } from "@/components/TitleBar";
 import { NavigationDock } from "./NavigationDock";
 import { ContextHeader } from "./ContextHeader";
 import { StatusBar } from "./StatusBar";
-import { AgentTargetSwitcher, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
-
 export interface AppShellProps {
   activeKey: PageKey;
   onNavigate: (key: PageKey) => void;
@@ -30,7 +29,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   const { token } = theme.useToken();
   const providersTarget = usePagePreferencesStore((s) => s.providersTarget);
   const proxyTarget = usePagePreferencesStore((s) => s.proxyTarget);
-  const setProxyTarget = usePagePreferencesStore((s) => s.setProxyTarget);
 
   // Compute page title and description according to activeKey.
   // Agent-scoped pages name their own target in the description; each owns an
@@ -97,13 +95,6 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const headerMeta = getHeaderMeta(activeKey);
 
-  // Page-level Agent switcher: proxy binds its own slice in the header;
-  // the providers page hosts its switcher inside the page header row instead.
-  const headerExtra =
-    activeKey === "proxy" ? (
-      <AgentTargetSwitcher value={proxyTarget} onChange={setProxyTarget} />
-    ) : undefined;
-
   return (
     <div
       className="app-shell"
@@ -134,7 +125,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       <ContextHeader
         title={headerMeta.title}
         description={headerMeta.description}
-        extra={headerExtra}
       />
 
       <Layout.Content

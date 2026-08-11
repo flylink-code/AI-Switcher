@@ -116,7 +116,7 @@ export default function WorkbenchPage() {
           target={runtimeTarget}
           isAppRunning={isAppRunning}
           headerExtra={
-            <AgentTargetSwitcher block value={runtimeTarget} onChange={setProxyTarget} />
+            <AgentTargetSwitcher iconOnly value={runtimeTarget} onChange={setProxyTarget} />
           }
         />
         <ProviderSnapshot
@@ -124,7 +124,7 @@ export default function WorkbenchPage() {
           officialCurrent={officialCurrent}
           target={providerTarget}
           headerExtra={
-            <AgentTargetSwitcher block value={providerTarget} onChange={setProvidersTarget} />
+            <AgentTargetSwitcher iconOnly value={providerTarget} onChange={setProvidersTarget} />
           }
         />
         <UsageSnapshot
