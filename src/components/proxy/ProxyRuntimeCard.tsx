@@ -124,9 +124,13 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
           </Inline>
         </Inline>
 
-        {/* Context line: global Current Client → routed provider */}
+        {/* Context line: Client → local endpoint → routed provider */}
         <Text style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
           {clientLabel}
+          {" → "}
+          <Text code style={{ fontSize: "var(--font-size-xs)" }}>
+            127.0.0.1:{status?.port ?? "—"}
+          </Text>
           {" → "}
           {status?.targetProvider ? (
             <Text strong style={{ fontSize: "var(--font-size-sm)" }}>
