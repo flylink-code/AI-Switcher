@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, Card, Input, Popconfirm, Space, Switch, Table, Typography, message } from "antd";
+import { Alert, Button, Card, Empty, Input, Popconfirm, Space, Switch, Table, Typography, message } from "antd";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -145,7 +145,7 @@ export default function CodexPluginsPage() {
             loading={marketplaceBusy}
             dataSource={marketplaces}
             pagination={false}
-            locale={{ emptyText: t("codexPlugins.marketplaceEmpty") }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("codexPlugins.marketplaceEmpty")} /> }}
             columns={[
               { title: t("codexPlugins.marketplace"), dataIndex: "name" },
               {
@@ -225,7 +225,7 @@ export default function CodexPluginsPage() {
           loading={pluginsQuery.isLoading}
           dataSource={plugins}
           pagination={false}
-          locale={{ emptyText: queryError ? t("codexPlugins.loadError") : t("codexPlugins.empty") }}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={queryError ? t("codexPlugins.loadError") : t("codexPlugins.empty")} /> }}
           columns={[
             {
               title: t("codexPlugins.name"),

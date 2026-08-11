@@ -11,7 +11,7 @@ import {
   formatTierLabel,
   tierTagColor,
 } from "@/components/AntigravityQuotaBars";
-import { StatusBadge, Surface } from "@/components/ui";
+import { StatusBadge } from "@/components/ui";
 
 const { Text } = Typography;
 
@@ -53,8 +53,12 @@ export function AccountCard({
         borderColor: account.isActive
           ? "var(--ant-color-primary, #1677ff)"
           : undefined,
-        background: account.disabled ? "var(--ant-color-bg-container-disabled, #fafafa)" : undefined,
-        transition: "all 0.2s ease",
+        background: account.disabled
+          ? "var(--ant-color-bg-container-disabled, #fafafa)"
+          : account.isActive
+            ? "color-mix(in srgb, var(--ant-color-primary, #1677ff) 4%, var(--ant-color-bg-container, #ffffff))"
+            : undefined,
+        transition: "border-color 0.15s ease, background 0.15s ease",
       }}
     >
       <Space direction="vertical" style={{ width: "100%" }} size={12}>
@@ -85,30 +89,28 @@ export function AccountCard({
         </div>
 
         {/* Quota Progress */}
-        <Surface variant="subtle" padding="sm">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <QuotaMiniBar
-              label={t("antigravity.quotaGemini5h")}
-              percent={geminiFiveHour}
-              resetTime={geminiFiveHourReset}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaGemini7d")}
-              percent={geminiWeekly}
-              resetTime={geminiWeeklyReset}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaClaude5h")}
-              percent={claudeFiveHour}
-              resetTime={claudeFiveHourReset}
-            />
-            <QuotaMiniBar
-              label={t("antigravity.quotaClaude7d")}
-              percent={claudeWeekly}
-              resetTime={claudeWeeklyReset}
-            />
-          </div>
-        </Surface>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <QuotaMiniBar
+            label={t("antigravity.quotaGemini5h")}
+            percent={geminiFiveHour}
+            resetTime={geminiFiveHourReset}
+          />
+          <QuotaMiniBar
+            label={t("antigravity.quotaGemini7d")}
+            percent={geminiWeekly}
+            resetTime={geminiWeeklyReset}
+          />
+          <QuotaMiniBar
+            label={t("antigravity.quotaClaude5h")}
+            percent={claudeFiveHour}
+            resetTime={claudeFiveHourReset}
+          />
+          <QuotaMiniBar
+            label={t("antigravity.quotaClaude7d")}
+            percent={claudeWeekly}
+            resetTime={claudeWeeklyReset}
+          />
+        </div>
 
         {/* Card Footer Actions */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

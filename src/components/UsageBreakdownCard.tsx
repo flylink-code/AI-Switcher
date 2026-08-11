@@ -13,7 +13,7 @@ function currencyPrefix(currency?: string | null) {
 }
 
 function formatCost(value: number, currency?: string | null) {
-  return `${currencyPrefix(currency)}${value.toFixed(4)}`;
+  return `${currencyPrefix(currency)}${value.toFixed(2)}`;
 }
 
 interface UsageBreakdownCardProps {

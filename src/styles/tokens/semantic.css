@@ -2,12 +2,12 @@
 
 /* Light Theme (Developer Desktop Control Center) */
 :root {
-  --color-bg-app: #f4f5f8;
+  --color-bg-app: #f6f7f9;
   --color-bg-surface: #ffffff;
   --color-bg-subtle: #f8f9fa;
   --color-bg-elevated: #ffffff;
 
-  --color-border: #e2e8f0;
+  --color-border: #e7ebf0;
   --color-border-subtle: #f1f5f9;
   --color-border-strong: #cbd5e1;
 
@@ -41,14 +41,14 @@
 
 /* Dark Theme */
 [data-theme="dark"] {
-  --color-bg-app: #0b0f19;
-  --color-bg-surface: #111827;
-  --color-bg-subtle: #1f2937;
-  --color-bg-elevated: #1f2937;
+  --color-bg-app: #11161d;
+  --color-bg-surface: #1a2028;
+  --color-bg-subtle: #212933;
+  --color-bg-elevated: #20262f;
 
-  --color-border: #374151;
-  --color-border-subtle: #1f2937;
-  --color-border-strong: #4b5563;
+  --color-border: #252c36;
+  --color-border-subtle: #1e242e;
+  --color-border-strong: #333c48;
 
   --color-text-primary: #f9fafb;
   --color-text-secondary: #9ca3af;

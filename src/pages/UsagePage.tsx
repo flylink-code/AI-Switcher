@@ -541,8 +541,8 @@ export default function UsagePage() {
               width: 80,
               render: (v: number | null) => {
                 if (v === null) return "—";
-                const color = v >= 200 && v < 300 ? "green" : "red";
-                return <Tag color={color}>{v}</Tag>;
+                if (v >= 200 && v < 300) return <Text type="secondary">{v}</Text>;
+                return <Tag color="red">{v}</Tag>;
               },
             },
             {

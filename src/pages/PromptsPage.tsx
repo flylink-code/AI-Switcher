@@ -231,7 +231,7 @@ export default function PromptsPage() {
           <List
             loading={promptsQuery.isPending}
             dataSource={prompts}
-            locale={{ emptyText: t("prompts.empty") }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("prompts.empty")} /> }}
             renderItem={(item) => (
               <List.Item
                 actions={[

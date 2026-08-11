@@ -41,13 +41,13 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Surface padding="lg" className={className} style={style}>
+    <Surface padding="md" className={className} style={style}>
       <Stack gap="md">
         {/* Failover Header */}
         <Inline justify="space-between" align="center">
           <Inline gap="sm">
-            <SafetyCertificateOutlined style={{ fontSize: 18, color: "var(--color-brand)" }} />
-            <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
+            <SafetyCertificateOutlined style={{ fontSize: 16, color: "var(--color-brand)" }} />
+            <Text strong style={{ fontSize: "var(--font-size-md)", color: "var(--color-text-primary)" }}>
               {t("proxy.failoverTitle", { defaultValue: "自动故障切换 (Failover)" })}
             </Text>
           </Inline>
@@ -122,7 +122,7 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
                 size="small"
                 style={{ width: 120 }}
               />
-              <Button size="small" loading={idleSaving} onClick={onIdleTimeoutSave}>
+              <Button size="small" type="text" loading={idleSaving} onClick={onIdleTimeoutSave}>
                 {t("common.save", { defaultValue: "保存" })}
               </Button>
             </Inline>

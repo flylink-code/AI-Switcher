@@ -5,7 +5,6 @@ import {
   Badge,
   Button,
   Dropdown,
-  Empty,
   Modal,
   Popconfirm,
   Space,
@@ -36,6 +35,7 @@ import { OnboardingTip } from "@/components/OnboardingTip";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
+import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQueries";
 import { useNavigatePage } from "@/lib/navigation";
 import { errMsg, useProviderActions } from "@/lib/useProviderActions";
@@ -483,13 +483,15 @@ export default function ProvidersPage() {
         })}
 
         {store.providers.length === 0 && (
-          <div className="cc-provider-card" style={{ textAlign: "center", padding: "var(--space-8)" }}>
-            <Empty description={t("providers.empty", { defaultValue: "暂无配置的供应商" })}>
-              <Button type="primary" size="small" onClick={openCreate}>
+          <ResourceEmptyState
+            title={t("providers.empty", { defaultValue: "暂无供应商" })}
+            description={t("providers.emptyHint", { defaultValue: "为当前 Agent 添加第一个 Provider。" })}
+            action={
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                 {t("providers.create")}
               </Button>
-            </Empty>
-          </div>
+            }
+          />
         )}
       </div>
 

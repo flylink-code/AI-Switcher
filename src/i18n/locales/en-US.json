@@ -2,7 +2,7 @@
   "navigation": {
     "dashboard": "Dashboard",
     "providers": "Providers",
-    "proxy": "Proxy",
+    "proxy": "Local proxy",
     "usage": "Usage",
     "accounts": "Accounts",
     "workspace": "Workspace",
@@ -364,12 +364,14 @@
     "imported": "Imported current config",
     "missingKey": "This provider has no API key yet — edit it to add one before switching",
     "empty": "No third-party providers for this application; official login is the default",
+    "emptyTitle": "No providers yet",
+    "emptyHint": "Add the first provider for the current agent.",
     "selectProvider": "Select a provider on the left to view details"
   },
   "proxy": {
-    "title": "Local Proxy",
-    "description": "Claude Desktop can reach non-Anthropic providers through this proxy. It starts automatically when you switch to a provider using the local-proxy protocol.",
-    "subtitleFor": "Local request routing and automatic failover control for {{client}}",
+    "title": "Local proxy",
+    "description": "Day-to-day upstream changes happen on Providers; the local proxy starts and stops automatically when needed. Use this page only to change the port, force a restart, or tune failover.",
+    "subtitleFor": "Port, start/stop, and failover ops for {{client}}",
     "status": "Status",
     "control": "Start / Stop",
     "running": "Running",
@@ -390,7 +392,7 @@
     "failoverTitle": "Automatic failover",
     "failoverDescription": "When enabled, network or retryable upstream errors try backup providers by group and list order (up to 3 hops). Two consecutive failures open that provider's circuit for 60 seconds. Disabled by default.",
     "failoverGroupHint": "Priority: lower group first, then provider list order. Configure group and model allowlist in the provider editor.",
-    "hotSwitchDescription": "In proxy mode, switching the current provider applies on the next request without restarting the proxy port. If the CLI is not pointed at the local proxy (direct mode), in-process env may still need a CLI restart.",
+    "hotSwitchDescription": "In proxy mode, switching the current provider on the Providers page applies on the next request—no visit here required. If the CLI is not pointed at the local proxy (direct mode), in-process env may still need a CLI restart.",
     "retryCodesHint": "Retryable HTTP status codes (ranges like 400-404 are allowed, comma-separated)",
     "retryCodesSaved": "Retry status codes saved",
     "idleTimeoutHint": "Streaming idle timeout in seconds. Forwarding stops if no data arrives within this window.",
@@ -424,7 +426,8 @@
     "applied": "Applied {{name}}",
     "appliedWithWarnings": "Snapshot applied with {{count}} warning(s)",
     "deleteConfirm": "Delete this snapshot?",
-    "empty": "No snapshots yet. Create one from the current configuration."
+    "empty": "Save the current Provider, MCP, Prompt and Skill configuration, then restore it with one click later.",
+    "emptyTitle": "No project snapshots yet"
   },
   "mcp": {
     "title": "MCP Servers",
@@ -728,6 +731,7 @@
   "agents": {
     "title": "Agents",
     "subtitle": "Manage Claude Code user agents in ~/.claude/agents/*.md. Disable by renaming to .md.disabled.",
+    "empty": "No custom agents yet",
     "tip": "Agents are Claude Code custom subagent markdown files. Applying a Profile syncs the enabled list.",
     "create": "New agent",
     "createTitle": "Create agent",
@@ -1205,6 +1209,9 @@
     "bound": "Added",
     "providerReadyForTarget": "Built-in Antigravity provider created/updated for {{target}} — switch it on the Providers page",
     "copyCurl": "Copy test command",
+    "viewTestCommand": "View test command",
+    "hideTestCommand": "Hide test command",
+    "outboundSection": "Outbound proxy",
     "copied": "Copied",
     "quota": "Quota",
     "quota5h": "5h",
@@ -1237,6 +1244,7 @@
     "sectionAbout": "About",
     "languageHint": "Interface language",
     "themeHint": "Appearance and color mode",
+    "proxyHint": "Change port, force restart, or tune failover; provider switches keep the proxy in sync automatically",
     "sessionsHint": "Manage local AI sessions and archives",
     "environmentHint": "Runtime paths and diagnostics",
     "localizationHint": "Client localization and translation",

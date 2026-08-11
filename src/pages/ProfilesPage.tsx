@@ -24,6 +24,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { Profile, ProfilePayload, ProfileSnapshotScopes } from "@/types/backend";
+import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import {
   applyProfile,
   createProfile,
@@ -201,6 +202,18 @@ export default function ProfilesPage() {
     },
   ];
 
+  const openCreate = () => {
+    createForm.setFieldsValue({
+      name: "",
+      claudeCode: true,
+      claudeDesktop: false,
+      codex: false,
+    });
+    setCreateOpen(true);
+  };
+
+  const profiles = profilesQuery.data ?? [];
+
   return (
     <div>
       <Card
@@ -211,19 +224,7 @@ export default function ProfilesPage() {
             <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
               {t("common.refresh")}
             </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                createForm.setFieldsValue({
-                  name: "",
-                  claudeCode: true,
-                  claudeDesktop: false,
-                  codex: false,
-                });
-                setCreateOpen(true);
-              }}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               {t("profiles.create")}
             </Button>
           </Space>
@@ -238,14 +239,26 @@ export default function ProfilesPage() {
             style={{ marginBottom: 16 }}
           />
         )}
-        <Table
-          rowKey="id"
-          loading={profilesQuery.isLoading}
-          columns={columns}
-          dataSource={profilesQuery.data ?? []}
-          pagination={false}
-          locale={{ emptyText: t("profiles.empty") }}
-        />
+        {!profilesQuery.isLoading && !profilesQuery.error && profiles.length === 0 ? (
+          <ResourceEmptyState
+            title={t("profiles.emptyTitle", { defaultValue: "暂无项目快照" })}
+            description={t("profiles.empty")}
+            action={
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                {t("profiles.create")}
+              </Button>
+            }
+          />
+        ) : (
+          <Table
+            rowKey="id"
+            loading={profilesQuery.isLoading}
+            columns={columns}
+            dataSource={profiles}
+            pagination={false}
+            locale={{ emptyText: t("profiles.empty") }}
+          />
+        )}
       </Card>
 
       <Modal

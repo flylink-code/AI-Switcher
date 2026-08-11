@@ -2,7 +2,6 @@ import React from "react";
 import {
   AppstoreOutlined,
   ClusterOutlined,
-  ApiOutlined,
   BarChartOutlined,
   UserOutlined,
   FolderOutlined,
@@ -17,11 +16,10 @@ export interface NavItemDef {
   icon: React.ReactNode;
 }
 
-/** Primary navigation items shared by the left SideNav. */
+/** Primary navigation items shared by the left SideNav. Proxy lives under Settings. */
 export const NAV_ITEMS: NavItemDef[] = [
   { key: "workbench", labelKey: "navigation.dashboard", defaultLabel: "概览", icon: <AppstoreOutlined /> },
   { key: "providers", labelKey: "navigation.providers", defaultLabel: "供应商", icon: <ClusterOutlined /> },
-  { key: "proxy", labelKey: "navigation.proxy", defaultLabel: "代理控制", icon: <ApiOutlined /> },
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined /> },
   { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined /> },
   { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined /> },
@@ -34,7 +32,7 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "codexPlugins", "profiles"].includes(activeKey)) {
     return true;
   }
-  if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization"].includes(activeKey)) {
+  if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization", "proxy"].includes(activeKey)) {
     return true;
   }
   return false;

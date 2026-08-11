@@ -49,6 +49,7 @@ import type {
 } from "@/types/backend";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { useNavigatePage } from "@/lib/navigation";
 
 type DirectoryFilter = "all" | "yes" | "no";
 type TimeFilter = "all" | "day" | "week" | "month";
@@ -62,6 +63,7 @@ const CODEX_EMPTY_RETRY_DELAYS_MS = [2_000, 5_000, 12_000] as const;
 
 export default function SessionsPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigatePage();
   const [toast, toastContext] = message.useMessage();
   const { token } = theme.useToken();
   const [result, setResult] = useState<SessionScanResult>(EMPTY_RESULT);
@@ -435,11 +437,13 @@ export default function SessionsPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {toastContext}
-      <div>
-        <Typography.Title level={3} style={{ margin: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Button type="text" size="small" onClick={() => navigate("settings")} style={{ paddingInline: 4 }}>
+          ← {t("nav.settings", { defaultValue: "设置" })}
+        </Button>
+        <Typography.Text strong style={{ fontSize: 15 }}>
           {t("sessions.title")}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t("sessions.subtitle")}</Typography.Text>
+        </Typography.Text>
       </div>
 
       {error && <Alert type="error" showIcon message={t("sessions.loadFailed")} description={error} />}
@@ -496,79 +500,83 @@ export default function SessionsPage() {
       />
 
       <Card size="small" className="page-surface">
-        <Space wrap>
-          <Input
-            allowClear
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              if (contentSearch) setContentSearch(false);
-            }}
-            onPressEnter={() => void runContentSearch()}
-            prefix={<SearchOutlined />}
-            placeholder={t("sessions.searchPlaceholder")}
-            style={{ width: 300 }}
-          />
-          <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
-            {t("sessions.searchContents")}
-          </Button>
-          <Select<DirectoryFilter>
-            value={directory}
-            onChange={setDirectory}
-            style={{ width: 150 }}
-            options={[
-              { value: "all", label: t("sessions.allDirectories") },
-              { value: "yes", label: t("sessions.hasDirectory") },
-              { value: "no", label: t("sessions.noDirectory") },
-            ]}
-          />
-          <Select<TimeFilter>
-            value={time}
-            onChange={setTime}
-            style={{ width: 140 }}
-            options={[
-              { value: "all", label: t("sessions.allTime") },
-              { value: "day", label: t("sessions.lastDay") },
-              { value: "week", label: t("sessions.lastWeek") },
-              { value: "month", label: t("sessions.lastMonth") },
-            ]}
-          />
-          <Select<SortMode>
-            value={sort}
-            onChange={setSort}
-            style={{ width: 150 }}
-            options={[
-              { value: "recent", label: t("sessions.sortRecent") },
-              { value: "oldest", label: t("sessions.sortOldest") },
-              { value: "directory", label: t("sessions.sortDirectory") },
-            ]}
-          />
-          <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
-            {t("common.refresh")}
-          </Button>
-          <Button disabled={!batchableSessions.length} onClick={toggleAllVisible}>
-            {allBatchableSelected ? t("sessions.clearSelection") : t("sessions.selectVisible")}
-          </Button>
-          <Button loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void backupSelected()}>
-            {t("sessions.backupSelected", { count: selectedPaths.size })}
-          </Button>
-          <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void exportSelected()}>
-            {t("sessions.exportSelected", { count: selectedPaths.size })}
-          </Button>
-          {provider !== "opencode" && (
-            <>
-              <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
-              <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
-            </>
-          )}
-          {provider === "codex" ? (
-            <Tooltip title={t("sessions.codexRepairHint")}>
-              <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
-                {t("sessions.codexRepair")}
-              </Button>
-            </Tooltip>
-          ) : null}
-        </Space>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
+          <Space wrap size={8}>
+            <Input
+              allowClear
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                if (contentSearch) setContentSearch(false);
+              }}
+              onPressEnter={() => void runContentSearch()}
+              prefix={<SearchOutlined />}
+              placeholder={t("sessions.searchPlaceholder")}
+              style={{ width: 260 }}
+            />
+            <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
+              {t("sessions.searchContents")}
+            </Button>
+            <Select<DirectoryFilter>
+              value={directory}
+              onChange={setDirectory}
+              style={{ width: 130 }}
+              options={[
+                { value: "all", label: t("sessions.allDirectories") },
+                { value: "yes", label: t("sessions.hasDirectory") },
+                { value: "no", label: t("sessions.noDirectory") },
+              ]}
+            />
+            <Select<TimeFilter>
+              value={time}
+              onChange={setTime}
+              style={{ width: 120 }}
+              options={[
+                { value: "all", label: t("sessions.allTime") },
+                { value: "day", label: t("sessions.lastDay") },
+                { value: "week", label: t("sessions.lastWeek") },
+                { value: "month", label: t("sessions.lastMonth") },
+              ]}
+            />
+            <Select<SortMode>
+              value={sort}
+              onChange={setSort}
+              style={{ width: 130 }}
+              options={[
+                { value: "recent", label: t("sessions.sortRecent") },
+                { value: "oldest", label: t("sessions.sortOldest") },
+                { value: "directory", label: t("sessions.sortDirectory") },
+              ]}
+            />
+          </Space>
+          <Space wrap size={8}>
+            <Button icon={<ReloadOutlined />} onClick={() => void refresh()}>
+              {t("common.refresh")}
+            </Button>
+            <Button disabled={!batchableSessions.length} onClick={toggleAllVisible}>
+              {allBatchableSelected ? t("sessions.clearSelection") : t("sessions.selectVisible")}
+            </Button>
+            <Button loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void backupSelected()}>
+              {t("sessions.backupSelected", { count: selectedPaths.size })}
+            </Button>
+            <Button type="primary" loading={sessionAction} disabled={!selectedPaths.size || mixedSelection} onClick={() => void exportSelected()}>
+              {t("sessions.exportSelected", { count: selectedPaths.size })}
+            </Button>
+            {provider !== "opencode" && (
+              <>
+                <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
+                <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
+              </>
+            )}
+            {provider === "codex" ? (
+              <Tooltip title={t("sessions.codexRepairHint")}>
+                <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
+                  {t("sessions.codexRepair")}
+                </Button>
+              </Tooltip>
+            ) : null}
+          </Space>
+        </div>
       </Card>
 
       <Spin spinning={loading}>
@@ -595,13 +603,17 @@ export default function SessionsPage() {
                           : undefined,
                     }}
                     actions={session.provider === "opencode" ? undefined : [
-                      <Checkbox
+                      <span
                         key="select"
-                        checked={selectedPaths.has(session.sourcePath)}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) => toggleSelectedPath(session.sourcePath, event.target.checked)}
-                        aria-label={t("sessions.selectSession", { title: session.title || session.sessionId })}
-                      />,
+                        style={{ opacity: selectedPaths.size > 0 ? 1 : 0.4, display: "inline-flex" }}
+                      >
+                        <Checkbox
+                          checked={selectedPaths.has(session.sourcePath)}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => toggleSelectedPath(session.sourcePath, event.target.checked)}
+                          aria-label={t("sessions.selectSession", { title: session.title || session.sessionId })}
+                        />
+                      </span>,
                     ]}
                   >
                     <List.Item.Meta
@@ -621,7 +633,7 @@ export default function SessionsPage() {
                           <Typography.Text type="secondary" ellipsis>
                             {session.projectDir || t("sessions.unknownDirectory")}
                           </Typography.Text>
-                          <Typography.Text type="secondary">
+                          <Typography.Text style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>
                             {formatTime(session.lastActiveAt ?? session.createdAt, locale)}
                           </Typography.Text>
                         </Space>

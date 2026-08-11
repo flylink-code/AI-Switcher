@@ -399,12 +399,36 @@ export default function AntigravityPage() {
           {models.length === 0 ? (
             <Text type="secondary">{t("antigravity.modelsEmpty")}</Text>
           ) : (
-            <Space wrap size={[4, 4]}>
-              {models.map((model) => (
-                <Tag key={model.id} color={model.id.startsWith("gemini") ? "blue" : "purple"}>
-                  {model.displayName?.trim() || model.id}
-                </Tag>
-              ))}
+            <Space direction="vertical" size={6} style={{ width: "100%" }}>
+              {[
+                {
+                  key: "gemini",
+                  label: "Gemini",
+                  color: "blue",
+                  items: models.filter((model) => model.id.startsWith("gemini")),
+                },
+                {
+                  key: "other",
+                  label: "Claude / GPT",
+                  color: "purple",
+                  items: models.filter((model) => !model.id.startsWith("gemini")),
+                },
+              ]
+                .filter((group) => group.items.length > 0)
+                .map((group) => (
+                  <div key={group.key}>
+                    <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+                      {group.label}
+                    </Text>
+                    <Space wrap size={[4, 4]}>
+                      {group.items.map((model) => (
+                        <Tag key={model.id} color={group.color} style={{ marginInlineEnd: 0 }}>
+                          {model.displayName?.trim() || model.id}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
+                ))}
             </Space>
           )}
         </Space>

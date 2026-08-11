@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { Alert, Typography, message } from "antd";
+import { Alert, Badge, Button, Space, Typography, message } from "antd";
+import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
+import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,12 +37,13 @@ export default function ProxyPage() {
   const [idleTimeout, setIdleTimeout] = useState(180);
   const [idleSaving, setIdleSaving] = useState(false);
 
-  // Page-local Agent target (independent persisted slice, switched from the
-  // runtime card header). No global Agent context anymore.
+  // Page-local Agent target (independent persisted slice).
   const target = usePagePreferencesStore((state) => state.proxyTarget);
   const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
+  const isOpencode = target === "opencode";
+  const isRunning = status?.running ?? false;
 
   const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
   const retryQuery = useQuery({
@@ -142,9 +146,27 @@ export default function ProxyPage() {
     }
   };
 
+  const statusBadge = (() => {
+    if (isOpencode) {
+      return <Badge status="processing" text={t("workbench.proxyDirect")} />;
+    }
+    if (!status) {
+      return <Badge status="default" text={t("proxy.statusUnavailable", { defaultValue: "状态不可用" })} />;
+    }
+    if (status.phase === "starting") {
+      return <Badge status="processing" text={t("proxy.starting", { defaultValue: "启动中..." })} />;
+    }
+    if (isRunning) {
+      return <Badge status="success" text={t("proxy.running", { defaultValue: "运行中" })} />;
+    }
+    if (status.phase === "error") {
+      return <Badge status="error" text={t("proxy.failed", { defaultValue: "异常" })} />;
+    }
+    return <Badge status="default" text={t("proxy.stopped", { defaultValue: "已停止" })} />;
+  })();
+
   return (
-    <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
-      {/* Onboarding Tip */}
+    <Space direction="vertical" size="middle" style={{ width: "100%", minWidth: 0 }}>
       <OnboardingTip
         tipKey="proxy"
         message={t("proxy.title")}
@@ -160,34 +182,55 @@ export default function ProxyPage() {
         <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
       )}
 
-      {/* Hero Runtime Control（页内 Agent 切换器在卡片头部） */}
+      {/* Same page-header pattern as Providers: switcher + status | actions */}
+      <div className="cc-workbench-header">
+        <div className="cc-header-left">
+          <AgentTargetSwitcher value={target} onChange={setProxyTarget} />
+          {statusBadge}
+        </div>
+        {!isOpencode && (
+          <div className="cc-header-right">
+            <Button
+              icon={<ReloadOutlined spin={refreshing} />}
+              loading={refreshing}
+              onClick={() => void handleRefresh()}
+            >
+              {t("proxy.refresh", { defaultValue: "刷新" })}
+            </Button>
+            {isRunning ? (
+              <Button
+                type="primary"
+                danger
+                icon={<StopOutlined />}
+                loading={busy}
+                onClick={() => void handleStop()}
+              >
+                {t("proxy.stop", { defaultValue: "停止代理" })}
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                loading={busy}
+                disabled={status?.phase === "starting"}
+                onClick={() => void handleStart()}
+              >
+                {t("proxy.start", { defaultValue: "启动代理" })}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
       <ProxyRuntimeCard
         status={status}
         target={target}
         clientLabel={t(`workspace.${target}`)}
-        busy={busy}
-        refreshing={refreshing}
-        onStart={() => void handleStart()}
-        onStop={() => void handleStop()}
-        onRefresh={() => void handleRefresh()}
-        headerExtra={
-          <AgentTargetSwitcher value={target} onChange={setProxyTarget} />
-        }
       />
 
-      {/* Route + Resilience balanced columns */}
-      {target !== "opencode" ? (
-        <div
-          style={{
-            display: "flex",
-            gap: "var(--space-4)",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            minWidth: 0,
-          }}
-        >
+      {!isOpencode ? (
+        <div className="proxy-panels-grid">
           <ProxyRoutePanel
-            style={{ flex: "1 1 360px", minWidth: 0 }}
             status={status}
             target={target}
             port={port}
@@ -195,7 +238,6 @@ export default function ProxyPage() {
             busy={busy}
           />
           <ResilienceSettings
-            style={{ flex: "1 1 360px", minWidth: 0 }}
             failoverEnabled={failoverQuery.data ?? false}
             failoverSaving={failoverQuery.isPending || failoverSaving}
             onFailoverChange={(enabled) => void handleFailoverChange(enabled)}
@@ -218,7 +260,7 @@ export default function ProxyPage() {
           busy={busy}
         />
       )}
-    </Stack>
+    </Space>
   );
 }
 

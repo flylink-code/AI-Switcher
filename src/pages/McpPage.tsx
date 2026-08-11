@@ -6,6 +6,7 @@ import {
   Card,
   Checkbox,
   Collapse,
+  Empty,
   Form,
   Input,
   Modal,
@@ -945,7 +946,7 @@ export default function McpPage() {
             dataSource={registryResults}
             loading={registryLoading}
             pagination={{ pageSize: 10, hideOnSinglePage: true }}
-            locale={{ emptyText: t("mcp.registryEmpty") }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("mcp.registryEmpty")} /> }}
             columns={[
               {
                 title: t("mcp.colName"),

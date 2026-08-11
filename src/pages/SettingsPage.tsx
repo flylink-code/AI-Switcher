@@ -66,6 +66,13 @@ export default function SettingsPage() {
       {/* Runtime */}
       <SettingsSection title={t("settings.sectionRuntime", { defaultValue: "运行时" })}>
         <SettingsRow
+          title={t("navigation.proxy", { defaultValue: "本地代理" })}
+          description={t("settings.proxyHint", {
+            defaultValue: "改端口、强制重启或调整故障切换；日常切换供应商会自动配套",
+          })}
+          onClick={() => navigate("proxy")}
+        />
+        <SettingsRow
           title={t("nav.sessions", { defaultValue: "会话管理" })}
           description={t("settings.sessionsHint", { defaultValue: "管理本地 AI 会话与归档" })}
           onClick={() => navigate("sessions")}

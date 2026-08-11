@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Button,
   Card,
+  Empty,
   Form,
   Input,
   Modal,
@@ -144,6 +145,7 @@ export default function AgentsPage() {
           loading={agentsQuery.isLoading || busy}
           dataSource={agents}
           pagination={false}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("agents.empty", { defaultValue: "暂无自定义 Agent" })} /> }}
           columns={[
             {
               title: t("agents.fieldName"),

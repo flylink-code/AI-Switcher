@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
+  Empty,
   Input,
   Modal,
   Space,
@@ -289,7 +290,7 @@ export default function SkillsPage() {
         dataSource={unmanagedSkills}
         loading={discovering}
         pagination={false}
-        locale={{ emptyText: t("skills.discoveryEmpty") }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.discoveryEmpty")} /> }}
         columns={[
           { title: t("skills.name"), dataIndex: "directory", render: (name: string) => <Text strong>{name}</Text> },
           { title: t("skills.descriptionLabel"), dataIndex: "description", render: (value: string) => value || <Text type="secondary">—</Text> },
@@ -348,7 +349,7 @@ export default function SkillsPage() {
         dataSource={skills}
         loading={skillsQuery.isPending}
         pagination={false}
-        locale={{ emptyText: t("skills.empty") }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.empty")} /> }}
         columns={[
           { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
           { title: t("skills.descriptionLabel"), render: (_: unknown, skill: Skill) => (i18n.language === "zh-CN" ? skill.descriptionZh ?? skill.description : skill.description) || <Text type="secondary">—</Text> },
@@ -396,7 +397,7 @@ export default function SkillsPage() {
             selectedRowKeys: selectedPaths,
             onChange: (keys) => setSelectedPaths(keys.map(String)),
           }}
-          locale={{ emptyText: t("skills.repositoryEmpty") }}
+          locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("skills.repositoryEmpty")} /> }}
           columns={[
             { title: t("skills.name"), dataIndex: "name", render: (name: string) => <Text strong>{name}</Text> },
             { title: t("skills.path"), dataIndex: "path", render: (path: string) => path || <Text type="secondary">/</Text> },

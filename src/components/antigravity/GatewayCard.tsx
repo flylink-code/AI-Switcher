@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Button,
   Card,
+  Divider,
   Input,
   InputNumber,
   Select,
@@ -50,6 +51,7 @@ export function GatewayCard({
     "direct" | "system" | "custom" | null
   >(null);
   const [outboundUrlDraft, setOutboundUrlDraft] = useState<string | null>(null);
+  const [curlVisible, setCurlVisible] = useState(false);
 
   const port = portDraft ?? status?.port ?? 15830;
   const apiKey = apiKeyDraft ?? status?.apiKey ?? "";
@@ -102,8 +104,10 @@ export function GatewayCard({
           />
         </Space>
 
+        <Divider style={{ margin: "4px 0" }} />
+
         <Space direction="vertical" size={8} style={{ width: "100%" }}>
-          <Text type="secondary">{t("antigravity.outboundHint")}</Text>
+          <Text strong style={{ fontSize: 13 }}>{t("antigravity.outboundSection", { defaultValue: "出站代理" })}</Text>
           <Space wrap>
             <Select
               style={{ minWidth: 200 }}
@@ -137,6 +141,8 @@ export function GatewayCard({
           </Text>
         </Space>
 
+        <Divider style={{ margin: "4px 0" }} />
+
         <Space wrap style={{ marginTop: 4 }}>
           <Button
             type="primary"
@@ -168,11 +174,20 @@ export function GatewayCard({
           </Button>
         </Space>
 
-        <Paragraph style={{ marginBottom: 0 }}>
-          <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
-            {curlSnippet}
-          </pre>
-        </Paragraph>
+        {curlVisible ? (
+          <Paragraph style={{ marginBottom: 0 }}>
+            <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
+              {curlSnippet}
+            </pre>
+            <Button type="link" size="small" style={{ padding: 0, marginTop: 4 }} onClick={() => setCurlVisible(false)}>
+              {t("antigravity.hideTestCommand", { defaultValue: "收起测试命令" })}
+            </Button>
+          </Paragraph>
+        ) : (
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setCurlVisible(true)}>
+            {t("antigravity.viewTestCommand", { defaultValue: "查看测试命令" })}
+          </Button>
+        )}
       </Space>
     </Card>
   );

@@ -88,7 +88,7 @@ export const UsageMetricStrip: React.FC<UsageMetricStripProps> = ({
         >
           <Statistic
             value={estimatedCost}
-            precision={4}
+            precision={2}
             prefix={costCurrencyPrefix}
             valueStyle={{ fontSize: "var(--font-size-xl)" }}
           />

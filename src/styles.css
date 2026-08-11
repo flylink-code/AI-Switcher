@@ -172,8 +172,8 @@ body {
 .page-surface.ant-card {
   border-radius: 12px;
   border-color: var(--as-border-card, var(--ant-color-border-secondary));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: none;
+  transition: border-color 0.2s ease;
 }
 
 :root[data-theme="dark"] .page-surface.ant-card {
@@ -524,6 +524,29 @@ body {
   flex-wrap: wrap;
 }
 
+/* Proxy page: Providers-style header + compact context + balanced panels */
+.proxy-context-strip {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  padding: 0 2px;
+}
+
+.proxy-panels-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .proxy-panels-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .cc-provider-list {
   display: grid;
   grid-template-columns: 1fr;
@@ -544,23 +567,19 @@ body {
 }
 
 .cc-provider-card {
-  border-radius: 14px;
-  border: 1px solid var(--as-border-card, #e3e3e8);
+  border-radius: 12px;
+  border: 1px solid var(--as-border-card, #e7ebf0);
   background: var(--ant-color-bg-container, #ffffff);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .cc-provider-card:hover {
-  border-color: color-mix(in srgb, var(--ant-color-primary, #007aff) 50%, var(--as-border-card));
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: color-mix(in srgb, var(--ant-color-primary, #007aff) 35%, var(--as-border-card));
 }
 
 .cc-provider-card.cc-provider-card-active {
-  border: 2px solid var(--ant-color-primary, #007aff);
+  border-color: var(--ant-color-primary, #007aff);
   background: color-mix(in srgb, var(--ant-color-primary, #007aff) 4%, var(--ant-color-bg-container, #ffffff));
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--ant-color-primary, #007aff) 18%, transparent);
 }
 
 :root[data-theme="dark"] {
@@ -575,25 +594,22 @@ body {
 :root[data-theme="dark"] .cc-provider-card {
   background: var(--as-card-bg, #171A21);
   border-color: var(--as-border-card, #252A34);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 :root[data-theme="dark"] .cc-provider-card:hover {
   border-color: #3b4252;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 :root[data-theme="dark"] .cc-provider-card.cc-provider-card-active {
   border-color: var(--ant-color-primary, #007aff);
   background: color-mix(in srgb, var(--ant-color-primary, #007aff) 12%, #171A21);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--ant-color-primary, #007aff) 25%, transparent);
 }
 
 .cc-provider-card-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px;
+  gap: 10px;
+  padding: 14px 16px;
 }
 
 .cc-provider-card-header {
@@ -641,23 +657,23 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px dashed var(--as-border-card, #e3e3e8);
-  padding-top: 10px;
-  margin-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--as-border-card, #e7ebf0) 60%, transparent);
+  padding-top: 8px;
+  margin-top: 0;
 }
 
 .cc-provider-main {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
   flex: 1 1 auto;
 }
 
 .cc-provider-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   font-size: 22px;
