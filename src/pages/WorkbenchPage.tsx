@@ -5,7 +5,8 @@ import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
-import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
+import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
+import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
 import {
   RuntimeSnapshot,
   ProviderSnapshot,
@@ -27,24 +28,30 @@ export default function WorkbenchPage() {
   const { t } = useTranslation();
   const store = useProvidersStore();
 
-  const target = usePagePreferencesStore((state) => state.providersTarget);
+  // Card-level Agent contexts: the runtime card mirrors the proxy page's
+  // target, the provider card mirrors the providers page's target. Each is
+  // switched independently on its own card.
+  const providerTarget = usePagePreferencesStore((state) => state.providersTarget);
+  const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const runtimeTarget = usePagePreferencesStore((state) => state.proxyTarget);
+  const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
   const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
 
   useEffect(() => {
-    void store.load(target);
-  }, [store.load, target]);
+    void store.load(providerTarget);
+  }, [store.load, providerTarget]);
 
   const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
-  const proxyQuery = useQuery(proxyStatusOptions(target));
+  const proxyQuery = useQuery(proxyStatusOptions(runtimeTarget));
   const proxy = proxyQuery.data;
 
   const appRunningKey =
-    target === "claude_code"
+    runtimeTarget === "claude_code"
       ? "claudeCode"
-      : target === "claude_desktop"
+      : runtimeTarget === "claude_desktop"
       ? "claudeDesktop"
-      : target === "opencode"
+      : runtimeTarget === "opencode"
       ? "opencode"
       : "codex";
   const isAppRunning = Boolean(runtimeQuery.data?.[appRunningKey]);
@@ -106,13 +113,19 @@ export default function WorkbenchPage() {
       >
         <RuntimeSnapshot
           proxyStatus={proxy || null}
-          target={target}
+          target={runtimeTarget}
           isAppRunning={isAppRunning}
+          headerExtra={
+            <AgentTargetSwitcher block value={runtimeTarget} onChange={setProxyTarget} />
+          }
         />
         <ProviderSnapshot
           currentProvider={currentProvider}
           officialCurrent={officialCurrent}
-          target={target}
+          target={providerTarget}
+          headerExtra={
+            <AgentTargetSwitcher block value={providerTarget} onChange={setProvidersTarget} />
+          }
         />
         <UsageSnapshot
           requestCount={summary?.requestCount ?? 0}
@@ -136,11 +149,16 @@ export default function WorkbenchPage() {
           gap: "var(--space-3)",
         }}
       >
-        <UsageSourceFilterSegmented
-          value={heatmapSource}
-          onChange={setHeatmapSource}
-          t={t}
-        />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)" }}>
+            {t("usage.sourceLabel", { defaultValue: "数据源" })}:
+          </span>
+          <UsageSourceFilterSelect
+            value={heatmapSource}
+            onChange={setHeatmapSource}
+            t={t}
+          />
+        </span>
       </div>
 
       {/* Analytics Section: Charts Grid */}

@@ -14,6 +14,8 @@ export interface ProviderSnapshotProps {
   currentProvider?: Provider | null;
   officialCurrent?: boolean;
   target: ProviderTarget;
+  /** Optional card-level Agent switcher, rendered under the title row. */
+  headerExtra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -22,6 +24,7 @@ export const ProviderSnapshot: React.FC<ProviderSnapshotProps> = ({
   currentProvider,
   officialCurrent = false,
   target,
+  headerExtra,
   className = "",
   style,
 }) => {
@@ -51,6 +54,8 @@ export const ProviderSnapshot: React.FC<ProviderSnapshotProps> = ({
             {t("dashboard.manageProviders", { defaultValue: "供应商列表" })}
           </Button>
         </Inline>
+
+        {headerExtra}
 
         {/* Provider Details */}
         {!isOpencode && officialCurrent ? (

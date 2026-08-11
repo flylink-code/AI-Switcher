@@ -1,10 +1,8 @@
 import React from "react";
-import { ClientSwitcher } from "./ClientSwitcher";
 
 export interface ContextHeaderProps {
   title: React.ReactNode;
   description?: React.ReactNode;
-  showClientSwitcher?: boolean;
   extra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
@@ -13,7 +11,6 @@ export interface ContextHeaderProps {
 export const ContextHeader: React.FC<ContextHeaderProps> = ({
   title,
   description,
-  showClientSwitcher = true,
   extra,
   className = "",
   style,
@@ -47,7 +44,6 @@ export const ContextHeader: React.FC<ContextHeaderProps> = ({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexShrink: 0 }}>
-        {showClientSwitcher && <ClientSwitcher size="small" />}
         {extra}
       </div>
     </header>

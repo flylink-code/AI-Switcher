@@ -33,8 +33,9 @@ export default function ProxyPage() {
   const [idleTimeout, setIdleTimeout] = useState(180);
   const [idleSaving, setIdleSaving] = useState(false);
 
-  // Global Current Client context is authoritative; no page-local selector.
-  const target = usePagePreferencesStore((state) => state.workspaceTarget);
+  // Page-local Agent target (independent persisted slice, switched from the
+  // ContextHeader extra). No global Agent context anymore.
+  const target = usePagePreferencesStore((state) => state.proxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
 

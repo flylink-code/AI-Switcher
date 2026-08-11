@@ -5,7 +5,7 @@ import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
 import { useTranslation } from "react-i18next";
 import type { UsageSourceFilter } from "@/components/UsageSourceIcons";
-import { UsageSourceFilterSegmented } from "@/components/UsageSourceFilterSegmented";
+import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
 import { USAGE_PERIOD_VALUES, usagePeriodLabelKey, type UsagePeriod } from "@/utils/usagePeriod";
 import { Inline } from "@/components/ui";
 
@@ -115,7 +115,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
             {t("usage.dataSource", { defaultValue: "数据来源" })}:
           </Text>
-          <UsageSourceFilterSegmented
+          <UsageSourceFilterSelect
             value={logTargetApp}
             onChange={onTargetAppChange}
             t={t}

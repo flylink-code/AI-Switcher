@@ -7,8 +7,14 @@
     "accounts": "账号与额度",
     "workspace": "工作区",
     "settings": "设置",
-    "expand": "展开边栏",
-    "collapse": "收起边栏"
+    "more": "更多",
+    "primary": "主导航"
+  },
+  "agentSwitcher": {
+    "claudeCode": "Claude Code",
+    "desktop": "桌面版",
+    "codex": "Codex",
+    "opencode": "OpenCode"
   },
   "dashboard": {
     "runtimeTitle": "运行状态概览 (Runtime Overview)",
@@ -90,6 +96,7 @@
   },
   "workspace": {
     "target": "当前工具",
+    "subtitleFor": "{{client}} 的项目、MCP、Prompts、Skills 与配置资源管理",
     "claude_code": "Claude Code",
     "claude_desktop": "Claude Desktop",
     "codex": "Codex",
@@ -216,6 +223,7 @@
   "providers": {
     "title": "供应商管理",
     "subtitle": "管理 Claude Code / Desktop 的第三方 API 配置，一键切换",
+    "subtitleFor": "管理 {{client}} 可用的 API Provider，一键切换",
     "codeSubtitle": "仅管理 Claude Code（~/.claude/settings.json）的第三方配置",
     "desktopSubtitle": "仅管理 Claude Desktop（configLibrary）的第三方配置",
     "opencodeSubtitle": "管理 OpenCode CLI / Desktop（~/.config/opencode）的直连模型提供方；保存后即可在 OpenCode 内选用，无需切换",
@@ -361,6 +369,7 @@
   "proxy": {
     "title": "本地代理",
     "description": "Claude Desktop 可通过此代理访问非 Anthropic 兼容的第三方 API。切换为「本地代理转换」协议时会自动启动。",
+    "subtitleFor": "{{client}} 的本地请求路由与自动故障切换控制",
     "status": "运行状态",
     "control": "启动 / 停止",
     "running": "运行中",
@@ -526,6 +535,7 @@
   "usage": {
     "title": "用量统计",
     "description": "基于本地代理请求日志统计请求、Token 与预估成本；Codex / Claude Code 还可同步本地会话 JSONL。直连 Anthropic 兼容第三方时无实时代理日志，请用「同步会话」回填。",
+    "sourceLabel": "数据源",
     "codexLocalTitle": "Codex 本地事件统计",
     "codexLocalAvailable": "已从 {{sessions}} 个本地会话解析 {{events}} 条 Token 增量事件；不包含 HTTP 状态、第三方账单或账户额度。",
     "codexLocalUnavailable": "当前范围内没有可解析的 Codex 本地 Token 事件；不会读取账户额度或认证信息。",

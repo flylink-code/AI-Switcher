@@ -6,7 +6,8 @@ import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 const STORAGE_KEY = "cs.pagePreferences";
 
 interface PersistedPagePreferences {
-  /** Last providers-page target (also mirrored as workspaceTarget for legacy). */
+  /** Legacy global target; only read as a migration fallback for the
+   * per-page targets below. Never written anymore. */
   workspaceTarget?: ProviderTarget;
   providersTarget?: ProviderTarget;
   /** Independent proxy-page target. */
@@ -21,7 +22,6 @@ interface PersistedPagePreferences {
 }
 
 interface PagePreferencesState {
-  workspaceTarget: ProviderTarget;
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   usagePeriod: UsagePeriod;
@@ -31,7 +31,6 @@ interface PagePreferencesState {
   heatmapSource: UsageSourceFilter;
   sessionsProvider: SessionProvider;
   workbenchView: "providers" | "usage";
-  setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
@@ -45,7 +44,6 @@ interface PagePreferencesState {
 
 const DEFAULTS: Pick<
   PagePreferencesState,
-  | "workspaceTarget"
   | "providersTarget"
   | "proxyTarget"
   | "usagePeriod"
@@ -55,7 +53,6 @@ const DEFAULTS: Pick<
   | "sessionsProvider"
   | "workbenchView"
 > = {
-  workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
   usagePeriod: 365,
@@ -124,21 +121,23 @@ function initialState() {
     : DEFAULTS.usageLogTarget;
   const providersTarget = isProviderTarget(stored.providersTarget)
     ? stored.providersTarget
-    : DEFAULTS.providersTarget;
-  const workspaceTarget = isProviderTarget(stored.workspaceTarget)
-    ? stored.workspaceTarget
-    : providersTarget;
+    : isProviderTarget(stored.workspaceTarget)
+      ? stored.workspaceTarget
+      : DEFAULTS.providersTarget;
   return {
-    workspaceTarget,
     providersTarget,
-    proxyTarget: isProviderTarget(stored.proxyTarget) ? stored.proxyTarget : workspaceTarget,
+    proxyTarget: isProviderTarget(stored.proxyTarget)
+      ? stored.proxyTarget
+      : isProviderTarget(stored.workspaceTarget)
+        ? stored.workspaceTarget
+        : providersTarget,
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
     usageLogTarget,
     heatmapSource: isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
     sessionsProvider: isSessionProvider(stored.sessionsProvider)
       ? stored.sessionsProvider
-      : sessionProviderFor(workspaceTarget),
+      : sessionProviderFor(providersTarget),
     workbenchView: (stored.workbenchView === "usage" ? "usage" : "providers") as "providers" | "usage",
   };
 }
@@ -146,7 +145,6 @@ function initialState() {
 function persistSlice(
   state: Pick<
     PagePreferencesState,
-    | "workspaceTarget"
     | "providersTarget"
     | "proxyTarget"
     | "usagePeriod"
@@ -158,7 +156,6 @@ function persistSlice(
   >,
 ) {
   writePersisted({
-    workspaceTarget: state.workspaceTarget,
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     usagePeriod: state.usagePeriod,
@@ -173,17 +170,8 @@ function persistSlice(
 export const usePagePreferencesStore = create<PagePreferencesState>((set, get) => ({
   ...initialState(),
   usageLogPage: 0,
-  setWorkspaceTarget: (workspaceTarget) => {
-    set({
-      workspaceTarget,
-      providersTarget: workspaceTarget,
-      proxyTarget: workspaceTarget,
-    });
-    persistSlice(get());
-  },
   setProvidersTarget: (providersTarget) => {
-    // Keep workspaceTarget aligned for any leftover readers / header migration.
-    set({ providersTarget, workspaceTarget: providersTarget });
+    set({ providersTarget });
     persistSlice(get());
   },
   setProxyTarget: (proxyTarget) => {

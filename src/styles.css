@@ -1,5 +1,6 @@
 @import "./styles/tokens/index.css";
 @import "./styles/floating-view-switcher.css";
+@import "./styles/navigation-dock.css";
 
 /* Global resets and base styles. Component-level styling uses Ant Design tokens. */
 html,

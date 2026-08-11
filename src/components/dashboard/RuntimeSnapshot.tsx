@@ -13,6 +13,8 @@ export interface RuntimeSnapshotProps {
   proxyStatus: ProxyStatus | null;
   target: ProviderTarget;
   isAppRunning?: boolean;
+  /** Optional card-level Agent switcher, rendered under the title row. */
+  headerExtra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -21,6 +23,7 @@ export const RuntimeSnapshot: React.FC<RuntimeSnapshotProps> = ({
   proxyStatus,
   target,
   isAppRunning,
+  headerExtra,
   className = "",
   style,
 }) => {
@@ -52,6 +55,8 @@ export const RuntimeSnapshot: React.FC<RuntimeSnapshotProps> = ({
             {t("dashboard.openProxy", { defaultValue: "管理代理" })}
           </Button>
         </Inline>
+
+        {headerExtra}
 
         {/* Content Row */}
         {isOpencode ? (

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { Layout, theme } from "antd";
 import type { PageKey } from "@/lib/pageRegistry";
 import { TitleBar } from "@/components/TitleBar";
-import { Sidebar } from "./Sidebar";
+import { NavigationDock } from "./NavigationDock";
 import { ContextHeader } from "./ContextHeader";
 import { StatusBar } from "./StatusBar";
-
-const SIDEBAR_COLLAPSED_KEY = "cs.sidebarCollapsed";
+import { AgentTargetSwitcher, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 export interface AppShellProps {
   activeKey: PageKey;
@@ -28,56 +28,45 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const providersTarget = usePagePreferencesStore((s) => s.providersTarget);
+  const proxyTarget = usePagePreferencesStore((s) => s.proxyTarget);
+  const setProxyTarget = usePagePreferencesStore((s) => s.setProxyTarget);
 
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof localStorage !== "undefined") {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
-    }
-  }, [collapsed]);
-
-  const toggleCollapse = () => setCollapsed((prev) => !prev);
-
-  // Compute page title and description according to activeKey
-  const getHeaderMeta = (key: PageKey): { title: string; description?: string; showClientSwitcher: boolean } => {
+  // Compute page title and description according to activeKey.
+  // Agent-scoped pages name their own target in the description; each owns an
+  // independent persisted target (no global Agent context anymore).
+  const getHeaderMeta = (key: PageKey): { title: string; description?: string } => {
     switch (key) {
       case "workbench":
         return {
           title: t("navigation.dashboard", { defaultValue: "概览" }),
           description: t("workbench.subtitle", { defaultValue: "AI-Switcher 控制中心与状态概览" }),
-          showClientSwitcher: true,
         };
       case "providers":
         return {
           title: t("navigation.providers", { defaultValue: "供应商服务" }),
-          description: t("providers.subtitle", { defaultValue: "管理当前客户端可用的 API Provider" }),
-          showClientSwitcher: true,
+          description: t("providers.subtitleFor", {
+            client: t(LABEL_KEYS[providersTarget]),
+            defaultValue: t("providers.subtitle", { defaultValue: "管理当前客户端可用的 API Provider" }),
+          }),
         };
       case "proxy":
         return {
           title: t("navigation.proxy", { defaultValue: "代理控制中心" }),
-          description: t("proxy.subtitle", { defaultValue: "本地请求路由与自动故障切换控制" }),
-          showClientSwitcher: true,
+          description: t("proxy.subtitleFor", {
+            client: t(LABEL_KEYS[proxyTarget]),
+            defaultValue: t("proxy.subtitle", { defaultValue: "本地请求路由与自动故障切换控制" }),
+          }),
         };
       case "usage":
         return {
           title: t("navigation.usage", { defaultValue: "用量与统计" }),
           description: t("usage.subtitle", { defaultValue: "Token 用量与请求趋势诊断" }),
-          // Usage analytics is driven by an explicit Data Source filter, not
-          // by the global Current Client context.
-          showClientSwitcher: false,
         };
       case "antigravity":
         return {
           title: t("navigation.accounts", { defaultValue: "Accounts & Quotas" }),
           description: t("antigravity.subtitle", { defaultValue: "Google / Antigravity 账号池与额度监控" }),
-          showClientSwitcher: false,
         };
       case "workspace":
       case "mcp":
@@ -89,7 +78,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         return {
           title: t("navigation.workspace", { defaultValue: "工作区" }),
           description: t("workspace.subtitle", { defaultValue: "项目、MCP、Prompts、Skills 与配置资源管理" }),
-          showClientSwitcher: true,
         };
       case "settings":
       case "sessions":
@@ -99,17 +87,22 @@ export const AppShell: React.FC<AppShellProps> = ({
         return {
           title: t("navigation.settings", { defaultValue: "设置" }),
           description: t("settings.subtitle", { defaultValue: "系统选项与配置" }),
-          showClientSwitcher: false,
         };
       default:
         return {
           title: "AI-Switcher",
-          showClientSwitcher: false,
         };
     }
   };
 
   const headerMeta = getHeaderMeta(activeKey);
+
+  // Page-level Agent switcher: proxy binds its own slice in the header;
+  // the providers page hosts its switcher inside the page header row instead.
+  const headerExtra =
+    activeKey === "proxy" ? (
+      <AgentTargetSwitcher value={proxyTarget} onChange={setProxyTarget} />
+    ) : undefined;
 
   return (
     <div
@@ -132,37 +125,31 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenUpdate={onOpenUpdate}
       />
 
-      {/* Main Body with Sidebar + Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0, overflow: "hidden" }}>
-        <Sidebar
-          activeKey={activeKey}
-          onNavigate={onNavigate}
-          collapsed={collapsed}
-          onToggleCollapse={toggleCollapse}
-        />
+      {/* Top content-aligned Navigation Dock (replaces the left icon rail) */}
+      <NavigationDock
+        activeKey={activeKey}
+        onNavigate={onNavigate}
+      />
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-          <ContextHeader
-            title={headerMeta.title}
-            description={headerMeta.description}
-            showClientSwitcher={headerMeta.showClientSwitcher}
-          />
+      <ContextHeader
+        title={headerMeta.title}
+        description={headerMeta.description}
+        extra={headerExtra}
+      />
 
-          <Layout.Content
-            className="app-content-area"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              minHeight: 0,
-              overflow: "auto",
-              padding: "var(--page-padding-y) var(--page-padding-x)",
-              backgroundColor: token.colorBgLayout,
-            }}
-          >
-            {children}
-          </Layout.Content>
-        </div>
-      </div>
+      <Layout.Content
+        className="app-content-area"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+          overflow: "auto",
+          padding: "var(--page-padding-y) var(--page-padding-x)",
+          backgroundColor: token.colorBgLayout,
+        }}
+      >
+        {children}
+      </Layout.Content>
 
       {/* Bottom Fixed Runtime Status Bar */}
       <StatusBar appVersion={appVersion} />

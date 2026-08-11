@@ -31,8 +31,6 @@
   --color-info-subtle: #eff6ff;
 
   /* Layout Dimensions & Compact Desktop Density */
-  --app-sidebar-width: 220px;
-  --app-sidebar-collapsed-width: 64px;
   --app-header-height: 44px;
   --app-statusbar-height: 28px;
   --page-padding-x: 20px;

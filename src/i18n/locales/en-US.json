@@ -7,8 +7,14 @@
     "accounts": "Accounts",
     "workspace": "Workspace",
     "settings": "Settings",
-    "expand": "Expand Sidebar",
-    "collapse": "Collapse Sidebar"
+    "more": "More",
+    "primary": "Primary navigation"
+  },
+  "agentSwitcher": {
+    "claudeCode": "Claude Code",
+    "desktop": "Desktop",
+    "codex": "Codex",
+    "opencode": "OpenCode"
   },
   "dashboard": {
     "runtimeTitle": "Runtime Overview",
@@ -90,6 +96,7 @@
   },
   "workspace": {
     "target": "Workspace",
+    "subtitleFor": "Projects, MCP, Prompts, Skills and config resources for {{client}}",
     "claude_code": "Claude Code",
     "claude_desktop": "Claude Desktop",
     "codex": "Codex",
@@ -216,6 +223,7 @@
   "providers": {
     "title": "Providers",
     "subtitle": "Manage Claude Code / Desktop third-party API configs and switch with one click",
+    "subtitleFor": "Manage API providers available to {{client}} and switch with one click",
     "codeSubtitle": "Manages only Claude Code (~/.claude/settings.json) third-party configuration",
     "desktopSubtitle": "Manages only Claude Desktop (configLibrary) third-party configuration",
     "opencodeSubtitle": "Manages direct model providers for OpenCode CLI / Desktop (~/.config/opencode). Save to write opencode.json — no switch needed; pick models inside OpenCode.",
@@ -361,6 +369,7 @@
   "proxy": {
     "title": "Local Proxy",
     "description": "Claude Desktop can reach non-Anthropic providers through this proxy. It starts automatically when you switch to a provider using the local-proxy protocol.",
+    "subtitleFor": "Local request routing and automatic failover control for {{client}}",
     "status": "Status",
     "control": "Start / Stop",
     "running": "Running",
@@ -526,6 +535,7 @@
   "usage": {
     "title": "Usage",
     "description": "Request, token, and estimated-cost data from local-proxy logs. Codex / Claude Code can also sync local session JSONL. Direct Anthropic-compatible third-party traffic has no live proxy rows—use Sync sessions to backfill.",
+    "sourceLabel": "Source",
     "codexLocalTitle": "Codex local event usage",
     "codexLocalAvailable": "Parsed {{events}} token-delta events from {{sessions}} local sessions. This excludes HTTP status, third-party billing, and account quota.",
     "codexLocalUnavailable": "No parseable local Codex token events were found in this range. Account quota and credentials are never read.",

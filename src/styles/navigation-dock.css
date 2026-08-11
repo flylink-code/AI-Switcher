@@ -1,0 +1,20 @@
+/*
+ * Top NavigationDock responsive rules.
+ * Pure CSS media queries — no JS resize listener (upgrade plan §45).
+ * Breakpoint: <1280px collapses low-frequency nav items into "More".
+ * (The dock no longer hosts the Agent switcher — it is per-page now.)
+ */
+
+.navigation-dock-more {
+  /* shown only below the breakpoint (inline display:none is overridden) */
+}
+
+@media (max-width: 1279px) {
+  .navigation-dock .nav-item-low-frequency {
+    display: none !important;
+  }
+
+  .navigation-dock .navigation-dock-more {
+    display: inline-flex !important;
+  }
+}

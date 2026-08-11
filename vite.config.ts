@@ -47,11 +47,12 @@ export default defineConfig({
     entries: ["index.html"],
   },
   server: {
-    port: 5173,
+    // 5250 matches tauri.conf.json devUrl; avoid 5173 (Windows Hyper-V exclusion 5141-5240).
+    port: 5250,
     strictPort: true,
     host: host || "127.0.0.1",
     hmr: host
-      ? { protocol: "ws", host, port: 5174 }
+      ? { protocol: "ws", host, port: 5251 }
       : undefined,
     watch: {
       // Avoid watching the Rust backend, which Vite does not build.
