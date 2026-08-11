@@ -11,16 +11,14 @@ import FullscreenOutlined from "@ant-design/icons/es/icons/FullscreenOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
 import MinusOutlined from "@ant-design/icons/es/icons/MinusOutlined";
-import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import { languages } from "@/i18n";
-import { useNavigatePage } from "@/lib/navigation";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import appLogo from "@/assets/app-logo.png";
 
 const appWindow = getCurrentWindow();
 
-export const TITLE_BAR_HEIGHT = 38;
+export const TITLE_BAR_HEIGHT = 36;
 
 const themeIcons: Record<ThemeMode, React.ReactNode> = {
   light: <BulbOutlined />,
@@ -48,7 +46,6 @@ export function TitleBar({ showBack, onBack, updateVersion, onOpenUpdate }: Titl
 
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
-  const navigate = useNavigatePage();
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
 
@@ -115,16 +112,6 @@ export function TitleBar({ showBack, onBack, updateVersion, onOpenUpdate }: Titl
         ) : null}
       </div>
       <div className="app-titlebar-settings">
-        <Tooltip title={t("settings.title")}>
-          <button
-            type="button"
-            className="app-titlebar-icon-btn"
-            aria-label={t("settings.title")}
-            onClick={() => navigate("settings")}
-          >
-            <SettingOutlined />
-          </button>
-        </Tooltip>
         <Tooltip title={t("common.theme")}>
           <Select<ThemeMode>
             size="small"

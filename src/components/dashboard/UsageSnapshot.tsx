@@ -43,9 +43,9 @@ export const UsageSnapshot: React.FC<UsageSnapshotProps> = ({
         {/* Header Title */}
         <Inline justify="space-between" align="center">
           <Inline gap="sm">
-            <BarChartOutlined style={{ fontSize: 18, color: "var(--color-brand)" }} />
+            <BarChartOutlined style={{ fontSize: 16, color: "var(--color-brand)" }} />
             <Text strong style={{ fontSize: "var(--font-size-md)" }}>
-              {t("dashboard.usageTitle", { defaultValue: "最近 24h 用量 (24h Usage)" })}
+              {t("dashboard.usageTitle", { defaultValue: "最近 24 小时" })}
             </Text>
           </Inline>
 
