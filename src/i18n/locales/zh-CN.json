@@ -5,7 +5,7 @@
     "proxy": "代理控制",
     "usage": "用量统计",
     "accounts": "账号与额度",
-    "workspace": "工作区资源",
+    "workspace": "工作区",
     "settings": "设置",
     "expand": "展开边栏",
     "collapse": "收起边栏"
@@ -127,7 +127,8 @@
     "disabled": "停用",
     "minimize": "最小化",
     "maximize": "最大化 / 还原",
-    "close": "关闭"
+    "close": "关闭",
+    "moreActions": "更多操作"
   },
   "sessions": {
     "title": "会话管理",
@@ -354,7 +355,8 @@
     "switchedOfficial": "已切换到官方登录",
     "imported": "已导入当前配置",
     "missingKey": "该供应商未填写 API Key，请先编辑填入后再切换",
-    "empty": "当前应用暂无第三方供应商，默认使用官方登录"
+    "empty": "当前应用暂无第三方供应商，默认使用官方登录",
+    "selectProvider": "选择左侧供应商查看详情"
   },
   "proxy": {
     "title": "本地代理",
@@ -386,7 +388,9 @@
     "idleTimeoutSaved": "流式空闲超时已保存",
     "failoverEnabled": "已启用自动故障切换",
     "failoverDisabled": "已停用自动故障切换",
-    "opencodeDirectHint": "OpenCode 通过 AI SDK 直连各协议端点（baseURL + API Key），不经过本机代理；请在供应商页切换其配置。"
+    "opencodeDirectHint": "OpenCode 通过 AI SDK 直连各协议端点（baseURL + API Key），不经过本机代理；请在供应商页切换其配置。",
+    "runtime": "代理运行时",
+    "route": "路由"
   },
   "profiles": {
     "title": "项目",
@@ -660,7 +664,8 @@
     "logTokens": "Token（入/出）",
     "logDuration": "耗时",
     "logStream": "流式",
-    "logDetail": "请求详情"
+    "logDetail": "请求详情",
+    "dataSource": "数据来源"
   },
   "skills": {
     "source": "来源",
@@ -1181,10 +1186,21 @@
     "rotationActive": "智能运行中",
     "rotationHint": "健康度与额度智能调度",
     "confirmDeleteTitle": "确认删除账号",
-    "confirmDeleteDesc": "确定要从账号池中移除 {{email}} 吗？"
+    "confirmDeleteDesc": "确定要从账号池中移除 {{email}} 吗？",
+    "whyAccountMissing": "为什么账号没有出现?"
   },
   "settings": {
     "title": "设置",
-    "back": "返回"
+    "back": "返回",
+    "sectionGeneral": "通用",
+    "sectionRuntime": "运行时",
+    "sectionLocalization": "本地化",
+    "sectionAbout": "关于",
+    "languageHint": "界面显示语言",
+    "themeHint": "外观与明暗模式",
+    "sessionsHint": "管理本地 AI 会话与归档",
+    "environmentHint": "运行时路径与环境诊断",
+    "localizationHint": "客户端汉化与翻译配置",
+    "aboutHint": "应用版本与更新信息"
   }
 }

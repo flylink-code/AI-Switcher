@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Col,
-  Descriptions,
   Drawer,
   Empty,
   Form,
@@ -12,7 +11,6 @@ import {
   InputNumber,
   Modal,
   Row,
-  Select,
   Space,
   Switch,
   Table,
@@ -21,11 +19,9 @@ import {
   message,
   theme,
 } from "antd";
-import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
-import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -70,9 +66,8 @@ import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
-import { UsageMetric } from "@/components/UsageMetric";
-import { UsageToolbar } from "@/components/usage";
-import { Stack, Surface, Inline } from "@/components/ui";
+import { UsageMetricStrip, UsageToolbar } from "@/components/usage";
+import { Stack } from "@/components/ui";
 import { formatCompactNumber } from "@/utils/formatCompact";
 import { usagePeriodGranularity, usagePeriodHourKeys, trendBucketLabel } from "@/utils/usagePeriod";
 import type { UsagePeriod } from "@/utils/usagePeriod";
@@ -352,6 +347,36 @@ export default function UsagePage() {
     finally { setRefreshing(false); }
   };
 
+  const rebuildCodexSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildCodexSessionUsage();
+      void message.success(t("usage.codexRebuildDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
+  const rebuildClaudeCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildClaudeCodeSessionUsage();
+      void message.success(t("usage.claudeCodeRebuildDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
+  const rebuildOpenCodeSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildOpenCodeSessionUsage();
+      void message.success(t("usage.opencodeRebuildDone", { inserted: result.insertedRows, scanned: result.scannedSessions }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
   return (
     <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
       {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
@@ -388,26 +413,44 @@ export default function UsagePage() {
         refreshing={refreshing}
         onRefresh={() => void refreshOverview()}
         onSyncCodex={() => void syncCodexSessions()}
+        onRebuildCodex={() => void rebuildCodexSessions()}
         onSyncClaudeCode={() => void syncClaudeCodeSessions()}
+        onRebuildClaudeCode={() => void rebuildClaudeCodeSessions()}
         onSyncOpenCode={() => void syncOpenCodeSessions()}
+        onRebuildOpenCode={() => void rebuildOpenCodeSessions()}
         onOpenPricing={() => setPricingManagerOpen(true)}
         onOpenMaintenance={() => void openMaintenance()}
         maintaining={maintaining}
       />
 
-      {/* KPI Metrics */}
-      <Row gutter={[16, 16]}>
-        <UsageMetric title={t("usage.requests")} value={summary?.requestCount ?? 0} icon={<ThunderboltOutlined />} />
-        <UsageMetric title={t("usage.successRate")} value={successRate(summary?.requestCount, summary?.successfulRequestCount)} suffix="%" />
-        <UsageMetric title={t("usage.totalTokens")} value={totalTokens} compact />
-        <UsageMetric
-          title={t("usage.estimatedCost")}
-          value={summary?.estimatedCost ?? 0}
-          precision={4}
-          prefix={currencyPrefix(summary?.estimatedCostCurrency)}
-          icon={<DollarOutlined />}
+      {/* Contextual empty-state hints */}
+      {emptyClaudeCode && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t("usage.claudeCodeEmptyTitle")}
+          description={t("usage.claudeCodeEmptyHint")}
         />
-      </Row>
+      )}
+      {includesCodex && isCodexOnly && (summary?.requestCount ?? 0) === 0 && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t("usage.codexEmptyTitle")}
+          description={narrowPeriod ? t("usage.codexEmptyNarrowPeriodHint") : t("usage.codexEmptyHint")}
+        />
+      )}
+
+      {/* KPI Metric Strip */}
+      <UsageMetricStrip
+        requests={summary?.requestCount ?? 0}
+        successRate={successRate(summary?.requestCount, summary?.successfulRequestCount)}
+        totalTokens={totalTokens}
+        estimatedCost={summary?.estimatedCost ?? 0}
+        costCurrencyPrefix={currencyPrefix(summary?.estimatedCostCurrency)}
+      />
 
       {/* Trend Chart */}
       <Card
@@ -611,6 +654,111 @@ export default function UsagePage() {
         styles={{ body: { minHeight: "70vh" } }}
       >
         <UsageTrendChart data={dashboard?.trend ?? []} period={period} granularity={dashboard?.trendGranularity ?? usagePeriodGranularity(period)} t={t} expanded />
+      </Modal>
+
+      {/* Proxy log maintenance */}
+      <Modal
+        title={t("usage.maintainLogs")}
+        open={maintenanceOpen}
+        onCancel={() => setMaintenanceOpen(false)}
+        okText={t("usage.confirmMaintenance")}
+        cancelText={t("common.cancel")}
+        confirmLoading={maintaining}
+        onOk={() => void maintainLogs()}
+      >
+        {maintenancePolicy && (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Space>
+              <Text>{t("usage.logRetentionDays")}</Text>
+              <InputNumber
+                min={1}
+                max={3650}
+                value={maintenancePolicy.retentionDays}
+                onChange={(v) =>
+                  v != null && setMaintenancePolicy({ ...maintenancePolicy, retentionDays: v })
+                }
+              />
+            </Space>
+            <Space>
+              <Text>{t("usage.logMaxRows")}</Text>
+              <InputNumber
+                min={100}
+                max={10_000_000}
+                step={1000}
+                value={maintenancePolicy.maxRows}
+                onChange={(v) =>
+                  v != null && setMaintenancePolicy({ ...maintenancePolicy, maxRows: v })
+                }
+              />
+            </Space>
+            <Space>
+              <Switch
+                checked={maintenancePolicy.autoMaintain}
+                onChange={(checked) =>
+                  setMaintenancePolicy({ ...maintenancePolicy, autoMaintain: checked })
+                }
+              />
+              <Text>{t("usage.autoMaintain")}</Text>
+            </Space>
+            {maintenancePreview && (
+              <Alert
+                type="info"
+                showIcon
+                message={t("usage.maintenancePreview", {
+                  total: maintenancePreview.totalRows,
+                  byAge: maintenancePreview.deleteByAge,
+                  byLimit: maintenancePreview.deleteByLimit,
+                })}
+              />
+            )}
+          </Space>
+        )}
+      </Modal>
+
+      {/* Pricing Excel import preview */}
+      <Modal
+        title={t("usage.importPricing")}
+        open={pricingImportOpen}
+        onCancel={() => {
+          setPricingImportOpen(false);
+          setPricingImportPath(null);
+          setPricingImportPreview(null);
+        }}
+        okText={t("usage.confirmImportPricing")}
+        cancelText={t("common.cancel")}
+        okButtonProps={{ disabled: !pricingImportPreview || pricingImportPreview.errors.length > 0 }}
+        confirmLoading={saving}
+        onOk={() => void applyPricingImport()}
+      >
+        {pricingImportPreview && (
+          <Space direction="vertical" size="small" style={{ width: "100%" }}>
+            <Text>
+              {t("usage.importValidRows")}: {pricingImportPreview.validRows}
+            </Text>
+            <Text>
+              {t("usage.importNewModels")}: {pricingImportPreview.newModels.length}
+              {pricingImportPreview.newModels.length > 0 && `（${pricingImportPreview.newModels.join(", ")}）`}
+            </Text>
+            <Text>
+              {t("usage.importUpdatedModels")}: {pricingImportPreview.updatedModels.length}
+              {pricingImportPreview.updatedModels.length > 0 && `（${pricingImportPreview.updatedModels.join(", ")}）`}
+            </Text>
+            {pricingImportPreview.errors.length > 0 && (
+              <Alert
+                type="error"
+                showIcon
+                message={t("usage.importPricingErrors")}
+                description={
+                  <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+                    {pricingImportPreview.errors.slice(0, 10).map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                }
+              />
+            )}
+          </Space>
+        )}
       </Modal>
     </Stack>
   );

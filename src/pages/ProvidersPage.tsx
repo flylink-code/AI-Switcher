@@ -20,7 +20,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import { ProviderCard, ProviderToolbar } from "@/components/providers";
+import { ProviderList, ProviderDetail, ProviderToolbar } from "@/components/providers";
 import { Stack, Inline, Surface } from "@/components/ui";
 import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
@@ -148,6 +148,21 @@ export default function ProvidersPage() {
     });
   }, [store.providers, searchQuery, statusFilter]);
 
+  // Master/detail selection: keep the explicit selection while it stays
+  // visible; otherwise fall back to the current provider or the first row.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedProvider = useMemo(() => {
+    return (
+      filteredProviders.find((p) => p.id === selectedId) ??
+      filteredProviders.find((p) => p.isCurrent) ??
+      filteredProviders[0] ??
+      null
+    );
+  }, [filteredProviders, selectedId]);
+  const selectedIndex = selectedProvider
+    ? filteredProviders.findIndex((p) => p.id === selectedProvider.id)
+    : -1;
+
   return (
     <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
       {store.error && (
@@ -244,31 +259,49 @@ export default function ProvidersPage() {
         </Surface>
       )}
 
-      {/* Providers Compact Card Grid */}
+      {/* Providers Master / Detail workspace */}
       {filteredProviders.length > 0 ? (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
-            gap: "var(--card-gap)",
+            display: "flex",
+            gap: "var(--space-4)",
+            alignItems: "flex-start",
+            minWidth: 0,
           }}
         >
-          {filteredProviders.map((provider, index) => (
-            <ProviderCard
-              key={provider.id}
-              provider={provider}
-              index={index}
-              totalCount={filteredProviders.length}
-              busy={busy}
-              onSwitch={(p) => void handleSwitch(p)}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onTest={(p) => void handleTest(p)}
-              onSpeedtest={(p) => void handleSpeedtest(p)}
-              onShareLink={(p) => void handleShareLink(p)}
-              onMove={(id, dir) => void store.move(id, dir)}
+          {/* Left: compact provider list */}
+          <div
+            style={{
+              width: 300,
+              flexShrink: 0,
+              maxHeight: "calc(100vh - 320px)",
+              overflowY: "auto",
+              paddingRight: "var(--space-3)",
+              borderRight: "1px solid var(--color-border-subtle)",
+            }}
+          >
+            <ProviderList
+              providers={filteredProviders}
+              selectedId={selectedProvider?.id ?? null}
+              onSelect={(p) => setSelectedId(p.id)}
             />
-          ))}
+          </div>
+
+          {/* Right: selected provider detail */}
+          <ProviderDetail
+            style={{ flex: 1, minWidth: 0 }}
+            provider={selectedProvider}
+            index={selectedIndex}
+            totalCount={filteredProviders.length}
+            busy={busy}
+            onSwitch={(p) => void handleSwitch(p)}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onTest={(p) => void handleTest(p)}
+            onSpeedtest={(p) => void handleSpeedtest(p)}
+            onShareLink={(p) => void handleShareLink(p)}
+            onMove={(id, dir) => void store.move(id, dir < 0 ? -1 : 1)}
+          />
         </div>
       ) : (
         <Card size="small" className="page-surface" style={{ textAlign: "center", padding: "var(--space-8)" }}>

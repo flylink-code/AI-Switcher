@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Empty,
+  Popover,
   Skeleton,
   Space,
   Tag,
@@ -14,6 +14,7 @@ import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
+import QuestionCircleOutlined from "@ant-design/icons/es/icons/QuestionCircleOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
@@ -35,7 +36,6 @@ import {
   listProviders,
 } from "@/services/api";
 import type { ProviderTarget } from "@/types/backend";
-import { ContextHeader } from "@/components/layout";
 import {
   AccountPoolOverview,
   AccountCard,
@@ -270,107 +270,108 @@ export default function AntigravityPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* ContextHeader */}
-      <ContextHeader
-        title={t("antigravity.title")}
-        description={t("antigravity.subtitle")}
-        showClientSwitcher={false}
-        extra={
-          <Space wrap>
-            <Button
-              icon={<ReloadOutlined />}
-              loading={quotaMutation.isPending}
-              disabled={accounts.length === 0}
-              onClick={() => quotaMutation.mutate()}
-            >
-              {t("antigravity.refreshQuota")}
+      {/* Compact runtime summary + page actions */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <AccountPoolOverview accounts={accounts} status={status} />
+        <Space wrap>
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            title={t("antigravity.howToAddTitle")}
+            content={
+              <div style={{ maxWidth: 360 }}>
+                <p style={{ marginBottom: 8 }}>{t("antigravity.howToAddOauth")}</p>
+                <p style={{ marginBottom: 8 }}>{t("antigravity.howToAddNotIde")}</p>
+                <p style={{ marginBottom: 0 }}>{t("antigravity.howToAddJson")}</p>
+              </div>
+            }
+          >
+            <Button size="small" icon={<QuestionCircleOutlined />}>
+              {t("antigravity.whyAccountMissing", { defaultValue: "为什么账号没有出现?" })}
             </Button>
-            <Button icon={<ImportOutlined />} onClick={() => setImportModalOpen(true)}>
-              {t("antigravity.import")}
-            </Button>
+          </Popover>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={quotaMutation.isPending}
+            disabled={accounts.length === 0}
+            onClick={() => quotaMutation.mutate()}
+          >
+            {t("antigravity.refreshQuota")}
+          </Button>
+          <Button icon={<ImportOutlined />} onClick={() => setImportModalOpen(true)}>
+            {t("antigravity.import")}
+          </Button>
+          <Button
+            type="primary"
+            icon={<LoginOutlined />}
+            loading={oauthMutation.isPending}
+            onClick={() => oauthMutation.mutate()}
+          >
+            {oauthMutation.isPending
+              ? t("antigravity.oauthWaiting")
+              : t("antigravity.oauthLogin")}
+          </Button>
+        </Space>
+      </div>
+
+      <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
+        {t("antigravity.personalUseNotice")}
+      </Text>
+
+      {/* Account Pool */}
+      <section>
+        <Space align="center" style={{ marginBottom: 12 }}>
+          <UserOutlined />
+          <Text strong>{t("antigravity.accounts")}</Text>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            ({accounts.length})
+          </Text>
+        </Space>
+
+        {accountsQuery.isLoading ? (
+          <Skeleton active paragraph={{ rows: 3 }} />
+        ) : accounts.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={t("antigravity.emptyAccounts")}
+          >
             <Button
               type="primary"
               icon={<LoginOutlined />}
               loading={oauthMutation.isPending}
               onClick={() => oauthMutation.mutate()}
             >
-              {oauthMutation.isPending
-                ? t("antigravity.oauthWaiting")
-                : t("antigravity.oauthLogin")}
+              {t("antigravity.oauthLogin")}
             </Button>
-          </Space>
-        }
-      />
-
-      <Alert type="info" showIcon message={t("antigravity.personalUseNotice")} />
-
-      {/* Pool Overview */}
-      <AccountPoolOverview accounts={accounts} status={status} />
-
-      {/* Account Pool Cards */}
-      <Card
-        title={
-          <Space>
-            <UserOutlined />
-            <span>{t("antigravity.accounts")}</span>
-            <Text type="secondary" style={{ fontSize: 13, fontWeight: "normal" }}>
-              ({accounts.length})
-            </Text>
-          </Space>
-        }
-        size="small"
-      >
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Alert
-            type="warning"
-            showIcon
-            message={t("antigravity.howToAddTitle")}
-            description={
-              <div>
-                <p style={{ marginBottom: 4 }}>{t("antigravity.howToAddOauth")}</p>
-                <p style={{ marginBottom: 4 }}>{t("antigravity.howToAddNotIde")}</p>
-                <p style={{ marginBottom: 0 }}>{t("antigravity.howToAddJson")}</p>
-              </div>
-            }
-          />
-
-          {accountsQuery.isLoading ? (
-            <Skeleton active paragraph={{ rows: 3 }} />
-          ) : accounts.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={t("antigravity.emptyAccounts")}
-            >
-              <Button
-                type="primary"
-                icon={<LoginOutlined />}
-                loading={oauthMutation.isPending}
-                onClick={() => oauthMutation.mutate()}
-              >
-                {t("antigravity.oauthLogin")}
-              </Button>
-            </Empty>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-                gap: 12,
-              }}
-            >
-              {sortedAccounts.map((account) => (
-                <AccountCard
-                  key={account.id}
-                  account={account}
-                  onSetActive={handleSetActive}
-                  onRemove={handleRemoveAccount}
-                  isPending={actionAccountId === account.id}
-                />
-              ))}
-            </div>
-          )}
-        </Space>
-      </Card>
+          </Empty>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {sortedAccounts.map((account) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                onSetActive={handleSetActive}
+                onRemove={handleRemoveAccount}
+                isPending={actionAccountId === account.id}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Gateway Controls */}
       <GatewayCard

@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Button, InputNumber, Tag, Typography } from "antd";
+import { Alert, Button, Typography } from "antd";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -13,30 +13,30 @@ const { Text } = Typography;
 export interface ProxyRuntimeCardProps {
   status: ProxyStatus | null;
   target: ProviderTarget;
-  port: number;
-  onPortChange: (port: number) => void;
+  /** Localized label of the global Current Client context. */
+  clientLabel: string;
   busy: boolean;
   refreshing: boolean;
   onStart: () => void;
   onStop: () => void;
   onRefresh: () => void;
-  /** 头部右侧额外内容（如目标切换器）。 */
-  headerExtra?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }
 
+/**
+ * Runtime hero: current proxy state + context line + dominant start/stop.
+ * The global Client context is authoritative; no selector is rendered here.
+ */
 export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   status,
   target,
-  port,
-  onPortChange,
+  clientLabel,
   busy,
   refreshing,
   onStart,
   onStop,
   onRefresh,
-  headerExtra,
   className = "",
   style,
 }) => {
@@ -52,21 +52,14 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
     return <StatusBadge status="stopped" label={t("proxy.stopped", { defaultValue: "已停止" })} />;
   };
 
-  const endpointUrl = target === "codex"
-    ? `http://127.0.0.1:${port}/v1/responses`
-    : `http://127.0.0.1:${port}/v1/messages`;
-
   if (isOpencode) {
     return (
       <Surface padding="md" className={className} style={style}>
-        <Inline justify="space-between" align="center" style={{ marginBottom: "var(--space-3)" }}>
-          <Inline gap="sm" align="center">
-            <ApiOutlined style={{ fontSize: "20px", color: "var(--color-brand)" }} />
-            <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
-              OpenCode Direct Connection
-            </Text>
-          </Inline>
-          {headerExtra}
+        <Inline gap="sm" align="center" style={{ marginBottom: "var(--space-3)" }}>
+          <ApiOutlined style={{ fontSize: "20px", color: "var(--color-brand)" }} />
+          <Text strong style={{ fontSize: "var(--font-size-lg)" }}>
+            OpenCode Direct Connection
+          </Text>
         </Inline>
         <Alert type="info" showIcon message={t("proxy.opencodeDirectHint")} />
       </Surface>
@@ -76,26 +69,24 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
   return (
     <Surface
       variant={isRunning ? "elevated" : "default"}
-      padding="lg"
+      padding="md"
       className={className}
       style={{
         borderColor: isRunning ? "var(--color-brand)" : undefined,
         ...style,
       }}
     >
-      <Stack gap="md">
-        {/* Header Row */}
+      <Stack gap="sm">
         <Inline justify="space-between" align="center" wrap gap="sm">
-          <Inline gap="sm">
+          <Inline gap="sm" align="center">
             <ApiOutlined style={{ fontSize: "20px", color: isRunning ? "var(--color-brand)" : "var(--color-text-secondary)" }} />
-            <Text strong style={{ fontSize: "var(--font-size-xl)", color: "var(--color-text-primary)" }}>
-              {t("proxy.status", { defaultValue: "代理运行状态" })}
+            <Text strong style={{ fontSize: "var(--font-size-lg)", color: "var(--color-text-primary)" }}>
+              {t("proxy.runtime", { defaultValue: "Proxy Runtime" })}
             </Text>
             {getStatusBadge()}
           </Inline>
 
           <Inline gap="sm" align="center">
-            {headerExtra}
             <Button
               size="small"
               icon={<ReloadOutlined spin={refreshing} />}
@@ -104,89 +95,47 @@ export const ProxyRuntimeCard: React.FC<ProxyRuntimeCardProps> = ({
             >
               {t("proxy.refresh", { defaultValue: "刷新" })}
             </Button>
+            {isRunning ? (
+              <Button
+                type="primary"
+                danger
+                icon={<StopOutlined />}
+                loading={busy}
+                onClick={onStop}
+              >
+                {t("proxy.stop", { defaultValue: "停止代理" })}
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                loading={busy}
+                disabled={status?.phase === "starting"}
+                onClick={onStart}
+              >
+                {t("proxy.start", { defaultValue: "启动代理" })}
+              </Button>
+            )}
           </Inline>
         </Inline>
 
-        {/* Runtime Details Surface */}
-        <Surface variant="subtle" padding="md" style={{ borderRadius: "var(--radius-md)" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "var(--space-3) var(--space-5)",
-              alignItems: "center",
-            }}
-          >
-            <Inline gap="sm">
-              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
-                {t("proxy.fieldTarget", { defaultValue: "目标供应商" })}
-              </Text>
-              {status?.targetProvider ? (
-                <Tag color="blue" style={{ margin: 0 }}>
-                  {status.targetProvider}
-                </Tag>
-              ) : (
-                <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-                  {t("proxy.noTarget", { defaultValue: "未指定" })}
-                </Text>
-              )}
-            </Inline>
-
-            <Inline gap="xs" align="center">
-              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
-                {t("proxy.port", { defaultValue: "端口号" })}
-              </Text>
-              <InputNumber
-                min={1024}
-                max={65535}
-                value={port}
-                onChange={(v) => v != null && onPortChange(v)}
-                disabled={busy || isRunning || status?.phase === "starting"}
-                size="small"
-                style={{ width: 90 }}
-              />
-            </Inline>
-
-            <Inline gap="sm" align="center" style={{ gridColumn: "1 / -1" }}>
-              <Text style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)", flexShrink: 0 }}>
-                {t("proxy.fieldEndpoint", { defaultValue: "接入端点" })}
-              </Text>
-              <Text copyable code style={{ fontSize: "var(--font-size-xs)", fontFamily: "var(--font-family-mono)" }}>
-                {endpointUrl}
-              </Text>
-            </Inline>
-          </div>
-        </Surface>
+        {/* Context line: global Current Client → routed provider */}
+        <Text style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>
+          {clientLabel}
+          {" → "}
+          {status?.targetProvider ? (
+            <Text strong style={{ fontSize: "var(--font-size-sm)" }}>
+              {status.targetProvider}
+            </Text>
+          ) : (
+            t("proxy.noTarget", { defaultValue: "未指定" })
+          )}
+        </Text>
 
         {/* Error Alert */}
         {status?.lastError && (
           <Alert type="error" showIcon message={status.lastError} />
         )}
-
-        {/* Actions Footer */}
-        <Inline justify="flex-end" align="center" style={{ paddingTop: "var(--space-2)" }}>
-          {isRunning ? (
-            <Button
-              type="primary"
-              danger
-              icon={<StopOutlined />}
-              loading={busy}
-              onClick={onStop}
-            >
-              {t("proxy.stop", { defaultValue: "停止代理" })}
-            </Button>
-          ) : (
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              loading={busy}
-              disabled={status?.phase === "starting"}
-              onClick={onStart}
-            >
-              {t("proxy.start", { defaultValue: "启动代理" })}
-            </Button>
-          )}
-        </Inline>
       </Stack>
     </Surface>
   );

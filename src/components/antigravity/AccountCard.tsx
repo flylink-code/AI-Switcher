@@ -70,22 +70,22 @@ export function AccountCard({
 
           <Space size={4} wrap>
             {account.isActive && (
-              <StatusBadge status="running" text={t("antigravity.active")} />
+              <StatusBadge status="running" label={t("antigravity.active")} />
             )}
             {account.disabled && (
-              <StatusBadge status="error" text={t("antigravity.disabled")} />
+              <StatusBadge status="error" label={t("antigravity.disabled")} />
             )}
             {cooling && (
-              <StatusBadge status="warning" text={t("antigravity.cooling")} />
+              <StatusBadge status="warning" label={t("antigravity.cooling")} />
             )}
             {account.quotaForbidden && (
-              <StatusBadge status="error" text={t("antigravity.forbidden")} />
+              <StatusBadge status="error" label={t("antigravity.forbidden")} />
             )}
           </Space>
         </div>
 
         {/* Quota Progress */}
-        <Surface variant="inset" padding="sm">
+        <Surface variant="subtle" padding="sm">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <QuotaMiniBar
               label={t("antigravity.quotaGemini5h")}

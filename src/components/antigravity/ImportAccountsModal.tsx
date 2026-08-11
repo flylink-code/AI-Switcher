@@ -4,7 +4,7 @@ import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import { useTranslation } from "react-i18next";
 
 const { TextArea } = Input;
-const { Paragraph, Text } = Typography;
+const { Paragraph } = Typography;
 
 interface ImportAccountsModalProps {
   open: boolean;

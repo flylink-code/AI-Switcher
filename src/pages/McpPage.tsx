@@ -30,6 +30,7 @@ import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import type { ImportPreview, McpServer, McpServerInput, McpTarget, RegistryMcpServer } from "@/types/backend";
 import {
@@ -701,14 +702,31 @@ export default function McpPage() {
             </Space>
           }
         >
-          <Table<McpServer>
-            rowKey="id"
-            columns={columns}
-            dataSource={servers}
-            loading={serversQuery.isPending}
-            pagination={false}
-            locale={{ emptyText: t("mcp.empty") }}
-          />
+          {servers.length === 0 && !serversQuery.isPending ? (
+            <ResourceEmptyState
+              title={t("mcp.empty")}
+              description={t("mcp.description")}
+              action={
+                <Button type="primary" icon={<PlusOutlined />} disabled={busy} onClick={openCreate}>
+                  {t("mcp.create")}
+                </Button>
+              }
+              extra={
+                <Button icon={<ImportOutlined />} loading={busy} onClick={() => void handleImport()}>
+                  {t("mcp.import")}
+                </Button>
+              }
+            />
+          ) : (
+            <Table<McpServer>
+              rowKey="id"
+              columns={columns}
+              dataSource={servers}
+              loading={serversQuery.isPending}
+              pagination={false}
+              locale={{ emptyText: t("mcp.empty") }}
+            />
+          )}
         </Card>
       </Space>
 

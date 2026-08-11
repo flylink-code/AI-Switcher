@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Dropdown, Modal, Popconfirm, Tag, Tooltip, Typography, type MenuProps } from "antd";
+import { Button, Dropdown, Empty, Modal, Tag, Typography, type MenuProps } from "antd";
 import { useTranslation } from "react-i18next";
 import ArrowUpOutlined from "@ant-design/icons/es/icons/ArrowUpOutlined";
 import ArrowDownOutlined from "@ant-design/icons/es/icons/ArrowDownOutlined";
@@ -11,13 +11,13 @@ import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import type { Provider } from "@/types/backend";
-import { Surface, Inline, Stack, StatusBadge, IconButton } from "@/components/ui";
+import { Surface, Inline, Stack, StatusBadge } from "@/components/ui";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
 
 const { Text } = Typography;
 
-export interface ProviderCardProps {
-  provider: Provider;
+export interface ProviderDetailProps {
+  provider: Provider | null;
   index: number;
   totalCount: number;
   busy: boolean;
@@ -32,7 +32,28 @@ export interface ProviderCardProps {
   style?: React.CSSProperties;
 }
 
-export const ProviderCard: React.FC<ProviderCardProps> = ({
+function DetailRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "baseline", minWidth: 0 }}>
+      <span
+        style={{
+          width: 88,
+          flexShrink: 0,
+          fontSize: "var(--font-size-xs)",
+          color: "var(--color-text-tertiary)",
+        }}
+      >
+        {label}
+      </span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: "var(--font-size-sm)", color: "var(--color-text-primary)" }}>
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/** Detail pane for the selected provider (right side of the workspace). */
+export const ProviderDetail: React.FC<ProviderDetailProps> = ({
   provider,
   index,
   totalCount,
@@ -48,6 +69,18 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   style,
 }) => {
   const { t } = useTranslation();
+
+  if (!provider) {
+    return (
+      <Surface padding="lg" className={className} style={{ display: "flex", alignItems: "center", justifyContent: "center", ...style }}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={t("providers.selectProvider", { defaultValue: "选择左侧供应商查看详情" })}
+        />
+      </Surface>
+    );
+  }
+
   const isOpencode = provider.targetApp === "opencode";
   const isCurrent = provider.isCurrent;
 
@@ -65,13 +98,6 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
       label: t("providers.moveDown", { defaultValue: "下移" }),
       disabled: index === totalCount - 1 || busy,
       onClick: () => onMove(provider.id, 1),
-    },
-    {
-      key: "test",
-      icon: <SafetyCertificateOutlined />,
-      label: t("providers.testConnection", { defaultValue: "测试连接" }),
-      disabled: busy || !provider.apiKeySet,
-      onClick: () => onTest(provider),
     },
     {
       key: "speed",
@@ -107,21 +133,12 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
   ];
 
   return (
-    <Surface
-      variant={isCurrent ? "elevated" : "default"}
-      padding="md"
-      className={className}
-      style={{
-        borderColor: isCurrent ? "var(--color-brand)" : undefined,
-        backgroundColor: isCurrent ? "var(--color-brand-subtle)" : undefined,
-        ...style,
-      }}
-    >
-      <Stack gap="sm">
-        {/* Header Row */}
-        <Inline justify="space-between" align="center">
-          <Inline gap="sm">
-            <ProviderBrandIcon provider={provider} size={24} />
+    <Surface padding="md" className={className} style={style}>
+      <Stack gap="md">
+        {/* Header */}
+        <Inline justify="space-between" align="center" wrap>
+          <Inline gap="sm" align="center">
+            <ProviderBrandIcon provider={provider} size={28} />
             <Text strong style={{ fontSize: "var(--font-size-lg)", color: "var(--color-text-primary)" }}>
               {provider.name}
             </Text>
@@ -135,52 +152,51 @@ export const ProviderCard: React.FC<ProviderCardProps> = ({
               />
             )}
           </Inline>
-
           <Tag color={provider.protocolType === "anthropic" ? "blue" : "orange"} style={{ margin: 0 }}>
             {provider.protocolType}
           </Tag>
         </Inline>
 
-        {/* Base URL */}
-        <div style={{ fontSize: "var(--font-size-xs)", fontFamily: "var(--font-family-mono)", wordBreak: "break-all" }}>
-          <Text code copyable ellipsis={{ tooltip: provider.baseUrl }}>
-            {provider.baseUrl}
-          </Text>
-        </div>
-
-        {/* Model & Extra Info */}
-        <Inline justify="space-between" align="center" style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-secondary)" }}>
-          <Inline gap="xs">
-            <span>Model:</span>
+        {/* Fields */}
+        <Stack gap="sm">
+          <DetailRow label="Endpoint">
+            <Text code copyable ellipsis={{ tooltip: provider.baseUrl }} style={{ fontSize: "var(--font-size-xs)" }}>
+              {provider.baseUrl}
+            </Text>
+          </DetailRow>
+          <DetailRow label="Model">
             <Text code style={{ fontSize: "var(--font-size-xs)" }}>
               {provider.model || t("providers.defaultModel", { defaultValue: "默认" })}
             </Text>
-          </Inline>
-
+          </DetailRow>
+          <DetailRow label="Protocol">{provider.protocolType}</DetailRow>
           {provider.failoverGroup > 0 && (
-            <Tag style={{ margin: 0 }}>
-              Group {provider.failoverGroup}
-            </Tag>
+            <DetailRow label="Failover">Group {provider.failoverGroup}</DetailRow>
           )}
-        </Inline>
+          {provider.notes && (
+            <DetailRow label={t("providers.notes", { defaultValue: "备注" })}>{provider.notes}</DetailRow>
+          )}
+        </Stack>
 
-        {/* Actions Footer */}
-        <Inline justify="space-between" align="center" style={{ paddingTop: "var(--space-2)", borderTop: "1px solid var(--color-border-subtle)", marginTop: "var(--space-1)" }}>
-          <Inline gap="xs">
+        {/* Actions */}
+        <Inline justify="space-between" align="center" style={{ paddingTop: "var(--space-3)", borderTop: "1px solid var(--color-border-subtle)" }}>
+          <Inline gap="sm">
             <Button
               size="small"
               icon={<SafetyCertificateOutlined />}
               disabled={busy || !provider.apiKeySet}
               onClick={() => onTest(provider)}
             >
-              {t("providers.testConnection", { defaultValue: "测试" })}
+              {t("providers.testConnection", { defaultValue: "测试连接" })}
             </Button>
-            <IconButton
+            <Button
+              size="small"
               icon={<EditOutlined />}
-              title={t("providers.edit")}
               disabled={busy}
               onClick={() => onEdit(provider)}
-            />
+            >
+              {t("providers.edit")}
+            </Button>
             <Dropdown menu={{ items: moreItems }} trigger={["click"]}>
               <Button size="small" icon={<EllipsisOutlined />} disabled={busy} aria-label={t("providers.moreActions")} />
             </Dropdown>

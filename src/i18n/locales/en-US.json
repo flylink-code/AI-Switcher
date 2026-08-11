@@ -127,7 +127,8 @@
     "disabled": "Off",
     "minimize": "Minimize",
     "maximize": "Maximize / Restore",
-    "close": "Close"
+    "close": "Close",
+    "moreActions": "More actions"
   },
   "sessions": {
     "title": "Session Manager",
@@ -354,7 +355,8 @@
     "switchedOfficial": "Switched to official login",
     "imported": "Imported current config",
     "missingKey": "This provider has no API key yet — edit it to add one before switching",
-    "empty": "No third-party providers for this application; official login is the default"
+    "empty": "No third-party providers for this application; official login is the default",
+    "selectProvider": "Select a provider on the left to view details"
   },
   "proxy": {
     "title": "Local Proxy",
@@ -386,7 +388,9 @@
     "idleTimeoutSaved": "Streaming idle timeout saved",
     "failoverEnabled": "Automatic failover enabled",
     "failoverDisabled": "Automatic failover disabled",
-    "opencodeDirectHint": "OpenCode connects directly to each protocol endpoint via the AI SDK (baseURL + API key) and does not use the local proxy; switch its configuration on the Providers page."
+    "opencodeDirectHint": "OpenCode connects directly to each protocol endpoint via the AI SDK (baseURL + API key) and does not use the local proxy; switch its configuration on the Providers page.",
+    "runtime": "Proxy Runtime",
+    "route": "Route"
   },
   "profiles": {
     "title": "Projects",
@@ -660,7 +664,8 @@
     "logTokens": "Tokens (in/out)",
     "logDuration": "Duration",
     "logStream": "Stream",
-    "logDetail": "Request detail"
+    "logDetail": "Request detail",
+    "dataSource": "Data Source"
   },
   "skills": {
     "source": "Source",
@@ -1181,10 +1186,21 @@
     "rotationActive": "Active & Intelligent",
     "rotationHint": "Health score & quota routing",
     "confirmDeleteTitle": "Remove Account",
-    "confirmDeleteDesc": "Are you sure you want to remove {{email}} from the pool?"
+    "confirmDeleteDesc": "Are you sure you want to remove {{email}} from the pool?",
+    "whyAccountMissing": "Why isn't my account showing?"
   },
   "settings": {
     "title": "Settings",
-    "back": "Back"
+    "back": "Back",
+    "sectionGeneral": "General",
+    "sectionRuntime": "Runtime",
+    "sectionLocalization": "Localization",
+    "sectionAbout": "About",
+    "languageHint": "Interface language",
+    "themeHint": "Appearance and color mode",
+    "sessionsHint": "Manage local AI sessions and archives",
+    "environmentHint": "Runtime paths and diagnostics",
+    "localizationHint": "Client localization and translation",
+    "aboutHint": "App version and updates"
   }
 }

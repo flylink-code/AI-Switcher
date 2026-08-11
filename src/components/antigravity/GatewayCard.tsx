@@ -15,13 +15,13 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useTranslation } from "react-i18next";
-import type { AntigravityGatewayStatus, CatalogModel } from "@/services/api";
+import type { AntigravityGatewayStatus, AntigravityCatalogModel } from "@/services/api";
 
 const { Text, Paragraph } = Typography;
 
 interface GatewayCardProps {
   status?: AntigravityGatewayStatus;
-  models?: CatalogModel[];
+  models?: AntigravityCatalogModel[];
   onStartGateway: (port: number, apiKey?: string, outboundMode?: string, outboundUrl?: string) => Promise<void>;
   onStopGateway: () => Promise<void>;
   onSaveOutbound: (mode: "direct" | "system" | "custom", url: string) => Promise<void>;

@@ -16,8 +16,7 @@ import {
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
-import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
-import { ProxyRuntimeCard, ResilienceSettings } from "@/components/proxy";
+import { ProxyRuntimeCard, ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 
 const { Text } = Typography;
@@ -34,8 +33,8 @@ export default function ProxyPage() {
   const [idleTimeout, setIdleTimeout] = useState(180);
   const [idleSaving, setIdleSaving] = useState(false);
 
-  const target = usePagePreferencesStore((state) => state.proxyTarget);
-  const setTarget = usePagePreferencesStore((state) => state.setProxyTarget);
+  // Global Current Client context is authoritative; no page-local selector.
+  const target = usePagePreferencesStore((state) => state.workspaceTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
 
@@ -158,34 +157,59 @@ export default function ProxyPage() {
         <Alert type="error" showIcon message={errMsg(statusQuery.error)} />
       )}
 
-      {/* Hero Runtime Control Surface（目标切换器在卡片头部右侧） */}
+      {/* Hero Runtime Control（上下文来自全局 Client 选择器） */}
       <ProxyRuntimeCard
         status={status}
         target={target}
-        port={port}
-        onPortChange={setPort}
+        clientLabel={t(`workspace.${target}`)}
         busy={busy}
         refreshing={refreshing}
         onStart={() => void handleStart()}
         onStop={() => void handleStop()}
         onRefresh={() => void handleRefresh()}
-        headerExtra={<WorkspaceTargetSegmented value={target} onChange={setTarget} t={t} size="small" />}
       />
 
-      {/* Resilience & Failover Control */}
-      {target !== "opencode" && (
-        <ResilienceSettings
-          failoverEnabled={failoverQuery.data ?? false}
-          failoverSaving={failoverQuery.isPending || failoverSaving}
-          onFailoverChange={(enabled) => void handleFailoverChange(enabled)}
-          retryCodes={retryCodes}
-          onRetryCodesChange={setRetryCodes}
-          retrySaving={retrySaving}
-          onRetryCodesSave={() => void handleRetryCodesSave()}
-          idleTimeout={idleTimeout}
-          onIdleTimeoutChange={setIdleTimeout}
-          idleSaving={idleSaving}
-          onIdleTimeoutSave={() => void handleIdleTimeoutSave()}
+      {/* Route + Resilience balanced columns */}
+      {target !== "opencode" ? (
+        <div
+          style={{
+            display: "flex",
+            gap: "var(--space-4)",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            minWidth: 0,
+          }}
+        >
+          <ProxyRoutePanel
+            style={{ flex: "1 1 360px", minWidth: 0 }}
+            status={status}
+            target={target}
+            port={port}
+            onPortChange={setPort}
+            busy={busy}
+          />
+          <ResilienceSettings
+            style={{ flex: "1 1 360px", minWidth: 0 }}
+            failoverEnabled={failoverQuery.data ?? false}
+            failoverSaving={failoverQuery.isPending || failoverSaving}
+            onFailoverChange={(enabled) => void handleFailoverChange(enabled)}
+            retryCodes={retryCodes}
+            onRetryCodesChange={setRetryCodes}
+            retrySaving={retrySaving}
+            onRetryCodesSave={() => void handleRetryCodesSave()}
+            idleTimeout={idleTimeout}
+            onIdleTimeoutChange={setIdleTimeout}
+            idleSaving={idleSaving}
+            onIdleTimeoutSave={() => void handleIdleTimeoutSave()}
+          />
+        </div>
+      ) : (
+        <ProxyRoutePanel
+          status={status}
+          target={target}
+          port={port}
+          onPortChange={setPort}
+          busy={busy}
         />
       )}
     </Stack>

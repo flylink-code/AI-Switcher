@@ -69,7 +69,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         return {
           title: t("navigation.usage", { defaultValue: "用量与统计" }),
           description: t("usage.subtitle", { defaultValue: "Token 用量与请求趋势诊断" }),
-          showClientSwitcher: true,
+          // Usage analytics is driven by an explicit Data Source filter, not
+          // by the global Current Client context.
+          showClientSwitcher: false,
         };
       case "antigravity":
         return {
@@ -77,24 +79,25 @@ export const AppShell: React.FC<AppShellProps> = ({
           description: t("antigravity.subtitle", { defaultValue: "Google / Antigravity 账号池与额度监控" }),
           showClientSwitcher: false,
         };
+      case "workspace":
       case "mcp":
       case "prompts":
       case "skills":
       case "agents":
       case "codexPlugins":
-      case "sessions":
       case "profiles":
         return {
-          title: t("navigation.workspace", { defaultValue: "Workspace 资源管理" }),
-          description: t("workspace.subtitle", { defaultValue: "MCP、Prompts、Skills 与配置资源管理" }),
+          title: t("navigation.workspace", { defaultValue: "工作区" }),
+          description: t("workspace.subtitle", { defaultValue: "项目、MCP、Prompts、Skills 与配置资源管理" }),
           showClientSwitcher: true,
         };
       case "settings":
+      case "sessions":
       case "about":
       case "environment":
       case "localization":
         return {
-          title: t("navigation.settings", { defaultValue: "全局设置" }),
+          title: t("navigation.settings", { defaultValue: "设置" }),
           description: t("settings.subtitle", { defaultValue: "系统选项与配置" }),
           showClientSwitcher: false,
         };

@@ -130,7 +130,7 @@ export default function WorkbenchPage() {
         className="dashboard-filter-bar"
         style={{
           display: "flex",
-          justify: "space-between",
+          justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
           gap: "var(--space-3)",

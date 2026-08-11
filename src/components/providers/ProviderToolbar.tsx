@@ -1,9 +1,12 @@
-import React from "react";
-import { Button, Input, Select, Space } from "antd";
+import React, { useRef } from "react";
+import { Button, Dropdown, Input, Select, type MenuProps } from "antd";
 import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
+import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
+import ExportOutlined from "@ant-design/icons/es/icons/ExportOutlined";
 import { useTranslation } from "react-i18next";
 import type { ProviderTarget } from "@/types/backend";
 import { Inline } from "@/components/ui/Inline";
@@ -46,6 +49,59 @@ export const ProviderToolbar: React.FC<ProviderToolbarProps> = ({
   style,
 }) => {
   const { t } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Low-frequency maintenance operations live in the overflow menu.
+  const moreItems: MenuProps["items"] = [
+    ...(target !== "codex" && target !== "opencode"
+      ? [
+          {
+            key: "chatgptLogin",
+            icon: <LoginOutlined />,
+            label: t("providers.chatgptLogin"),
+            disabled: oauthPolling,
+            onClick: onCodexOauthLogin,
+          },
+        ]
+      : []),
+    {
+      key: "importLive",
+      icon: <ImportOutlined />,
+      label: target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive"),
+      disabled: busy,
+      onClick: onImportLive,
+    },
+    {
+      key: "importClipboard",
+      label: t("providers.importClipboard"),
+      disabled: busy,
+      onClick: onImportClipboard,
+    },
+    {
+      key: "importFile",
+      label: t("providers.importFile"),
+      disabled: busy,
+      onClick: () => fileInputRef.current?.click(),
+    },
+    {
+      key: "export",
+      icon: <ExportOutlined />,
+      label: t("providers.export"),
+      disabled: busy,
+      onClick: onExport,
+    },
+    ...(target === "opencode"
+      ? [
+          { type: "divider" as const },
+          {
+            key: "opencodeConfig",
+            icon: <FolderOpenOutlined />,
+            label: t("providers.opencodeOpenConfig"),
+            onClick: onOpenOpencodeConfig,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <Inline
@@ -83,46 +139,28 @@ export const ProviderToolbar: React.FC<ProviderToolbarProps> = ({
 
       {/* Right Operations */}
       <Inline gap="sm" align="center" wrap>
-        <Space size={4} wrap>
-          {target !== "codex" && target !== "opencode" && (
-            <Button type="text" size="small" loading={oauthPolling} onClick={onCodexOauthLogin}>
-              {t("providers.chatgptLogin")}
-            </Button>
-          )}
-          <Button type="text" size="small" icon={<ImportOutlined />} loading={busy} onClick={onImportLive}>
-            {target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive")}
-          </Button>
-          {target === "opencode" && (
-            <Button type="text" size="small" icon={<FolderOpenOutlined />} onClick={onOpenOpencodeConfig}>
-              {t("providers.opencodeOpenConfig")}
-            </Button>
-          )}
-          <Button type="text" size="small" loading={busy} onClick={onExport}>
-            {t("providers.export")}
-          </Button>
-          <Button type="text" size="small" loading={busy} onClick={onImportClipboard}>
-            {t("providers.importClipboard")}
-          </Button>
-          <label style={{ display: "inline-block" }}>
-            <Button type="text" size="small" loading={busy}>
-              {t("providers.importFile")}
-            </Button>
-            <input
-              type="file"
-              accept="application/json"
-              hidden
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) onImportFile(file);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-        </Space>
-
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={onCreate}>
           {t("providers.create")}
         </Button>
+        <Dropdown menu={{ items: moreItems }} trigger={["click"]}>
+          <Button
+            size="small"
+            icon={<EllipsisOutlined />}
+            loading={oauthPolling}
+            aria-label={t("providers.moreActions")}
+          />
+        </Dropdown>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onImportFile(file);
+            event.currentTarget.value = "";
+          }}
+        />
       </Inline>
     </Inline>
   );

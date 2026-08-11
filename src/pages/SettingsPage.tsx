@@ -1,159 +1,101 @@
-import { useEffect, useState, type ComponentType } from "react";
-import { Layout, Menu, Spin, Typography, theme } from "antd";
+import { Select } from "antd";
 import { useTranslation } from "react-i18next";
-import ControlOutlined from "@ant-design/icons/es/icons/ControlOutlined";
-import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
-import FileTextOutlined from "@ant-design/icons/es/icons/FileTextOutlined";
-import ToolOutlined from "@ant-design/icons/es/icons/ToolOutlined";
-import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
-import BlockOutlined from "@ant-design/icons/es/icons/BlockOutlined";
-import HistoryOutlined from "@ant-design/icons/es/icons/HistoryOutlined";
-import TranslationOutlined from "@ant-design/icons/es/icons/TranslationOutlined";
-import DesktopOutlined from "@ant-design/icons/es/icons/DesktopOutlined";
-import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
-import {
-  getLoadedPage,
-  preloadPage,
-  type PageKey,
-} from "@/lib/pageRegistry";
 import { useAppStore } from "@/stores/appStore";
-
-const { Sider, Content } = Layout;
+import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
+import { languages } from "@/i18n";
+import { useNavigatePage } from "@/lib/navigation";
+import { SettingsSection, SettingsRow } from "@/components/settings";
 
 /**
- * Low-frequency configuration pages embedded in the settings view.
- * Order = display order in the left sub-navigation.
- * Antigravity is a top-level page (like proxy), not embedded here.
+ * System settings only. Workspace resources (Projects / MCP / Prompts /
+ * Skills / Agents / Codex Plugins) live in the Workspace page, not here.
  */
-const SETTINGS_PAGES: PageKey[] = [
-  "profiles",
-  "mcp",
-  "prompts",
-  "skills",
-  "agents",
-  "codexPlugins",
-  "sessions",
-  "localization",
-  "environment",
-  "about",
-];
-
-const SETTINGS_ICONS: Record<PageKey, React.ReactNode> = {
-  profiles: <ControlOutlined />,
-  mcp: <ApiOutlined />,
-  prompts: <FileTextOutlined />,
-  skills: <ToolOutlined />,
-  agents: <RobotOutlined />,
-  codexPlugins: <BlockOutlined />,
-  sessions: <HistoryOutlined />,
-  localization: <TranslationOutlined />,
-  environment: <DesktopOutlined />,
-  about: <InfoCircleOutlined />,
-  workbench: null,
-  providers: null,
-  proxy: null,
-  antigravity: null,
-  usage: null,
-  settings: null,
-};
-
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const { token } = theme.useToken();
+  const navigate = useNavigatePage();
   const language = useAppStore((s) => s.language);
-
-  const visiblePages = SETTINGS_PAGES.filter(
-    (key) => key !== "localization" || language === "zh-CN",
-  );
-  const [activeKey, setActiveKey] = useState<PageKey>(visiblePages[0]);
-  const effectiveKey = visiblePages.includes(activeKey) ? activeKey : visiblePages[0];
+  const setLanguage = useAppStore((s) => s.setLanguage);
+  const themeMode = useThemeStore((s) => s.mode);
+  const setThemeMode = useThemeStore((s) => s.setMode);
 
   return (
     <div
       style={{
+        maxWidth: 920,
+        margin: "0 auto",
+        width: "100%",
         display: "flex",
         flexDirection: "column",
-        gap: 16,
-        height: "100%",
-        minHeight: 0,
+        gap: "var(--space-6)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "0 0 auto" }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          {t("settings.title")}
-        </Typography.Title>
-      </div>
-      <Layout
-        style={{
-          flex: 1,
-          minHeight: 0,
-          background: "transparent",
-          overflow: "hidden",
-        }}
-      >
-        <Sider
-          width={200}
-          style={{
-            background: "transparent",
-            overflow: "auto",
-            minHeight: 0,
-          }}
-        >
-          <Menu
-            mode="inline"
-            selectedKeys={[effectiveKey]}
-            onClick={({ key }) => setActiveKey(key as PageKey)}
-            items={visiblePages.map((key) => ({
-              key,
-              icon: SETTINGS_ICONS[key],
-              label: t(`nav.${key}`),
-            }))}
-            style={{ borderInlineEnd: "none", background: "transparent" }}
+      {/* General */}
+      <SettingsSection title={t("settings.sectionGeneral", { defaultValue: "通用" })}>
+        <SettingsRow
+          title={t("common.language", { defaultValue: "语言" })}
+          description={t("settings.languageHint", { defaultValue: "界面显示语言" })}
+          control={
+            <Select
+              size="small"
+              value={language}
+              style={{ width: 140 }}
+              options={languages.map((lang) => ({ value: lang.value, label: lang.label }))}
+              onChange={setLanguage}
+            />
+          }
+        />
+        <SettingsRow
+          title={t("common.theme", { defaultValue: "主题" })}
+          description={t("settings.themeHint", { defaultValue: "外观与明暗模式" })}
+          control={
+            <Select<ThemeMode>
+              size="small"
+              value={themeMode}
+              style={{ width: 140 }}
+              options={[
+                { value: "light", label: t("common.themeLight") },
+                { value: "dark", label: t("common.themeDark") },
+                { value: "system", label: t("common.themeSystem") },
+              ]}
+              onChange={setThemeMode}
+            />
+          }
+        />
+      </SettingsSection>
+
+      {/* Runtime */}
+      <SettingsSection title={t("settings.sectionRuntime", { defaultValue: "运行时" })}>
+        <SettingsRow
+          title={t("nav.sessions", { defaultValue: "会话管理" })}
+          description={t("settings.sessionsHint", { defaultValue: "管理本地 AI 会话与归档" })}
+          onClick={() => navigate("sessions")}
+        />
+        <SettingsRow
+          title={t("nav.environment", { defaultValue: "环境信息" })}
+          description={t("settings.environmentHint", { defaultValue: "运行时路径与环境诊断" })}
+          onClick={() => navigate("environment")}
+        />
+      </SettingsSection>
+
+      {/* Localization (zh-CN only feature) */}
+      {language === "zh-CN" && (
+        <SettingsSection title={t("settings.sectionLocalization", { defaultValue: "本地化" })}>
+          <SettingsRow
+            title={t("nav.localization", { defaultValue: "汉化与本地化" })}
+            description={t("settings.localizationHint", { defaultValue: "客户端汉化与翻译配置" })}
+            onClick={() => navigate("localization")}
           />
-        </Sider>
-        <Content
-          style={{
-            minWidth: 0,
-            minHeight: 0,
-            overflow: "auto",
-            paddingLeft: 24,
-            borderLeft: `1px solid ${token.colorBorderSecondary}`,
-          }}
-        >
-          <EmbeddedPage pageKey={effectiveKey} />
-        </Content>
-      </Layout>
+        </SettingsSection>
+      )}
+
+      {/* About */}
+      <SettingsSection title={t("settings.sectionAbout", { defaultValue: "关于" })}>
+        <SettingsRow
+          title="AI-Switcher"
+          description={t("settings.aboutHint", { defaultValue: "应用版本与更新信息" })}
+          onClick={() => navigate("about")}
+        />
+      </SettingsSection>
     </div>
   );
-}
-
-/** Lazy-loads and renders a registered page inside the settings view. */
-function EmbeddedPage({ pageKey }: { pageKey: PageKey }) {
-  const [Page, setPage] = useState<ComponentType | undefined>(() =>
-    getLoadedPage(pageKey),
-  );
-
-  useEffect(() => {
-    const loaded = getLoadedPage(pageKey);
-    if (loaded) {
-      setPage(() => loaded);
-      return;
-    }
-    let cancelled = false;
-    void preloadPage(pageKey).then((P) => {
-      if (!cancelled) setPage(() => P);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pageKey]);
-
-  if (!Page) {
-    return (
-      <div style={{ display: "flex", justifyContent: "center", paddingTop: 48 }}>
-        <Spin />
-      </div>
-    );
-  }
-  return <Page />;
 }

@@ -29,7 +29,7 @@ export const NAV_ITEMS: NavItemDef[] = [
   { key: "proxy", labelKey: "navigation.proxy", defaultLabel: "代理控制", icon: <ApiOutlined />, group: "runtime" },
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined />, group: "runtime" },
   { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined />, group: "resources" },
-  { key: "mcp", labelKey: "navigation.workspace", defaultLabel: "工作区资源", icon: <FolderOutlined />, group: "resources" },
+  { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined />, group: "resources" },
   { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined />, group: "system" },
 ];
 
@@ -56,11 +56,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isPrimaryActive = (navKey: PageKey) => {
     if (navKey === activeKey) return true;
     // Map workspace sub-pages
-    if (navKey === "mcp" && ["mcp", "prompts", "skills", "agents", "codexPlugins", "sessions", "profiles"].includes(activeKey)) {
+    if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "codexPlugins", "profiles"].includes(activeKey)) {
       return true;
     }
     // Map settings sub-pages
-    if (navKey === "settings" && ["settings", "about", "environment", "localization"].includes(activeKey)) {
+    if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization"].includes(activeKey)) {
       return true;
     }
     return false;
