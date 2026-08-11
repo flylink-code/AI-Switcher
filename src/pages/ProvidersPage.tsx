@@ -302,11 +302,15 @@ export default function ProvidersPage() {
         />
       )}
       {target === "opencode" && (
-        <OnboardingTip
-          tipKey="providers_opencode_multi"
+        <Alert
           type="info"
-          message={t("providers.opencodeNoSwitchTitle")}
-          description={t("providers.opencodeNoSwitchDescription")}
+          showIcon
+          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+          message={
+            <span style={{ fontSize: "12.5px" }}>
+              <strong>{t("providers.opencodeNoSwitchTitle")}</strong> — {t("providers.opencodeNoSwitchDescription")}
+            </span>
+          }
         />
       )}
       {target === "codex" && (
@@ -406,22 +410,14 @@ export default function ProvidersPage() {
                   </div>
                 </div>
 
-                {/* Metrics Rail */}
-                <div className="cc-provider-card-metrics">
-                  <div className="cc-metric-item">
-                    <span className="cc-metric-label">Model</span>
-                    <span className="cc-metric-value" style={{ fontSize: 12 }}>{provider.model || "Default"}</span>
-                  </div>
-                  <div className="cc-metric-item">
-                    <span className="cc-metric-label">Protocol</span>
-                    <span className="cc-metric-value" style={{ fontSize: 12 }}>{provider.protocolType}</span>
-                  </div>
-                  <div className="cc-metric-item">
-                    <span className="cc-metric-label">Latency</span>
-                    <span className="cc-metric-value" style={{ fontSize: 12 }}>
-                      {provider.healthLatencyMs != null ? `${provider.healthLatencyMs}ms` : "--"}
-                    </span>
-                  </div>
+                {/* Lightweight Metadata Row (No bulky inner-card) */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "2px 0 4px 0" }}>
+                  <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
+                    Model: {provider.model || "Default"}
+                  </Tag>
+                  <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
+                    {provider.protocolType}
+                  </Tag>
                 </div>
 
                 {/* Footer Row */}

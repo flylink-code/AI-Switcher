@@ -20,13 +20,15 @@ export default function SettingsPage() {
 
   return (
     <div
+      className="settings-desktop-view"
       style={{
-        maxWidth: 920,
-        margin: "0 auto",
-        width: "100%",
+        width: "calc(100% - 64px)",
+        maxWidth: 1040,
+        marginInline: "auto",
         display: "flex",
         flexDirection: "column",
-        gap: "var(--space-6)",
+        gap: "28px",
+        paddingBottom: "40px",
       }}
     >
       {/* General */}
@@ -36,9 +38,8 @@ export default function SettingsPage() {
           description={t("settings.languageHint", { defaultValue: "界面显示语言" })}
           control={
             <Select
-              size="small"
               value={language}
-              style={{ width: 140 }}
+              style={{ width: 190 }}
               options={languages.map((lang) => ({ value: lang.value, label: lang.label }))}
               onChange={setLanguage}
             />
@@ -49,9 +50,8 @@ export default function SettingsPage() {
           description={t("settings.themeHint", { defaultValue: "外观与明暗模式" })}
           control={
             <Select<ThemeMode>
-              size="small"
               value={themeMode}
-              style={{ width: 140 }}
+              style={{ width: 190 }}
               options={[
                 { value: "light", label: t("common.themeLight") },
                 { value: "dark", label: t("common.themeDark") },

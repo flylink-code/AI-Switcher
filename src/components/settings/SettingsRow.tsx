@@ -26,19 +26,19 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
   const inner = (
     <>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-        <span style={{ fontSize: "var(--font-size-md)", color: "var(--color-text-primary)" }}>
+        <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-text-primary)" }}>
           {title}
         </span>
         {description && (
-          <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-tertiary)" }}>
+          <span style={{ fontSize: "12.5px", color: "var(--color-text-secondary)", lineHeight: 1.4 }}>
             {description}
           </span>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
         {control}
         {interactive && (
-          <RightOutlined style={{ fontSize: 12, color: "var(--color-text-tertiary)" }} />
+          <RightOutlined style={{ fontSize: 13, color: "var(--color-text-tertiary)" }} />
         )}
       </div>
     </>
@@ -48,12 +48,15 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "var(--space-4)",
+    gap: "16px",
     width: "100%",
-    padding: "12px 4px",
-    borderBottom: "1px solid var(--color-border-subtle)",
+    minHeight: "64px",
+    padding: "14px 16px",
+    borderBottom: "1px solid var(--color-border-subtle, rgba(0,0,0,0.06))",
     background: "none",
     textAlign: "left",
+    boxSizing: "border-box",
+    transition: "background-color 0.15s ease",
     ...style,
   };
 
@@ -61,11 +64,20 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
     return (
       <button
         type="button"
-        className={className}
+        className={`settings-row-interactive ${className}`.trim()}
         onClick={onClick}
-        style={{ ...baseStyle, border: "none", borderBottom: "1px solid var(--color-border-subtle)", cursor: "pointer" }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--color-bg-surface)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+        style={{
+          ...baseStyle,
+          border: "none",
+          borderBottom: "1px solid var(--color-border-subtle, rgba(0,0,0,0.06))",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = "var(--color-bg-subtle, rgba(0,0,0,0.025))";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+        }}
       >
         {inner}
       </button>
@@ -73,7 +85,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = ({
   }
 
   return (
-    <div className={className} style={baseStyle}>
+    <div className={`settings-row ${className}`.trim()} style={baseStyle}>
       {inner}
     </div>
   );

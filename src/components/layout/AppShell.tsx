@@ -2,12 +2,11 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Layout, theme } from "antd";
 import type { PageKey } from "@/lib/pageRegistry";
-import { TitleBar } from "@/components/TitleBar";
+import { WindowChrome } from "./WindowChrome";
 import { SideNav } from "./SideNav";
 import { ContextHeader } from "./ContextHeader";
 import { StatusBar } from "./StatusBar";
-import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
-import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+
 export interface AppShellProps {
   activeKey: PageKey;
   onNavigate: (key: PageKey) => void;
@@ -16,6 +15,16 @@ export interface AppShellProps {
   appVersion?: string | null;
   children: React.ReactNode;
 }
+
+const PRIMARY_PAGES = new Set<PageKey>([
+  "workbench",
+  "providers",
+  "proxy",
+  "usage",
+  "antigravity",
+  "workspace",
+  "settings",
+]);
 
 export const AppShell: React.FC<AppShellProps> = ({
   activeKey,
@@ -27,73 +36,46 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const providersTarget = usePagePreferencesStore((s) => s.providersTarget);
-  const proxyTarget = usePagePreferencesStore((s) => s.proxyTarget);
 
-  // Compute page title and description according to activeKey.
-  // Agent-scoped pages name their own target in the description; each owns an
-  // independent persisted target (no global Agent context anymore).
-  const getHeaderMeta = (key: PageKey): { title: string; description?: string } => {
+  const isPrimaryPage = PRIMARY_PAGES.has(activeKey);
+
+  // Compute header meta for secondary detail pages only
+  const getSecondaryHeaderMeta = (key: PageKey): { title: string; parentKey: PageKey; parentLabel: string } => {
     switch (key) {
-      case "workbench":
-        return {
-          title: t("navigation.dashboard", { defaultValue: "概览" }),
-          description: t("workbench.subtitle", { defaultValue: "AI-Switcher 控制中心与状态概览" }),
-        };
-      case "providers":
-        return {
-          title: t("navigation.providers", { defaultValue: "供应商服务" }),
-          description: t("providers.subtitleFor", {
-            client: t(LABEL_KEYS[providersTarget]),
-            defaultValue: t("providers.subtitle", { defaultValue: "管理当前客户端可用的 API Provider" }),
-          }),
-        };
-      case "proxy":
-        return {
-          title: t("navigation.proxy", { defaultValue: "代理控制中心" }),
-          description: t("proxy.subtitleFor", {
-            client: t(LABEL_KEYS[proxyTarget]),
-            defaultValue: t("proxy.subtitle", { defaultValue: "本地请求路由与自动故障切换控制" }),
-          }),
-        };
-      case "usage":
-        return {
-          title: t("navigation.usage", { defaultValue: "用量与统计" }),
-          description: t("usage.subtitle", { defaultValue: "Token 用量与请求趋势诊断" }),
-        };
-      case "antigravity":
-        return {
-          title: t("navigation.accounts", { defaultValue: "Accounts & Quotas" }),
-          description: t("antigravity.subtitle", { defaultValue: "Google / Antigravity 账号池与额度监控" }),
-        };
-      case "workspace":
-      case "mcp":
-      case "prompts":
-      case "skills":
-      case "agents":
-      case "codexPlugins":
-      case "profiles":
-        return {
-          title: t("navigation.workspace", { defaultValue: "工作区" }),
-          description: t("workspace.subtitle", { defaultValue: "项目、MCP、Prompts、Skills 与配置资源管理" }),
-        };
-      case "settings":
       case "sessions":
-      case "about":
+        return {
+          title: t("nav.sessions", { defaultValue: "会话管理" }),
+          parentKey: "settings",
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
       case "environment":
+        return {
+          title: t("nav.environment", { defaultValue: "环境信息" }),
+          parentKey: "settings",
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
       case "localization":
         return {
-          title: t("navigation.settings", { defaultValue: "设置" }),
-          description: t("settings.subtitle", { defaultValue: "系统选项与配置" }),
+          title: t("nav.localization", { defaultValue: "汉化与本地化" }),
+          parentKey: "settings",
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
+      case "about":
+        return {
+          title: t("settings.sectionAbout", { defaultValue: "关于" }),
+          parentKey: "settings",
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
       default:
         return {
-          title: "AI-Switcher",
+          title: "",
+          parentKey: "workbench",
+          parentLabel: t("navigation.dashboard", { defaultValue: "概览" }),
         };
     }
   };
 
-  const headerMeta = getHeaderMeta(activeKey);
+  const secondaryMeta = !isPrimaryPage ? getSecondaryHeaderMeta(activeKey) : null;
 
   return (
     <div
@@ -108,26 +90,23 @@ export const AppShell: React.FC<AppShellProps> = ({
         color: token.colorText,
       }}
     >
-      {/* Top Custom Window TitleBar */}
-      <TitleBar
-        showBack={activeKey !== "workbench"}
-        onBack={() => onNavigate("workbench")}
-        updateVersion={updateVersion}
-        onOpenUpdate={onOpenUpdate}
-      />
-
-      {/* Body: left primary sidebar + right column (header + content) */}
+      {/* Main Container: Left SideNav + Right Content (Window Chrome + Page Content + StatusBar) */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
-        <SideNav
-          activeKey={activeKey}
-          onNavigate={onNavigate}
-        />
+        <SideNav activeKey={activeKey} onNavigate={onNavigate} />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <ContextHeader
-            title={headerMeta.title}
-            description={headerMeta.description}
-          />
+          {/* Top Integrated Window Chrome (Controls, Drag Region, Language, Theme) */}
+          <WindowChrome updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
+
+          {/* Secondary Page Header (Only rendered for non-primary child pages like Settings > Sessions) */}
+          {secondaryMeta && (
+            <ContextHeader
+              title={secondaryMeta.title}
+              showBack
+              onBack={() => onNavigate(secondaryMeta.parentKey)}
+              backText={secondaryMeta.parentLabel}
+            />
+          )}
 
           <Layout.Content
             className="app-content-area"
@@ -136,7 +115,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               minWidth: 0,
               minHeight: 0,
               overflow: "auto",
-              padding: "var(--page-padding-y) var(--page-padding-x)",
+              padding: "16px var(--page-padding-x, 16px) var(--page-padding-y, 20px)",
               backgroundColor: token.colorBgLayout,
             }}
           >

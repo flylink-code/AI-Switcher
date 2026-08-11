@@ -1,8 +1,11 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { PageKey } from "@/lib/pageRegistry";
 import { NAV_ITEMS, isPrimaryActive } from "./navItems";
 import appLogo from "@/assets/app-logo.png";
+
+const appWindow = getCurrentWindow();
 
 export interface SideNavProps {
   activeKey: PageKey;
@@ -87,22 +90,31 @@ export const SideNav: React.FC<SideNavProps> = ({ activeKey, onNavigate }) => {
     >
       {/* Sidebar Brand Header */}
       <div
+        data-tauri-drag-region
+        onDoubleClick={() => {
+          void appWindow.toggleMaximize();
+        }}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          padding: "4px 8px 10px 8px",
+          padding: "6px 8px 10px 8px",
           borderBottom: "1px solid var(--color-border-subtle, rgba(0,0,0,0.06))",
           marginBottom: "4px",
+          userSelect: "none",
+          cursor: "default",
+          minHeight: "36px",
+          boxSizing: "border-box",
         }}
       >
-        <img src={appLogo} alt="Logo" style={{ width: 18, height: 18, objectFit: "contain" }} />
+        <img src={appLogo} alt="Logo" style={{ width: 18, height: 18, objectFit: "contain", pointerEvents: "none" }} />
         <span
           style={{
             fontWeight: 600,
             fontSize: "14px",
             color: "var(--color-text-primary)",
             letterSpacing: "-0.2px",
+            pointerEvents: "none",
           }}
         >
           AI-Switcher

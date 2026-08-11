@@ -7,7 +7,7 @@ export interface SettingsSectionProps {
   style?: React.CSSProperties;
 }
 
-/** A titled group of settings rows separated by a heading + divider. */
+/** A titled group of settings rows wrapped in a rounded Desktop Group Surface. */
 export const SettingsSection: React.FC<SettingsSectionProps> = ({
   title,
   children,
@@ -15,20 +15,25 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
   style,
 }) => {
   return (
-    <section className={className} style={style}>
+    <section className={className} style={{ marginBottom: "24px", ...style }}>
       <h3
         style={{
-          margin: "0 0 var(--space-2)",
-          fontSize: "var(--font-size-sm)",
-          fontWeight: "var(--font-weight-semibold)",
-          color: "var(--color-text-secondary)",
+          margin: "0 0 10px 4px",
+          fontSize: "15px",
+          fontWeight: 600,
+          color: "var(--color-text-primary)",
+          letterSpacing: "-0.1px",
         }}
       >
         {title}
       </h3>
       <div
+        className="settings-group-surface"
         style={{
-          borderTop: "1px solid var(--color-border-subtle)",
+          backgroundColor: "var(--color-bg-surface, var(--color-bg-container))",
+          border: "1px solid var(--color-border-subtle, var(--color-border))",
+          borderRadius: "8px",
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
         }}

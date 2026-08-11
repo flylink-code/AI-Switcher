@@ -36,14 +36,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-        <img src={appLogo} alt="AI-Switcher" style={{ width: 14, height: 14 }} />
-        <span style={{ fontWeight: "var(--font-weight-semibold)", color: "var(--color-text-primary)" }}>
-          AI-Switcher
-        </span>
+        <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>Ready</span>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-        {appVersion && <span>v{appVersion}</span>}
+        {appVersion && <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>v{appVersion}</span>}
       </div>
     </footer>
   );
