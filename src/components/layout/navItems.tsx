@@ -15,19 +15,17 @@ export interface NavItemDef {
   labelKey: string;
   defaultLabel: string;
   icon: React.ReactNode;
-  /** Low-frequency items collapse into "More" on narrow windows. */
-  lowFrequency?: boolean;
 }
 
-/** Primary navigation items shared by the top NavigationDock. */
+/** Primary navigation items shared by the left SideNav. */
 export const NAV_ITEMS: NavItemDef[] = [
   { key: "workbench", labelKey: "navigation.dashboard", defaultLabel: "概览", icon: <AppstoreOutlined /> },
   { key: "providers", labelKey: "navigation.providers", defaultLabel: "供应商", icon: <ClusterOutlined /> },
   { key: "proxy", labelKey: "navigation.proxy", defaultLabel: "代理控制", icon: <ApiOutlined /> },
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined /> },
-  { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined />, lowFrequency: true },
-  { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined />, lowFrequency: true },
-  { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined />, lowFrequency: true },
+  { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined /> },
+  { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined /> },
+  { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined /> },
 ];
 
 /** Map a (possibly sub-page) activeKey to its primary navigation key. */

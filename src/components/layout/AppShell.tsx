@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Layout, theme } from "antd";
 import type { PageKey } from "@/lib/pageRegistry";
 import { TitleBar } from "@/components/TitleBar";
-import { NavigationDock } from "./NavigationDock";
+import { SideNav } from "./SideNav";
 import { ContextHeader } from "./ContextHeader";
 import { StatusBar } from "./StatusBar";
 import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
@@ -116,30 +116,34 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenUpdate={onOpenUpdate}
       />
 
-      {/* Top content-aligned Navigation Dock (replaces the left icon rail) */}
-      <NavigationDock
-        activeKey={activeKey}
-        onNavigate={onNavigate}
-      />
+      {/* Body: left primary sidebar + right column (header + content) */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
+        <SideNav
+          activeKey={activeKey}
+          onNavigate={onNavigate}
+        />
 
-      <ContextHeader
-        title={headerMeta.title}
-        description={headerMeta.description}
-      />
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <ContextHeader
+            title={headerMeta.title}
+            description={headerMeta.description}
+          />
 
-      <Layout.Content
-        className="app-content-area"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 0,
-          overflow: "auto",
-          padding: "var(--page-padding-y) var(--page-padding-x)",
-          backgroundColor: token.colorBgLayout,
-        }}
-      >
-        {children}
-      </Layout.Content>
+          <Layout.Content
+            className="app-content-area"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              overflow: "auto",
+              padding: "var(--page-padding-y) var(--page-padding-x)",
+              backgroundColor: token.colorBgLayout,
+            }}
+          >
+            {children}
+          </Layout.Content>
+        </div>
+      </div>
 
       {/* Bottom Fixed Runtime Status Bar */}
       <StatusBar appVersion={appVersion} />
