@@ -1140,7 +1140,8 @@
     "viewProxyLink": "查看代理",
     "viewProvidersLink": "查看供应商",
     "activityTitle": "最近活动",
-    "activityEmpty": "暂无活动记录"
+    "activityEmpty": "暂无活动记录",
+    "pastYear": "过去一年"
   },
   "antigravity": {
     "title": "Antigravity 网关",

@@ -4,7 +4,7 @@ import CheckCircleFilled from "@ant-design/icons/es/icons/CheckCircleFilled";
 import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { UsageTrendBars } from "@/components/UsageCalendar";
+import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
 import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
 import { usageSourceIcon, type UsageSourceFilter } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
@@ -62,6 +62,8 @@ export default function WorkbenchPage() {
   const dashboardQuery = useQuery(usageDashboardOptions("24h", heatmapSource));
   const trendQuery = useQuery(usageTrendOptions("24h", heatmapSource));
   const activityQuery = useQuery(usageLogsOptions("24h", 0, heatmapSource));
+  // Yearly heatmap — same query option the old overview used (no new API/polling).
+  const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   // ----- Aggregate status strip -----
   const proxyTargets: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
@@ -466,6 +468,32 @@ export default function WorkbenchPage() {
           </div>
         </div>
       </Card>
+
+      {/* 4. Past Year — quiet long-term context, full width aligned with the cards above */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <span style={{ fontSize: "14px", fontWeight: 600 }}>
+          {t("workbench.pastYear", { defaultValue: "过去一年" })}
+        </span>
+        <Card
+          size="small"
+          className="page-surface workbench-chart-card"
+          style={{ marginBottom: 0 }}
+          styles={{ body: { padding: "8px 12px" } }}
+        >
+          {yearTrendQuery.error ? (
+            <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
+          ) : (
+            <div style={{ width: "100%", overflow: "hidden" }}>
+              <UsageCalendar
+                data={yearTrendQuery.data?.trend ?? []}
+                period={365}
+                compact
+                maxCellSize={14}
+              />
+            </div>
+          )}
+        </Card>
+      </section>
     </div>
   );
 }

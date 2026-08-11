@@ -32,6 +32,7 @@ export function UsageCalendar({
   period,
   orientation = "horizontal",
   compact = false,
+  maxCellSize,
 }: {
   data: UsageDashboard["trend"];
   period: UsagePeriod;
@@ -39,6 +40,8 @@ export function UsageCalendar({
   orientation?: "horizontal" | "vertical";
   /** compact hides the summary Statistic row (workbench rail). */
   compact?: boolean;
+  /** Caps day-cell growth below DAY_CELL.max (overview heatmap stays a quiet ~150-180px strip). */
+  maxCellSize?: number;
 }) {
   const { i18n, t } = useTranslation();
   const { token } = theme.useToken();
@@ -118,6 +121,7 @@ export function UsageCalendar({
         requestsLabel={t("usage.requests")}
         ariaLabel={t("usage.dailyStatistics")}
         orientation={orientation}
+        maxCellSize={maxCellSize ?? DAY_CELL.max}
         weekdayLabels={[
           t("usage.weekdaySun"),
           t("usage.weekdayMon"),
@@ -154,6 +158,7 @@ function ContributionHeatmap({
   weekdayLabels,
   formatMonth,
   orientation = "horizontal",
+  maxCellSize = DAY_CELL.max,
 }: {
   daily: DayCell[];
   max: number;
@@ -164,6 +169,7 @@ function ContributionHeatmap({
   weekdayLabels: string[];
   formatMonth: (date: Date) => string;
   orientation?: "horizontal" | "vertical";
+  maxCellSize?: number;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
@@ -186,8 +192,8 @@ function ContributionHeatmap({
 
   const cellSize = useMemo(() => {
     const usable = Math.max(viewportWidth - WEEKDAY_GUTTER, 0);
-    return fitCellSize(usable, trackCount, CELL_GAP, DAY_CELL.min, DAY_CELL.max);
-  }, [trackCount, viewportWidth]);
+    return fitCellSize(usable, trackCount, CELL_GAP, DAY_CELL.min, maxCellSize);
+  }, [trackCount, viewportWidth, maxCellSize]);
 
   const gridWidth = trackCount * cellSize + Math.max(trackCount - 1, 0) * CELL_GAP;
   const gridHeight = weekCount * cellSize + Math.max(weekCount - 1, 0) * CELL_GAP;
