@@ -783,6 +783,11 @@ body {
   height: 150px;
 }
 
+/* Overview Plan B hero: the 24h trend is the page's visual anchor (240~280px). */
+.workbench-hero-chart .hourly-bars {
+  height: 244px;
+}
+
 /* KPI: 4 columns across full width on desktop, 2 columns on mobile */
 .usage-summary-grid {
   display: grid;
