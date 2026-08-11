@@ -122,10 +122,17 @@ export default function WorkbenchPage() {
     tokens: pctDelta(lastWindow.tokens, prevWindow.tokens),
     cost: pctDelta(lastWindow.cost, prevWindow.cost),
   };
-  const deltaText = (value: number | null) =>
-    value == null
-      ? undefined
-      : `${value >= 0 ? "↑" : "↓"}${Math.abs(value)}% ${t("workbench.vsPrev12h", { defaultValue: "vs 前 12 小时" })}`;
+  // Delta tones: request/token deltas stay neutral; a cost *decrease* reads
+  // positive (green); success rate itself warns only when it drops below 95%.
+  const deltaText = (value: number | null, tone: "neutral" | "positiveWhenDown" = "neutral") => {
+    if (value == null) return undefined;
+    const positive = tone === "positiveWhenDown" && value < 0;
+    return (
+      <span style={positive ? { color: "var(--color-success, #52c41a)" } : undefined}>
+        {`${value >= 0 ? "↑" : "↓"}${Math.abs(value)}% ${t("workbench.vsPrev12h", { defaultValue: "vs 前 12 小时" })}`}
+      </span>
+    );
+  };
 
   const heroEmpty = dashboardQuery.data != null && requestCount === 0;
 
@@ -166,21 +173,49 @@ export default function WorkbenchPage() {
   }
   const healthy = attentionItems.length === 0;
 
-  // ----- Recent activity -----
-  const activityRows = (activityQuery.data?.data ?? []).slice(0, 6);
-  const formatTime = (ms: number) => {
-    const d = new Date(ms);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  // ----- Recent activity: aggregated per Agent (overview is not a log viewer) -----
+  // Groups the fetched 24h logs by targetApp — sum tokens, keep the latest
+  // timestamp — then shows the 6 most recently active agents.
+  type ActivityGroup = { targetApp: string | null; tokens: number; usageAvailable: boolean; lastAt: number };
+  const activityGroups = (() => {
+    const groups = new Map<string, ActivityGroup>();
+    for (const row of activityQuery.data?.data ?? []) {
+      const key = row.targetApp ?? "__unknown__";
+      const tokens =
+        row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.tokens += tokens;
+        existing.usageAvailable = existing.usageAvailable || row.usageAvailable;
+        existing.lastAt = Math.max(existing.lastAt, row.createdAt);
+      } else {
+        groups.set(key, {
+          targetApp: row.targetApp,
+          tokens,
+          usageAvailable: row.usageAvailable,
+          lastAt: row.createdAt,
+        });
+      }
+    }
+    return [...groups.values()].sort((a, b) => b.lastAt - a.lastAt).slice(0, 6);
+  })();
+  const relativeTime = (ms: number) => {
+    const minutes = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+    if (minutes < 1) return t("workbench.activityJustNow", { defaultValue: "刚刚" });
+    if (minutes < 60)
+      return t("workbench.activityMinutesAgo", { minutes, defaultValue: "{{minutes}} 分钟前" });
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24)
+      return t("workbench.activityHoursAgo", { hours, defaultValue: "{{hours}} 小时前" });
+    return t("workbench.activityDaysAgo", { days: Math.floor(hours / 24), defaultValue: "{{days}} 天前" });
   };
   const activityAgentLabel = (targetApp: string | null) => {
     if (targetApp && targetApp in LABEL_KEYS) return t(LABEL_KEYS[targetApp as ProviderTarget]);
     return targetApp ?? "—";
   };
-  const activityTokens = (row: (typeof activityRows)[number]) => {
-    if (!row.usageAvailable) return "—";
-    return formatCompactNumber(
-      row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens,
-    );
+  const activityGroupTokens = (group: ActivityGroup) => {
+    if (!group.usageAvailable) return "—";
+    return `${formatCompactNumber(group.tokens)} Token`;
   };
 
   return (
@@ -241,8 +276,8 @@ export default function WorkbenchPage() {
           {agentRunningCount != null
             ? t("workbench.stripAgents", {
                 running: agentRunningCount,
-                total: 4,
-                defaultValue: "{{running}}/{{total}} 个 Agent",
+                idle: 4 - agentRunningCount,
+                defaultValue: "Agent：{{running}} 活跃 · {{idle}} 空闲",
               })
             : "…"}
         </span>
@@ -263,14 +298,14 @@ export default function WorkbenchPage() {
         size="small"
         className="page-surface workbench-chart-card"
         style={{ marginBottom: 0 }}
-        styles={{ body: { padding: "12px 16px 14px" } }}
+        styles={{ body: { padding: "14px 20px 12px" } }}
       >
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 600 }}>
@@ -352,15 +387,27 @@ export default function WorkbenchPage() {
                     </Tooltip>
                   </span>
                 }
-                value={`${currencyPrefix(summary?.estimatedCostCurrency)}${(summary?.estimatedCost ?? 0).toFixed(3)}`}
-                supporting={deltaText(deltas.cost)}
+                value={`${currencyPrefix(summary?.estimatedCostCurrency)}${(summary?.estimatedCost ?? 0).toFixed(2)}`}
+                supporting={deltaText(deltas.cost, "positiveWhenDown")}
               />
               <Metric
                 label={t("usage.successRate", { defaultValue: "成功率" })}
-                value={successRate != null ? `${successRate}%` : "—"}
+                value={
+                  successRate != null ? (
+                    <span
+                      style={
+                        successRate < 95 ? { color: "var(--color-warning, #faad14)" } : undefined
+                      }
+                    >
+                      {successRate}%
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                }
               />
             </div>
-            <div className="workbench-hero-chart" style={{ marginTop: 10 }}>
+            <div className="workbench-hero-chart" style={{ marginTop: 8 }}>
               <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
             </div>
           </>
@@ -376,15 +423,50 @@ export default function WorkbenchPage() {
       >
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {/* Needs Attention */}
-          <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+          <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>
               {t("workbench.attentionTitle", { defaultValue: "需要关注" })}
             </span>
             {healthy ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--color-text-secondary)", fontSize: 12 }}>
-                <CheckCircleFilled style={{ color: "var(--color-success, #52c41a)", fontSize: 12 }} />
-                {t("workbench.attentionAllClear", { defaultValue: "暂无需要关注的项目" })}
-              </div>
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--color-text-secondary)", fontSize: 12 }}>
+                  <CheckCircleFilled style={{ color: "var(--color-success, #52c41a)", fontSize: 12 }} />
+                  {t("workbench.attentionAllClear", { defaultValue: "当前无异常" })}
+                </div>
+                {/* Healthy summary: counts only, from data already on this page. */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 2, fontSize: 12 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span style={{ flex: "0 0 52px", color: "var(--color-text-tertiary)" }}>
+                      {t("workbench.attentionLabelProviders", { defaultValue: "供应商" })}
+                    </span>
+                    <span style={{ color: "var(--color-text-secondary)" }}>
+                      {providersLoaded
+                        ? t("workbench.stripProviders", { count: providerCount, defaultValue: "{{count}} 个供应商" })
+                        : "…"}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span style={{ flex: "0 0 52px", color: "var(--color-text-tertiary)" }}>
+                      {t("workbench.attentionLabelProxies", { defaultValue: "代理" })}
+                    </span>
+                    <span style={{ color: "var(--color-text-secondary)" }}>
+                      {t("workbench.attentionProxiesRunning", { count: proxyRunningCount, defaultValue: "{{count}} 个运行" })}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span style={{ flex: "0 0 52px", color: "var(--color-text-tertiary)" }}>Agent</span>
+                    <span style={{ color: "var(--color-text-secondary)" }}>
+                      {agentRunningCount != null
+                        ? t("workbench.attentionAgentsActive", {
+                            running: agentRunningCount,
+                            idle: 4 - agentRunningCount,
+                            defaultValue: "{{running}} 活跃 · {{idle}} 空闲",
+                          })
+                        : "…"}
+                    </span>
+                  </div>
+                </div>
+              </>
             ) : (
               attentionItems.map((item) => (
                 <div
@@ -420,7 +502,7 @@ export default function WorkbenchPage() {
           {/* Recent Activity */}
           <div
             style={{
-              padding: "12px 16px",
+              padding: "14px 20px",
               display: "flex",
               flexDirection: "column",
               gap: 6,
@@ -433,34 +515,35 @@ export default function WorkbenchPage() {
             </span>
             {activityQuery.error ? (
               <Alert type="error" showIcon message={errMsg(activityQuery.error)} />
-            ) : activityRows.length === 0 ? (
+            ) : activityGroups.length === 0 ? (
               <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
                 {t("workbench.activityEmpty", { defaultValue: "暂无活动记录" })}
               </span>
             ) : (
-              activityRows.map((row) => (
+              activityGroups.map((group) => (
                 <div
-                  key={row.id}
+                  key={group.targetApp ?? "__unknown__"}
                   style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, minHeight: 20 }}
                 >
+                  {group.targetApp && group.targetApp in LABEL_KEYS
+                    ? usageSourceIcon(group.targetApp as UsageSourceFilter, { size: 13 })
+                    : null}
+                  <Text ellipsis style={{ fontSize: 12, flex: "1 1 auto", minWidth: 0 }}>
+                    {activityAgentLabel(group.targetApp)}
+                  </Text>
+                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: "0 0 auto" }}>
+                    {activityGroupTokens(group)}
+                  </span>
                   <span
                     style={{
-                      fontFamily: "monospace",
                       fontSize: 11,
                       color: "var(--color-text-tertiary)",
                       flex: "0 0 auto",
+                      minWidth: 52,
+                      textAlign: "right",
                     }}
                   >
-                    {formatTime(row.createdAt)}
-                  </span>
-                  {row.targetApp && row.targetApp in LABEL_KEYS
-                    ? usageSourceIcon(row.targetApp as UsageSourceFilter, { size: 13 })
-                    : null}
-                  <Text ellipsis style={{ fontSize: 12, flex: "1 1 auto", minWidth: 0 }}>
-                    {activityAgentLabel(row.targetApp)}
-                  </Text>
-                  <span style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: "0 0 auto" }}>
-                    {activityTokens(row)}
+                    {relativeTime(group.lastAt)}
                   </span>
                 </div>
               ))
@@ -470,7 +553,7 @@ export default function WorkbenchPage() {
       </Card>
 
       {/* 4. Past Year — quiet long-term context, full width aligned with the cards above */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: 4 }}>
         <span style={{ fontSize: "14px", fontWeight: 600 }}>
           {t("workbench.pastYear", { defaultValue: "过去一年" })}
         </span>
@@ -478,7 +561,7 @@ export default function WorkbenchPage() {
           size="small"
           className="page-surface workbench-chart-card"
           style={{ marginBottom: 0 }}
-          styles={{ body: { padding: "8px 12px" } }}
+          styles={{ body: { padding: "10px 16px 12px" } }}
         >
           {yearTrendQuery.error ? (
             <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
@@ -488,7 +571,7 @@ export default function WorkbenchPage() {
                 data={yearTrendQuery.data?.trend ?? []}
                 period={365}
                 compact
-                maxCellSize={14}
+                maxCellSize={16}
               />
             </div>
           )}

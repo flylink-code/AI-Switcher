@@ -133,7 +133,12 @@ export function UsageCalendar({
         ]}
         formatMonth={(date) => monthFormatter.format(date)}
       />
-      <CalendarLegend levels={levels} legend={t("usage.calendarLegend")} border={token.colorBorderSecondary} />
+      <CalendarLegend
+        levels={levels}
+        legend={t("usage.calendarLegend")}
+        border={token.colorBorderSecondary}
+        compact={compact}
+      />
     </Space>
   );
 }
@@ -781,31 +786,37 @@ function CalendarLegend({
   levels,
   legend,
   border,
+  compact = false,
 }: {
   levels: Level[];
   legend: string;
   border: string;
+  /** compact drops the long prefix text and shrinks swatches (overview strip). */
+  compact?: boolean;
 }) {
+  const swatch = compact ? 10 : 12;
   return (
-    <Space wrap size={[10, 6]} align="center" style={{ alignSelf: "flex-end", justifyContent: "flex-end" }}>
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        {legend}
-      </Text>
+    <Space wrap size={[10, 4]} align="center" style={{ alignSelf: "flex-end", justifyContent: "flex-end" }}>
+      {compact ? null : (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {legend}
+        </Text>
+      )}
       {levels.map((level) => (
         <Space key={level.label} size={4} align="center">
           <span
             aria-hidden="true"
             style={{
               display: "inline-block",
-              flex: "0 0 12px",
-              width: 12,
-              height: 12,
+              flex: `0 0 ${swatch}px`,
+              width: swatch,
+              height: swatch,
               borderRadius: 2,
               background: level.color,
               border: `1px solid ${border}`,
             }}
           />
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: compact ? 11 : 12 }}>
             {level.label}
           </Text>
         </Space>

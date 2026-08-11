@@ -34,9 +34,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         ...style,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-        <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>Ready</span>
-      </div>
+      {/* Left slot intentionally empty — the former decorative "Ready" label
+          was removed (it reflected no real runtime status). */}
+      <div />
 
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
         {appVersion && <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>v{appVersion}</span>}
