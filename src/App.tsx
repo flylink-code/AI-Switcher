@@ -599,9 +599,6 @@ function ActivePage({
     if (pageKey === "providers") {
       return <ServicePageV2 initialTab="providers" onNavigate={onNavigate} />;
     }
-    if (pageKey === "proxy") {
-      return <ServicePageV2 initialTab="proxy" onNavigate={onNavigate} />;
-    }
     if (pageKey === "antigravity") {
       return <ServicePageV2 initialTab="accounts" onNavigate={onNavigate} />;
     }

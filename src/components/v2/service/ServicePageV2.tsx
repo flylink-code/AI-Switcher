@@ -2,16 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AppstoreOutlined from "@ant-design/icons/es/icons/AppstoreOutlined";
 import CloudServerOutlined from "@ant-design/icons/es/icons/CloudServerOutlined";
-import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
 import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import { useThemeStore } from "@/stores/themeStore";
 import type { PageKey } from "@/lib/pageRegistry";
 import ProvidersPage from "@/pages/ProvidersPage";
-import ProxyPage from "@/pages/ProxyPage";
 import AntigravityPage from "@/pages/AntigravityPage";
 import WorkspacePage from "@/pages/WorkspacePage";
 
-export type ServiceSubTab = "providers" | "proxy" | "accounts" | "workspace";
+export type ServiceSubTab = "providers" | "accounts" | "workspace";
 
 export interface ServicePageV2Props {
   initialTab?: ServiceSubTab;
@@ -20,7 +18,6 @@ export interface ServicePageV2Props {
 
 const TAB_TO_PAGE: Record<ServiceSubTab, PageKey> = {
   providers: "providers",
-  proxy: "proxy",
   accounts: "antigravity",
   workspace: "workspace",
 };
@@ -46,11 +43,6 @@ export const ServicePageV2: React.FC<ServicePageV2Props> = ({
       icon: <CloudServerOutlined />,
     },
     {
-      key: "proxy",
-      label: t("navigation.proxy", { defaultValue: "代理控制" }),
-      icon: <SafetyCertificateOutlined />,
-    },
-    {
       key: "accounts",
       label: t("navigation.accounts", { defaultValue: "账号与额度" }),
       icon: <UserOutlined />,
@@ -69,6 +61,7 @@ export const ServicePageV2: React.FC<ServicePageV2Props> = ({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Top Secondary Segmented Bar */}
       <div
         style={{
           display: "flex",
@@ -125,9 +118,9 @@ export const ServicePageV2: React.FC<ServicePageV2Props> = ({
         </div>
       </div>
 
+      {/* Subtab Content Area */}
       <div style={{ minHeight: "500px" }}>
         {activeTab === "providers" && <ProvidersPage />}
-        {activeTab === "proxy" && <ProxyPage />}
         {activeTab === "accounts" && <AntigravityPage />}
         {activeTab === "workspace" && <WorkspacePage />}
       </div>

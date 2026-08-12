@@ -38,7 +38,6 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
   "providers",
-  "proxy",
   "usage",
   "antigravity",
   "workspace",

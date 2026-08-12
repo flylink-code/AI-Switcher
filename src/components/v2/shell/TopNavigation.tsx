@@ -26,11 +26,13 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({ activeKey, onNavig
       key === "sessions" ||
       key === "environment" ||
       key === "localization" ||
-      key === "about"
+      key === "about" ||
+      key === "proxy"
     ) {
+      // proxy 归属设置 → 运行时 → 本地代理（对齐 V1）
       return "settings";
     }
-    // providers / proxy / antigravity / workspace / mcp / plugins …
+    // providers / antigravity / workspace / mcp / plugins …
     return "service";
   };
 
