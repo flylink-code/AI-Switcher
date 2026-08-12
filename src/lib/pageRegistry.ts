@@ -17,6 +17,7 @@ export const PAGE_KEYS = [
   "usage",
   "localization",
   "environment",
+  "agentTools",
   "about",
 ] as const;
 
@@ -41,6 +42,7 @@ const pageLoaders: Record<PageKey, PageLoader> = {
   usage: () => import("@/pages/UsagePage"),
   localization: () => import("@/pages/DesktopLocalizationPage"),
   environment: () => import("@/pages/EnvironmentPage"),
+  agentTools: () => import("@/pages/AgentToolsPage"),
   about: () => import("@/pages/AboutPage"),
 };
 

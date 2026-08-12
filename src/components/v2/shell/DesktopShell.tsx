@@ -10,11 +10,11 @@ import FullscreenOutlined from "@ant-design/icons/es/icons/FullscreenOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
 import MinusOutlined from "@ant-design/icons/es/icons/MinusOutlined";
-import LayoutOutlined from "@ant-design/icons/es/icons/LayoutOutlined";
 import { languages } from "@/i18n";
 import type { PageKey } from "@/lib/pageRegistry";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
+import { LayoutModeSwitcher } from "@/components/layout/LayoutModeSwitcher";
 import { AppBrand } from "./AppBrand";
 import { TopNavigation } from "./TopNavigation";
 import { ContextHeader } from "@/components/layout/ContextHeader";
@@ -42,6 +42,7 @@ const PRIMARY_PAGES = new Set<PageKey>([
   "antigravity",
   "workspace",
   "settings",
+  // about 由 SettingsPageV2 内 Tab 承载，勿再套 ← 设置 返回栏
   "about",
 ]);
 
@@ -60,8 +61,6 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
   const resolvedTheme = useThemeStore((s) => s.resolved);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
-  const uiMode = useAppStore((s) => s.uiMode);
-  const setUiMode = useAppStore((s) => s.setUiMode);
 
   const isDark = resolvedTheme === "dark";
 
@@ -99,6 +98,12 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
       case "environment":
         return {
           title: t("nav.environment", { defaultValue: "环境信息" }),
+          parentKey: "settings" as PageKey,
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
+      case "agentTools":
+        return {
+          title: t("nav.agentTools", { defaultValue: "Agent 工具" }),
           parentKey: "settings" as PageKey,
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
@@ -160,36 +165,43 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
             alignItems: "center",
             height: "100%",
             flex: "0 0 auto",
+            minWidth: 0,
           }}
         >
           <AppBrand />
         </div>
 
-        {/* Center: Top Segmented Navigation Dock */}
+        {/* Center: Top Segmented Navigation Dock (minWidth:0 so ResizeObserver can detect squeeze) */}
         <div
           data-tauri-drag-region
           onDoubleClick={() => void appWindow.toggleMaximize()}
+          className="v2-top-nav-slot"
           style={{
-            flex: 1,
+            flex: "1 1 auto",
+            minWidth: 0,
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             height: "100%",
+            overflow: "hidden",
+            padding: "0 8px",
           }}
         >
-          <div className="no-drag">
+          <div className="no-drag" style={{ maxWidth: "100%", minWidth: 0 }}>
             <TopNavigation activeKey={activeKey} onNavigate={onNavigate} />
           </div>
         </div>
 
         {/* Right: Actions, Theme, Language, UI Mode Toggle, Window Controls */}
         <div
-          className="no-drag"
+          className="no-drag v2-titlebar-actions"
           style={{
             display: "flex",
             alignItems: "center",
             height: "100%",
-            gap: "8px",
+            gap: "4px",
+            flex: "0 0 auto",
+            paddingRight: 0,
           }}
         >
           {updateVersion ? (
@@ -213,28 +225,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
             </Badge>
           ) : null}
 
-          {/* V1 / V2 Switcher Tooltip */}
-          <Tooltip title={`切换系统 UI 模式 (当前: ${uiMode.toUpperCase()})`}>
-            <button
-              type="button"
-              onClick={() => setUiMode(uiMode === "v1" ? "v2" : "v1")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "4px 8px",
-                borderRadius: "6px",
-                border: `1px solid ${isDark ? "#2A3442" : "#E2E8F0"}`,
-                backgroundColor: "transparent",
-                color: isDark ? "#9CA3AF" : "#64748B",
-                fontSize: "12px",
-                cursor: "pointer",
-              }}
-            >
-              <LayoutOutlined />
-              <span>{uiMode.toUpperCase()}</span>
-            </button>
-          </Tooltip>
+          <LayoutModeSwitcher />
 
           <Tooltip title={t("common.theme")}>
             <Select<ThemeMode>
@@ -242,7 +233,8 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
               variant="borderless"
               value={themeMode}
               onChange={setThemeMode}
-              style={{ width: 96 }}
+              style={{ width: 84 }}
+              popupMatchSelectWidth={false}
               suffixIcon={themeIcons[themeMode]}
               options={[
                 { value: "light", label: t("common.themeLight") },
@@ -261,7 +253,8 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
                 setLanguage(v);
                 void i18n.changeLanguage(v);
               }}
-              style={{ width: 96 }}
+              style={{ width: 88 }}
+              popupMatchSelectWidth={false}
               suffixIcon={<GlobalOutlined />}
               options={languages.map((l) => ({ value: l.value, label: l.label }))}
             />

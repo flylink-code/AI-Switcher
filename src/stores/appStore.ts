@@ -2,14 +2,25 @@ import { create } from "zustand";
 import type { Language } from "@/i18n";
 
 const LANG_KEY = "cs.language";
-const UI_MODE_KEY = "cs.uiMode";
+/** New key for layout chrome mode. */
+const LAYOUT_MODE_KEY = "cs.layoutMode";
+/** Legacy V1/V2 experiment key — still read for migration. */
+const LEGACY_UI_MODE_KEY = "cs.uiMode";
 
-function readInitialUiMode(): "v1" | "v2" {
-  if (typeof localStorage !== "undefined") {
-    const stored = localStorage.getItem(UI_MODE_KEY);
-    if (stored === "v1" || stored === "v2") return stored;
-  }
-  return "v2";
+export type LayoutMode = "sidebar" | "top";
+
+function readInitialLayoutMode(): LayoutMode {
+  if (typeof localStorage === "undefined") return "top";
+
+  const stored = localStorage.getItem(LAYOUT_MODE_KEY);
+  if (stored === "sidebar" || stored === "top") return stored;
+
+  // Migrate old V1/V2 labels.
+  const legacy = localStorage.getItem(LEGACY_UI_MODE_KEY);
+  if (legacy === "v1") return "sidebar";
+  if (legacy === "v2") return "top";
+
+  return "top";
 }
 
 function readInitialLanguage(): Language {
@@ -24,25 +35,30 @@ function readInitialLanguage(): Language {
 
 interface AppState {
   language: Language;
-  uiMode: "v1" | "v2";
+  /** Chrome layout: left sidebar vs top pill navigation. */
+  layoutMode: LayoutMode;
   /** Whether the backend is reachable (verified by ping on startup). */
   backendReady: boolean;
   setLanguage: (lang: Language) => void;
-  setUiMode: (mode: "v1" | "v2") => void;
+  setLayoutMode: (mode: LayoutMode) => void;
   setBackendReady: (ready: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   language: readInitialLanguage(),
-  uiMode: readInitialUiMode(),
+  layoutMode: readInitialLayoutMode(),
   backendReady: false,
   setLanguage: (lang) => {
     if (typeof localStorage !== "undefined") localStorage.setItem(LANG_KEY, lang);
     set({ language: lang });
   },
-  setUiMode: (mode) => {
-    if (typeof localStorage !== "undefined") localStorage.setItem(UI_MODE_KEY, mode);
-    set({ uiMode: mode });
+  setLayoutMode: (mode) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(LAYOUT_MODE_KEY, mode);
+      // Keep legacy key in sync so older builds don't surprise-reset.
+      localStorage.setItem(LEGACY_UI_MODE_KEY, mode === "sidebar" ? "v1" : "v2");
+    }
+    set({ layoutMode: mode });
   },
   setBackendReady: (ready) => set({ backendReady: ready }),
 }));

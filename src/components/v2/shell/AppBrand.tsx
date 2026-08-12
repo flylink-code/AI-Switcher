@@ -1,60 +1,65 @@
-import React from "react";
-import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
+import React, { useEffect, useState } from "react";
+import appLogo from "@/assets/app-logo.png";
 import { useThemeStore } from "@/stores/themeStore";
+
+/** Hide wordmark below this window width to free space for the 6-item dock. */
+const BRAND_COMPACT_MQ = "(max-width: 1180px)";
 
 export const AppBrand: React.FC = () => {
   const resolvedTheme = useThemeStore((s) => s.resolved);
   const isDark = resolvedTheme === "dark";
+  const [compact, setCompact] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(BRAND_COMPACT_MQ).matches : false,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(BRAND_COMPACT_MQ);
+    const onChange = () => setCompact(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "10px",
-        paddingLeft: "8px",
+        gap: compact ? "6px" : "10px",
+        paddingLeft: "4px",
+        paddingRight: compact ? "4px" : "8px",
         userSelect: "none",
       }}
+      title="AI-Switcher"
     >
-      <div
+      <img
+        src={appLogo}
+        alt="AI-Switcher"
+        width={28}
+        height={28}
+        draggable={false}
         style={{
-          width: "28px",
-          height: "28px",
-          borderRadius: "8px",
-          backgroundColor: "#3B82F6",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#FFFFFF",
-          boxShadow: "0 2px 4px rgba(59, 130, 246, 0.25)",
-          fontSize: 16,
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          objectFit: "contain",
+          flexShrink: 0,
+          display: "block",
         }}
-      >
-        <ApiOutlined />
-      </div>
-      <span
-        style={{
-          fontSize: "15px",
-          fontWeight: 700,
-          letterSpacing: "-0.01em",
-          color: isDark ? "#F2F4F7" : "#111827",
-        }}
-      >
-        AI-Switcher
-      </span>
-      <span
-        style={{
-          fontSize: "10px",
-          fontWeight: 600,
-          padding: "1px 6px",
-          borderRadius: "4px",
-          backgroundColor: isDark ? "#222A35" : "#E8ECF1",
-          color: isDark ? "#9CA3AF" : "#6B7280",
-          textTransform: "uppercase",
-        }}
-      >
-        V2
-      </span>
+      />
+      {!compact ? (
+        <span
+          style={{
+            fontSize: "15px",
+            fontWeight: 700,
+            letterSpacing: "-0.01em",
+            color: isDark ? "#F2F4F7" : "#111827",
+            whiteSpace: "nowrap",
+          }}
+        >
+          AI-Switcher
+        </span>
+      ) : null}
     </div>
   );
 };

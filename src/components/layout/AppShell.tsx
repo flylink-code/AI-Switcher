@@ -59,6 +59,12 @@ export const AppShell: React.FC<AppShellProps> = ({
           parentKey: "settings",
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
+      case "agentTools":
+        return {
+          title: t("nav.agentTools", { defaultValue: "Agent 工具" }),
+          parentKey: "settings",
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
       case "localization":
         return {
           title: t("nav.localization", { defaultValue: "汉化与本地化" }),

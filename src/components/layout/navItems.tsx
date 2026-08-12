@@ -32,7 +32,7 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "plugins", "profiles"].includes(activeKey)) {
     return true;
   }
-  if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization", "proxy"].includes(activeKey)) {
+  if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization", "proxy", "agentTools"].includes(activeKey)) {
     return true;
   }
   return false;

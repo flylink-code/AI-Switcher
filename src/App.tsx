@@ -61,7 +61,6 @@ import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "@/components/layout/AppShell";
 import { DesktopShell } from "@/components/v2/shell/DesktopShell";
 import { DashboardV2 } from "@/components/v2/dashboard/DashboardV2";
-import { ServicePageV2 } from "@/components/v2/service/ServicePageV2";
 import { UsagePageV2 } from "@/components/v2/usage/UsagePageV2";
 import { SettingsPageV2 } from "@/components/v2/settings/SettingsPageV2";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
@@ -90,7 +89,7 @@ export default function App() {
   const { t, i18n } = useTranslation();
   const resolved = useThemeStore((s) => s.resolved);
   const language = useAppStore((s) => s.language);
-  const uiMode = useAppStore((s) => s.uiMode);
+  const layoutMode = useAppStore((s) => s.layoutMode);
 
   // Default to Overview as the workspace home.
   const [activeKey, setActiveKey] = useState<PageKey>("workbench");
@@ -424,7 +423,7 @@ export default function App() {
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
           <NavigationContext.Provider value={handleNavigate}>
-            {uiMode === "v2" ? (
+            {layoutMode === "top" ? (
               <DesktopShell
                 activeKey={activeKey}
                 onNavigate={handleNavigate}
@@ -534,7 +533,7 @@ function ActivePage({
   onNavigate: (key: PageKey) => void;
 }) {
   const { t } = useTranslation();
-  const uiMode = useAppStore((s) => s.uiMode);
+  const layoutMode = useAppStore((s) => s.layoutMode);
   const [, rerender] = useReducer((value: number) => value + 1, 0);
   const [loadAttempt, retryLoad] = useReducer((value: number) => value + 1, 0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -592,25 +591,9 @@ function ActivePage({
     );
   }
 
-  if (uiMode === "v2") {
+  if (layoutMode === "top") {
     if (pageKey === "workbench") {
       return <DashboardV2 onNavigate={onNavigate} />;
-    }
-    if (pageKey === "providers") {
-      return <ServicePageV2 initialTab="providers" onNavigate={onNavigate} />;
-    }
-    if (pageKey === "antigravity") {
-      return <ServicePageV2 initialTab="accounts" onNavigate={onNavigate} />;
-    }
-    if (
-      pageKey === "workspace" ||
-      pageKey === "mcp" ||
-      pageKey === "prompts" ||
-      pageKey === "skills" ||
-      pageKey === "agents" ||
-      pageKey === "plugins"
-    ) {
-      return <ServicePageV2 initialTab="workspace" onNavigate={onNavigate} />;
     }
     if (pageKey === "usage") {
       return <UsagePageV2 />;
@@ -618,14 +601,11 @@ function ActivePage({
     if (pageKey === "about") {
       return <SettingsPageV2 initialTab="about" onNavigate={onNavigate} />;
     }
-    if (
-      pageKey === "settings" ||
-      pageKey === "sessions" ||
-      pageKey === "environment" ||
-      pageKey === "localization"
-    ) {
+    if (pageKey === "settings") {
       return <SettingsPageV2 initialTab="general" onNavigate={onNavigate} />;
     }
+    // providers / antigravity / workspace / proxy / sessions / mcp / … → 原页面
+    // 顶部高亮与 ← 设置 返回栏由 DesktopShell / TopNavigation 处理
   }
 
   return <Page />;

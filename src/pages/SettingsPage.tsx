@@ -82,6 +82,13 @@ export default function SettingsPage() {
           description={t("settings.environmentHint", { defaultValue: "运行时路径与环境诊断" })}
           onClick={() => navigate("environment")}
         />
+        <SettingsRow
+          title={t("nav.agentTools", { defaultValue: "Agent 工具" })}
+          description={t("settings.agentToolsHint", {
+            defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode 等 Agent 工具",
+          })}
+          onClick={() => navigate("agentTools")}
+        />
       </SettingsSection>
 
       {/* Localization (zh-CN only feature) */}
