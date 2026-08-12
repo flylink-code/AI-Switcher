@@ -93,7 +93,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       key === "localization" ||
       key === "about" ||
       key === "proxy" ||
-      key === "agentTools"
+      key === "agentTools" ||
+      key === "piSettings"
     ) {
       return "settings";
     }

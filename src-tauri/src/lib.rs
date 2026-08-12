@@ -9,6 +9,7 @@ mod backup;
 mod agents;
 mod antigravity;
 mod claude_plugins;
+mod coding;
 mod codex_oauth;
 mod codex_plugins;
 mod commands;
@@ -104,6 +105,10 @@ use crate::commands::{
     list_profiles, update_workspace_profile,
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
     remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
+    detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
+    get_workspace_pi_prompt, install_pi_cli, list_pi_sessions, read_pi_session_detail,
+    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_workspace_pi_prompt,
+    update_pi_settings,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
@@ -151,6 +156,20 @@ pub fn run() {
         .on_window_event(on_window_event)
         .invoke_handler(tauri::generate_handler![
             ping,
+            detect_pi_cli,
+            install_pi_cli,
+            get_pi_settings,
+            update_pi_settings,
+            get_pi_auth,
+            save_pi_auth,
+            get_pi_models,
+            save_pi_models,
+            get_global_pi_agents_md,
+            save_global_pi_agents_md,
+            get_workspace_pi_prompt,
+            save_workspace_pi_prompt,
+            list_pi_sessions,
+            read_pi_session_detail,
             get_codex_auth_status,
             get_codex_web_search_mode,
             set_codex_web_search_mode,

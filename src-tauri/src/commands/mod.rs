@@ -28,6 +28,7 @@ pub mod skills;
 pub mod system;
 pub mod sync;
 pub mod node_runtime;
+pub mod pi;
 pub mod tools;
 pub mod usage;
 
@@ -139,6 +140,12 @@ pub use sync::{
     push_sync_archive, save_sync_target,
 };
 pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
+pub use pi::{
+    detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
+    get_workspace_pi_prompt, install_pi_cli, list_pi_sessions, read_pi_session_detail,
+    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_workspace_pi_prompt,
+    update_pi_settings,
+};
 pub use tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
     get_opencode_cli_version, run_opencode_cli_update, get_opencode_desktop_status,

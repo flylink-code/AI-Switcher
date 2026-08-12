@@ -89,6 +89,11 @@ export default function SettingsPage() {
           })}
           onClick={() => navigate("agentTools")}
         />
+        <SettingsRow
+          title="Pi CLI 代理集成"
+          description="管理 Pi Coding Agent 的供应商、默认模型、思考深度(7档)与工作区指令"
+          onClick={() => navigate("piSettings")}
+        />
       </SettingsSection>
 
       {/* Localization (zh-CN only feature) */}
