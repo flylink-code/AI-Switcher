@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.2**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.6**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -35,18 +35,19 @@ Download the latest build from [GitHub Releases](https://github.com/flylink-code
 - **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
 - **Linux**: prefer the `.AppImage` (`chmod +x`, then run).
 
-Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) as needed.
+Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Agent tools**).
 
 ---
 
 ## Features
 
-### Workspace shell (1.0)
+### Navigation & layout (1.3.6)
 
-- **Overview**: usage summary metrics plus a GitHub-style daily activity heatmap (adaptive layout for short and long ranges)
-- **Global tool switcher**: header Segmented control for Claude Code / Desktop / Codex / OpenCode; sidebar and pages follow the same workspace context
-- **Status strip**: proxy phase/port and active provider in the header, with one-click navigation
-- **Grouped sidebar**: Core / Extensions / Data / System
+- **Two layouts**: switch **sidebar** / **top** navigation in the title bar (browser-like default vs vertical tabs); preference stored as `cs.layoutMode`
+- **Top nav (six items)**: Overview · Providers · Usage · Accounts & quota · Workspace · Settings
+- **Overview**: status strip → last-24h usage hero → attention / recent activity → year heatmap (Usage Intelligence)
+- **Settings children**: local proxy, sessions, environment, **Agent tools**, localization, about (with **← Settings** back header)
+- **Agent switchers**: page-local on Providers / Proxy (Claude Code / Desktop / Codex / OpenCode) — no global workspace switcher
 
 ### Providers and switching
 
@@ -62,30 +63,35 @@ Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) 
 
 Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default). **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
 
-### Antigravity gateway (1.3)
+Entry point: **Settings → Runtime → Local proxy** (port / force restart / failover). Day-to-day provider switches still start/stop the proxy from the Providers page.
+
+### Antigravity gateway
 
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, and Codex:
 
 - **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
-- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog; background auto-refresh every 5 minutes
-- **Model catalog**: prefers Gemini 3.6 tiers (`-low` / `-medium` / `-high`); hides retired 2.5 / 3.1 / 3.5 and similar legacy IDs
-- **One-click bind**: use **Ensure Provider** on the Antigravity page, then switch from each tool’s provider list
-- **Reasoning tiers**: Gemini supports `-low` / `-medium` / `-high` suffixes; Claude Desktop unlocks the native effort slider via role routing (`claude-sonnet-5` + `labelOverride`); the gateway keeps session-sticky effort and defaults bare Gemini to high when effort is absent
+- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog; background auto-refresh
+- **Model catalog**: prefers current Gemini tiers (including `-low` / `-medium` / `-high`); hides retired legacy IDs
+- **One-click bind**: ensure providers on the Accounts & quota page, then switch from each tool’s provider list
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
 - **Note**: personal-use gateway — review account and upstream terms yourself; do not use it as a commercial relay
 
-### OpenCode (1.3.1)
+### OpenCode
 
 Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Multiple providers coexist; save to sync — no switch step:
 
 - **Provider sync**: save/delete/import writes `aisw-<id>` entries; pick models inside OpenCode
 - **Import from local config**: **Update from local config** on Workbench/Providers syncs from `opencode.json(c)` (skips managed entries and Desktop built-in connectors)
-- **Sessions & usage**: scans `opencode.db`; About page detects/updates OpenCode CLI (Node required)
+- **Sessions & usage**: scans `opencode.db`; detect/install/update OpenCode CLI under **Settings → Agent tools** (Node.js ≥22)
 
-### Workbench & structure (1.3.2)
+### Agent tools (1.3.6)
 
-- Dynamic footer version; shared provider-actions hook; IPC split by domain
-- Workbench provider brand badges; total-token day-over-day; average reference lines on usage bar charts
+Unified detect/install under **Settings → Runtime → Agent tools**:
+
+- **Node.js environment** (local ≥22; optional fnm + mirror install)
+- Claude Code / Codex / OpenCode CLI install & update (npm global; works with npm 11 and Windows `%APPDATA%\npm`)
+
+The About page keeps only app version, update check, update mirror, and onboarding tip restore.
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
@@ -94,7 +100,7 @@ Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Mul
 - Prompts: `CLAUDE.md` / Codex `AGENTS.md` presets with rename and one-click activate
 - Skills: install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP; scan stray skills to register/ignore
 - Agents: manage Claude Code user agents under `~/.claude/agents`
-- Codex Plugins: enable/disable/uninstall; wraps `codex plugin marketplace list/add/remove` (not a full store browser)
+- **Plugins**: single Workspace **Plugins** tab with in-page Claude Code / Codex switch; marketplaces, catalog install, enable/disable, uninstall, check/update
 
 ### Projects (Profiles)
 
@@ -110,8 +116,8 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code / OpenCode local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates (headline picks the largest absolute amount); Opus / Codex Fast tier (`*-fast`) matching
-- Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`); environment page organized with Tabs
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters
+- Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 
 ---
@@ -122,45 +128,45 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 |---|---|
 | Claude Code | `~/.claude/projects/**/*.jsonl` |
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl` (default `~/.codex/sessions/`) |
-| OpenCode | `~/.local/share/opencode/opencode.db` (plus legacy JSON storage) |
+| OpenCode | `~/.local/share/opencode/opencode.db` (and legacy JSON storage) |
 
-The list view reads metadata only; message bodies load for details or full-text search. Paths must stay under the session root. Browsing never modifies originals.
+The list reads metadata only; message bodies load when you open details or run full-text search. Paths stay under the session roots. Browsing does not modify originals.
 
-For Claude Desktop, the app only detects the data directory and offers the official `claude://claude.ai/new` entry. Known conversation IDs can use Anthropic’s [deep-link format](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
+Claude Desktop only detects the data directory and offers the official entry `claude://claude.ai/new`; known session IDs can use [official deep links](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
 
 ---
 
-## Data and configuration
+## Data and config
 
 | Path | Purpose |
 |---|---|
-| `~/.claude/settings.json` | Active Claude Code provider |
+| `~/.claude/settings.json` | Claude Code active provider |
 | `~/.claude.json` | Claude Code MCP / project config |
 | `~/.claude/projects/` | Claude Code sessions |
 | `~/.claude/skills/` | Claude Code Skills |
-| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party profiles (Windows) |
+| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop third-party config (Windows) |
 | `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills, Plugins |
-| `~/.config/opencode/opencode.json` | OpenCode providers (shared by CLI and Desktop; `opencode.jsonc` also supported) |
+| `~/.config/opencode/opencode.json` | OpenCode providers (CLI + Desktop; `opencode.jsonc` also supported) |
 | `~/.local/share/opencode/` | OpenCode session database |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
-The product name is AI-Switcher; the app id and default library path are kept for compatibility. The library can move to another drive (SHA-256 verified, effective after restart). Export / sync omit API keys by default.
+The product name is AI-Switcher; the original app id and default library path remain for compatibility. The library can move to another drive (SHA-256 verified; restart to apply). Export / sync omit API keys by default.
 
 ---
 
 ## Security and privacy
 
 - API keys: Windows Credential Manager / macOS Keychain / Linux Secret Service
-- Config: atomic writes with rotating backups
-- Sessions: no full-text DB; import/export/trash validate roots and symlinks
-- No local content upload except provider tests, model discovery, update checks, user downloads, and confirmed remote archive pushes
+- Config: atomic writes + rotating backups
+- Sessions: no full-text index; import/export/trash validate roots and symlinks
+- Aside from connection tests, model discovery, update checks, and user-confirmed remote archive pushes, local content is not uploaded
 
 ---
 
 ## Develop from source
 
-Requires Node.js 20+, pnpm 9+ (Corepack is fine), and Rust stable. On Windows also install the VS 2022 Desktop development with C++ workload.
+Requires: Node.js 22+, pnpm 9+ (Corepack OK), Rust stable. On Windows also need VS 2022 C++ desktop workload.
 
 ```powershell
 pnpm install
@@ -169,9 +175,11 @@ pnpm tauri dev
 scripts\tauri-msvc.bat dev
 ```
 
+Dev server port is **5250** (must match `tauri.conf.json` `devUrl`). More reliable hot reload: run `pnpm dev`, then launch `src-tauri\target\debug\claude-switcher.exe` built with `cfg(dev)`.
+
 ### Build (Windows)
 
-Scripts run the full Rust test suite first:
+Scripts run the full Rust test suite by default:
 
 ```powershell
 pnpm build:exe              # release exe → release\AISwitcher.exe
@@ -183,7 +191,7 @@ scripts\build-exe.bat release skip-tests   # skip tests
 | Artifact | Path |
 |---|---|
 | Release binary | `src-tauri\target\release\AISwitcher.exe` |
-| Test copies | `release\AISwitcher.exe` / `AISwitcher-debug.exe` |
+| Convenience copy | `release\AISwitcher.exe` / `AISwitcher-debug.exe` |
 | Installers | `src-tauri\target\release\bundle\` |
 
 ---
@@ -191,38 +199,46 @@ scripts\build-exe.bat release skip-tests   # skip tests
 ## Project layout
 
 ```text
-src/                  React + Ant Design + Zustand + i18next
-src-tauri/src/        Rust: config, proxy, database, tray, sessions
-scripts/              Windows develop / build scripts
+src/                      React + Ant Design + Zustand + i18next
+  pages/                  Feature pages (Workbench / Providers / Usage / …)
+  components/layout/      Sidebar shell (AppShell / SideNav / …)
+  components/v2/shell/    Top-nav shell (DesktopShell / TopNavigation)
+  lib/pageRegistry.ts     Page keys + lazy loaders
+src-tauri/src/            Rust: config, proxy, Antigravity, DB, tray, sessions
+  antigravity/            AG gateway (default :15830)
+  proxy/                  Local Anthropic-compatible proxy
+  config/                 Claude / Codex / OpenCode config I/O
+  database/               SQLite (user_version)
+scripts/                  Windows dev / build scripts
 ```
 
 ---
 
-## Current limitations
+## Current boundaries
 
 - Client scope: Claude Code + Claude Desktop + Codex + OpenCode; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
-- Codex Plugins are local detect/enable only — not a full official marketplace
-- Session “resume” copies a command; it does not launch a terminal
-- No auto-merge of remote sync conflicts; no team sharing
-- Claude Code and Desktop provider lists and active selections stay independent
-- Claude Desktop private session formats are not parsed
-- When Antigravity dual-account quotas are exhausted, upstream may still return 429 (rotation helps; it cannot invent quota)
+- Plugins page manages installed marketplaces/plugins locally — not a full replacement for the official CLI store browser
+- Session “resume” only copies a command; it does not open a terminal
+- No automatic remote conflict merge; no team sharing
+- Claude Code and Desktop provider lists / active state stay independent
+- Claude Desktop private history formats are not parsed
+- When Antigravity accounts are exhausted, upstreams may still 429 (the gateway rotates; it cannot invent quota)
 
 ---
 
-## References and acknowledgements
+## Acknowledgements
 
-Independent project; not affiliated with the repositories below or with Anthropic / OpenAI. Licenses in the table describe **those upstream projects**; AI-Switcher source remains under this repo’s [MIT](LICENSE). When quoting or porting upstream code, follow the corresponding license and copyright notices.
+Independent project — no affiliation with the repos below or with Anthropic / OpenAI. Licenses in the table refer to the **upstream repos**; AI-Switcher source remains [MIT](LICENSE). If you port upstream code, follow those licenses and copyright notices as well.
 
-| Project | Area referenced | Upstream |
+| Project | Inspiration | Upstream |
 |---|---|---|
 | AI Toolbox | Multi-tool config, sessions, desktop IA | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
-| Antigravity-Manager | Antigravity / Cloud Code proxy, account pool, protocol mapping ideas | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
-| CLIProxyAPI | Multi-protocol gateway and upstream adaptation ideas | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
-| cc Proxy | Desktop local proxy and model replacement | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
+| Antigravity-Manager | Antigravity / Cloud Code reverse proxy, account pool, protocol mapping | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
+| CLIProxyAPI | Multi-protocol gateway and upstream adaptation | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
+| cc Proxy | Desktop local proxy and model rewrite | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | Provider switching, Tauri, sessions, tray | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
-| Claude Code VS Code Chinese pack | Extension discovery and localization flow | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
-| Claude Code Chinese plugin | CLI localization install / restore | [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) |
-| Claude Desktop Chinese patch | Install discovery and language packs | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) |
+| Claude Code VS Code ZH pack | Extension localization flow | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
+| Claude Code ZH plugin | CLI localization install/restore | [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) |
+| Claude Desktop ZH patch | Install discovery and language packs | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) |
 | Code Switch | Local proxy, failover, Codex config | [daodao97/code-swtich](https://github.com/daodao97/code-swtich) Apache-2.0 |
-| Codex++ | Codex API writes and session sync | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |
+| Codex++ | Codex API writes and history sync | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.2**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.6**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -35,18 +35,19 @@
 - **Windows**：优先 NSIS 安装包（当前用户安装，通常无需管理员）。安装后主程序为 `AISwitcher.exe`。
 - **Linux**：优先 `.AppImage`（`chmod +x` 后运行）。
 
-按需安装 Claude Code、Claude Desktop、Codex CLI 或 OpenCode（CLI / Desktop）。
+按需安装 Claude Code、Claude Desktop、Codex CLI 或 OpenCode（CLI / Desktop）。Agent 工具安装/更新需要本机 **Node.js ≥22**（应用内「设置 → Agent 工具」可检测并安装环境）。
 
 ---
 
 ## 能做什么
 
-### 工作区壳层（1.0）
+### 导航与布局（1.3.6）
 
-- **总览**：用量四指标汇总 + 每日活跃热力图（GitHub 风格，短/长周期自适应排布）
-- **全局工具切换**：顶栏在 Claude Code / Desktop / Codex / OpenCode 间切换，侧栏与页面跟随同一工作区上下文
-- **状态台**：顶栏显示代理状态与当前供应商，可一键跳转对应页面
-- **侧栏分组**：核心 / 扩展 / 数据 / 系统
+- **双布局**：标题栏可切换 **左侧导航** / **顶部导航**（类似浏览器默认标签与垂直标签）；偏好写入 `cs.layoutMode`
+- **顶部导航六项**：概览 · 供应商 · 用量统计 · 账号与额度 · 工作区 · 设置
+- **概览**：状态条 → 最近 24 小时用量 Hero → 需要关注 / 最近活动 → 过去一年热力图（Usage Intelligence）
+- **设置子页**：本地代理、会话管理、环境信息、**Agent 工具**、汉化、关于（带「← 设置」返回）
+- **Agent 切换**：供应商页 / 代理页内独立切换（Claude Code / Desktop / Codex / OpenCode），不再使用全局工作区切换器
 
 ### 供应商与切换
 
@@ -62,30 +63,35 @@
 
 Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
 
-### Antigravity 网关（1.3）
+入口在 **设置 → 运行时 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。
+
+### Antigravity 网关
 
 内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
-- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录；后台每 5 分钟自动刷新额度
-- **模型目录**：优先 Gemini 3.6 档位（`-low` / `-medium` / `-high`）；自动隐藏已退役的 2.5 / 3.1 / 3.5 等旧型号
-- **一键绑定**：在 Antigravity 页「确保供应商」后即可在各工具切换使用
-- **推理档位**：Gemini 可用 `-low` / `-medium` / `-high` 后缀；Claude Desktop 靠角色路由（`claude-sonnet-5` + `labelOverride`）唤起原生滑条；网关按会话粘性记住最近 effort，裸 Gemini 无 effort 时默认 high
+- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录；后台自动刷新额度
+- **模型目录**：优先 Gemini 现行档位（含 `-low` / `-medium` / `-high`）；隐藏已退役旧型号
+- **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转
 
-### OpenCode（1.3.1）
+### OpenCode
 
 读写 `~/.config/opencode/opencode.json`（CLI 与 Desktop 共享），多供应商并存、保存即同步，无需切换：
 
 - **供应商同步**：保存/删除/导入后写入 `aisw-<id>` 段；OpenCode 内直接选模型
 - **从本地导入**：工作台/供应商页「更新本地已有配置」从 `opencode.json(c)` 批量同步（跳过托管项与 Desktop 内置连接器）
-- **会话与用量**：扫描 `opencode.db`；关于页检测/更新 OpenCode CLI（需 Node）
+- **会话与用量**：扫描 `opencode.db`；**设置 → Agent 工具** 检测/安装/更新 OpenCode CLI（需 Node.js ≥22）
 
-### 工作台与结构（1.3.2）
+### Agent 工具（1.3.6）
 
-- Footer 版本号动态读取；供应商操作抽成共用 Hook；IPC 按领域拆分
-- 工作台供应商卡品牌色徽章；用量总 Token 环比；24h/日柱状图均值参考线
+在 **设置 → 运行时 → Agent 工具** 中统一检测与安装：
+
+- **Node.js 环境**（本机 ≥22，可用 fnm + 国内镜像安装）
+- Claude Code / Codex / OpenCode CLI 安装与更新（npm 全局；兼容 npm 11 与 Windows `%APPDATA%\npm` 落点）
+
+关于页仅保留本应用版本、更新检查、更新镜像与引导提示恢复。
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
@@ -94,7 +100,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - Prompts：`CLAUDE.md` / Codex `AGENTS.md` 预设，支持重命名与一键激活
 - Skills：Claude Code 与 Codex 支持 GitHub / ZIP 安装、启停、更新与删除；可扫描散落 Skill 一键登记/忽略
 - Agents：管理 Claude Code 用户级 `~/.claude/agents`
-- Codex Plugins：启停、卸载；包装 `codex plugin marketplace list/add/remove`（不做完整商店浏览）
+- **插件**：工作区单一「插件」Tab，页内切换 Claude Code / Codex；市场列表、安装目录、启停、卸载、检查/更新市场与插件
 
 ### 项目（Profiles）
 
@@ -110,8 +116,8 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code / OpenCode 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估（汇总按最大绝对值选主币种）；识别 Opus / Codex Fast tier（`*-fast`）
-- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）；环境页按 Tabs 组织
+- 用量：合并代理日志与 Codex / Claude Code / OpenCode 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤
+- 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 
 ---
@@ -160,7 +166,7 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 
 ## 从源码开发
 
-需要：Node.js 20+、pnpm 9+（可用 Corepack）、Rust stable。Windows 还需 VS 2022 C++ 桌面开发组件。
+需要：Node.js 22+、pnpm 9+（可用 Corepack）、Rust stable。Windows 还需 VS 2022 C++ 桌面开发组件。
 
 ```powershell
 pnpm install
@@ -168,6 +174,8 @@ pnpm tauri dev
 # 无 MSVC 环境变量时：
 scripts\tauri-msvc.bat dev
 ```
+
+开发服务器端口为 **5250**（与 `tauri.conf.json` `devUrl` 一致）。更稳的热加载：先 `pnpm dev`，再运行带 `cfg(dev)` 的 `src-tauri\target\debug\claude-switcher.exe`。
 
 ### 构建（Windows）
 
@@ -191,9 +199,17 @@ scripts\build-exe.bat release skip-tests   # 跳过测试
 ## 项目结构
 
 ```text
-src/                  React + Ant Design + Zustand + i18next
-src-tauri/src/        Rust：配置、代理、数据库、托盘、会话
-scripts/              Windows 开发 / 构建脚本
+src/                      React + Ant Design + Zustand + i18next
+  pages/                  业务页面（Workbench / Providers / Usage / …）
+  components/layout/      左侧导航壳（AppShell / SideNav / …）
+  components/v2/shell/    顶部导航壳（DesktopShell / TopNavigation）
+  lib/pageRegistry.ts     页面键与懒加载
+src-tauri/src/            Rust：配置、代理、Antigravity、数据库、托盘、会话
+  antigravity/            AG 网关（默认 :15830）
+  proxy/                  本地 Anthropic 兼容代理
+  config/                 Claude / Codex / OpenCode 配置读写
+  database/               SQLite（user_version）
+scripts/                  Windows 开发 / 构建脚本
 ```
 
 ---
@@ -201,7 +217,7 @@ scripts/              Windows 开发 / 构建脚本
 ## 当前边界
 
 - 产品客户端范围：Claude Code + Claude Desktop + Codex + OpenCode；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
-- Codex Plugins 仅本地探测与启停，不做完整官方商店
+- 插件页管理本机已安装市场与插件，不是完整替代官方 CLI 商店浏览体验
 - 会话「恢复」只复制命令，不自动开终端
 - 不同步自动合并远端冲突，不做团队分享
 - Claude Code 与 Desktop 的供应商列表与激活状态始终独立
