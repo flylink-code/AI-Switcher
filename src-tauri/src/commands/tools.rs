@@ -984,31 +984,22 @@ fn merge_install_failures(primary: &str, secondary: &str) -> String {
 /// Soft checks previously allowed npm exit 0 + missing bin (common on Ubuntu GUI/fnm).
 fn verify_npm_cli_near_node(node: &Path, npm: &Path, cli_name: &str) -> Result<PathBuf, String> {
     let mut candidates = Vec::new();
-    if let Some(node_dir) = node.parent() {
-        candidates.push(node_dir.join(cli_name));
-        candidates.push(node_dir.join(format!("{cli_name}.cmd")));
-        candidates.push(node_dir.join(format!("{cli_name}.exe")));
-    }
-    if let Some(home) = dirs::home_dir() {
-        candidates.push(home.join(".local").join("bin").join(cli_name));
-    }
-    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+    let mut push_dir = |dir: &Path| {
         candidates.push(dir.join(cli_name));
         candidates.push(dir.join(format!("{cli_name}.cmd")));
+        candidates.push(dir.join(format!("{cli_name}.bat")));
         candidates.push(dir.join(format!("{cli_name}.exe")));
+    };
+
+    if let Some(node_dir) = node.parent() {
+        push_dir(node_dir);
     }
-    if let Ok(bin_output) =
-        crate::commands::node_runtime::run_anchored_npm(npm, node, &["bin", "-g"])
-    {
-        if bin_output.status.success() {
-            let bin_dir = decode_output(&bin_output.stdout).trim().to_string();
-            if !bin_dir.is_empty() {
-                let dir = PathBuf::from(&bin_dir);
-                candidates.push(dir.join(cli_name));
-                candidates.push(dir.join(format!("{cli_name}.cmd")));
-                candidates.push(dir.join(format!("{cli_name}.exe")));
-            }
-        }
+    for dir in crate::commands::node_runtime::fnm_node_bin_dirs() {
+        push_dir(&dir);
+    }
+    // npm 9+ removed `npm bin`; resolve via `prefix -g` + well-known user global dirs.
+    for dir in crate::commands::node_runtime::npm_global_bin_dirs(npm, node) {
+        push_dir(&dir);
     }
     if let Some(login) = resolve_command_via_login_shell(cli_name) {
         candidates.push(login);

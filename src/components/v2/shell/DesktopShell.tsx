@@ -42,8 +42,6 @@ const PRIMARY_PAGES = new Set<PageKey>([
   "antigravity",
   "workspace",
   "settings",
-  // about 由 SettingsPageV2 内 Tab 承载，勿再套 ← 设置 返回栏
-  "about",
 ]);
 
 export const DesktopShell: React.FC<DesktopShellProps> = ({

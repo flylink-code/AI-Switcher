@@ -62,7 +62,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { DesktopShell } from "@/components/v2/shell/DesktopShell";
 import { DashboardV2 } from "@/components/v2/dashboard/DashboardV2";
 import { UsagePageV2 } from "@/components/v2/usage/UsagePageV2";
-import { SettingsPageV2 } from "@/components/v2/settings/SettingsPageV2";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore } from "@/stores/appStore";
@@ -598,14 +597,7 @@ function ActivePage({
     if (pageKey === "usage") {
       return <UsagePageV2 />;
     }
-    if (pageKey === "about") {
-      return <SettingsPageV2 initialTab="about" onNavigate={onNavigate} />;
-    }
-    if (pageKey === "settings") {
-      return <SettingsPageV2 initialTab="general" onNavigate={onNavigate} />;
-    }
-    // providers / antigravity / workspace / proxy / sessions / mcp / … → 原页面
-    // 顶部高亮与 ← 设置 返回栏由 DesktopShell / TopNavigation 处理
+    // settings / about / providers / … → 原页面；顶部高亮与 ← 设置 返回栏由 DesktopShell 处理
   }
 
   return <Page />;

@@ -600,6 +600,19 @@ pub fn require_node_for_npm() -> AppResult<ResolvedNodeRuntime> {
     })
 }
 
+/// Strip IDE/sandbox npm env that confuses modern npm (e.g. Cursor's `npm_config_devdir`).
+fn scrub_npm_env(command: &mut Command) {
+    for key in [
+        "npm_config_devdir",
+        "NPM_CONFIG_DEVDIR",
+        // Cursor sandbox cache redirect — keep user global prefix, avoid polluted installs.
+        "npm_config_cache",
+        "NPM_CONFIG_CACHE",
+    ] {
+        command.env_remove(key);
+    }
+}
+
 /// Run `npm` with the Node binary directory prepended to PATH (GUI-safe).
 pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Output> {
     let node_dir = node
@@ -625,6 +638,7 @@ pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Ou
             .args(["/D", "/S", "/C"])
             .raw_arg(command_line)
             .creation_flags(CREATE_NO_WINDOW);
+        scrub_npm_env(&mut command);
         return command.output();
     }
 
@@ -640,8 +654,57 @@ pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Ou
             shell_single_quote(&node_dir),
             pieces.join(" ")
         );
-        Command::new("sh").args(["-lc", &script]).output()
+        let mut command = Command::new("sh");
+        command.args(["-lc", &script]);
+        scrub_npm_env(&mut command);
+        command.output()
     }
+}
+
+/// Directories where `npm i -g` places CLI shims.
+///
+/// npm 9+ removed `npm bin`; use `npm prefix -g` (+ `/bin` on Unix). Always include the
+/// well-known Windows user global dir (`%APPDATA%\\npm`) because GUI installs land there
+/// when Program Files Node is not writable.
+pub fn npm_global_bin_dirs(npm: &Path, node: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let mut seen = HashSet::new();
+    let mut push = |path: PathBuf| {
+        if path.as_os_str().is_empty() || !seen.insert(path.clone()) {
+            return;
+        }
+        dirs.push(path);
+    };
+
+    if let Ok(output) = run_anchored_npm(npm, node, &["prefix", "-g"]) {
+        if output.status.success() {
+            let prefix = decode_output(&output.stdout).trim().to_string();
+            if !prefix.is_empty() {
+                let prefix_path = PathBuf::from(&prefix);
+                push(prefix_path.clone());
+                push(prefix_path.join("bin"));
+            }
+        }
+    }
+
+    // Legacy npm (<9) still supports `bin -g`.
+    if let Ok(output) = run_anchored_npm(npm, node, &["bin", "-g"]) {
+        if output.status.success() {
+            let bin_dir = decode_output(&output.stdout).trim().to_string();
+            if !bin_dir.is_empty() {
+                push(PathBuf::from(bin_dir));
+            }
+        }
+    }
+
+    if let Some(app_data) = dirs::data_dir() {
+        push(app_data.join("npm"));
+    }
+    if let Some(home) = home_dir() {
+        push(home.join(".local").join("bin"));
+    }
+
+    dirs
 }
 
 /// Global package install via PATH-anchored npm, using the npmmirror registry.
@@ -998,5 +1061,30 @@ mod tests {
         );
         assert_eq!(urls[0], "https://github.com/Schniz/fnm/releases/latest/download/fnm-linux.zip");
         assert!(urls.iter().any(|url| url.starts_with("https://gh-proxy.com/https://github.com/")));
+    }
+
+    #[test]
+    fn npm_global_bin_dirs_includes_user_npm_prefix() {
+        let status = probe_node_runtime();
+        let Some(node) = status.node_path.as_ref().map(PathBuf::from) else {
+            return;
+        };
+        let Some(npm) = status.npm_path.as_ref().map(PathBuf::from) else {
+            return;
+        };
+        let dirs = npm_global_bin_dirs(&npm, &node);
+        assert!(
+            !dirs.is_empty(),
+            "expected at least one global bin dir from npm prefix / well-known paths"
+        );
+        // Windows user installs land in %APPDATA%\\npm even when Node is under Program Files.
+        if cfg!(windows) {
+            if let Some(app_data) = dirs::data_dir() {
+                assert!(
+                    dirs.iter().any(|dir| dir == &app_data.join("npm")),
+                    "missing AppData\\npm in {dirs:?}"
+                );
+            }
+        }
     }
 }
