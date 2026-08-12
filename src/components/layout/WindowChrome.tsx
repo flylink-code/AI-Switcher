@@ -9,6 +9,7 @@ import FullscreenExitOutlined from "@ant-design/icons/es/icons/FullscreenExitOut
 import FullscreenOutlined from "@ant-design/icons/es/icons/FullscreenOutlined";
 import GlobalOutlined from "@ant-design/icons/es/icons/GlobalOutlined";
 import LaptopOutlined from "@ant-design/icons/es/icons/LaptopOutlined";
+import LayoutOutlined from "@ant-design/icons/es/icons/LayoutOutlined";
 import MinusOutlined from "@ant-design/icons/es/icons/MinusOutlined";
 import { languages } from "@/i18n";
 import { useAppStore } from "@/stores/appStore";
@@ -39,6 +40,8 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
   const setThemeMode = useThemeStore((s) => s.setMode);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
+  const uiMode = useAppStore((s) => s.uiMode);
+  const setUiMode = useAppStore((s) => s.setUiMode);
 
   useEffect(() => {
     let disposed = false;
@@ -122,6 +125,28 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
               </button>
             </Badge>
           ) : null}
+
+          <Tooltip title={`切换 UI 模式 (当前: ${uiMode.toUpperCase()})`}>
+            <button
+              type="button"
+              onClick={() => setUiMode(uiMode === "v1" ? "v2" : "v1")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "2px 8px",
+                borderRadius: "4px",
+                border: "1px solid var(--color-border, rgba(0,0,0,0.08))",
+                background: "transparent",
+                color: "var(--color-text-secondary)",
+                fontSize: "12px",
+                cursor: "pointer",
+              }}
+            >
+              <LayoutOutlined />
+              <span>{uiMode.toUpperCase()}</span>
+            </button>
+          </Tooltip>
 
           <Tooltip title={t("common.theme")}>
             <Select<ThemeMode>
