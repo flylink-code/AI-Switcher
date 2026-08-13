@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
-  ConfigProvider,
   Empty,
   Popover,
   Segmented,
@@ -11,7 +10,6 @@ import {
   Tag,
   Typography,
   message,
-  theme,
 } from "antd";
 import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -66,7 +64,6 @@ function errMsg(error: unknown): string {
 
 export default function AntigravityPage() {
   const { t } = useTranslation();
-  const { token } = theme.useToken();
   const queryClient = useQueryClient();
 
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -311,39 +308,22 @@ export default function AntigravityPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <ConfigProvider
-        theme={{
-          components: {
-            Segmented: {
-              trackBg: token.colorBgContainer,
-              itemSelectedBg: token.colorFillSecondary,
-              itemHoverBg: token.colorFillTertiary,
-              trackPadding: 2,
-            },
+      <Segmented<string>
+        className="app-segmented-switcher"
+        size="small"
+        value={activeTab}
+        onChange={setActiveTab}
+        style={{ alignSelf: "flex-start" }}
+        options={[
+          {
+            value: "antigravity",
+            label: usageSourceSegmentLabel(
+              "antigravity",
+              t("antigravity.tabAntigravity", { defaultValue: "Antigravity" }),
+            ),
           },
-        }}
-      >
-        <Segmented<string>
-          size="small"
-          value={activeTab}
-          onChange={setActiveTab}
-          style={{
-            border: `1px solid ${token.colorBorder}`,
-            borderRadius: token.borderRadius,
-            boxSizing: "border-box",
-            alignSelf: "flex-start",
-          }}
-          options={[
-            {
-              value: "antigravity",
-              label: usageSourceSegmentLabel(
-                "antigravity",
-                t("antigravity.tabAntigravity", { defaultValue: "Antigravity" }),
-              ),
-            },
-          ]}
-        />
-      </ConfigProvider>
+        ]}
+      />
 
       {activeTab === "antigravity" && (
         <AntigravityContent

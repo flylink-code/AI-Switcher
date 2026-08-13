@@ -1,5 +1,5 @@
 import React from "react";
-import { ConfigProvider, Segmented, Tooltip, theme } from "antd";
+import { Segmented, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -43,57 +43,38 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
   onChange,
   block = false,
   iconOnly = false,
-  className,
+  className = "",
 }) => {
   const { t } = useTranslation();
-  const { token } = theme.useToken();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const availableOptions = TARGET_OPTIONS.filter((opt) => visibleAgents.includes(opt));
   const activeValue = availableOptions.includes(value) ? value : (availableOptions[0] ?? value);
 
   return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Segmented: {
-            trackBg: token.colorBgContainer,
-            itemSelectedBg: token.colorFillSecondary,
-            itemHoverBg: token.colorFillTertiary,
-            trackPadding: 2,
-          },
-        },
-      }}
-    >
-      <Segmented<ProviderTarget>
-        className={className}
-        size="small"
-        block={block}
-        value={activeValue}
-        onChange={onChange}
-        aria-label={t("workspace.target")}
-        style={{
-          border: `1px solid ${token.colorBorder}`,
-          borderRadius: token.borderRadius,
-          boxSizing: "border-box",
-        }}
-        options={availableOptions.map((option) => {
-          const fullLabel = t(LABEL_KEYS[option]);
-          return {
-            value: option,
-            label: (
-              <Tooltip title={fullLabel}>
-                {iconOnly
-                  ? usageSourceIcon(option, { size: 15 })
-                  : usageSourceSegmentLabel(
-                      option,
-                      t(SHORT_LABEL_KEYS[option], { defaultValue: fullLabel }),
-                    )}
-              </Tooltip>
-            ),
-          };
-        })}
-      />
-    </ConfigProvider>
+    <Segmented<ProviderTarget>
+      className={["app-segmented-switcher", className].filter(Boolean).join(" ")}
+      size="small"
+      block={block}
+      value={activeValue}
+      onChange={onChange}
+      aria-label={t("workspace.target")}
+      options={availableOptions.map((option) => {
+        const fullLabel = t(LABEL_KEYS[option]);
+        return {
+          value: option,
+          label: (
+            <Tooltip title={fullLabel}>
+              {iconOnly
+                ? usageSourceIcon(option, { size: 15 })
+                : usageSourceSegmentLabel(
+                    option,
+                    t(SHORT_LABEL_KEYS[option], { defaultValue: fullLabel }),
+                  )}
+            </Tooltip>
+          ),
+        };
+      })}
+    />
   );
 };

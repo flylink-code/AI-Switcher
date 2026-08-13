@@ -539,6 +539,74 @@ body {
   flex: 0 0 auto;
 }
 
+/* Unified Premium Segmented Switcher */
+.app-segmented-switcher.ant-segmented {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  padding: 2px;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .app-segmented-switcher.ant-segmented,
+.dark .app-segmented-switcher.ant-segmented,
+:root[data-theme="dark"] .app-segmented-switcher.ant-segmented {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-segmented-switcher.ant-segmented .ant-segmented-group {
+  align-items: center;
+  gap: 2px;
+}
+
+.app-segmented-switcher.ant-segmented .ant-segmented-item {
+  border-radius: 6px;
+  color: var(--ant-color-text-secondary, #666);
+  font-weight: 500;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.app-segmented-switcher.ant-segmented .ant-segmented-item-label {
+  padding: 3px 10px;
+  font-size: 13px;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.app-segmented-switcher.ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
+  color: var(--ant-color-text, #1d1d1f);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .app-segmented-switcher.ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected),
+.dark .app-segmented-switcher.ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-segmented-switcher.ant-segmented .ant-segmented-item-selected,
+.app-segmented-switcher.ant-segmented .ant-segmented-thumb {
+  background: #ffffff !important;
+  color: var(--ant-color-text, #111111) !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .app-segmented-switcher.ant-segmented .ant-segmented-item-selected,
+[data-theme="dark"] .app-segmented-switcher.ant-segmented .ant-segmented-thumb,
+.dark .app-segmented-switcher.ant-segmented .ant-segmented-item-selected,
+.dark .app-segmented-switcher.ant-segmented .ant-segmented-thumb {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
 .cc-header-left {
   display: flex;
   align-items: center;

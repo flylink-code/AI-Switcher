@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, ConfigProvider, Dropdown, Select, Segmented, Tooltip, theme, type MenuProps } from "antd";
+import { Button, Dropdown, Select, Segmented, Tooltip, type MenuProps } from "antd";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
 import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
@@ -66,7 +66,6 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   style,
 }) => {
   const { t } = useTranslation();
-  const { token } = theme.useToken();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const availableOptions = USAGE_SOURCE_FILTER_OPTIONS.filter((option) => {
@@ -125,42 +124,25 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           }))}
           onChange={onPeriodChange}
         />
-        <ConfigProvider
-          theme={{
-            components: {
-              Segmented: {
-                trackBg: token.colorBgContainer,
-                itemSelectedBg: token.colorFillSecondary,
-                itemHoverBg: token.colorFillTertiary,
-                trackPadding: 2,
-              },
-            },
-          }}
-        >
-          <Segmented<UsageSourceFilter>
-            size="small"
-            value={logTargetApp}
-            onChange={onTargetAppChange}
-            aria-label={t("usage.dataSource", { defaultValue: "数据来源" })}
-            style={{
-              border: `1px solid ${token.colorBorder}`,
-              borderRadius: token.borderRadius,
-              boxSizing: "border-box",
-            }}
-            options={availableOptions.map((option) => {
-              const fullLabel = t(option.labelKey);
-              const shortLabel = t(SOURCE_SHORT_LABEL[option.value], { defaultValue: fullLabel });
-              return {
-                value: option.value,
-                label: (
-                  <Tooltip title={fullLabel}>
-                    {usageSourceSegmentLabel(option.value, shortLabel)}
-                  </Tooltip>
-                ),
-              };
-            })}
-          />
-        </ConfigProvider>
+        <Segmented<UsageSourceFilter>
+          className="app-segmented-switcher"
+          size="small"
+          value={logTargetApp}
+          onChange={onTargetAppChange}
+          aria-label={t("usage.dataSource", { defaultValue: "数据来源" })}
+          options={availableOptions.map((option) => {
+            const fullLabel = t(option.labelKey);
+            const shortLabel = t(SOURCE_SHORT_LABEL[option.value], { defaultValue: fullLabel });
+            return {
+              value: option.value,
+              label: (
+                <Tooltip title={fullLabel}>
+                  {usageSourceSegmentLabel(option.value, shortLabel)}
+                </Tooltip>
+              ),
+            };
+          })}
+        />
       </div>
       <div className="cc-header-right">
         <Button

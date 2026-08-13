@@ -102,6 +102,7 @@ export default function WorkspacePage() {
         </div>
         <div>
           <Segmented<PageKey>
+            className="app-segmented-switcher"
             size="small"
             value={activeTab}
             onChange={(key) => setActiveTab(key)}

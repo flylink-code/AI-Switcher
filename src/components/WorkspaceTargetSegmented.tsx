@@ -1,4 +1,4 @@
-import { ConfigProvider, Segmented, Tooltip, theme } from "antd";
+import { Segmented, Tooltip } from "antd";
 import {
   usageSourceSegmentLabel,
   type UsageSourceFilter,
@@ -35,10 +35,9 @@ export function WorkspaceTargetSegmented<T extends ProviderTarget>({
   t,
   targets,
   ariaLabel,
-  size = "middle",
-  className,
+  size = "small",
+  className = "",
 }: Props<T>) {
-  const { token } = theme.useToken();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const baseOptions: readonly T[] = targets ?? (TARGET_OPTIONS as unknown as T[]);
@@ -47,42 +46,26 @@ export function WorkspaceTargetSegmented<T extends ProviderTarget>({
   const activeValue = options.includes(value) ? value : options[0];
 
   return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Segmented: {
-            trackBg: token.colorBgContainer,
-            itemSelectedBg: token.colorFillSecondary,
-            itemHoverBg: token.colorFillTertiary,
-            trackPadding: 2,
-          },
-        },
-      }}
-    >
-      <Segmented<T>
-        className={["heatmap-source-filter", className].filter(Boolean).join(" ")}
-        size={size}
-        value={activeValue}
-        aria-label={ariaLabel ?? t("workspace.target")}
-        onChange={onChange}
-        style={{
-          border: `1px solid ${token.colorBorder}`,
-          borderRadius: token.borderRadiusLG ?? token.borderRadius,
-          height: size === "small" ? token.controlHeightSM : token.controlHeight,
-          boxSizing: "border-box",
-        }}
-        options={options.map((option) => {
-          const label = t(LABEL_KEYS[option]);
-          return {
-            value: option,
-            label: (
-              <Tooltip title={label}>
-                {usageSourceSegmentLabel(option as UsageSourceFilter, label)}
-              </Tooltip>
-            ),
-          };
-        })}
-      />
-    </ConfigProvider>
+    <Segmented<T>
+      className={["app-segmented-switcher", className].filter(Boolean).join(" ")}
+      size={size}
+      value={activeValue}
+      aria-label={ariaLabel ?? t("workspace.target")}
+      onChange={onChange}
+      options={options.map((option) => {
+        const label = t(LABEL_KEYS[option]);
+        return {
+          value: option,
+          label: (
+            <Tooltip title={label}>
+              {usageSourceSegmentLabel(
+                option as UsageSourceFilter,
+                label,
+              )}
+            </Tooltip>
+          ),
+        };
+      })}
+    />
   );
 }
