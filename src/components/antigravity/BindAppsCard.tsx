@@ -11,6 +11,7 @@ const BIND_TARGETS: ProviderTarget[] = [
   "claude_desktop",
   "codex",
   "opencode",
+  "pi",
 ];
 
 interface BindAppsCardProps {

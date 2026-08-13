@@ -15,6 +15,7 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 
+use crate::coding::pi::config::get_pi_dir;
 use crate::config::{
     get_app_config_dir, get_claude_skills_dir, get_codex_skills_dir, get_home_dir, read_json_file,
     write_json_file,
@@ -27,6 +28,7 @@ const DEFAULT_SKILL_REPOSITORY: &str = "https://github.com/anthropics/skills";
 const SKILL_REPOSITORY_CONFIG_FILE: &str = "skills.json";
 const SKILL_SOURCES_CONFIG_FILE: &str = "skill-sources.json";
 const CODEX_SKILL_SOURCES_CONFIG_FILE: &str = "codex-skill-sources.json";
+const PI_SKILL_SOURCES_CONFIG_FILE: &str = "pi-skill-sources.json";
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -34,12 +36,15 @@ pub enum SkillTarget {
     #[default]
     ClaudeCode,
     Codex,
+    #[serde(rename = "pi")]
+    Pi,
 }
 
 fn skill_root(target: SkillTarget) -> PathBuf {
     match target {
         SkillTarget::ClaudeCode => get_claude_skills_dir(),
         SkillTarget::Codex => get_codex_skills_dir(),
+        SkillTarget::Pi => get_pi_dir().join("skills"),
     }
 }
 
@@ -47,6 +52,7 @@ fn skill_sources_file(target: SkillTarget) -> &'static str {
     match target {
         SkillTarget::ClaudeCode => SKILL_SOURCES_CONFIG_FILE,
         SkillTarget::Codex => CODEX_SKILL_SOURCES_CONFIG_FILE,
+        SkillTarget::Pi => PI_SKILL_SOURCES_CONFIG_FILE,
     }
 }
 
@@ -845,14 +851,21 @@ fn discovery_scan_sources(target: SkillTarget) -> Vec<(PathBuf, String)> {
     match target {
         SkillTarget::ClaudeCode => {
             sources.push((get_codex_skills_dir(), "codex".to_string()));
+            sources.push((get_pi_dir().join("skills"), "pi".to_string()));
         }
         SkillTarget::Codex => {
             sources.push((get_claude_skills_dir(), "claude_code".to_string()));
+            sources.push((get_pi_dir().join("skills"), "pi".to_string()));
+        }
+        SkillTarget::Pi => {
+            sources.push((get_claude_skills_dir(), "claude_code".to_string()));
+            sources.push((get_codex_skills_dir(), "codex".to_string()));
         }
     }
     sources.push((home.join(".agents").join("skills"), "agents".to_string()));
     sources.push((home.join(".codex").join("skills"), "codex".to_string()));
     sources.push((home.join(".claude").join("skills"), "claude_code".to_string()));
+    sources.push((home.join(".pi").join("agent").join("skills"), "pi".to_string()));
     // Deduplicate while preserving order.
     let mut seen = BTreeSet::new();
     sources.retain(|(path, _)| seen.insert(normalize_path_key(path)));
@@ -950,7 +963,9 @@ mod tests {
     fn codex_skill_metadata_is_kept_separate_from_claude_code() {
         assert_eq!(skill_sources_file(SkillTarget::ClaudeCode), SKILL_SOURCES_CONFIG_FILE);
         assert_eq!(skill_sources_file(SkillTarget::Codex), CODEX_SKILL_SOURCES_CONFIG_FILE);
+        assert_eq!(skill_sources_file(SkillTarget::Pi), PI_SKILL_SOURCES_CONFIG_FILE);
         assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Codex));
+        assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Pi));
         assert_eq!(SkillTarget::default(), SkillTarget::ClaudeCode);
     }
 

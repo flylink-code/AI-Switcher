@@ -49,11 +49,44 @@ import type {
 } from "@/types/backend";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
-import { useNavigatePage } from "@/lib/navigation";
 
 type DirectoryFilter = "all" | "yes" | "no";
 type TimeFilter = "all" | "day" | "week" | "month";
 type SortMode = "recent" | "oldest" | "directory";
+
+function sessionProviderLabel(provider: SessionProvider): string {
+  switch (provider) {
+    case "claude_code":
+      return "Claude Code";
+    case "codex":
+      return "Codex";
+    case "opencode":
+      return "OpenCode";
+    case "pi":
+      return "Pi";
+    default: {
+      const _exhaustive: never = provider;
+      return _exhaustive;
+    }
+  }
+}
+
+function sessionProviderColor(provider: SessionProvider): string {
+  switch (provider) {
+    case "claude_code":
+      return "purple";
+    case "codex":
+      return "green";
+    case "opencode":
+      return "cyan";
+    case "pi":
+      return "blue";
+    default: {
+      const _exhaustive: never = provider;
+      return _exhaustive;
+    }
+  }
+}
 
 const PAGE_SIZE = 50;
 const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [], total: 0, offset: 0 };
@@ -63,7 +96,6 @@ const CODEX_EMPTY_RETRY_DELAYS_MS = [2_000, 5_000, 12_000] as const;
 
 export default function SessionsPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigatePage();
   const [toast, toastContext] = message.useMessage();
   const { token } = theme.useToken();
   const [result, setResult] = useState<SessionScanResult>(EMPTY_RESULT);
@@ -81,6 +113,9 @@ export default function SessionsPage() {
     // Codex rows usually have projectDir after SQLite enrichment; Claude Code filters
     // like "no directory" must not silently empty the Codex list after switching.
     setDirectory("all");
+    setSort((current) =>
+      (provider === "pi" || provider === "opencode") && current === "directory" ? "recent" : current,
+    );
   }, [provider]);
   const [selected, setSelected] = useState<SessionMeta | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
@@ -437,14 +472,6 @@ export default function SessionsPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       {toastContext}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Button type="text" size="small" onClick={() => navigate("settings")} style={{ paddingInline: 4 }}>
-          ← {t("nav.settings", { defaultValue: "设置" })}
-        </Button>
-        <Typography.Text strong style={{ fontSize: 15 }}>
-          {t("sessions.title")}
-        </Typography.Text>
-      </div>
 
       {error && <Alert type="error" showIcon message={t("sessions.loadFailed")} description={error} />}
       {degradedProviders.map((item) => (
@@ -496,7 +523,7 @@ export default function SessionsPage() {
         value={provider}
         onChange={setSessionsProvider}
         t={t}
-        targets={["claude_code", "codex", "opencode"]}
+        targets={["claude_code", "codex", "opencode", "pi"]}
       />
 
       <Card size="small" className="page-surface">
@@ -517,16 +544,18 @@ export default function SessionsPage() {
             <Button icon={<SearchOutlined />} onClick={() => void runContentSearch()}>
               {t("sessions.searchContents")}
             </Button>
-            <Select<DirectoryFilter>
-              value={directory}
-              onChange={setDirectory}
-              style={{ width: 130 }}
-              options={[
-                { value: "all", label: t("sessions.allDirectories") },
-                { value: "yes", label: t("sessions.hasDirectory") },
-                { value: "no", label: t("sessions.noDirectory") },
-              ]}
-            />
+            {provider !== "pi" && provider !== "opencode" ? (
+              <Select<DirectoryFilter>
+                value={directory}
+                onChange={setDirectory}
+                style={{ width: 130 }}
+                options={[
+                  { value: "all", label: t("sessions.allDirectories") },
+                  { value: "yes", label: t("sessions.hasDirectory") },
+                  { value: "no", label: t("sessions.noDirectory") },
+                ]}
+              />
+            ) : null}
             <Select<TimeFilter>
               value={time}
               onChange={setTime}
@@ -545,7 +574,9 @@ export default function SessionsPage() {
               options={[
                 { value: "recent", label: t("sessions.sortRecent") },
                 { value: "oldest", label: t("sessions.sortOldest") },
-                { value: "directory", label: t("sessions.sortDirectory") },
+                ...(provider !== "pi" && provider !== "opencode"
+                  ? [{ value: "directory" as const, label: t("sessions.sortDirectory") }]
+                  : []),
               ]}
             />
           </Space>
@@ -619,8 +650,8 @@ export default function SessionsPage() {
                     <List.Item.Meta
                       title={
                         <Space>
-                          <Tag color={session.provider === "codex" ? "green" : session.provider === "opencode" ? "cyan" : "purple"}>
-                            {session.provider === "codex" ? "Codex" : session.provider === "opencode" ? "OpenCode" : "Claude Code"}
+                          <Tag color={sessionProviderColor(session.provider)}>
+                            {sessionProviderLabel(session.provider)}
                           </Tag>
                           {session.pinned ? <Tag color="gold">{t("sessions.pinned")}</Tag> : null}
                           <Typography.Text ellipsis style={{ maxWidth: 200 }}>
@@ -631,7 +662,9 @@ export default function SessionsPage() {
                       description={
                         <Space direction="vertical" size={2} style={{ width: "100%" }}>
                           <Typography.Text type="secondary" ellipsis>
-                            {session.projectDir || t("sessions.unknownDirectory")}
+                            {session.projectDir
+                              || session.summary
+                              || t("sessions.unknownDirectory")}
                           </Typography.Text>
                           <Typography.Text style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>
                             {formatTime(session.lastActiveAt ?? session.createdAt, locale)}
@@ -784,8 +817,8 @@ function SessionDetail({
     >
       <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 16 }}>
         <Typography.Text type="secondary">ID: {session.sessionId}</Typography.Text>
-        <Typography.Text type="secondary" copyable ellipsis>
-          {session.projectDir || t("sessions.unknownDirectory")}
+        <Typography.Text type="secondary" copyable={Boolean(session.projectDir)} ellipsis>
+          {session.projectDir || session.summary || t("sessions.unknownDirectory")}
         </Typography.Text>
         <Typography.Text type="secondary">
           {t("sessions.createdAt")}: {formatTime(session.createdAt, locale)}

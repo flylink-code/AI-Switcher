@@ -6,7 +6,7 @@ use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, normalize_base_url, protocol_endpoint_path, ClaudeModelMapping,
+    api_endpoint_url, catalog_models_from_provider, copied_provider_input, normalize_base_url, protocol_endpoint_path, ClaudeModelMapping,
     ConnectionTestResult,
     EndpointSpeedtestResult, LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle,
     ProviderExportEntry, normalized_model_mapping, normalized_auto_review_model_override,
@@ -29,6 +29,7 @@ const MAX_DISCOVERED_MODELS: usize = 1_000;
 const MAX_MODEL_NAME_CHARS: usize = 256;
 const CODEX_OWNERSHIP_KEY: &str = "v040.codex_managed";
 const OPENCODE_OWNERSHIP_KEY: &str = "v131.opencode_managed";
+const PI_OWNERSHIP_KEY: &str = "v136.pi_managed";
 
 /// A Codex switch updates config.toml, auth.json, and the model catalog as one
 /// logical operation. Startup repair and a user click must not interleave their
@@ -51,22 +52,58 @@ pub fn get_current_provider(target: ProviderTarget, state: tauri::State<'_, AppS
 #[tauri::command]
 pub fn create_provider(input: ProviderInput, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    if provider.target_app == ProviderTarget::OpenCode {
-        sync_opencode_providers_to_live(&state)?;
+    sync_catalog_target(&state, provider.target_app)?;
+    Ok(provider)
+}
+
+/// Copy a configured provider (including API key) onto another Agent, adapting
+/// protocol / Base URL / Claude role mapping for the destination.
+#[tauri::command]
+pub fn copy_provider_to_target(
+    id: String,
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
+    let (source, api_key, existing_names) = state.db.with_conn(|conn| {
+        let source = dao::get_provider(conn, &id)?
+            .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+        let api_key = dao::resolve_api_key(conn, &id)?.unwrap_or_default();
+        let existing_names = dao::list_providers(conn, target)?
+            .into_iter()
+            .map(|provider| provider.name)
+            .collect::<Vec<_>>();
+        Ok((source, api_key, existing_names))
+    })?;
+    let input = copied_provider_input(&source, target, &existing_names, api_key)?;
+    let cache = state
+        .db
+        .with_conn(|conn| dao::get_provider_model_cache(conn, &id))?;
+    let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
+    if let Some(cache) = cache {
+        if !cache.models.is_empty() {
+            state.db.with_conn(|conn| {
+                dao::save_provider_model_cache(conn, &provider.id, &cache.models, cache.checked_at)
+            })?;
+        }
     }
+    sync_catalog_target(&state, provider.target_app)?;
     Ok(provider)
 }
 
 #[tauri::command]
-pub async fn update_provider(input: ProviderInput, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
+pub async fn update_provider(
+    input: ProviderInput,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
     if input.id.is_none() {
         return Err(AppError::Config("更新供应商时缺少 id".to_string()));
     }
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    if provider.target_app == ProviderTarget::OpenCode {
-        sync_opencode_providers_to_live(&state)?;
+    if matches!(provider.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi) {
+        sync_catalog_target(&state, provider.target_app)?;
     } else if provider.is_current {
-        let _ = apply_target_provider(&provider, &state).await?;
+        let _ = apply_target_provider(&provider, Some(&app), &state).await?;
     }
     Ok(provider)
 }
@@ -79,9 +116,7 @@ pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResu
             .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
     state.db.with_conn(|conn| dao::delete_provider(conn, &id))?;
-    if target == ProviderTarget::OpenCode {
-        sync_opencode_providers_to_live(&state)?;
-    }
+    sync_catalog_target(&state, target)?;
     Ok(())
 }
 
@@ -108,7 +143,7 @@ pub async fn switch_provider(
         dao::get_provider(conn, &id)?.map(|provider| provider.target_app)
             .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
-    let result = switch_provider_for_target(&id, target, &state).await?;
+    let result = switch_provider_for_target(&id, target, Some(&app), &state).await?;
     schedule_provider_health_check(app, result.provider.clone(), Arc::clone(&state.db));
     Ok(result)
 }
@@ -116,9 +151,10 @@ pub async fn switch_provider(
 /// Shared provider switching service used by both IPC and tray actions.
 /// Live configuration is switched locally first. Connectivity is checked in the
 /// background so network latency never blocks the user's explicit selection.
-pub async fn switch_provider_for_target(
+pub async fn switch_provider_for_target<R: tauri::Runtime>(
     id: &str,
     target: ProviderTarget,
+    app: Option<&tauri::AppHandle<R>>,
     state: &AppState,
 ) -> AppResult<SwitchProviderResult> {
     let provider = state.db.with_conn(|conn| {
@@ -128,19 +164,38 @@ pub async fn switch_provider_for_target(
         return Err(AppError::Config("供应商不属于此应用".to_string()));
     }
     if provider.is_current {
-        log::debug!(
-            "跳过重复供应商切换: target={} provider={}",
+        let needs_proxy = provider.is_codex_oauth() || provider.requires_local_proxy();
+        let proxy_running = state.proxy.lock().await.status_for(target).running;
+        if needs_proxy == proxy_running {
+            log::debug!(
+                "跳过重复供应商切换: target={} provider={}",
+                target.as_str(),
+                id
+            );
+            return Ok(SwitchProviderResult {
+                provider,
+                session_sync: None,
+                codex_notice: None,
+            });
+        }
+        log::info!(
+            "当前供应商代理状态不一致，执行修复式重应用: target={} provider={} needs_proxy={} running={}",
             target.as_str(),
-            id
+            id,
+            needs_proxy,
+            proxy_running
         );
+        let (mut snapshot, session_sync, codex_notice) =
+            apply_target_provider(&provider, app, state).await?;
+        let _ = snapshot.capture_last_written_files();
         return Ok(SwitchProviderResult {
             provider,
-            session_sync: None,
-            codex_notice: None,
+            session_sync,
+            codex_notice,
         });
     }
     let started = Instant::now();
-    let (snapshot, session_sync, codex_notice) = apply_target_provider(&provider, state).await?;
+    let (snapshot, session_sync, codex_notice) = apply_target_provider(&provider, app, state).await?;
     let applied_ms = started.elapsed().as_millis();
     if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, id)) {
         return rollback_switch(snapshot, state, error).await;
@@ -586,12 +641,20 @@ fn extract_model_ids(value: &Value) -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn switch_to_official(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    switch_to_official_for_target(target, &state).await
+pub async fn switch_to_official(
+    target: ProviderTarget,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    switch_to_official_for_target(target, Some(&app), &state).await
 }
 
 /// Shared official-login restoration used by IPC and tray actions.
-pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppState) -> AppResult<()> {
+pub async fn switch_to_official_for_target<R: tauri::Runtime>(
+    target: ProviderTarget,
+    app: Option<&tauri::AppHandle<R>>,
+    state: &AppState,
+) -> AppResult<()> {
     let mut snapshot = SwitchSnapshot::capture(state, target).await?;
     let result: AppResult<()> = async {
         match target {
@@ -611,8 +674,13 @@ pub async fn switch_to_official_for_target(target: ProviderTarget, state: &AppSt
                         AppError::Tauri(format!("OpenCode 托管配置移除任务失败: {error}"))
                     })??;
             }
+            // Pi 无独立「官方配置」文件；清除当前供应商 + 停代理即可。
+            ProviderTarget::Pi => {}
         }
         state.proxy.lock().await.stop_target(target);
+        if let Some(app) = app {
+            crate::commands::proxy::publish_target_stopped(app, state, target).await;
+        }
         state.db.with_conn(|conn| dao::clear_current_provider(conn, target))?;
         Ok(())
     }
@@ -649,11 +717,14 @@ pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppSta
     if target == ProviderTarget::OpenCode {
         return import_opencode_live_providers(&state);
     }
+    if target == ProviderTarget::Pi {
+        return sync_pi_providers_to_live(&state);
+    }
     let live = match target {
         ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
         ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
         ProviderTarget::Codex => codex::read_current_live_provider()?,
-        ProviderTarget::OpenCode => unreachable!(),
+        ProviderTarget::OpenCode | ProviderTarget::Pi => unreachable!(),
     };
     let Some(live) = live else {
         return Ok(());
@@ -804,6 +875,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     let mut imported = 0;
     let mut skipped = 0;
     let mut touched_opencode = false;
+    let mut touched_pi = false;
     for entry in bundle.providers {
         let normalized_base_url = normalize_base_url(&entry.base_url)?;
         let existing = state.db.with_conn(|conn| dao::list_providers(conn, entry.target_app))?;
@@ -836,16 +908,252 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
         if target_app == ProviderTarget::OpenCode {
             touched_opencode = true;
         }
+        if target_app == ProviderTarget::Pi {
+            touched_pi = true;
+        }
         imported += 1;
     }
     if touched_opencode {
         sync_opencode_providers_to_live(&state)?;
     }
+    if touched_pi {
+        sync_pi_providers_to_live(&state)?;
+    }
     Ok(ProviderImportResult { imported, skipped })
 }
 
-async fn apply_target_provider(
+fn sync_catalog_target(state: &AppState, target: ProviderTarget) -> AppResult<()> {
+    match target {
+        ProviderTarget::OpenCode => sync_opencode_providers_to_live(state),
+        ProviderTarget::Pi => sync_pi_providers_to_live(state),
+        _ => Ok(()),
+    }
+}
+
+/// 把 DB 中全部 Pi 供应商写入 `models.json` / `auth.json`（多供应商并存，无需切换）。
+pub(crate) fn sync_pi_providers_to_live(state: &AppState) -> AppResult<()> {
+    use crate::coding::pi::config::{
+        read_pi_settings, sync_managed_pi_auth, sync_managed_pi_providers, update_pi_settings,
+    };
+
+    let providers = state
+        .db
+        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Pi))?;
+    let mut model_entries: Vec<(String, serde_json::Value)> = Vec::with_capacity(providers.len());
+    let mut auth_entries: Vec<(String, String)> = Vec::with_capacity(providers.len());
+    for provider in &providers {
+        let mut runtime = provider.clone();
+        runtime.api_key = state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
+            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
+        }
+        let extra_models = state
+            .db
+            .with_conn(|conn| extra_models_for_pi_apply(conn, &runtime))
+            .unwrap_or_default();
+        let provider_id = pi_provider_id(&runtime);
+        model_entries.push((
+            provider_id.clone(),
+            pi_provider_config(&runtime, &extra_models)?,
+        ));
+        if !runtime.api_key.trim().is_empty() {
+            auth_entries.push((provider_id, runtime.api_key));
+        }
+    }
+    let retired = sync_managed_pi_providers(&model_entries)?;
+    sync_managed_pi_auth(&auth_entries, &retired)?;
+
+    let settings = read_pi_settings().unwrap_or_else(|_| serde_json::json!({}));
+    let default_provider = settings
+        .get("defaultProvider")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    let default_missing = default_provider.is_empty()
+        || retired.iter().any(|id| id == default_provider);
+    if default_missing {
+        if let (Some((id, _)), Some(provider)) = (model_entries.first(), providers.first()) {
+            let _ = update_pi_settings(Some(id.clone()), Some(provider.model.clone()), None, None);
+        }
+    }
+    Ok(())
+}
+
+fn pi_provider_config(provider: &Provider, extra_models: &[String]) -> AppResult<serde_json::Value> {
+    use crate::provider::ProtocolType;
+    use serde_json::json;
+
+    let model_id = provider.model.trim();
+    if model_id.is_empty() {
+        return Err(AppError::Config("Pi 默认模型不能为空".to_string()));
+    }
+    let mut provider_cfg = json!({
+        "baseUrl": normalize_pi_base_url(&provider.base_url, provider.protocol_type),
+        "api": pi_api_for_protocol(provider.protocol_type),
+        "models": build_pi_model_entries(provider, extra_models),
+    });
+    if matches!(provider.protocol_type, ProtocolType::Anthropic) {
+        provider_cfg["compat"] = json!({
+            "supportsEagerToolInputStreaming": false,
+        });
+    }
+    Ok(provider_cfg)
+}
+
+fn pi_provider_id(provider: &Provider) -> String {
+    if provider.is_antigravity() {
+        return "antigravity".to_string();
+    }
+    let slug: String = provider
+        .name
+        .trim()
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        "custom".to_string()
+    } else {
+        slug
+    }
+}
+
+fn pi_api_for_protocol(protocol: crate::provider::ProtocolType) -> &'static str {
+    use crate::provider::ProtocolType;
+    match protocol {
+        ProtocolType::Anthropic => "anthropic-messages",
+        ProtocolType::OpenAiResponses => "openai-responses",
+        ProtocolType::OpenAiChat | ProtocolType::Proxy => "openai-completions",
+    }
+}
+
+fn pi_proxy_base_url(port: u16, protocol: crate::provider::ProtocolType) -> String {
+    use crate::provider::ProtocolType;
+    match protocol {
+        // Anthropic SDK posts `/v1/messages` onto baseURL.
+        ProtocolType::Anthropic => format!("http://127.0.0.1:{port}"),
+        ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses | ProtocolType::Proxy => {
+            format!("http://127.0.0.1:{port}/v1")
+        }
+    }
+}
+
+fn normalize_pi_base_url(base: &str, protocol: crate::provider::ProtocolType) -> String {
+    use crate::provider::{ensure_openai_v1_suffix, ProtocolType};
+    let mut url = base.trim().trim_end_matches('/').to_string();
+    match protocol {
+        ProtocolType::Anthropic => {
+            // Official Anthropic base is `https://api.anthropic.com` (no `/v1`).
+            // A trailing `/v1` becomes `/v1/v1/messages` → 404.
+            if url.ends_with("/v1") {
+                url.truncate(url.len() - 3);
+                url = url.trim_end_matches('/').to_string();
+            }
+            url
+        }
+        ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses | ProtocolType::Proxy => {
+            // Only append `/v1` when the path is empty (host root). Keep `/v4`,
+            // `/compatible-mode/v1`, etc. as the vendor published them.
+            ensure_openai_v1_suffix(&url).unwrap_or(url)
+        }
+    }
+}
+
+fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<serde_json::Value> {
+    use serde_json::json;
+
+    let mut ids = catalog_models_from_provider(provider);
+    for model in extra_models {
+        let model = model.trim();
+        if !model.is_empty() && !ids.iter().any(|id| id == model) {
+            ids.push(model.to_string());
+        }
+    }
+    if provider.is_antigravity() {
+        for id in crate::antigravity::model_catalog::provider_suggestion_ids(24) {
+            if !ids.iter().any(|existing| existing == &id) {
+                ids.push(id);
+            }
+        }
+    }
+
+    let context_window = provider.model_context_window.unwrap_or(200_000);
+    ids.into_iter()
+        .map(|id| {
+            let reasoning = id.contains("thinking")
+                || id.contains("reason")
+                || id.starts_with("claude-opus")
+                || id.starts_with("claude-sonnet")
+                || id.starts_with("gpt-5");
+            json!({
+                "id": id,
+                "reasoning": reasoning,
+                "input": ["text", "image"],
+                "contextWindow": context_window,
+            })
+        })
+        .collect()
+}
+
+fn extra_models_for_pi_apply(
+    conn: &rusqlite::Connection,
     provider: &Provider,
+) -> AppResult<Vec<String>> {
+    let mut ids = Vec::new();
+    if let Some(cache) = dao::get_provider_model_cache(conn, &provider.id)? {
+        extend_unique_models(&mut ids, cache.models);
+    }
+    if ids.len() <= 1 {
+        let source_url =
+            normalize_base_url(&provider.base_url).unwrap_or_else(|_| provider.base_url.clone());
+        for target in [
+            ProviderTarget::ClaudeCode,
+            ProviderTarget::ClaudeDesktop,
+            ProviderTarget::Codex,
+            ProviderTarget::OpenCode,
+            ProviderTarget::Pi,
+        ] {
+            for sibling in dao::list_providers(conn, target)? {
+                if sibling.id == provider.id {
+                    continue;
+                }
+                let sibling_url = normalize_base_url(&sibling.base_url)
+                    .unwrap_or_else(|_| sibling.base_url.clone());
+                if sibling_url != source_url {
+                    continue;
+                }
+                extend_unique_models(&mut ids, catalog_models_from_provider(&sibling));
+                if let Some(cache) = dao::get_provider_model_cache(conn, &sibling.id)? {
+                    extend_unique_models(&mut ids, cache.models);
+                }
+            }
+        }
+    }
+    Ok(ids)
+}
+
+fn extend_unique_models(ids: &mut Vec<String>, extra: Vec<String>) {
+    for model in extra {
+        let model = model.trim();
+        if !model.is_empty() && !ids.iter().any(|id| id == model) {
+            ids.push(model.to_string());
+        }
+    }
+}
+
+async fn apply_target_provider<R: tauri::Runtime>(
+    provider: &Provider,
+    app: Option<&tauri::AppHandle<R>>,
     state: &AppState,
 ) -> AppResult<(SwitchSnapshot, Option<CodexProviderSyncResult>, Option<&'static str>)> {
     // Provider rows carry only a keyring reference. Hydrate a short-lived clone
@@ -1021,6 +1329,17 @@ async fn apply_target_provider(
                 sync_opencode_providers_to_live(state)?;
                 Ok((None, None))
             }
+            ProviderTarget::Pi => {
+                sync_pi_providers_to_live(state)?;
+                let provider_id = pi_provider_id(&runtime_provider);
+                crate::coding::pi::config::update_pi_settings(
+                    Some(provider_id),
+                    Some(runtime_provider.model.clone()),
+                    None,
+                    None,
+                )?;
+                Ok((None, None))
+            }
         }
     }.await;
     let (session_sync, codex_notice) = match result {
@@ -1037,6 +1356,9 @@ async fn apply_target_provider(
     }
     if !uses_proxy {
         state.proxy.lock().await.stop_target(runtime_provider.target_app);
+    }
+    if let Some(app) = app {
+        crate::commands::proxy::publish_target_status(app, state, runtime_provider.target_app).await;
     }
     Ok((snapshot, session_sync, codex_notice))
 }
@@ -1091,6 +1413,11 @@ impl SwitchSnapshot {
                 crate::config::get_codex_config_dir().join("ai-switcher-model-catalog.json"),
             ],
             ProviderTarget::OpenCode => vec![crate::config::get_opencode_config_path()],
+            ProviderTarget::Pi => vec![
+                crate::coding::pi::config::get_pi_settings_path(),
+                crate::coding::pi::config::get_pi_auth_path(),
+                crate::coding::pi::config::get_pi_models_path(),
+            ],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
@@ -1098,6 +1425,7 @@ impl SwitchSnapshot {
             ProviderTarget::ClaudeDesktop => DESKTOP_OWNERSHIP_KEY,
             ProviderTarget::Codex => CODEX_OWNERSHIP_KEY,
             ProviderTarget::OpenCode => OPENCODE_OWNERSHIP_KEY,
+            ProviderTarget::Pi => PI_OWNERSHIP_KEY,
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {
@@ -1567,7 +1895,7 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
     if !legacy_profile && !legacy_routes {
         return Ok(());
     }
-    let _snapshot = apply_target_provider(&provider, state).await?;
+    let _snapshot = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
     log::info!("Claude Desktop managed profile upgraded");
     Ok(())
 }
@@ -1587,7 +1915,7 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
     let port = get_saved_proxy_port(state, ProviderTarget::Codex);
     let Some(current_base) = codex::managed_provider_base_url() else {
         // Missing managed entry — a full apply restores it.
-        let _ = apply_target_provider(&provider, state).await?;
+        let _ = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
         log::info!("Codex managed provider entry missing; reapplied current provider");
         return Ok(());
     };
@@ -1596,14 +1924,14 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
         if is_local_proxy_base_url_for_port(&current_base, port) {
             return Ok(());
         }
-        let _ = apply_target_provider(&provider, state).await?;
+        let _ = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
         log::info!(
             "Codex managed base_url was `{current_base}`; reapplied local proxy on port {port}"
         );
         return Ok(());
     }
     if is_loopback_v1_base_url(&current_base) {
-        let _ = apply_target_provider(&provider, state).await?;
+        let _ = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
         log::info!(
             "Codex managed base_url was local proxy `{current_base}`; reapplied direct upstream"
         );
@@ -1658,7 +1986,7 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
     {
         return Ok(());
     }
-    let _snapshot = apply_target_provider(&provider, state).await?;
+    let _snapshot = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
     log::info!("Claude Code live model fields upgraded");
     Ok(())
 }
@@ -1925,13 +2253,20 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         ProviderTarget::Codex => "proxy_port_codex",
         // OpenCode 直连写入，不使用本地代理；仅为穷尽匹配保留键名。
         ProviderTarget::OpenCode => "proxy_port_opencode",
+        ProviderTarget::Pi => "proxy_port_pi",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u16>().ok())
         .or_else(|| state.db.with_conn(|conn| get_setting(conn, "proxy_port")).ok().flatten().and_then(|value| value.parse::<u16>().ok()))
-        .unwrap_or(match target { ProviderTarget::ClaudeCode => 15821, ProviderTarget::ClaudeDesktop => 15822, ProviderTarget::Codex => 15823, ProviderTarget::OpenCode => 15824 })
+        .unwrap_or(match target {
+            ProviderTarget::ClaudeCode => 15821,
+            ProviderTarget::ClaudeDesktop => 15822,
+            ProviderTarget::Codex => 15823,
+            ProviderTarget::OpenCode => 15824,
+            ProviderTarget::Pi => 15825,
+        })
 }
 
 #[cfg(test)]
@@ -1968,6 +2303,42 @@ mod tests {
         assert!(!is_antigravity_gateway_base_url("https://api.anthropic.com"));
         assert!(url_targets_loopback("http://127.0.0.1:15830/v1/models"));
         assert!(!url_targets_loopback("https://api.deepseek.com/v1/models"));
+    }
+
+    #[test]
+    fn pi_anthropic_base_url_strips_v1_so_sdk_does_not_double_path() {
+        use crate::provider::ProtocolType;
+        assert_eq!(
+            normalize_pi_base_url("http://127.0.0.1:15830/v1", ProtocolType::Anthropic),
+            "http://127.0.0.1:15830"
+        );
+        assert_eq!(
+            normalize_pi_base_url("http://127.0.0.1:15830/", ProtocolType::Anthropic),
+            "http://127.0.0.1:15830"
+        );
+        assert_eq!(
+            pi_proxy_base_url(15825, ProtocolType::Anthropic),
+            "http://127.0.0.1:15825"
+        );
+        assert_eq!(
+            pi_proxy_base_url(15825, ProtocolType::OpenAiChat),
+            "http://127.0.0.1:15825/v1"
+        );
+        assert_eq!(
+            normalize_pi_base_url("https://api.deepseek.com", ProtocolType::OpenAiChat),
+            "https://api.deepseek.com/v1"
+        );
+        assert_eq!(
+            normalize_pi_base_url(
+                "https://open.bigmodel.cn/api/paas/v4",
+                ProtocolType::OpenAiChat
+            ),
+            "https://open.bigmodel.cn/api/paas/v4"
+        );
+        assert_eq!(
+            normalize_pi_base_url("https://api.deepseek.com/anthropic", ProtocolType::Anthropic),
+            "https://api.deepseek.com/anthropic"
+        );
     }
 
     #[test]

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   App,
+  Alert,
   AutoComplete,
   Button,
   Col,
@@ -45,6 +46,8 @@ interface ProviderFormProps {
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
   target: ProviderTarget;
+  /** Shown after copying a provider from another Agent. */
+  importHint?: string | null;
   onCancel: () => void;
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
@@ -130,6 +133,7 @@ export function ProviderForm({
   open,
   editing,
   target,
+  importHint,
   onCancel,
   onSubmit,
 }: ProviderFormProps) {
@@ -152,8 +156,9 @@ export function ProviderForm({
   const isEdit = editing !== null;
   const isCodex = (editing?.targetApp ?? target) === "codex";
   const isOpenCode = (editing?.targetApp ?? target) === "opencode";
-  // OpenCode 与 Codex 一样直连 baseURL/apiKey，不做 Claude 角色模型映射。
-  const isDirect = isCodex || isOpenCode;
+  const isPi = (editing?.targetApp ?? target) === "pi";
+  // Codex / OpenCode / Pi 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
+  const isDirect = isCodex || isOpenCode || isPi;
   const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
   // Seed with the loaded default so the sync effect never treats open/edit as a "change".
   const prevModelRef = useRef<string>("");
@@ -395,10 +400,14 @@ export function ProviderForm({
     const isAgPreset =
       preset.id === "antigravity-builtin" ||
       preset.id === "antigravity-builtin-codex" ||
+      preset.id === "antigravity-builtin-pi" ||
       preset.id === "antigravity-gateway-external" ||
-      preset.id === "antigravity-gateway-external-codex";
+      preset.id === "antigravity-gateway-external-codex" ||
+      preset.id === "antigravity-gateway-external-pi";
     const isBuiltinAg =
-      preset.id === "antigravity-builtin" || preset.id === "antigravity-builtin-codex";
+      preset.id === "antigravity-builtin" ||
+      preset.id === "antigravity-builtin-codex" ||
+      preset.id === "antigravity-builtin-pi";
     form.setFieldsValue({
       name: preset.name,
       protocolType: preset.protocolType,
@@ -430,10 +439,14 @@ export function ProviderForm({
           const flash = defaults.geminiFlash ?? "gemini-3.6-flash-high";
           const pro = defaults.geminiPro ?? flash;
           const failover = liveIds.filter((id) => id !== defaultModel);
+          const liveRoot = String(defaults.baseUrl || "http://127.0.0.1:15830").replace(/\/$/, "");
+          const needsV1 =
+            preset.id === "antigravity-builtin-codex" ||
+            target === "opencode";
           const baseUrl = isBuiltinAg
-            ? preset.id === "antigravity-builtin-codex"
-              ? `${String(defaults.baseUrl || "http://127.0.0.1:15830").replace(/\/$/, "")}/v1`
-              : String(defaults.baseUrl || "http://127.0.0.1:15830")
+            ? needsV1
+              ? `${liveRoot}/v1`
+              : liveRoot
             : preset.baseUrl;
           form.setFieldsValue({
             baseUrl: isBuiltinAg ? baseUrl : preset.baseUrl,
@@ -455,10 +468,11 @@ export function ProviderForm({
           if (isBuiltinAg) {
             void getAntigravityGatewayStatus()
               .then((status) => {
-                const baseUrl =
-                  preset.id === "antigravity-builtin-codex"
-                    ? `${status.baseUrl.replace(/\/$/, "")}/v1`
-                    : status.baseUrl;
+                const liveRoot = status.baseUrl.replace(/\/$/, "");
+                const needsV1 =
+                  preset.id === "antigravity-builtin-codex" ||
+                  target === "opencode";
+                const baseUrl = needsV1 ? `${liveRoot}/v1` : status.baseUrl;
                 form.setFieldsValue({
                   baseUrl,
                   apiKey: status.apiKey,
@@ -488,6 +502,14 @@ export function ProviderForm({
       styles={{ body: { maxHeight: "calc(100vh - 200px)", overflowY: "auto", paddingInlineEnd: 4 } }}
     >
       <Form form={form} layout="vertical" autoComplete="off">
+        {importHint ? (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={importHint}
+          />
+        ) : null}
         <Form.Item name="id" hidden>
           <Input />
         </Form.Item>
@@ -523,6 +545,12 @@ export function ProviderForm({
               ))}
             </Space>
           </Form.Item>
+        ) : null}
+
+        {isPi ? (
+          <Typography.Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 12, fontSize: 12 }}>
+            {t("providers.piDirectHint")}
+          </Typography.Paragraph>
         ) : null}
 
         <Form.Item

@@ -552,6 +552,26 @@ export default function EnvironmentPage() {
       ]
     : [];
 
+  const opencodeRows: PathRow[] = paths
+    ? [
+        { key: "opencodeConfigDir", value: paths.opencodeConfigDir },
+        { key: "opencodeConfigPath", value: paths.opencodeConfigPath },
+      ]
+    : [];
+
+  const piRows: PathRow[] = paths
+    ? [
+        { key: "piConfigDir", value: paths.piConfigDir },
+        { key: "piSettingsPath", value: paths.piSettingsPath },
+        { key: "piAuthPath", value: paths.piAuthPath },
+        { key: "piModelsPath", value: paths.piModelsPath },
+        { key: "piAgentsPath", value: paths.piAgentsPath },
+        { key: "piSkillsDir", value: paths.piSkillsDir },
+        { key: "piMcpPath", value: paths.piMcpPath },
+        { key: "piSessionsDir", value: paths.piSessionsDir },
+      ]
+    : [];
+
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <OnboardingTip
@@ -977,6 +997,24 @@ export default function EnvironmentPage() {
             <Card size="small" className="page-surface" title={t("env.sections.codex")}>
               <Descriptions column={1} size="small" bordered>
                 {codexRows.map((r) => (
+                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                    <PathValue value={r.value} />
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+            <Card size="small" className="page-surface" title={t("env.sections.opencode")}>
+              <Descriptions column={1} size="small" bordered>
+                {opencodeRows.map((r) => (
+                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                    <PathValue value={r.value} />
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+            <Card size="small" className="page-surface" title={t("env.sections.pi")}>
+              <Descriptions column={1} size="small" bordered>
+                {piRows.map((r) => (
                   <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
                     <PathValue value={r.value} />
                   </Descriptions.Item>

@@ -75,6 +75,7 @@ pub struct ProxyManager {
     code: Option<ProxyRuntime>,
     desktop: Option<ProxyRuntime>,
     codex: Option<ProxyRuntime>,
+    pi: Option<ProxyRuntime>,
 }
 
 struct ProxyRuntime {
@@ -94,6 +95,7 @@ impl ProxyManager {
             code: None,
             desktop: None,
             codex: None,
+            pi: None,
         }
     }
 
@@ -102,8 +104,8 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
-            // OpenCode uses direct provider URLs; no local proxy runtime.
             ProviderTarget::OpenCode => None,
+            ProviderTarget::Pi => self.pi.as_ref(),
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -113,6 +115,7 @@ impl ProxyManager {
                 ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
                 ProviderTarget::Codex => DEFAULT_PORT + 2,
                 ProviderTarget::OpenCode => DEFAULT_PORT + 3,
+                ProviderTarget::Pi => DEFAULT_PORT + 4,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -135,6 +138,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
             ProviderTarget::OpenCode => None,
+            ProviderTarget::Pi => self.pi.as_ref(),
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -215,6 +219,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
             ProviderTarget::Codex => self.codex.replace(runtime),
             ProviderTarget::OpenCode => None,
+            ProviderTarget::Pi => self.pi.replace(runtime),
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -230,6 +235,7 @@ impl ProxyManager {
         self.stop_target(ProviderTarget::ClaudeCode);
         self.stop_target(ProviderTarget::ClaudeDesktop);
         self.stop_target(ProviderTarget::Codex);
+        self.stop_target(ProviderTarget::Pi);
         log::info!("本地代理已停止");
     }
 
@@ -240,6 +246,7 @@ impl ProxyManager {
         self.stop_target_graceful(ProviderTarget::ClaudeCode).await;
         self.stop_target_graceful(ProviderTarget::ClaudeDesktop).await;
         self.stop_target_graceful(ProviderTarget::Codex).await;
+        self.stop_target_graceful(ProviderTarget::Pi).await;
         log::info!("本地代理已优雅停止");
     }
 
@@ -249,6 +256,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
             ProviderTarget::OpenCode => None,
+            ProviderTarget::Pi => self.pi.take(),
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
@@ -262,6 +270,7 @@ impl ProxyManager {
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
             ProviderTarget::OpenCode => None,
+            ProviderTarget::Pi => self.pi.take(),
         };
         let Some(runtime) = runtime else {
             return;

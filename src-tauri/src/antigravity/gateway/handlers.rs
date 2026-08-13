@@ -580,7 +580,7 @@ impl StreamState {
                 self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
                 for event in events {
-                    out.extend_from_slice(&sse_data(&event));
+                    out.extend_from_slice(&anthropic_sse(&event));
                 }
                 if out.is_empty() {
                     None
@@ -623,7 +623,7 @@ impl StreamState {
                 self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
                 for event in events {
-                    out.extend_from_slice(&sse_data(&event));
+                    out.extend_from_slice(&anthropic_sse(&event));
                 }
                 Bytes::from(out)
             }
@@ -633,6 +633,17 @@ impl StreamState {
 
 fn sse_data(value: &Value) -> Bytes {
     Bytes::from(format!("data: {}\n\n", value))
+}
+
+/// Anthropic clients (Pi, official SDK) dispatch on the SSE `event:` field,
+/// not `data.type`. Omitting it makes Pi skip every frame and fail with
+/// "stream ended without a stop reason".
+fn anthropic_sse(value: &Value) -> Bytes {
+    let event = value
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("message");
+    Bytes::from(format!("event: {event}\ndata: {value}\n\n"))
 }
 
 fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -683,4 +694,23 @@ fn error_json(status: StatusCode, message: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn anthropic_sse_includes_event_field_for_pi() {
+        let event = json!({
+            "type": "message_delta",
+            "delta": { "stop_reason": "end_turn", "stop_sequence": null },
+            "usage": { "output_tokens": 1 }
+        });
+        let encoded = String::from_utf8(anthropic_sse(&event).to_vec()).unwrap();
+        assert!(encoded.starts_with("event: message_delta\n"));
+        assert!(encoded.contains("data: {"));
+        assert!(encoded.contains("\"stop_reason\":\"end_turn\""));
+        assert!(encoded.ends_with("\n\n"));
+    }
 }

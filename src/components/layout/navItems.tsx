@@ -5,6 +5,7 @@ import {
   BarChartOutlined,
   UserOutlined,
   FolderOutlined,
+  MessageOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import type { PageKey } from "@/lib/pageRegistry";
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItemDef[] = [
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined /> },
   { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined /> },
   { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined /> },
+  { key: "sessions", labelKey: "navigation.sessions", defaultLabel: "会话", icon: <MessageOutlined /> },
   { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined /> },
 ];
 
@@ -32,7 +34,7 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "plugins", "profiles"].includes(activeKey)) {
     return true;
   }
-  if (navKey === "settings" && ["settings", "sessions", "about", "environment", "localization", "proxy", "agentTools", "piSettings"].includes(activeKey)) {
+  if (navKey === "settings" && ["settings", "about", "environment", "localization", "proxy", "agentTools"].includes(activeKey)) {
     return true;
   }
   return false;

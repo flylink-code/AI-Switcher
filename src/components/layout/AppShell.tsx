@@ -5,7 +5,6 @@ import type { PageKey } from "@/lib/pageRegistry";
 import { WindowChrome } from "./WindowChrome";
 import { SideNav } from "./SideNav";
 import { ContextHeader } from "./ContextHeader";
-import { StatusBar } from "./StatusBar";
 
 export interface AppShellProps {
   activeKey: PageKey;
@@ -22,6 +21,7 @@ const PRIMARY_PAGES = new Set<PageKey>([
   "usage",
   "antigravity",
   "workspace",
+  "sessions",
   "settings",
 ]);
 
@@ -30,7 +30,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onNavigate,
   updateVersion,
   onOpenUpdate,
-  appVersion,
   children,
 }) => {
   const { t } = useTranslation();
@@ -44,12 +43,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       case "proxy":
         return {
           title: t("navigation.proxy", { defaultValue: "本地代理" }),
-          parentKey: "settings",
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
-      case "sessions":
-        return {
-          title: t("nav.sessions", { defaultValue: "会话管理" }),
           parentKey: "settings",
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
@@ -101,23 +94,20 @@ export const AppShell: React.FC<AppShellProps> = ({
         color: token.colorText,
       }}
     >
-      {/* Main Container: Left SideNav + Right Content (Window Chrome + Page Content + StatusBar) */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "row" }}>
         <SideNav activeKey={activeKey} onNavigate={onNavigate} />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          {/* Top Integrated Window Chrome (Controls, Drag Region, Language, Theme) */}
           <WindowChrome updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
 
-          {/* Secondary Page Header (Only rendered for non-primary child pages like Settings > Sessions) */}
-          {secondaryMeta && (
+          {secondaryMeta && secondaryMeta.title ? (
             <ContextHeader
               title={secondaryMeta.title}
               showBack
               onBack={() => onNavigate(secondaryMeta.parentKey)}
               backText={secondaryMeta.parentLabel}
             />
-          )}
+          ) : null}
 
           <Layout.Content
             className="app-content-area"
@@ -134,9 +124,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           </Layout.Content>
         </div>
       </div>
-
-      {/* Bottom Fixed Runtime Status Bar */}
-      <StatusBar appVersion={appVersion} />
     </div>
   );
 };

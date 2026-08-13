@@ -16,8 +16,9 @@ export interface ProviderPreset {
   targets: ProviderTarget[];
 }
 
-const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode"];
-const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
+const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "pi"];
+const CLAUDE_OPENCODE: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode"];
+const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
 
 /** Built-in quick-fill presets for common third-party gateways. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -113,7 +114,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     notes:
       "External Antigravity-Manager gateway (start AG Manager first; fill its API key). For the built-in gateway use the Antigravity page.",
-    targets: CODE_DESKTOP,
+    targets: CLAUDE_OPENCODE,
   },
   {
     id: "antigravity-gateway-external-codex",
@@ -141,7 +142,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     notes:
       "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到 gemini-3.6-flash；也可在模型映射里改成其他 Gemini。",
-    targets: CODE_DESKTOP,
+    targets: CLAUDE_OPENCODE,
   },
   {
     id: "antigravity-builtin-codex",
@@ -158,6 +159,40 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     notes:
       "Built-in Antigravity gateway (OpenAI Responses) for Codex — wire_api=responses; failover/catalog includes Gemini.",
     targets: ["codex"],
+  },
+  {
+    id: "antigravity-gateway-external-pi",
+    name: "Antigravity Gateway",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:8045",
+    model: "claude-sonnet-4-6",
+    failoverModels: [
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+    ],
+    modelContextWindow: 200_000,
+    notes:
+      "External Antigravity-Manager for Pi (anthropic-messages; baseUrl is gateway root, SDK appends /v1/messages). Start AG Manager and fill its API key.",
+    targets: ["pi"],
+  },
+  {
+    id: "antigravity-builtin-pi",
+    name: "Antigravity (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15830",
+    model: "claude-sonnet-4-6",
+    failoverModels: [
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+    ],
+    modelContextWindow: 200_000,
+    notes:
+      "内建 Antigravity 网关。Pi 写入 ~/.pi/agent/models.json（api: anthropic-messages，baseUrl 为网关根地址，SDK 会再拼 /v1/messages）；默认模型用网关 catalog id，无 Claude 角色映射。",
+    targets: ["pi"],
   },
 ];
 

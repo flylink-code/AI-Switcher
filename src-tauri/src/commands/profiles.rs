@@ -160,7 +160,7 @@ pub async fn apply_profile_for_id<R: tauri::Runtime>(
         let Some(scope_payload) = scope.payload(&profile.payload) else {
             continue;
         };
-        apply_provider(scope, scope_payload, state).await?;
+        apply_provider(scope, scope_payload, app, state).await?;
     }
 
     for scope in [
@@ -314,18 +314,19 @@ fn detect_active_prompt(target: PromptTarget) -> AppResult<Option<String>> {
     Ok(None)
 }
 
-async fn apply_provider(
+async fn apply_provider<R: tauri::Runtime>(
     scope: ProfileScope,
     scope_payload: &ProfileScopePayload,
+    app: &tauri::AppHandle<R>,
     state: &AppState,
 ) -> AppResult<()> {
     let target = scope.provider_target();
     match scope_payload.provider_id.as_deref() {
         Some(id) if !id.is_empty() => {
-            switch_provider_for_target(id, target, state).await?;
+            switch_provider_for_target(id, target, Some(app), state).await?;
         }
         _ => {
-            switch_to_official_for_target(target, state).await?;
+            switch_to_official_for_target(target, Some(app), state).await?;
         }
     }
     Ok(())
@@ -478,6 +479,7 @@ impl McpServerEnabled for crate::mcp::McpServer {
             McpTarget::ClaudeDesktop => self.enabled_claude_desktop,
             McpTarget::Codex => self.enabled_codex,
             McpTarget::OpenCode => self.enabled_opencode,
+            McpTarget::Pi => self.enabled_pi,
         }
     }
 }

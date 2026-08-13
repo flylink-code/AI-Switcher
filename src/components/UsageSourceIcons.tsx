@@ -94,6 +94,15 @@ export function OpenCodeTerminalIcon({ size = 16, style, className }: IconProps)
   );
 }
 
+/** Pi symbol mark. */
+export function PiIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: "#10B981", ...style }}>
+      <path d="M4 6h16v2.5H16.5V18h-2.5V8.5H10V18H7.5V8.5H4V6z" />
+    </SvgShell>
+  );
+}
+
 /** Orbit mark for Antigravity gateway usage. */
 export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps) {
   return (
@@ -122,6 +131,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <OpenAiBlossomIcon {...props} />;
     case "opencode":
       return <OpenCodeTerminalIcon {...props} />;
+    case "pi":
+      return <PiIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
     default: {
@@ -160,5 +171,6 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "claude_desktop", labelKey: "usage.sourceClaudeDesktop" },
   { value: "codex", labelKey: "usage.sourceCodex" },
   { value: "opencode", labelKey: "usage.sourceOpenCode" },
+  { value: "pi", labelKey: "workspace.pi" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];

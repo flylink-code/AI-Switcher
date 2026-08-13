@@ -8,7 +8,9 @@ use crate::coding::pi::config::{
     save_global_agents_md, save_pi_auth as save_pi_auth_fn, save_pi_models as save_pi_models_fn,
     save_workspace_prompt, update_pi_settings as update_pi_settings_fn,
 };
-use crate::coding::pi::detector::{detect_pi_cli_sync, PiCliVersionInfo};
+use crate::coding::pi::detector::{
+    apply_pi_latest, detect_pi_cli_sync, fetch_pi_npm_latest_sync, PiCliVersionInfo,
+};
 use crate::coding::pi::session::{
     read_pi_session_file_content, scan_pi_sessions_sync, PiSessionItem,
 };
@@ -16,8 +18,19 @@ use crate::error::{AppError, AppResult};
 use crate::process_util::apply_no_window;
 
 #[tauri::command]
-pub async fn detect_pi_cli() -> AppResult<PiCliVersionInfo> {
-    Ok(detect_pi_cli_sync())
+pub async fn detect_pi_cli(include_latest: Option<bool>) -> AppResult<PiCliVersionInfo> {
+    let include = include_latest.unwrap_or(true);
+    let probe = tauri::async_runtime::spawn_blocking(detect_pi_cli_sync)
+        .await
+        .map_err(|error| AppError::Tauri(format!("Pi CLI 探测任务失败: {error}")))?;
+    if !include {
+        return Ok(probe);
+    }
+    let latest = tauri::async_runtime::spawn_blocking(fetch_pi_npm_latest_sync)
+        .await
+        .ok()
+        .flatten();
+    Ok(apply_pi_latest(probe, latest))
 }
 
 #[tauri::command]

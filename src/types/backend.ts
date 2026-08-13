@@ -4,7 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
-export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
 export interface ClaudeModelMapping {
@@ -268,6 +268,15 @@ export interface PathsInfo {
   opencodeConfigDir: string;
   /** `opencode.json` (or `opencode.jsonc`) config file path. */
   opencodeConfigPath: string;
+  /** `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`). */
+  piConfigDir: string;
+  piSettingsPath: string;
+  piAuthPath: string;
+  piModelsPath: string;
+  piAgentsPath: string;
+  piSkillsDir: string;
+  piMcpPath: string;
+  piSessionsDir: string;
   /** Application data directory (`~/.claude-switcher`). */
   appConfigDir: string;
   /** Main SQLite database path. */
@@ -371,6 +380,7 @@ export interface McpServer {
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
   enabledOpencode: boolean;
+  enabledPi: boolean;
   sortIndex: number;
   createdAt: number;
 }
@@ -384,9 +394,10 @@ export interface McpServerInput {
   enabledClaudeDesktop: boolean;
   enabledCodex: boolean;
   enabledOpencode: boolean;
+  enabledPi: boolean;
 }
 
-export type McpTarget = "claude_code" | "claude_desktop" | "codex" | "opencode";
+export type McpTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi";
 
 export interface CodexAuthStatus {
   configPath: string;
@@ -454,7 +465,7 @@ export interface PromptInfo {
   updatedAt: number;
 }
 
-export type PromptTarget = "claude_code" | "codex" | "opencode";
+export type PromptTarget = "claude_code" | "codex" | "opencode" | "pi";
 
 export interface PromptDetail extends PromptInfo {
   content: string;
@@ -483,7 +494,7 @@ export interface UnmanagedSkill {
   path: string;
 }
 
-export type SkillTarget = "claude_code" | "codex";
+export type SkillTarget = "claude_code" | "codex" | "pi";
 
 export interface Agent {
   name: string;
@@ -916,6 +927,20 @@ export interface OpenCodeCliVersionInfo {
   installedButBroken: boolean;
 }
 
+export interface PiCliVersionInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
+}
+
 export interface OpenCodeDesktopStatus {
   installed: boolean;
   version: string | null;
@@ -934,7 +959,7 @@ export interface NodeRuntimeStatus {
   installHint: string;
 }
 
-export type SessionProvider = "claude_code" | "codex" | "opencode";
+export type SessionProvider = "claude_code" | "codex" | "opencode" | "pi";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;
@@ -975,6 +1000,18 @@ export interface SessionArchiveInfo {
   archivePath: string;
   sessionId: string;
   createdAt: number;
+}
+
+export interface SessionMigrateResult {
+  session: SessionMeta;
+  sourceSessionId: string;
+  targetModel: string;
+  linesCopied: number;
+  linesTrimmed: number;
+  previousModel?: string;
+  thinkingBlocksStripped: number;
+  errorTurnsRemoved: number;
+  historyLinesCompacted: number;
 }
 
 export interface SessionBatchBackupInfo {

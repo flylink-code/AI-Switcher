@@ -13,9 +13,11 @@ pub const DATA_SOURCE_PROXY: &str = "proxy";
 pub const DATA_SOURCE_CODEX_SESSION: &str = "codex_session";
 pub const DATA_SOURCE_CLAUDE_CODE_SESSION: &str = "claude_code_session";
 pub const DATA_SOURCE_OPENCODE_SESSION: &str = "opencode_session";
+pub const DATA_SOURCE_PI_SESSION: &str = "pi_session";
 pub const CODEX_SESSION_PROVIDER_ID: &str = "_codex_session";
 pub const CLAUDE_CODE_SESSION_PROVIDER_ID: &str = "_claude_code_session";
 pub const OPENCODE_SESSION_PROVIDER_ID: &str = "_opencode_session";
+pub const PI_SESSION_PROVIDER_ID: &str = "_pi_session";
 /// Hide session rows when a matching proxy row exists within ±10 minutes.
 const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 
@@ -23,14 +25,18 @@ const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 /// Uses a created_at range (not ABS) so SQLite can use indexes.
 const EFFECTIVE_USAGE_FILTER: &str = "
   AND (
-    COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session')
+    COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
     OR NOT EXISTS (
       SELECT 1 FROM proxy_request_logs p
       WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
-        AND p.target_app = CASE
-          WHEN COALESCE(l.data_source, 'proxy') = 'claude_code_session' THEN 'claude_code'
-          ELSE 'codex'
-        END
+        AND (
+          CASE COALESCE(l.data_source, 'proxy')
+            WHEN 'claude_code_session' THEN p.target_app = 'claude_code'
+            WHEN 'codex_session' THEN p.target_app = 'codex'
+            WHEN 'pi_session' THEN p.target_app IN ('pi', 'antigravity')
+            ELSE 0
+          END
+        )
         AND p.status_code BETWEEN 200 AND 299
         AND p.created_at BETWEEN l.created_at - 600000 AND l.created_at + 600000
         AND p.input_tokens = l.input_tokens
@@ -328,6 +334,37 @@ pub fn should_skip_opencode_session_insert(
     )
 }
 
+pub fn should_skip_pi_session_insert(
+    conn: &Connection,
+    created_at: i64,
+    model: Option<&str>,
+    input_tokens: i64,
+    cache_read_input_tokens: i64,
+    output_tokens: i64,
+) -> AppResult<bool> {
+    if should_skip_session_insert_for_target(
+        conn,
+        "pi",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )? {
+        return Ok(true);
+    }
+    // Pi Antigravity models already hit the AG gateway (`target_app=antigravity`).
+    should_skip_session_insert_for_target(
+        conn,
+        "antigravity",
+        created_at,
+        model,
+        input_tokens,
+        cache_read_input_tokens,
+        output_tokens,
+    )
+}
+
 fn should_skip_session_insert_for_target(
     conn: &Connection,
     target_app: &str,
@@ -472,6 +509,20 @@ pub fn reset_opencode_session_usage(conn: &Connection) -> AppResult<i64> {
     conn.execute(
         "DELETE FROM session_log_sync
          WHERE replace(lower(file_path), '\\', '/') LIKE '%/opencode.db%';",
+        [],
+    )?;
+    Ok(deleted)
+}
+
+pub fn reset_pi_session_usage(conn: &Connection) -> AppResult<i64> {
+    let deleted = conn.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = ?;",
+        params![DATA_SOURCE_PI_SESSION],
+    )? as i64;
+    conn.execute(
+        "DELETE FROM session_log_sync
+         WHERE replace(lower(file_path), '\\', '/') LIKE '%/.pi/agent/sessions/%'
+            OR replace(lower(file_path), '\\', '/') LIKE '%/pi/agent/sessions/%';",
         [],
     )?;
     Ok(deleted)

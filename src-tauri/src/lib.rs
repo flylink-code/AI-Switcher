@@ -55,7 +55,7 @@ use crate::commands::{
     install_claude_plugin, list_claude_plugin_catalog, update_claude_plugin,
     update_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
     sync_codex_session_providers,
-    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, create_provider, delete_mcp_server, delete_prompt,
+    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, copy_provider_to_target, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
@@ -84,6 +84,7 @@ use crate::commands::{
     preview_model_pricing_xlsx, preview_proxy_log_maintenance, rebuild_codex_session_usage_cmd, restore_desktop_localization, save_log_maintenance_policy,
     sync_codex_session_usage_cmd, sync_claude_code_session_usage_cmd, rebuild_claude_code_session_usage_cmd,
     sync_opencode_session_usage_cmd, rebuild_opencode_session_usage_cmd,
+    sync_pi_session_usage_cmd, rebuild_pi_session_usage_cmd,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, get_codex_cli_version,
     get_node_runtime_status, ensure_node_runtime_via_fnm,
@@ -222,6 +223,7 @@ pub fn run() {
             install_editor_localization_helper,
             list_providers,
             get_current_provider,
+            copy_provider_to_target,
             create_provider,
             update_provider,
             delete_provider,
@@ -331,6 +333,8 @@ pub fn run() {
             rebuild_claude_code_session_usage_cmd,
             sync_opencode_session_usage_cmd,
             rebuild_opencode_session_usage_cmd,
+            sync_pi_session_usage_cmd,
+            rebuild_pi_session_usage_cmd,
             list_model_pricing,
             export_model_pricing_xlsx,
             preview_model_pricing_xlsx,
@@ -524,6 +528,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_codex_session_usage_sync(Arc::clone(&db));
     spawn_claude_code_session_usage_sync(Arc::clone(&db));
     spawn_opencode_session_usage_sync(Arc::clone(&db));
+    spawn_pi_session_usage_sync(Arc::clone(&db));
     spawn_antigravity_quota_refresh(app.handle().clone());
 
     // System tray.
@@ -676,6 +681,46 @@ fn spawn_opencode_session_usage_sync(db: Arc<database::Database>) {
                 }
                 Err(error) => {
                     log::warn!("OpenCode session usage sync task join failed: {error}");
+                }
+            }
+            tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
+        }
+    });
+}
+
+/// Background Pi session JSONL → DB sync: first run after ~20s, then every 30s.
+fn spawn_pi_session_usage_sync(db: Arc<database::Database>) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        loop {
+            let db = Arc::clone(&db);
+            let sync_result = tokio::task::spawn_blocking(move || {
+                usage::session_usage_pi::try_sync_pi_session_usage_db(&db)
+            })
+            .await;
+            match sync_result {
+                Ok(Ok(result)) => {
+                    if result.inserted_rows > 0 {
+                        usage_events::notify_log_recorded();
+                        log::info!(
+                            "Pi session usage sync: scanned={}, inserted={}, skipped={}",
+                            result.scanned_files,
+                            result.inserted_rows,
+                            result.skipped_rows
+                        );
+                    } else {
+                        log::debug!(
+                            "Pi session usage sync: scanned={}, message={}",
+                            result.scanned_files,
+                            result.message
+                        );
+                    }
+                }
+                Ok(Err(error)) => {
+                    log::warn!("Pi session usage sync failed: {error}");
+                }
+                Err(error) => {
+                    log::warn!("Pi session usage sync task join failed: {error}");
                 }
             }
             tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;

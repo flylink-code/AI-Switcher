@@ -2,6 +2,11 @@
 
 use serde::Serialize;
 
+use crate::coding::pi::config::{
+    get_pi_auth_path, get_pi_dir, get_pi_global_agents_path, get_pi_models_path, get_pi_settings_path,
+};
+use crate::coding::pi::mcp::get_pi_mcp_path;
+use crate::coding::pi::session::get_pi_sessions_dir;
 use crate::config::{
     claude_desktop::detect_claude_desktop,
     get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_agents_dir,
@@ -28,6 +33,14 @@ pub struct PathsInfo {
     pub codex_agents_path: String,
     pub opencode_config_dir: String,
     pub opencode_config_path: String,
+    pub pi_config_dir: String,
+    pub pi_settings_path: String,
+    pub pi_auth_path: String,
+    pub pi_models_path: String,
+    pub pi_agents_path: String,
+    pub pi_skills_dir: String,
+    pub pi_mcp_path: String,
+    pub pi_sessions_dir: String,
     pub app_config_dir: String,
     pub app_db_path: String,
     pub backup_dir: String,
@@ -62,6 +75,14 @@ pub fn get_paths() -> PathsInfo {
         codex_agents_path: s(&get_codex_config_dir().join("AGENTS.md")),
         opencode_config_dir: s(&get_opencode_config_dir()),
         opencode_config_path: s(&get_opencode_config_path()),
+        pi_config_dir: s(&get_pi_dir()),
+        pi_settings_path: s(&get_pi_settings_path()),
+        pi_auth_path: s(&get_pi_auth_path()),
+        pi_models_path: s(&get_pi_models_path()),
+        pi_agents_path: s(&get_pi_global_agents_path()),
+        pi_skills_dir: s(&get_pi_dir().join("skills")),
+        pi_mcp_path: s(&get_pi_mcp_path()),
+        pi_sessions_dir: s(&get_pi_sessions_dir()),
         app_config_dir: s(&get_app_config_dir()),
         app_db_path: s(&get_app_db_path()),
         backup_dir: s(&get_backup_dir()),

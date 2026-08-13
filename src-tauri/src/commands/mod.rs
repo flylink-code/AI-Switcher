@@ -112,7 +112,7 @@ pub use sessions::{
     restore_trashed_session, trash_session,
 };
 pub use providers::{
-    create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
+    copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_cached_provider_models, get_current_provider, import_live_config, import_providers_json,
     list_providers, reorder_providers, speedtest_provider_endpoint, switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
@@ -156,5 +156,6 @@ pub use usage::{
     rebuild_codex_session_usage_cmd, sync_codex_session_usage_cmd,
     rebuild_claude_code_session_usage_cmd, sync_claude_code_session_usage_cmd,
     rebuild_opencode_session_usage_cmd, sync_opencode_session_usage_cmd,
+    rebuild_pi_session_usage_cmd, sync_pi_session_usage_cmd,
     preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
 };

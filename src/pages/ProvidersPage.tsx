@@ -23,17 +23,19 @@ import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
+import SwapOutlined from "@ant-design/icons/es/icons/SwapOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CodexOauthDeviceStart, Provider } from "@/types/backend";
+import type { CodexOauthDeviceStart, Provider, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
+import { ImportFromAgentDialog, canCopyProviderTo } from "@/components/ImportFromAgentDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
-import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
+import { AgentTargetSwitcher, LABEL_KEYS, TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQueries";
@@ -62,9 +64,12 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const isCatalogTarget = target === "opencode" || target === "pi";
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
+  const [importHint, setImportHint] = useState<string | null>(null);
+  const [importFromOpen, setImportFromOpen] = useState(false);
 
   const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
@@ -92,7 +97,15 @@ export default function ProvidersPage() {
     handleImportClipboard,
     handleImportFile,
     handleConfirmImport,
-  } = useProviderActions({ target, editing, closeForm: () => setFormOpen(false) });
+    handleCopyToTarget,
+  } = useProviderActions({
+    target,
+    editing,
+    closeForm: () => {
+      setFormOpen(false);
+      setImportHint(null);
+    },
+  });
 
   const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
 
@@ -128,12 +141,25 @@ export default function ProvidersPage() {
 
   const openCreate = () => {
     setEditing(null);
+    setImportHint(null);
     setFormOpen(true);
   };
 
-  const openEdit = (provider: Provider) => {
+  const openEdit = (provider: Provider, hint?: string | null) => {
     setEditing(provider);
+    setImportHint(hint ?? null);
     setFormOpen(true);
+  };
+
+  const afterCopyToTarget = async (source: Provider, dest: ProviderTarget) => {
+    const copied = await handleCopyToTarget(source, dest);
+    if (!copied) return;
+    const hint = t("providers.copiedAdjustHint", { agent: t(LABEL_KEYS[source.targetApp]) });
+    if (dest !== target) {
+      setProvidersTarget(dest);
+    }
+    await store.load(dest);
+    openEdit(copied, hint);
   };
 
   const handleOpenOpencodeConfig = async () => {
@@ -176,7 +202,7 @@ export default function ProvidersPage() {
   };
 
   const importExportItems: MenuProps["items"] = [
-    ...(target !== "codex" && target !== "opencode"
+    ...(target !== "codex" && !isCatalogTarget
       ? [
           {
             key: "chatgptLogin",
@@ -188,9 +214,21 @@ export default function ProvidersPage() {
         ]
       : []),
     {
+      key: "importFromAgent",
+      icon: <SwapOutlined />,
+      label: t("providers.importFromAgent"),
+      disabled: busy,
+      onClick: () => setImportFromOpen(true),
+    },
+    {
       key: "importLive",
       icon: <ImportOutlined />,
-      label: target === "opencode" ? t("providers.syncOpenCodeLive") : t("providers.importLive"),
+      label:
+        target === "opencode"
+          ? t("providers.syncOpenCodeLive")
+          : target === "pi"
+            ? t("providers.syncPiLive")
+            : t("providers.importLive"),
       disabled: busy,
       onClick: () => void handleImportLive(),
     },
@@ -242,11 +280,11 @@ export default function ProvidersPage() {
           />
           <Tag
             icon={<NodeIndexOutlined />}
-            color={target === "opencode" ? "blue" : proxy?.running ? "green" : undefined}
+            color={isCatalogTarget ? "blue" : proxy?.running ? "green" : undefined}
             style={{ cursor: "pointer", margin: 0 }}
             onClick={() => navigate("proxy")}
           >
-            {target === "opencode"
+            {isCatalogTarget
               ? t("workbench.proxyDirect")
               : proxy?.running
                 ? t("workbench.proxyRunning", { port: proxy.port })
@@ -293,7 +331,7 @@ export default function ProvidersPage() {
       </div>
 
       {/* Onboarding Tips */}
-      {target !== "opencode" && (
+      {!isCatalogTarget && (
         <OnboardingTip
           tipKey="providers_hot_switch"
           type="info"
@@ -309,6 +347,18 @@ export default function ProvidersPage() {
           message={
             <span style={{ fontSize: "12.5px" }}>
               <strong>{t("providers.opencodeNoSwitchTitle")}</strong> — {t("providers.opencodeNoSwitchDescription")}
+            </span>
+          }
+        />
+      )}
+      {target === "pi" && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+          message={
+            <span style={{ fontSize: "12.5px" }}>
+              <strong>{t("providers.piNoSwitchTitle")}</strong> — {t("providers.piNoSwitchDescription")}
             </span>
           }
         />
@@ -337,8 +387,8 @@ export default function ProvidersPage() {
 
       {/* Provider Card List */}
       <div className="cc-provider-list">
-        {/* Official Provider Card */}
-        {target !== "opencode" && (
+        {/* Official Provider Card — same 3-row structure as custom cards */}
+        {target !== "opencode" && target !== "pi" && (
           <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
             <div className="cc-provider-card-body">
               <div className="cc-provider-card-header">
@@ -356,21 +406,33 @@ export default function ProvidersPage() {
                   </Tag>
                 )}
               </div>
-              <div className="cc-provider-card-footer" style={{ borderTop: "none", paddingTop: 0 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
+
+              <div className="cc-provider-card-meta">
+                <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
+                  {t("providers.officialModeTag", { defaultValue: "官方" })}
+                </Tag>
+                <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
+                  native
+                </Tag>
+              </div>
+
+              <div className="cc-provider-card-footer">
+                <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
                   {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
                 </Text>
-                {!officialCurrent && (
-                  <Button
-                    type="primary"
-                    size="small"
-                    style={{ borderRadius: 6, fontSize: 12 }}
-                    loading={switchingId === "official"}
-                    onClick={() => void handleOfficial()}
-                  >
-                    {t("providers.switchTo")}
-                  </Button>
-                )}
+                <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
+                  {!officialCurrent && (
+                    <Button
+                      type="primary"
+                      size="small"
+                      style={{ borderRadius: 6, fontSize: 12 }}
+                      loading={switchingId === "official"}
+                      onClick={() => void handleOfficial()}
+                    >
+                      {t("providers.switchTo")}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -382,10 +444,9 @@ export default function ProvidersPage() {
           return (
             <div
               key={provider.id}
-              className={`cc-provider-card ${target !== "opencode" && isCurrent ? "cc-provider-card-active" : ""}`}
+              className={`cc-provider-card ${!isCatalogTarget && isCurrent ? "cc-provider-card-active" : ""}`}
             >
               <div className="cc-provider-card-body">
-                {/* Header Row */}
                 <div className="cc-provider-card-header">
                   <div className="cc-provider-main">
                     <ProviderBrandIcon provider={provider} size={36} />
@@ -394,7 +455,7 @@ export default function ProvidersPage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {target !== "opencode" && isCurrent && (
+                    {!isCatalogTarget && isCurrent && (
                       <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
                         🟢 {t("providers.current")}
                       </Tag>
@@ -410,8 +471,7 @@ export default function ProvidersPage() {
                   </div>
                 </div>
 
-                {/* Lightweight Metadata Row (No bulky inner-card) */}
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", margin: "2px 0 4px 0" }}>
+                <div className="cc-provider-card-meta">
                   <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
                     Model: {provider.model || "Default"}
                   </Tag>
@@ -420,13 +480,12 @@ export default function ProvidersPage() {
                   </Tag>
                 </div>
 
-                {/* Footer Row */}
                 <div className="cc-provider-card-footer">
                   <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
                     {provider.baseUrl}
                   </Text>
-                  <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {target !== "opencode" && !isCurrent && (
+                  <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
+                    {!isCatalogTarget && !isCurrent && (
                       <Button
                         type="primary"
                         size="small"
@@ -454,6 +513,21 @@ export default function ProvidersPage() {
                           icon={<EditOutlined />}
                           onClick={() => openEdit(provider)}
                         />
+                      </Tooltip>
+                      <Tooltip title={t("providers.copyToAgent")}>
+                        <Dropdown
+                          trigger={["click"]}
+                          menu={{
+                            items: TARGET_OPTIONS.filter((option) => option !== target).map((option) => ({
+                              key: option,
+                              label: t(LABEL_KEYS[option]),
+                              disabled: !canCopyProviderTo(provider, option),
+                              onClick: () => void afterCopyToTarget(provider, option),
+                            })),
+                          }}
+                        >
+                          <Button size="small" type="text" icon={<SwapOutlined />} />
+                        </Dropdown>
                       </Tooltip>
                       <Tooltip title={t("deeplink.shareLink")}>
                         <Button
@@ -483,15 +557,18 @@ export default function ProvidersPage() {
         })}
 
         {store.providers.length === 0 && (
-          <ResourceEmptyState
-            title={t("providers.empty", { defaultValue: "暂无供应商" })}
-            description={t("providers.emptyHint", { defaultValue: "为当前 Agent 添加第一个 Provider。" })}
-            action={
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                {t("providers.create")}
-              </Button>
-            }
-          />
+          <div className="cc-provider-empty">
+            <ResourceEmptyState
+              title={t("providers.empty", { defaultValue: "暂无供应商" })}
+              description={t("providers.emptyHint", { defaultValue: "为当前 Agent 添加第一个 Provider。" })}
+              style={{ padding: "20px 16px" }}
+              action={
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  {t("providers.create")}
+                </Button>
+              }
+            />
+          </div>
         )}
       </div>
 
@@ -500,8 +577,23 @@ export default function ProvidersPage() {
         open={formOpen}
         editing={editing}
         target={target}
-        onCancel={() => setFormOpen(false)}
+        importHint={importHint}
+        onCancel={() => {
+          setFormOpen(false);
+          setImportHint(null);
+        }}
         onSubmit={handleSubmit}
+      />
+
+      <ImportFromAgentDialog
+        open={importFromOpen}
+        dest={target}
+        confirming={busy}
+        onCancel={() => setImportFromOpen(false)}
+        onImport={(provider) => {
+          setImportFromOpen(false);
+          void afterCopyToTarget(provider, target);
+        }}
       />
 
       <ImportPreviewDialog

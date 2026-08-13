@@ -45,6 +45,23 @@ interface PromptFormValues {
   content: string;
 }
 
+function promptLiveMeta(target: PromptTarget): { file: string; path: string } {
+  switch (target) {
+    case "claude_code":
+      return { file: "CLAUDE.md", path: "~/.claude/CLAUDE.md" };
+    case "codex":
+      return { file: "AGENTS.md", path: "~/.codex/AGENTS.md" };
+    case "opencode":
+      return { file: "AGENTS.md", path: "~/.config/opencode/AGENTS.md" };
+    case "pi":
+      return { file: "AGENTS.md", path: "~/.pi/agent/AGENTS.md" };
+    default: {
+      const _exhaustive: never = target;
+      return _exhaustive;
+    }
+  }
+}
+
 export default function PromptsPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -61,12 +78,13 @@ export default function PromptsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [form] = Form.useForm<PromptFormValues>();
   const [importForm] = Form.useForm<{ name: string }>();
+  const liveMeta = promptLiveMeta(target);
 
   const openCreate = () => {
     setEditing(null);
     form.setFieldsValue({
       name: "",
-      content: target === "claude_code" ? "# Project Instructions\n\n" : "# Global Instructions\n\n",
+      content: target === "claude_code" ? "# Project Instructions\n\n" : "# AGENTS.md\n\n",
     });
     setFormOpen(true);
   };
@@ -112,7 +130,7 @@ export default function PromptsPage() {
     setBusy(true);
     try {
       await activatePrompt(info.name, target);
-      void message.success(t("prompts.activated", { name: info.name }));
+      void message.success(t("prompts.activated", { name: info.name, file: liveMeta.file }));
       await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
       void message.error(errMsg(e));
@@ -143,7 +161,7 @@ export default function PromptsPage() {
     setBusy(true);
     try {
       await importLivePrompt(name.trim(), target);
-      void message.success(t("prompts.imported"));
+      void message.success(t("prompts.imported", { file: liveMeta.file }));
       setImportOpen(false);
       await queryClient.invalidateQueries({ queryKey: promptsOverviewOptions(target).queryKey });
     } catch (e) {
@@ -166,18 +184,22 @@ export default function PromptsPage() {
     <>
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {promptsQuery.error && <Alert type="error" showIcon message={errMsg(promptsQuery.error)} />}
-        <OnboardingTip tipKey="prompts" message={t("prompts.title")} description={t("prompts.description")} />
+        <OnboardingTip
+          tipKey="prompts"
+          message={t("prompts.title", { file: liveMeta.file })}
+          description={t("prompts.description", { file: liveMeta.file })}
+        />
         <WorkspaceTargetSegmented<PromptTarget>
           value={target}
           onChange={setTarget}
           t={t}
-          targets={["claude_code", "codex", "opencode"]}
+          targets={["claude_code", "codex", "opencode", "pi"]}
         />
 
         <Card
           size="small"
           className="page-surface"
-          title={t("prompts.liveTitle")}
+          title={t("prompts.liveTitle", { file: liveMeta.file })}
           extra={
             <Button
               icon={<ImportOutlined />}
@@ -204,7 +226,10 @@ export default function PromptsPage() {
               </Paragraph>
             </Space>
           ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("prompts.liveMissing")} />
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={t("prompts.liveMissing", { path: liveMeta.path })}
+            />
           )}
         </Card>
 
@@ -262,7 +287,10 @@ export default function PromptsPage() {
                   </Popconfirm>,
                 ]}
               >
-                <List.Item.Meta title={item.name} description={t("prompts.presetDescription")} />
+                <List.Item.Meta
+                  title={item.name}
+                  description={t("prompts.presetDescription", { path: liveMeta.path })}
+                />
               </List.Item>
             )}
           />
@@ -295,7 +323,7 @@ export default function PromptsPage() {
             <Input.TextArea rows={18} disabled={busy} spellCheck={false} style={{ fontFamily: "monospace" }} />
           </Form.Item>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            <SaveOutlined /> {t("prompts.activationNote")}
+            <SaveOutlined /> {t("prompts.activationNote", { path: liveMeta.path })}
           </Paragraph>
         </Form>
       </Modal>

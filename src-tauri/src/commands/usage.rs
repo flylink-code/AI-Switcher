@@ -35,6 +35,7 @@ enum UsageSource {
     Codex,
     Antigravity,
     OpenCode,
+    Pi,
 }
 
 impl UsageSource {
@@ -46,6 +47,7 @@ impl UsageSource {
             "codex" => Ok(Self::Codex),
             "antigravity" => Ok(Self::Antigravity),
             "opencode" => Ok(Self::OpenCode),
+            "pi" => Ok(Self::Pi),
             _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
         }
     }
@@ -60,6 +62,7 @@ impl UsageSource {
             Self::Antigravity => Some(Some("antigravity")),
             // OpenCode rows come from opencode.db session sync.
             Self::OpenCode => Some(Some("opencode")),
+            Self::Pi => Some(Some("pi")),
         }
     }
 
@@ -442,6 +445,30 @@ pub async fn rebuild_opencode_session_usage_cmd(
     })
     .await
     .map_err(|e| AppError::Database(format!("opencode session rebuild task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn sync_pi_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_pi::PiSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_pi::sync_pi_session_usage_db_blocking(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("pi session sync task failed: {e}")))?
+}
+
+#[tauri::command]
+pub async fn rebuild_pi_session_usage_cmd(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::usage::session_usage_pi::PiSessionSyncResult> {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::usage::session_usage_pi::rebuild_pi_session_usage_db(&db)
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("pi session rebuild task failed: {e}")))?
 }
 
 #[derive(Debug)]

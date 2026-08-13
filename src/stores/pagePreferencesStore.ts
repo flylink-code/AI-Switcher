@@ -64,11 +64,11 @@ const DEFAULTS: Pick<
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
-  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode";
+  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode" || value === "pi";
 }
 
 function isSessionProvider(value: unknown): value is SessionProvider {
-  return value === "claude_code" || value === "codex" || value === "opencode";
+  return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi";
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
@@ -82,6 +82,7 @@ function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
 function sessionProviderFor(target: ProviderTarget): SessionProvider {
   if (target === "codex") return "codex";
   if (target === "opencode") return "opencode";
+  if (target === "pi") return "pi";
   return "claude_code";
 }
 

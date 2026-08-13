@@ -4,9 +4,13 @@ import { useTranslation } from "react-i18next";
 import { showCodexSwitchNotice } from "@/lib/codexNotice";
 import { useProvidersStore } from "@/stores/providersStore";
 import type { ImportPreview, Provider, ProviderInput, ProviderTarget } from "@/types/backend";
+import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import { providerListOptions } from "@/lib/appQueries";
+import { queryClient } from "@/lib/queryClient";
 import {
   buildProviderDeeplink,
   confirmImportPreview,
+  copyProviderToTarget,
   exportProviders,
   previewImportText,
   speedtestProviderEndpoint,
@@ -234,7 +238,11 @@ export function useProviderActions(options: {
     try {
       await store.importLive();
       void message.success(
-        target === "opencode" ? t("providers.syncOpenCodeLiveDone") : t("providers.imported"),
+        target === "opencode"
+          ? t("providers.syncOpenCodeLiveDone")
+          : target === "pi"
+            ? t("providers.syncPiLiveDone")
+            : t("providers.imported"),
       );
     } catch (e) {
       void message.error(errMsg(e));
@@ -285,6 +293,23 @@ export function useProviderActions(options: {
     }
   };
 
+  const handleCopyToTarget = async (provider: Provider, dest: ProviderTarget) => {
+    setBusy(true);
+    try {
+      const copied = await copyProviderToTarget(provider.id, dest);
+      await queryClient.invalidateQueries({ queryKey: providerListOptions(dest).queryKey });
+      void message.success(
+        t("providers.copiedToAgent", { agent: t(LABEL_KEYS[dest]) }),
+      );
+      return copied;
+    } catch (e) {
+      void message.error(errMsg(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return {
     busy,
     setBusy,
@@ -307,5 +332,6 @@ export function useProviderActions(options: {
     handleImportClipboard,
     handleImportFile,
     handleConfirmImport,
+    handleCopyToTarget,
   };
 }

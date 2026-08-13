@@ -210,6 +210,91 @@ pub fn save_pi_models(models_val: Value) -> AppResult<()> {
     Ok(())
 }
 
+/// Upsert one custom provider under `models.json` → `providers.<id>` (Pi official schema).
+pub fn upsert_pi_models_provider(provider_id: &str, provider_cfg: Value) -> AppResult<()> {
+    sync_managed_pi_providers(&[(provider_id.to_string(), provider_cfg)]).map(|_| ())
+}
+
+const PI_MANAGED_IDS_KEY: &str = "aiSwitcherProviders";
+
+/// Replace AI-Switcher-managed Pi providers, keeping user-added keys.
+/// Returns provider ids that were removed from `models.json`.
+pub fn sync_managed_pi_providers(entries: &[(String, Value)]) -> AppResult<Vec<String>> {
+    let _guard = lock_pi_config()?;
+    let path = get_pi_models_path();
+    let mut root = read_json_file::<Value>(&path)?.unwrap_or_else(|| json!({}));
+    if !root.is_object() {
+        root = json!({});
+    }
+    let root_obj = root.as_object_mut().unwrap();
+    let previously: Vec<String> = root_obj
+        .get(PI_MANAGED_IDS_KEY)
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let providers = root_obj
+        .entry("providers".to_string())
+        .or_insert_with(|| json!({}));
+    if !providers.is_object() {
+        *providers = json!({});
+    }
+    let map = providers.as_object_mut().unwrap();
+    let keep: Vec<String> = entries.iter().map(|(id, _)| id.clone()).collect();
+    let mut retired = Vec::new();
+    for id in &previously {
+        if !keep.iter().any(|item| item == id) {
+            map.remove(id);
+            retired.push(id.clone());
+        }
+    }
+    for (id, cfg) in entries {
+        map.insert(id.clone(), cfg.clone());
+    }
+    root_obj.insert(PI_MANAGED_IDS_KEY.to_string(), json!(keep));
+
+    if let Some(parent) = path.parent() {
+        ensure_dir_with_context(parent)?;
+    }
+    write_json_file(&path, &root)?;
+    Ok(retired)
+}
+
+/// Write managed Pi auth entries and drop ones we no longer own.
+pub fn sync_managed_pi_auth(entries: &[(String, String)], retire_ids: &[String]) -> AppResult<()> {
+    let _guard = lock_pi_config()?;
+    let path = get_pi_auth_path();
+    let mut current = read_json_file::<Value>(&path)?.unwrap_or_else(|| json!({}));
+    if !current.is_object() {
+        current = json!({});
+    }
+    if let Some(obj) = current.as_object_mut() {
+        for id in retire_ids {
+            if !entries.iter().any(|(keep, _)| keep == id) {
+                obj.remove(id);
+            }
+        }
+        for (id, key) in entries {
+            obj.insert(
+                id.clone(),
+                json!({
+                    "type": "api_key",
+                    "key": key,
+                }),
+            );
+        }
+    }
+    if let Some(parent) = path.parent() {
+        ensure_dir_with_context(parent)?;
+    }
+    write_json_file(&path, &current)?;
+    Ok(())
+}
+
 /// 读取全局 Prompt (`~/.pi/agent/AGENTS.md`)
 pub fn read_global_agents_md() -> AppResult<String> {
     let path = get_pi_global_agents_path();

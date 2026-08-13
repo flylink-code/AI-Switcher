@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import type { ProviderTarget } from "@/types/backend";
 
-export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
+export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
 
 export const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
   claude_desktop: "workspace.claude_desktop",
   codex: "workspace.codex",
   opencode: "workspace.opencode",
+  pi: "workspace.pi",
 };
 
 const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
@@ -18,6 +19,7 @@ const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_desktop: "agentSwitcher.desktop",
   codex: "agentSwitcher.codex",
   opencode: "agentSwitcher.opencode",
+  pi: "agentSwitcher.pi",
 };
 
 export interface AgentTargetSwitcherProps {

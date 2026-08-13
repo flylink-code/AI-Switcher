@@ -157,6 +157,11 @@ fn build_provider_menu<R: Runtime>(
                 "OpenCode 不显示在 Claude 供应商托盘菜单中".to_string(),
             ))
         }
+        ProviderTarget::Pi => {
+            return Err(AppError::Config(
+                "Pi 不显示在 Claude 供应商托盘菜单中".to_string(),
+            ))
+        }
     };
     let official = MenuItem::with_id(app, official_id, official_label, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
@@ -228,7 +233,7 @@ async fn switch_provider<R: Runtime>(
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
     let provider =
-        crate::commands::providers::switch_provider_for_target(id, target, &state).await?;
+        crate::commands::providers::switch_provider_for_target(id, target, Some(app), &state).await?;
     crate::commands::providers::schedule_provider_health_check(
         app.clone(),
         provider.provider,
@@ -239,7 +244,7 @@ async fn switch_provider<R: Runtime>(
 
 async fn switch_to_official<R: Runtime>(app: &AppHandle<R>, target: ProviderTarget) -> AppResult<()> {
     let state = app.state::<AppState>();
-    crate::commands::providers::switch_to_official_for_target(target, &state).await
+    crate::commands::providers::switch_to_official_for_target(target, Some(app), &state).await
 }
 
 async fn apply_profile_from_tray<R: Runtime>(app: &AppHandle<R>, id: &str) -> AppResult<()> {

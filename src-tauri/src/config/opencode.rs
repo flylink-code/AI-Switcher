@@ -852,6 +852,7 @@ mod tests {
             enabled_claude_desktop: false,
             enabled_codex: false,
             enabled_opencode,
+            enabled_pi: false,
             sort_index: 0,
             created_at: 0,
         }

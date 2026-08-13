@@ -36,6 +36,8 @@ pub enum McpTarget {
     Codex,
     #[serde(rename = "opencode")]
     OpenCode,
+    #[serde(rename = "pi")]
+    Pi,
 }
 
 impl McpTarget {
@@ -44,6 +46,7 @@ impl McpTarget {
             "claude_desktop" => McpTarget::ClaudeDesktop,
             "codex" => McpTarget::Codex,
             "opencode" => McpTarget::OpenCode,
+            "pi" => McpTarget::Pi,
             _ => McpTarget::ClaudeCode,
         }
     }
@@ -62,6 +65,7 @@ pub struct McpServer {
     pub enabled_claude_desktop: bool,
     pub enabled_codex: bool,
     pub enabled_opencode: bool,
+    pub enabled_pi: bool,
     pub sort_index: i64,
     pub created_at: i64,
 }
@@ -83,6 +87,8 @@ pub struct McpServerInput {
     pub enabled_codex: bool,
     #[serde(default)]
     pub enabled_opencode: bool,
+    #[serde(default)]
+    pub enabled_pi: bool,
 }
 
 /// Result of importing the live configs from both applications.
@@ -161,6 +167,7 @@ fn enabled_map(servers: &[McpServer], target: McpTarget) -> Map<String, Value> {
             McpTarget::ClaudeDesktop => s.enabled_claude_desktop,
             McpTarget::Codex => s.enabled_codex,
             McpTarget::OpenCode => s.enabled_opencode,
+            McpTarget::Pi => s.enabled_pi,
         })
         .map(|s| (s.name.clone(), s.server_config.clone()))
         .collect()
@@ -324,6 +331,7 @@ mod tests {
             enabled_claude_desktop: desktop,
             enabled_codex: false,
             enabled_opencode: false,
+            enabled_pi: false,
             sort_index: 0,
             created_at: 0,
         }

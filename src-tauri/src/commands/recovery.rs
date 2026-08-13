@@ -89,6 +89,7 @@ pub async fn restore_config_backup(
             ProviderTarget::ClaudeDesktop => set_setting(conn, "p7.desktop_original_applied_id", "")?,
             ProviderTarget::Codex => set_setting(conn, "v040.codex_managed", "")?,
             ProviderTarget::OpenCode => set_setting(conn, "v131.opencode_managed", "")?,
+            ProviderTarget::Pi => set_setting(conn, "v136.pi_managed", "")?,
         }
         Ok(())
     })?;
@@ -117,6 +118,7 @@ fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
         ProviderTarget::ClaudeDesktop => name.starts_with("_meta.json_") || name.starts_with("claude-switcher.json_"),
         ProviderTarget::Codex => name.starts_with("codex-"),
         ProviderTarget::OpenCode => name.starts_with("opencode-"),
+        ProviderTarget::Pi => name.starts_with("pi-"),
     }
 }
 
@@ -146,6 +148,9 @@ fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<PathB
         ProviderTarget::Codex => Err(AppError::Config("Codex 仅支持通过“切换官方配置”恢复原始文件".to_string())),
         ProviderTarget::OpenCode => Err(AppError::Config(
             "OpenCode 仅支持通过“切换官方配置”恢复原始文件".to_string(),
+        )),
+        ProviderTarget::Pi => Err(AppError::Config(
+            "Pi 仅支持通过“切换官方配置”恢复原始文件".to_string(),
         )),
     }
 }

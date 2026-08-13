@@ -1,15 +1,25 @@
 import React from "react";
-import { Button, Dropdown, Select, Typography, type MenuProps } from "antd";
+import { Button, ConfigProvider, Dropdown, Select, Segmented, Tooltip, theme, type MenuProps } from "antd";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import DollarOutlined from "@ant-design/icons/es/icons/DollarOutlined";
-import EllipsisOutlined from "@ant-design/icons/es/icons/EllipsisOutlined";
+import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
 import { useTranslation } from "react-i18next";
-import type { UsageSourceFilter } from "@/components/UsageSourceIcons";
-import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
+import {
+  USAGE_SOURCE_FILTER_OPTIONS,
+  usageSourceSegmentLabel,
+  type UsageSourceFilter,
+} from "@/components/UsageSourceIcons";
 import { USAGE_PERIOD_VALUES, usagePeriodLabelKey, type UsagePeriod } from "@/utils/usagePeriod";
-import { Inline } from "@/components/ui";
 
-const { Text } = Typography;
+const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, string> = {
+  all: "usage.sourceAll",
+  claude_code: "agentSwitcher.claudeCode",
+  claude_desktop: "agentSwitcher.desktop",
+  codex: "agentSwitcher.codex",
+  opencode: "agentSwitcher.opencode",
+  pi: "agentSwitcher.pi",
+  antigravity: "usage.sourceAntigravity",
+};
 
 export interface UsageToolbarProps {
   period: UsagePeriod;
@@ -24,6 +34,8 @@ export interface UsageToolbarProps {
   onRebuildClaudeCode?: () => void;
   onSyncOpenCode?: () => void;
   onRebuildOpenCode?: () => void;
+  onSyncPi?: () => void;
+  onRebuildPi?: () => void;
   onOpenPricing: () => void;
   onOpenMaintenance: () => void;
   maintaining: boolean;
@@ -44,6 +56,8 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   onRebuildClaudeCode,
   onSyncOpenCode,
   onRebuildOpenCode,
+  onSyncPi,
+  onRebuildPi,
   onOpenPricing,
   onOpenMaintenance,
   maintaining,
@@ -51,12 +65,13 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   style,
 }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
 
   const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
   const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
   const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
+  const includesPi = logTargetApp === "all" || logTargetApp === "pi";
 
-  // Low-frequency maintenance operations live in the overflow menu.
   const moreItems: MenuProps["items"] = [
     ...(includesClaudeCode && onSyncClaudeCode
       ? [{ key: "syncClaudeCode", label: t("usage.syncClaudeCodeSessions"), disabled: refreshing, onClick: onSyncClaudeCode }]
@@ -76,57 +91,72 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
     ...(includesOpenCode && onRebuildOpenCode
       ? [{ key: "rebuildOpenCode", label: t("usage.rebuildOpenCodeSessions"), disabled: refreshing, onClick: onRebuildOpenCode }]
       : []),
+    ...(includesPi && onSyncPi
+      ? [{ key: "syncPi", label: t("usage.syncPiSessions"), disabled: refreshing, onClick: onSyncPi }]
+      : []),
+    ...(includesPi && onRebuildPi
+      ? [{ key: "rebuildPi", label: t("usage.rebuildPiSessions"), disabled: refreshing, onClick: onRebuildPi }]
+      : []),
     { type: "divider" },
     { key: "pricing", icon: <DollarOutlined />, label: t("usage.configurePricing"), onClick: onOpenPricing },
     { key: "maintenance", label: t("usage.maintainLogs"), disabled: maintaining, onClick: onOpenMaintenance },
   ];
 
   return (
-    <Inline
-      justify="space-between"
-      align="center"
-      wrap
-      gap="md"
-      className={`usage-toolbar ${className}`.trim()}
-      style={style}
-    >
-      {/* Left Filter Controls */}
-      <Inline gap="md" align="center" wrap>
-        <Inline gap="xs" align="center">
-          <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-            {t("usage.period", { defaultValue: "统计时间" })}:
-          </Text>
-          <Select
+    <div className={`cc-workbench-header ${className}`.trim()} style={style}>
+      <div className="cc-header-left">
+        <Select<UsagePeriod>
+          value={period}
+          style={{ width: 148 }}
+          aria-label={t("usage.period", { defaultValue: "统计时间" })}
+          options={USAGE_PERIOD_VALUES.map((value) => ({
+            value,
+            label:
+              typeof value === "number"
+                ? t("usage.lastDays", { days: value })
+                : t(usagePeriodLabelKey(value)),
+          }))}
+          onChange={onPeriodChange}
+        />
+        <ConfigProvider
+          theme={{
+            components: {
+              Segmented: {
+                trackBg: token.colorBgContainer,
+                itemSelectedBg: token.colorFillSecondary,
+                itemHoverBg: token.colorFillTertiary,
+                trackPadding: 2,
+              },
+            },
+          }}
+        >
+          <Segmented<UsageSourceFilter>
             size="small"
-            value={period}
-            style={{ width: 140 }}
-            options={USAGE_PERIOD_VALUES.map((value) => ({
-              value,
-              label:
-                typeof value === "number"
-                  ? t("usage.lastDays", { days: value })
-                  : t(usagePeriodLabelKey(value)),
-            }))}
-            onChange={onPeriodChange}
-          />
-        </Inline>
-
-        <Inline gap="xs" align="center">
-          <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-            {t("usage.dataSource", { defaultValue: "数据来源" })}:
-          </Text>
-          <UsageSourceFilterSelect
             value={logTargetApp}
             onChange={onTargetAppChange}
-            t={t}
+            aria-label={t("usage.dataSource", { defaultValue: "数据来源" })}
+            style={{
+              border: `1px solid ${token.colorBorder}`,
+              borderRadius: token.borderRadius,
+              boxSizing: "border-box",
+            }}
+            options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
+              const fullLabel = t(option.labelKey);
+              const shortLabel = t(SOURCE_SHORT_LABEL[option.value], { defaultValue: fullLabel });
+              return {
+                value: option.value,
+                label: (
+                  <Tooltip title={fullLabel}>
+                    {usageSourceSegmentLabel(option.value, shortLabel)}
+                  </Tooltip>
+                ),
+              };
+            })}
           />
-        </Inline>
-      </Inline>
-
-      {/* Right: refresh + overflow */}
-      <Inline gap="xs" align="center" wrap>
+        </ConfigProvider>
+      </div>
+      <div className="cc-header-right">
         <Button
-          size="small"
           icon={<ReloadOutlined spin={refreshing} />}
           loading={refreshing}
           onClick={onRefresh}
@@ -134,14 +164,12 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
           {t("common.refresh", { defaultValue: "刷新" })}
         </Button>
         <Dropdown menu={{ items: moreItems }} trigger={["click"]}>
-          <Button
-            size="small"
-            icon={<EllipsisOutlined />}
-            loading={maintaining}
-            aria-label={t("common.moreActions", { defaultValue: "更多操作" })}
-          />
+          <Button loading={maintaining}>
+            {t("common.moreActions", { defaultValue: "更多操作" })}
+            <DownOutlined style={{ marginLeft: 6, fontSize: 11 }} />
+          </Button>
         </Dropdown>
-      </Inline>
-    </Inline>
+      </div>
+    </div>
   );
 };

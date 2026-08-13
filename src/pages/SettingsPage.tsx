@@ -63,8 +63,8 @@ export default function SettingsPage() {
         />
       </SettingsSection>
 
-      {/* Runtime */}
-      <SettingsSection title={t("settings.sectionRuntime", { defaultValue: "运行时" })}>
+      {/* Tools & environment */}
+      <SettingsSection title={t("settings.sectionToolsEnv", { defaultValue: "工具与环境" })}>
         <SettingsRow
           title={t("navigation.proxy", { defaultValue: "本地代理" })}
           description={t("settings.proxyHint", {
@@ -73,26 +73,16 @@ export default function SettingsPage() {
           onClick={() => navigate("proxy")}
         />
         <SettingsRow
-          title={t("nav.sessions", { defaultValue: "会话管理" })}
-          description={t("settings.sessionsHint", { defaultValue: "管理本地 AI 会话与归档" })}
-          onClick={() => navigate("sessions")}
-        />
-        <SettingsRow
           title={t("nav.environment", { defaultValue: "环境信息" })}
-          description={t("settings.environmentHint", { defaultValue: "运行时路径与环境诊断" })}
+          description={t("settings.environmentHint", { defaultValue: "本机路径与环境诊断" })}
           onClick={() => navigate("environment")}
         />
         <SettingsRow
           title={t("nav.agentTools", { defaultValue: "Agent 工具" })}
           description={t("settings.agentToolsHint", {
-            defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode 等 Agent 工具",
+            defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode、Pi CLI 等 Agent 工具",
           })}
           onClick={() => navigate("agentTools")}
-        />
-        <SettingsRow
-          title="Pi CLI 代理集成"
-          description="管理 Pi Coding Agent 的供应商、默认模型、思考深度(7档)与工作区指令"
-          onClick={() => navigate("piSettings")}
         />
       </SettingsSection>
 

@@ -21,6 +21,7 @@ import {
   runClaudeCodeUpdate,
   runCodexCliUpdate,
   runOpenCodeCliUpdate,
+  runPiCliUpdate,
 } from "@/services/api";
 import {
   claudeVersionOptions,
@@ -28,14 +29,17 @@ import {
   localClaudeVersionOptions,
   localCodexCliVersionOptions,
   localOpenCodeCliVersionOptions,
+  localPiCliVersionOptions,
   nodeRuntimeStatusOptions,
   opencodeCliVersionOptions,
+  piCliVersionOptions,
 } from "@/lib/appQueries";
 import type {
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
   NodeRuntimeStatus,
   OpenCodeCliVersionInfo,
+  PiCliVersionInfo,
 } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
@@ -89,6 +93,7 @@ export default function AgentToolsPage() {
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
+  const [updatingPi, setUpdatingPi] = useState(false);
   const [installingNode, setInstallingNode] = useState(false);
 
   const nodeRuntimeQuery = useQuery(nodeRuntimeStatusOptions);
@@ -111,6 +116,12 @@ export default function AgentToolsPage() {
     placeholderData: () => localOpenCodeQuery.data,
   });
   const opencodeInfo = opencodeQuery.data ?? localOpenCodeQuery.data ?? null;
+  const localPiQuery = useQuery(localPiCliVersionOptions);
+  const piQuery = useQuery({
+    ...piCliVersionOptions,
+    placeholderData: () => localPiQuery.data,
+  });
+  const piInfo = piQuery.data ?? localPiQuery.data ?? null;
 
   const refreshNodeRuntime = async () => {
     await queryClient.invalidateQueries({ queryKey: ["node-runtime-status"] });
@@ -248,6 +259,27 @@ export default function AgentToolsPage() {
     await runInstall();
   };
 
+  const updatePiCli = async () => {
+    const runInstall = async () => {
+      setUpdatingPi(true);
+      try {
+        const result = await runPiCliUpdate();
+        void message.success(result);
+        await queryClient.invalidateQueries({ queryKey: ["pi-cli-version"] });
+      } catch (e) {
+        void message.error(formatCliInstallError(errMsg(e), t));
+      } finally {
+        setUpdatingPi(false);
+      }
+    };
+
+    if (!nodeRuntime?.meetsMinimum) {
+      await ensureNodeThen(runInstall);
+      return;
+    }
+    await runInstall();
+  };
+
   const nodeStatusLabel = () => {
     if (!nodeRuntime) return t("about.unknown");
     if (nodeRuntime.meetsMinimum) return t("about.nodeRuntimeReady");
@@ -261,7 +293,7 @@ export default function AgentToolsPage() {
         tipKey="about"
         message={t("nav.agentTools", { defaultValue: "Agent 工具" })}
         description={t("settings.agentToolsHint", {
-          defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode 等 Agent 工具",
+          defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode、Pi 等 Agent 工具",
         })}
       />
 
@@ -435,11 +467,45 @@ export default function AgentToolsPage() {
           details: t("about.details"),
         }}
       />
+
+      <CliToolCard
+        title={t("about.piCliSection")}
+        info={piInfo}
+        fetching={piQuery.isFetching}
+        updating={updatingPi || installingNode}
+        onRefresh={() => void piQuery.refetch()}
+        onCopy={(command) => void copyCommand(command)}
+        onInstallOrUpdate={() => void updatePiCli()}
+        primaryLabel={
+          !nodeRuntime?.meetsMinimum && !piInfo?.installed
+            ? t("about.installNodeViaFnm")
+            : undefined
+        }
+        labels={{
+          current: t("about.piCurrentVersion"),
+          latest: t("about.piLatestVersion"),
+          status: t("about.piStatus"),
+          environment: t("about.piEnvironment"),
+          source: t("about.piInstallSource"),
+          executable: t("about.piExecutablePath"),
+          hint: t("about.piCommandHint"),
+          copy: t("about.copyCommand"),
+          install: t("about.runPiInstall"),
+          update: t("about.runPiUpdate"),
+          notInstalled: t("about.notInstalled"),
+          broken: t("about.installedButBroken"),
+          unknown: t("about.unknown"),
+          updateAvailable: t("about.updateAvailable"),
+          upToDate: t("about.upToDate"),
+          refresh: t("common.refresh"),
+          details: t("about.details"),
+        }}
+      />
     </Space>
   );
 }
 
-type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo;
+type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo | PiCliVersionInfo;
 
 function CliToolCard({
   title,

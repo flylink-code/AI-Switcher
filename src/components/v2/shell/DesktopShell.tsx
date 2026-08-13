@@ -15,6 +15,7 @@ import type { PageKey } from "@/lib/pageRegistry";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { LayoutModeSwitcher } from "@/components/layout/LayoutModeSwitcher";
+import { WINDOW_CHROME_HEIGHT } from "@/components/layout/WindowChrome";
 import { AppBrand } from "./AppBrand";
 import { TopNavigation } from "./TopNavigation";
 import { ContextHeader } from "@/components/layout/ContextHeader";
@@ -41,6 +42,7 @@ const PRIMARY_PAGES = new Set<PageKey>([
   "usage",
   "antigravity",
   "workspace",
+  "sessions",
   "settings",
 ]);
 
@@ -84,12 +86,6 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
       case "proxy":
         return {
           title: t("navigation.proxy", { defaultValue: "本地代理" }),
-          parentKey: "settings" as PageKey,
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
-      case "sessions":
-        return {
-          title: t("nav.sessions", { defaultValue: "会话管理" }),
           parentKey: "settings" as PageKey,
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };
@@ -141,8 +137,8 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
       {/* Integrated V2 Top App Bar (Titlebar + Drag Region + Top Nav + Window Controls) */}
       <header
         style={{
-          height: "52px",
-          minHeight: "52px",
+          height: WINDOW_CHROME_HEIGHT,
+          minHeight: WINDOW_CHROME_HEIGHT,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -231,9 +227,12 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
               variant="borderless"
               value={themeMode}
               onChange={setThemeMode}
-              style={{ width: 84 }}
+              style={{ width: 36 }}
               popupMatchSelectWidth={false}
-              suffixIcon={themeIcons[themeMode]}
+              suffixIcon={null}
+              labelRender={() => (
+                <span style={{ display: "inline-flex", alignItems: "center" }}>{themeIcons[themeMode]}</span>
+              )}
               options={[
                 { value: "light", label: t("common.themeLight") },
                 { value: "dark", label: t("common.themeDark") },
@@ -251,9 +250,14 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
                 setLanguage(v);
                 void i18n.changeLanguage(v);
               }}
-              style={{ width: 88 }}
+              style={{ width: 36 }}
               popupMatchSelectWidth={false}
-              suffixIcon={<GlobalOutlined />}
+              suffixIcon={null}
+              labelRender={() => (
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  <GlobalOutlined />
+                </span>
+              )}
               options={languages.map((l) => ({ value: l.value, label: l.label }))}
             />
           </Tooltip>

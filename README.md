@@ -1,10 +1,10 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex** 与 **OpenCode** 的本地配置与供应商管理器。**v1.3.6**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode** 与 **Pi CLI** 的本地配置与供应商管理器。**v1.3.7**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
-基于 **Tauri 2 + Rust + React**。把分散在配置文件、系统凭据库和本地目录里的能力收进一个界面；Claude Code、Claude Desktop、Codex、OpenCode 的供应商与当前激活配置彼此独立（OpenCode 为多供应商并存、保存即同步）。
+基于 **Tauri 2 + Rust + React**。把分散在配置文件、系统凭据库和本地目录里的能力收进一个界面；Claude Code、Claude Desktop、Codex、OpenCode、Pi 的供应商彼此独立（OpenCode / Pi 为多供应商并存、保存即同步）。
 
 默认只在本机工作：API Key 进系统凭据库，改配置前自动备份，会话只读本地 JSONL。
 
@@ -21,7 +21,7 @@
 
 - **可以**：自由使用、修改、分发、商用；衍生作品可用其他许可证（保留 MIT 声明与版权即可）
 - **需要**：在副本或显著部分中保留 `LICENSE` 中的版权与许可声明
-- **无关声明**：AI-Switcher 为独立社区项目，与 Anthropic、OpenAI 及下述参考项目均无隶属、赞助或官方关系；Claude、Claude Code、Claude Desktop、Codex、ChatGPT 等为各自权利人的商标
+- **无关声明**：AI-Switcher 为独立社区项目，与 Anthropic、OpenAI 及下述参考项目均无隶属、赞助或官方关系；Claude、Claude Code、Claude Desktop、Codex、ChatGPT、Pi 等为各自权利人的商标
 - **第三方依赖**：构建产物会链接 npm / crates 等第三方库，请同时遵守其各自许可证
 - **思路参考**：下文「参考与致谢」中的项目仅作产品与实现思路参考；若你移植了其中受版权保护的代码，须另行遵守对应上游许可证（例如 AGPL-3.0 项目）
 - **欢迎贡献**：Issue / PR 请提交到 GitHub 仓库；合入代码默认按本仓库 MIT 许可授权
@@ -35,23 +35,24 @@
 - **Windows**：优先 NSIS 安装包（当前用户安装，通常无需管理员）。安装后主程序为 `AISwitcher.exe`。
 - **Linux**：优先 `.AppImage`（`chmod +x` 后运行）。
 
-按需安装 Claude Code、Claude Desktop、Codex CLI 或 OpenCode（CLI / Desktop）。Agent 工具安装/更新需要本机 **Node.js ≥22**（应用内「设置 → Agent 工具」可检测并安装环境）。
+按需安装 Claude Code、Claude Desktop、Codex CLI、OpenCode（CLI / Desktop）或 Pi。Agent 工具安装/更新需要本机 **Node.js ≥22**（应用内「设置 → 工具与环境 → Agent 工具」可检测并安装环境）。
 
 ---
 
 ## 能做什么
 
-### 导航与布局（1.3.6）
+### 导航与布局（1.3.7）
 
 - **双布局**：标题栏可切换 **左侧导航** / **顶部导航**（类似浏览器默认标签与垂直标签）；偏好写入 `cs.layoutMode`
-- **顶部导航六项**：概览 · 供应商 · 用量统计 · 账号与额度 · 工作区 · 设置
+- **顶部导航七项**：概览 · 供应商 · 用量统计 · 账号与额度 · 工作区 · **会话** · 设置
 - **概览**：状态条 → 最近 24 小时用量 Hero → 需要关注 / 最近活动 → 过去一年热力图（Usage Intelligence）
-- **设置子页**：本地代理、会话管理、环境信息、**Agent 工具**、汉化、关于（带「← 设置」返回）
-- **Agent 切换**：供应商页 / 代理页内独立切换（Claude Code / Desktop / Codex / OpenCode），不再使用全局工作区切换器
+- **设置子页**（工具与环境）：本地代理、环境信息、**Agent 工具**、汉化、关于（带「← 设置」返回；会话已提升为主导航）
+- **Agent 切换**：供应商页 / 代理页内独立切换（Claude Code / Desktop / Codex / OpenCode / Pi），不再使用全局工作区切换器
 
 ### 供应商与切换
 
-- 分别管理 Claude Code / Desktop / Codex / OpenCode 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- 供应商卡片可 **复制到其他 Agent**；供应商页支持 **从其他 Agent 导入**（字段按目标协议转换）
 - Codex 供应商可开关 catalog **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`）
 - 环境页可设置全局顶层 `web_search`：`disabled | cached | indexed | live`（与 catalog 开关层次不同；不写已弃用 `features.web_search*`）
 - 一键切换并备份；可恢复官方登录配置
@@ -63,11 +64,11 @@
 
 Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
 
-入口在 **设置 → 运行时 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。
+入口在 **设置 → 工具与环境 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。`openai_responses` 多轮对话的 assistant 历史使用 `output_text`（避免第二轮起 502）。
 
 ### Antigravity 网关
 
-内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex 使用：
+内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex、Pi 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
 - **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；刷新额度同步实时模型目录；后台自动刷新额度
@@ -84,21 +85,31 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **从本地导入**：工作台/供应商页「更新本地已有配置」从 `opencode.json(c)` 批量同步（跳过托管项与 Desktop 内置连接器）
 - **会话与用量**：扫描 `opencode.db`；**设置 → Agent 工具** 检测/安装/更新 OpenCode CLI（需 Node.js ≥22）
 
-### Agent 工具（1.3.6）
+### Pi
 
-在 **设置 → 运行时 → Agent 工具** 中统一检测与安装：
+读写 `~/.pi/agent/models.json` 与 `auth.json`。与 OpenCode 相同：多供应商并存、保存即同步，无需切换：
+
+- **供应商同步**：保存/删除/导入后写入全部已启用 Pi 供应商；Pi 内直接选模型
+- **直连上游**：OpenAI 兼容（含 Responses）走供应商 Base URL，不经本地代理（Pi 内建代理仅有 `/v1/messages`，Responses 会 404）；Anthropic 可用 Antigravity 网关
+- **工作区**：Prompts（`~/.pi/agent/AGENTS.md`）、Skills、MCP（`~/.pi/agent/mcp.json`，需 pi-mcp-adapter / extension）；不接 Plugins、Agents、Profiles
+- **会话与用量**：扫描 `~/.pi/agent/sessions/**/*.jsonl` 的 `message.usage`；用量页刷新会同步（与 Antigravity 网关已记账的回合去重）
+- **Agent 工具**：检测/安装/更新 Pi CLI（需 Node.js ≥22）
+
+### Agent 工具（1.3.7）
+
+在 **设置 → 工具与环境 → Agent 工具** 中统一检测与安装：
 
 - **Node.js 环境**（本机 ≥22，可用 fnm + 国内镜像安装）
-- Claude Code / Codex / OpenCode CLI 安装与更新（npm 全局；兼容 npm 11 与 Windows `%APPDATA%\npm` 落点）
+- Claude Code / Codex / OpenCode / **Pi** CLI 安装与更新（npm 全局；兼容 npm 11 与 Windows `%APPDATA%\npm` 落点）
 
 关于页仅保留本应用版本、更新检查、更新镜像与引导提示恢复。
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
-- MCP：统一维护并可同步到 Codex；支持远程 HTTP/SSE、OAuth 状态清理，以及 Desktop Connectors / `.mcpb` 冲突提示
+- MCP：统一维护并可同步到 Codex / Pi；支持远程 HTTP/SSE、OAuth 状态清理，以及 Desktop Connectors / `.mcpb` 冲突提示
 - MCP Registry：浏览官方 Registry 并安装可安全转换为 Claude 配置的条目（需密钥/URL 模板的仍需手动配置）
-- Prompts：`CLAUDE.md` / Codex `AGENTS.md` 预设，支持重命名与一键激活
-- Skills：Claude Code 与 Codex 支持 GitHub / ZIP 安装、启停、更新与删除；可扫描散落 Skill 一键登记/忽略
+- Prompts：`CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` 预设，支持重命名与一键激活
+- Skills：Claude Code、Codex 与 Pi 支持 GitHub / ZIP 安装、启停、更新与删除；可扫描散落 Skill 一键登记/忽略
 - Agents：管理 Claude Code 用户级 `~/.claude/agents`
 - **插件**：工作区单一「插件」Tab，页内切换 Claude Code / Codex；市场列表、安装目录、启停、卸载、检查/更新市场与插件
 
@@ -108,7 +119,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 会话
 
-浏览、筛选、搜索 Claude Code、Codex 与 OpenCode 本地会话；支持导出 / 导入 / 备份 / 回收站（OpenCode 暂不支持归档/导出/回收站）。不解析 Claude Desktop 私有历史格式。
+浏览、筛选、搜索 Claude Code、Codex、OpenCode 与 Pi 本地会话；支持导出 / 导入 / 备份 / 回收站（OpenCode 暂不支持归档/导出/回收站）。不解析 Claude Desktop 私有历史格式。
 
 ### 中文化
 
@@ -116,7 +127,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code / OpenCode 本地会话事件（含 Anthropic 兼容第三方直连的 JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤
+- 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi 本地会话事件（含 Anthropic 兼容第三方直连与 Pi JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤
 - 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 
@@ -129,6 +140,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 | Claude Code | `~/.claude/projects/**/*.jsonl` |
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl`（默认 `~/.codex/sessions/`） |
 | OpenCode | `~/.local/share/opencode/opencode.db`（及 legacy JSON storage） |
+| Pi | `~/.pi/agent/sessions/**/*.jsonl` |
 
 列表只读元数据；打开详情或全文搜索时才读消息。路径限制在会话根目录内。浏览不改原文件。
 
@@ -148,6 +160,9 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 | `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话、Skills、Plugins |
 | `~/.config/opencode/opencode.json` | OpenCode 供应商（CLI 与 Desktop 共享；亦支持 `opencode.jsonc`） |
 | `~/.local/share/opencode/` | OpenCode 会话数据库 |
+| `~/.pi/agent/models.json` / `auth.json` | Pi 供应商与凭据 |
+| `~/.pi/agent/sessions/` | Pi 会话 JSONL |
+| `~/.pi/agent/AGENTS.md` / `skills/` / `mcp.json` | Pi Prompts / Skills / MCP |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/`（可改） | 本应用资料库：数据库、备份、日志 |
 
@@ -208,6 +223,7 @@ src-tauri/src/            Rust：配置、代理、Antigravity、数据库、托
   antigravity/            AG 网关（默认 :15830）
   proxy/                  本地 Anthropic 兼容代理
   config/                 Claude / Codex / OpenCode 配置读写
+  coding/pi/              Pi models.json / auth / MCP / 会话用量
   database/               SQLite（user_version）
 scripts/                  Windows 开发 / 构建脚本
 ```
@@ -216,7 +232,8 @@ scripts/                  Windows 开发 / 构建脚本
 
 ## 当前边界
 
-- 产品客户端范围：Claude Code + Claude Desktop + Codex + OpenCode；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
+- 产品客户端范围：Claude Code + Claude Desktop + Codex + OpenCode + Pi；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
+- Pi 不接 Plugins / Agents / Profiles / 托盘切换；Pi 的 OpenAI 兼容上游直连，不经本地代理
 - 插件页管理本机已安装市场与插件，不是完整替代官方 CLI 商店浏览体验
 - 会话「恢复」只复制命令，不自动开终端
 - 不同步自动合并远端冲突，不做团队分享

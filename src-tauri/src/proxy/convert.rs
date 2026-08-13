@@ -630,22 +630,31 @@ fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
     let mut output = Vec::new();
     for message in request.get("messages").and_then(Value::as_array).into_iter().flatten() {
         let role = message.get("role").and_then(Value::as_str).unwrap_or("user");
+        let is_assistant = role == "assistant";
+        // Responses API: user/system content uses input_*; assistant replay uses
+        // output_text. Using input_text on assistant turns is rejected by many
+        // OpenAI-compatible gateways (opaque upstream 502 on Claude Code turn 2+).
+        let text_type = if is_assistant { "output_text" } else { "input_text" };
         let mut message_content = Vec::new();
         let mut tool_items = Vec::new();
         match message.get("content") {
             Some(Value::String(text)) if !text.is_empty() => {
-                message_content.push(json!({"type": "input_text", "text": text}));
+                message_content.push(json!({"type": text_type, "text": text}));
             }
             Some(Value::Array(blocks)) => for block in blocks {
                 match block.get("type").and_then(Value::as_str) {
                     Some("text") => {
                         if let Some(text) = block.get("text").and_then(Value::as_str).filter(|text| !text.is_empty()) {
-                            message_content.push(json!({"type": "input_text", "text": text}));
+                            message_content.push(json!({"type": text_type, "text": text}));
                         }
                     }
-                    Some("image") => if let Some(url) = image_url(block) {
-                        message_content.push(json!({"type": "input_image", "image_url": url}));
-                    },
+                    Some("image") => {
+                        if !is_assistant {
+                            if let Some(url) = image_url(block) {
+                                message_content.push(json!({"type": "input_image", "image_url": url}));
+                            }
+                        }
+                    }
                     // Anthropic thinking signatures have no portable Responses
                     // equivalent, so they are intentionally not replayed upstream.
                     Some("thinking") => {}
@@ -667,7 +676,8 @@ fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
         }
         if !message_content.is_empty() {
             output.push(json!({
-                "role": if role == "assistant" { "assistant" } else { "user" },
+                "type": "message",
+                "role": if is_assistant { "assistant" } else { "user" },
                 "content": message_content,
             }));
         }
@@ -916,12 +926,38 @@ mod tests {
         });
         let output = anthropic_to_openai_responses(&request, "gpt-test", false);
         assert_eq!(output["instructions"], "Be concise.");
+        assert_eq!(output["input"][0]["type"], "message");
+        assert_eq!(output["input"][0]["role"], "user");
+        assert_eq!(output["input"][0]["content"][0]["type"], "input_text");
         assert_eq!(output["input"][0]["content"][1]["type"], "input_image");
         assert_eq!(output["input"][1]["type"], "function_call");
         assert_eq!(output["input"][2]["type"], "function_call_output");
         assert_eq!(output["tools"][0]["name"], "lookup");
         assert!(output["tools"][0].get("function").is_none());
         assert_eq!(output["tool_choice"]["name"], "lookup");
+    }
+
+    #[test]
+    fn responses_replays_assistant_text_as_output_text() {
+        let request = json!({
+            "messages": [
+                {"role":"user","content":"hello"},
+                {"role":"assistant","content":[{"type":"text","text":"hi there"}]},
+                {"role":"user","content":"继续"}
+            ]
+        });
+        let output = anthropic_to_openai_responses(&request, "gpt-test", true);
+        let input = output["input"].as_array().expect("input array");
+        assert_eq!(input.len(), 3);
+        assert_eq!(input[0]["type"], "message");
+        assert_eq!(input[0]["role"], "user");
+        assert_eq!(input[0]["content"][0]["type"], "input_text");
+        assert_eq!(input[1]["type"], "message");
+        assert_eq!(input[1]["role"], "assistant");
+        assert_eq!(input[1]["content"][0]["type"], "output_text");
+        assert_eq!(input[1]["content"][0]["text"], "hi there");
+        assert_eq!(input[2]["role"], "user");
+        assert_eq!(input[2]["content"][0]["type"], "input_text");
     }
 
     #[test]

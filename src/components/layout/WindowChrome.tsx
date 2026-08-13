@@ -17,7 +17,7 @@ import { LayoutModeSwitcher } from "./LayoutModeSwitcher";
 
 const appWindow = getCurrentWindow();
 
-export const WINDOW_CHROME_HEIGHT = 42;
+export const WINDOW_CHROME_HEIGHT = 48;
 
 const themeIcons: Record<ThemeMode, React.ReactNode> = {
   light: <BulbOutlined />,
@@ -67,7 +67,8 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
         justifyContent: "space-between",
         paddingLeft: "var(--page-padding-x, 16px)",
         paddingRight: 0,
-        backgroundColor: "transparent",
+        backgroundColor: token.colorBgContainer,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
         userSelect: "none",
         boxSizing: "border-box",
       }}
@@ -132,8 +133,12 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
               variant="borderless"
               value={themeMode}
               onChange={setThemeMode}
-              style={{ width: 100 }}
-              suffixIcon={themeIcons[themeMode]}
+              style={{ width: 36 }}
+              popupMatchSelectWidth={false}
+              suffixIcon={null}
+              labelRender={() => (
+                <span style={{ display: "inline-flex", alignItems: "center" }}>{themeIcons[themeMode]}</span>
+              )}
               options={[
                 { value: "light", label: t("common.themeLight") },
                 { value: "dark", label: t("common.themeDark") },
@@ -151,8 +156,14 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
                 setLanguage(v);
                 void i18n.changeLanguage(v);
               }}
-              style={{ width: 104 }}
-              suffixIcon={<GlobalOutlined />}
+              style={{ width: 36 }}
+              popupMatchSelectWidth={false}
+              suffixIcon={null}
+              labelRender={() => (
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  <GlobalOutlined />
+                </span>
+              )}
               options={languages.map((l) => ({ value: l.value, label: l.label }))}
             />
           </Tooltip>

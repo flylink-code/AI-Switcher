@@ -56,11 +56,13 @@ import {
   rebuildCodexSessionUsage,
   rebuildClaudeCodeSessionUsage,
   rebuildOpenCodeSessionUsage,
+  rebuildPiSessionUsage,
   saveModelPricing,
   saveLogMaintenancePolicy,
   syncCodexSessionUsage,
   syncClaudeCodeSessionUsage,
   syncOpenCodeSessionUsage,
+  syncPiSessionUsage,
 } from "@/services/api";
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -293,6 +295,7 @@ export default function UsagePage() {
       if (includesClaudeCode) await syncClaudeCodeSessionUsage();
       if (includesCodex) await syncCodexSessionUsage();
       if (includesOpenCode) await syncOpenCodeSessionUsage();
+      if (includesPi) await syncPiSessionUsage();
       await Promise.all([dashboardQuery.refetch(), logsQuery.refetch(), metaQuery.refetch()]);
     } catch (e) {
       void message.error(errMsg(e));
@@ -313,6 +316,8 @@ export default function UsagePage() {
   const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
   const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
   const isClaudeCodeOnly = logTargetApp === "claude_code";
+  const includesPi = logTargetApp === "all" || logTargetApp === "pi";
+  const isPiOnly = logTargetApp === "pi";
   const localClaude = dashboard?.localClaudeCode;
   const emptyClaudeCode = includesClaudeCode && (summary?.requestCount ?? 0) === 0;
   const narrowPeriod = period === "today" || period === "24h";
@@ -377,11 +382,50 @@ export default function UsagePage() {
     finally { setRefreshing(false); }
   };
 
+  const syncPiSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await syncPiSessionUsage();
+      void message.success(t("usage.piSyncDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
+  const rebuildPiSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildPiSessionUsage();
+      void message.success(t("usage.piRebuildDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
   return (
     <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
       {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
 
-      {/* Onboarding Tips */}
+      <UsageToolbar
+        period={period}
+        onPeriodChange={(p) => { setPeriod(p); setLogPage(0); }}
+        logTargetApp={logTargetApp}
+        onTargetAppChange={(next) => { setLogTargetApp(next); setLogPage(0); }}
+        refreshing={refreshing}
+        onRefresh={() => void refreshOverview()}
+        onSyncCodex={() => void syncCodexSessions()}
+        onRebuildCodex={() => void rebuildCodexSessions()}
+        onSyncClaudeCode={() => void syncClaudeCodeSessions()}
+        onRebuildClaudeCode={() => void rebuildClaudeCodeSessions()}
+        onSyncOpenCode={() => void syncOpenCodeSessions()}
+        onRebuildOpenCode={() => void rebuildOpenCodeSessions()}
+        onSyncPi={() => void syncPiSessions()}
+        onRebuildPi={() => void rebuildPiSessions()}
+        onOpenPricing={() => setPricingManagerOpen(true)}
+        onOpenMaintenance={() => void openMaintenance()}
+        maintaining={maintaining}
+      />
+
       <OnboardingTip tipKey="usage" message={t("usage.title")} description={t("usage.description")} />
       {includesCodex && (
         <OnboardingTip
@@ -404,26 +448,6 @@ export default function UsagePage() {
         />
       )}
 
-      {/* Toolbar & Filter Bar */}
-      <UsageToolbar
-        period={period}
-        onPeriodChange={(p) => { setPeriod(p); setLogPage(0); }}
-        logTargetApp={logTargetApp}
-        onTargetAppChange={(t) => { setLogTargetApp(t); setLogPage(0); }}
-        refreshing={refreshing}
-        onRefresh={() => void refreshOverview()}
-        onSyncCodex={() => void syncCodexSessions()}
-        onRebuildCodex={() => void rebuildCodexSessions()}
-        onSyncClaudeCode={() => void syncClaudeCodeSessions()}
-        onRebuildClaudeCode={() => void rebuildClaudeCodeSessions()}
-        onSyncOpenCode={() => void syncOpenCodeSessions()}
-        onRebuildOpenCode={() => void rebuildOpenCodeSessions()}
-        onOpenPricing={() => setPricingManagerOpen(true)}
-        onOpenMaintenance={() => void openMaintenance()}
-        maintaining={maintaining}
-      />
-
-      {/* Contextual empty-state hints */}
       {emptyClaudeCode && (
         <Alert
           type="info"
@@ -440,6 +464,15 @@ export default function UsagePage() {
           closable
           message={t("usage.codexEmptyTitle")}
           description={narrowPeriod ? t("usage.codexEmptyNarrowPeriodHint") : t("usage.codexEmptyHint")}
+        />
+      )}
+      {includesPi && isPiOnly && (summary?.requestCount ?? 0) === 0 && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t("usage.piEmptyTitle")}
+          description={narrowPeriod ? t("usage.piEmptyNarrowPeriodHint") : t("usage.piEmptyHint")}
         />
       )}
 

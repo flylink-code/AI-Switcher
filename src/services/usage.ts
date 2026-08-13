@@ -69,6 +69,14 @@ export async function rebuildOpenCodeSessionUsage(): Promise<OpenCodeSessionSync
   return call<OpenCodeSessionSyncResult>("rebuild_opencode_session_usage_cmd", {});
 }
 
+export async function syncPiSessionUsage(): Promise<CodexSessionSyncResult> {
+  return call<CodexSessionSyncResult>("sync_pi_session_usage_cmd", {});
+}
+
+export async function rebuildPiSessionUsage(): Promise<CodexSessionSyncResult> {
+  return call<CodexSessionSyncResult>("rebuild_pi_session_usage_cmd", {});
+}
+
 export async function listModelPricing(): Promise<ModelPricing[]> {
   return call<ModelPricing[]>("list_model_pricing", {});
 }

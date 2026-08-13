@@ -40,6 +40,8 @@ pub enum SessionProvider {
     /// Keep wire format `opencode` (not `open_code`) to match ProviderTarget / frontend.
     #[serde(rename = "opencode")]
     OpenCode,
+    #[serde(rename = "pi")]
+    Pi,
 }
 
 impl Default for SessionProvider {
@@ -201,6 +203,13 @@ pub fn scan_sessions(
         }
         providers.push(status);
     }
+    if provider.is_none() || provider == Some(SessionProvider::Pi) {
+        let (metas, status) = scan_pi_sessions();
+        for meta in metas {
+            indexed.push(ScanItem::Materialized(meta));
+        }
+        providers.push(status);
+    }
 
     let codex_index = if indexed
         .iter()
@@ -314,6 +323,54 @@ pub fn search_session_contents(
     Ok(result)
 }
 
+fn load_pi_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
+    let path = Path::new(source_path);
+    if !path.exists() {
+        return Err(AppError::Config(format!("Pi 会话文件不存在: {source_path}")));
+    }
+    let content = fs::read_to_string(path)?;
+    let mut messages = Vec::new();
+
+    if path.extension().is_some_and(|e| e == "json") {
+        if let Ok(val) = serde_json::from_str::<Value>(&content) {
+            if let Some(arr) = val.get("messages").and_then(Value::as_array) {
+                for item in arr {
+                    let role = item.get("role").and_then(Value::as_str).unwrap_or("user").to_string();
+                    let text = item.get("content").and_then(Value::as_str)
+                        .or_else(|| item.get("text").and_then(Value::as_str))
+                        .unwrap_or("").to_string();
+                    if !text.is_empty() {
+                        messages.push(SessionMessage { role, content: text, timestamp: None });
+                    }
+                }
+            }
+        }
+    } else {
+        for line in content.lines() {
+            if line.trim().is_empty() { continue; }
+            if let Ok(val) = serde_json::from_str::<Value>(line) {
+                let role = val.get("role").and_then(Value::as_str).unwrap_or("user").to_string();
+                let text = val.get("content").and_then(Value::as_str)
+                    .or_else(|| val.get("text").and_then(Value::as_str))
+                    .unwrap_or("").to_string();
+                if !text.is_empty() {
+                    messages.push(SessionMessage { role, content: text, timestamp: None });
+                }
+            }
+        }
+    }
+
+    if messages.is_empty() {
+        messages.push(SessionMessage {
+            role: "system".to_string(),
+            content,
+            timestamp: None,
+        });
+    }
+
+    Ok(messages)
+}
+
 pub fn load_session_messages(
     provider: SessionProvider,
     source_path: &str,
@@ -330,6 +387,7 @@ pub fn load_session_messages(
             load_codex_messages(&source)
         }
         SessionProvider::OpenCode => load_opencode_messages(source_path),
+        SessionProvider::Pi => load_pi_messages(source_path),
     }
 }
 
@@ -607,15 +665,50 @@ pub fn list_trashed_claude_code_sessions() -> AppResult<Vec<SessionArchiveInfo>>
     Ok(archives)
 }
 
+fn scan_pi_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
+    let pi_dir = crate::coding::pi::config::get_pi_dir().join("sessions");
+    let status_str = if pi_dir.exists() { "available" } else { "not_found" };
+    let detail = if pi_dir.exists() {
+        format!("发现 Pi 会话目录 ({})", pi_dir.display())
+    } else {
+        "未找到 Pi 会话目录".to_string()
+    };
+    let status = SessionProviderStatus {
+        provider: SessionProvider::Pi,
+        status: status_str.to_string(),
+        detail,
+        root_path: Some(pi_dir.to_string_lossy().into_owned()),
+    };
+
+    let items = match crate::coding::pi::session::scan_pi_sessions_sync() {
+        Ok(items) => items,
+        Err(_) => Vec::new(),
+    };
+
+    let metas = items.into_iter().map(|item| SessionMeta {
+        provider: SessionProvider::Pi,
+        session_id: item.id.clone(),
+        title: item.title,
+        summary: item.model.map(|m| format!("Model: {m}")),
+        project_dir: None,
+        created_at: item.created_at.map(|s| s as i64 * 1000),
+        last_active_at: item.updated_at.map(|s| s as i64 * 1000),
+        source_path: item.file_path,
+        resume_command: Some(format!("pi --resume {}", item.id)),
+        pinned: false,
+    }).collect();
+
+    (metas, status)
+}
+
 fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
     match provider {
         SessionProvider::ClaudeCode => Ok(claude_code_session_root()),
         SessionProvider::Codex => Ok(codex_session_root()),
-        // OpenCode 会话是 opencode.db 行 / storage JSON 目录，不是独立文件，
-        // 归档/回收站/导入本期不支持。
         SessionProvider::OpenCode => Err(AppError::Config(
             "OpenCode 会话暂不支持归档、回收站与导入操作".to_string(),
         )),
+        SessionProvider::Pi => Ok(crate::coding::pi::config::get_pi_dir().join("sessions")),
     }
 }
 
@@ -624,6 +717,16 @@ fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<Ses
         SessionProvider::ClaudeCode => parse_claude_code_session(path),
         SessionProvider::Codex => parse_codex_session(path),
         SessionProvider::OpenCode => Ok(None),
+        SessionProvider::Pi => {
+            let mtime = path
+                .metadata()
+                .ok()
+                .and_then(|meta| meta.modified().ok())
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as i64)
+                .unwrap_or(0);
+            Ok(session_meta_from_path(SessionProvider::Pi, path, mtime))
+        }
     }
 }
 
@@ -672,6 +775,7 @@ fn session_trash_dir(provider: SessionProvider) -> PathBuf {
     let target = match provider {
         SessionProvider::Codex => "codex",
         SessionProvider::OpenCode => "opencode",
+        SessionProvider::Pi => "pi",
         _ => "claude-code",
     };
     config::get_app_config_dir().join("session-trash").join(target)
@@ -1148,13 +1252,14 @@ fn session_meta_from_path(
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
             .map(|name| name.replace('-', "/")),
-        SessionProvider::Codex | SessionProvider::OpenCode => None,
+        SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi => None,
     };
     let resume = match provider {
         SessionProvider::ClaudeCode => resume_command(&session_id),
         SessionProvider::Codex => Some(format!("codex resume {session_id}")),
-        // OpenCode 元数据走 Materialized 路径，不会经过这里。
+        // OpenCode / Pi 元数据走 Materialized 路径，不会经过这里。
         SessionProvider::OpenCode => Some(format!("opencode -s {session_id}")),
+        SessionProvider::Pi => Some(format!("pi --resume {session_id}")),
     };
     Some(SessionMeta {
         provider,
@@ -1897,6 +2002,817 @@ fn resume_command(session_id: &str) -> Option<String> {
     }
 }
 
+fn resume_command_with_model(session_id: &str, model: &str) -> Option<String> {
+    let base = resume_command(session_id)?;
+    let model = model.trim();
+    if model.is_empty()
+        || !model
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | ':'))
+    {
+        return Some(base);
+    }
+    Some(format!("{base} --model {model}"))
+}
+
+/// Result of forking a Claude Code session onto a new model identity.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionMigrateResult {
+    pub session: SessionMeta,
+    pub source_session_id: String,
+    pub target_model: String,
+    pub lines_copied: usize,
+    pub lines_trimmed: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_model: Option<String>,
+    /// Thinking / redacted_thinking blocks removed (cross-provider signatures are invalid).
+    pub thinking_blocks_stripped: usize,
+    /// Assistant turns that only contained API/auth errors and were dropped.
+    pub error_turns_removed: usize,
+    /// Older history lines dropped to fit the portable context budget.
+    pub history_lines_compacted: usize,
+}
+
+const MAX_MIGRATE_LINES: usize = 50_000;
+/// Keep roughly one short successful upstream turn of headroom after system/tools (~16k).
+const MIGRATE_HISTORY_CHAR_BUDGET: usize = 24_000;
+/// Cap individual tool_result payloads so one Bash dump cannot blow the budget.
+const MIGRATE_TOOL_RESULT_CHAR_CAP: usize = 4_000;
+
+/// Fork a Claude Code JSONL session: new id, rewrite model fields, strip
+/// non-portable thinking/signatures, drop error turns, compact history, and
+/// trim incomplete tool rounds. Original file is left untouched.
+pub fn migrate_claude_code_session(
+    source_path: &str,
+    target_model: &str,
+) -> AppResult<SessionMigrateResult> {
+    let target_model = target_model.trim();
+    if target_model.is_empty() {
+        return Err(AppError::Config(
+            "目标模型不能为空，请先切换供应商或指定模型".into(),
+        ));
+    }
+    let source = PathBuf::from(source_path);
+    if !source.is_file() {
+        return Err(AppError::Config(format!("会话文件不存在: {source_path}")));
+    }
+    let parent = source.parent().ok_or_else(|| {
+        AppError::Config(format!("无法确定会话目录: {source_path}"))
+    })?;
+
+    let file = open_session_file(&source)?;
+    let reader = BufReader::new(file);
+    let mut raw_lines: Vec<String> = Vec::new();
+    for line in reader.lines() {
+        let line = line.map_err(|error| {
+            AppError::Io(format!("读取会话失败: {error}"))
+        })?;
+        if raw_lines.len() >= MAX_MIGRATE_LINES {
+            return Err(AppError::Config(format!(
+                "会话过大（超过 {MAX_MIGRATE_LINES} 行），请改用摘要复制到新会话"
+            )));
+        }
+        raw_lines.push(line);
+    }
+
+    let mut values: Vec<Value> = Vec::with_capacity(raw_lines.len());
+    let mut previous_model = None;
+    let mut source_session_id = None;
+    for line in &raw_lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let Ok(mut value) = serde_json::from_str::<Value>(trimmed) else {
+            // Keep non-JSON lines out of the rewrite path; skip them.
+            continue;
+        };
+        if source_session_id.is_none() {
+            source_session_id = value
+                .get("sessionId")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+        }
+        if previous_model.is_none() {
+            previous_model = value
+                .pointer("/message/model")
+                .and_then(Value::as_str)
+                .filter(|model| *model != "<synthetic>")
+                .map(str::to_string)
+                .or_else(|| {
+                    value
+                        .get("model")
+                        .and_then(Value::as_str)
+                        .filter(|model| *model != "<synthetic>")
+                        .map(str::to_string)
+                });
+        }
+        values.push(std::mem::take(&mut value));
+    }
+
+    let source_session_id = source_session_id.or_else(|| {
+        source
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(str::to_string)
+    });
+    let Some(source_session_id) = source_session_id else {
+        return Err(AppError::Config("无法解析源会话 ID".into()));
+    };
+
+    let sanitize = sanitize_migrated_session_values(&mut values);
+    // Cross-provider hard-resume of Claude compact summaries + embedded file
+    // attachments is rejected by OpenAI-compatible gateways (opaque upstream 502).
+    // Prefer a portable one-turn seed when a continuation summary is present.
+    let used_seed = maybe_replace_with_portable_seed(&mut values, &source_session_id);
+    let history_lines_compacted = if used_seed {
+        0
+    } else {
+        compact_migrated_history_smart(&mut values, MIGRATE_HISTORY_CHAR_BUDGET)
+    };
+    let orphan_results_dropped = if used_seed {
+        0
+    } else {
+        drop_orphan_tool_results(&mut values)
+    };
+    let lines_trimmed = if used_seed {
+        sanitize.lines_removed
+    } else {
+        truncate_incomplete_tool_rounds(&mut values) + orphan_results_dropped + sanitize.lines_removed
+    };
+    // Compaction / error-turn removal can leave dangling parents; repair once more.
+    repair_parent_uuid_chain(&mut values);
+
+    let new_session_id = uuid::Uuid::new_v4().to_string();
+    for value in &mut values {
+        rewrite_session_id(value, &new_session_id);
+        rewrite_model_fields(value, target_model);
+    }
+
+    let dest = parent.join(format!("{new_session_id}.jsonl"));
+    if dest.exists() {
+        return Err(AppError::Config(format!(
+            "目标会话文件已存在: {}",
+            dest.display()
+        )));
+    }
+    let tmp = parent.join(format!(".{new_session_id}.jsonl.tmp"));
+    {
+        let mut out = File::create(&tmp).map_err(|error| {
+            AppError::Io(format!("创建临时会话文件失败: {error}"))
+        })?;
+        for value in &values {
+            writeln!(out, "{}", serde_json::to_string(value).map_err(|error| {
+                AppError::Config(format!("序列化会话行失败: {error}"))
+            })?)
+            .map_err(|error| AppError::Io(format!("写入会话失败: {error}")))?;
+        }
+        out.flush()
+            .map_err(|error| AppError::Io(format!("刷新会话文件失败: {error}")))?;
+    }
+    fs::rename(&tmp, &dest).map_err(|error| {
+        let _ = fs::remove_file(&tmp);
+        AppError::Io(format!("提交会话文件失败: {error}"))
+    })?;
+
+    let session = parse_claude_code_session(&dest)?.ok_or_else(|| {
+        AppError::Config("迁移后无法解析新会话".into())
+    })?;
+    let mut session = session;
+    session.resume_command = resume_command_with_model(&new_session_id, target_model);
+
+    Ok(SessionMigrateResult {
+        session,
+        source_session_id,
+        target_model: target_model.to_string(),
+        lines_copied: values.len(),
+        lines_trimmed,
+        previous_model,
+        thinking_blocks_stripped: sanitize.thinking_blocks_stripped,
+        error_turns_removed: sanitize.error_turns_removed,
+        history_lines_compacted,
+    })
+}
+
+#[derive(Debug, Default)]
+struct MigrateSanitizeStats {
+    thinking_blocks_stripped: usize,
+    error_turns_removed: usize,
+    lines_removed: usize,
+}
+
+fn sanitize_migrated_session_values(values: &mut Vec<Value>) -> MigrateSanitizeStats {
+    let mut stats = MigrateSanitizeStats::default();
+    let mut removed_uuids: HashMap<String, Option<String>> = HashMap::new();
+    let mut kept: Vec<Value> = Vec::with_capacity(values.len());
+
+    for mut value in values.drain(..) {
+        if is_error_or_synthetic_assistant(&value) {
+            if let Some(uuid) = value.get("uuid").and_then(Value::as_str) {
+                let parent = value
+                    .get("parentUuid")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                removed_uuids.insert(uuid.to_string(), parent);
+            }
+            stats.error_turns_removed += 1;
+            stats.lines_removed += 1;
+            continue;
+        }
+
+        stats.thinking_blocks_stripped += strip_thinking_blocks(&mut value);
+        truncate_tool_results_in_value(&mut value, MIGRATE_TOOL_RESULT_CHAR_CAP);
+
+        if is_empty_message_turn(&value) {
+            if let Some(uuid) = value.get("uuid").and_then(Value::as_str) {
+                let parent = value
+                    .get("parentUuid")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                removed_uuids.insert(uuid.to_string(), parent);
+            }
+            stats.lines_removed += 1;
+            continue;
+        }
+
+        kept.push(value);
+    }
+
+    for value in &mut kept {
+        reparent_value(value, &removed_uuids);
+    }
+    *values = kept;
+    stats
+}
+
+fn is_error_or_synthetic_assistant(value: &Value) -> bool {
+    let Some(message) = value.get("message") else {
+        return false;
+    };
+    if message.get("role").and_then(Value::as_str) != Some("assistant") {
+        return false;
+    }
+    if message.get("model").and_then(Value::as_str) == Some("<synthetic>") {
+        return true;
+    }
+    let text = message_text_preview(message);
+    let lower = text.to_ascii_lowercase();
+    lower.contains("api error:")
+        || lower.contains("failed to authenticate")
+        || text.trim() == "No response requested."
+        || lower.contains("upstream request failed")
+}
+
+fn message_text_preview(message: &Value) -> String {
+    match message.get("content") {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| {
+                if item.get("type").and_then(Value::as_str) == Some("text") {
+                    item.get("text").and_then(Value::as_str)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n"),
+        _ => String::new(),
+    }
+}
+
+fn strip_thinking_blocks(value: &mut Value) -> usize {
+    let Some(content) = value
+        .pointer_mut("/message/content")
+        .and_then(Value::as_array_mut)
+    else {
+        return 0;
+    };
+    let before = content.len();
+    content.retain(|item| {
+        !matches!(
+            item.get("type").and_then(Value::as_str),
+            Some("thinking" | "redacted_thinking")
+        )
+    });
+    before.saturating_sub(content.len())
+}
+
+fn truncate_tool_results_in_value(value: &mut Value, cap: usize) {
+    let Some(content) = value
+        .pointer_mut("/message/content")
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    for item in content.iter_mut() {
+        if item.get("type").and_then(Value::as_str) != Some("tool_result") {
+            continue;
+        }
+        match item.get_mut("content") {
+            Some(Value::String(text)) if text.len() > cap => {
+                text.truncate(cap);
+                text.push_str("\n…[truncated by AI-Switcher migrate]");
+            }
+            Some(Value::Array(blocks)) => {
+                for block in blocks.iter_mut() {
+                    if let Some(Value::String(text)) = block.get_mut("text") {
+                        if text.len() > cap {
+                            text.truncate(cap);
+                            text.push_str("\n…[truncated by AI-Switcher migrate]");
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn is_empty_message_turn(value: &Value) -> bool {
+    let Some(message) = value.get("message") else {
+        return false;
+    };
+    if message.get("role").and_then(Value::as_str).is_none() {
+        return false;
+    }
+    match message.get("content") {
+        None => true,
+        Some(Value::String(text)) => text.trim().is_empty(),
+        Some(Value::Array(items)) => items.is_empty(),
+        Some(Value::Null) => true,
+        _ => false,
+    }
+}
+
+fn reparent_value(value: &mut Value, removed: &HashMap<String, Option<String>>) {
+    let Some(parent) = value
+        .get("parentUuid")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
+        return;
+    };
+    let mut current = parent;
+    let mut guard = 0;
+    while let Some(mapped) = removed.get(&current) {
+        guard += 1;
+        if guard > 64 {
+            break;
+        }
+        match mapped {
+            Some(next) => current = next.clone(),
+            None => {
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("parentUuid".into(), Value::Null);
+                }
+                return;
+            }
+        }
+    }
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert("parentUuid".into(), Value::String(current));
+    }
+}
+
+fn estimate_value_message_chars(value: &Value) -> usize {
+    let Some(message) = value.get("message") else {
+        return 0;
+    };
+    match message.get("content") {
+        Some(Value::String(text)) => text.len(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|item| match item.get("type").and_then(Value::as_str) {
+                Some("text") => item
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .map(str::len)
+                    .unwrap_or(0),
+                Some("tool_use") => {
+                    item.get("name")
+                        .and_then(Value::as_str)
+                        .map(str::len)
+                        .unwrap_or(0)
+                        + item
+                            .get("input")
+                            .map(|input| input.to_string().len())
+                            .unwrap_or(0)
+                }
+                Some("tool_result") => match item.get("content") {
+                    Some(Value::String(text)) => text.len(),
+                    Some(Value::Array(blocks)) => blocks
+                        .iter()
+                        .filter_map(|block| block.get("text").and_then(Value::as_str))
+                        .map(str::len)
+                        .sum(),
+                    _ => 0,
+                },
+                _ => 0,
+            })
+            .sum(),
+        _ => 0,
+    }
+}
+
+/// Drop oldest message-bearing lines until remaining content fits `budget`.
+/// Prefers Claude Code's own context-continuation summary when present, and
+/// never cuts in the middle of a tool_use / tool_result round.
+fn compact_migrated_history_smart(values: &mut Vec<Value>, budget: usize) -> usize {
+    if let Some(summary_idx) = find_context_continuation_index(values) {
+        // Claude Code already compacted once; keep from that portable summary.
+        return drain_prefix(values, summary_idx);
+    }
+    compact_migrated_history(values, budget)
+}
+
+fn find_context_continuation_index(values: &[Value]) -> Option<usize> {
+    values.iter().position(|value| {
+        let Some(message) = value.get("message") else {
+            return false;
+        };
+        let text = message_text_preview(message);
+        text.contains("This session is being continued from a previous conversation")
+    })
+}
+
+/// When Claude Code already emitted a context-continuation summary, hard-resuming
+/// the surrounding JSONL (attachments / local commands / resume meta-instructions)
+/// commonly yields opaque upstream 502 on OpenAI-compatible gateways. Replace the
+/// whole transcript with one portable user seed turn.
+fn maybe_replace_with_portable_seed(values: &mut Vec<Value>, source_session_id: &str) -> bool {
+    let Some(summary_idx) = find_context_continuation_index(values) else {
+        return false;
+    };
+    let Some(message) = values[summary_idx].get("message") else {
+        return false;
+    };
+    let mut summary = message_text_preview(message);
+    for marker in [
+        "If you need specific details from before compaction",
+        "Continue the conversation from where it left off without asking",
+    ] {
+        if let Some(idx) = summary.find(marker) {
+            summary.truncate(idx);
+            summary = summary.trim_end().to_string();
+        }
+    }
+    // Claude Code treats the stock continuation phrase as a compact-resume
+    // marker; keeping it in a migrated seed makes OpenAI-compatible gateways
+    // return opaque upstream 502 while blank sessions still work.
+    summary = summary
+        .replace(
+            "This session is being continued from a previous conversation that ran out of context.",
+            "",
+        )
+        .replace(
+            "The summary below covers the earlier portion of the conversation.",
+            "",
+        );
+    if let Some(idx) = summary.find("Summary:") {
+        summary = summary[idx..].to_string();
+    }
+    summary = summary.trim().to_string();
+    const SEED_SUMMARY_CAP: usize = 3_500;
+    if summary.chars().count() > SEED_SUMMARY_CAP {
+        summary = summary.chars().take(SEED_SUMMARY_CAP).collect::<String>()
+            + "\n…（摘要已截断以便跨供应商续聊）";
+    }
+    if summary.trim().is_empty() {
+        return false;
+    }
+
+    let cwd = values
+        .iter()
+        .find_map(|value| value.get("cwd").and_then(Value::as_str))
+        .unwrap_or("")
+        .to_string();
+    let timestamp = values[summary_idx]
+        .get("timestamp")
+        .and_then(Value::as_str)
+        .unwrap_or("2026-01-01T00:00:00.000Z")
+        .to_string();
+    let seed = format!(
+        "【迁移上下文｜普通用户消息】\n\
+以下是从旧会话 `{source_session_id}` 整理的工作摘要（不是 Claude compact continuation，请按普通任务继续）：\n\n\
+{summary}\n\n\
+请从上次中断处继续推进任务；先确认当前缺口，再做最小必要改动。"
+    );
+    let user_uuid = uuid::Uuid::new_v4().to_string();
+    let mut user = serde_json::json!({
+        "type": "user",
+        "uuid": user_uuid,
+        "parentUuid": Value::Null,
+        "isSidechain": false,
+        "sessionId": source_session_id,
+        "timestamp": timestamp,
+        "userType": "external",
+        "message": { "role": "user", "content": seed },
+    });
+    if !cwd.is_empty() {
+        if let Some(obj) = user.as_object_mut() {
+            obj.insert("cwd".into(), Value::String(cwd));
+        }
+    }
+    *values = vec![
+        user,
+        serde_json::json!({
+            "type": "last-prompt",
+            "lastPrompt": "请从迁移摘要继续",
+            "leafUuid": user_uuid,
+            "sessionId": source_session_id,
+        }),
+        serde_json::json!({
+            "type": "mode",
+            "mode": "normal",
+            "sessionId": source_session_id,
+        }),
+        serde_json::json!({
+            "type": "permission-mode",
+            "permissionMode": "default",
+            "sessionId": source_session_id,
+        }),
+    ];
+    true
+}
+
+fn compact_migrated_history(values: &mut Vec<Value>, budget: usize) -> usize {
+    let total: usize = values.iter().map(estimate_value_message_chars).sum();
+    if total <= budget {
+        return 0;
+    }
+
+    let mut keep_from = values.len();
+    let mut used = 0usize;
+    for idx in (0..values.len()).rev() {
+        let chars = estimate_value_message_chars(&values[idx]);
+        if chars == 0 {
+            continue;
+        }
+        if used + chars > budget && keep_from < values.len() {
+            break;
+        }
+        used += chars;
+        keep_from = idx;
+    }
+
+    // Prefer starting on a user turn so the API history opens cleanly.
+    while keep_from < values.len() {
+        let is_user = values[keep_from]
+            .pointer("/message/role")
+            .and_then(Value::as_str)
+            == Some("user");
+        if is_user || estimate_value_message_chars(&values[keep_from]) == 0 {
+            break;
+        }
+        keep_from += 1;
+    }
+
+    // Do not cut inside a tool round: advance until the suffix has no orphan results.
+    keep_from = align_keep_from_without_orphan_results(values, keep_from);
+
+    if keep_from == 0 {
+        return 0;
+    }
+    drain_prefix(values, keep_from)
+}
+
+fn align_keep_from_without_orphan_results(values: &[Value], mut keep_from: usize) -> usize {
+    while keep_from < values.len() {
+        if suffix_has_orphan_tool_result(&values[keep_from..]) {
+            keep_from += 1;
+            continue;
+        }
+        break;
+    }
+    keep_from
+}
+
+fn suffix_has_orphan_tool_result(values: &[Value]) -> bool {
+    let mut open: HashSet<String> = HashSet::new();
+    for value in values {
+        // tool_use must be observed before matching tool_result in the suffix.
+        for id in collect_tool_use_ids(value) {
+            open.insert(id);
+        }
+        for id in collect_tool_result_ids(value) {
+            if !open.contains(&id) {
+                return true;
+            }
+            open.remove(&id);
+        }
+    }
+    false
+}
+
+fn drain_prefix(values: &mut Vec<Value>, keep_from: usize) -> usize {
+    if keep_from == 0 || keep_from >= values.len() {
+        return 0;
+    }
+    let removed: HashMap<String, Option<String>> = values[..keep_from]
+        .iter()
+        .filter_map(|value| {
+            let uuid = value.get("uuid").and_then(Value::as_str)?.to_string();
+            let parent = value
+                .get("parentUuid")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            Some((uuid, parent))
+        })
+        .collect();
+    let compacted = keep_from;
+    values.drain(..keep_from);
+    for value in values.iter_mut() {
+        reparent_value(value, &removed);
+    }
+    if let Some(first) = values
+        .iter_mut()
+        .find(|value| value.get("message").is_some())
+    {
+        if let Some(obj) = first.as_object_mut() {
+            obj.insert("parentUuid".into(), Value::Null);
+        }
+    }
+    compacted
+}
+
+/// Remove tool_result blocks whose tool_use was dropped by compaction/sanitize.
+fn drop_orphan_tool_results(values: &mut Vec<Value>) -> usize {
+    let known_uses: HashSet<String> = values
+        .iter()
+        .flat_map(collect_tool_use_ids)
+        .collect();
+    let mut removed_uuids: HashMap<String, Option<String>> = HashMap::new();
+    let mut kept: Vec<Value> = Vec::with_capacity(values.len());
+    let mut dropped_lines = 0usize;
+
+    for mut value in values.drain(..) {
+        let mut dropped_blocks = 0usize;
+        if let Some(content) = value
+            .pointer_mut("/message/content")
+            .and_then(Value::as_array_mut)
+        {
+            let before = content.len();
+            content.retain(|item| {
+                if item.get("type").and_then(Value::as_str) != Some("tool_result") {
+                    return true;
+                }
+                item.get("tool_use_id")
+                    .or_else(|| item.get("toolUseId"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| known_uses.contains(id))
+            });
+            dropped_blocks = before.saturating_sub(content.len());
+        }
+
+        if dropped_blocks > 0 && is_empty_message_turn(&value) {
+            if let Some(uuid) = value.get("uuid").and_then(Value::as_str) {
+                let parent = value
+                    .get("parentUuid")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                removed_uuids.insert(uuid.to_string(), parent);
+            }
+            dropped_lines += 1;
+            continue;
+        }
+        kept.push(value);
+    }
+
+    for value in &mut kept {
+        reparent_value(value, &removed_uuids);
+    }
+    *values = kept;
+    dropped_lines
+}
+
+fn repair_parent_uuid_chain(values: &mut Vec<Value>) {
+    let existing: HashSet<String> = values
+        .iter()
+        .filter_map(|value| value.get("uuid").and_then(Value::as_str).map(str::to_string))
+        .collect();
+    for value in values.iter_mut() {
+        let Some(parent) = value.get("parentUuid").and_then(Value::as_str) else {
+            continue;
+        };
+        if parent.is_empty() || existing.contains(parent) {
+            continue;
+        }
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("parentUuid".into(), Value::Null);
+        }
+    }
+}
+
+fn rewrite_session_id(value: &mut Value, new_id: &str) {
+    if let Some(obj) = value.as_object_mut() {
+        if obj.contains_key("sessionId") {
+            obj.insert("sessionId".into(), Value::String(new_id.to_string()));
+        }
+    }
+}
+
+fn rewrite_model_fields(value: &mut Value, target_model: &str) {
+    if let Some(obj) = value.as_object_mut() {
+        if let Some(message) = obj.get_mut("message").and_then(Value::as_object_mut) {
+            if message.contains_key("model")
+                || message.get("role").and_then(Value::as_str) == Some("assistant")
+            {
+                message.insert("model".into(), Value::String(target_model.to_string()));
+            }
+        }
+        if obj.contains_key("model")
+            && obj.get("type").and_then(Value::as_str) != Some("file-history-snapshot")
+        {
+            // Only rewrite top-level model when it looks like an assistant turn marker.
+            if obj.get("type").and_then(Value::as_str) == Some("assistant")
+                || obj
+                    .get("message")
+                    .and_then(|m| m.get("role"))
+                    .and_then(Value::as_str)
+                    == Some("assistant")
+            {
+                obj.insert("model".into(), Value::String(target_model.to_string()));
+            }
+        }
+    }
+}
+
+fn collect_tool_use_ids(value: &Value) -> Vec<String> {
+    let mut ids = Vec::new();
+    let content = value
+        .pointer("/message/content")
+        .or_else(|| value.get("content"));
+    match content {
+        Some(Value::Array(items)) => {
+            for item in items {
+                if item.get("type").and_then(Value::as_str) == Some("tool_use") {
+                    if let Some(id) = item.get("id").and_then(Value::as_str) {
+                        ids.push(id.to_string());
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    ids
+}
+
+fn collect_tool_result_ids(value: &Value) -> Vec<String> {
+    let mut ids = Vec::new();
+    let content = value
+        .pointer("/message/content")
+        .or_else(|| value.get("content"));
+    match content {
+        Some(Value::Array(items)) => {
+            for item in items {
+                let is_result = item.get("type").and_then(Value::as_str) == Some("tool_result");
+                if is_result {
+                    if let Some(id) = item
+                        .get("tool_use_id")
+                        .or_else(|| item.get("toolUseId"))
+                        .and_then(Value::as_str)
+                    {
+                        ids.push(id.to_string());
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    ids
+}
+
+/// Drop trailing lines that leave unpaired `tool_use` blocks (common after 502/abort).
+/// Returns number of lines removed.
+fn truncate_incomplete_tool_rounds(values: &mut Vec<Value>) -> usize {
+    if values.is_empty() {
+        return 0;
+    }
+    let mut open: HashSet<String> = HashSet::new();
+    let mut cut: Option<usize> = None;
+    for (idx, value) in values.iter().enumerate() {
+        for id in collect_tool_use_ids(value) {
+            open.insert(id);
+        }
+        for id in collect_tool_result_ids(value) {
+            open.remove(&id);
+        }
+        if open.is_empty() {
+            cut = None;
+        } else if cut.is_none() {
+            cut = Some(idx);
+        }
+    }
+    let Some(cut_idx) = cut else {
+        return 0;
+    };
+    let trimmed = values.len() - cut_idx;
+    values.truncate(cut_idx);
+    trimmed
+}
+
 // ---- OpenCode sessions (SQLite opencode.db + legacy JSON storage) -----------
 //
 // 参考 cc-switch `session_manager/providers/opencode.rs`：新版 OpenCode 会话
@@ -2558,5 +3474,156 @@ mod tests {
         assert_eq!(messages[0].content, "hello codex");
         assert_eq!(messages[1].role, "assistant");
         assert_eq!(messages[1].content, "hi there");
+    }
+
+    #[test]
+    fn migrate_claude_code_forks_rewrites_model_and_trims_orphan_tools() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("old-session.jsonl");
+        let mut file = File::create(&path).unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","sessionId":"old-session","timestamp":"2026-08-01T10:00:00Z","message":{{"role":"user","content":"hello"}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"assistant","sessionId":"old-session","timestamp":"2026-08-01T10:00:01Z","message":{{"role":"assistant","model":"old-model","content":[{{"type":"text","text":"hi"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"assistant","sessionId":"old-session","timestamp":"2026-08-01T10:00:02Z","message":{{"role":"assistant","model":"old-model","content":[{{"type":"tool_use","id":"tool_1","name":"Bash","input":{{"command":"ls"}}}}]}}}}"#
+        )
+        .unwrap();
+        // Orphan tool_use (no tool_result) — should be trimmed.
+        drop(file);
+
+        let result = migrate_claude_code_session(path.to_str().unwrap(), "new-model").unwrap();
+        assert_eq!(result.source_session_id, "old-session");
+        assert_eq!(result.target_model, "new-model");
+        assert_eq!(result.previous_model.as_deref(), Some("old-model"));
+        assert_eq!(result.lines_trimmed, 1);
+        assert_eq!(result.lines_copied, 2);
+        assert_eq!(result.thinking_blocks_stripped, 0);
+        assert_ne!(result.session.session_id, "old-session");
+        assert!(result
+            .session
+            .resume_command
+            .as_deref()
+            .unwrap_or("")
+            .contains("--model new-model"));
+
+        let migrated = fs::read_to_string(&result.session.source_path).unwrap();
+        assert!(migrated.contains("new-model"));
+        assert!(!migrated.contains("old-model"));
+        assert!(!migrated.contains("tool_1"));
+        assert!(migrated.contains(&result.session.session_id));
+        assert!(!migrated.contains("old-session"));
+        // Original preserved.
+        let original = fs::read_to_string(&path).unwrap();
+        assert!(original.contains("old-session"));
+        assert!(original.contains("tool_1"));
+    }
+
+    #[test]
+    fn migrate_strips_thinking_and_error_turns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("think-session.jsonl");
+        let mut file = File::create(&path).unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u1","parentUuid":null,"sessionId":"think-session","message":{{"role":"user","content":"hello"}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"think-session","message":{{"role":"assistant","model":"k3","content":[{{"type":"thinking","thinking":"secret","signature":"sig"}},{{"type":"text","text":"hi"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"assistant","uuid":"a2","parentUuid":"a1","sessionId":"think-session","message":{{"role":"assistant","model":"k3","content":[{{"type":"text","text":"API Error: 502 Upstream request failed"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u2","parentUuid":"a2","sessionId":"think-session","message":{{"role":"user","content":"retry"}}}}"#
+        )
+        .unwrap();
+        drop(file);
+
+        let result = migrate_claude_code_session(path.to_str().unwrap(), "gpt-test").unwrap();
+        assert!(result.thinking_blocks_stripped >= 1);
+        assert!(result.error_turns_removed >= 1);
+        let migrated = fs::read_to_string(&result.session.source_path).unwrap();
+        assert!(!migrated.contains("thinking"));
+        assert!(!migrated.contains("signature"));
+        assert!(!migrated.contains("API Error: 502"));
+        assert!(migrated.contains("retry"));
+        assert!(migrated.contains("gpt-test"));
+    }
+
+    #[test]
+    fn migrate_drops_orphan_tool_result_after_compact() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("orphan.jsonl");
+        let mut file = File::create(&path).unwrap();
+        // A complete early turn (will be compacted away once budget is tiny via many filler chars).
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u0","parentUuid":null,"sessionId":"orphan","message":{{"role":"user","content":"{}"}}}}"#,
+            "x".repeat(30_000)
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"assistant","uuid":"a0","parentUuid":"u0","sessionId":"orphan","message":{{"role":"assistant","model":"k3","content":[{{"type":"tool_use","id":"tool_keep","name":"Bash","input":{{"command":"echo"}}}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u1","parentUuid":"a0","sessionId":"orphan","message":{{"role":"user","content":[{{"type":"tool_result","tool_use_id":"tool_keep","content":"ok"}}]}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u2","parentUuid":"u1","sessionId":"orphan","message":{{"role":"user","content":"This session is being continued from a previous conversation that ran out of context. Summary: fiber debug."}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"type":"user","uuid":"u3","parentUuid":"u2","sessionId":"orphan","message":{{"role":"user","content":"continue"}}}}"#
+        )
+        .unwrap();
+        drop(file);
+
+        let result = migrate_claude_code_session(path.to_str().unwrap(), "gpt-test").unwrap();
+        let migrated = fs::read_to_string(&result.session.source_path).unwrap();
+        assert!(migrated.contains("This session is being continued"));
+        assert!(migrated.contains("continue"));
+        assert!(!migrated.contains("tool_keep"));
+        assert!(!migrated.contains("tool_result"));
+        // Continuation summaries become a one-turn portable seed without the
+        // Claude compact-resume marker phrase.
+        assert!(migrated.contains("迁移上下文"));
+        assert!(!migrated.contains("This session is being continued from a previous conversation"));
+        assert!(!migrated.contains("Continue the conversation from where it left off without asking"));
+    }
+
+    #[test]
+    fn truncate_keeps_complete_tool_rounds() {
+        let mut values = vec![
+            serde_json::json!({
+                "type":"assistant",
+                "message":{"role":"assistant","content":[{"type":"tool_use","id":"t1","name":"X","input":{}}]}
+            }),
+            serde_json::json!({
+                "type":"user",
+                "message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}
+            }),
+        ];
+        assert_eq!(truncate_incomplete_tool_rounds(&mut values), 0);
+        assert_eq!(values.len(), 2);
     }
 }

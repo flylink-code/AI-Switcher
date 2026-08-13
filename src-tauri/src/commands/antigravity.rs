@@ -155,6 +155,13 @@ pub async fn ensure_antigravity_provider(
             format!("{}/v1", status.base_url.trim_end_matches('/')),
             ClaudeModelMapping::default(),
         ),
+        // Pi uses the official Anthropic SDK, which posts `/v1/messages` onto baseURL.
+        // Gateway root only — a trailing `/v1` becomes `/v1/v1/messages` (404).
+        ProviderTarget::Pi => (
+            ProtocolType::Anthropic,
+            status.base_url.trim_end_matches('/').to_string(),
+            ClaudeModelMapping::default(),
+        ),
         ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => (
             ProtocolType::Anthropic,
             status.base_url.clone(),
@@ -174,12 +181,16 @@ pub async fn ensure_antigravity_provider(
 
     let input = ProviderInput {
         id: existing.map(|provider| provider.id),
-        name: "Antigravity (Built-in)".to_string(),
+        name: if target == ProviderTarget::Pi {
+            "Antigravity".to_string()
+        } else {
+            "Antigravity (Built-in)".to_string()
+        },
         base_url,
         api_key: status.api_key,
         clear_api_key: false,
         model: default_model,
-        model_context_window: if target == ProviderTarget::Codex {
+        model_context_window: if target == ProviderTarget::Codex || target == ProviderTarget::Pi {
             Some(200_000)
         } else {
             None
@@ -191,9 +202,13 @@ pub async fn ensure_antigravity_provider(
         provider_kind: ProviderKind::Antigravity,
         auth_binding: String::new(),
         target_app: target,
-        notes: format!(
-            "Built-in Antigravity gateway (live catalog; Haiku→{gemini_flash}, Pro hint→{gemini_pro})"
-        ),
+        notes: if target == ProviderTarget::Pi {
+            "Pi custom provider → Antigravity gateway (anthropic-messages; baseUrl is gateway root, SDK appends /v1/messages; no Claude role mapping)".to_string()
+        } else {
+            format!(
+                "Built-in Antigravity gateway (live catalog; Haiku→{gemini_flash}, Pro hint→{gemini_pro})"
+            )
+        },
         failover_group: 0,
         failover_models,
     };

@@ -91,6 +91,7 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
       (current = []) =>
         current.map((item) => ({ ...item, isCurrent: item.id === provider.id })),
     );
+    await queryClient.invalidateQueries({ queryKey: ["proxy-status", get().target] });
     return result;
   },
 
@@ -106,6 +107,7 @@ export const useProvidersStore = create<ProvidersState>((set, get) => ({
       providerListOptions(get().target).queryKey,
       (current = []) => current.map((provider) => ({ ...provider, isCurrent: false })),
     );
+    await queryClient.invalidateQueries({ queryKey: ["proxy-status", get().target] });
   },
 
   move: async (id, direction) => {

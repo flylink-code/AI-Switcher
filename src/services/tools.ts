@@ -5,6 +5,7 @@ import type {
   NodeRuntimeStatus,
   OpenCodeCliVersionInfo,
   OpenCodeDesktopStatus,
+  PiCliVersionInfo,
 } from "@/types/backend";
 
 export async function getClaudeCodeVersion(includeLatest = true): Promise<ClaudeCodeVersionInfo> {
@@ -29,6 +30,14 @@ export async function getOpenCodeCliVersion(includeLatest = true): Promise<OpenC
 
 export async function runOpenCodeCliUpdate(): Promise<string> {
   return call<string>("run_opencode_cli_update", {});
+}
+
+export async function getPiCliVersion(includeLatest = true): Promise<PiCliVersionInfo> {
+  return call<PiCliVersionInfo>("detect_pi_cli", { includeLatest });
+}
+
+export async function runPiCliUpdate(): Promise<string> {
+  return call<string>("install_pi_cli", {});
 }
 
 export async function getOpenCodeDesktopStatus(): Promise<OpenCodeDesktopStatus> {

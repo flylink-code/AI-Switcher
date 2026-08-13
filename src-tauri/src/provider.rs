@@ -37,6 +37,8 @@ pub enum ProviderTarget {
     /// Keep wire format `opencode` (not `open_code`) to match frontend / DB values.
     #[serde(rename = "opencode")]
     OpenCode,
+    #[serde(rename = "pi")]
+    Pi,
 }
 
 impl ProviderTarget {
@@ -46,6 +48,7 @@ impl ProviderTarget {
             ProviderTarget::ClaudeDesktop => "claude_desktop",
             ProviderTarget::Codex => "codex",
             ProviderTarget::OpenCode => "opencode",
+            ProviderTarget::Pi => "pi",
         }
     }
 
@@ -54,6 +57,7 @@ impl ProviderTarget {
             "claude_desktop" => ProviderTarget::ClaudeDesktop,
             "codex" => ProviderTarget::Codex,
             "opencode" => ProviderTarget::OpenCode,
+            "pi" => ProviderTarget::Pi,
             _ => ProviderTarget::ClaudeCode,
         }
     }
@@ -149,6 +153,16 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
             "OpenCode 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
         ));
     }
+    if target == ProviderTarget::Pi
+        && !matches!(
+            protocol,
+            ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
+        )
+    {
+        return Err(AppError::Config(
+            "Pi 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+        ));
+    }
     Ok(())
 }
 
@@ -164,11 +178,163 @@ pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> App
 }
 
 pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
-    if matches!(target, ProviderTarget::Codex | ProviderTarget::OpenCode) {
+    if matches!(
+        target,
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+    ) {
         ClaudeModelMapping::default()
     } else {
         mapping
     }
+}
+
+/// Build a create-payload that copies a provider onto another Agent.
+///
+/// Copies credentials, URL, model, and failover. Protocol / Base URL are
+/// rewritten for Antigravity (Codex wants Responses + `/v1`; Pi/Claude want
+/// Anthropic at the gateway root). Claude Code/Desktop get a seeded
+/// Sonnet/Opus/Haiku mapping; Codex / OpenCode / Pi clear it.
+pub fn copied_provider_input(
+    source: &Provider,
+    dest: ProviderTarget,
+    existing_names: &[String],
+    api_key: String,
+) -> AppResult<ProviderInput> {
+    if source.target_app == dest {
+        return Err(AppError::Config("不能复制到同一个 Agent".to_string()));
+    }
+    validate_provider_kind(dest, source.provider_kind)?;
+
+    let (protocol_type, base_url) = adapt_copied_wire(source, dest);
+    validate_target_protocol(dest, protocol_type)?;
+
+    Ok(ProviderInput {
+        id: None,
+        name: unique_provider_name(existing_names, &source.name),
+        base_url,
+        api_key,
+        clear_api_key: false,
+        model: source.model.clone(),
+        model_context_window: source.model_context_window,
+        auto_review_model_override: source.auto_review_model_override.clone(),
+        web_search_enabled: source.web_search_enabled,
+        model_mapping: adapt_copied_model_mapping(&source.model_mapping, &source.model, dest),
+        protocol_type,
+        provider_kind: source.provider_kind,
+        auth_binding: source.auth_binding.clone(),
+        target_app: dest,
+        notes: source.notes.clone(),
+        failover_group: source.failover_group,
+        failover_models: adapt_copied_failover_models(source, dest),
+    })
+}
+
+/// Models Pi / OpenCode / Codex can list after a copy: default + failover + Claude roles.
+pub fn catalog_models_from_provider(provider: &Provider) -> Vec<String> {
+    let mut ids = Vec::new();
+    let mut push = |value: &str| {
+        let value = value.trim();
+        if !value.is_empty() && !ids.iter().any(|id| id == value) {
+            ids.push(value.to_string());
+        }
+    };
+    push(&provider.model);
+    for model in &provider.failover_models {
+        push(model);
+    }
+    for model in provider.model_mapping.configured_models() {
+        push(model);
+    }
+    ids
+}
+
+fn adapt_copied_failover_models(source: &Provider, dest: ProviderTarget) -> Vec<String> {
+    if matches!(
+        dest,
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+    ) {
+        catalog_models_from_provider(source)
+    } else {
+        source.failover_models.clone()
+    }
+}
+
+fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, String) {
+    let protocol = match source.protocol_type {
+        ProtocolType::Proxy => ProtocolType::OpenAiChat,
+        other => other,
+    };
+    if source.is_antigravity() {
+        let root = strip_trailing_v1_path(&source.base_url);
+        return match dest {
+            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, format!("{root}/v1")),
+            ProviderTarget::ClaudeCode
+            | ProviderTarget::ClaudeDesktop
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi => (ProtocolType::Anthropic, root),
+        };
+    }
+    (protocol, source.base_url.clone())
+}
+
+fn adapt_copied_model_mapping(
+    source: &ClaudeModelMapping,
+    default_model: &str,
+    dest: ProviderTarget,
+) -> ClaudeModelMapping {
+    if matches!(
+        dest,
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+    ) {
+        return ClaudeModelMapping::default();
+    }
+    let default = default_model.trim();
+    let mut mapping = if source.has_explicit_roles() {
+        source.clone()
+    } else {
+        ClaudeModelMapping {
+            sonnet: default.to_string(),
+            opus: default.to_string(),
+            haiku: default.to_string(),
+            fable: default.to_string(),
+            subagent: default.to_string(),
+        }
+    };
+    if dest == ProviderTarget::ClaudeDesktop {
+        mapping.subagent.clear();
+    } else if dest == ProviderTarget::ClaudeCode && mapping.subagent.trim().is_empty() {
+        let fallback = if mapping.haiku.trim().is_empty() {
+            default
+        } else {
+            mapping.haiku.trim()
+        };
+        mapping.subagent = fallback.to_string();
+    }
+    mapping
+}
+
+fn strip_trailing_v1_path(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    trimmed
+        .strip_suffix("/v1")
+        .map(|value| value.trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| trimmed.to_string())
+}
+
+fn unique_provider_name(existing_names: &[String], name: &str) -> String {
+    let base = name.trim();
+    let base = if base.is_empty() { "imported" } else { base };
+    if !existing_names.iter().any(|item| item == base) {
+        return base.to_string();
+    }
+    for index in 2..100 {
+        let candidate = format!("{base} ({index})");
+        if !existing_names.iter().any(|item| item == &candidate) {
+            return candidate;
+        }
+    }
+    format!("{base} (copy)")
 }
 
 /// Normalize optional Codex auto-review model override; non-Codex targets always clear it.
@@ -532,9 +698,8 @@ impl Provider {
         if self.target_app == ProviderTarget::Codex {
             return self.protocol_type == ProtocolType::Anthropic;
         }
-        // OpenCode 通过 AI SDK 包（@ai-sdk/anthropic / @ai-sdk/openai-compatible）
-        // 原生支持各协议，直连写入 baseURL/apiKey 即可，无需本地代理。
-        if self.target_app == ProviderTarget::OpenCode {
+        // OpenCode / Pi 通过各自 SDK 原生支持各协议，直连写入配置即可，无需本地代理。
+        if matches!(self.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi) {
             return false;
         }
         if self.protocol_type.uses_proxy() {
@@ -712,7 +877,7 @@ pub struct LiveProviderInfo {
 #[cfg(test)]
 mod tests {
     use super::{
-        api_endpoint_url, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
+        api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
         openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
         normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType,
         Provider, ProviderKind, ProviderTarget,
@@ -836,7 +1001,8 @@ mod tests {
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::Proxy).is_err());
         assert!(validate_target_protocol(ProviderTarget::Codex, ProtocolType::OpenAiResponses).is_ok());
         let mapping = ClaudeModelMapping { sonnet: "claude-sonnet".into(), ..Default::default() };
-        assert!(!normalized_model_mapping(ProviderTarget::Codex, mapping).has_explicit_roles());
+        assert!(!normalized_model_mapping(ProviderTarget::Codex, mapping.clone()).has_explicit_roles());
+        assert!(!normalized_model_mapping(ProviderTarget::Pi, mapping).has_explicit_roles());
     }
 
     #[test]
@@ -886,6 +1052,36 @@ mod tests {
             provider_kind: ProviderKind::Standard,
             auth_binding: String::new(),
             target_app: ProviderTarget::Codex,
+            notes: String::new(),
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        };
+        assert!(!provider.requires_local_proxy());
+    }
+
+    #[test]
+    fn pi_openai_does_not_require_local_proxy() {
+        let provider = Provider {
+            id: "pi-openai".into(),
+            name: "sub2api".into(),
+            base_url: "https://api.example.test/v1".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: "gpt-5.6-terra".into(),
+            model_context_window: None,
+            auto_review_model_override: None,
+            web_search_enabled: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::OpenAiResponses,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
+            target_app: ProviderTarget::Pi,
             notes: String::new(),
             sort_index: 0,
             failover_group: 0,
@@ -988,5 +1184,150 @@ mod tests {
         provider.failover_models = vec!["claude-sonnet".into()];
         assert!(provider.allows_failover_for_request("claude-sonnet-5"));
         assert!(provider.allows_failover_model(""));
+    }
+
+    fn sample_provider(target: ProviderTarget, kind: ProviderKind, protocol: ProtocolType) -> Provider {
+        Provider {
+            id: "src".into(),
+            name: "DeepSeek".into(),
+            base_url: "https://api.deepseek.com/anthropic".into(),
+            api_key: String::new(),
+            api_key_set: true,
+            model: "deepseek-v4-pro".into(),
+            model_context_window: Some(128_000),
+            auto_review_model_override: None,
+            web_search_enabled: None,
+            model_mapping: ClaudeModelMapping {
+                sonnet: "deepseek-v4-pro".into(),
+                opus: "deepseek-v4-pro".into(),
+                haiku: "deepseek-v4-flash".into(),
+                fable: "deepseek-v4-pro".into(),
+                subagent: "deepseek-v4-flash".into(),
+            },
+            protocol_type: protocol,
+            provider_kind: kind,
+            auth_binding: String::new(),
+            target_app: target,
+            notes: "copied".into(),
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: vec!["deepseek-v4-flash".into()],
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        }
+    }
+
+    #[test]
+    fn copy_to_pi_clears_claude_mapping_and_keeps_anthropic() {
+        let source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        let input = copied_provider_input(&source, ProviderTarget::Pi, &[], "sk-test".into()).unwrap();
+        assert_eq!(input.target_app, ProviderTarget::Pi);
+        assert_eq!(input.protocol_type, ProtocolType::Anthropic);
+        assert_eq!(input.api_key, "sk-test");
+        assert!(!input.model_mapping.has_explicit_roles());
+        assert_eq!(input.model, "deepseek-v4-pro");
+        assert_eq!(
+            input.failover_models,
+            vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
+        );
+    }
+
+    #[test]
+    fn copy_to_claude_seeds_mapping_from_default_when_source_has_none() {
+        let mut source = sample_provider(
+            ProviderTarget::Pi,
+            ProviderKind::Standard,
+            ProtocolType::OpenAiChat,
+        );
+        source.model_mapping = ClaudeModelMapping::default();
+        let input =
+            copied_provider_input(&source, ProviderTarget::ClaudeCode, &[], String::new()).unwrap();
+        assert_eq!(input.model_mapping.sonnet, "deepseek-v4-pro");
+        assert_eq!(input.model_mapping.haiku, "deepseek-v4-pro");
+        assert_eq!(input.model_mapping.subagent, "deepseek-v4-pro");
+    }
+
+    #[test]
+    fn copy_antigravity_to_codex_uses_responses_and_v1() {
+        let mut source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Antigravity,
+            ProtocolType::Anthropic,
+        );
+        source.base_url = "http://127.0.0.1:15830".into();
+        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::OpenAiResponses);
+        assert_eq!(input.base_url, "http://127.0.0.1:15830/v1");
+        assert!(!input.model_mapping.has_explicit_roles());
+    }
+
+    #[test]
+    fn copy_antigravity_to_pi_strips_v1_and_uses_anthropic() {
+        let mut source = sample_provider(
+            ProviderTarget::Codex,
+            ProviderKind::Antigravity,
+            ProtocolType::OpenAiResponses,
+        );
+        source.base_url = "http://127.0.0.1:15830/v1".into();
+        let input = copied_provider_input(&source, ProviderTarget::Pi, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::Anthropic);
+        assert_eq!(input.base_url, "http://127.0.0.1:15830");
+    }
+
+    #[test]
+    fn copy_rejects_same_agent_and_codex_oauth_to_pi() {
+        let source = sample_provider(
+            ProviderTarget::Pi,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        assert!(copied_provider_input(&source, ProviderTarget::Pi, &[], String::new()).is_err());
+
+        let oauth = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::CodexOauth,
+            ProtocolType::OpenAiResponses,
+        );
+        assert!(copied_provider_input(&oauth, ProviderTarget::Pi, &[], String::new()).is_err());
+    }
+
+    #[test]
+    fn copy_renames_when_destination_already_has_the_name() {
+        let source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        let input = copied_provider_input(
+            &source,
+            ProviderTarget::Pi,
+            &["DeepSeek".into(), "DeepSeek (2)".into()],
+            String::new(),
+        )
+        .unwrap();
+        assert_eq!(input.name, "DeepSeek (3)");
+    }
+
+    #[test]
+    fn copy_to_pi_harvests_claude_mapping_into_failover_catalog() {
+        let mut source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        source.failover_models.clear();
+        let input = copied_provider_input(&source, ProviderTarget::Pi, &[], String::new()).unwrap();
+        assert_eq!(
+            input.failover_models,
+            vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
+        );
+        assert!(!input.model_mapping.has_explicit_roles());
     }
 }

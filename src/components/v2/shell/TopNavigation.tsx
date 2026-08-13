@@ -5,6 +5,7 @@ import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
 import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
 import FolderOutlined from "@ant-design/icons/es/icons/FolderOutlined";
+import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import type { PageKey } from "@/lib/pageRegistry";
@@ -16,6 +17,7 @@ export type V2MainTab =
   | "usage"
   | "antigravity"
   | "workspace"
+  | "sessions"
   | "settings";
 
 export interface TopNavigationProps {
@@ -25,8 +27,8 @@ export interface TopNavigationProps {
   compact?: boolean;
 }
 
-/** Full label dock needs ~640px in the center slot; below this → icon-only. */
-const COMPACT_BREAKPOINT = 640;
+/** Full label dock for 7 short items needs ~760px in the center slot. */
+const COMPACT_BREAKPOINT = 760;
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   activeKey,
@@ -86,15 +88,14 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     ) {
       return "workspace";
     }
+    if (key === "sessions") return "sessions";
     if (
       key === "settings" ||
-      key === "sessions" ||
       key === "environment" ||
       key === "localization" ||
       key === "about" ||
       key === "proxy" ||
-      key === "agentTools" ||
-      key === "piSettings"
+      key === "agentTools"
     ) {
       return "settings";
     }
@@ -118,13 +119,13 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
     },
     {
       key: "usage",
-      label: t("navigation.usage", { defaultValue: "用量统计" }),
+      label: t("navigation.usageShort", { defaultValue: "用量" }),
       icon: <BarChartOutlined />,
       targetPage: "usage",
     },
     {
       key: "antigravity",
-      label: t("navigation.accounts", { defaultValue: "账号与额度" }),
+      label: t("navigation.accountsShort", { defaultValue: "账号" }),
       icon: <UserOutlined />,
       targetPage: "antigravity",
     },
@@ -133,6 +134,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       label: t("navigation.workspace", { defaultValue: "工作区" }),
       icon: <FolderOutlined />,
       targetPage: "workspace",
+    },
+    {
+      key: "sessions",
+      label: t("navigation.sessions", { defaultValue: "会话" }),
+      icon: <MessageOutlined />,
+      targetPage: "sessions",
     },
     {
       key: "settings",
@@ -173,7 +180,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
               alignItems: "center",
               justifyContent: "center",
               gap: compact ? 0 : "5px",
-              padding: compact ? "6px 10px" : "6px 12px",
+              padding: compact ? "6px 10px" : "6px 10px",
               borderRadius: "999px",
               fontSize: "13px",
               fontWeight: isActive ? 600 : 500,

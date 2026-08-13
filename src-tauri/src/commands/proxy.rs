@@ -166,6 +166,7 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
         crate::provider::ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
         crate::provider::ProviderTarget::Codex => "proxy_port_codex",
         crate::provider::ProviderTarget::OpenCode => "proxy_port_opencode",
+        crate::provider::ProviderTarget::Pi => "proxy_port_pi",
     }
 }
 
@@ -184,6 +185,7 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
             crate::provider::ProviderTarget::ClaudeDesktop => DEFAULT_PORT + 1,
             crate::provider::ProviderTarget::Codex => DEFAULT_PORT + 2,
             crate::provider::ProviderTarget::OpenCode => DEFAULT_PORT + 3,
+            crate::provider::ProviderTarget::Pi => DEFAULT_PORT + 4,
         })
 }
 
@@ -266,8 +268,8 @@ async fn status_snapshot(state: &AppState, target: crate::provider::ProviderTarg
         .unwrap_or_else(|| status_value(state, target, get_saved_port(state, target), "stopped", None))
 }
 
-async fn publish_status(
-    app: &tauri::AppHandle,
+pub(crate) async fn publish_status<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
     state: &AppState,
     target: crate::provider::ProviderTarget,
     status: ProxyStatus,
@@ -279,6 +281,29 @@ async fn publish_status(
     ) {
         log::warn!("发送代理状态事件失败: {error}");
     }
+}
+
+/// Publish the live proxy manager status after provider switch / restore.
+pub async fn publish_target_status<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &AppState,
+    target: crate::provider::ProviderTarget,
+) {
+    let status = {
+        let proxy = state.proxy.lock().await;
+        proxy.status_for(target)
+    };
+    publish_status(app, state, target, status).await;
+}
+
+/// Publish a stopped snapshot (e.g. after official restore stops the target proxy).
+pub async fn publish_target_stopped<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &AppState,
+    target: crate::provider::ProviderTarget,
+) {
+    let status = status_value(state, target, get_saved_port(state, target), "stopped", None);
+    publish_status(app, state, target, status).await;
 }
 
 fn sanitize_status_error(value: &str) -> String {

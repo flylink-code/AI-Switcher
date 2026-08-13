@@ -117,7 +117,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeKey, onNavigate }) => {
         display: "flex",
         flexDirection: "column",
         gap: "4px",
-        padding: collapsed ? "10px 4px" : "10px 8px",
+        padding: collapsed ? "10px 4px 6px" : "10px 8px 6px",
         backgroundColor: "var(--color-bg-surface)",
         borderRight: "1px solid var(--color-border-subtle, var(--color-border))",
         boxSizing: "border-box",

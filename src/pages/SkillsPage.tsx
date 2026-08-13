@@ -50,7 +50,7 @@ const INSTALLED_PAGE_SIZE = 8;
 function readSkillsTarget(): SkillTarget {
   if (typeof localStorage === "undefined") return "claude_code";
   const stored = localStorage.getItem(SKILLS_TARGET_KEY);
-  if (stored === "codex" || stored === "claude_code") return stored;
+  if (stored === "codex" || stored === "claude_code" || stored === "pi") return stored;
   return "claude_code";
 }
 
@@ -289,7 +289,7 @@ export default function SkillsPage() {
       value={target}
       onChange={setTarget}
       t={t}
-      targets={["claude_code", "codex"]}
+      targets={["claude_code", "codex", "pi"]}
     />
     <Card
       size="small"

@@ -1,10 +1,10 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, and **OpenCode**. **v1.3.6**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.7**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
-Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, Codex, and OpenCode providers independent (OpenCode keeps multiple providers side by side; save to sync).
+Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, Codex, OpenCode, and Pi providers independent (OpenCode and Pi keep multiple providers side by side; save to sync).
 
 Works locally by default: API keys go in the OS credential store, writes are backed up first, and sessions only read local JSONL.
 
@@ -21,7 +21,7 @@ AI-Switcher is released under the **[MIT License](LICENSE)**. Source: [flylink-c
 
 - **You may** use, modify, distribute, and commercialize the software; derivatives may use another license if you keep the MIT copyright and permission notice
 - **You must** include the copyright and permission notice from `LICENSE` in all copies or substantial portions
-- **No affiliation**: AI-Switcher is an independent community project and is not affiliated with, sponsored by, or endorsed by Anthropic, OpenAI, or the projects listed under Acknowledgements. Claude, Claude Code, Claude Desktop, Codex, and ChatGPT are trademarks of their respective owners
+- **No affiliation**: AI-Switcher is an independent community project and is not affiliated with, sponsored by, or endorsed by Anthropic, OpenAI, or the projects listed under Acknowledgements. Claude, Claude Code, Claude Desktop, Codex, ChatGPT, and Pi are trademarks of their respective owners
 - **Third-party dependencies**: builds link npm / crates packages that remain under their own licenses
 - **Inspiration only**: projects in Acknowledgements informed product and implementation ideas; if you port copyrighted code from them, follow those upstream licenses as well (for example AGPL-3.0)
 - **Contributions**: Issues and PRs are welcome on GitHub; contributions are accepted under this repository’s MIT license
@@ -35,23 +35,24 @@ Download the latest build from [GitHub Releases](https://github.com/flylink-code
 - **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
 - **Linux**: prefer the `.AppImage` (`chmod +x`, then run).
 
-Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Agent tools**).
+Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), or Pi as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Tools & environment → Agent tools**).
 
 ---
 
 ## Features
 
-### Navigation & layout (1.3.6)
+### Navigation & layout (1.3.7)
 
 - **Two layouts**: switch **sidebar** / **top** navigation in the title bar (browser-like default vs vertical tabs); preference stored as `cs.layoutMode`
-- **Top nav (six items)**: Overview · Providers · Usage · Accounts & quota · Workspace · Settings
+- **Top nav (seven items)**: Overview · Providers · Usage · Accounts & quota · Workspace · **Sessions** · Settings
 - **Overview**: status strip → last-24h usage hero → attention / recent activity → year heatmap (Usage Intelligence)
-- **Settings children**: local proxy, sessions, environment, **Agent tools**, localization, about (with **← Settings** back header)
-- **Agent switchers**: page-local on Providers / Proxy (Claude Code / Desktop / Codex / OpenCode) — no global workspace switcher
+- **Settings children** (Tools & environment): local proxy, environment, **Agent tools**, localization, about (with **← Settings** back header; Sessions is now a top-level page)
+- **Agent switchers**: page-local on Providers / Proxy (Claude Code / Desktop / Codex / OpenCode / Pi) — no global workspace switcher
 
 ### Providers and switching
 
-- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode separately
+- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi separately
+- Provider cards can **copy to another Agent**; Providers page can **import from another Agent** (fields mapped to the target protocol)
 - Codex providers can toggle catalog **Web Search** (writes `supports_search_tool` / `web_search_tool_type`)
 - Environment page can set top-level `web_search`: `disabled | cached | indexed | live` (separate from catalog toggles; does not write deprecated `features.web_search*`)
 - One-click switch with backups; restore official login configs
@@ -63,11 +64,11 @@ Install Claude Code, Claude Desktop, the Codex CLI, or OpenCode (CLI / Desktop) 
 
 Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default). **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
 
-Entry point: **Settings → Runtime → Local proxy** (port / force restart / failover). Day-to-day provider switches still start/stop the proxy from the Providers page.
+Entry point: **Settings → Tools & environment → Local proxy** (port / force restart / failover). Day-to-day provider switches still start/stop the proxy from the Providers page. Multi-turn `openai_responses` assistant history uses `output_text` (avoids 502 from the second turn).
 
 ### Antigravity gateway
 
-Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, and Codex:
+Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, Codex, and Pi:
 
 - **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
 - **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog; background auto-refresh
@@ -84,21 +85,31 @@ Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Mul
 - **Import from local config**: **Update from local config** on Workbench/Providers syncs from `opencode.json(c)` (skips managed entries and Desktop built-in connectors)
 - **Sessions & usage**: scans `opencode.db`; detect/install/update OpenCode CLI under **Settings → Agent tools** (Node.js ≥22)
 
-### Agent tools (1.3.6)
+### Pi
 
-Unified detect/install under **Settings → Runtime → Agent tools**:
+Reads/writes `~/.pi/agent/models.json` and `auth.json`. Same model as OpenCode: multiple providers coexist; save to sync — no switch step:
+
+- **Provider sync**: save/delete/import writes every enabled Pi provider; pick models inside Pi
+- **Direct upstream**: OpenAI-compatible APIs (including Responses) use the provider Base URL and skip the local proxy (Pi’s built-in proxy only mounts `/v1/messages`; Responses would 404). Anthropic can use the Antigravity gateway
+- **Workspace**: Prompts (`~/.pi/agent/AGENTS.md`), Skills, MCP (`~/.pi/agent/mcp.json`, needs pi-mcp-adapter / extension). No Plugins, Agents, or Profiles
+- **Sessions & usage**: scans `message.usage` in `~/.pi/agent/sessions/**/*.jsonl`; Usage refresh syncs (deduped against Antigravity gateway rows)
+- **Agent tools**: detect/install/update the Pi CLI (Node.js ≥22)
+
+### Agent tools (1.3.7)
+
+Unified detect/install under **Settings → Tools & environment → Agent tools**:
 
 - **Node.js environment** (local ≥22; optional fnm + mirror install)
-- Claude Code / Codex / OpenCode CLI install & update (npm global; works with npm 11 and Windows `%APPDATA%\npm`)
+- Claude Code / Codex / OpenCode / **Pi** CLI install & update (npm global; works with npm 11 and Windows `%APPDATA%\npm`)
 
 The About page keeps only app version, update check, update mirror, and onboarding tip restore.
 
 ### MCP / Prompts / Skills / Agents / Plugins
 
-- MCP: unified management with Codex sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
+- MCP: unified management with Codex / Pi sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
 - MCP Registry: browse the official Registry and install entries that safely convert to Claude config (secret/URL-template entries still need manual setup)
-- Prompts: `CLAUDE.md` / Codex `AGENTS.md` presets with rename and one-click activate
-- Skills: install, enable, update, and remove Claude Code or Codex Skills from GitHub or ZIP; scan stray skills to register/ignore
+- Prompts: `CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` presets with rename and one-click activate
+- Skills: install, enable, update, and remove Claude Code, Codex, or Pi Skills from GitHub or ZIP; scan stray skills to register/ignore
 - Agents: manage Claude Code user agents under `~/.claude/agents`
 - **Plugins**: single Workspace **Plugins** tab with in-page Claude Code / Codex switch; marketplaces, catalog install, enable/disable, uninstall, check/update
 
@@ -108,7 +119,7 @@ Snapshot provider / MCP / Skills / Prompt selections per Claude Code, Desktop, o
 
 ### Sessions
 
-Browse, filter, and search local Claude Code, Codex, and OpenCode sessions; export / import / backup / trash (OpenCode does not support archive/export/trash yet). Claude Desktop private history formats are not parsed.
+Browse, filter, and search local Claude Code, Codex, OpenCode, and Pi sessions; export / import / backup / trash (OpenCode does not support archive/export/trash yet). Claude Desktop private history formats are not parsed.
 
 ### Localization
 
@@ -116,7 +127,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code / OpenCode local session events (including JSONL backfill for Anthropic-compatible direct upstreams); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi local session events (including JSONL backfill for Anthropic-compatible direct upstreams and Pi sessions); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 
@@ -129,6 +140,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 | Claude Code | `~/.claude/projects/**/*.jsonl` |
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl` (default `~/.codex/sessions/`) |
 | OpenCode | `~/.local/share/opencode/opencode.db` (and legacy JSON storage) |
+| Pi | `~/.pi/agent/sessions/**/*.jsonl` |
 
 The list reads metadata only; message bodies load when you open details or run full-text search. Paths stay under the session roots. Browsing does not modify originals.
 
@@ -148,6 +160,9 @@ Claude Desktop only detects the data directory and offers the official entry `cl
 | `$CODEX_HOME` or `~/.codex/` | Codex config, sessions, Skills, Plugins |
 | `~/.config/opencode/opencode.json` | OpenCode providers (CLI + Desktop; `opencode.jsonc` also supported) |
 | `~/.local/share/opencode/` | OpenCode session database |
+| `~/.pi/agent/models.json` / `auth.json` | Pi providers and credentials |
+| `~/.pi/agent/sessions/` | Pi session JSONL |
+| `~/.pi/agent/AGENTS.md` / `skills/` / `mcp.json` | Pi Prompts / Skills / MCP |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
@@ -208,6 +223,7 @@ src-tauri/src/            Rust: config, proxy, Antigravity, DB, tray, sessions
   antigravity/            AG gateway (default :15830)
   proxy/                  Local Anthropic-compatible proxy
   config/                 Claude / Codex / OpenCode config I/O
+  coding/pi/              Pi models.json / auth / MCP / session usage
   database/               SQLite (user_version)
 scripts/                  Windows dev / build scripts
 ```
@@ -216,7 +232,8 @@ scripts/                  Windows dev / build scripts
 
 ## Current boundaries
 
-- Client scope: Claude Code + Claude Desktop + Codex + OpenCode; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
+- Client scope: Claude Code + Claude Desktop + Codex + OpenCode + Pi; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
+- Pi has no Plugins / Agents / Profiles / tray switching; Pi OpenAI-compatible upstreams connect directly and skip the local proxy
 - Plugins page manages installed marketplaces/plugins locally — not a full replacement for the official CLI store browser
 - Session “resume” only copies a command; it does not open a terminal
 - No automatic remote conflict merge; no team sharing

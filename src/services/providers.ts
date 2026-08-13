@@ -56,6 +56,13 @@ export async function createProvider(input: ProviderInput): Promise<Provider> {
   return call<Provider>("create_provider", { input });
 }
 
+export async function copyProviderToTarget(
+  id: string,
+  target: ProviderTarget,
+): Promise<Provider> {
+  return call<Provider>("copy_provider_to_target", { id, target });
+}
+
 export async function updateProvider(input: ProviderInput): Promise<Provider> {
   return call<Provider>("update_provider", { input });
 }

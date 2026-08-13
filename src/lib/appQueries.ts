@@ -5,6 +5,7 @@ import {
   getCodexCliVersion,
   getOpenCodeCliVersion,
   getOpenCodeDesktopStatus,
+  getPiCliVersion,
   getNodeRuntimeStatus,
   getCloseBehavior,
   getDbInfo,
@@ -292,6 +293,18 @@ export const localOpenCodeCliVersionOptions = queryOptions({
 export const opencodeCliVersionOptions = queryOptions({
   queryKey: ["opencode-cli-version", "latest"] as const,
   queryFn: () => getOpenCodeCliVersion(true),
+  staleTime: 5 * 60_000,
+});
+
+export const localPiCliVersionOptions = queryOptions({
+  queryKey: ["pi-cli-version", "local"] as const,
+  queryFn: () => getPiCliVersion(false),
+  staleTime: 5 * 60_000,
+});
+
+export const piCliVersionOptions = queryOptions({
+  queryKey: ["pi-cli-version", "latest"] as const,
+  queryFn: () => getPiCliVersion(true),
   staleTime: 5 * 60_000,
 });
 
