@@ -20,7 +20,11 @@ function readPluginsTarget(): SkillTarget {
  * Unified plugins hub: Claude Code / Codex share one workspace tab,
  * switched the same way Skills uses WorkspaceTargetSegmented.
  */
-export default function PluginsPage() {
+interface PluginsPageProps {
+  target?: SkillTarget;
+}
+
+export default function PluginsPage({ target: targetProp }: PluginsPageProps = {}) {
   const { t } = useTranslation();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
@@ -30,14 +34,17 @@ export default function PluginsPage() {
     return validTargets[0] ?? "claude_code";
   };
 
-  const [target, setTarget] = useState<SkillTarget>(() => getValidPluginTarget(readPluginsTarget()));
+  const [internalTarget, setInternalTarget] = useState<SkillTarget>(() => getValidPluginTarget(readPluginsTarget()));
+  const target = targetProp ?? internalTarget;
 
   useEffect(() => {
-    const valid = getValidPluginTarget(target);
-    if (valid !== target) {
-      setTarget(valid);
+    if (!targetProp) {
+      const valid = getValidPluginTarget(internalTarget);
+      if (valid !== internalTarget) {
+        setInternalTarget(valid);
+      }
     }
-  }, [visibleAgents, target]);
+  }, [visibleAgents, internalTarget, targetProp]);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {
@@ -47,12 +54,14 @@ export default function PluginsPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-      <WorkspaceTargetSegmented<SkillTarget>
-        value={target}
-        onChange={setTarget}
-        t={t}
-        targets={["claude_code", "codex"]}
-      />
+      {!targetProp && (
+        <WorkspaceTargetSegmented<SkillTarget>
+          value={target}
+          onChange={setInternalTarget}
+          t={t}
+          targets={["claude_code", "codex"]}
+        />
+      )}
       {target === "claude_code" ? <ClaudePluginsPage /> : <CodexPluginsPage />}
     </Space>
   );

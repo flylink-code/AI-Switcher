@@ -24,6 +24,7 @@ interface PersistedPagePreferences {
 
 interface PagePreferencesState {
   visibleAgents: ProviderTarget[];
+  workspaceTarget: ProviderTarget;
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   usagePeriod: UsagePeriod;
@@ -34,6 +35,7 @@ interface PagePreferencesState {
   sessionsProvider: SessionProvider;
   workbenchView: "providers" | "usage";
   setVisibleAgents: (agents: ProviderTarget[]) => void;
+  setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
@@ -48,6 +50,7 @@ interface PagePreferencesState {
 const DEFAULTS: Pick<
   PagePreferencesState,
   | "visibleAgents"
+  | "workspaceTarget"
   | "providersTarget"
   | "proxyTarget"
   | "usagePeriod"
@@ -58,6 +61,7 @@ const DEFAULTS: Pick<
   | "workbenchView"
 > = {
   visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi"],
+  workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
   usagePeriod: 365,
@@ -139,6 +143,13 @@ function initialState() {
     providersTarget = visibleAgents[0];
   }
 
+  let workspaceTarget = isProviderTarget(stored.workspaceTarget)
+    ? stored.workspaceTarget
+    : providersTarget;
+  if (!visibleAgents.includes(workspaceTarget)) {
+    workspaceTarget = visibleAgents[0];
+  }
+
   let proxyTarget = isProviderTarget(stored.proxyTarget)
     ? stored.proxyTarget
     : isProviderTarget(stored.workspaceTarget)
@@ -157,6 +168,7 @@ function initialState() {
 
   return {
     visibleAgents,
+    workspaceTarget,
     providersTarget,
     proxyTarget,
     usagePeriod,
@@ -172,6 +184,7 @@ function persistSlice(
   state: Pick<
     PagePreferencesState,
     | "visibleAgents"
+    | "workspaceTarget"
     | "providersTarget"
     | "proxyTarget"
     | "usagePeriod"
@@ -184,6 +197,7 @@ function persistSlice(
 ) {
   writePersisted({
     visibleAgents: state.visibleAgents,
+    workspaceTarget: state.workspaceTarget,
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     usagePeriod: state.usagePeriod,
@@ -201,6 +215,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   setVisibleAgents: (visibleAgents) => {
     if (!visibleAgents || visibleAgents.length === 0) return;
     const current = get();
+    let workspaceTarget = current.workspaceTarget;
+    if (!visibleAgents.includes(workspaceTarget)) {
+      workspaceTarget = visibleAgents[0];
+    }
     let providersTarget = current.providersTarget;
     if (!visibleAgents.includes(providersTarget)) {
       providersTarget = visibleAgents[0];
@@ -215,10 +233,15 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
     }
     set({
       visibleAgents,
+      workspaceTarget,
       providersTarget,
       proxyTarget,
       sessionsProvider,
     });
+    persistSlice(get());
+  },
+  setWorkspaceTarget: (workspaceTarget) => {
+    set({ workspaceTarget });
     persistSlice(get());
   },
   setProvidersTarget: (providersTarget) => {

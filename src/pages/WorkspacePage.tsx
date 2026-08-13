@@ -6,10 +6,21 @@ import {
   preloadPage,
   type PageKey,
 } from "@/lib/pageRegistry";
+import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import type { ProviderTarget } from "@/types/backend";
 
 /**
- * Workspace resource pages. Order = display order in the secondary navigation.
+ * Workspace resource pages supported per agent.
  */
+const AGENT_SUPPORTED_TABS: Record<ProviderTarget, PageKey[]> = {
+  claude_code: ["profiles", "mcp", "prompts", "skills", "agents", "plugins"],
+  claude_desktop: ["profiles", "mcp"],
+  codex: ["mcp", "prompts", "skills", "agents", "plugins"],
+  opencode: ["mcp", "prompts"],
+  pi: ["mcp", "prompts", "skills"],
+};
+
 const WORKSPACE_PAGES: PageKey[] = [
   "profiles",
   "mcp",
@@ -36,21 +47,39 @@ function isWorkspacePage(key: string): key is PageKey {
   return WORKSPACE_PAGES.some((page) => page === key);
 }
 
+const NAV_FALLBACKS: Record<string, string> = {
+  profiles: "项目",
+  mcp: "MCP 服务",
+  prompts: "提示词",
+  skills: "技能",
+  agents: "Agent 智能体",
+  plugins: "插件",
+};
+
 /**
- * Workspace: the resource management center (Projects / MCP / Prompts /
- * Skills / Agents / Plugins). Resources are embedded under a compact
- * segmented navigation instead of living inside Settings.
+ * Workspace: Agent-driven resource management center.
+ * Select an Agent on top; the secondary tabs only present features supported by that Agent.
  */
 export default function WorkspacePage() {
   const { t } = useTranslation();
+  const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
+  const setWorkspaceTarget = usePagePreferencesStore((s) => s.setWorkspaceTarget);
+
+  const supportedTabs = AGENT_SUPPORTED_TABS[workspaceTarget] ?? ["mcp"];
 
   const [activeTab, setActiveTab] = useState<PageKey>(() => {
     if (typeof localStorage !== "undefined") {
       const stored = migrateWorkspaceTab(localStorage.getItem(WORKSPACE_TAB_KEY) ?? "");
-      if (isWorkspacePage(stored)) return stored;
+      if (isWorkspacePage(stored) && supportedTabs.includes(stored)) return stored;
     }
-    return "profiles";
+    return supportedTabs[0] ?? "mcp";
   });
+
+  useEffect(() => {
+    if (!supportedTabs.includes(activeTab)) {
+      setActiveTab(supportedTabs[0] ?? "mcp");
+    }
+  }, [workspaceTarget, supportedTabs, activeTab]);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {
@@ -67,34 +96,42 @@ export default function WorkspacePage() {
         minWidth: 0,
       }}
     >
-      <Segmented<PageKey>
-        value={activeTab}
-        onChange={(key) => setActiveTab(key)}
-        options={WORKSPACE_PAGES.map((key) => ({
-          value: key,
-          label: t(`nav.${key}`),
-        }))}
-      />
-      <EmbeddedPage pageKey={activeTab} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div>
+          <AgentTargetSwitcher value={workspaceTarget} onChange={setWorkspaceTarget} />
+        </div>
+        <div>
+          <Segmented<PageKey>
+            size="small"
+            value={activeTab}
+            onChange={(key) => setActiveTab(key)}
+            options={supportedTabs.map((key) => ({
+              value: key,
+              label: t(`nav.${key}`, { defaultValue: NAV_FALLBACKS[key] ?? key }),
+            }))}
+          />
+        </div>
+      </div>
+      <EmbeddedPage pageKey={activeTab} target={workspaceTarget} />
     </div>
   );
 }
 
 /** Lazy-loads and renders a registered page inside the workspace view. */
-function EmbeddedPage({ pageKey }: { pageKey: PageKey }) {
-  const [Page, setPage] = useState<ComponentType | undefined>(() =>
+function EmbeddedPage({ pageKey, target }: { pageKey: PageKey; target: ProviderTarget }) {
+  const [Page, setPage] = useState<ComponentType<{ target?: unknown }> | undefined>(() =>
     getLoadedPage(pageKey),
   );
 
   useEffect(() => {
     const loaded = getLoadedPage(pageKey);
     if (loaded) {
-      setPage(() => loaded);
+      setPage(() => loaded as ComponentType<{ target?: unknown }>);
       return;
     }
     let cancelled = false;
     void preloadPage(pageKey).then((P) => {
-      if (!cancelled) setPage(() => P);
+      if (!cancelled) setPage(() => P as ComponentType<{ target?: unknown }>);
     });
     return () => {
       cancelled = true;
@@ -108,5 +145,5 @@ function EmbeddedPage({ pageKey }: { pageKey: PageKey }) {
       </div>
     );
   }
-  return <Page />;
+  return <Page target={target} />;
 }

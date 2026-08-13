@@ -63,7 +63,11 @@ function promptLiveMeta(target: PromptTarget): { file: string; path: string } {
   }
 }
 
-export default function PromptsPage() {
+interface PromptsPageProps {
+  target?: PromptTarget;
+}
+
+export default function PromptsPage({ target: targetProp }: PromptsPageProps = {}) {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const { token } = theme.useToken();
@@ -76,14 +80,17 @@ export default function PromptsPage() {
     return validTargets[0] ?? "claude_code";
   };
 
-  const [target, setTarget] = useState<PromptTarget>(() => getValidPromptTarget("claude_code"));
+  const [internalTarget, setInternalTarget] = useState<PromptTarget>(() => getValidPromptTarget("claude_code"));
+  const target = targetProp ?? internalTarget;
 
   useEffect(() => {
-    const valid = getValidPromptTarget(target);
-    if (valid !== target) {
-      setTarget(valid);
+    if (!targetProp) {
+      const valid = getValidPromptTarget(internalTarget);
+      if (valid !== internalTarget) {
+        setInternalTarget(valid);
+      }
     }
-  }, [visibleAgents, target]);
+  }, [visibleAgents, internalTarget, targetProp]);
 
   const promptsQuery = useQuery(promptsOverviewOptions(target));
   const prompts = promptsQuery.data?.items ?? [];
@@ -206,12 +213,14 @@ export default function PromptsPage() {
           message={t("prompts.title", { file: liveMeta.file })}
           description={t("prompts.description", { file: liveMeta.file })}
         />
-        <WorkspaceTargetSegmented<PromptTarget>
-          value={target}
-          onChange={setTarget}
-          t={t}
-          targets={["claude_code", "codex", "opencode", "pi"]}
-        />
+        {!targetProp && (
+          <WorkspaceTargetSegmented<PromptTarget>
+            value={target}
+            onChange={setInternalTarget}
+            t={t}
+            targets={["claude_code", "codex", "opencode", "pi"]}
+          />
+        )}
 
         <Card
           size="small"

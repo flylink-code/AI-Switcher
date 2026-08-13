@@ -71,7 +71,11 @@ function getTargetLabel(target: SkillTarget): string {
   }
 }
 
-export default function SkillsPage() {
+interface SkillsPageProps {
+  target?: SkillTarget;
+}
+
+export default function SkillsPage({ target: targetProp }: SkillsPageProps = {}) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
@@ -82,14 +86,17 @@ export default function SkillsPage() {
     return validTargets[0] ?? "claude_code";
   };
 
-  const [target, setTarget] = useState<SkillTarget>(() => getValidSkillTarget(readSkillsTarget()));
+  const [internalTarget, setInternalTarget] = useState<SkillTarget>(() => getValidSkillTarget(readSkillsTarget()));
+  const target = targetProp ?? internalTarget;
 
   useEffect(() => {
-    const valid = getValidSkillTarget(target);
-    if (valid !== target) {
-      setTarget(valid);
+    if (!targetProp) {
+      const valid = getValidSkillTarget(internalTarget);
+      if (valid !== internalTarget) {
+        setInternalTarget(valid);
+      }
     }
-  }, [visibleAgents, target]);
+  }, [visibleAgents, internalTarget, targetProp]);
   const skillsQuery = useQuery(skillsOptions(target));
   const unmanagedQuery = useQuery(unmanagedSkillsOptions(target));
   const repositoriesQuery = useQuery(skillRepositoriesOptions);
@@ -107,7 +114,6 @@ export default function SkillsPage() {
   // Repository management modal state
   const [activeRepo, setActiveRepo] = useState<SkillRepositorySnapshot | null>(null);
   const [newRepoUrl, setNewRepoUrl] = useState("");
-  const [installTarget, setInstallTarget] = useState<SkillTarget>(target);
   const [searchText, setSearchText] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [addingRepo, setAddingRepo] = useState(false);
@@ -191,10 +197,10 @@ export default function SkillsPage() {
     if (!activeRepo || !selectedPaths.length) return;
     setBusy(true);
     try {
-      const installed = await installGithubRepositorySkills(activeRepo.repositoryUrl, selectedPaths, installTarget);
+      const installed = await installGithubRepositorySkills(activeRepo.repositoryUrl, selectedPaths, target);
       void message.success(t("skills.installedCount", { count: installed.length }));
       setSelectedPaths([]);
-      await queryClient.invalidateQueries({ queryKey: ["skills", installTarget] });
+      await queryClient.invalidateQueries({ queryKey: ["skills", target] });
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
@@ -357,12 +363,14 @@ export default function SkillsPage() {
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <OnboardingTip tipKey="skills" message={t("skills.title")} description={t("skills.description")} />
-      <WorkspaceTargetSegmented<SkillTarget>
-        value={target}
-        onChange={setTarget}
-        t={t}
-        targets={["claude_code", "codex", "pi"]}
-      />
+      {!targetProp && (
+        <WorkspaceTargetSegmented<SkillTarget>
+          value={target}
+          onChange={setInternalTarget}
+          t={t}
+          targets={["claude_code", "codex", "pi"]}
+        />
+      )}
       <Card
         size="small"
         className="page-surface"
@@ -519,12 +527,7 @@ export default function SkillsPage() {
                 <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
                   <Space align="center">
                     <Text type="secondary">{t("skills.targetAgent")}:</Text>
-                    <WorkspaceTargetSegmented<SkillTarget>
-                      value={installTarget}
-                      onChange={setInstallTarget}
-                      t={t}
-                      targets={["claude_code", "codex", "pi"]}
-                    />
+                    <Tag color="blue" style={{ margin: 0 }}>{getTargetLabel(target)}</Tag>
                   </Space>
                   <Space>
                     <Button
@@ -541,7 +544,7 @@ export default function SkillsPage() {
                       disabled={!selectedPaths.length}
                       onClick={() => void handleInstallFromActiveRepo()}
                     >
-                      {t("skills.installToTarget", { target: getTargetLabel(installTarget) })}
+                      {t("skills.installSelected")}
                       {selectedPaths.length > 0 ? ` (${selectedPaths.length})` : ""}
                     </Button>
                   </Space>
@@ -652,7 +655,6 @@ export default function SkillsPage() {
                         icon={<RightOutlined />}
                         onClick={() => {
                           setActiveRepo(repo);
-                          setInstallTarget(target);
                           setSelectedPaths([]);
                           setSearchText("");
                         }}
