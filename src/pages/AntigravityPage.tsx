@@ -7,6 +7,7 @@ import {
   Skeleton,
   Space,
   Tag,
+  Tabs,
   Typography,
   message,
 } from "antd";
@@ -35,7 +36,7 @@ import {
   stopAntigravityGateway,
   listProviders,
 } from "@/services/api";
-import type { ProviderTarget } from "@/types/backend";
+import type { AntigravityAccountPublic, AntigravityCatalogModel, AntigravityGatewayStatus, ProviderTarget } from "@/types/backend";
 import {
   AccountPoolOverview,
   AccountCard,
@@ -72,6 +73,7 @@ export default function AntigravityPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
   const [actionAccountId, setActionAccountId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("antigravity");
 
   const accountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
@@ -310,6 +312,107 @@ export default function AntigravityPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Page header */}
+      <div>
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          {t("antigravity.title")}
+        </Typography.Title>
+        <Typography.Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
+          {t("antigravity.subtitle")}
+        </Typography.Text>
+      </div>
+
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        size="small"
+        items={[
+          {
+            key: "antigravity",
+            label: t("antigravity.tabAntigravity", { defaultValue: "Antigravity（Cloud Code）" }),
+            children: (
+              <AntigravityContent
+                t={t}
+                accounts={accounts}
+                sortedAccounts={sortedAccounts}
+                status={status}
+                models={models}
+                accountsQuery={accountsQuery}
+                oauthMutation={oauthMutation}
+                quotaMutation={quotaMutation}
+                importMutation={importMutation}
+                startMutation={startMutation}
+                stopMutation={stopMutation}
+                outboundMutation={outboundMutation}
+                ensureMutation={ensureMutation}
+                boundProvidersQuery={boundProvidersQuery}
+                bindingTarget={bindingTarget}
+                actionAccountId={actionAccountId}
+                importModalOpen={importModalOpen}
+                setImportModalOpen={setImportModalOpen}
+                refresh={refresh}
+                handleSetActive={handleSetActive}
+                handleRemoveAccount={handleRemoveAccount}
+              />
+            ),
+          },
+          // 后续可在此处追加其他反代源，例如：
+          // { key: "gemini-direct", label: "Gemini API Direct", children: <GeminiDirectContent /> },
+        ]}
+      />
+    </div>
+  );
+}
+
+interface AntigravityContentProps {
+  t: (key: string, options?: Record<string, unknown>) => string;
+  accounts: AntigravityAccountPublic[];
+  sortedAccounts: AntigravityAccountPublic[];
+  status: AntigravityGatewayStatus | undefined;
+  models: AntigravityCatalogModel[];
+  accountsQuery: { isLoading: boolean };
+  oauthMutation: { isPending: boolean; mutate: () => void };
+  quotaMutation: { isPending: boolean; mutate: () => void };
+  importMutation: { isPending: boolean; mutateAsync: (json: string) => Promise<unknown> };
+  startMutation: { isPending: boolean; mutateAsync: (args: { port: number; apiKey: string; outboundMode: string; outboundUrl: string }) => Promise<unknown> };
+  stopMutation: { isPending: boolean; mutateAsync: () => Promise<unknown> };
+  outboundMutation: { isPending: boolean; mutateAsync: (args: { mode: "direct" | "system" | "custom"; url: string }) => Promise<unknown> };
+  ensureMutation: { mutate: (target: ProviderTarget) => void };
+  boundProvidersQuery: { data?: Map<ProviderTarget, boolean> };
+  bindingTarget: ProviderTarget | null;
+  actionAccountId: string | null;
+  importModalOpen: boolean;
+  setImportModalOpen: (open: boolean) => void;
+  refresh: () => Promise<void>;
+  handleSetActive: (id: string) => Promise<void>;
+  handleRemoveAccount: (id: string) => Promise<void>;
+}
+
+function AntigravityContent({
+  t,
+  accounts,
+  sortedAccounts,
+  status,
+  models,
+  accountsQuery,
+  oauthMutation,
+  quotaMutation,
+  importMutation,
+  startMutation,
+  stopMutation,
+  outboundMutation,
+  ensureMutation,
+  boundProvidersQuery,
+  bindingTarget,
+  actionAccountId,
+  importModalOpen,
+  setImportModalOpen,
+  refresh,
+  handleSetActive,
+  handleRemoveAccount,
+}: AntigravityContentProps) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Compact runtime summary + page actions */}
       <div
         style={{
@@ -418,7 +521,7 @@ export default function AntigravityPage() {
         status={status}
         models={models}
         onStartGateway={async (port, apiKey, outboundMode, outboundUrl) => {
-          await startMutation.mutateAsync({ port, apiKey, outboundMode, outboundUrl });
+          await startMutation.mutateAsync({ port, apiKey: apiKey ?? "", outboundMode: outboundMode ?? "", outboundUrl: outboundUrl ?? "" });
         }}
         onStopGateway={async () => {
           await stopMutation.mutateAsync();

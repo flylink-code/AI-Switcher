@@ -12,11 +12,29 @@ use crate::skills::{
     set_skill_enabled as set_enabled, set_skill_repository as set_repository,
     check_skill_update as check_update, check_skill_updates as check_updates,
     get_skill_repository_snapshot as get_repository_snapshot,
+    list_skill_repositories as list_repositories,
+    add_skill_repository as add_repository,
+    remove_skill_repository as remove_repository,
     refresh_github_repository_skills as refresh_repository_skills,
     update_github_skills as update_skills,
     RepositorySkill, Skill, SkillRepositorySnapshot, SkillTarget, SkillUpdateStatus, UnmanagedSkill,
 };
 use crate::store::AppState;
+
+#[tauri::command]
+pub fn list_skill_repositories() -> AppResult<Vec<SkillRepositorySnapshot>> {
+    list_repositories()
+}
+
+#[tauri::command]
+pub async fn add_skill_repository(url: String, _state: tauri::State<'_, AppState>) -> AppResult<SkillRepositorySnapshot> {
+    add_repository(&url).await
+}
+
+#[tauri::command]
+pub fn remove_skill_repository(url: String) -> AppResult<()> {
+    remove_repository(&url)
+}
 
 #[tauri::command]
 pub fn list_skills(target: Option<SkillTarget>) -> AppResult<Vec<Skill>> {

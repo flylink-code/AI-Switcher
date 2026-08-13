@@ -123,9 +123,10 @@ pub use proxy::{
     set_proxy_streaming_idle_timeout_secs, set_proxy_port, start_proxy, stop_proxy,
 };
 pub use skills::{
-    check_skill_update, check_skill_updates, delete_skill, get_skill_repository, get_skill_repository_snapshot,
-    ignore_unmanaged_skill, install_github_repository_skills, install_github_skill, install_zip_skill,
-    list_github_repository_skills, list_skills, refresh_github_repository_skills, register_unmanaged_skill,
+    add_skill_repository, check_skill_update, check_skill_updates, delete_skill, get_skill_repository,
+    get_skill_repository_snapshot, ignore_unmanaged_skill, install_github_repository_skills,
+    install_github_skill, install_zip_skill, list_github_repository_skills, list_skill_repositories,
+    list_skills, refresh_github_repository_skills, register_unmanaged_skill, remove_skill_repository,
     scan_unmanaged_skills, set_skill_enabled, set_skill_repository, update_github_skills,
 };
 pub use system::{

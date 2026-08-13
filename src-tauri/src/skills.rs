@@ -109,13 +109,111 @@ struct SkillRepositoryConfig {
     skills: Vec<RepositorySkill>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkillRepositoriesConfig {
+    #[serde(default)]
+    repositories: Vec<SkillRepositorySnapshot>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillRepositorySnapshot {
     pub repository_url: String,
     pub fetched_at: Option<i64>,
     pub revision: Option<String>,
     pub skills: Vec<RepositorySkill>,
+}
+
+fn read_skill_repositories_config() -> AppResult<Vec<SkillRepositorySnapshot>> {
+    let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
+    if !path.exists() {
+        return Ok(vec![SkillRepositorySnapshot {
+            repository_url: DEFAULT_SKILL_REPOSITORY.to_string(),
+            fetched_at: None,
+            revision: None,
+            skills: Vec::new(),
+        }]);
+    }
+
+    if let Ok(Some(config)) = read_json_file::<SkillRepositoriesConfig>(&path) {
+        if !config.repositories.is_empty() {
+            return Ok(config.repositories);
+        }
+    }
+
+    if let Ok(Some(old_config)) = read_json_file::<SkillRepositoryConfig>(&path) {
+        if !old_config.repository_url.is_empty() {
+            let repository_url = normalize_github_url(&old_config.repository_url).unwrap_or(old_config.repository_url);
+            return Ok(vec![SkillRepositorySnapshot {
+                repository_url,
+                fetched_at: old_config.fetched_at,
+                revision: old_config.revision,
+                skills: old_config.skills,
+            }]);
+        }
+    }
+
+    Ok(vec![SkillRepositorySnapshot {
+        repository_url: DEFAULT_SKILL_REPOSITORY.to_string(),
+        fetched_at: None,
+        revision: None,
+        skills: Vec::new(),
+    }])
+}
+
+fn write_skill_repositories_config(repos: &[SkillRepositorySnapshot]) -> AppResult<()> {
+    let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
+    write_json_file(
+        &path,
+        &SkillRepositoriesConfig {
+            repositories: repos.to_vec(),
+        },
+    )
+}
+
+pub fn list_skill_repositories() -> AppResult<Vec<SkillRepositorySnapshot>> {
+    read_skill_repositories_config()
+}
+
+pub async fn add_skill_repository(url: &str) -> AppResult<SkillRepositorySnapshot> {
+    let repository_url = normalize_github_url(url)?;
+    let mut repos = read_skill_repositories_config()?;
+    if let Some(existing) = repos.iter().find(|r| r.repository_url == repository_url) {
+        return Ok(existing.clone());
+    }
+
+    let snapshot = match download_github_archive(&repository_url).await {
+        Ok((archive, repo)) => {
+            let mut skills: Vec<_> = repository_skill_entries(&archive, &repo)?
+                .into_iter()
+                .map(|(skill, _)| skill)
+                .collect();
+            skills.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+            SkillRepositorySnapshot {
+                repository_url: repository_url.clone(),
+                fetched_at: Some(Utc::now().timestamp_millis()),
+                revision: archive_revision(&archive),
+                skills,
+            }
+        }
+        Err(_) => SkillRepositorySnapshot {
+            repository_url: repository_url.clone(),
+            fetched_at: None,
+            revision: None,
+            skills: Vec::new(),
+        },
+    };
+    repos.push(snapshot.clone());
+    write_skill_repositories_config(&repos)?;
+    Ok(snapshot)
+}
+
+pub fn remove_skill_repository(url: &str) -> AppResult<()> {
+    let repository_url = normalize_github_url(url).unwrap_or_else(|_| url.trim().to_string());
+    let mut repos = read_skill_repositories_config()?;
+    repos.retain(|r| r.repository_url != repository_url);
+    write_skill_repositories_config(&repos)
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -162,32 +260,32 @@ pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
 }
 
 pub fn get_skill_repository() -> AppResult<String> {
-    Ok(get_skill_repository_snapshot()?.repository_url)
+    let repos = read_skill_repositories_config()?;
+    Ok(repos.first().map(|r| r.repository_url.clone()).unwrap_or_else(|| DEFAULT_SKILL_REPOSITORY.to_string()))
 }
 
 pub fn get_skill_repository_snapshot() -> AppResult<SkillRepositorySnapshot> {
-    let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
-    let config = read_json_file::<SkillRepositoryConfig>(&path)?;
-    let repository_url = normalize_github_url(
-        &config.as_ref().map(|value| value.repository_url.as_str()).unwrap_or(DEFAULT_SKILL_REPOSITORY),
-    )?;
-    Ok(SkillRepositorySnapshot {
-        repository_url,
-        fetched_at: config.as_ref().and_then(|value| value.fetched_at),
-        revision: config.as_ref().and_then(|value| value.revision.clone()),
-        skills: config.map(|value| value.skills).unwrap_or_default(),
-    })
+    let repos = read_skill_repositories_config()?;
+    Ok(repos.into_iter().next().unwrap_or_else(|| SkillRepositorySnapshot {
+        repository_url: DEFAULT_SKILL_REPOSITORY.to_string(),
+        fetched_at: None,
+        revision: None,
+        skills: Vec::new(),
+    }))
 }
 
 pub fn set_skill_repository(url: &str) -> AppResult<String> {
     let repository_url = normalize_github_url(url)?;
-    let path = get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE);
-    write_json_file(&path, &SkillRepositoryConfig {
-        repository_url: repository_url.clone(),
-        fetched_at: None,
-        revision: None,
-        skills: Vec::new(),
-    })?;
+    let mut repos = read_skill_repositories_config()?;
+    if !repos.iter().any(|r| r.repository_url == repository_url) {
+        repos.push(SkillRepositorySnapshot {
+            repository_url: repository_url.clone(),
+            fetched_at: None,
+            revision: None,
+            skills: Vec::new(),
+        });
+        write_skill_repositories_config(&repos)?;
+    }
     Ok(repository_url)
 }
 
@@ -205,15 +303,13 @@ pub async fn refresh_github_repository_skills(url: &str) -> AppResult<SkillRepos
         revision: archive_revision(&archive),
         skills,
     };
-    write_json_file(
-        &get_app_config_dir().join(SKILL_REPOSITORY_CONFIG_FILE),
-        &SkillRepositoryConfig {
-            repository_url,
-            fetched_at: snapshot.fetched_at,
-            revision: snapshot.revision.clone(),
-            skills: snapshot.skills.clone(),
-        },
-    )?;
+    let mut repos = read_skill_repositories_config()?;
+    if let Some(pos) = repos.iter().position(|r| r.repository_url == repository_url) {
+        repos[pos] = snapshot.clone();
+    } else {
+        repos.push(snapshot.clone());
+    }
+    write_skill_repositories_config(&repos)?;
     Ok(snapshot)
 }
 

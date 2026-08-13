@@ -34,6 +34,7 @@ import {
   listClaudePluginMarketplaces,
   listCodexPluginMarketplaces,
   getSkillRepositorySnapshot,
+  listSkillRepositories,
   readLivePrompt,
 } from "@/services/api";
 import type { PromptTarget, ProviderTarget, SkillTarget } from "@/types/backend";
@@ -148,6 +149,12 @@ export const claudePluginMarketplacesOptions = queryOptions({
 export const skillRepositoryOptions = queryOptions({
   queryKey: ["skillRepository"] as const,
   queryFn: getSkillRepositorySnapshot,
+});
+
+export const skillRepositoriesOptions = queryOptions({
+  queryKey: ["skillRepositories"] as const,
+  queryFn: listSkillRepositories,
+  staleTime: 30_000,
 });
 
 export const usageDashboardOptions = (

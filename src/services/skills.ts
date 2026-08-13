@@ -168,6 +168,18 @@ export async function setCodexWebSearchMode(mode: CodexWebSearchMode): Promise<C
   return call<CodexWebSearchSnapshot>("set_codex_web_search_mode", { mode });
 }
 
+export async function listSkillRepositories(): Promise<SkillRepositorySnapshot[]> {
+  return call<SkillRepositorySnapshot[]>("list_skill_repositories", {});
+}
+
+export async function addSkillRepository(url: string): Promise<SkillRepositorySnapshot> {
+  return call<SkillRepositorySnapshot>("add_skill_repository", { url });
+}
+
+export async function removeSkillRepository(url: string): Promise<void> {
+  return call<void>("remove_skill_repository", { url });
+}
+
 export async function getSkillRepository(): Promise<string> {
   return call<string>("get_skill_repository", {});
 }
