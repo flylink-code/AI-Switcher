@@ -111,19 +111,6 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   return (
     <div className={`cc-workbench-header ${className}`.trim()} style={style}>
       <div className="cc-header-left">
-        <Select<UsagePeriod>
-          value={period}
-          style={{ width: 148 }}
-          aria-label={t("usage.period", { defaultValue: "统计时间" })}
-          options={USAGE_PERIOD_VALUES.map((value) => ({
-            value,
-            label:
-              typeof value === "number"
-                ? t("usage.lastDays", { days: value })
-                : t(usagePeriodLabelKey(value)),
-          }))}
-          onChange={onPeriodChange}
-        />
         <Segmented<UsageSourceFilter>
           className="app-segmented-switcher"
           size="small"
@@ -145,6 +132,19 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
         />
       </div>
       <div className="cc-header-right">
+        <Select<UsagePeriod>
+          value={period}
+          style={{ width: 148 }}
+          aria-label={t("usage.period", { defaultValue: "统计时间" })}
+          options={USAGE_PERIOD_VALUES.map((value) => ({
+            value,
+            label:
+              typeof value === "number"
+                ? t("usage.lastDays", { days: value })
+                : t(usagePeriodLabelKey(value)),
+          }))}
+          onChange={onPeriodChange}
+        />
         <Button
           icon={<ReloadOutlined spin={refreshing} />}
           loading={refreshing}

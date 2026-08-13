@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode** 与 **Pi CLI** 的本地配置与供应商管理器。**v1.3.9**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode** 与 **Pi CLI** 的本地配置与供应商管理器。**v1.3.10**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -129,7 +129,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi 本地会话事件（含 Anthropic 兼容第三方直连与 Pi JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤
+- 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi 本地会话事件（含 Anthropic 兼容第三方直连与 Pi JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤；时间范围选择在工具栏右侧（1.3.10）
 - 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
 - 关于页「检查更新」与标题栏共用同一更新弹窗（1.3.9）

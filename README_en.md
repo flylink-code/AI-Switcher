@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.9**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.10**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -129,7 +129,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi local session events (including JSONL backfill for Anthropic-compatible direct upstreams and Pi sessions); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi local session events (including JSONL backfill for Anthropic-compatible direct upstreams and Pi sessions); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters; period selector on the right of the toolbar (1.3.10)
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 - About **Check for updates** uses the same dialog as the title-bar prompt (1.3.9)
