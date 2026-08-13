@@ -81,6 +81,7 @@ import {
   type PageKey,
 } from "@/lib/pageRegistry";
 import { NavigationContext } from "@/lib/navigation";
+import { AppUpdatePromptContext } from "@/lib/appUpdateContext";
 import type { ImportPreview } from "@/types/backend";
 import { message as staticMessage } from "antd";
 
@@ -382,6 +383,19 @@ export default function App() {
     [rememberCloseChoice],
   );
 
+  const presentUpdate = useCallback((update: AppUpdate) => {
+    setAvailableUpdate(update);
+    setUpdateError(null);
+    setUpdatePromptOpen(true);
+  }, []);
+
+  const updatePromptApi = useMemo(() => ({ presentUpdate }), [presentUpdate]);
+
+  const openUpdatePrompt = useCallback(() => {
+    setUpdateError(null);
+    setUpdatePromptOpen(true);
+  }, []);
+
   const installAvailableUpdate = useCallback(async () => {
     if (!availableUpdate) return;
     setInstallingUpdate(true);
@@ -421,37 +435,33 @@ export default function App() {
         {!startupReady ? (
           <StartupScreen progress={startupProgress} onSkip={() => finishStartup("skipped")} />
         ) : (
-          <NavigationContext.Provider value={handleNavigate}>
-            {layoutMode === "top" ? (
-              <DesktopShell
-                activeKey={activeKey}
-                onNavigate={handleNavigate}
-                updateVersion={availableUpdate?.version}
-                onOpenUpdate={() => {
-                  setUpdateError(null);
-                  setUpdatePromptOpen(true);
-                }}
-              >
-                <ErrorBoundary key={activeKey}>
-                  <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
-                </ErrorBoundary>
-              </DesktopShell>
-            ) : (
-              <AppShell
-                activeKey={activeKey}
-                onNavigate={handleNavigate}
-                updateVersion={availableUpdate?.version}
-                onOpenUpdate={() => {
-                  setUpdateError(null);
-                  setUpdatePromptOpen(true);
-                }}
-              >
-                <ErrorBoundary key={activeKey}>
-                  <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
-                </ErrorBoundary>
-              </AppShell>
-            )}
-          </NavigationContext.Provider>
+          <AppUpdatePromptContext.Provider value={updatePromptApi}>
+            <NavigationContext.Provider value={handleNavigate}>
+              {layoutMode === "top" ? (
+                <DesktopShell
+                  activeKey={activeKey}
+                  onNavigate={handleNavigate}
+                  updateVersion={availableUpdate?.version}
+                  onOpenUpdate={openUpdatePrompt}
+                >
+                  <ErrorBoundary key={activeKey}>
+                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
+                  </ErrorBoundary>
+                </DesktopShell>
+              ) : (
+                <AppShell
+                  activeKey={activeKey}
+                  onNavigate={handleNavigate}
+                  updateVersion={availableUpdate?.version}
+                  onOpenUpdate={openUpdatePrompt}
+                >
+                  <ErrorBoundary key={activeKey}>
+                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
+                  </ErrorBoundary>
+                </AppShell>
+              )}
+            </NavigationContext.Provider>
+          </AppUpdatePromptContext.Provider>
         )}
         <Modal
           open={closeDialogOpen}

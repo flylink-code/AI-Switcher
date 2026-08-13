@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import {
+  App,
   Button,
   Card,
   Descriptions,
   Input,
-  Modal,
   Space,
   Switch,
   Tag,
   Typography,
-  message,
 } from "antd";
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,16 +16,15 @@ import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   getUpdateMirrorSettings,
-  restartApp,
   restoreOnboardingTips,
   setUpdateMirrorSettings,
 } from "@/services/api";
 import {
   checkForAppUpdate,
-  installAvailableAppUpdate,
   isAppUpdatePackagePendingError,
   isNoAppUpdateAvailableError,
 } from "@/lib/appUpdater";
+import { useAppUpdatePrompt } from "@/lib/appUpdateContext";
 import type { UpdateMirrorSettings } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
@@ -39,6 +37,8 @@ function errMsg(error: unknown): string {
 /** App-only About: version, updater, onboarding tips. CLI tools live under Settings → Runtime Tools. */
 export default function AboutPage() {
   const { t } = useTranslation();
+  const { message } = App.useApp();
+  const { presentUpdate } = useAppUpdatePrompt();
   const queryClient = useQueryClient();
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [checkingApp, setCheckingApp] = useState(false);
@@ -64,24 +64,7 @@ export default function AboutPage() {
         void message.info(t("about.appUpToDate"));
         return;
       }
-      Modal.confirm({
-        title: t("about.appUpdateAvailable", { version: update.version }),
-        content: t("about.appUpdatePrompt"),
-        okText: t("about.appUpdateInstall"),
-        cancelText: t("providers.cancel"),
-        onOk: async () => {
-          try {
-            await installAvailableAppUpdate(update.version);
-            await restartApp();
-          } catch (error) {
-            console.error("Application update installation failed", error);
-            void message.error(
-              t("about.appUpdateFailedDetail", { error: errMsg(error) }),
-            );
-            throw error;
-          }
-        },
-      });
+      presentUpdate(update);
     } catch (error) {
       console.error("Application update check failed", error);
       const raw = errMsg(error);

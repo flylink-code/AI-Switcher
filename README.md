@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode** 与 **Pi CLI** 的本地配置与供应商管理器。**v1.3.8**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode** 与 **Pi CLI** 的本地配置与供应商管理器。**v1.3.9**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -11,7 +11,7 @@
 | 平台 | 安装包 | 说明 |
 |---|---|---|
 | Windows 10/11 | NSIS `.exe`（推荐）/ MSI | 完整功能 |
-| Linux（预览） | AppImage / `.deb` | 尽力支持；已覆盖 Claude Desktop 官方 Linux 配置路径；中文化等部分能力仍受限 |
+| Linux（预览） | AppImage / `.deb` | **Ubuntu 22.04 / Debian 12 及以上**（WebKitGTK 4.1）；18.04 / 20.04 无法运行 |
 
 ---
 
@@ -33,7 +33,7 @@
 从 [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) 下载最新版：
 
 - **Windows**：优先 NSIS 安装包（当前用户安装，通常无需管理员）。安装后主程序为 `AISwitcher.exe`。
-- **Linux**：优先 `.AppImage`（`chmod +x` 后运行）。
+- **Linux**：优先 `.AppImage`（`chmod +x` 后运行）。系统需 **Ubuntu 22.04 / Debian 12** 或更新（`libwebkit2gtk-4.1`）。Ubuntu 18.04 / 20.04 没有 WebKitGTK 4.1，Tauri 2 无法提供兼容包。
 
 按需安装 Claude Code、Claude Desktop、Codex CLI、OpenCode（CLI / Desktop）或 Pi。Agent 工具安装/更新需要本机 **Node.js ≥22**（应用内「设置 → 工具与环境 → Agent 工具」可检测并安装环境）。
 
@@ -132,6 +132,7 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 - 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi 本地会话事件（含 Anthropic 兼容第三方直连与 Pi JSONL 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤
 - 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
+- 关于页「检查更新」与标题栏共用同一更新弹窗（1.3.9）
 
 ---
 
@@ -242,6 +243,7 @@ scripts/                  Windows 开发 / 构建脚本
 - Claude Code 与 Desktop 的供应商列表与激活状态始终独立
 - 不解析 Claude Desktop 私有会话格式
 - Antigravity 双账号额度耗尽时上游仍可能 429（网关会轮换，无法凭空扩额）
+- Linux 预览包面向 Ubuntu 22.04 / Debian 12+；Ubuntu 18.04 因缺少 WebKitGTK 4.1 且 glibc 过旧，无法提供独立构建
 
 ---
 

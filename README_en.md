@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.8**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.9**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -11,7 +11,7 @@ Works locally by default: API keys go in the OS credential store, writes are bac
 | Platform | Package | Notes |
 |---|---|---|
 | Windows 10/11 | NSIS `.exe` (preferred) / MSI | Full feature set |
-| Linux (preview) | AppImage / `.deb` | Best-effort; official Claude Desktop Linux config paths are covered; some localization features remain limited |
+| Linux (preview) | AppImage / `.deb` | **Ubuntu 22.04 / Debian 12+** (WebKitGTK 4.1); 18.04 / 20.04 cannot run |
 
 ---
 
@@ -33,7 +33,7 @@ AI-Switcher is released under the **[MIT License](LICENSE)**. Source: [flylink-c
 Download the latest build from [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest):
 
 - **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
-- **Linux**: prefer the `.AppImage` (`chmod +x`, then run).
+- **Linux**: prefer the `.AppImage` (`chmod +x`, then run). Requires **Ubuntu 22.04 / Debian 12** or newer (`libwebkit2gtk-4.1`). Ubuntu 18.04 / 20.04 lack WebKitGTK 4.1, so Tauri 2 cannot ship a compatible build.
 
 Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), or Pi as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Tools & environment → Agent tools**).
 
@@ -132,6 +132,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 - Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi local session events (including JSONL backfill for Anthropic-compatible direct upstreams and Pi sessions); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
+- About **Check for updates** uses the same dialog as the title-bar prompt (1.3.9)
 
 ---
 
@@ -242,6 +243,7 @@ scripts/                  Windows dev / build scripts
 - Claude Code and Desktop provider lists / active state stay independent
 - Claude Desktop private history formats are not parsed
 - When Antigravity accounts are exhausted, upstreams may still 429 (the gateway rotates; it cannot invent quota)
+- Linux preview targets Ubuntu 22.04 / Debian 12+; Ubuntu 18.04 cannot get a separate build (no WebKitGTK 4.1, older glibc)
 
 ---
 

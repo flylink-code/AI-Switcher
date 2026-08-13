@@ -96,17 +96,19 @@ jobs:
 
             ## What's new
 
+            - About **Check for updates** uses the same dialog as the title bar (fixes stacked/unstyled confirm in 1.3.8)
+            - Linux preview requires Ubuntu 22.04 / Debian 12+ (WebKitGTK 4.1); Ubuntu 18.04 / 20.04 are not supported
             - Skill repositories: add/remove GitHub skill repos and pick skills to install onto Claude Code / Codex / Pi
             - Visible agents: Settings checkboxes hide unused tools from switchers across the app
             - Workspace tabs follow the selected Agent (only supported MCP / Prompts / Skills / Agents / Plugins / Projects)
-            - Unified premium segmented switcher styling on workspace, usage, and Antigravity pages
 
             ## 更新内容
 
+            - 关于页「检查更新」与标题栏共用同一弹窗（修复 1.3.8 标题重复、与版本信息重叠）
+            - Linux 预览包需 Ubuntu 22.04 / Debian 12+（WebKitGTK 4.1）；不支持 18.04 / 20.04
             - Skill 仓库：可添加/移除 GitHub Skill 仓库，进仓挑选并安装到 Claude Code / Codex / Pi
             - 显示 Agent：设置页勾选后，全局与各页切换器只展示选用的工具
             - 工作区按当前 Agent 过滤 Tab（仅显示其支持的 MCP / Prompts / Skills / Agents / Plugins / 项目）
-            - 统一 segmented 切换器样式（工作区、用量、Antigravity 等）
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
@@ -116,8 +118,10 @@ jobs:
 
             ### Linux (preview)
             Prefer the `.AppImage` (`chmod +x`, no sudo). `.deb` installs/updates need administrator privileges.
+            Requires Ubuntu 22.04 / Debian 12 or newer (`libwebkit2gtk-4.1`). Ubuntu 18.04 / 20.04 cannot run Tauri 2.
             Linux builds are best-effort: Claude Desktop localization / some Windows-only tools are unavailable.
             建议优先使用 `.AppImage`（先 `chmod +x`，无需 sudo）；`.deb` 需要管理员权限。
+            需要 Ubuntu 22.04 / Debian 12 或更新（`libwebkit2gtk-4.1`）。18.04 / 20.04 无法运行 Tauri 2。
             Linux 为尽力支持：Claude Desktop 中文化等 Windows 专用能力不可用。
           releaseDraft: false
           prerelease: false
