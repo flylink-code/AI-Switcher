@@ -96,19 +96,17 @@ jobs:
 
             ## What's new
 
-            - Built-in Antigravity gateway (default `:15830`): Anthropic Messages, OpenAI Chat, and OpenAI Responses for Claude Code / Desktop / Codex
-            - Multi-account OAuth pool with quota scheduling, cooldown rotation, and live model catalog
-            - Session-sticky Gemini effort (bare Gemini defaults to high); Claude Desktop role routing for the native effort slider
-            - Codex Antigravity binding uses `openai_responses` (`/v1/responses`)
-            - README docs for the Antigravity gateway
+            - Skill repositories: add/remove GitHub skill repos and pick skills to install onto Claude Code / Codex / Pi
+            - Visible agents: Settings checkboxes hide unused tools from switchers across the app
+            - Workspace tabs follow the selected Agent (only supported MCP / Prompts / Skills / Agents / Plugins / Projects)
+            - Unified premium segmented switcher styling on workspace, usage, and Antigravity pages
 
             ## 更新内容
 
-            - 内建 Antigravity 网关（默认 `:15830`）：Anthropic Messages / OpenAI Chat / OpenAI Responses，供 Claude Code、Desktop、Codex 使用
-            - 多账号 OAuth、额度调度、冷却轮换与实时模型目录
-            - Gemini 会话粘性 effort（裸名无 effort 默认 high）；Desktop 角色路由唤起原生滑条
-            - Codex 绑定 Antigravity 使用 `openai_responses`（`/v1/responses`）
-            - README 补充 Antigravity 网关说明
+            - Skill 仓库：可添加/移除 GitHub Skill 仓库，进仓挑选并安装到 Claude Code / Codex / Pi
+            - 显示 Agent：设置页勾选后，全局与各页切换器只展示选用的工具
+            - 工作区按当前 Agent 过滤 Tab（仅显示其支持的 MCP / Prompts / Skills / Agents / Plugins / 项目）
+            - 统一 segmented 切换器样式（工作区、用量、Antigravity 等）
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.7**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.8**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,13 +41,15 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), or
 
 ## Features
 
-### Navigation & layout (1.3.7)
+### Navigation & layout (1.3.8)
 
 - **Two layouts**: switch **sidebar** / **top** navigation in the title bar (browser-like default vs vertical tabs); preference stored as `cs.layoutMode`
 - **Top nav (seven items)**: Overview · Providers · Usage · Accounts & quota · Workspace · **Sessions** · Settings
 - **Overview**: status strip → last-24h usage hero → attention / recent activity → year heatmap (Usage Intelligence)
 - **Settings children** (Tools & environment): local proxy, environment, **Agent tools**, localization, about (with **← Settings** back header; Sessions is now a top-level page)
-- **Agent switchers**: page-local on Providers / Proxy (Claude Code / Desktop / Codex / OpenCode / Pi) — no global workspace switcher
+- **Visible agents**: Settings checkboxes control which tools appear in global and per-page switchers
+- **Workspace tabs follow the Agent**: pick an Agent first; only its supported MCP / Prompts / Skills / Agents / Plugins / Projects tabs are shown
+- **Agent switchers**: page-local on Providers / Proxy / Workspace (Claude Code / Desktop / Codex / OpenCode / Pi)
 
 ### Providers and switching
 
@@ -109,7 +111,7 @@ The About page keeps only app version, update check, update mirror, and onboardi
 - MCP: unified management with Codex / Pi sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
 - MCP Registry: browse the official Registry and install entries that safely convert to Claude config (secret/URL-template entries still need manual setup)
 - Prompts: `CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` presets with rename and one-click activate
-- Skills: install, enable, update, and remove Claude Code, Codex, or Pi Skills from GitHub or ZIP; scan stray skills to register/ignore
+- Skills: install, enable, update, and remove Claude Code, Codex, or Pi Skills from GitHub or ZIP; add/remove skill repositories and pick skills to install onto the current Agent; scan stray skills to register/ignore
 - Agents: manage Claude Code user agents under `~/.claude/agents`
 - **Plugins**: single Workspace **Plugins** tab with in-page Claude Code / Codex switch; marketplaces, catalog install, enable/disable, uninstall, check/update
 
