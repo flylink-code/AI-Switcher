@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Space } from "antd";
 import { useTranslation } from "react-i18next";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { SkillTarget } from "@/types/backend";
 import ClaudePluginsPage from "@/pages/ClaudePluginsPage";
 import CodexPluginsPage from "@/pages/CodexPluginsPage";
@@ -21,7 +22,22 @@ function readPluginsTarget(): SkillTarget {
  */
 export default function PluginsPage() {
   const { t } = useTranslation();
-  const [target, setTarget] = useState<SkillTarget>(readPluginsTarget);
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+
+  const getValidPluginTarget = (preferred: SkillTarget): SkillTarget => {
+    const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex");
+    if (validTargets.includes(preferred)) return preferred;
+    return validTargets[0] ?? "claude_code";
+  };
+
+  const [target, setTarget] = useState<SkillTarget>(() => getValidPluginTarget(readPluginsTarget()));
+
+  useEffect(() => {
+    const valid = getValidPluginTarget(target);
+    if (valid !== target) {
+      setTarget(valid);
+    }
+  }, [visibleAgents, target]);
 
   useEffect(() => {
     if (typeof localStorage !== "undefined") {

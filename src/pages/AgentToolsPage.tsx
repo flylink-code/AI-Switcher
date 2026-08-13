@@ -42,6 +42,7 @@ import type {
   PiCliVersionInfo,
 } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const { Text, Paragraph } = Typography;
 
@@ -90,6 +91,7 @@ function errMsg(error: unknown): string {
 export default function AgentToolsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
@@ -371,136 +373,144 @@ export default function AgentToolsPage() {
         </Space>
       </Card>
 
-      <CliToolCard
-        title={t("about.claudeCodeSection")}
-        info={claudeInfo}
-        fetching={claudeQuery.isFetching}
-        updating={updatingClaude}
-        onRefresh={() => void claudeQuery.refetch()}
-        onCopy={(command) => void copyCommand(command)}
-        onInstallOrUpdate={() => void updateClaudeCode()}
-        labels={{
-          current: t("about.claudeCurrentVersion"),
-          latest: t("about.claudeLatestVersion"),
-          status: t("about.claudeStatus"),
-          environment: t("about.claudeEnvironment"),
-          source: t("about.claudeInstallSource"),
-          executable: t("about.claudeExecutablePath"),
-          hint: t("about.claudeCommandHint"),
-          copy: t("about.copyCommand"),
-          install: t("about.runClaudeInstall"),
-          update: t("about.runClaudeUpdate"),
-          notInstalled: t("about.notInstalled"),
-          broken: t("about.installedButBroken"),
-          unknown: t("about.unknown"),
-          updateAvailable: t("about.updateAvailable"),
-          upToDate: t("about.upToDate"),
-          refresh: t("common.refresh"),
-          details: t("about.details"),
-        }}
-      />
+      {visibleAgents.includes("claude_code") && (
+        <CliToolCard
+          title={t("about.claudeCodeSection")}
+          info={claudeInfo}
+          fetching={claudeQuery.isFetching}
+          updating={updatingClaude}
+          onRefresh={() => void claudeQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateClaudeCode()}
+          labels={{
+            current: t("about.claudeCurrentVersion"),
+            latest: t("about.claudeLatestVersion"),
+            status: t("about.claudeStatus"),
+            environment: t("about.claudeEnvironment"),
+            source: t("about.claudeInstallSource"),
+            executable: t("about.claudeExecutablePath"),
+            hint: t("about.claudeCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runClaudeInstall"),
+            update: t("about.runClaudeUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
 
-      <CliToolCard
-        title={t("about.codexCliSection")}
-        info={codexInfo}
-        fetching={codexQuery.isFetching}
-        updating={updatingCodex || installingNode}
-        onRefresh={() => void codexQuery.refetch()}
-        onCopy={(command) => void copyCommand(command)}
-        onInstallOrUpdate={() => void updateCodexCli()}
-        primaryLabel={
-          !nodeRuntime?.meetsMinimum && !codexInfo?.installed
-            ? t("about.installNodeViaFnm")
-            : undefined
-        }
-        labels={{
-          current: t("about.codexCurrentVersion"),
-          latest: t("about.codexLatestVersion"),
-          status: t("about.codexStatus"),
-          environment: t("about.codexEnvironment"),
-          source: t("about.codexInstallSource"),
-          executable: t("about.codexExecutablePath"),
-          hint: t("about.codexCommandHint"),
-          copy: t("about.copyCommand"),
-          install: t("about.runCodexInstall"),
-          update: t("about.runCodexUpdate"),
-          notInstalled: t("about.notInstalled"),
-          broken: t("about.installedButBroken"),
-          unknown: t("about.unknown"),
-          updateAvailable: t("about.updateAvailable"),
-          upToDate: t("about.upToDate"),
-          refresh: t("common.refresh"),
-          details: t("about.details"),
-        }}
-      />
+      {visibleAgents.includes("codex") && (
+        <CliToolCard
+          title={t("about.codexCliSection")}
+          info={codexInfo}
+          fetching={codexQuery.isFetching}
+          updating={updatingCodex || installingNode}
+          onRefresh={() => void codexQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateCodexCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !codexInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
+          labels={{
+            current: t("about.codexCurrentVersion"),
+            latest: t("about.codexLatestVersion"),
+            status: t("about.codexStatus"),
+            environment: t("about.codexEnvironment"),
+            source: t("about.codexInstallSource"),
+            executable: t("about.codexExecutablePath"),
+            hint: t("about.codexCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runCodexInstall"),
+            update: t("about.runCodexUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
 
-      <CliToolCard
-        title={t("about.opencodeCliSection")}
-        info={opencodeInfo}
-        fetching={opencodeQuery.isFetching}
-        updating={updatingOpenCode || installingNode}
-        onRefresh={() => void opencodeQuery.refetch()}
-        onCopy={(command) => void copyCommand(command)}
-        onInstallOrUpdate={() => void updateOpenCodeCli()}
-        primaryLabel={
-          !nodeRuntime?.meetsMinimum && !opencodeInfo?.installed
-            ? t("about.installNodeViaFnm")
-            : undefined
-        }
-        labels={{
-          current: t("about.opencodeCurrentVersion"),
-          latest: t("about.opencodeLatestVersion"),
-          status: t("about.opencodeStatus"),
-          environment: t("about.opencodeEnvironment"),
-          source: t("about.opencodeInstallSource"),
-          executable: t("about.opencodeExecutablePath"),
-          hint: t("about.opencodeCommandHint"),
-          copy: t("about.copyCommand"),
-          install: t("about.runOpenCodeInstall"),
-          update: t("about.runOpenCodeUpdate"),
-          notInstalled: t("about.notInstalled"),
-          broken: t("about.installedButBroken"),
-          unknown: t("about.unknown"),
-          updateAvailable: t("about.updateAvailable"),
-          upToDate: t("about.upToDate"),
-          refresh: t("common.refresh"),
-          details: t("about.details"),
-        }}
-      />
+      {visibleAgents.includes("opencode") && (
+        <CliToolCard
+          title={t("about.opencodeCliSection")}
+          info={opencodeInfo}
+          fetching={opencodeQuery.isFetching}
+          updating={updatingOpenCode || installingNode}
+          onRefresh={() => void opencodeQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateOpenCodeCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !opencodeInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
+          labels={{
+            current: t("about.opencodeCurrentVersion"),
+            latest: t("about.opencodeLatestVersion"),
+            status: t("about.opencodeStatus"),
+            environment: t("about.opencodeEnvironment"),
+            source: t("about.opencodeInstallSource"),
+            executable: t("about.opencodeExecutablePath"),
+            hint: t("about.opencodeCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runOpenCodeInstall"),
+            update: t("about.runOpenCodeUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
 
-      <CliToolCard
-        title={t("about.piCliSection")}
-        info={piInfo}
-        fetching={piQuery.isFetching}
-        updating={updatingPi || installingNode}
-        onRefresh={() => void piQuery.refetch()}
-        onCopy={(command) => void copyCommand(command)}
-        onInstallOrUpdate={() => void updatePiCli()}
-        primaryLabel={
-          !nodeRuntime?.meetsMinimum && !piInfo?.installed
-            ? t("about.installNodeViaFnm")
-            : undefined
-        }
-        labels={{
-          current: t("about.piCurrentVersion"),
-          latest: t("about.piLatestVersion"),
-          status: t("about.piStatus"),
-          environment: t("about.piEnvironment"),
-          source: t("about.piInstallSource"),
-          executable: t("about.piExecutablePath"),
-          hint: t("about.piCommandHint"),
-          copy: t("about.copyCommand"),
-          install: t("about.runPiInstall"),
-          update: t("about.runPiUpdate"),
-          notInstalled: t("about.notInstalled"),
-          broken: t("about.installedButBroken"),
-          unknown: t("about.unknown"),
-          updateAvailable: t("about.updateAvailable"),
-          upToDate: t("about.upToDate"),
-          refresh: t("common.refresh"),
-          details: t("about.details"),
-        }}
-      />
+      {visibleAgents.includes("pi") && (
+        <CliToolCard
+          title={t("about.piCliSection")}
+          info={piInfo}
+          fetching={piQuery.isFetching}
+          updating={updatingPi || installingNode}
+          onRefresh={() => void piQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updatePiCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !piInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
+          labels={{
+            current: t("about.piCurrentVersion"),
+            latest: t("about.piLatestVersion"),
+            status: t("about.piStatus"),
+            environment: t("about.piEnvironment"),
+            source: t("about.piInstallSource"),
+            executable: t("about.piExecutablePath"),
+            hint: t("about.piCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runPiInstall"),
+            update: t("about.runPiUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
     </Space>
   );
 }

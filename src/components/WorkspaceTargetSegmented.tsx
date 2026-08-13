@@ -3,6 +3,7 @@ import {
   usageSourceSegmentLabel,
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
 const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
@@ -38,7 +39,12 @@ export function WorkspaceTargetSegmented<T extends ProviderTarget>({
   className,
 }: Props<T>) {
   const { token } = theme.useToken();
-  const options: readonly T[] = targets ?? (TARGET_OPTIONS as unknown as T[]);
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+
+  const baseOptions: readonly T[] = targets ?? (TARGET_OPTIONS as unknown as T[]);
+  const filteredOptions = baseOptions.filter((opt) => visibleAgents.includes(opt as ProviderTarget));
+  const options = filteredOptions.length > 0 ? filteredOptions : baseOptions;
+  const activeValue = options.includes(value) ? value : options[0];
 
   return (
     <ConfigProvider
@@ -56,7 +62,7 @@ export function WorkspaceTargetSegmented<T extends ProviderTarget>({
       <Segmented<T>
         className={["heatmap-source-filter", className].filter(Boolean).join(" ")}
         size={size}
-        value={value}
+        value={activeValue}
         aria-label={ariaLabel ?? t("workspace.target")}
         onChange={onChange}
         style={{

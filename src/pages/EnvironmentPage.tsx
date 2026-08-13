@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { StatusBadge } from "@/components/ui";
 import type {
   AutostartMode,
@@ -105,6 +106,7 @@ function PathValue({ value }: { value: string | null }) {
 export default function EnvironmentPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const environmentQuery = useQuery(environmentOptions);
   const autostartQuery = useQuery(autostartOptions);
   const closeBehaviorQuery = useQuery(closeBehaviorOptions);
@@ -976,51 +978,61 @@ export default function EnvironmentPage() {
                 </Descriptions.Item>
               </Descriptions>
             </Card>
-            <Card size="small" className="page-surface" title={t("env.sections.claude")}>
-              <Descriptions column={1} size="small" bordered>
-                {claudeRows.map((r) => (
-                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                    <PathValue value={r.value} />
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            </Card>
-            <Card size="small" className="page-surface" title={t("env.sections.claudeDesktop")}>
-              <Descriptions column={1} size="small" bordered>
-                {desktopRows.map((r) => (
-                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                    <PathValue value={r.value} />
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            </Card>
-            <Card size="small" className="page-surface" title={t("env.sections.codex")}>
-              <Descriptions column={1} size="small" bordered>
-                {codexRows.map((r) => (
-                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                    <PathValue value={r.value} />
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            </Card>
-            <Card size="small" className="page-surface" title={t("env.sections.opencode")}>
-              <Descriptions column={1} size="small" bordered>
-                {opencodeRows.map((r) => (
-                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                    <PathValue value={r.value} />
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            </Card>
-            <Card size="small" className="page-surface" title={t("env.sections.pi")}>
-              <Descriptions column={1} size="small" bordered>
-                {piRows.map((r) => (
-                  <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                    <PathValue value={r.value} />
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            </Card>
+            {visibleAgents.includes("claude_code") && (
+              <Card size="small" className="page-surface" title={t("env.sections.claude")}>
+                <Descriptions column={1} size="small" bordered>
+                  {claudeRows.map((r) => (
+                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                      <PathValue value={r.value} />
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            )}
+            {visibleAgents.includes("claude_desktop") && (
+              <Card size="small" className="page-surface" title={t("env.sections.claudeDesktop")}>
+                <Descriptions column={1} size="small" bordered>
+                  {desktopRows.map((r) => (
+                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                      <PathValue value={r.value} />
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            )}
+            {visibleAgents.includes("codex") && (
+              <Card size="small" className="page-surface" title={t("env.sections.codex")}>
+                <Descriptions column={1} size="small" bordered>
+                  {codexRows.map((r) => (
+                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                      <PathValue value={r.value} />
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            )}
+            {visibleAgents.includes("opencode") && (
+              <Card size="small" className="page-surface" title={t("env.sections.opencode")}>
+                <Descriptions column={1} size="small" bordered>
+                  {opencodeRows.map((r) => (
+                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                      <PathValue value={r.value} />
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            )}
+            {visibleAgents.includes("pi") && (
+              <Card size="small" className="page-surface" title={t("env.sections.pi")}>
+                <Descriptions column={1} size="small" bordered>
+                  {piRows.map((r) => (
+                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
+                      <PathValue value={r.value} />
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              </Card>
+            )}
             <Card size="small" className="page-surface" title={t("env.sections.app")}>
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label={t("env.fields.appConfigDir")}>

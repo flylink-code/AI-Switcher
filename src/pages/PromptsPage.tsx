@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   App,
@@ -27,6 +27,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { PromptDetail, PromptInfo, PromptTarget } from "@/types/backend";
 import {
   activatePrompt,
@@ -67,7 +68,23 @@ export default function PromptsPage() {
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<PromptTarget>("claude_code");
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+
+  const getValidPromptTarget = (preferred: PromptTarget): PromptTarget => {
+    const validTargets = visibleAgents.filter((a): a is PromptTarget => a === "claude_code" || a === "codex" || a === "opencode" || a === "pi");
+    if (validTargets.includes(preferred)) return preferred;
+    return validTargets[0] ?? "claude_code";
+  };
+
+  const [target, setTarget] = useState<PromptTarget>(() => getValidPromptTarget("claude_code"));
+
+  useEffect(() => {
+    const valid = getValidPromptTarget(target);
+    if (valid !== target) {
+      setTarget(valid);
+    }
+  }, [visibleAgents, target]);
+
   const promptsQuery = useQuery(promptsOverviewOptions(target));
   const prompts = promptsQuery.data?.items ?? [];
   const live = promptsQuery.data?.livePrompt ?? null;

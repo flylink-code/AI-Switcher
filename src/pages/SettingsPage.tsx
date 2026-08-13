@@ -1,10 +1,13 @@
-import { Select } from "antd";
+import { Checkbox, Select } from "antd";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
 import { SettingsSection, SettingsRow } from "@/components/settings";
+import type { ProviderTarget } from "@/types/backend";
 
 /**
  * System settings only. Workspace resources (Projects / MCP / Prompts /
@@ -17,6 +20,8 @@ export default function SettingsPage() {
   const setLanguage = useAppStore((s) => s.setLanguage);
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
+  const visibleAgents = usePagePreferencesStore((s) => s.visibleAgents);
+  const setVisibleAgents = usePagePreferencesStore((s) => s.setVisibleAgents);
 
   return (
     <div
@@ -58,6 +63,26 @@ export default function SettingsPage() {
                 { value: "system", label: t("common.themeSystem") },
               ]}
               onChange={setThemeMode}
+            />
+          }
+        />
+        <SettingsRow
+          title={t("settings.visibleAgents", { defaultValue: "显示 Agent" })}
+          description={t("settings.visibleAgentsHint", {
+            defaultValue: "勾选在全局和各页面切换器中显示的 Agent 工具",
+          })}
+          control={
+            <Checkbox.Group
+              options={TARGET_OPTIONS.map((target) => ({
+                label: t(LABEL_KEYS[target]),
+                value: target,
+              }))}
+              value={visibleAgents}
+              onChange={(checkedValues) => {
+                if (checkedValues.length > 0) {
+                  setVisibleAgents(checkedValues as ProviderTarget[]);
+                }
+              }}
             />
           }
         />

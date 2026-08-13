@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
+  ConfigProvider,
   Empty,
   Popover,
+  Segmented,
   Skeleton,
   Space,
   Tag,
-  Tabs,
   Typography,
   message,
+  theme,
 } from "antd";
 import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -37,24 +39,20 @@ import {
   listProviders,
 } from "@/services/api";
 import type { AntigravityAccountPublic, AntigravityCatalogModel, AntigravityGatewayStatus, ProviderTarget } from "@/types/backend";
+import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import {
   AccountPoolOverview,
   AccountCard,
   GatewayCard,
   BindAppsCard,
   ImportAccountsModal,
+  BIND_TARGETS,
 } from "@/components/antigravity";
 
 const { Text } = Typography;
 
 const ANTIGRAVITY_QUOTA_REFRESH_MS = 5 * 60_000;
 const ANTIGRAVITY_QUOTA_REFRESH_EVENT = "antigravity-quota-refreshed";
-const BIND_TARGETS: ProviderTarget[] = [
-  "claude_code",
-  "claude_desktop",
-  "codex",
-  "opencode",
-];
 
 function errMsg(error: unknown): string {
   if (typeof error === "string" && error.trim()) return error;
@@ -68,6 +66,7 @@ function errMsg(error: unknown): string {
 
 export default function AntigravityPage() {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const queryClient = useQueryClient();
 
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -312,54 +311,65 @@ export default function AntigravityPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Page header */}
-      <div>
-        <Typography.Title level={5} style={{ margin: 0 }}>
-          {t("antigravity.title")}
-        </Typography.Title>
-        <Typography.Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-          {t("antigravity.subtitle")}
-        </Typography.Text>
-      </div>
-
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        size="small"
-        items={[
-          {
-            key: "antigravity",
-            label: t("antigravity.tabAntigravity", { defaultValue: "Antigravity（Cloud Code）" }),
-            children: (
-              <AntigravityContent
-                t={t}
-                accounts={accounts}
-                sortedAccounts={sortedAccounts}
-                status={status}
-                models={models}
-                accountsQuery={accountsQuery}
-                oauthMutation={oauthMutation}
-                quotaMutation={quotaMutation}
-                importMutation={importMutation}
-                startMutation={startMutation}
-                stopMutation={stopMutation}
-                outboundMutation={outboundMutation}
-                ensureMutation={ensureMutation}
-                boundProvidersQuery={boundProvidersQuery}
-                bindingTarget={bindingTarget}
-                actionAccountId={actionAccountId}
-                importModalOpen={importModalOpen}
-                setImportModalOpen={setImportModalOpen}
-                refresh={refresh}
-                handleSetActive={handleSetActive}
-                handleRemoveAccount={handleRemoveAccount}
-              />
-            ),
+      <ConfigProvider
+        theme={{
+          components: {
+            Segmented: {
+              trackBg: token.colorBgContainer,
+              itemSelectedBg: token.colorFillSecondary,
+              itemHoverBg: token.colorFillTertiary,
+              trackPadding: 2,
+            },
           },
-          // 后续可在此处追加其他反代源，例如：
-          // { key: "gemini-direct", label: "Gemini API Direct", children: <GeminiDirectContent /> },
-        ]}
-      />
+        }}
+      >
+        <Segmented<string>
+          size="small"
+          value={activeTab}
+          onChange={setActiveTab}
+          style={{
+            border: `1px solid ${token.colorBorder}`,
+            borderRadius: token.borderRadius,
+            boxSizing: "border-box",
+            alignSelf: "flex-start",
+          }}
+          options={[
+            {
+              value: "antigravity",
+              label: usageSourceSegmentLabel(
+                "antigravity",
+                t("antigravity.tabAntigravity", { defaultValue: "Antigravity" }),
+              ),
+            },
+          ]}
+        />
+      </ConfigProvider>
+
+      {activeTab === "antigravity" && (
+        <AntigravityContent
+          t={t}
+          accounts={accounts}
+          sortedAccounts={sortedAccounts}
+          status={status}
+          models={models}
+          accountsQuery={accountsQuery}
+          oauthMutation={oauthMutation}
+          quotaMutation={quotaMutation}
+          importMutation={importMutation}
+          startMutation={startMutation}
+          stopMutation={stopMutation}
+          outboundMutation={outboundMutation}
+          ensureMutation={ensureMutation}
+          boundProvidersQuery={boundProvidersQuery}
+          bindingTarget={bindingTarget}
+          actionAccountId={actionAccountId}
+          importModalOpen={importModalOpen}
+          setImportModalOpen={setImportModalOpen}
+          refresh={refresh}
+          handleSetActive={handleSetActive}
+          handleRemoveAccount={handleRemoveAccount}
+        />
+      )}
     </div>
   );
 }

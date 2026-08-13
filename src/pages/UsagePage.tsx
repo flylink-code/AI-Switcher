@@ -94,6 +94,7 @@ export default function UsagePage() {
   const logPage = usePagePreferencesStore((state) => state.usageLogPage);
   const setLogPage = usePagePreferencesStore((state) => state.setUsageLogPage);
   const logTargetApp = usePagePreferencesStore((state) => state.usageLogTarget);
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const setLogTargetApp = usePagePreferencesStore((state) => state.setUsageLogTarget);
 
   const [pricingManagerOpen, setPricingManagerOpen] = useState(false);
@@ -311,12 +312,12 @@ export default function UsagePage() {
     (summary?.cacheCreationInputTokens ?? 0) +
     (summary?.outputTokens ?? 0);
 
-  const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
+  const includesCodex = visibleAgents.includes("codex") && (logTargetApp === "all" || logTargetApp === "codex");
   const isCodexOnly = logTargetApp === "codex";
-  const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
-  const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
+  const includesOpenCode = visibleAgents.includes("opencode") && (logTargetApp === "all" || logTargetApp === "opencode");
+  const includesClaudeCode = visibleAgents.includes("claude_code") && (logTargetApp === "all" || logTargetApp === "claude_code");
   const isClaudeCodeOnly = logTargetApp === "claude_code";
-  const includesPi = logTargetApp === "all" || logTargetApp === "pi";
+  const includesPi = visibleAgents.includes("pi") && (logTargetApp === "all" || logTargetApp === "pi");
   const isPiOnly = logTargetApp === "pi";
   const localClaude = dashboard?.localClaudeCode;
   const emptyClaudeCode = includesClaudeCode && (summary?.requestCount ?? 0) === 0;

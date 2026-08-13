@@ -2,6 +2,7 @@ import React from "react";
 import { ConfigProvider, Segmented, Tooltip, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
 export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
@@ -46,6 +47,10 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+
+  const availableOptions = TARGET_OPTIONS.filter((opt) => visibleAgents.includes(opt));
+  const activeValue = availableOptions.includes(value) ? value : (availableOptions[0] ?? value);
 
   return (
     <ConfigProvider
@@ -64,7 +69,7 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
         className={className}
         size="small"
         block={block}
-        value={value}
+        value={activeValue}
         onChange={onChange}
         aria-label={t("workspace.target")}
         style={{
@@ -72,7 +77,7 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
           borderRadius: token.borderRadius,
           boxSizing: "border-box",
         }}
-        options={TARGET_OPTIONS.map((option) => {
+        options={availableOptions.map((option) => {
           const fullLabel = t(LABEL_KEYS[option]);
           return {
             value: option,

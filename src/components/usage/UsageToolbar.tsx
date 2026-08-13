@@ -10,6 +10,7 @@ import {
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
 import { USAGE_PERIOD_VALUES, usagePeriodLabelKey, type UsagePeriod } from "@/utils/usagePeriod";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, string> = {
   all: "usage.sourceAll",
@@ -66,11 +67,17 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
-  const includesCodex = logTargetApp === "all" || logTargetApp === "codex";
-  const includesOpenCode = logTargetApp === "all" || logTargetApp === "opencode";
-  const includesClaudeCode = logTargetApp === "all" || logTargetApp === "claude_code";
-  const includesPi = logTargetApp === "all" || logTargetApp === "pi";
+  const availableOptions = USAGE_SOURCE_FILTER_OPTIONS.filter((option) => {
+    if (option.value === "all" || option.value === "antigravity") return true;
+    return visibleAgents.includes(option.value);
+  });
+
+  const includesCodex = visibleAgents.includes("codex") && (logTargetApp === "all" || logTargetApp === "codex");
+  const includesOpenCode = visibleAgents.includes("opencode") && (logTargetApp === "all" || logTargetApp === "opencode");
+  const includesClaudeCode = visibleAgents.includes("claude_code") && (logTargetApp === "all" || logTargetApp === "claude_code");
+  const includesPi = visibleAgents.includes("pi") && (logTargetApp === "all" || logTargetApp === "pi");
 
   const moreItems: MenuProps["items"] = [
     ...(includesClaudeCode && onSyncClaudeCode
@@ -140,7 +147,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
               borderRadius: token.borderRadius,
               boxSizing: "border-box",
             }}
-            options={USAGE_SOURCE_FILTER_OPTIONS.map((option) => {
+            options={availableOptions.map((option) => {
               const fullLabel = t(option.labelKey);
               const shortLabel = t(SOURCE_SHORT_LABEL[option.value], { defaultValue: fullLabel });
               return {

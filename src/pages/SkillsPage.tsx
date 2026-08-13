@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { RepositorySkill, Skill, SkillRepositorySnapshot, SkillTarget, SkillUpdateStatus, UnmanagedSkill } from "@/types/backend";
 import {
   addSkillRepository,
@@ -73,7 +74,22 @@ function getTargetLabel(target: SkillTarget): string {
 export default function SkillsPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<SkillTarget>(readSkillsTarget);
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+
+  const getValidSkillTarget = (preferred: SkillTarget): SkillTarget => {
+    const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex" || a === "pi");
+    if (validTargets.includes(preferred)) return preferred;
+    return validTargets[0] ?? "claude_code";
+  };
+
+  const [target, setTarget] = useState<SkillTarget>(() => getValidSkillTarget(readSkillsTarget()));
+
+  useEffect(() => {
+    const valid = getValidSkillTarget(target);
+    if (valid !== target) {
+      setTarget(valid);
+    }
+  }, [visibleAgents, target]);
   const skillsQuery = useQuery(skillsOptions(target));
   const unmanagedQuery = useQuery(unmanagedSkillsOptions(target));
   const repositoriesQuery = useQuery(skillRepositoriesOptions);

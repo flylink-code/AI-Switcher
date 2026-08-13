@@ -30,6 +30,7 @@ import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
 import SyncOutlined from "@ant-design/icons/es/icons/SyncOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
@@ -196,6 +197,7 @@ export default function McpPage() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const serversQuery = useQuery(mcpServersOptions);
   const oauthQuery = useQuery(mcpOauthStatusOptions);
   const conflictQuery = useQuery(mcpDesktopConflictOptions);
@@ -478,7 +480,7 @@ export default function McpPage() {
     }
   };
 
-  const columns: TableColumnsType<McpServer> = [
+  const rawColumns: TableColumnsType<McpServer> = [
     {
       title: t("mcp.colName"),
       dataIndex: "name",
@@ -505,81 +507,101 @@ export default function McpPage() {
         );
       },
     },
-    {
-      title: t("mcp.claudeCode"),
-      dataIndex: "enabledClaudeCode",
-      width: 135,
-      render: (enabled: boolean, server) => (
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={busy}
-          checkedChildren={t("common.enabled")}
-          unCheckedChildren={t("common.disabled")}
-          onChange={(value) => void handleToggle(server, "claude_code", value)}
-        />
-      ),
-    },
-    {
-      title: t("mcp.claudeDesktop"),
-      dataIndex: "enabledClaudeDesktop",
-      width: 145,
-      render: (enabled: boolean, server) => (
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={busy}
-          checkedChildren={t("common.enabled")}
-          unCheckedChildren={t("common.disabled")}
-          onChange={(value) => void handleToggle(server, "claude_desktop", value)}
-        />
-      ),
-    },
-    {
-      title: "Codex",
-      dataIndex: "enabledCodex",
-      width: 110,
-      render: (enabled: boolean, server) => (
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={busy}
-          checkedChildren={t("common.enabled")}
-          unCheckedChildren={t("common.disabled")}
-          onChange={(value) => void handleToggle(server, "codex", value)}
-        />
-      ),
-    },
-    {
-      title: "OpenCode",
-      dataIndex: "enabledOpencode",
-      width: 120,
-      render: (enabled: boolean, server) => (
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={busy}
-          checkedChildren={t("common.enabled")}
-          unCheckedChildren={t("common.disabled")}
-          onChange={(value) => void handleToggle(server, "opencode", value)}
-        />
-      ),
-    },
-    {
-      title: "Pi",
-      dataIndex: "enabledPi",
-      width: 90,
-      render: (enabled: boolean, server) => (
-        <Switch
-          size="small"
-          checked={enabled}
-          disabled={busy}
-          checkedChildren={t("common.enabled")}
-          unCheckedChildren={t("common.disabled")}
-          onChange={(value) => void handleToggle(server, "pi", value)}
-        />
-      ),
-    },
+    ...(visibleAgents.includes("claude_code")
+      ? [
+          {
+            title: t("mcp.claudeCode"),
+            dataIndex: "enabledClaudeCode",
+            width: 135,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "claude_code", value)}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(visibleAgents.includes("claude_desktop")
+      ? [
+          {
+            title: t("mcp.claudeDesktop"),
+            dataIndex: "enabledClaudeDesktop",
+            width: 145,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "claude_desktop", value)}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(visibleAgents.includes("codex")
+      ? [
+          {
+            title: "Codex",
+            dataIndex: "enabledCodex",
+            width: 110,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "codex", value)}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(visibleAgents.includes("opencode")
+      ? [
+          {
+            title: "OpenCode",
+            dataIndex: "enabledOpencode",
+            width: 120,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "opencode", value)}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(visibleAgents.includes("pi")
+      ? [
+          {
+            title: "Pi",
+            dataIndex: "enabledPi",
+            width: 90,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "pi", value)}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       title: t("mcp.colActions"),
       key: "actions",
@@ -741,7 +763,7 @@ export default function McpPage() {
           ) : (
             <Table<McpServer>
               rowKey="id"
-              columns={columns}
+              columns={rawColumns}
               dataSource={servers}
               loading={serversQuery.isPending}
               pagination={false}
