@@ -5,7 +5,8 @@ import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSour
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
-export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"];
+export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
+export const PROVIDER_TARGET_OPTIONS: ProviderTarget[] = [...TARGET_OPTIONS, "dsh"];
 
 export const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
@@ -32,6 +33,8 @@ export interface AgentTargetSwitcherProps {
   block?: boolean;
   /** Icons only (full name in tooltip) — for tight spaces like dashboard cards. */
   iconOnly?: boolean;
+  /** Restrict targets for surfaces that do not yet support every agent. */
+  targets?: readonly ProviderTarget[];
   className?: string;
 }
 
@@ -45,12 +48,13 @@ export const AgentTargetSwitcher: React.FC<AgentTargetSwitcherProps> = ({
   onChange,
   block = false,
   iconOnly = false,
+  targets = TARGET_OPTIONS,
   className = "",
 }) => {
   const { t } = useTranslation();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
-  const availableOptions = TARGET_OPTIONS.filter((opt) => visibleAgents.includes(opt));
+  const availableOptions = targets.filter((opt) => visibleAgents.includes(opt));
   const activeValue = availableOptions.includes(value) ? value : (availableOptions[0] ?? value);
 
   return (

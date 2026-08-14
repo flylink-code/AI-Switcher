@@ -16,9 +16,9 @@ export interface ProviderPreset {
   targets: ProviderTarget[];
 }
 
-const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "pi"];
-const CLAUDE_OPENCODE: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode"];
-const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
+const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "pi", "dsh"];
+const CLAUDE_OPENCODE: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "dsh"];
+const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"];
 
 /** Built-in quick-fill presets for common third-party gateways. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -193,6 +193,38 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     notes:
       "内建 Antigravity 网关。Pi 写入 ~/.pi/agent/models.json（api: anthropic-messages，baseUrl 为网关根地址，SDK 会再拼 /v1/messages）；默认模型用网关 catalog id，无 Claude 角色映射。",
     targets: ["pi"],
+  },
+  {
+    id: "antigravity-gateway-external-dsh",
+    name: "Antigravity Gateway",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:8045",
+    model: "claude-sonnet-4-6",
+    failoverModels: [
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+    ],
+    modelContextWindow: 200_000,
+    notes: "External Antigravity-Manager gateway for DeepSeek Harness (anthropic-messages). Start AG Manager and fill its API key.",
+    targets: ["dsh"],
+  },
+  {
+    id: "antigravity-builtin-dsh",
+    name: "Antigravity (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15830",
+    model: "claude-sonnet-4-6",
+    failoverModels: [
+      "gemini-3.6-flash-high",
+      "gemini-3.6-flash-low",
+      "claude-opus-4-6-thinking",
+      "claude-sonnet-4-6-thinking",
+    ],
+    modelContextWindow: 200_000,
+    notes: "Built-in Antigravity gateway for DeepSeek Harness (anthropic-messages; no Claude role mapping).",
+    targets: ["dsh"],
   },
 ];
 

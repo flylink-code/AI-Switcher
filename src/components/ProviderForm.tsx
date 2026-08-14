@@ -157,8 +157,9 @@ export function ProviderForm({
   const isCodex = (editing?.targetApp ?? target) === "codex";
   const isOpenCode = (editing?.targetApp ?? target) === "opencode";
   const isPi = (editing?.targetApp ?? target) === "pi";
-  // Codex / OpenCode / Pi 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
-  const isDirect = isCodex || isOpenCode || isPi;
+  const isDsh = (editing?.targetApp ?? target) === "dsh";
+  // Codex / OpenCode / Pi / Dsh 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
+  const isDirect = isCodex || isOpenCode || isPi || isDsh;
   const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
   // Seed with the loaded default so the sync effect never treats open/edit as a "change".
   const prevModelRef = useRef<string>("");
@@ -401,13 +402,16 @@ export function ProviderForm({
       preset.id === "antigravity-builtin" ||
       preset.id === "antigravity-builtin-codex" ||
       preset.id === "antigravity-builtin-pi" ||
+      preset.id === "antigravity-builtin-dsh" ||
       preset.id === "antigravity-gateway-external" ||
       preset.id === "antigravity-gateway-external-codex" ||
-      preset.id === "antigravity-gateway-external-pi";
+      preset.id === "antigravity-gateway-external-pi" ||
+      preset.id === "antigravity-gateway-external-dsh";
     const isBuiltinAg =
       preset.id === "antigravity-builtin" ||
       preset.id === "antigravity-builtin-codex" ||
-      preset.id === "antigravity-builtin-pi";
+      preset.id === "antigravity-builtin-pi" ||
+      preset.id === "antigravity-builtin-dsh";
     form.setFieldsValue({
       name: preset.name,
       protocolType: preset.protocolType,
@@ -550,6 +554,11 @@ export function ProviderForm({
         {isPi ? (
           <Typography.Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 12, fontSize: 12 }}>
             {t("providers.piDirectHint")}
+          </Typography.Paragraph>
+        ) : null}
+        {isDsh ? (
+          <Typography.Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 12, fontSize: 12 }}>
+            {t("providers.dshDirectHint")}
           </Typography.Paragraph>
         ) : null}
 

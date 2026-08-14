@@ -157,9 +157,9 @@ fn build_provider_menu<R: Runtime>(
                 "OpenCode 不显示在 Claude 供应商托盘菜单中".to_string(),
             ))
         }
-        ProviderTarget::Pi => {
+        ProviderTarget::Pi | ProviderTarget::Dsh => {
             return Err(AppError::Config(
-                "Pi 不显示在 Claude 供应商托盘菜单中".to_string(),
+                "Pi / DeepSeek Harness 不显示在 Claude 供应商托盘菜单中".to_string(),
             ))
         }
     };

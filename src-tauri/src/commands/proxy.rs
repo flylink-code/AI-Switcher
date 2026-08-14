@@ -167,6 +167,7 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
         crate::provider::ProviderTarget::Codex => "proxy_port_codex",
         crate::provider::ProviderTarget::OpenCode => "proxy_port_opencode",
         crate::provider::ProviderTarget::Pi => "proxy_port_pi",
+        crate::provider::ProviderTarget::Dsh => "proxy_port_dsh",
     }
 }
 
@@ -186,6 +187,7 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
             crate::provider::ProviderTarget::Codex => DEFAULT_PORT + 2,
             crate::provider::ProviderTarget::OpenCode => DEFAULT_PORT + 3,
             crate::provider::ProviderTarget::Pi => DEFAULT_PORT + 4,
+            crate::provider::ProviderTarget::Dsh => DEFAULT_PORT + 5,
         })
 }
 

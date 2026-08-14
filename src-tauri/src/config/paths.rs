@@ -255,6 +255,27 @@ pub fn get_opencode_db_path() -> PathBuf {
     get_opencode_data_dir().join("opencode.db")
 }
 
+/// DeepSeek Harness 配置目录：`$DSH_HOME` > `~/.dsh`。
+pub fn get_dsh_config_dir() -> PathBuf {
+    if let Some(custom) = std::env::var_os("DSH_HOME").filter(|v| !v.is_empty()) {
+        let path = PathBuf::from(custom);
+        if path.is_absolute() {
+            return path;
+        }
+    }
+    get_home_dir().join(".dsh")
+}
+
+/// DeepSeek Harness 基础配置文件 `settings.yaml`。
+pub fn get_dsh_settings_path() -> PathBuf {
+    get_dsh_config_dir().join("settings.yaml")
+}
+
+/// DeepSeek Harness 密钥文件 `.credentials.yaml`。
+pub fn get_dsh_credentials_path() -> PathBuf {
+    get_dsh_config_dir().join(".credentials.yaml")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

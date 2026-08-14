@@ -251,6 +251,9 @@
     "opencodeNoSwitchDescription": "新增或编辑供应商并保存后，会自动写入 opencode.json。可在 OpenCode 应用内直接选择模型；「更新本地已有配置」用于从现有 opencode.json 同步到本列表。保存后如 OpenCode Desktop 未自动识别新配置，可重启 OpenCode。",
     "piNoSwitchTitle": "Pi 无需切换供应商",
     "piNoSwitchDescription": "新增、编辑或从其他 Agent 导入后会自动写入 ~/.pi/agent/models.json。可在 Pi 里用 /model 直接选择任意供应商的模型；OpenAI 接口直连上游，不走本地代理。",
+    "dshNoSwitchTitle": "DeepSeek Harness 无需切换供应商",
+    "dshNoSwitchDescription": "新增、编辑或从其他 Agent 导入后会自动写入 ~/.dsh/settings.yaml 与 ~/.dsh/.credentials.yaml。可在 Harness 界面或 CLI 中直接选用任意供应商；直连上游端点，不走本地代理。",
+    "startDshWeb": "启动 DeepSeek Harness 并打开网页",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
     "chatgptLogin": "使用 ChatGPT 订阅",
@@ -435,6 +438,7 @@
     "failoverDisabled": "已停用自动故障切换",
     "opencodeDirectHint": "OpenCode 通过 AI SDK 直连各协议端点（baseURL + API Key），不经过本机代理；请在供应商页切换其配置。",
     "piDirectHint": "Pi 按 models.json 自定义供应商写入（默认模型 + 故障切换列表），没有 Claude 的 Sonnet/Opus/Haiku 角色映射。",
+    "dshDirectHint": "DeepSeek Harness 按 settings.yaml 与 .credentials.yaml 写入，直连上游各端点，没有 Claude 的 Sonnet/Opus/Haiku 角色映射。",
     "runtime": "代理运行时",
     "route": "路由"
   },

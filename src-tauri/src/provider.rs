@@ -39,6 +39,8 @@ pub enum ProviderTarget {
     OpenCode,
     #[serde(rename = "pi")]
     Pi,
+    #[serde(rename = "dsh")]
+    Dsh,
 }
 
 impl ProviderTarget {
@@ -49,6 +51,7 @@ impl ProviderTarget {
             ProviderTarget::Codex => "codex",
             ProviderTarget::OpenCode => "opencode",
             ProviderTarget::Pi => "pi",
+            ProviderTarget::Dsh => "dsh",
         }
     }
 
@@ -58,6 +61,7 @@ impl ProviderTarget {
             "codex" => ProviderTarget::Codex,
             "opencode" => ProviderTarget::OpenCode,
             "pi" => ProviderTarget::Pi,
+            "dsh" => ProviderTarget::Dsh,
             _ => ProviderTarget::ClaudeCode,
         }
     }
@@ -154,14 +158,16 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
         ));
     }
     if target == ProviderTarget::Pi
-        && !matches!(
+        || target == ProviderTarget::Dsh
+    {
+        if !matches!(
             protocol,
             ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
-        )
-    {
-        return Err(AppError::Config(
-            "Pi 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
-        ));
+        ) {
+            return Err(AppError::Config(
+                "Pi / DeepSeek Harness 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+            ));
+        }
     }
     Ok(())
 }
@@ -180,7 +186,7 @@ pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> App
 pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
     if matches!(
         target,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
     ) {
         ClaudeModelMapping::default()
     } else {
@@ -251,7 +257,7 @@ pub fn catalog_models_from_provider(provider: &Provider) -> Vec<String> {
 fn adapt_copied_failover_models(source: &Provider, dest: ProviderTarget) -> Vec<String> {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
     ) {
         catalog_models_from_provider(source)
     } else {
@@ -271,7 +277,8 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
             ProviderTarget::ClaudeCode
             | ProviderTarget::ClaudeDesktop
             | ProviderTarget::OpenCode
-            | ProviderTarget::Pi => (ProtocolType::Anthropic, root),
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh => (ProtocolType::Anthropic, root),
         };
     }
     (protocol, source.base_url.clone())
@@ -284,7 +291,7 @@ fn adapt_copied_model_mapping(
 ) -> ClaudeModelMapping {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
     ) {
         return ClaudeModelMapping::default();
     }
@@ -698,8 +705,8 @@ impl Provider {
         if self.target_app == ProviderTarget::Codex {
             return self.protocol_type == ProtocolType::Anthropic;
         }
-        // OpenCode / Pi 通过各自 SDK 原生支持各协议，直连写入配置即可，无需本地代理。
-        if matches!(self.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi) {
+        // OpenCode / Pi / Dsh 通过各自 SDK 原生支持各协议，直连写入配置即可，无需本地代理。
+        if matches!(self.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh) {
             return false;
         }
         if self.protocol_type.uses_proxy() {

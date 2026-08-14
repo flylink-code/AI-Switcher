@@ -14,6 +14,7 @@ use crate::config::{
     get_codex_auth_path, get_codex_config_dir, get_codex_config_path,
     get_codex_plugins_cache_dir, get_codex_skills_dir,
     get_opencode_config_dir, get_opencode_config_path,
+    get_dsh_config_dir, get_dsh_credentials_path, get_dsh_settings_path,
 };
 
 #[derive(Debug, Serialize)]
@@ -41,6 +42,9 @@ pub struct PathsInfo {
     pub pi_skills_dir: String,
     pub pi_mcp_path: String,
     pub pi_sessions_dir: String,
+    pub dsh_config_dir: String,
+    pub dsh_settings_path: String,
+    pub dsh_credentials_path: String,
     pub app_config_dir: String,
     pub app_db_path: String,
     pub backup_dir: String,
@@ -83,6 +87,9 @@ pub fn get_paths() -> PathsInfo {
         pi_skills_dir: s(&get_pi_dir().join("skills")),
         pi_mcp_path: s(&get_pi_mcp_path()),
         pi_sessions_dir: s(&get_pi_sessions_dir()),
+        dsh_config_dir: s(&get_dsh_config_dir()),
+        dsh_settings_path: s(&get_dsh_settings_path()),
+        dsh_credentials_path: s(&get_dsh_credentials_path()),
         app_config_dir: s(&get_app_config_dir()),
         app_db_path: s(&get_app_db_path()),
         backup_dir: s(&get_backup_dir()),

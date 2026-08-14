@@ -7,7 +7,7 @@
 # Usage:
 #   .\scripts\dev-hot.ps1
 #   .\scripts\dev-hot.ps1 -Clean          # always cargo clean first
-#   .\scripts\dev-hot.ps1 -MaxTargetGB 6  # auto-clean when target exceeds N GB (default 8)
+#   .\scripts\dev-hot.ps1 -MaxTargetGB 20 # auto-clean when target exceeds N GB (default 40)
 #   .\scripts\dev-hot.ps1 -Port 5251      # pin Vite / baked-in devUrl port
 #
 # Stops existing claude-switcher.exe, starts Vite, cargo-builds cfg(dev), launches
@@ -15,7 +15,7 @@
 
 param(
     [switch]$Clean,
-    [double]$MaxTargetGB = 8,
+    [double]$MaxTargetGB = 40,
     [int]$Port = 0,
     [int]$CdpPort = 9222,
     [switch]$NoLaunch
@@ -212,10 +212,14 @@ try {
 
     Write-Host "[dev-hot] cargo build --cfg dev  (CARGO_TARGET_DIR=$targetDir)"
     Push-Location $tauriDir
+    $previousEncodedRustflags = $env:CARGO_ENCODED_RUSTFLAGS
     try {
-        & cargo build --config 'build.rustflags=["--cfg","dev"]'
+        # Avoid PowerShell/native argument quote loss in Cargo's --config parser.
+        $env:CARGO_ENCODED_RUSTFLAGS = "--cfg$([char]0x1f)dev"
+        & cargo build
         if ($LASTEXITCODE -ne 0) { throw "cargo build failed (exit $LASTEXITCODE)." }
     } finally {
+        $env:CARGO_ENCODED_RUSTFLAGS = $previousEncodedRustflags
         Pop-Location
     }
 

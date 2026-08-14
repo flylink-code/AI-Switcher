@@ -150,7 +150,7 @@ pub use pi::{
 pub use tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
     get_opencode_cli_version, run_opencode_cli_update, get_opencode_desktop_status,
-    get_dsh_cli_version, run_dsh_cli_update, DshCliVersionInfo,
+    get_dsh_cli_version, run_dsh_cli_update, start_dsh_web, DshCliVersionInfo,
 };
 pub use usage::{
     delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, import_model_pricing_xlsx, list_model_pricing,

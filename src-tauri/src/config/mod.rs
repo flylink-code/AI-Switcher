@@ -8,6 +8,7 @@ pub mod claude_code;
 pub mod claude_desktop;
 pub mod codex;
 pub mod codex_provider_sync;
+pub mod dsh;
 pub mod opencode;
 pub mod paths;
 
@@ -21,6 +22,7 @@ pub use paths::{
     get_claude_settings_path, get_claude_skills_dir, get_home_dir, get_codex_config_dir,
     get_codex_config_path, get_codex_auth_path, get_codex_plugins_cache_dir, get_codex_skills_dir,
     get_opencode_config_dir, get_opencode_config_path, get_opencode_data_dir, get_opencode_db_path,
+    get_dsh_config_dir, get_dsh_settings_path, get_dsh_credentials_path,
 };
 
 // Foundational helpers (used from P1+). Re-exported for convenience; the

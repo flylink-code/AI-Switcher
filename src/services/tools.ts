@@ -49,6 +49,10 @@ export async function runDshCliUpdate(): Promise<string> {
   return call<string>("run_dsh_cli_update", {});
 }
 
+export async function startDshWeb(): Promise<string> {
+  return call<string>("start_dsh_web", {});
+}
+
 export async function getPiSettings(): Promise<Record<string, unknown>> {
   return call<Record<string, unknown>>("get_pi_settings", {});
 }

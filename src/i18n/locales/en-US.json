@@ -251,6 +251,9 @@
     "opencodeNoSwitchDescription": "Creating or editing a provider writes it to opencode.json automatically. Choose models inside OpenCode. Use “Update from local config” to pull existing opencode.json providers into this list. If OpenCode Desktop does not pick up the new config after saving, restart OpenCode.",
     "piNoSwitchTitle": "Pi does not need provider switching",
     "piNoSwitchDescription": "Creating, editing, or importing a provider writes ~/.pi/agent/models.json. Pick any provider’s models in Pi with /model. OpenAI endpoints go direct to upstream, not through the local proxy.",
+    "dshNoSwitchTitle": "DeepSeek Harness does not need provider switching",
+    "dshNoSwitchDescription": "Creating, editing, or importing a provider writes ~/.dsh/settings.yaml and ~/.dsh/.credentials.yaml. Select models directly in Harness UI or CLI; connects directly to upstream endpoints without a local proxy.",
+    "startDshWeb": "Start DeepSeek Harness and open Web UI",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
     "chatgptLogin": "Use ChatGPT subscription",
@@ -435,6 +438,7 @@
     "failoverDisabled": "Automatic failover disabled",
     "opencodeDirectHint": "OpenCode connects directly to each protocol endpoint via the AI SDK (baseURL + API key) and does not use the local proxy; switch its configuration on the Providers page.",
     "piDirectHint": "Pi writes a custom provider into models.json (default model + failover list). It has no Claude Sonnet/Opus/Haiku role mapping.",
+    "dshDirectHint": "DeepSeek Harness writes custom providers to settings.yaml and .credentials.yaml without Claude’s Sonnet/Opus/Haiku role mapping.",
     "runtime": "Proxy Runtime",
     "route": "Route"
   },

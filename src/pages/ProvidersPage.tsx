@@ -38,7 +38,7 @@ import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { ImportFromAgentDialog, canCopyProviderTo } from "@/components/ImportFromAgentDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
-import { AgentTargetSwitcher, LABEL_KEYS, TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
+import { AgentTargetSwitcher, LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQueries";
@@ -48,6 +48,7 @@ import {
   batchDiagnoseProviders,
   ensureCodexOauthProvider,
   getAntigravityGatewayStatus,
+  startDshWeb,
   getCodexAuthStatus,
   getPaths,
   getPiSettings,
@@ -88,6 +89,7 @@ export default function ProvidersPage() {
   const [doctorReports, setDoctorReports] = useState<ProviderDoctorReport[]>([]);
   const [quarantining, setQuarantining] = useState(false);
   const [piThinkingLevel, setPiThinkingLevel] = useState<string>("medium");
+  const [startingDsh, setStartingDsh] = useState(false);
 
   const piSettingsQuery = useQuery({
     queryKey: ["pi-settings"],
@@ -239,6 +241,18 @@ export default function ProvidersPage() {
     }
   };
 
+  const handleStartDshWeb = async () => {
+    setStartingDsh(true);
+    try {
+      const url = await startDshWeb();
+      await openUrl(url);
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setStartingDsh(false);
+    }
+  };
+
   const handleCodexOauthLogin = async () => {
     setBusy(true);
     try {
@@ -341,7 +355,7 @@ export default function ProvidersPage() {
       {/* Header: page-local Agent switcher + runtime status + actions */}
       <div className="cc-workbench-header">
         <div className="cc-header-left">
-          <AgentTargetSwitcher value={target} onChange={setProvidersTarget} />
+          <AgentTargetSwitcher value={target} onChange={setProvidersTarget} targets={PROVIDER_TARGET_OPTIONS} />
           <Badge
             status={isAppRunning ? "success" : "default"}
             text={isAppRunning ? t("workbench.running") : t("workbench.stopped")}
@@ -463,6 +477,23 @@ export default function ProvidersPage() {
           </Card>
         </>
       )}
+      {target === "dsh" && (
+        <Space direction="vertical" size="small" style={{ width: "100%" }}>
+          <Alert
+            type="info"
+            showIcon
+            style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+            message={
+              <span style={{ fontSize: "12.5px" }}>
+                <strong>{t("providers.dshNoSwitchTitle")}</strong> — {t("providers.dshNoSwitchDescription")}
+              </span>
+            }
+          />
+          <Button type="primary" icon={<NodeIndexOutlined />} loading={startingDsh} onClick={() => void handleStartDshWeb()}>
+            {t("providers.startDshWeb")}
+          </Button>
+        </Space>
+      )}
       {target === "codex" && (
         <OnboardingTip
           tipKey="providers_codex_auth"
@@ -488,7 +519,7 @@ export default function ProvidersPage() {
       {/* Provider Card List */}
       <div className="cc-provider-list">
         {/* Official Provider Card — same 3-row structure as custom cards */}
-        {target !== "opencode" && target !== "pi" && (
+        {target !== "opencode" && target !== "pi" && target !== "dsh" && (
           <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
             <div className="cc-provider-card-body">
               <div className="cc-provider-card-header">
@@ -618,7 +649,7 @@ export default function ProvidersPage() {
                         <Dropdown
                           trigger={["click"]}
                           menu={{
-                            items: TARGET_OPTIONS.filter((option) => option !== target).map((option) => ({
+                            items: PROVIDER_TARGET_OPTIONS.filter((option) => option !== target).map((option) => ({
                               key: option,
                               label: t(LABEL_KEYS[option]),
                               disabled: !canCopyProviderTo(provider, option),

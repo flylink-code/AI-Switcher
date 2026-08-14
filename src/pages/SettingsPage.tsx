@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
-import { TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
 import { SettingsSection, SettingsRow } from "@/components/settings";
@@ -73,7 +73,7 @@ export default function SettingsPage() {
           })}
           control={
             <Checkbox.Group
-              options={TARGET_OPTIONS.map((target) => ({
+              options={PROVIDER_TARGET_OPTIONS.map((target) => ({
                 label: t(LABEL_KEYS[target]),
                 value: target,
               }))}

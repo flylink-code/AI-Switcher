@@ -100,7 +100,7 @@ pub async fn update_provider(
         return Err(AppError::Config("更新供应商时缺少 id".to_string()));
     }
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    if matches!(provider.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi) {
+    if matches!(provider.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh) {
         sync_catalog_target(&state, provider.target_app)?;
     } else if provider.is_current {
         let _ = apply_target_provider(&provider, Some(&app), &state).await?;
@@ -797,8 +797,8 @@ pub async fn switch_to_official_for_target<R: tauri::Runtime>(
                         AppError::Tauri(format!("OpenCode 托管配置移除任务失败: {error}"))
                     })??;
             }
-            // Pi 无独立「官方配置」文件；清除当前供应商 + 停代理即可。
-            ProviderTarget::Pi => {}
+            // Pi / Dsh 无独立「官方配置」文件；清除当前供应商 + 停代理即可。
+            ProviderTarget::Pi | ProviderTarget::Dsh => {}
         }
         state.proxy.lock().await.stop_target(target);
         if let Some(app) = app {
@@ -843,11 +843,14 @@ pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppSta
     if target == ProviderTarget::Pi {
         return sync_pi_providers_to_live(&state);
     }
+    if target == ProviderTarget::Dsh {
+        return sync_dsh_providers_to_live(&state);
+    }
     let live = match target {
         ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
         ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
         ProviderTarget::Codex => codex::read_current_live_provider()?,
-        ProviderTarget::OpenCode | ProviderTarget::Pi => unreachable!(),
+        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => unreachable!(),
     };
     let Some(live) = live else {
         return Ok(());
@@ -999,6 +1002,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     let mut skipped = 0;
     let mut touched_opencode = false;
     let mut touched_pi = false;
+    let mut touched_dsh = false;
     for entry in bundle.providers {
         let normalized_base_url = normalize_base_url(&entry.base_url)?;
         let existing = state.db.with_conn(|conn| dao::list_providers(conn, entry.target_app))?;
@@ -1034,6 +1038,9 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
         if target_app == ProviderTarget::Pi {
             touched_pi = true;
         }
+        if target_app == ProviderTarget::Dsh {
+            touched_dsh = true;
+        }
         imported += 1;
     }
     if touched_opencode {
@@ -1042,6 +1049,9 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     if touched_pi {
         sync_pi_providers_to_live(&state)?;
     }
+    if touched_dsh {
+        sync_dsh_providers_to_live(&state)?;
+    }
     Ok(ProviderImportResult { imported, skipped })
 }
 
@@ -1049,8 +1059,49 @@ fn sync_catalog_target(state: &AppState, target: ProviderTarget) -> AppResult<()
     match target {
         ProviderTarget::OpenCode => sync_opencode_providers_to_live(state),
         ProviderTarget::Pi => sync_pi_providers_to_live(state),
+        ProviderTarget::Dsh => sync_dsh_providers_to_live(state),
         _ => Ok(()),
     }
+}
+
+/// 把 DB 中全部 DeepSeek Harness 供应商写入 `settings.yaml` / `.credentials.yaml`（多供应商��存，无需切换）。
+pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
+    use crate::config::dsh::sync_managed_dsh_providers;
+
+    let providers = state
+        .db
+        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Dsh))?;
+    let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
+    for provider in providers {
+        let mut runtime = provider.clone();
+        runtime.api_key = state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
+            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
+        }
+        let mut extra_models = state
+            .db
+            .with_conn(|conn| {
+                Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                    .map(|cache| cache.models)
+                    .unwrap_or_default())
+            })
+            .unwrap_or_default();
+        for model in &provider.failover_models {
+            if !extra_models.iter().any(|item| item == model) {
+                extra_models.push(model.clone());
+            }
+        }
+        if uses_antigravity_model_catalog(&provider) {
+            extra_models = crate::antigravity::model_catalog::filter_listable_model_ids(&extra_models);
+        }
+        entries.push((runtime, extra_models));
+    }
+    sync_managed_dsh_providers(&entries)
 }
 
 /// 把 DB 中全部 Pi 供应商写入 `models.json` / `auth.json`（多供应商并存，无需切换）。
@@ -1463,6 +1514,11 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 )?;
                 Ok((None, None))
             }
+            ProviderTarget::Dsh => {
+                // Dsh resolves provider/model per session. Keep all managed routes available.
+                sync_dsh_providers_to_live(state)?;
+                Ok((None, None))
+            }
         }
     }.await;
     let (session_sync, codex_notice) = match result {
@@ -1541,6 +1597,10 @@ impl SwitchSnapshot {
                 crate::coding::pi::config::get_pi_auth_path(),
                 crate::coding::pi::config::get_pi_models_path(),
             ],
+            ProviderTarget::Dsh => vec![
+                crate::config::get_dsh_settings_path(),
+                crate::config::get_dsh_credentials_path(),
+            ],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
@@ -1549,6 +1609,7 @@ impl SwitchSnapshot {
             ProviderTarget::Codex => CODEX_OWNERSHIP_KEY,
             ProviderTarget::OpenCode => OPENCODE_OWNERSHIP_KEY,
             ProviderTarget::Pi => PI_OWNERSHIP_KEY,
+            ProviderTarget::Dsh => "v1310.dsh_managed",
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {
@@ -2374,9 +2435,10 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         ProviderTarget::ClaudeCode => "proxy_port_claude_code",
         ProviderTarget::ClaudeDesktop => "proxy_port_claude_desktop",
         ProviderTarget::Codex => "proxy_port_codex",
-        // OpenCode 直连写入，不使用本地代理；仅为穷尽匹配保留键名。
+        // OpenCode / Pi / Dsh 直连写入，不使用本地代理；仅为穷尽匹配保留键名。
         ProviderTarget::OpenCode => "proxy_port_opencode",
         ProviderTarget::Pi => "proxy_port_pi",
+        ProviderTarget::Dsh => "proxy_port_dsh",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
@@ -2389,6 +2451,7 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
             ProviderTarget::Codex => 15823,
             ProviderTarget::OpenCode => 15824,
             ProviderTarget::Pi => 15825,
+            ProviderTarget::Dsh => 15826,
         })
 }
 

@@ -289,6 +289,9 @@ export interface PathsInfo {
   piSkillsDir: string;
   piMcpPath: string;
   piSessionsDir: string;
+  dshConfigDir: string;
+  dshSettingsPath: string;
+  dshCredentialsPath: string;
   /** Application data directory (`~/.claude-switcher`). */
   appConfigDir: string;
   /** Main SQLite database path. */

@@ -157,7 +157,7 @@ pub async fn ensure_antigravity_provider(
         ),
         // Pi uses the official Anthropic SDK, which posts `/v1/messages` onto baseURL.
         // Gateway root only — a trailing `/v1` becomes `/v1/v1/messages` (404).
-        ProviderTarget::Pi => (
+        ProviderTarget::Pi | ProviderTarget::Dsh => (
             ProtocolType::Anthropic,
             status.base_url.trim_end_matches('/').to_string(),
             ClaudeModelMapping::default(),
@@ -181,7 +181,7 @@ pub async fn ensure_antigravity_provider(
 
     let input = ProviderInput {
         id: existing.map(|provider| provider.id),
-        name: if target == ProviderTarget::Pi {
+        name: if target == ProviderTarget::Pi || target == ProviderTarget::Dsh {
             "Antigravity".to_string()
         } else {
             "Antigravity (Built-in)".to_string()
@@ -190,7 +190,7 @@ pub async fn ensure_antigravity_provider(
         api_key: status.api_key,
         clear_api_key: false,
         model: default_model,
-        model_context_window: if target == ProviderTarget::Codex || target == ProviderTarget::Pi {
+        model_context_window: if matches!(target, ProviderTarget::Codex | ProviderTarget::Pi | ProviderTarget::Dsh) {
             Some(200_000)
         } else {
             None

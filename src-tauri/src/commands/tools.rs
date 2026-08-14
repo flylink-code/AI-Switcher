@@ -1989,6 +1989,83 @@ pub async fn run_dsh_cli_update() -> AppResult<String> {
     }
 }
 
+fn dsh_web_is_ready() -> bool {
+    std::net::TcpStream::connect_timeout(
+        &"127.0.0.1:3080".parse().expect("static socket address"),
+        Duration::from_millis(250),
+    )
+    .is_ok()
+}
+
+fn start_dsh_web_sync() -> AppResult<()> {
+    if dsh_web_is_ready() {
+        return Ok(());
+    }
+    let installation = match probe_dsh_installation() {
+        Probe::Found(installation) => installation,
+        Probe::Broken(_, error) => {
+            return Err(AppError::Config(format!("DeepSeek Harness CLI 无法运行: {error}")))
+        }
+        Probe::NotFound(error) => return Err(AppError::Config(error)),
+    };
+    let path = PathBuf::from(&installation.path);
+    let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+
+        let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
+        let mut command = if extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat") {
+            let mut cmd = Command::new("cmd");
+            cmd.args(["/D", "/S", "/C"])
+                .raw_arg(format!("call {} web", quote_cmd_arg(&path.to_string_lossy())));
+            cmd
+        } else {
+            let mut cmd = Command::new(&path);
+            cmd.arg("web");
+            cmd
+        };
+        command
+            .env("PATH", compact_execution_path(tool_dir))
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|error| AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}")))?;
+    }
+    #[cfg(not(windows))]
+    {
+        Command::new(&path)
+            .arg("web")
+            .env("PATH", unix_execution_path(tool_dir))
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|error| AppError::Config(format!("启动 DeepSeek Harness Web UI 失败: {error}")))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn start_dsh_web() -> AppResult<String> {
+    tokio::task::spawn_blocking(start_dsh_web_sync)
+        .await
+        .map_err(|error| AppError::Other(format!("DeepSeek Harness 启动任务异常结束: {error}")))??;
+
+    for _ in 0..40 {
+        if tokio::net::TcpStream::connect("127.0.0.1:3080").await.is_ok() {
+            return Ok("http://127.0.0.1:3080".to_string());
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    Err(AppError::Config(
+        "DeepSeek Harness 已启动，但 Web UI 未在 10 秒内监听 127.0.0.1:3080".to_string(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
