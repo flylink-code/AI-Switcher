@@ -307,6 +307,129 @@ pub async fn speedtest_provider_endpoint(
     speedtest_base_url(&provider.base_url).await
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderDoctorReport {
+    pub provider_id: String,
+    pub provider_name: String,
+    pub target_app: ProviderTarget,
+    pub ok: bool,
+    pub category: String,
+    pub message: String,
+    pub latency_ms: Option<u64>,
+    pub status_code: Option<u16>,
+    pub quarantined: bool,
+}
+
+#[tauri::command]
+pub async fn batch_diagnose_providers(
+    target: Option<ProviderTarget>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<ProviderDoctorReport>> {
+    let targets = match target {
+        Some(t) => vec![t],
+        None => vec![
+            ProviderTarget::ClaudeCode,
+            ProviderTarget::Codex,
+            ProviderTarget::OpenCode,
+            ProviderTarget::Pi,
+        ],
+    };
+
+    let mut providers = Vec::new();
+    state.db.with_conn(|conn| {
+        for t in targets {
+            let mut list = dao::list_providers(conn, t)?;
+            providers.append(&mut list);
+        }
+        Ok::<(), AppError>(())
+    })?;
+
+    let mut reports = Vec::with_capacity(providers.len());
+    for provider in providers {
+        let test_res = test_provider_impl(&provider, &state).await;
+        let (ok, category, message, latency_ms, status_code) = match test_res {
+            Ok(res) => {
+                let code = if res.category == "authentication" {
+                    Some(401u16)
+                } else if res.ok {
+                    Some(200u16)
+                } else {
+                    None
+                };
+                (res.ok, res.category, res.message, res.latency_ms, code)
+            }
+            Err(e) => (false, "system".to_string(), e.to_string(), None, None),
+        };
+        let quarantined = !ok
+            && (category == "authentication"
+                || status_code == Some(401)
+                || status_code == Some(403)
+                || provider.failover_group == 0);
+        reports.push(ProviderDoctorReport {
+            provider_id: provider.id,
+            provider_name: provider.name,
+            target_app: provider.target_app,
+            ok,
+            category,
+            message,
+            latency_ms,
+            status_code,
+            quarantined,
+        });
+    }
+
+    Ok(reports)
+}
+
+#[tauri::command]
+pub async fn quarantine_failed_providers(
+    provider_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<usize> {
+    let mut count = 0;
+    for id in provider_ids {
+        let res = state.db.with_conn(|conn| {
+            if let Some(mut provider) = dao::get_provider(conn, &id)? {
+                provider.failover_group = 0;
+                if !provider.notes.contains("[已隔离]") {
+                    if !provider.notes.is_empty() {
+                        provider.notes.push_str(" ");
+                    }
+                    provider.notes.push_str("[已隔离: 401/403 鉴权异常]");
+                }
+                let input = ProviderInput {
+                    id: Some(provider.id.clone()),
+                    name: provider.name,
+                    base_url: provider.base_url,
+                    api_key: String::new(),
+                    clear_api_key: false,
+                    model: provider.model,
+                    model_context_window: provider.model_context_window,
+                    auto_review_model_override: provider.auto_review_model_override,
+                    web_search_enabled: provider.web_search_enabled,
+                    model_mapping: provider.model_mapping,
+                    protocol_type: provider.protocol_type,
+                    provider_kind: provider.provider_kind,
+                    auth_binding: provider.auth_binding,
+                    target_app: provider.target_app,
+                    notes: provider.notes,
+                    failover_group: 0,
+                    failover_models: provider.failover_models,
+                };
+                let _ = dao::upsert_provider(conn, &input)?;
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        })?;
+        if res {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+
 async fn speedtest_base_url(base_url: &str) -> AppResult<EndpointSpeedtestResult> {
     let checked_at = Utc::now().timestamp_millis();
     let url = normalize_base_url(base_url)?;

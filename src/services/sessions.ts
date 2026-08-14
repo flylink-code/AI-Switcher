@@ -56,6 +56,10 @@ export async function exportSession(provider: SessionProvider, sourcePath: strin
   return call<SessionArchiveInfo>("export_session", { provider, sourcePath, destinationDir });
 }
 
+export async function exportSessionMarkdown(provider: SessionProvider, sourcePath: string, destinationDir?: string): Promise<string> {
+  return call<string>("export_session_markdown", { provider, sourcePath, destinationDir });
+}
+
 export async function backupSessions(provider: SessionProvider, sourcePaths: string[]): Promise<SessionBatchBackupInfo> {
   return call<SessionBatchBackupInfo>("backup_sessions", { provider, sourcePaths });
 }

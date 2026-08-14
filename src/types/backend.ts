@@ -79,6 +79,18 @@ export interface ConnectionTestResult {
   latencyMs?: number | null;
 }
 
+export interface ProviderDoctorReport {
+  providerId: string;
+  providerName: string;
+  targetApp: ProviderTarget;
+  ok: boolean;
+  category: string;
+  message: string;
+  latencyMs?: number | null;
+  statusCode?: number | null;
+  quarantined: boolean;
+}
+
 export interface ProviderHealthUpdated {
   providerId: string;
   targetApp: ProviderTarget;

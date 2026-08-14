@@ -27,6 +27,7 @@ pub const DEEPLINK_ERROR_EVENT: &str = "deeplink-error";
 pub enum ImportResource {
     Provider,
     Mcp,
+    Skill,
 }
 
 impl ImportResource {
@@ -34,6 +35,7 @@ impl ImportResource {
         match value.trim().to_ascii_lowercase().as_str() {
             "provider" | "providers" => Ok(Self::Provider),
             "mcp" | "mcp_server" | "mcp_servers" => Ok(Self::Mcp),
+            "skill" | "skills" => Ok(Self::Skill),
             other => Err(AppError::Config(format!("不支持的 Deep Link 资源类型: {other}"))),
         }
     }
@@ -42,6 +44,7 @@ impl ImportResource {
         match self {
             Self::Provider => "provider",
             Self::Mcp => "mcp",
+            Self::Skill => "skill",
         }
     }
 }
@@ -105,7 +108,8 @@ pub fn parse_import_text(raw: &str) -> AppResult<ImportPreview> {
     if trimmed.is_empty() {
         return Err(AppError::Config("导入内容为空".to_string()));
     }
-    if trimmed.to_ascii_lowercase().starts_with(DEEPLINK_SCHEME) {
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.starts_with("ai-switcher://") || lower.starts_with("ccswitch://") || lower.starts_with("aiswitcher://") {
         return parse_deeplink_url(trimmed);
     }
     parse_import_json(trimmed, "clipboard")
@@ -114,9 +118,10 @@ pub fn parse_import_text(raw: &str) -> AppResult<ImportPreview> {
 pub fn parse_deeplink_url(raw: &str) -> AppResult<ImportPreview> {
     let url = Url::parse(raw.trim())
         .map_err(|error| AppError::Config(format!("Deep Link URL 无效: {error}")))?;
-    if url.scheme() != DEEPLINK_SCHEME {
+    let scheme = url.scheme().to_ascii_lowercase();
+    if scheme != "ai-switcher" && scheme != "ccswitch" && scheme != "aiswitcher" {
         return Err(AppError::Config(format!(
-            "Deep Link scheme 必须是 {DEEPLINK_SCHEME}://"
+            "Deep Link scheme 必须是 ai-switcher:// 或 ccswitch://"
         )));
     }
     let host = url.host_str().unwrap_or("");
@@ -166,8 +171,11 @@ fn detect_resource(value: &Value) -> AppResult<ImportResource> {
     if value.get("servers").is_some() || value.get("mcpServers").is_some() {
         return Ok(ImportResource::Mcp);
     }
+    if value.get("skills").is_some() {
+        return Ok(ImportResource::Skill);
+    }
     Err(AppError::Config(
-        "无法识别导入类型（需要 providers 或 servers）".to_string(),
+        "无法识别导入类型（需要 providers, servers 或 skills）".to_string(),
     ))
 }
 
@@ -191,6 +199,7 @@ fn build_preview(resource: ImportResource, value: Value, source: &str) -> AppRes
     match resource {
         ImportResource::Provider => preview_providers(value, source),
         ImportResource::Mcp => preview_mcp(value, source),
+        ImportResource::Skill => preview_skills(value, source),
     }
 }
 
@@ -369,6 +378,61 @@ fn mcp_summary(config: &Value) -> String {
         return format!("remote · {url}");
     }
     "mcp".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillExportBundle {
+    pub version: u32,
+    pub skills: Vec<SkillExportEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillExportEntry {
+    pub name: String,
+    pub url: String,
+    #[serde(default)]
+    pub description: String,
+}
+
+fn preview_skills(value: Value, source: &str) -> AppResult<ImportPreview> {
+    let bundle: SkillExportBundle = serde_json::from_value(value)
+        .map_err(|_| AppError::Config("Skill 导入结构无效".to_string()))?;
+    if bundle.skills.is_empty() {
+        return Err(AppError::Config("Skill 列表为空".to_string()));
+    }
+
+    let mut items = Vec::new();
+    for entry in &bundle.skills {
+        items.push(ImportPreviewItem {
+            name: entry.name.clone(),
+            summary: format!("GitHub Skill · {}", entry.url),
+            detail: serde_json::to_value(entry)?,
+        });
+    }
+
+    Ok(ImportPreview {
+        resource: ImportResource::Skill,
+        source: source.to_string(),
+        items,
+        warnings: Vec::new(),
+        payload: serde_json::to_value(bundle)?,
+    })
+}
+
+pub fn build_skill_share_link(name: &str, url: &str) -> AppResult<String> {
+    let payload = encode_payload(&serde_json::to_value(SkillExportBundle {
+        version: 1,
+        skills: vec![SkillExportEntry {
+            name: name.to_string(),
+            url: url.to_string(),
+            description: String::new(),
+        }],
+    })?)?;
+    Ok(format!(
+        "{DEEPLINK_SCHEME}://v1/import?resource=skill&payload={payload}"
+    ))
 }
 
 pub fn build_provider_share_link(entry: &ProviderExportEntry) -> AppResult<String> {

@@ -404,6 +404,56 @@ pub fn export_session(provider: SessionProvider, source_path: &str, destination_
     Ok(SessionArchiveInfo { archive_path: archive_path.to_string_lossy().into_owned(), session_id: manifest.session_id, created_at: manifest.created_at })
 }
 
+pub fn export_session_markdown(
+    provider: SessionProvider,
+    source_path: &str,
+    destination_dir: Option<&str>,
+) -> AppResult<String> {
+    let messages = load_session_messages(provider, source_path)?;
+    let (source, _) = validated_session(provider, source_path)?;
+    let meta = parse_session(provider, &source)?;
+
+    let title = meta
+        .as_ref()
+        .and_then(|m| m.title.as_deref())
+        .or_else(|| meta.as_ref().map(|m| m.session_id.as_str()))
+        .unwrap_or("Untitled Session");
+    let session_id = meta.as_ref().map(|m| m.session_id.as_str()).unwrap_or("unknown");
+    let project_dir = meta.as_ref().and_then(|m| m.project_dir.as_deref()).unwrap_or("N/A");
+
+    let mut md = String::new();
+    md.push_str(&format!("# Session: {title}\n\n"));
+    md.push_str(&format!("- **Provider**: {:?}\n", provider));
+    md.push_str(&format!("- **Session ID**: `{session_id}`\n"));
+    md.push_str(&format!("- **Project**: `{project_dir}`\n"));
+    if let Some(created_at) = meta.as_ref().and_then(|m| m.created_at) {
+        let dt = chrono::DateTime::from_timestamp_millis(created_at)
+            .map(|d| d.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+            .unwrap_or_default();
+        if !dt.is_empty() {
+            md.push_str(&format!("- **Created**: {dt}\n"));
+        }
+    }
+    md.push_str("\n---\n\n");
+
+    for msg in messages {
+        let role_label = match msg.role.as_str() {
+            "user" => "User",
+            "assistant" => "Assistant",
+            "system" => "System",
+            other => other,
+        };
+        md.push_str(&format!("### {role_label}\n\n{}\n\n", msg.content.trim()));
+    }
+
+    let dir = resolve_export_dir(destination_dir, "session-markdown")?;
+    let filename = format!("{}-{}.md", safe_session_name(session_id), chrono::Utc::now().timestamp());
+    let export_path = dir.join(filename);
+    fs::write(&export_path, md)?;
+
+    Ok(export_path.to_string_lossy().into_owned())
+}
+
 pub fn backup_sessions(provider: SessionProvider, source_paths: &[String]) -> AppResult<SessionBatchBackupInfo> {
     let source_paths = unique_session_paths(source_paths)?;
     let mut archives = Vec::with_capacity(source_paths.len());

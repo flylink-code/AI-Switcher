@@ -19,10 +19,12 @@ import CheckCircleOutlined from "@ant-design/icons/es/icons/CheckCircleOutlined"
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import FileAddOutlined from "@ant-design/icons/es/icons/FileAddOutlined";
+import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SaveOutlined from "@ant-design/icons/es/icons/SaveOutlined";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OnboardingTip } from "@/components/OnboardingTip";
@@ -31,11 +33,17 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { PromptDetail, PromptInfo, PromptTarget } from "@/types/backend";
 import {
   activatePrompt,
+  deletePiPromptTemplate,
   deletePrompt,
+  getWorkspacePiPrompt,
   importLivePrompt,
+  listPiPromptTemplates,
+  readPiPromptTemplate,
   readPrompt,
   renamePrompt,
+  savePiPromptTemplate,
   savePrompt,
+  saveWorkspacePiPrompt,
 } from "@/services/api";
 import { promptsOverviewOptions } from "@/lib/appQueries";
 
@@ -103,6 +111,88 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
   const [form] = Form.useForm<PromptFormValues>();
   const [importForm] = Form.useForm<{ name: string }>();
   const liveMeta = promptLiveMeta(target);
+
+  // Workspace prompt state
+  const [wsDir, setWsDir] = useState<string | null>(null);
+  const [wsFile, setWsFile] = useState<string>("AGENTS.md");
+  const [wsContent, setWsContent] = useState<string>("");
+  const [wsLoading, setWsLoading] = useState(false);
+  const [wsSaving, setWsSaving] = useState(false);
+
+  // Pi templates state
+  const piTemplatesQuery = useQuery({
+    queryKey: ["pi-prompt-templates"],
+    queryFn: () => listPiPromptTemplates(),
+    enabled: target === "pi",
+  });
+
+  const handleSelectWsDir = async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false, title: t("prompts.selectWsFolder", { defaultValue: "选择项目工作区目录" }) });
+      if (typeof selected === "string") {
+        setWsDir(selected);
+        setWsLoading(true);
+        const res = await getWorkspacePiPrompt(selected);
+        if (res) {
+          setWsFile(res[0]);
+          setWsContent(res[1]);
+        } else {
+          setWsFile("AGENTS.md");
+          setWsContent("# Project AGENTS.md\n\n");
+        }
+        setWsLoading(false);
+      }
+    } catch (e) {
+      void message.error(errMsg(e));
+      setWsLoading(false);
+    }
+  };
+
+  const handleSaveWsPrompt = async () => {
+    if (!wsDir) return;
+    setWsSaving(true);
+    try {
+      await saveWorkspacePiPrompt(wsDir, wsFile, wsContent);
+      void message.success(t("prompts.wsPromptSaved", { defaultValue: `项目 ${wsFile} 已成功保存` }));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setWsSaving(false);
+    }
+  };
+
+  const handleCreatePiTemplate = async () => {
+    const name = window.prompt(t("prompts.templateNamePrompt", { defaultValue: "请输入模板文件名 (例: code-review.md):" }), "template.md");
+    if (!name?.trim()) return;
+    try {
+      await savePiPromptTemplate(name.trim(), `# ${name}\n\n`);
+      void message.success(t("prompts.templateCreated", { defaultValue: "模板创建成功" }));
+      void piTemplatesQuery.refetch();
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
+  };
+
+  const handleEditPiTemplate = async (templateName: string) => {
+    try {
+      const content = await readPiPromptTemplate(templateName);
+      setEditing({ name: templateName, content, updatedAt: Date.now() });
+      form.setFieldsValue({ name: templateName, content });
+      setFormOpen(true);
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
+  };
+
+  const handleDeletePiTemplate = async (templateName: string) => {
+    try {
+      await deletePiPromptTemplate(templateName);
+      void message.success(t("prompts.templateDeleted", { defaultValue: "模板已删除" }));
+      void piTemplatesQuery.refetch();
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -258,6 +348,74 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
             />
           )}
         </Card>
+
+        <Card
+          size="small"
+          className="page-surface"
+          title={t("prompts.workspaceEditorTitle", { defaultValue: "项目级 Prompt 编辑器 (Workspace AGENTS.md / CLAUDE.md)" })}
+          extra={
+            <Space>
+              <Button icon={<FolderOpenOutlined />} onClick={() => void handleSelectWsDir()}>
+                {t("prompts.chooseWsDir", { defaultValue: "选择项目目录" })}
+              </Button>
+              {wsDir && (
+                <Button type="primary" icon={<SaveOutlined />} loading={wsSaving} onClick={() => void handleSaveWsPrompt()}>
+                  {t("common.save", { defaultValue: "保存" })}
+                </Button>
+              )}
+            </Space>
+          }
+        >
+          {wsDir ? (
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Text type="secondary">项目: {wsDir} ({wsFile})</Text>
+              <Input.TextArea
+                rows={8}
+                value={wsContent}
+                disabled={wsLoading}
+                onChange={(e) => setWsContent(e.target.value)}
+                style={{ fontFamily: "monospace" }}
+              />
+            </Space>
+          ) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={t("prompts.wsDirNotSelected", { defaultValue: "未选择项目目录。点击右上角「选择项目目录」即可可视化编辑项目的 AGENTS.md / CLAUDE.md / SYSTEM.md。" })}
+            />
+          )}
+        </Card>
+
+        {target === "pi" && (
+          <Card
+            size="small"
+            className="page-surface"
+            title={t("prompts.piTemplatesTitle", { defaultValue: "Pi Prompt 模板目录 (~/.pi/agent/prompts/)" })}
+            extra={
+              <Button icon={<FileAddOutlined />} onClick={() => void handleCreatePiTemplate()}>
+                {t("prompts.createTemplate", { defaultValue: "新建模板" })}
+              </Button>
+            }
+          >
+            <List
+              dataSource={piTemplatesQuery.data ?? []}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("prompts.noTemplates", { defaultValue: "暂无 Pi Prompt 模板" })} /> }}
+              renderItem={(tmpl) => (
+                <List.Item
+                  actions={[
+                    <Button key="edit" size="small" icon={<EditOutlined />} onClick={() => void handleEditPiTemplate(tmpl)}>
+                      {t("prompts.edit")}
+                    </Button>,
+                    <Popconfirm key="del" title={t("prompts.confirmDelete")} onConfirm={() => void handleDeletePiTemplate(tmpl)}>
+                      <Button size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>,
+                  ]}
+                >
+                  <List.Item.Meta title={tmpl} description="~/.pi/agent/prompts/" />
+                </List.Item>
+              )}
+            />
+          </Card>
+        )}
 
         <Card
           size="small"

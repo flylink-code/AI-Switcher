@@ -30,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import {
   backupSessions,
   exportSessions,
+  exportSessionMarkdown,
   loadSessionMessages,
   exportSession as exportSessionArchive,
   importSession as importSessionArchive,
@@ -429,6 +430,20 @@ export default function SessionsPage() {
     catch (reason) { void toast.error(reason instanceof Error ? reason.message : String(reason)); }
     finally { setSessionAction(false); }
   };
+
+  const exportMarkdown = async (session: SessionMeta) => {
+    const destinationDir = await selectExportDirectory();
+    if (!destinationDir) return;
+    setSessionAction(true);
+    try {
+      const path = await exportSessionMarkdown(session.provider, session.sourcePath, destinationDir);
+      void toast.success(t("sessions.exportedMarkdown", { path, defaultValue: `已导出 Markdown: ${path}` }));
+    } catch (reason) {
+      void toast.error(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSessionAction(false);
+    }
+  };
   const trashSession = async (session: SessionMeta) => {
     setSessionAction(true);
     try { await trashSessionArchive(session.provider, session.sourcePath); void toast.success(t("sessions.trashed")); await refresh(); }
@@ -698,6 +713,7 @@ export default function SessionsPage() {
               onQueryChange={setMessageQuery}
               onCopy={copyText}
               onExport={exportSession}
+              onExportMarkdown={exportMarkdown}
               onTrash={trashSession}
               actionPending={sessionAction}
               locale={locale}
@@ -739,6 +755,7 @@ function SessionDetail({
   onQueryChange,
   onCopy,
   onExport,
+  onExportMarkdown,
   onTrash,
   actionPending,
   locale,
@@ -750,6 +767,7 @@ function SessionDetail({
   onQueryChange: (value: string) => void;
   onCopy: (value: string, successKey: string) => Promise<void>;
   onExport: (session: SessionMeta) => Promise<void>;
+  onExportMarkdown: (session: SessionMeta) => Promise<void>;
   onTrash: (session: SessionMeta) => Promise<void>;
   actionPending: boolean;
   locale: string;
@@ -808,6 +826,7 @@ function SessionDetail({
             </Button>
           </Tooltip>
           <Button size="small" loading={actionPending} onClick={() => void onExport(session)}>{t("sessions.export")}</Button>
+          <Button size="small" loading={actionPending} onClick={() => void onExportMarkdown(session)}>{t("sessions.exportMarkdown", { defaultValue: "导出 Markdown" })}</Button>
           <Popconfirm title={t("sessions.confirmTrash")} onConfirm={() => void onTrash(session)}>
             <Button size="small" danger loading={actionPending}>{t("sessions.trash")}</Button>
           </Popconfirm>

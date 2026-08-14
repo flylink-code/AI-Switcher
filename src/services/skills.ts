@@ -22,6 +22,10 @@ import type {
   UnmanagedSkill,
 } from "@/types/backend";
 
+export async function buildSkillDeeplink(name: string, url: string): Promise<string> {
+  return call<string>("build_skill_deeplink", { name, url });
+}
+
 export async function listSkills(target?: SkillTarget): Promise<Skill[]> {
   return call<Skill[]>("list_skills", { target });
 }

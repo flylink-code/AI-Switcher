@@ -4,9 +4,11 @@ import {
   App,
   Badge,
   Button,
+  Card,
   Dropdown,
   Modal,
   Popconfirm,
+  Segmented,
   Space,
   Tag,
   Tooltip,
@@ -16,6 +18,7 @@ import {
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
+import MedicineBoxOutlined from "@ant-design/icons/es/icons/MedicineBoxOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import ExportOutlined from "@ant-design/icons/es/icons/ExportOutlined";
 import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
@@ -27,7 +30,7 @@ import SwapOutlined from "@ant-design/icons/es/icons/SwapOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CodexOauthDeviceStart, Provider, ProviderTarget } from "@/types/backend";
+import type { CodexOauthDeviceStart, Provider, ProviderDoctorReport, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
@@ -42,12 +45,16 @@ import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQu
 import { useNavigatePage } from "@/lib/navigation";
 import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
+  batchDiagnoseProviders,
   ensureCodexOauthProvider,
   getAntigravityGatewayStatus,
   getCodexAuthStatus,
   getPaths,
+  getPiSettings,
   pollCodexOauthLogin,
+  quarantineFailedProviders,
   startCodexOauthLogin,
+  updatePiSettings,
 } from "@/services/api";
 
 const { Text } = Typography;
@@ -75,6 +82,67 @@ export default function ProvidersPage() {
   const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
   const [oauthPolling, setOauthPolling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [doctorModalOpen, setDoctorModalOpen] = useState(false);
+  const [doctorLoading, setDoctorLoading] = useState(false);
+  const [doctorReports, setDoctorReports] = useState<ProviderDoctorReport[]>([]);
+  const [quarantining, setQuarantining] = useState(false);
+  const [piThinkingLevel, setPiThinkingLevel] = useState<string>("medium");
+
+  const piSettingsQuery = useQuery({
+    queryKey: ["pi-settings"],
+    queryFn: async () => {
+      const res = await getPiSettings();
+      if (typeof res.defaultThinkingLevel === "string") {
+        setPiThinkingLevel(res.defaultThinkingLevel);
+      }
+      return res;
+    },
+    enabled: target === "pi",
+  });
+
+  const handleRunDoctor = async () => {
+    setDoctorLoading(true);
+    try {
+      const reports = await batchDiagnoseProviders(target);
+      setDoctorReports(reports);
+      setDoctorModalOpen(true);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setDoctorLoading(false);
+    }
+  };
+
+  const handleQuarantineFailed = async () => {
+    const failedIds = doctorReports.filter((r) => !r.ok && (r.category === "authentication" || r.statusCode === 401 || r.statusCode === 403)).map((r) => r.providerId);
+    if (!failedIds.length) {
+      void message.info(t("providers.noFailedToQuarantine", { defaultValue: "没有发现需要隔离的 401/403 鉴权异常节点" }));
+      return;
+    }
+    setQuarantining(true);
+    try {
+      const count = await quarantineFailedProviders(failedIds);
+      void message.success(t("providers.quarantinedSuccess", { count, defaultValue: `已成功隔离 ${count} 个失效节点` }));
+      setDoctorModalOpen(false);
+      await store.load(target);
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setQuarantining(false);
+    }
+  };
+
+  const handleUpdatePiThinkingLevel = async (level: string) => {
+    setPiThinkingLevel(level);
+    try {
+      await updatePiSettings(null, null, level);
+      void message.success(t("providers.piThinkingLevelUpdated", { defaultValue: `已设置 Pi 思考强度为: ${level}` }));
+      void piSettingsQuery.refetch();
+    } catch (e) {
+      void message.error(errMsg(e));
+    }
+  };
 
   const {
     busy,
@@ -311,6 +379,13 @@ export default function ProvidersPage() {
           >
             {t("providers.speedtestAll")}
           </Button>
+          <Button
+            icon={<MedicineBoxOutlined />}
+            loading={doctorLoading}
+            onClick={() => void handleRunDoctor()}
+          >
+            {t("providers.providerDoctor", { defaultValue: "供应商诊断 (Doctor)" })}
+          </Button>
           <Dropdown menu={{ items: importExportItems }} trigger={["click"]}>
             <Button icon={<ImportOutlined />} loading={oauthPolling}>
               {t("providers.importExport")}
@@ -352,16 +427,41 @@ export default function ProvidersPage() {
         />
       )}
       {target === "pi" && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-          message={
-            <span style={{ fontSize: "12.5px" }}>
-              <strong>{t("providers.piNoSwitchTitle")}</strong> — {t("providers.piNoSwitchDescription")}
-            </span>
-          }
-        />
+        <>
+          <Alert
+            type="info"
+            showIcon
+            style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+            message={
+              <span style={{ fontSize: "12.5px" }}>
+                <strong>{t("providers.piNoSwitchTitle")}</strong> — {t("providers.piNoSwitchDescription")}
+              </span>
+            }
+          />
+          <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space>
+                <strong>{t("providers.piThinkingLevelTitle", { defaultValue: "Pi 默认思考强度 (Thinking Level)" })}</strong>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.piThinkingLevelHint", { defaultValue: "控制 Pi 模型 Reasoning/Thinking 思考过程" })}
+                </Text>
+              </Space>
+              <Segmented
+                value={piThinkingLevel}
+                onChange={(val) => void handleUpdatePiThinkingLevel(String(val))}
+                options={[
+                  { label: "关闭 (off)", value: "off" },
+                  { label: "极低 (minimal)", value: "minimal" },
+                  { label: "低 (low)", value: "low" },
+                  { label: "中 (medium)", value: "medium" },
+                  { label: "高 (high)", value: "high" },
+                  { label: "超高 (xhigh)", value: "xhigh" },
+                  { label: "最大 (max)", value: "max" },
+                ]}
+              />
+            </Space>
+          </Card>
+        </>
       )}
       {target === "codex" && (
         <OnboardingTip
@@ -624,6 +724,55 @@ export default function ProvidersPage() {
             {t("providers.openChatgptLogin")}
           </Button>
           {oauthPolling && <Text type="secondary">{t("providers.waitingAuthorization")}</Text>}
+        </Space>
+      </Modal>
+      <Modal
+        open={doctorModalOpen}
+        title={t("providers.doctorReportTitle", { defaultValue: "供应商健康与诊断报告 (Provider Doctor)" })}
+        width={720}
+        onCancel={() => setDoctorModalOpen(false)}
+        footer={[
+          <Button key="close" onClick={() => setDoctorModalOpen(false)}>
+            {t("common.close", { defaultValue: "关闭" })}
+          </Button>,
+          <Button
+            key="quarantine"
+            type="primary"
+            danger
+            loading={quarantining}
+            disabled={!doctorReports.some((r) => !r.ok && (r.category === "authentication" || r.statusCode === 401 || r.statusCode === 403))}
+            onClick={() => void handleQuarantineFailed()}
+          >
+            {t("providers.quarantineFailed", { defaultValue: "一键隔离 401/403 失效节点" })}
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Alert
+            type="info"
+            showIcon
+            message={t("providers.doctorTip", { defaultValue: "诊断测速每个供应商节点的连通性与 401/403 鉴权状态。隔离节点后将不会作为故障切换备选。" })}
+          />
+          {doctorReports.map((report) => (
+            <Card key={report.providerId} size="small" style={{ marginBottom: 8 }}>
+              <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space>
+                  <Tag color={report.ok ? "success" : report.statusCode === 401 || report.statusCode === 403 ? "error" : "warning"}>
+                    {report.ok ? "健康 OK" : report.statusCode ? `HTTP ${report.statusCode}` : report.category}
+                  </Tag>
+                  <strong>{report.providerName}</strong>
+                  <Tag>{report.targetApp}</Tag>
+                  {report.quarantined && <Tag color="default">已隔离</Tag>}
+                </Space>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {report.latencyMs ? `${report.latencyMs} ms` : "—"}
+                </Text>
+              </Space>
+              <div style={{ fontSize: 12, color: report.ok ? "#52c41a" : "#ff4d4f", marginTop: 4 }}>
+                {report.message}
+              </div>
+            </Card>
+          ))}
         </Space>
       </Modal>
     </Space>

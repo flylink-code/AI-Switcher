@@ -65,7 +65,27 @@ pub fn confirm_import_preview(
             }
             Ok(import_result_label(ImportResource::Mcp, imported, skipped))
         }
+        ImportResource::Skill => {
+            let bundle: deeplink::SkillExportBundle = serde_json::from_value(preview.payload.clone())
+                .map_err(|_| AppError::Config("Skill 预览 payload 无效".to_string()))?;
+            let mut imported = 0usize;
+            let mut skipped = 0usize;
+            for entry in bundle.skills {
+                if !entry.url.trim().is_empty() {
+                    let _ = crate::skills::install_github_skill(&entry.url, crate::skills::SkillTarget::ClaudeCode);
+                    imported += 1;
+                } else {
+                    skipped += 1;
+                }
+            }
+            Ok(import_result_label(ImportResource::Skill, imported, skipped))
+        }
     }
+}
+
+#[tauri::command]
+pub fn build_skill_deeplink(name: String, url: String) -> AppResult<String> {
+    deeplink::build_skill_share_link(&name, &url)
 }
 
 #[tauri::command]

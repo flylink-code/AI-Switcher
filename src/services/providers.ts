@@ -10,6 +10,7 @@ import type {
   ImportPreview,
   ModelDiscoveryResult,
   Provider,
+  ProviderDoctorReport,
   ProviderImportResult,
   ProviderInput,
   ProviderTarget,
@@ -98,6 +99,17 @@ export async function speedtestProviderEndpoint(id: string): Promise<EndpointSpe
 export async function testProviderInput(input: ProviderInput): Promise<ConnectionTestResult> {
   return call<ConnectionTestResult>("test_provider_input", { input });
 }
+
+export async function batchDiagnoseProviders(
+  target?: ProviderTarget | null,
+): Promise<ProviderDoctorReport[]> {
+  return call<ProviderDoctorReport[]>("batch_diagnose_providers", { target: target ?? null });
+}
+
+export async function quarantineFailedProviders(providerIds: string[]): Promise<number> {
+  return call<number>("quarantine_failed_providers", { providerIds });
+}
+
 
 export async function discoverProviderModels(id: string): Promise<ModelDiscoveryResult> {
   return call<ModelDiscoveryResult>("discover_provider_models", { id });

@@ -51,6 +51,12 @@ pub async fn export_session(provider: SessionProvider, source_path: String, dest
 }
 
 #[tauri::command]
+pub async fn export_session_markdown(provider: SessionProvider, source_path: String, destination_dir: Option<String>) -> AppResult<String> {
+    tauri::async_runtime::spawn_blocking(move || session_manager::export_session_markdown(provider, &source_path, destination_dir.as_deref()))
+        .await.map_err(|error| AppError::Tauri(format!("会话 Markdown 导出任务失败: {error}")))?
+}
+
+#[tauri::command]
 pub async fn backup_sessions(provider: SessionProvider, source_paths: Vec<String>) -> AppResult<SessionBatchBackupInfo> {
     tauri::async_runtime::spawn_blocking(move || session_manager::backup_sessions(provider, &source_paths))
         .await.map_err(|error| AppError::Tauri(format!("会话批量备份任务失败: {error}")))?

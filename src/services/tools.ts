@@ -40,6 +40,25 @@ export async function runPiCliUpdate(): Promise<string> {
   return call<string>("install_pi_cli", {});
 }
 
+export async function getPiSettings(): Promise<Record<string, unknown>> {
+  return call<Record<string, unknown>>("get_pi_settings", {});
+}
+
+export async function updatePiSettings(
+  defaultProvider?: string | null,
+  defaultModel?: string | null,
+  defaultThinkingLevel?: string | null,
+  extraPatch?: Record<string, unknown> | null,
+): Promise<void> {
+  return call<void>("update_pi_settings", {
+    defaultProvider: defaultProvider ?? null,
+    defaultModel: defaultModel ?? null,
+    defaultThinkingLevel: defaultThinkingLevel ?? null,
+    extraPatch: extraPatch ?? null,
+  });
+}
+
+
 export async function getOpenCodeDesktopStatus(): Promise<OpenCodeDesktopStatus> {
   return call<OpenCodeDesktopStatus>("get_opencode_desktop_status", {});
 }

@@ -50,6 +50,7 @@ import {
   deleteModelPricing,
   exportModelPricingXlsx,
   importModelPricingXlsx,
+  listAntigravityAccounts,
   maintainProxyLogs,
   previewProxyLogMaintenance,
   previewModelPricingXlsx,
@@ -319,6 +320,24 @@ export default function UsagePage() {
   const isClaudeCodeOnly = logTargetApp === "claude_code";
   const includesPi = visibleAgents.includes("pi") && (logTargetApp === "all" || logTargetApp === "pi");
   const isPiOnly = logTargetApp === "pi";
+
+  const agAccountsQuery = useQuery({
+    queryKey: ["antigravity-accounts"],
+    queryFn: () => listAntigravityAccounts(),
+  });
+
+  const agAccountMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const acc of agAccountsQuery.data ?? []) {
+      if (acc.id) {
+        map[acc.id] = acc.email || acc.name || acc.id;
+      }
+      if (acc.email) {
+        map[acc.email] = acc.email;
+      }
+    }
+    return map;
+  }, [agAccountsQuery.data]);
   const localClaude = dashboard?.localClaudeCode;
   const emptyClaudeCode = includesClaudeCode && (summary?.requestCount ?? 0) === 0;
   const narrowPeriod = period === "today" || period === "24h";
@@ -556,12 +575,16 @@ export default function UsagePage() {
               title: t("usage.logProvider"),
               dataIndex: "providerName",
               ellipsis: true,
-              render: (v: string | null, row: PaginatedProxyLogs["data"][number]) =>
-                row.dataSource === "codex_session"
-                  ? t("usage.codexSessionSource")
-                  : row.dataSource === "opencode_session"
-                    ? t("usage.opencodeSessionSource")
-                    : (v ?? "—"),
+              render: (v: string | null, row: PaginatedProxyLogs["data"][number]) => {
+                if (row.dataSource === "codex_session") return t("usage.codexSessionSource");
+                if (row.dataSource === "opencode_session") return t("usage.opencodeSessionSource");
+                if (row.targetApp === "antigravity") {
+                  const rawId = row.providerId;
+                  const resolvedEmail = rawId ? (agAccountMap[rawId] || rawId) : null;
+                  return resolvedEmail ? `Antigravity (${resolvedEmail})` : (v ?? "Antigravity");
+                }
+                return v ?? "—";
+              },
             },
             {
               title: t("usage.model"),

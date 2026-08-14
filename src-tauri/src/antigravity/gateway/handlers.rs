@@ -203,6 +203,7 @@ async fn dispatch_generation(
     let started = Instant::now();
     let session_key = session_key_from_headers(headers);
     let mut exclude: Vec<String> = Vec::new();
+    let mut exclude_labels: Vec<String> = Vec::new();
     let mut last_error = String::from("upstream failed");
 
     for hop in 0..MAX_FAILOVER_HOPS {
@@ -229,6 +230,8 @@ async fn dispatch_generation(
             }
         };
         exclude.push(account.id.clone());
+        let account_email = if account.email.trim().is_empty() { account.id.clone() } else { account.email.clone() };
+        exclude_labels.push(account_email);
 
         let project_id = match ensure_project_id(
             state,
@@ -320,9 +323,10 @@ async fn dispatch_generation(
         }
 
         state.pool.note_success(&account.id);
+        let account_label = if account.email.trim().is_empty() { account.id.as_str() } else { account.email.as_str() };
         let log_id = usage_log::insert_request(
             &state.db,
-            Some(&account.id),
+            Some(account_label),
             &model,
             Some(status.as_u16() as i64),
             started,
@@ -338,7 +342,7 @@ async fn dispatch_generation(
                 protocol,
                 state.db.clone(),
                 log_id,
-                Some(account.id.clone()),
+                Some(account_label.to_string()),
                 session_key.clone(),
                 thoughts_allowed,
                 tool_params,
@@ -349,7 +353,7 @@ async fn dispatch_generation(
             Ok(value) => {
                 let gemini = unwrap_v1internal(&value);
                 if let Some(id) = log_id.as_deref() {
-                    usage_log::update_usage_from_gemini(&state.db, id, Some(&account.id), &gemini);
+                    usage_log::update_usage_from_gemini(&state.db, id, Some(account_label), &gemini);
                 }
                 match protocol {
                     WireProtocol::Anthropic => {
@@ -382,7 +386,7 @@ async fn dispatch_generation(
     let clipped_error: String = last_error.chars().take(400).collect();
     let _ = usage_log::insert_request(
         &state.db,
-        exclude.last().map(String::as_str),
+        exclude_labels.last().map(String::as_str),
         &model,
         Some(StatusCode::BAD_GATEWAY.as_u16() as i64),
         started,

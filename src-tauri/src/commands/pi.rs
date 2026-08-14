@@ -124,6 +124,54 @@ pub async fn save_workspace_pi_prompt(
 }
 
 #[tauri::command]
+pub async fn list_pi_prompt_templates() -> AppResult<Vec<String>> {
+    let dir = crate::coding::pi::config::get_pi_dir().join("prompts");
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut names = Vec::new();
+    let entries = std::fs::read_dir(&dir).map_err(|e| AppError::Io(e.to_string()))?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+#[tauri::command]
+pub async fn read_pi_prompt_template(name: String) -> AppResult<String> {
+    let path = crate::coding::pi::config::get_pi_dir().join("prompts").join(&name);
+    if !path.exists() {
+        return Err(AppError::Config(format!("模板不存在: {name}")));
+    }
+    std::fs::read_to_string(&path).map_err(|e| AppError::Io(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn save_pi_prompt_template(name: String, content: String) -> AppResult<()> {
+    let dir = crate::coding::pi::config::get_pi_dir().join("prompts");
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir).map_err(|e| AppError::Io(e.to_string()))?;
+    }
+    let path = dir.join(&name);
+    std::fs::write(&path, content).map_err(|e| AppError::Io(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn delete_pi_prompt_template(name: String) -> AppResult<()> {
+    let path = crate::coding::pi::config::get_pi_dir().join("prompts").join(&name);
+    if path.exists() {
+        std::fs::remove_file(&path).map_err(|e| AppError::Io(e.to_string()))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn list_pi_sessions() -> AppResult<Vec<PiSessionItem>> {
     scan_pi_sessions_sync()
 }

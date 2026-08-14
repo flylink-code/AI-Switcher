@@ -72,7 +72,7 @@ pub use backup::{
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
 pub use deeplink::{
-    build_mcp_deeplink, build_provider_deeplink, confirm_import_preview, preview_import_text,
+    build_mcp_deeplink, build_provider_deeplink, build_skill_deeplink, confirm_import_preview, preview_import_text,
 };
 pub use doctor::{
     repair_doctor_check, repair_environment_visibility, run_environment_doctor,
@@ -108,13 +108,13 @@ pub use sessions::{
     import_claude_code_session, load_session_messages,
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
     trash_claude_code_session,
-    backup_sessions, export_session, export_sessions, import_session, list_trashed_sessions,
+    backup_sessions, export_session, export_session_markdown, export_sessions, import_session, list_trashed_sessions,
     restore_trashed_session, trash_session,
 };
 pub use providers::{
-    copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
+    batch_diagnose_providers, copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_cached_provider_models, get_current_provider, import_live_config, import_providers_json,
-    list_providers, reorder_providers, speedtest_provider_endpoint, switch_provider, switch_to_official,
+    list_providers, quarantine_failed_providers, reorder_providers, speedtest_provider_endpoint, switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
 };
 pub use proxy::{
@@ -142,9 +142,9 @@ pub use sync::{
 };
 pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
 pub use pi::{
-    detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
-    get_workspace_pi_prompt, install_pi_cli, list_pi_sessions, read_pi_session_detail,
-    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_workspace_pi_prompt,
+    delete_pi_prompt_template, detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
+    get_workspace_pi_prompt, install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template, read_pi_session_detail,
+    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_pi_prompt_template, save_workspace_pi_prompt,
     update_pi_settings,
 };
 pub use tools::{

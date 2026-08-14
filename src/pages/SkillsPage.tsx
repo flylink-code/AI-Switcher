@@ -30,6 +30,7 @@ import type { RepositorySkill, Skill, SkillRepositorySnapshot, SkillTarget, Skil
 import {
   addSkillRepository,
   deleteSkill,
+  buildSkillDeeplink,
   checkSkillUpdate,
   checkSkillUpdates,
   ignoreUnmanagedSkill,
@@ -248,6 +249,17 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
       void message.error(errMsg(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleShareSkill = async (skill: Skill) => {
+    try {
+      const url = skill.source?.sourceUrl || `https://github.com/anthropics/skills/tree/main/${skill.name}`;
+      const link = await buildSkillDeeplink(skill.name, url);
+      await navigator.clipboard.writeText(link);
+      void message.success(t("deeplink.linkCopied"));
+    } catch (e) {
+      void message.error(errMsg(e));
     }
   };
 
@@ -484,7 +496,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
             { title: t("skills.source"), render: (_: unknown, skill: Skill) => skill.source?.sourceUrl ? <Text copyable={{ text: skill.source.sourceUrl }} ellipsis style={{ maxWidth: 220 }}>{skill.source.sourceUrl}</Text> : <Text type="secondary">—</Text> },
             { title: t("skills.enabled"), render: (_: unknown, skill: Skill) => <Switch checked={skill.enabled} disabled={busy} onChange={(checked) => void toggle(skill, checked)} /> },
             { title: t("skills.updateStatus"), render: (_: unknown, skill: Skill) => <SkillStatus status={updateStatuses[skill.name]} t={t} /> },
-            { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Space size="small"><Button type="link" loading={checkingSkill === skill.name} disabled={busy || !skill.source} onClick={() => void checkUpdate(skill)}>{t("skills.checkUpdate")}</Button>{updateStatuses[skill.name]?.status === "update_available" && <Button type="link" disabled={busy} onClick={() => confirmUpdates([skill.name])}>{t("skills.updateSelected", { count: 1 })}</Button>}<Button danger type="link" icon={<DeleteOutlined />} disabled={busy} onClick={() => void remove(skill)}>{t("skills.delete")}</Button></Space> },
+            { title: t("skills.actions"), render: (_: unknown, skill: Skill) => <Space size="small"><Button type="link" loading={checkingSkill === skill.name} disabled={busy || !skill.source} onClick={() => void checkUpdate(skill)}>{t("skills.checkUpdate")}</Button>{updateStatuses[skill.name]?.status === "update_available" && <Button type="link" disabled={busy} onClick={() => confirmUpdates([skill.name])}>{t("skills.updateSelected", { count: 1 })}</Button>}<Button type="link" disabled={busy} onClick={() => void handleShareSkill(skill)}>{t("deeplink.shareLink")}</Button><Button danger type="link" icon={<DeleteOutlined />} disabled={busy} onClick={() => void remove(skill)}>{t("skills.delete")}</Button></Space> },
           ]}
         />
       </Card>
