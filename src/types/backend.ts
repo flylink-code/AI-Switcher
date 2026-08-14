@@ -4,7 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
-export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
 export interface ClaudeModelMapping {
@@ -940,6 +940,20 @@ export interface OpenCodeCliVersionInfo {
 }
 
 export interface PiCliVersionInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
+}
+
+export interface DshCliVersionInfo {
   installed: boolean;
   currentVersion: string | null;
   latestVersion: string | null;

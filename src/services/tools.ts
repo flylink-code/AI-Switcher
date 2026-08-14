@@ -2,6 +2,7 @@ import { call } from "./ipc";
 import type {
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
+  DshCliVersionInfo,
   NodeRuntimeStatus,
   OpenCodeCliVersionInfo,
   OpenCodeDesktopStatus,
@@ -38,6 +39,14 @@ export async function getPiCliVersion(includeLatest = true): Promise<PiCliVersio
 
 export async function runPiCliUpdate(): Promise<string> {
   return call<string>("install_pi_cli", {});
+}
+
+export async function getDshCliVersion(includeLatest = true): Promise<DshCliVersionInfo> {
+  return call<DshCliVersionInfo>("get_dsh_cli_version", { includeLatest });
+}
+
+export async function runDshCliUpdate(): Promise<string> {
+  return call<string>("run_dsh_cli_update", {});
 }
 
 export async function getPiSettings(): Promise<Record<string, unknown>> {

@@ -1764,6 +1764,231 @@ pub async fn get_opencode_desktop_status() -> AppResult<OpenCodeDesktopStatus> {
         .map_err(|error| AppError::Other(format!("OpenCode Desktop 检测任务失败: {error}")))?
 }
 
+// ---- DeepSeek Harness (dsh) CLI ---------------------------------------------
+
+const DSH_NPM_PACKAGE: &str = "@deepseek-ai/dsh";
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DshCliVersionInfo {
+    pub installed: bool,
+    pub current_version: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub install_command: String,
+    pub update_command: String,
+    pub error: Option<String>,
+    pub executable_path: Option<String>,
+    pub source: Option<String>,
+    pub environment: String,
+    pub installed_but_broken: bool,
+}
+
+fn dsh_install_command() -> String {
+    format!("npm i -g {DSH_NPM_PACKAGE}@latest")
+}
+
+fn dsh_executable_candidates(dir: &Path) -> Vec<PathBuf> {
+    #[cfg(windows)]
+    {
+        vec![
+            dir.join("dsh.cmd"),
+            dir.join("dsh.exe"),
+            dir.join("dsh.bat"),
+            dir.join("dsh"),
+        ]
+    }
+    #[cfg(not(windows))]
+    {
+        vec![dir.join("dsh")]
+    }
+}
+
+fn dsh_candidate_dirs() -> Vec<PathBuf> {
+    let mut dirs = candidate_dirs();
+    let home = crate::config::get_home_dir();
+    push_unique_front(&mut dirs, home.join(".dsh").join("bin"));
+    push_unique_front(&mut dirs, home.join(".cache").join("dsh").join("bin"));
+    if let Some(login_path) = resolve_command_via_login_shell("dsh") {
+        if let Some(parent) = login_path.parent() {
+            push_unique_front(&mut dirs, parent.to_path_buf());
+        }
+    }
+    dirs
+}
+
+fn probe_dsh_installation() -> Probe {
+    let mut seen = HashSet::new();
+    let mut broken: Option<(Installation, String)> = None;
+    for dir in dsh_candidate_dirs() {
+        for path in dsh_executable_candidates(&dir) {
+            if !path.is_file() {
+                continue;
+            }
+            let real = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+            if !seen.insert(real) {
+                continue;
+            }
+            let installation = Installation {
+                path: path.display().to_string(),
+                version: None,
+                source: infer_source(&path),
+                environment: if cfg!(windows) { "windows" } else { "native" }.to_string(),
+                wsl_distro: None,
+            };
+            match run_local_tool(&path) {
+                Ok(output) if output.status.success() => {
+                    let stdout = decode_output(&output.stdout);
+                    let stderr = decode_output(&output.stderr);
+                    let raw = if stdout.trim().is_empty() { &stderr } else { &stdout };
+                    if let Some(version) = parse_version(raw) {
+                        return Probe::Found(Installation {
+                            version: Some(version),
+                            ..installation
+                        });
+                    }
+                    if broken.is_none() {
+                        broken = Some((installation, "DeepSeek Harness CLI returned no version".to_string()));
+                    }
+                }
+                Ok(output) if broken.is_none() => {
+                    broken = Some((installation, output_detail(&output)));
+                }
+                Err(error) if broken.is_none() => {
+                    broken = Some((installation, error.to_string()));
+                }
+                _ => {}
+            }
+        }
+    }
+    match broken {
+        Some((installation, error)) => Probe::Broken(installation, error),
+        None => Probe::NotFound("DeepSeek Harness (dsh) CLI executable was not found".to_string()),
+    }
+}
+
+async fn fetch_dsh_npm_latest() -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .ok()?;
+    let url = format!("https://registry.npmjs.org/{DSH_NPM_PACKAGE}/latest");
+    let response = client.get(url).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let text = response.text().await.ok()?;
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()?
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+}
+
+fn dsh_update_command_for(installation: Option<&Installation>) -> String {
+    let Some(installation) = installation else {
+        return dsh_install_command();
+    };
+    let npm = find_command_near("npm", installation);
+    format!(
+        "{} i -g {DSH_NPM_PACKAGE}@latest",
+        quoted(&npm.display().to_string())
+    )
+}
+
+fn run_dsh_install_or_update() -> AppResult<Output> {
+    let runtime = crate::commands::node_runtime::require_node_for_npm()?;
+    let probe = probe_dsh_installation();
+    let output = match probe {
+        Probe::Found(installation) | Probe::Broken(installation, _) => {
+            let program = find_command_near("npm", &installation);
+            let npm = if program.is_file() {
+                program
+            } else {
+                runtime.npm_path.clone()
+            };
+            let output = crate::commands::node_runtime::run_anchored_npm_global_install(
+                &npm,
+                &runtime.node_path,
+                &format!("{DSH_NPM_PACKAGE}@latest"),
+            )
+            .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")))?;
+            ensure_npm_cli_after_install(&runtime.node_path, &npm, "dsh", output)
+        }
+        Probe::NotFound(_) => {
+            let output = crate::commands::node_runtime::run_anchored_npm_global_install(
+                &runtime.npm_path,
+                &runtime.node_path,
+                &format!("{DSH_NPM_PACKAGE}@latest"),
+            )
+            .map_err(|error| AppError::Other(format!("无法执行 npm 安装: {error}")))?;
+            ensure_npm_cli_after_install(&runtime.node_path, &runtime.npm_path, "dsh", output)
+        }
+    };
+    Ok(output)
+}
+
+#[tauri::command]
+pub async fn get_dsh_cli_version(include_latest: Option<bool>) -> AppResult<DshCliVersionInfo> {
+    let probe_task = tokio::task::spawn_blocking(probe_dsh_installation);
+    let (probe_result, latest_version) = if include_latest.unwrap_or(true) {
+        let (probe_result, latest_version) = tokio::join!(probe_task, fetch_dsh_npm_latest());
+        (probe_result, latest_version)
+    } else {
+        (probe_task.await, None)
+    };
+    let probe = probe_result
+        .map_err(|error| AppError::Other(format!("DeepSeek Harness CLI version probe failed: {error}")))?;
+
+    let (installation, error, installed_but_broken) = match &probe {
+        Probe::Found(installation) => (Some(installation), None, false),
+        Probe::Broken(installation, error) => (Some(installation), Some(error.clone()), true),
+        Probe::NotFound(error) => (None, Some(error.clone()), false),
+    };
+    let current_version = installation.and_then(|value| value.version.clone());
+    let has_update = current_version
+        .as_deref()
+        .zip(latest_version.as_deref())
+        .is_some_and(|(current, latest)| update_available(current, latest));
+
+    Ok(DshCliVersionInfo {
+        installed: installation.is_some(),
+        current_version,
+        latest_version,
+        update_available: has_update,
+        install_command: dsh_install_command(),
+        update_command: dsh_update_command_for(installation),
+        error,
+        executable_path: installation.map(|value| value.path.clone()),
+        source: installation.map(|value| value.source.clone()),
+        environment: installation
+            .map(|value| value.environment.clone())
+            .unwrap_or_else(|| if cfg!(windows) { "windows" } else { "native" }.to_string()),
+        installed_but_broken,
+    })
+}
+
+#[tauri::command]
+pub async fn run_dsh_cli_update() -> AppResult<String> {
+    let result = tokio::task::spawn_blocking(run_dsh_install_or_update)
+        .await
+        .map_err(|error| AppError::Other(format!("更新任务异常结束: {error}")))?;
+
+    let output = result?;
+    if output.status.success() {
+        let stdout = decode_output(&output.stdout).trim().to_string();
+        Ok(if stdout.is_empty() {
+            "DeepSeek Harness CLI 更新完成".to_string()
+        } else {
+            stdout
+        })
+    } else {
+        Err(AppError::Config(map_cli_install_error(&output_detail(
+            &output,
+        ))))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

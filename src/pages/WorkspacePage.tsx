@@ -19,6 +19,7 @@ const AGENT_SUPPORTED_TABS: Record<ProviderTarget, PageKey[]> = {
   codex: ["mcp", "prompts", "skills", "agents", "plugins"],
   opencode: ["mcp", "prompts"],
   pi: ["mcp", "prompts", "skills"],
+  dsh: ["mcp", "prompts"],
 };
 
 const WORKSPACE_PAGES: PageKey[] = [

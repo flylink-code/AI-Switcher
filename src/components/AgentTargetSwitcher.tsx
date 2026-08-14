@@ -5,7 +5,7 @@ import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSour
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
-export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
+export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"];
 
 export const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
@@ -13,6 +13,7 @@ export const LABEL_KEYS: Record<ProviderTarget, string> = {
   codex: "workspace.codex",
   opencode: "workspace.opencode",
   pi: "workspace.pi",
+  dsh: "workspace.dsh",
 };
 
 const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
@@ -21,6 +22,7 @@ const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
   codex: "agentSwitcher.codex",
   opencode: "agentSwitcher.opencode",
   pi: "agentSwitcher.pi",
+  dsh: "agentSwitcher.dsh",
 };
 
 export interface AgentTargetSwitcherProps {

@@ -119,6 +119,15 @@ export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps)
   );
 }
 
+/** DeepSeek Harness icon. */
+export function DshIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: "#0066FF", ...style }}>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l7 4.5-7 4.5z" />
+    </SvgShell>
+  );
+}
+
 export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): ReactNode {
   switch (source) {
     case "all":
@@ -133,6 +142,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <OpenCodeTerminalIcon {...props} />;
     case "pi":
       return <PiIcon {...props} />;
+    case "dsh":
+      return <DshIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
     default: {

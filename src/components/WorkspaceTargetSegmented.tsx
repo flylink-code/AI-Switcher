@@ -6,7 +6,7 @@ import {
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
-const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
+const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"];
 
 const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
@@ -14,6 +14,7 @@ const LABEL_KEYS: Record<ProviderTarget, string> = {
   codex: "workspace.codex",
   opencode: "workspace.opencode",
   pi: "workspace.pi",
+  dsh: "workspace.dsh",
 };
 
 type Props<T extends ProviderTarget> = {

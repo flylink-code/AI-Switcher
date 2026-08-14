@@ -60,7 +60,7 @@ const DEFAULTS: Pick<
   | "sessionsProvider"
   | "workbenchView"
 > = {
-  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi"],
+  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"],
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
@@ -73,7 +73,7 @@ const DEFAULTS: Pick<
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
-  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode" || value === "pi";
+  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh";
 }
 
 function isSessionProvider(value: unknown): value is SessionProvider {

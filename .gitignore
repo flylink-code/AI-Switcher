@@ -42,9 +42,7 @@ Thumbs.db
 # ~/.claude-switcher/ lives outside the repo, but ignore any stray copies.
 .claude-switcher/
 
-task.md
 photo
-bug.md
 CLAUDE.md
 AGENTS.md
 ui-test.html

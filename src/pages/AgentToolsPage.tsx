@@ -20,14 +20,17 @@ import {
   ensureNodeRuntimeViaFnm,
   runClaudeCodeUpdate,
   runCodexCliUpdate,
+  runDshCliUpdate,
   runOpenCodeCliUpdate,
   runPiCliUpdate,
 } from "@/services/api";
 import {
   claudeVersionOptions,
   codexCliVersionOptions,
+  dshCliVersionOptions,
   localClaudeVersionOptions,
   localCodexCliVersionOptions,
+  localDshCliVersionOptions,
   localOpenCodeCliVersionOptions,
   localPiCliVersionOptions,
   nodeRuntimeStatusOptions,
@@ -37,6 +40,7 @@ import {
 import type {
   ClaudeCodeVersionInfo,
   CodexCliVersionInfo,
+  DshCliVersionInfo,
   NodeRuntimeStatus,
   OpenCodeCliVersionInfo,
   PiCliVersionInfo,
@@ -96,6 +100,7 @@ export default function AgentToolsPage() {
   const [updatingCodex, setUpdatingCodex] = useState(false);
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
   const [updatingPi, setUpdatingPi] = useState(false);
+  const [updatingDsh, setUpdatingDsh] = useState(false);
   const [installingNode, setInstallingNode] = useState(false);
 
   const nodeRuntimeQuery = useQuery(nodeRuntimeStatusOptions);
@@ -124,6 +129,12 @@ export default function AgentToolsPage() {
     placeholderData: () => localPiQuery.data,
   });
   const piInfo = piQuery.data ?? localPiQuery.data ?? null;
+  const localDshQuery = useQuery(localDshCliVersionOptions);
+  const dshQuery = useQuery({
+    ...dshCliVersionOptions,
+    placeholderData: () => localDshQuery.data,
+  });
+  const dshInfo = dshQuery.data ?? localDshQuery.data ?? null;
 
   const refreshNodeRuntime = async () => {
     await queryClient.invalidateQueries({ queryKey: ["node-runtime-status"] });
@@ -272,6 +283,27 @@ export default function AgentToolsPage() {
         void message.error(formatCliInstallError(errMsg(e), t));
       } finally {
         setUpdatingPi(false);
+      }
+    };
+
+    if (!nodeRuntime?.meetsMinimum) {
+      await ensureNodeThen(runInstall);
+      return;
+    }
+    await runInstall();
+  };
+
+  const updateDshCli = async () => {
+    const runInstall = async () => {
+      setUpdatingDsh(true);
+      try {
+        const result = await runDshCliUpdate();
+        void message.success(result);
+        await queryClient.invalidateQueries({ queryKey: ["dsh-cli-version"] });
+      } catch (e) {
+        void message.error(formatCliInstallError(errMsg(e), t));
+      } finally {
+        setUpdatingDsh(false);
       }
     };
 
@@ -511,11 +543,47 @@ export default function AgentToolsPage() {
           }}
         />
       )}
+
+      {visibleAgents.includes("dsh") && (
+        <CliToolCard
+          title={t("about.dshCliSection")}
+          info={dshInfo}
+          fetching={dshQuery.isFetching}
+          updating={updatingDsh || installingNode}
+          onRefresh={() => void dshQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateDshCli()}
+          primaryLabel={
+            !nodeRuntime?.meetsMinimum && !dshInfo?.installed
+              ? t("about.installNodeViaFnm")
+              : undefined
+          }
+          labels={{
+            current: t("about.dshCurrentVersion"),
+            latest: t("about.dshLatestVersion"),
+            status: t("about.dshStatus"),
+            environment: t("about.dshEnvironment"),
+            source: t("about.dshInstallSource"),
+            executable: t("about.dshExecutablePath"),
+            hint: t("about.dshCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runDshInstall"),
+            update: t("about.runDshUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
     </Space>
   );
 }
 
-type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo | PiCliVersionInfo;
+type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo | PiCliVersionInfo | DshCliVersionInfo;
 
 function CliToolCard({
   title,

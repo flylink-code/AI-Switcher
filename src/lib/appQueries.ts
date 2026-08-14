@@ -3,6 +3,7 @@ import {
   getAutostartConfig,
   getClaudeCodeVersion,
   getCodexCliVersion,
+  getDshCliVersion,
   getOpenCodeCliVersion,
   getOpenCodeDesktopStatus,
   getPiCliVersion,
@@ -312,6 +313,18 @@ export const localPiCliVersionOptions = queryOptions({
 export const piCliVersionOptions = queryOptions({
   queryKey: ["pi-cli-version", "latest"] as const,
   queryFn: () => getPiCliVersion(true),
+  staleTime: 5 * 60_000,
+});
+
+export const localDshCliVersionOptions = queryOptions({
+  queryKey: ["dsh-cli-version", "local"] as const,
+  queryFn: () => getDshCliVersion(false),
+  staleTime: 5 * 60_000,
+});
+
+export const dshCliVersionOptions = queryOptions({
+  queryKey: ["dsh-cli-version", "latest"] as const,
+  queryFn: () => getDshCliVersion(true),
   staleTime: 5 * 60_000,
 });
 
