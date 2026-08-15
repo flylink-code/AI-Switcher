@@ -1,10 +1,10 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, and **Pi CLI**. **v1.3.10**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.11**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
-Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, Codex, OpenCode, and Pi providers independent (OpenCode and Pi keep multiple providers side by side; save to sync).
+Built with **Tauri 2 + Rust + React**. It brings configuration files, OS credentials, and local tooling into one UI while keeping Claude Code, Claude Desktop, Codex, OpenCode, Pi, and DeepSeek Harness providers independent (OpenCode, Pi, and DeepSeek Harness keep multiple providers side by side; save to sync).
 
 Works locally by default: API keys go in the OS credential store, writes are backed up first, and sessions only read local JSONL.
 
@@ -35,7 +35,7 @@ Download the latest build from [GitHub Releases](https://github.com/flylink-code
 - **Windows**: prefer the NSIS installer (per-user, usually no admin). The app binary is `AISwitcher.exe`.
 - **Linux**: prefer the `.AppImage` (`chmod +x`, then run). Requires **Ubuntu 22.04 / Debian 12** or newer (`libwebkit2gtk-4.1`). Ubuntu 18.04 / 20.04 lack WebKitGTK 4.1, so Tauri 2 cannot ship a compatible build.
 
-Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), or Pi as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Tools & environment → Agent tools**).
+Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), Pi, or DeepSeek Harness as needed. Installing/updating agent CLIs requires **Node.js ≥22** on the machine (detect/install via **Settings → Tools & environment → Agent tools**).
 
 ---
 
@@ -49,12 +49,13 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), or
 - **Settings children** (Tools & environment): local proxy, environment, **Agent tools**, localization, about (with **← Settings** back header; Sessions is now a top-level page)
 - **Visible agents**: Settings checkboxes control which tools appear in global and per-page switchers
 - **Workspace tabs follow the Agent**: pick an Agent first; only its supported MCP / Prompts / Skills / Agents / Plugins / Projects tabs are shown
-- **Agent switchers**: page-local on Providers / Proxy / Workspace (Claude Code / Desktop / Codex / OpenCode / Pi)
+- **Agent switchers**: page-local on Providers / Proxy / Workspace (Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness)
 
 ### Providers and switching
 
-- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi separately
+- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness separately
 - Provider cards can **copy to another Agent**; Providers page can **import from another Agent** (fields mapped to the target protocol)
+- Providers page can **diagnose** each node and **quarantine** 401/403 failures (quarantined nodes are skipped by failover)
 - Codex providers can toggle catalog **Web Search** (writes `supports_search_tool` / `web_search_tool_type`)
 - Environment page can set top-level `web_search`: `disabled | cached | indexed | live` (separate from catalog toggles; does not write deprecated `features.web_search*`)
 - One-click switch with backups; restore official login configs
@@ -70,11 +71,11 @@ Entry point: **Settings → Tools & environment → Local proxy** (port / force 
 
 ### Antigravity gateway
 
-Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, Codex, and Pi:
+Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, Codex, Pi, and DeepSeek Harness:
 
 - **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
-- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; refresh quota to sync the live model catalog; background auto-refresh
-- **Model catalog**: prefers current Gemini tiers (including `-low` / `-medium` / `-high`); hides retired legacy IDs
+- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; **Set active** makes the gateway prefer that account (clears sticky sessions and cooldown); refresh quota to sync the live model catalog; background auto-refresh
+- **Model catalog**: Gemini **3.6 and 3.7 coexist** (Cloud Code ids are `-high` / `-medium` / `-low`); a 429 on 3.7-high degrades to medium/low on the same account before rotating
 - **One-click bind**: ensure providers on the Accounts & quota page, then switch from each tool’s provider list
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
 - **Note**: personal-use gateway — review account and upstream terms yourself; do not use it as a commercial relay
@@ -83,7 +84,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Googl
 
 Reads/writes `~/.config/opencode/opencode.json` (shared by CLI and Desktop). Multiple providers coexist; save to sync — no switch step:
 
-- **Provider sync**: save/delete/import writes `aisw-<id>` entries; pick models inside OpenCode
+- **Provider sync**: save/delete/import writes `aisw-<id>` entries; pick models inside OpenCode; managed models write `limit.context` (default 200000) and `limit.output` (default 32000) to avoid OpenCode ConfigInvalidError
 - **Import from local config**: **Update from local config** on Workbench/Providers syncs from `opencode.json(c)` (skips managed entries and Desktop built-in connectors)
 - **Sessions & usage**: scans `opencode.db`; detect/install/update OpenCode CLI under **Settings → Agent tools** (Node.js ≥22)
 
@@ -97,12 +98,22 @@ Reads/writes `~/.pi/agent/models.json` and `auth.json`. Same model as OpenCode: 
 - **Sessions & usage**: scans `message.usage` in `~/.pi/agent/sessions/**/*.jsonl`; Usage refresh syncs (deduped against Antigravity gateway rows)
 - **Agent tools**: detect/install/update the Pi CLI (Node.js ≥22)
 
-### Agent tools (1.3.7)
+### DeepSeek Harness (1.3.11)
+
+Reads/writes `~/.dsh/settings.yaml` and `~/.dsh/.credentials.yaml`. Same model as OpenCode / Pi: multiple providers coexist; save to sync — no switch step:
+
+- **Provider sync**: save/delete/import writes managed entries; pick models inside the Harness UI or CLI
+- **Direct upstream**: YAML endpoints connect directly and skip the local proxy; Anthropic can use the Antigravity gateway
+- **Workspace**: Prompts and MCP. No Plugins, Agents, Profiles, or Skills
+- **Sessions & usage**: scans `~/.dsh/sessions/**/*.jsonl.zstd`; Usage refresh syncs
+- **Agent tools**: detect/install/update the DeepSeek Harness CLI (Node.js ≥22); Workspace can launch the web UI
+
+### Agent tools (1.3.7 / 1.3.11)
 
 Unified detect/install under **Settings → Tools & environment → Agent tools**:
 
 - **Node.js environment** (local ≥22; optional fnm + mirror install)
-- Claude Code / Codex / OpenCode / **Pi** CLI install & update (npm global; works with npm 11 and Windows `%APPDATA%\npm`)
+- Claude Code / Codex / OpenCode / **Pi** / **DeepSeek Harness** CLI install & update (npm global; works with npm 11 and Windows `%APPDATA%\npm`)
 
 The About page keeps only app version, update check, update mirror, and onboarding tip restore.
 
@@ -110,7 +121,7 @@ The About page keeps only app version, update check, update mirror, and onboardi
 
 - MCP: unified management with Codex / Pi sync; remote HTTP/SSE, OAuth status/clear, and Desktop Connectors / `.mcpb` conflict hints
 - MCP Registry: browse the official Registry and install entries that safely convert to Claude config (secret/URL-template entries still need manual setup)
-- Prompts: `CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` presets with rename and one-click activate
+- Prompts: `CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` presets with rename and one-click activate; edit the current workspace project-level prompt; Pi can manage `~/.pi/agent/prompts/` templates
 - Skills: install, enable, update, and remove Claude Code, Codex, or Pi Skills from GitHub or ZIP; add/remove skill repositories and pick skills to install onto the current Agent; scan stray skills to register/ignore
 - Agents: manage Claude Code user agents under `~/.claude/agents`
 - **Plugins**: single Workspace **Plugins** tab with in-page Claude Code / Codex switch; marketplaces, catalog install, enable/disable, uninstall, check/update
@@ -121,7 +132,7 @@ Snapshot provider / MCP / Skills / Prompt selections per Claude Code, Desktop, o
 
 ### Sessions
 
-Browse, filter, and search local Claude Code, Codex, OpenCode, and Pi sessions; export / import / backup / trash (OpenCode does not support archive/export/trash yet). Claude Desktop private history formats are not parsed.
+Browse, filter, and search local Claude Code, Codex, OpenCode, Pi, and DeepSeek Harness sessions; export / import / backup / trash (OpenCode does not support archive/export/trash yet). Claude Desktop private history formats are not parsed.
 
 ### Localization
 
@@ -129,7 +140,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi local session events (including JSONL backfill for Anthropic-compatible direct upstreams and Pi sessions); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters; period selector on the right of the toolbar (1.3.10)
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi / DeepSeek Harness local session events (including JSONL backfill for Anthropic-compatible direct upstreams, Pi sessions, and DSH `jsonl.zstd`); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters; period selector on the right of the toolbar (1.3.10)
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
 - About **Check for updates** uses the same dialog as the title-bar prompt (1.3.9)
@@ -144,6 +155,7 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 | Codex | `$CODEX_HOME/sessions/**/*.jsonl` (default `~/.codex/sessions/`) |
 | OpenCode | `~/.local/share/opencode/opencode.db` (and legacy JSON storage) |
 | Pi | `~/.pi/agent/sessions/**/*.jsonl` |
+| DeepSeek Harness | `~/.dsh/sessions/**/*.jsonl.zstd` |
 
 The list reads metadata only; message bodies load when you open details or run full-text search. Paths stay under the session roots. Browsing does not modify originals.
 
@@ -166,6 +178,8 @@ Claude Desktop only detects the data directory and offers the official entry `cl
 | `~/.pi/agent/models.json` / `auth.json` | Pi providers and credentials |
 | `~/.pi/agent/sessions/` | Pi session JSONL |
 | `~/.pi/agent/AGENTS.md` / `skills/` / `mcp.json` | Pi Prompts / Skills / MCP |
+| `~/.dsh/settings.yaml` / `.credentials.yaml` | DeepSeek Harness providers and credentials |
+| `~/.dsh/sessions/` | DeepSeek Harness sessions (`jsonl.zstd`) |
 | `~/.claude/agents/` | Claude Code Agents |
 | `~/.claude-switcher/` (relocatable) | App library: database, backups, logs |
 
@@ -193,7 +207,7 @@ pnpm tauri dev
 scripts\tauri-msvc.bat dev
 ```
 
-Dev server port is **5250** (must match `tauri.conf.json` `devUrl`). More reliable hot reload: run `pnpm dev`, then launch `src-tauri\target\debug\claude-switcher.exe` built with `cfg(dev)`.
+Dev server port is **5250** (must match `tauri.conf.json` `devUrl`). More reliable hot reload: `.\scripts\dev-hot.ps1` (or `pnpm dev:hot`). If 5250 is occupied, the script temporarily uses 5251+ and restores the config after the build.
 
 ### Build (Windows)
 
@@ -225,7 +239,7 @@ src/                      React + Ant Design + Zustand + i18next
 src-tauri/src/            Rust: config, proxy, Antigravity, DB, tray, sessions
   antigravity/            AG gateway (default :15830)
   proxy/                  Local Anthropic-compatible proxy
-  config/                 Claude / Codex / OpenCode config I/O
+  config/                 Claude / Codex / OpenCode / DSH config I/O
   coding/pi/              Pi models.json / auth / MCP / session usage
   database/               SQLite (user_version)
 scripts/                  Windows dev / build scripts
@@ -235,14 +249,15 @@ scripts/                  Windows dev / build scripts
 
 ## Current boundaries
 
-- Client scope: Claude Code + Claude Desktop + Codex + OpenCode + Pi; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
+- Client scope: Claude Code + Claude Desktop + Codex + OpenCode + Pi + DeepSeek Harness; the Antigravity gateway can attach Gemini / Cloud Code upstreams to those clients
 - Pi has no Plugins / Agents / Profiles / tray switching; Pi OpenAI-compatible upstreams connect directly and skip the local proxy
+- DeepSeek Harness has no Plugins / Agents / Profiles / Skills / tray switching; YAML providers connect directly and skip the local proxy
 - Plugins page manages installed marketplaces/plugins locally — not a full replacement for the official CLI store browser
 - Session “resume” only copies a command; it does not open a terminal
 - No automatic remote conflict merge; no team sharing
 - Claude Code and Desktop provider lists / active state stay independent
 - Claude Desktop private history formats are not parsed
-- When Antigravity accounts are exhausted, upstreams may still 429 (the gateway rotates; it cannot invent quota)
+- When Antigravity accounts are exhausted, upstreams may still 429 (the gateway degrades tiers and rotates; it cannot invent quota)
 - Linux preview targets Ubuntu 22.04 / Debian 12+; Ubuntu 18.04 cannot get a separate build (no WebKitGTK 4.1, older glibc)
 
 ---
