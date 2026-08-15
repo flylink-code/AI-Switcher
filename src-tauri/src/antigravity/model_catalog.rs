@@ -13,9 +13,7 @@ use crate::antigravity::quota::ModelQuota;
 const FALLBACK_IDS: &[&str] = &[
     "claude-sonnet-4-6",
     "claude-opus-4-6-thinking",
-    "gemini-3.6-flash-high",
-    "gemini-3.6-flash-medium",
-    "gemini-3.6-flash-low",
+    "gemini-3.7-flash",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,25 +174,25 @@ pub fn is_retired_model(id: &str) -> bool {
     false
 }
 
-fn catalog_has_gemini_36(models: &[CatalogModel]) -> bool {
+fn catalog_has_gemini_37(models: &[CatalogModel]) -> bool {
     models
         .iter()
-        .any(|model| model.id.to_ascii_lowercase().starts_with("gemini-3.6"))
+        .any(|model| model.id.to_ascii_lowercase().starts_with("gemini-3.7"))
 }
 
-/// When 3.6 is live, hide older Gemini generations from catalog/failover lists.
-fn is_superseded_gemini(id: &str, has_36: bool) -> bool {
-    if !has_36 {
+/// When 3.7 is live, hide older Gemini generations from catalog/failover lists.
+fn is_superseded_gemini(id: &str, has_37: bool) -> bool {
+    if !has_37 {
         return false;
     }
     let lower = id.trim().to_ascii_lowercase();
-    lower.starts_with("gemini-") && !lower.starts_with("gemini-3.6")
+    lower.starts_with("gemini-") && !lower.starts_with("gemini-3.7")
 }
 
 /// Remap legacy Gemini ids that clients may still send after catalog pruning.
 pub fn should_remap_legacy_gemini(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
-    if !lower.starts_with("gemini-") || lower.starts_with("gemini-3.6") {
+    if !lower.starts_with("gemini-") || lower.starts_with("gemini-3.7") {
         return false;
     }
     if is_retired_model(&lower) {
@@ -202,17 +200,17 @@ pub fn should_remap_legacy_gemini(id: &str) -> bool {
     }
     list_model_ids()
         .iter()
-        .any(|model| model.to_ascii_lowercase().starts_with("gemini-3.6"))
+        .any(|model| model.to_ascii_lowercase().starts_with("gemini-3.7"))
 }
 
 /// Drop retired and superseded models from a catalog snapshot.
 pub fn prune_catalog_models(mut models: Vec<CatalogModel>) -> Vec<CatalogModel> {
-    let has_36 = catalog_has_gemini_36(&models);
+    let has_37 = catalog_has_gemini_37(&models);
     models.retain(|model| {
         let lower = model.id.to_ascii_lowercase();
         is_agent_facing_model(&lower)
             && !is_retired_model(&lower)
-            && !is_superseded_gemini(&lower, has_36)
+            && !is_superseded_gemini(&lower, has_37)
     });
     models.sort_by(|left, right| left.id.cmp(&right.id));
     models.dedup_by(|left, right| left.id == right.id);
@@ -266,7 +264,7 @@ pub fn is_agent_facing_model(id: &str) -> bool {
 
 /// Merge models discovered from a quota refresh into the live catalog.
 pub fn update_from_quota_models(models: &[ModelQuota]) {
-    let mut incoming: Vec<CatalogModel> = models
+    let incoming: Vec<CatalogModel> = models
         .iter()
         .filter(|model| is_agent_facing_model(&model.name))
         .map(|model| CatalogModel {
@@ -277,19 +275,64 @@ pub fn update_from_quota_models(models: &[ModelQuota]) {
     if incoming.is_empty() {
         return;
     }
-    incoming = prune_catalog_models(incoming);
-    if incoming.is_empty() {
-        return;
-    }
 
     let mut guard = lock_write();
-    // Prefer the freshest non-empty refresh; replace wholesale so retired models drop.
-    guard.models = incoming;
+    let merged = merge_catalog_snapshots(&guard.models, incoming);
+    let pruned = prune_catalog_models(merged);
+    if pruned.is_empty() {
+        return;
+    }
+    guard.models = pruned;
     guard.updated_at = chrono::Utc::now().timestamp();
     log::info!(
         "Antigravity model catalog updated: {} agent-facing models",
         guard.models.len()
     );
+}
+
+fn catalog_family(id: &str) -> Option<&'static str> {
+    let lower = id.trim().to_ascii_lowercase();
+    if lower.starts_with("gemini-") {
+        Some("gemini")
+    } else if lower.starts_with("claude-") {
+        Some("claude")
+    } else {
+        None
+    }
+}
+
+fn catalog_has_family(models: &[CatalogModel], family: &str) -> bool {
+    models
+        .iter()
+        .any(|model| catalog_family(&model.id) == Some(family))
+}
+
+/// Keep previous Gemini/Claude ids when a refresh snapshot omits a whole family
+/// (Cloud Code may only list Claude in `models` after Gemini moved to a shared pool).
+fn merge_catalog_snapshots(previous: &[CatalogModel], incoming: Vec<CatalogModel>) -> Vec<CatalogModel> {
+    let mut by_id = std::collections::BTreeMap::<String, CatalogModel>::new();
+    for model in previous {
+        by_id.insert(model.id.to_ascii_lowercase(), model.clone());
+    }
+    for model in incoming {
+        by_id.insert(model.id.to_ascii_lowercase(), model);
+    }
+    let mut merged: Vec<CatalogModel> = by_id.into_values().collect();
+    if !catalog_has_family(&merged, "gemini") {
+        for fallback in fallback_models() {
+            if catalog_family(&fallback.id) == Some("gemini") {
+                merged.push(fallback);
+            }
+        }
+    }
+    if !catalog_has_family(&merged, "claude") {
+        for fallback in fallback_models() {
+            if catalog_family(&fallback.id) == Some("claude") {
+                merged.push(fallback);
+            }
+        }
+    }
+    merged
 }
 
 /// Seed catalog from any already-persisted account quotas (app startup / empty cache).
@@ -381,7 +424,10 @@ pub fn preferred_gemini_flash() -> Option<String> {
         id.starts_with("gemini-") && id.contains("flash") && !id.contains("image")
     };
     ids.iter()
-        .find(|id| id.as_str() == "gemini-3.6-flash-high")
+        .find(|id| id.as_str() == "gemini-3.7-flash")
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.7-flash-high"))
+        .or_else(|| ids.iter().find(|id| id.starts_with("gemini-3.7-") && is_flash(id)))
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.6-flash-high"))
         .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.6-flash"))
         .or_else(|| {
             ids.iter()
@@ -467,11 +513,11 @@ mod tests {
     fn prune_drops_retired_and_legacy_gemini() {
         let pruned = prune_catalog_models(vec![
             CatalogModel {
-                id: "gemini-3.6-flash-high".into(),
+                id: "gemini-3.7-flash".into(),
                 display_name: None,
             },
             CatalogModel {
-                id: "gemini-3.6-flash-low".into(),
+                id: "gemini-3.6-flash-high".into(),
                 display_name: None,
             },
             CatalogModel {
@@ -496,8 +542,8 @@ mod tests {
             },
         ]);
         let ids: Vec<_> = pruned.iter().map(|model| model.id.as_str()).collect();
-        assert!(ids.contains(&"gemini-3.6-flash-high"));
-        assert!(ids.contains(&"gemini-3.6-flash-low"));
+        assert!(ids.contains(&"gemini-3.7-flash"));
+        assert!(!ids.contains(&"gemini-3.6-flash-high"));
         assert!(ids.contains(&"claude-sonnet-4-6"));
         assert!(!ids.contains(&"gemini-3-flash"));
         assert!(!ids.contains(&"gemini-3.1-pro-high"));
@@ -507,22 +553,22 @@ mod tests {
 
     #[test]
     fn with_reasoning_level_passthrough_and_bare_fallback() {
-        // Fallback catalog: gemini-3.6-flash level variants only.
+        // Fallback catalog exposes the bare Gemini 3.7 Flash id.
         assert_eq!(with_reasoning_level("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
         assert_eq!(with_reasoning_level("gemini-3.6-flash-high"), "gemini-3.6-flash-high");
         assert_eq!(with_reasoning_level("claude-sonnet-4-6"), "claude-sonnet-4-6");
         assert_eq!(
-            with_reasoning_level("gemini-3.6-flash"),
-            "gemini-3.6-flash-low"
+            with_reasoning_level("gemini-3.7-flash"),
+            "gemini-3.7-flash"
         );
         assert_eq!(with_reasoning_level("gemini-9.9-flash"), "gemini-9.9-flash");
     }
 
     #[test]
-    fn catalog_exposes_gemini_36_level_variants() {
+    fn catalog_exposes_gemini_37_flash() {
         let ids = list_model_ids();
-        assert!(ids.iter().any(|id| id == "gemini-3.6-flash-high"));
-        assert!(ids.iter().any(|id| id == "gemini-3.6-flash-low"));
+        assert!(ids.iter().any(|id| id == "gemini-3.7-flash"));
+        assert!(!ids.iter().any(|id| id == "gemini-3.6-flash-high"));
         assert!(!ids.iter().any(|id| id == "gemini-3.1-pro-high"));
         assert_eq!(
             preferred_gemini_pro().as_deref(),
@@ -550,5 +596,32 @@ mod tests {
         assert!(!models.iter().any(|model| model.id == "claude-sonnet-5"));
         assert_eq!(explicit_level_suffix("gemini-3.6-flash-high"), Some("high"));
         assert_eq!(explicit_level_suffix("gemini-3.6-flash"), None);
+    }
+
+    #[test]
+    fn merge_keeps_gemini_when_incoming_snapshot_is_claude_only() {
+        let previous = vec![CatalogModel {
+            id: "gemini-3.7-flash".into(),
+            display_name: None,
+        }];
+        let incoming = vec![CatalogModel {
+            id: "claude-sonnet-4-6".into(),
+            display_name: Some("Sonnet".into()),
+        }];
+        let merged = prune_catalog_models(merge_catalog_snapshots(&previous, incoming));
+        let ids: Vec<_> = merged.iter().map(|model| model.id.as_str()).collect();
+        assert!(ids.contains(&"gemini-3.7-flash"));
+        assert!(ids.contains(&"claude-sonnet-4-6"));
+    }
+
+    #[test]
+    fn merge_adds_fallback_gemini_when_neither_side_has_it() {
+        let incoming = vec![CatalogModel {
+            id: "claude-sonnet-4-6".into(),
+            display_name: None,
+        }];
+        let merged = prune_catalog_models(merge_catalog_snapshots(&[], incoming));
+        assert!(merged.iter().any(|model| model.id.starts_with("gemini-")));
+        assert!(merged.iter().any(|model| model.id == "claude-sonnet-4-6"));
     }
 }

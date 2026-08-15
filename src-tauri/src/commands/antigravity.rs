@@ -190,7 +190,13 @@ pub async fn ensure_antigravity_provider(
         api_key: status.api_key,
         clear_api_key: false,
         model: default_model,
-        model_context_window: if matches!(target, ProviderTarget::Codex | ProviderTarget::Pi | ProviderTarget::Dsh) {
+        model_context_window: if matches!(
+            target,
+            ProviderTarget::Codex
+                | ProviderTarget::OpenCode
+                | ProviderTarget::Pi
+                | ProviderTarget::Dsh
+        ) {
             Some(200_000)
         } else {
             None

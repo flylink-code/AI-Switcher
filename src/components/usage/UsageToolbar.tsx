@@ -38,6 +38,8 @@ export interface UsageToolbarProps {
   onRebuildOpenCode?: () => void;
   onSyncPi?: () => void;
   onRebuildPi?: () => void;
+  onSyncDsh?: () => void;
+  onRebuildDsh?: () => void;
   onOpenPricing: () => void;
   onOpenMaintenance: () => void;
   maintaining: boolean;
@@ -60,6 +62,8 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   onRebuildOpenCode,
   onSyncPi,
   onRebuildPi,
+  onSyncDsh,
+  onRebuildDsh,
   onOpenPricing,
   onOpenMaintenance,
   maintaining,
@@ -78,6 +82,7 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
   const includesOpenCode = visibleAgents.includes("opencode") && (logTargetApp === "all" || logTargetApp === "opencode");
   const includesClaudeCode = visibleAgents.includes("claude_code") && (logTargetApp === "all" || logTargetApp === "claude_code");
   const includesPi = visibleAgents.includes("pi") && (logTargetApp === "all" || logTargetApp === "pi");
+  const includesDsh = visibleAgents.includes("dsh") && (logTargetApp === "all" || logTargetApp === "dsh");
 
   const moreItems: MenuProps["items"] = [
     ...(includesClaudeCode && onSyncClaudeCode
@@ -103,6 +108,12 @@ export const UsageToolbar: React.FC<UsageToolbarProps> = ({
       : []),
     ...(includesPi && onRebuildPi
       ? [{ key: "rebuildPi", label: t("usage.rebuildPiSessions"), disabled: refreshing, onClick: onRebuildPi }]
+      : []),
+    ...(includesDsh && onSyncDsh
+      ? [{ key: "syncDsh", label: t("usage.syncDshSessions"), disabled: refreshing, onClick: onSyncDsh }]
+      : []),
+    ...(includesDsh && onRebuildDsh
+      ? [{ key: "rebuildDsh", label: t("usage.rebuildDshSessions"), disabled: refreshing, onClick: onRebuildDsh }]
       : []),
     { type: "divider" },
     { key: "pricing", icon: <DollarOutlined />, label: t("usage.configurePricing"), onClick: onOpenPricing },

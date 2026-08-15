@@ -27,6 +27,7 @@ import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import SwapOutlined from "@ant-design/icons/es/icons/SwapOutlined";
+import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -386,6 +387,11 @@ export default function ProvidersPage() {
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t("providers.create")}
           </Button>
+          {target === "opencode" && (
+            <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
+              {t("providers.syncOpenCodeLive")}
+            </Button>
+          )}
           <Button
             icon={<ThunderboltOutlined />}
             loading={batchTesting}
@@ -694,9 +700,16 @@ export default function ProvidersPage() {
               description={t("providers.emptyHint", { defaultValue: "为当前 Agent 添加第一个 Provider。" })}
               style={{ padding: "20px 16px" }}
               action={
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                  {t("providers.create")}
-                </Button>
+                <Space>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                    {t("providers.create")}
+                  </Button>
+                  {target === "opencode" && (
+                    <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
+                      {t("providers.syncOpenCodeLive")}
+                    </Button>
+                  )}
+                </Space>
               }
             />
           </div>

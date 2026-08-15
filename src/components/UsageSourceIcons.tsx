@@ -183,5 +183,6 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "codex", labelKey: "usage.sourceCodex" },
   { value: "opencode", labelKey: "usage.sourceOpenCode" },
   { value: "pi", labelKey: "workspace.pi" },
+  { value: "dsh", labelKey: "workspace.dsh" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];

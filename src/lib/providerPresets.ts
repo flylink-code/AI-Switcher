@@ -107,8 +107,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:8045",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -122,7 +121,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:8045/v1",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3.6-flash-high", "gemini-3.6-flash-low", "claude-opus-4-6-thinking"],
+    failoverModels: ["gemini-3.7-flash", "claude-opus-4-6-thinking"],
     modelContextWindow: 200_000,
     notes:
       "External Antigravity-Manager OpenAI Responses endpoint for Codex (wire_api=responses). Start AG Manager and fill its API key.",
@@ -135,8 +134,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -151,8 +149,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830/v1",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
     ],
     modelContextWindow: 200_000,
@@ -167,8 +164,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:8045",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -184,8 +180,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -201,8 +196,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:8045",
     model: "claude-sonnet-4-6",
     failoverModels: [
-      "gemini-3.6-flash-high",
-      "gemini-3.6-flash-low",
+      "gemini-3.7-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -242,7 +236,7 @@ export function mappingFromAntigravityPreset(
   },
 ): ClaudeModelMapping {
   const sonnet = defaultModel.trim() || "claude-sonnet-4-6";
-  const flash = options?.geminiFlash?.trim() || "gemini-3.6-flash-high";
+  const flash = options?.geminiFlash?.trim() || "gemini-3.7-flash";
   const opus = options?.opus?.trim() || "claude-opus-4-6-thinking";
   return {
     sonnet,

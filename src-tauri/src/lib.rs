@@ -85,6 +85,7 @@ use crate::commands::{
     sync_codex_session_usage_cmd, sync_claude_code_session_usage_cmd, rebuild_claude_code_session_usage_cmd,
     sync_opencode_session_usage_cmd, rebuild_opencode_session_usage_cmd,
     sync_pi_session_usage_cmd, rebuild_pi_session_usage_cmd,
+    sync_dsh_session_usage_cmd, rebuild_dsh_session_usage_cmd,
     select_desktop_localization_pack,
     validate_desktop_localization_pack, get_claude_code_version, get_codex_cli_version,
     get_node_runtime_status, ensure_node_runtime_via_fnm,
@@ -347,6 +348,10 @@ pub fn run() {
             rebuild_opencode_session_usage_cmd,
             sync_pi_session_usage_cmd,
             rebuild_pi_session_usage_cmd,
+            sync_dsh_session_usage_cmd,
+            rebuild_dsh_session_usage_cmd,
+            sync_dsh_session_usage_cmd,
+            rebuild_dsh_session_usage_cmd,
             list_model_pricing,
             export_model_pricing_xlsx,
             preview_model_pricing_xlsx,
@@ -519,6 +524,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         if let Err(error) = commands::providers::repair_codex_managed_proxy_endpoint(&state).await {
             log::error!("Codex managed proxy endpoint repair failed: {error}");
         }
+        if let Err(error) = commands::providers::sync_opencode_providers_to_live(&state) {
+            log::warn!("启动时同步 OpenCode 供应商失败: {error}");
+        }
+        if let Err(error) = commands::providers::sync_pi_providers_to_live(&state) {
+            log::warn!("启动时同步 Pi 供应商失败: {error}");
+        }
+        if let Err(error) = commands::providers::sync_dsh_providers_to_live(&state) {
+            log::warn!("启动时同步 DeepSeek Harness 供应商失败: {error}");
+        }
         log::info!(
             "启动配置修复完成: duration_ms={}",
             repair_started.elapsed().as_millis()
@@ -545,6 +559,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_claude_code_session_usage_sync(Arc::clone(&db));
     spawn_opencode_session_usage_sync(Arc::clone(&db));
     spawn_pi_session_usage_sync(Arc::clone(&db));
+    spawn_dsh_session_usage_sync(Arc::clone(&db));
     spawn_antigravity_quota_refresh(app.handle().clone());
 
     // System tray.
@@ -738,6 +753,31 @@ fn spawn_pi_session_usage_sync(db: Arc<database::Database>) {
                 Err(error) => {
                     log::warn!("Pi session usage sync task join failed: {error}");
                 }
+            }
+            tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
+        }
+    });
+}
+
+/// Background DeepSeek Harness compressed JSONL → DB sync: first run after ~25s, then every 30s.
+fn spawn_dsh_session_usage_sync(db: Arc<database::Database>) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(25)).await;
+        loop {
+            let db = Arc::clone(&db);
+            match tokio::task::spawn_blocking(move || {
+                usage::session_usage_dsh::try_sync_dsh_session_usage_db(&db)
+            }).await {
+                Ok(Ok(result)) if result.inserted_rows > 0 => {
+                    usage_events::notify_log_recorded();
+                    log::info!(
+                        "DeepSeek Harness session usage sync: scanned={}, inserted={}, skipped={}",
+                        result.scanned_files, result.inserted_rows, result.skipped_rows
+                    );
+                }
+                Ok(Ok(_)) => {}
+                Ok(Err(error)) => log::warn!("DeepSeek Harness session usage sync failed: {error}"),
+                Err(error) => log::warn!("DeepSeek Harness session usage task join failed: {error}"),
             }
             tokio::time::sleep(SESSION_USAGE_SYNC_INTERVAL).await;
         }

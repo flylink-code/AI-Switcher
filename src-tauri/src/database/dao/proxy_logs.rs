@@ -14,10 +14,12 @@ pub const DATA_SOURCE_CODEX_SESSION: &str = "codex_session";
 pub const DATA_SOURCE_CLAUDE_CODE_SESSION: &str = "claude_code_session";
 pub const DATA_SOURCE_OPENCODE_SESSION: &str = "opencode_session";
 pub const DATA_SOURCE_PI_SESSION: &str = "pi_session";
+pub const DATA_SOURCE_DSH_SESSION: &str = "dsh_session";
 pub const CODEX_SESSION_PROVIDER_ID: &str = "_codex_session";
 pub const CLAUDE_CODE_SESSION_PROVIDER_ID: &str = "_claude_code_session";
 pub const OPENCODE_SESSION_PROVIDER_ID: &str = "_opencode_session";
 pub const PI_SESSION_PROVIDER_ID: &str = "_pi_session";
+pub const DSH_SESSION_PROVIDER_ID: &str = "_dsh_session";
 /// Hide session rows when a matching proxy row exists within ±10 minutes.
 const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 
@@ -523,6 +525,20 @@ pub fn reset_pi_session_usage(conn: &Connection) -> AppResult<i64> {
         "DELETE FROM session_log_sync
          WHERE replace(lower(file_path), '\\', '/') LIKE '%/.pi/agent/sessions/%'
             OR replace(lower(file_path), '\\', '/') LIKE '%/pi/agent/sessions/%';",
+        [],
+    )?;
+    Ok(deleted)
+}
+
+pub fn reset_dsh_session_usage(conn: &Connection) -> AppResult<i64> {
+    let deleted = conn.execute(
+        "DELETE FROM proxy_request_logs WHERE data_source = ?;",
+        params![DATA_SOURCE_DSH_SESSION],
+    )? as i64;
+    conn.execute(
+        "DELETE FROM session_log_sync
+         WHERE replace(lower(file_path), '\\', '/') LIKE '%/.dsh/sessions/%'
+            OR replace(lower(file_path), '\\', '/') LIKE '%/dsh/sessions/%';",
         [],
     )?;
     Ok(deleted)

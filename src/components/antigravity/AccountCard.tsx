@@ -99,6 +99,11 @@ export function AccountCard({
         </div>
 
         {/* Quota Progress */}
+        {account.disabledReason && (
+          <Text type="danger" style={{ fontSize: 12 }}>
+            {account.disabledReason}。{t("antigravity.reauthorizeHint")}
+          </Text>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <QuotaMiniBar
             label={t("antigravity.quotaGemini5h")}

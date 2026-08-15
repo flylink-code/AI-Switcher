@@ -278,11 +278,13 @@ pub fn migrate_plaintext_api_keys(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-/// Delete a provider by id. The active provider for its target cannot be deleted.
+/// Delete a provider by id. The active provider for switchable targets cannot
+/// be deleted. Catalog targets (OpenCode / Pi / Dsh) have no activation, so a
+/// leftover `is_current` marker must not block the last remaining row.
 /// Also removes the stored credential from the OS keyring (best-effort).
 pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-    if provider.is_current {
+    if provider.is_current && !provider.target_app.is_catalog_target() {
         return Err(AppError::Config("不能删除当前激活的供应商".to_string()));
     }
     let tx = conn.unchecked_transaction()?;
@@ -530,6 +532,36 @@ mod tests {
             let current = get_current_provider(conn, ProviderTarget::ClaudeCode)?.expect("current");
             assert_eq!(current.id, second.id);
             assert_eq!(current.base_url, "https://second.example.test/v1");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn catalog_target_can_delete_current_provider() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut input = provider_input("https://pi.example.test/v1");
+            input.target_app = ProviderTarget::Pi;
+            let provider = upsert_provider(conn, &input)?;
+            set_current_provider(conn, &provider.id)?;
+            assert!(get_provider(conn, &provider.id)?.unwrap().is_current);
+            delete_provider(conn, &provider.id)?;
+            assert!(get_provider(conn, &provider.id)?.is_none());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn switchable_target_cannot_delete_current_provider() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let provider = upsert_provider(conn, &provider_input("https://api.example.test"))?;
+            set_current_provider(conn, &provider.id)?;
+            let err = delete_provider(conn, &provider.id).expect_err("current blocked");
+            assert!(err.to_string().contains("不能删除当前激活的供应商"));
+            assert!(get_provider(conn, &provider.id)?.is_some());
             Ok(())
         })
         .unwrap();

@@ -58,12 +58,14 @@ import {
   rebuildClaudeCodeSessionUsage,
   rebuildOpenCodeSessionUsage,
   rebuildPiSessionUsage,
+  rebuildDshSessionUsage,
   saveModelPricing,
   saveLogMaintenancePolicy,
   syncCodexSessionUsage,
   syncClaudeCodeSessionUsage,
   syncOpenCodeSessionUsage,
   syncPiSessionUsage,
+  syncDshSessionUsage,
 } from "@/services/api";
 import { usageDashboardOptions, usageLogsOptions, usageMetaOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -298,6 +300,7 @@ export default function UsagePage() {
       if (includesCodex) await syncCodexSessionUsage();
       if (includesOpenCode) await syncOpenCodeSessionUsage();
       if (includesPi) await syncPiSessionUsage();
+      if (includesDsh) await syncDshSessionUsage();
       await Promise.all([dashboardQuery.refetch(), logsQuery.refetch(), metaQuery.refetch()]);
     } catch (e) {
       void message.error(errMsg(e));
@@ -320,6 +323,8 @@ export default function UsagePage() {
   const isClaudeCodeOnly = logTargetApp === "claude_code";
   const includesPi = visibleAgents.includes("pi") && (logTargetApp === "all" || logTargetApp === "pi");
   const isPiOnly = logTargetApp === "pi";
+  const includesDsh = visibleAgents.includes("dsh") && (logTargetApp === "all" || logTargetApp === "dsh");
+  const isDshOnly = logTargetApp === "dsh";
 
   const agAccountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
@@ -422,6 +427,26 @@ export default function UsagePage() {
     finally { setRefreshing(false); }
   };
 
+  const syncDshSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await syncDshSessionUsage();
+      void message.success(t("usage.dshSyncDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
+  const rebuildDshSessions = async () => {
+    setRefreshing(true);
+    try {
+      const result = await rebuildDshSessionUsage();
+      void message.success(t("usage.dshRebuildDone", { inserted: result.insertedRows, scanned: result.scannedFiles }));
+      await invalidateUsageQueries(queryClient);
+    } catch (e) { void message.error(errMsg(e)); }
+    finally { setRefreshing(false); }
+  };
+
   return (
     <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
       {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
@@ -441,6 +466,8 @@ export default function UsagePage() {
         onRebuildOpenCode={() => void rebuildOpenCodeSessions()}
         onSyncPi={() => void syncPiSessions()}
         onRebuildPi={() => void rebuildPiSessions()}
+        onSyncDsh={() => void syncDshSessions()}
+        onRebuildDsh={() => void rebuildDshSessions()}
         onOpenPricing={() => setPricingManagerOpen(true)}
         onOpenMaintenance={() => void openMaintenance()}
         maintaining={maintaining}
@@ -493,6 +520,15 @@ export default function UsagePage() {
           closable
           message={t("usage.piEmptyTitle")}
           description={narrowPeriod ? t("usage.piEmptyNarrowPeriodHint") : t("usage.piEmptyHint")}
+        />
+      )}
+      {includesDsh && isDshOnly && (summary?.requestCount ?? 0) === 0 && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t("usage.dshEmptyTitle")}
+          description={t("usage.dshEmptyHint")}
         />
       )}
 

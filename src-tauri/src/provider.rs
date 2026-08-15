@@ -65,6 +65,14 @@ impl ProviderTarget {
             _ => ProviderTarget::ClaudeCode,
         }
     }
+
+    /// OpenCode / Pi / Dsh 多供应商并存，没有「当前激活」切换。
+    pub fn is_catalog_target(self) -> bool {
+        matches!(
+            self,
+            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        )
+    }
 }
 
 impl Default for ProviderTarget {

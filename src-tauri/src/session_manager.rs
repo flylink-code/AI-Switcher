@@ -42,6 +42,8 @@ pub enum SessionProvider {
     OpenCode,
     #[serde(rename = "pi")]
     Pi,
+    #[serde(rename = "dsh")]
+    Dsh,
 }
 
 impl Default for SessionProvider {
@@ -210,6 +212,13 @@ pub fn scan_sessions(
         }
         providers.push(status);
     }
+    if provider.is_none() || provider == Some(SessionProvider::Dsh) {
+        let (metas, status) = scan_dsh_sessions();
+        for meta in metas {
+            indexed.push(ScanItem::Materialized(meta));
+        }
+        providers.push(status);
+    }
 
     let codex_index = if indexed
         .iter()
@@ -371,6 +380,47 @@ fn load_pi_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
     Ok(messages)
 }
 
+fn dsh_text(content: Option<&Value>) -> String {
+    content
+        .and_then(Value::as_array)
+        .map(|blocks| {
+            blocks.iter().filter_map(|block| {
+                block.get("text").and_then(Value::as_str)
+                    .or_else(|| block.get("content").and_then(Value::as_str))
+            }).collect::<Vec<_>>().join("\n")
+        })
+        .unwrap_or_default()
+}
+
+fn load_dsh_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
+    let root = crate::config::get_dsh_config_dir().join("sessions");
+    let source = validate_session_path_in_root(&root, Path::new(source_path))?;
+    let events = crate::usage::session_usage_dsh::read_dsh_events(&source)
+        .map_err(AppError::Config)?;
+    let mut messages = Vec::new();
+    for event in events {
+        let timestamp = event.get("time").and_then(Value::as_i64);
+        match event.get("type").and_then(Value::as_str) {
+            Some("user/message") => {
+                let data = event.get("data");
+                let content = dsh_text(data.and_then(|value| value.get("content")));
+                if !content.is_empty() {
+                    messages.push(SessionMessage { role: "user".to_string(), content, timestamp });
+                }
+            }
+            Some("assistant/message") => {
+                let message = event.pointer("/data/message");
+                let content = dsh_text(message.and_then(|value| value.get("content")));
+                if !content.is_empty() {
+                    messages.push(SessionMessage { role: "assistant".to_string(), content, timestamp });
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(messages)
+}
+
 pub fn load_session_messages(
     provider: SessionProvider,
     source_path: &str,
@@ -388,6 +438,7 @@ pub fn load_session_messages(
         }
         SessionProvider::OpenCode => load_opencode_messages(source_path),
         SessionProvider::Pi => load_pi_messages(source_path),
+        SessionProvider::Dsh => load_dsh_messages(source_path),
     }
 }
 
@@ -751,6 +802,63 @@ fn scan_pi_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
     (metas, status)
 }
 
+fn scan_dsh_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
+    let root = crate::config::get_dsh_config_dir().join("sessions");
+    let status = SessionProviderStatus {
+        provider: SessionProvider::Dsh,
+        status: if root.is_dir() { "available" } else { "not_found" }.to_string(),
+        detail: if root.is_dir() { format!("发现 DeepSeek Harness 会话目录 ({})", root.display()) } else { "未找到 DeepSeek Harness 会话目录".to_string() },
+        root_path: Some(root.to_string_lossy().into_owned()),
+    };
+    let mut paths = Vec::new();
+    collect_dsh_session_paths(&root, &mut paths);
+    let mut sessions = Vec::new();
+    for path in paths {
+        let Ok(events) = crate::usage::session_usage_dsh::read_dsh_events(&path) else { continue };
+        let header = events.iter().find(|event| event.get("type").and_then(Value::as_str) == Some("session"));
+        let session_id = header.and_then(|event| event.get("id")).and_then(Value::as_str)
+            .or_else(|| path.parent().and_then(|parent| parent.file_name()).and_then(|value| value.to_str()))
+            .unwrap_or_default().to_string();
+        if session_id.is_empty() { continue }
+        let created_at = header.and_then(|event| event.get("createdAt")).and_then(Value::as_i64);
+        let project_dir = header.and_then(|event| event.get("cwd")).and_then(Value::as_str).map(str::to_string);
+        let title = events.iter().rev().find_map(|event| {
+            (event.get("type").and_then(Value::as_str) == Some("session/title"))
+                .then(|| event.pointer("/data/title").and_then(Value::as_str).map(str::to_string))
+                .flatten()
+        });
+        let last_active_at = events.iter().rev().find_map(|event| event.get("time").and_then(Value::as_i64));
+        let model = events.iter().rev().find_map(|event| event.pointer("/data/message/source/model").and_then(Value::as_str));
+        sessions.push(SessionMeta {
+            provider: SessionProvider::Dsh,
+            session_id,
+            title,
+            summary: model.map(|model| format!("Model: {model}")),
+            project_dir,
+            created_at,
+            last_active_at,
+            source_path: path.to_string_lossy().into_owned(),
+            resume_command: None,
+            pinned: false,
+        });
+    }
+    (sessions, status)
+}
+
+fn collect_dsh_session_paths(directory: &Path, paths: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(kind) = entry.file_type() else { continue };
+        if kind.is_symlink() { continue }
+        if kind.is_dir() {
+            collect_dsh_session_paths(&path, paths);
+        } else if path.file_name().and_then(|name| name.to_str()) == Some("session.jsonl.zstd") {
+            paths.push(path);
+        }
+    }
+}
+
 fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
     match provider {
         SessionProvider::ClaudeCode => Ok(claude_code_session_root()),
@@ -759,6 +867,7 @@ fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
             "OpenCode 会话暂不支持归档、回收站与导入操作".to_string(),
         )),
         SessionProvider::Pi => Ok(crate::coding::pi::config::get_pi_dir().join("sessions")),
+        SessionProvider::Dsh => Ok(crate::config::get_dsh_config_dir().join("sessions")),
     }
 }
 
@@ -776,6 +885,12 @@ fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<Ses
                 .map(|duration| duration.as_millis() as i64)
                 .unwrap_or(0);
             Ok(session_meta_from_path(SessionProvider::Pi, path, mtime))
+        }
+        SessionProvider::Dsh => {
+            let mtime = path.metadata().ok().and_then(|meta| meta.modified().ok())
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as i64).unwrap_or(0);
+            Ok(session_meta_from_path(SessionProvider::Dsh, path, mtime))
         }
     }
 }
@@ -826,6 +941,7 @@ fn session_trash_dir(provider: SessionProvider) -> PathBuf {
         SessionProvider::Codex => "codex",
         SessionProvider::OpenCode => "opencode",
         SessionProvider::Pi => "pi",
+        SessionProvider::Dsh => "dsh",
         _ => "claude-code",
     };
     config::get_app_config_dir().join("session-trash").join(target)
@@ -1302,7 +1418,7 @@ fn session_meta_from_path(
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
             .map(|name| name.replace('-', "/")),
-        SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi => None,
+        SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi | SessionProvider::Dsh => None,
     };
     let resume = match provider {
         SessionProvider::ClaudeCode => resume_command(&session_id),
@@ -1310,6 +1426,7 @@ fn session_meta_from_path(
         // OpenCode / Pi 元数据走 Materialized 路径，不会经过这里。
         SessionProvider::OpenCode => Some(format!("opencode -s {session_id}")),
         SessionProvider::Pi => Some(format!("pi --resume {session_id}")),
+        SessionProvider::Dsh => None,
     };
     Some(SessionMeta {
         provider,

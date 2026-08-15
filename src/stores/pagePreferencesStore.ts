@@ -77,7 +77,7 @@ function isProviderTarget(value: unknown): value is ProviderTarget {
 }
 
 function isSessionProvider(value: unknown): value is SessionProvider {
-  return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi";
+  return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh";
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {

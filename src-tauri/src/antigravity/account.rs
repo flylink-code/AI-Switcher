@@ -314,6 +314,19 @@ impl AccountStore {
         Ok(())
     }
 
+    /// Persist OAuth revocation so stale quota rows cannot look healthy.
+    pub fn mark_reauthorization_required(&self, account_id: &str, reason: &str) -> AppResult<()> {
+        let mut guard = self.lock_accounts();
+        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
+            return Ok(());
+        };
+        account.disabled = true;
+        account.disabled_reason = Some(reason.to_string());
+        account.cooldown_until = None;
+        account.health_score = 0.05;
+        persist(&guard)
+    }
+
     /// Adjust only the cooldown window (e.g. honor an upstream Retry-After
     /// after the pool already applied its default cooldown) without the
     /// health-score penalty of [`Self::mark_cooldown`].
@@ -425,7 +438,23 @@ impl AccountStore {
         {
             return Ok((snapshot.token.access_token.clone(), snapshot));
         }
-        let refreshed = self.refresh_token(&snapshot.token.refresh_token)?;
+        self.force_refresh_access_token(account_id)
+    }
+
+    /// Force a token renewal after Cloud Code rejects an access token before its
+    /// locally recorded expiry. Google can invalidate a token early after a
+    /// session/policy change, so timestamp checks alone are insufficient.
+    pub fn force_refresh_access_token(&self, account_id: &str) -> AppResult<(String, AntigravityAccount)> {
+        let refresh_token = {
+            let guard = self.lock_accounts();
+            guard
+                .accounts
+                .iter()
+                .find(|account| account.id == account_id)
+                .map(|account| account.token.refresh_token.clone())
+                .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?
+        };
+        let refreshed = self.refresh_token(&refresh_token)?;
         let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
@@ -444,8 +473,31 @@ impl AccountStore {
     }
 
     fn refresh_token(&self, refresh_token: &str) -> AppResult<TokenRefreshResponse> {
-        let client = self.lock_http_client().clone();
-        let response = client
+        // Google OAuth is reachable directly in this environment while the
+        // configured Clash SOCKS endpoint can hang indefinitely. Prefer a
+        // bounded direct refresh; fall back to the configured route for users
+        // whose network requires it.
+        let direct = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(20))
+            .no_proxy()
+            .build()
+            .map_err(|error| AppError::Other(format!("创建直连 Google Token 客户端失败: {error}")))?;
+        match refresh_token_with_client(&direct, refresh_token) {
+            Ok(response) => Ok(response),
+            Err(direct_error) => {
+                log::warn!(
+                    "Antigravity Google token refresh direct failed: {direct_error}; retrying configured proxy"
+                );
+                let client = self.lock_http_client().clone();
+                refresh_token_with_client(&client, refresh_token)
+            }
+        }
+    }
+}
+
+fn refresh_token_with_client(client: &Client, refresh_token: &str) -> AppResult<TokenRefreshResponse> {
+    let response = client
             .post(TOKEN_URL)
             .form(&[
                 ("client_id", OAUTH_CLIENT_ID),
@@ -482,12 +534,11 @@ impl AccountStore {
             .get("refresh_token")
             .and_then(Value::as_str)
             .map(str::to_string);
-        Ok(TokenRefreshResponse {
-            access_token,
-            expires_in,
-            refresh_token,
-        })
-    }
+    Ok(TokenRefreshResponse {
+        access_token,
+        expires_in,
+        refresh_token,
+    })
 }
 
 struct TokenRefreshResponse {

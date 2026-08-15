@@ -39,8 +39,35 @@ fn try_acquire_refresh_lock() -> Option<RefreshGuard> {
 
 pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<AntigravityAccountPublic> {
     let (access_token, account) = account_store().ensure_access_token(account_id)?;
-    let (quota, project_id) =
-        fetch_quota(&access_token, account.token.project_id.as_deref()).await?;
+    let quota_result = fetch_quota(&access_token, account.token.project_id.as_deref()).await;
+    let (quota, project_id) = match quota_result {
+        Ok(result) => result,
+        Err(error) if error.to_string().contains("401") || error.to_string().contains("Unauthorized") => {
+            log::info!(
+                "Antigravity quota access token rejected for {}; forcing token renewal and retrying",
+                account.email
+            );
+            let (access_token, refreshed_account) = match account_store().force_refresh_access_token(account_id) {
+                Ok(result) => result,
+                Err(refresh_error) => {
+                    let detail = refresh_error.to_string();
+                    if detail.contains("invalid_grant") || detail.contains("revoked") {
+                        account_store().mark_reauthorization_required(
+                            account_id,
+                            "Google 授权已失效，请重新用浏览器登录此账号",
+                        )?;
+                        return Err(AppError::Config(format!(
+                            "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",
+                            account.email
+                        )));
+                    }
+                    return Err(refresh_error);
+                }
+            };
+            fetch_quota(&access_token, refreshed_account.token.project_id.as_deref()).await?
+        }
+        Err(error) => return Err(error),
+    };
     account_store().update_quota(account_id, quota, project_id)
 }
 
@@ -81,7 +108,9 @@ pub async fn refresh_all_account_quotas() -> AppResult<Vec<AntigravityAccountPub
         }
     }
 
-    if results.is_empty() && !errors.is_empty() {
+    // Failed accounts retain their cached rows for partial success, but a manual
+    // refresh must report failure when every live request failed.
+    if !errors.is_empty() && errors.len() == results.len() {
         return Err(AppError::Other(format!(
             "刷新额度失败: {}",
             errors.join("; ")

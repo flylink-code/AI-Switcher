@@ -9,7 +9,10 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 
-const USER_AGENT: &str = "antigravity";
+/// Cloud Code quota endpoints validate the native Antigravity client fingerprint.
+/// A generic `antigravity` user agent is accepted inconsistently and can return
+/// an empty/forbidden quota response despite a valid OAuth token.
+const QUOTA_USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
 
 const MODELS_ENDPOINTS: [&str; 3] = [
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
@@ -96,7 +99,7 @@ impl QuotaSnapshot {
             .groups
             .iter()
             .flat_map(|group| group.buckets.iter())
-            .filter(|bucket| bucket.window.eq_ignore_ascii_case("5h"))
+            .filter(|bucket| bucket_window_matches(bucket, "5h"))
             .map(|bucket| (bucket.remaining_fraction * 100.0).round() as i32)
             .max();
         if from_5h.is_some() {
@@ -118,7 +121,7 @@ impl QuotaSnapshot {
         self.groups
             .iter()
             .flat_map(|group| group.buckets.iter())
-            .filter(|bucket| bucket.window.eq_ignore_ascii_case(window))
+            .filter(|bucket| bucket_window_matches(bucket, window))
             .map(|bucket| (bucket.remaining_fraction * 100.0).round() as i32)
             .max()
     }
@@ -139,7 +142,7 @@ impl QuotaSnapshot {
             .flat_map(|group| {
                 let group_is_gemini = group_looks_gemini(&group.display_name);
                 group.buckets.iter().filter(move |bucket| {
-                    if !bucket.window.eq_ignore_ascii_case(window) {
+                    if !bucket_window_matches(bucket, window) {
                         return false;
                     }
                     match family {
@@ -216,8 +219,7 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
             .post(url)
             .bearer_auth(access_token)
             .header("Content-Type", "application/json")
-            .header("User-Agent", USER_AGENT)
-            .header("x-client-name", "antigravity")
+            .header("User-Agent", QUOTA_USER_AGENT)
             .json(&body)
             .send()
             .await
@@ -268,6 +270,42 @@ fn bucket_looks_claude_gpt(bucket_id: &str) -> bool {
         || id.contains("claude")
         || id.contains("gpt")
         || id.contains("openai")
+}
+
+/// Cloud Code window labels vary: `weekly` / `7d` / `week` / `168h`, and
+/// `5h` / `5hr` / `session`. Empty `window` falls back to `bucketId`.
+pub fn normalize_quota_window(window: &str, bucket_id: &str) -> String {
+    let haystack = format!("{window} {bucket_id}").to_ascii_lowercase();
+    if window_haystack_is_weekly(&haystack) {
+        return "weekly".to_string();
+    }
+    if window_haystack_is_five_hour(&haystack) {
+        return "5h".to_string();
+    }
+    window.trim().to_ascii_lowercase()
+}
+
+fn bucket_window_matches(bucket: &QuotaBucket, wanted: &str) -> bool {
+    normalize_quota_window(&bucket.window, &bucket.bucket_id)
+        == normalize_quota_window(wanted, "")
+}
+
+fn window_haystack_is_weekly(haystack: &str) -> bool {
+    haystack.contains("weekly")
+        || haystack.contains("7d")
+        || haystack.contains("7-day")
+        || haystack.contains("7day")
+        || haystack.contains("168h")
+        || haystack.split(|ch: char| !ch.is_ascii_alphanumeric()).any(|part| part == "week")
+}
+
+fn window_haystack_is_five_hour(haystack: &str) -> bool {
+    haystack.contains("5h")
+        || haystack.contains("5hr")
+        || haystack.contains("five_hour")
+        || haystack.contains("five-hour")
+        || haystack.contains("fivehour")
+        || haystack.contains("session")
 }
 
 fn tier_field_value(tier: &Value) -> Option<&str> {
@@ -381,8 +419,7 @@ async fn fetch_models_quota(
                 .post(url)
                 .bearer_auth(access_token)
                 .header("Content-Type", "application/json")
-                .header("User-Agent", USER_AGENT)
-                .header("x-client-name", "antigravity")
+                .header("User-Agent", QUOTA_USER_AGENT)
                 .json(&payload)
                 .send()
                 .await
@@ -426,35 +463,102 @@ async fn fetch_models_quota(
 
 fn parse_models_response(value: &Value) -> QuotaSnapshot {
     let mut models = Vec::new();
+    let mut seen = std::collections::BTreeSet::<String>::new();
+    let mut push_model = |name: String, percentage: i32, reset_time: String, display_name: Option<String>| {
+        let trimmed = name.trim().to_string();
+        if trimmed.is_empty() || !seen.insert(trimmed.clone()) {
+            return;
+        }
+        models.push(ModelQuota {
+            name: trimmed,
+            percentage,
+            reset_time,
+            display_name,
+        });
+    };
+
     if let Some(map) = value.get("models").and_then(Value::as_object) {
         for (name, info) in map {
             let quota_info = info.get("quotaInfo");
             let fraction = quota_info
-                .and_then(|q| q.get("remainingFraction"))
-                .and_then(Value::as_f64)
+                .and_then(parse_remaining_fraction)
                 .unwrap_or(0.0);
             let reset_time = quota_info
-                .and_then(|q| q.get("resetTime"))
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
-            let display_name = info
-                .get("displayName")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            models.push(ModelQuota {
-                name: name.clone(),
-                percentage: (fraction * 100.0).round() as i32,
+                .and_then(|q| json_string(q.get("resetTime").or_else(|| q.get("reset_time"))))
+                .unwrap_or_default();
+            let display_name = json_string(info.get("displayName").or_else(|| info.get("display_name")));
+            push_model(
+                name.clone(),
+                (fraction * 100.0).round() as i32,
                 reset_time,
                 display_name,
-            });
+            );
+        }
+    } else if let Some(arr) = value.get("models").and_then(Value::as_array) {
+        for info in arr {
+            let name = json_string(
+                info.get("name")
+                    .or_else(|| info.get("id"))
+                    .or_else(|| info.get("model")),
+            )
+            .unwrap_or_default();
+            let quota_info = info.get("quotaInfo");
+            let fraction = quota_info
+                .and_then(parse_remaining_fraction)
+                .unwrap_or(0.0);
+            let reset_time = quota_info
+                .and_then(|q| json_string(q.get("resetTime").or_else(|| q.get("reset_time"))))
+                .unwrap_or_default();
+            let display_name = json_string(info.get("displayName").or_else(|| info.get("display_name")));
+            push_model(
+                name,
+                (fraction * 100.0).round() as i32,
+                reset_time,
+                display_name,
+            );
         }
     }
+
+    for id in collect_sort_model_ids(value) {
+        push_model(id, 0, String::new(), None);
+    }
+
     models.sort_by(|left, right| left.name.cmp(&right.name));
     QuotaSnapshot {
         models,
         last_updated: Utc::now().timestamp(),
         ..QuotaSnapshot::default()
+    }
+}
+
+fn collect_sort_model_ids(value: &Value) -> Vec<String> {
+    let mut ids = Vec::new();
+    walk_model_ids(value, &mut ids);
+    ids
+}
+
+fn walk_model_ids(value: &Value, ids: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            if let Some(arr) = map.get("modelIds").and_then(Value::as_array) {
+                for item in arr {
+                    if let Some(id) = item.as_str().map(str::trim).filter(|id| !id.is_empty()) {
+                        if !ids.iter().any(|existing| existing == id) {
+                            ids.push(id.to_string());
+                        }
+                    }
+                }
+            }
+            for nested in map.values() {
+                walk_model_ids(nested, ids);
+            }
+        }
+        Value::Array(arr) => {
+            for nested in arr {
+                walk_model_ids(nested, ids);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -468,83 +572,196 @@ async fn fetch_quota_summary(
     } else {
         json!({})
     };
+    let mut best: Option<Vec<QuotaGroup>> = None;
+    let mut best_score = -1i32;
     for url in SUMMARY_ENDPOINTS {
         let Ok(response) = client
             .post(url)
             .bearer_auth(access_token)
             .header("Content-Type", "application/json")
-            .header("User-Agent", USER_AGENT)
-            .header("x-client-name", "antigravity")
+            .header("User-Agent", QUOTA_USER_AGENT)
             .json(&payload)
             .send()
             .await
         else {
             continue;
         };
-        let status = response.status();
-        if !status.is_success() {
-            if status.is_client_error() && status.as_u16() != 429 {
-                return None;
-            }
+        if !response.status().is_success() {
             continue;
         }
         let Ok(value) = response.json::<Value>().await else {
-            return None;
+            continue;
         };
-        return Some(parse_summary_groups(&value));
+        let groups = parse_summary_groups(&value);
+        let score = summary_completeness_score(&groups);
+        if score > best_score {
+            best_score = score;
+            best = Some(groups);
+            if score >= 20 {
+                break;
+            }
+        }
     }
-    None
+    best.filter(|groups| !groups.is_empty())
+}
+
+fn summary_completeness_score(groups: &[QuotaGroup]) -> i32 {
+    let mut has_5h = false;
+    let mut has_weekly = false;
+    let mut buckets = 0i32;
+    for bucket in groups.iter().flat_map(|group| group.buckets.iter()) {
+        buckets += 1;
+        let window = normalize_quota_window(&bucket.window, &bucket.bucket_id);
+        if window == "5h" {
+            has_5h = true;
+        }
+        if window == "weekly" {
+            has_weekly = true;
+        }
+    }
+    i32::from(has_5h) * 10 + i32::from(has_weekly) * 10 + buckets
 }
 
 fn parse_summary_groups(value: &Value) -> Vec<QuotaGroup> {
-    let Some(groups) = value.get("groups").and_then(Value::as_array) else {
+    let Some(groups) = extract_groups_array(value) else {
         return Vec::new();
     };
     groups
         .iter()
         .map(|group| {
-            let display_name = group
-                .get("displayName")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
+            let display_name = json_string(
+                group
+                    .get("displayName")
+                    .or_else(|| group.get("display_name")),
+            )
+            .unwrap_or_default();
             let buckets = group
                 .get("buckets")
                 .and_then(Value::as_array)
                 .into_iter()
                 .flatten()
-                .map(|bucket| QuotaBucket {
-                    bucket_id: bucket
-                        .get("bucketId")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    window: bucket
-                        .get("window")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    remaining_fraction: bucket
-                        .get("remainingFraction")
-                        .and_then(Value::as_f64)
-                        .unwrap_or(0.0),
-                    reset_time: bucket
-                        .get("resetTime")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_string(),
-                    display_name: bucket
-                        .get("displayName")
-                        .and_then(Value::as_str)
-                        .map(str::to_string),
-                })
+                .filter_map(|bucket| parse_summary_bucket(bucket))
                 .collect();
             QuotaGroup {
                 display_name,
                 buckets,
             }
         })
+        .filter(|group| !group.buckets.is_empty() || !group.display_name.is_empty())
         .collect()
+}
+
+fn extract_groups_array(value: &Value) -> Option<&Vec<Value>> {
+    value
+        .get("groups")
+        .and_then(Value::as_array)
+        .or_else(|| {
+            value
+                .get("quotaSummary")
+                .and_then(|nested| nested.get("groups"))
+                .and_then(Value::as_array)
+        })
+        .or_else(|| {
+            value
+                .pointer("/userQuotaSummary/groups")
+                .and_then(Value::as_array)
+        })
+}
+
+fn parse_summary_bucket(bucket: &Value) -> Option<QuotaBucket> {
+    let remaining_fraction = parse_remaining_fraction(bucket)?;
+    let bucket_id = json_string(
+        bucket
+            .get("bucketId")
+            .or_else(|| bucket.get("bucket_id"))
+            .or_else(|| bucket.get("id")),
+    )
+    .unwrap_or_default();
+    let raw_window = json_window_str(bucket.get("window").or_else(|| bucket.get("resetWindow")));
+    let window = normalize_quota_window(&raw_window, &bucket_id);
+    let reset_time = json_string(
+        bucket
+            .get("resetTime")
+            .or_else(|| bucket.get("reset_time")),
+    )
+    .unwrap_or_default();
+    let display_name = json_string(
+        bucket
+            .get("displayName")
+            .or_else(|| bucket.get("display_name")),
+    );
+    Some(QuotaBucket {
+        bucket_id,
+        window,
+        remaining_fraction,
+        reset_time,
+        display_name,
+    })
+}
+
+fn json_window_str(value: Option<&Value>) -> String {
+    let Some(value) = value else {
+        return String::new();
+    };
+    if let Some(text) = value.as_str() {
+        return text.to_string();
+    }
+    if let Some(map) = value.as_object() {
+        for key in ["type", "window", "duration", "id", "name"] {
+            if let Some(text) = map.get(key).and_then(Value::as_str) {
+                return text.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+fn json_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string)
+}
+
+fn json_number_as_f64(value: &Value) -> Option<f64> {
+    value
+        .as_f64()
+        .or_else(|| value.as_i64().map(|n| n as f64))
+        .or_else(|| value.as_u64().map(|n| n as f64))
+        .or_else(|| value.as_str().and_then(|text| text.trim().parse().ok()))
+}
+
+fn parse_remaining_fraction(value: &Value) -> Option<f64> {
+    let fraction = value
+        .get("remainingFraction")
+        .or_else(|| value.get("remaining_fraction"))
+        .and_then(json_number_as_f64);
+    if let Some(frac) = fraction {
+        return normalize_fraction(frac);
+    }
+    let percent = value
+        .get("remainingPercent")
+        .or_else(|| value.get("remainingPercentage"))
+        .or_else(|| value.get("remaining_percent"))
+        .and_then(json_number_as_f64)?;
+    if (0.0..=1.0).contains(&percent) {
+        return Some(percent);
+    }
+    if (0.0..=100.0).contains(&percent) {
+        return Some(percent / 100.0);
+    }
+    None
+}
+
+fn normalize_fraction(frac: f64) -> Option<f64> {
+    if (0.0..=1.0).contains(&frac) {
+        return Some(frac);
+    }
+    if (1.0..=100.0).contains(&frac) {
+        return Some(frac / 100.0);
+    }
+    None
 }
 
 #[cfg(test)]
@@ -597,6 +814,58 @@ mod tests {
         assert_eq!(full.claude_window_percent("weekly"), Some(20));
         assert_eq!(full.remaining_hint_percent(), Some(80));
         assert!(full.has_usable_quota());
+    }
+
+    #[test]
+    fn weekly_aliases_and_bucket_ids_map_to_weekly_percent() {
+        let summary = json!({
+            "quotaSummary": {
+                "groups": [
+                    {
+                        "displayName": "Gemini Models",
+                        "buckets": [
+                            { "bucketId": "gemini-5h", "window": "5hr", "remainingFraction": 0.9, "resetTime": "t1" },
+                            { "bucketId": "gemini-7d", "window": "7d", "remainingFraction": 0.4, "resetTime": "t2" }
+                        ]
+                    },
+                    {
+                        "displayName": "Claude and GPT models",
+                        "buckets": [
+                            { "id": "3p-5h", "window": { "type": "session" }, "remainingPercent": 70, "resetTime": "t3" },
+                            { "bucketId": "3p-weekly", "remainingFraction": 0.25, "resetTime": "t4" }
+                        ]
+                    }
+                ]
+            }
+        });
+        let groups = parse_summary_groups(&summary);
+        let mut snap = QuotaSnapshot::default();
+        snap.groups = groups;
+        assert_eq!(snap.gemini_window_percent("5h"), Some(90));
+        assert_eq!(snap.gemini_window_percent("weekly"), Some(40));
+        assert_eq!(snap.claude_window_percent("5h"), Some(70));
+        assert_eq!(snap.claude_window_percent("weekly"), Some(25));
+        assert_eq!(normalize_quota_window("7d", ""), "weekly");
+        assert_eq!(normalize_quota_window("", "gemini-weekly"), "weekly");
+    }
+
+    #[test]
+    fn models_response_harvests_agent_model_sorts() {
+        let value = json!({
+            "models": {
+                "claude-sonnet-4-6": {
+                    "displayName": "Sonnet",
+                    "quotaInfo": { "remainingFraction": 0.5, "resetTime": "t" }
+                }
+            },
+            "agentModelSorts": [
+                { "groups": [{ "modelIds": ["gemini-3.7-flash", "claude-sonnet-4-6"] }] }
+            ]
+        });
+        let snapshot = parse_models_response(&value);
+        let names: Vec<_> = snapshot.models.iter().map(|model| model.name.as_str()).collect();
+        assert!(names.contains(&"claude-sonnet-4-6"));
+        assert!(names.contains(&"gemini-3.7-flash"));
     }
 
     #[test]

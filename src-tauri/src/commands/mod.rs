@@ -159,5 +159,6 @@ pub use usage::{
     rebuild_claude_code_session_usage_cmd, sync_claude_code_session_usage_cmd,
     rebuild_opencode_session_usage_cmd, sync_opencode_session_usage_cmd,
     rebuild_pi_session_usage_cmd, sync_pi_session_usage_cmd,
+    rebuild_dsh_session_usage_cmd, sync_dsh_session_usage_cmd,
     preview_model_pricing_xlsx, save_log_maintenance_policy, save_model_pricing,
 };

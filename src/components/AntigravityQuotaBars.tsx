@@ -82,6 +82,15 @@ export function formatTierLabel(tier: string | null | undefined): string | null 
   return tier.trim();
 }
 
+/// 与后端 normalize_quota_window 同逻辑：`weekly`/`7d`/`week` → weekly，
+/// `5h`/`5hr`/`session` → 5h；window 为空时从 bucketId 推断。
+function normalizeQuotaWindow(window: string, bucketId = ""): string {
+  const haystack = `${window} ${bucketId}`.toLowerCase();
+  if (/(weekly|\bweek\b|7d|7-day|7day|168h)/.test(haystack)) return "weekly";
+  if (/(5h|5hr|five[-_]?hour|session)/.test(haystack)) return "5h";
+  return window.trim().toLowerCase();
+}
+
 type QuotaFamily = "gemini" | "claudeGpt";
 
 function bucketLooksGemini(bucketId: string): boolean {
@@ -110,7 +119,9 @@ function windowResetTime(
   for (const group of groups) {
     const groupIsGemini = group.displayName.toLowerCase().includes("gemini");
     for (const bucket of group.buckets) {
-      if (bucket.window.toLowerCase() !== window.toLowerCase()) continue;
+      if (normalizeQuotaWindow(bucket.window, bucket.bucketId) !== normalizeQuotaWindow(window)) {
+        continue;
+      }
       const matches =
         family === "gemini"
           ? bucketLooksGemini(bucket.bucketId) || groupIsGemini

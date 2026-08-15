@@ -7,7 +7,7 @@
 # Usage:
 #   .\scripts\dev-hot.ps1
 #   .\scripts\dev-hot.ps1 -Clean          # always cargo clean first
-#   .\scripts\dev-hot.ps1 -MaxTargetGB 20 # auto-clean when target exceeds N GB (default 40)
+#   .\scripts\dev-hot.ps1 -MaxTargetGB 30 # auto-clean when target exceeds N GB (default 20)
 #   .\scripts\dev-hot.ps1 -Port 5251      # pin Vite / baked-in devUrl port
 #
 # Stops existing claude-switcher.exe, starts Vite, cargo-builds cfg(dev), launches
@@ -15,7 +15,7 @@
 
 param(
     [switch]$Clean,
-    [double]$MaxTargetGB = 40,
+    [double]$MaxTargetGB = 20,
     [int]$Port = 0,
     [int]$CdpPort = 9222,
     [switch]$NoLaunch

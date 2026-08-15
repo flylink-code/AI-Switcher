@@ -65,6 +65,8 @@ function sessionProviderLabel(provider: SessionProvider): string {
       return "OpenCode";
     case "pi":
       return "Pi";
+    case "dsh":
+      return "DeepSeek Harness";
     default: {
       const _exhaustive: never = provider;
       return _exhaustive;
@@ -82,6 +84,8 @@ function sessionProviderColor(provider: SessionProvider): string {
       return "cyan";
     case "pi":
       return "blue";
+    case "dsh":
+      return "geekblue";
     default: {
       const _exhaustive: never = provider;
       return _exhaustive;
@@ -115,7 +119,7 @@ export default function SessionsPage() {
     // like "no directory" must not silently empty the Codex list after switching.
     setDirectory("all");
     setSort((current) =>
-      (provider === "pi" || provider === "opencode") && current === "directory" ? "recent" : current,
+      (provider === "pi" || provider === "opencode" || provider === "dsh") && current === "directory" ? "recent" : current,
     );
   }, [provider]);
   const [selected, setSelected] = useState<SessionMeta | null>(null);
@@ -538,7 +542,7 @@ export default function SessionsPage() {
         value={provider}
         onChange={setSessionsProvider}
         t={t}
-        targets={["claude_code", "codex", "opencode", "pi"]}
+        targets={["claude_code", "codex", "opencode", "pi", "dsh"]}
       />
 
       <Card size="small" className="page-surface">

@@ -77,6 +77,14 @@ export async function rebuildPiSessionUsage(): Promise<CodexSessionSyncResult> {
   return call<CodexSessionSyncResult>("rebuild_pi_session_usage_cmd", {});
 }
 
+export async function syncDshSessionUsage(): Promise<CodexSessionSyncResult> {
+  return call<CodexSessionSyncResult>("sync_dsh_session_usage_cmd", {});
+}
+
+export async function rebuildDshSessionUsage(): Promise<CodexSessionSyncResult> {
+  return call<CodexSessionSyncResult>("rebuild_dsh_session_usage_cmd", {});
+}
+
 export async function listModelPricing(): Promise<ModelPricing[]> {
   return call<ModelPricing[]>("list_model_pricing", {});
 }

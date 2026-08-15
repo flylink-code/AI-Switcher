@@ -234,6 +234,16 @@ fn opencode_provider_entry_has_base_url(entry: &serde_json::Value) -> bool {
         .is_some_and(|value| !value.trim().is_empty())
 }
 
+/// 旧版全局配置 `~/.config/opencode/config.json`（扫描导入时与 opencode.json 合并）。
+pub fn get_opencode_legacy_config_path() -> PathBuf {
+    get_opencode_config_dir().join("config.json")
+}
+
+/// OpenCode `/connect` 写入的密钥文件：`~/.local/share/opencode/auth.json`。
+pub fn get_opencode_auth_path() -> PathBuf {
+    get_opencode_data_dir().join("auth.json")
+}
+
 /// OpenCode 数据目录（会话/用量存储）。OpenCode 遵循 XDG basedir，
 /// 所有平台默认落在 `~/.local/share/opencode`。
 pub fn get_opencode_data_dir() -> PathBuf {

@@ -36,6 +36,23 @@ fn dsh_api_protocol(protocol: ProtocolType) -> &'static str {
     }
 }
 
+fn dsh_model_entry(model_id: &str, context_window: Option<u64>) -> Value {
+    let mut entry = json!({
+        "id": model_id,
+        "input": ["text", "image"],
+        "reasoningEfforts": {
+            "off": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high"
+        }
+    });
+    if let Some(window) = context_window.filter(|value| *value > 0) {
+        entry["contextWindow"] = json!(window);
+    }
+    entry
+}
+
 /// 将 AI-Switcher 管理的 DeepSeek Harness 供应商同步写入 `settings.yaml` 和 `.credentials.yaml`。
 pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppResult<()> {
     let _guard = lock_dsh_config()?;
@@ -121,11 +138,14 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
 
         let mut models_list: Vec<Value> = Vec::new();
         if !provider.model.trim().is_empty() {
-            models_list.push(json!({ "id": provider.model.trim() }));
+            models_list.push(dsh_model_entry(
+                provider.model.trim(),
+                provider.model_context_window,
+            ));
         }
         for m in extra_models {
             if m.trim() != provider.model.trim() && !m.trim().is_empty() {
-                models_list.push(json!({ "id": m.trim() }));
+                models_list.push(dsh_model_entry(m.trim(), provider.model_context_window));
             }
         }
 
@@ -134,6 +154,7 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         provider_cfg.insert("apiKeyEnv".to_string(), json!(env_key));
         provider_cfg.insert("api".to_string(), json!(dsh_api_protocol(provider.protocol_type)));
         provider_cfg.insert("baseURL".to_string(), json!(provider.base_url));
+        provider_cfg.insert("defaultInput".to_string(), json!(["text", "image"]));
         if !models_list.is_empty() {
             provider_cfg.insert("models".to_string(), Value::Array(models_list));
         }
@@ -155,4 +176,25 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         .map_err(|e| AppError::Config(format!("写回 .credentials.yaml 失败: {e}")))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dsh_model_entry_declares_vision_and_reasoning_efforts() {
+        let entry = dsh_model_entry("qwen3.6-plus", Some(200_000));
+        assert_eq!(entry["id"], "qwen3.6-plus");
+        assert_eq!(entry["input"], json!(["text", "image"]));
+        assert_eq!(entry["reasoningEfforts"]["high"], "high");
+        assert!(entry["reasoningEfforts"]["off"].is_null());
+        assert_eq!(entry["contextWindow"], 200_000);
+    }
+
+    #[test]
+    fn dsh_model_entry_omits_zero_context_window() {
+        let entry = dsh_model_entry("custom-id", Some(0));
+        assert!(entry.get("contextWindow").is_none());
+    }
 }

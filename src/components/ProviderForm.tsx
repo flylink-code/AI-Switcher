@@ -440,7 +440,7 @@ export function ProviderForm({
         .then((defaults) => {
           const liveIds = (defaults.models ?? []).map((model) => model.id).filter(Boolean);
           const defaultModel = defaults.defaultModel?.trim() || preset.model;
-          const flash = defaults.geminiFlash ?? "gemini-3.6-flash-high";
+          const flash = defaults.geminiFlash ?? "gemini-3.7-flash";
           const pro = defaults.geminiPro ?? flash;
           const failover = liveIds.filter((id) => id !== defaultModel);
           const liveRoot = String(defaults.baseUrl || "http://127.0.0.1:15830").replace(/\/$/, "");
@@ -681,11 +681,11 @@ export function ProviderForm({
           />
         </Form.Item>
 
-        {isCodex && (
+        {(isCodex || isOpenCode || isPi || isDsh) && (
           <Form.Item
             name="modelContextWindow"
             label={t("providers.modelContextWindow")}
-            extra={t("providers.modelContextWindowHint")}
+            extra={isCodex ? t("providers.modelContextWindowHint") : t("providers.modelContextWindowHintCatalog")}
             rules={[
               {
                 type: "number",

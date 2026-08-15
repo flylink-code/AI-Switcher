@@ -110,6 +110,41 @@ fn opencode_sdk_base_url(provider: &Provider) -> String {
     )
 }
 
+/// OpenCode 把缺失的 `limit.context` 当成 0；未配置时写 Pi/AG 同档的 200k。
+const OPENCODE_DEFAULT_CONTEXT_WINDOW: u64 = 200_000;
+
+fn opencode_model_context(provider: &Provider) -> u64 {
+    provider
+        .model_context_window
+        .filter(|window| *window > 0)
+        .unwrap_or(OPENCODE_DEFAULT_CONTEXT_WINDOW)
+}
+
+/// OpenCode 自定义模型缺字段时默认无图片、无推理档位。托管项必须显式声明。
+fn opencode_model_entry(provider: &Provider, model_id: &str) -> Value {
+    let mut entry = json!({
+        "name": model_id,
+        "attachment": true,
+        "reasoning": true,
+        "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+        },
+        "limit": { "context": opencode_model_context(provider) }
+    });
+    if matches!(
+        provider.protocol_type,
+        ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses | ProtocolType::Proxy
+    ) {
+        entry["variants"] = json!({
+            "low": { "reasoningEffort": "low" },
+            "medium": { "reasoningEffort": "medium" },
+            "high": { "reasoningEffort": "high" }
+        });
+    }
+    entry
+}
+
 /// 构建托管 provider 段的 JSON。`extra_models` 来自模型缓存，与默认模型一起
 /// 写入 `models` 映射。
 fn managed_provider_value(provider: &Provider, extra_models: &[String]) -> Value {
@@ -118,13 +153,13 @@ fn managed_provider_value(provider: &Provider, extra_models: &[String]) -> Value
     if !default_model.is_empty() {
         models.insert(
             default_model.to_string(),
-            json!({ "name": default_model }),
+            opencode_model_entry(provider, default_model),
         );
     }
     for model in extra_models {
         let trimmed = model.trim();
         if !trimmed.is_empty() && trimmed != default_model {
-            models.insert(trimmed.to_string(), json!({ "name": trimmed }));
+            models.insert(trimmed.to_string(), opencode_model_entry(provider, trimmed));
         }
     }
     json!({
@@ -320,6 +355,78 @@ fn protocol_from_npm(value: &Value) -> ProtocolType {
     }
 }
 
+fn provider_options_base_url(value: &Value) -> String {
+    value
+        .pointer("/options/baseURL")
+        .or_else(|| value.pointer("/options/baseUrl"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+fn provider_options_api_key(value: &Value) -> String {
+    value
+        .pointer("/options/apiKey")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn auth_key_for_provider(auth: &Value, provider_id: &str) -> String {
+    let Some(entry) = auth.get(provider_id) else {
+        return String::new();
+    };
+    if let Some(key) = entry.as_str() {
+        return key.trim().to_string();
+    }
+    entry
+        .get("key")
+        .or_else(|| entry.get("apiKey"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+fn fill_auth_tokens(providers: &mut [OpenCodeLiveProvider], auth: &Value) {
+    for provider in providers {
+        if !provider.auth_token.trim().is_empty() {
+            continue;
+        }
+        let key = auth_key_for_provider(auth, &provider.id);
+        if !key.is_empty() {
+            provider.auth_token = key;
+        }
+    }
+}
+
+fn merge_live_providers(
+    mut into: Vec<OpenCodeLiveProvider>,
+    extra: Vec<OpenCodeLiveProvider>,
+) -> Vec<OpenCodeLiveProvider> {
+    for provider in extra {
+        if !into.iter().any(|existing| existing.id == provider.id) {
+            into.push(provider);
+        }
+    }
+    into
+}
+
+fn read_opencode_auth_at(path: &Path) -> AppResult<Value> {
+    if !path.exists() {
+        return Ok(json!({}));
+    }
+    let content = std::fs::read_to_string(path)
+        .map_err(|err| AppError::Io(format!("读取 OpenCode auth.json 失败: {err}")))?;
+    json5::from_str(&content).map_err(|err| {
+        AppError::Config(format!(
+            "无法解析 OpenCode auth.json: {}: {err}",
+            path.display()
+        ))
+    })
+}
+
 fn read_live_providers_at(path: &Path) -> AppResult<Vec<OpenCodeLiveProvider>> {
     if !path.exists() {
         return Ok(Vec::new());
@@ -336,12 +443,7 @@ fn read_live_providers_at(path: &Path) -> AppResult<Vec<OpenCodeLiveProvider>> {
         if is_managed_provider_key(provider_id) {
             continue;
         }
-        let base_url = value
-            .pointer("/options/baseURL")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .trim()
-            .to_string();
+        let base_url = provider_options_base_url(value);
         if base_url.is_empty() {
             continue;
         }
@@ -371,11 +473,7 @@ fn read_live_providers_at(path: &Path) -> AppResult<Vec<OpenCodeLiveProvider>> {
             id: provider_id.clone(),
             name,
             base_url,
-            auth_token: value
-                .pointer("/options/apiKey")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string(),
+            auth_token: provider_options_api_key(value),
             protocol_type: protocol_from_npm(value),
             models,
             current_model,
@@ -384,9 +482,23 @@ fn read_live_providers_at(path: &Path) -> AppResult<Vec<OpenCodeLiveProvider>> {
     Ok(result)
 }
 
-/// 读取 OpenCode 配置中的全部用户自有供应商（供「更新本地已有配置」）。
+/// 读取 OpenCode 配置中的全部用户自有供应商（供「扫描本地配置」）。
+/// 主配置 + 旧版 `config.json`；`options.apiKey` 为空时从 `auth.json` 补密钥。
 pub fn read_live_providers() -> AppResult<Vec<OpenCodeLiveProvider>> {
-    read_live_providers_at(&get_opencode_config_path())
+    let primary = get_opencode_config_path();
+    let mut providers = read_live_providers_at(&primary)?;
+    let legacy = crate::config::paths::get_opencode_legacy_config_path();
+    if legacy.is_file() && legacy != primary {
+        match read_live_providers_at(&legacy) {
+            Ok(extra) => providers = merge_live_providers(providers, extra),
+            Err(error) => log::warn!("读取 OpenCode 旧版 config.json 失败: {error}"),
+        }
+    }
+    match read_opencode_auth_at(&crate::config::paths::get_opencode_auth_path()) {
+        Ok(auth) => fill_auth_tokens(&mut providers, &auth),
+        Err(error) => log::warn!("读取 OpenCode auth.json 失败: {error}"),
+    }
+    Ok(providers)
 }
 
 /// 读取 OpenCode 当前生效的第三方供应商（供「导入 live 配置」）。
@@ -582,6 +694,49 @@ mod tests {
         };
         let value = managed_provider_value(&provider, &[]);
         assert_eq!(value["options"]["baseURL"], "http://127.0.0.1:15830/v1");
+    }
+
+    #[test]
+    fn openai_compatible_models_declare_vision_and_reasoning_variants() {
+        let mut provider = test_provider(ProtocolType::OpenAiChat);
+        provider.model = "qwen3.6-plus".into();
+        provider.model_context_window = Some(200_000);
+        let value = managed_provider_value(&provider, &["mini".into()]);
+        let model = &value["models"]["qwen3.6-plus"];
+        assert_eq!(model["attachment"], true);
+        assert_eq!(model["reasoning"], true);
+        assert_eq!(model["modalities"]["input"], json!(["text", "image"]));
+        assert_eq!(model["modalities"]["output"], json!(["text"]));
+        assert_eq!(model["variants"]["high"]["reasoningEffort"], "high");
+        assert_eq!(model["limit"]["context"], 200_000);
+        assert_eq!(value["models"]["mini"]["variants"]["low"]["reasoningEffort"], "low");
+    }
+
+    #[test]
+    fn anthropic_models_declare_reasoning_without_openai_variants() {
+        let value = managed_provider_value(&test_provider(ProtocolType::Anthropic), &[]);
+        let model = &value["models"]["claude-sonnet-5"];
+        assert_eq!(model["attachment"], true);
+        assert_eq!(model["reasoning"], true);
+        assert_eq!(model["modalities"]["input"], json!(["text", "image"]));
+        assert!(model.get("variants").is_none());
+        assert_eq!(model["limit"]["context"], 200_000);
+    }
+
+    #[test]
+    fn missing_context_window_defaults_to_200k() {
+        let mut provider = test_provider(ProtocolType::OpenAiChat);
+        provider.model_context_window = None;
+        let value = managed_provider_value(&provider, &[]);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
+
+        provider.model_context_window = Some(0);
+        let value = managed_provider_value(&provider, &[]);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
+
+        provider.model_context_window = Some(128_000);
+        let value = managed_provider_value(&provider, &[]);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 128_000);
     }
 
     #[test]
@@ -841,6 +996,98 @@ mod tests {
         let acme = &providers[0];
         assert_eq!(acme.current_model.as_deref(), Some("gpt-5.5-fast"));
         assert!(acme.models.iter().any(|m| m == "gpt-5.5-fast"), "当前模型必须并入 models");
+    }
+
+    #[test]
+    fn live_providers_accepts_camel_case_base_url() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("opencode.json");
+        std::fs::write(
+            &path,
+            r#"{
+  "provider": {
+    "acme": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": { "baseUrl": "https://acme.test/v1", "apiKey": "sk-acme" },
+      "models": { "gpt-5.5": {} }
+    }
+  }
+}"#,
+        )
+        .expect("write");
+
+        let providers = read_live_providers_at(&path).expect("read");
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].base_url, "https://acme.test/v1");
+        assert_eq!(providers[0].auth_token, "sk-acme");
+    }
+
+    #[test]
+    fn fill_auth_tokens_only_fills_empty_keys() {
+        let auth = json!({
+            "acme": { "type": "api", "key": "sk-from-auth" },
+            "beta": "sk-plain"
+        });
+        let mut providers = vec![
+            OpenCodeLiveProvider {
+                id: "acme".into(),
+                name: "Acme".into(),
+                base_url: "https://acme.test/v1".into(),
+                auth_token: String::new(),
+                protocol_type: ProtocolType::OpenAiChat,
+                models: vec!["gpt-5.5".into()],
+                current_model: None,
+            },
+            OpenCodeLiveProvider {
+                id: "beta".into(),
+                name: "Beta".into(),
+                base_url: "https://beta.test".into(),
+                auth_token: "sk-keep".into(),
+                protocol_type: ProtocolType::Anthropic,
+                models: vec!["claude".into()],
+                current_model: None,
+            },
+        ];
+        fill_auth_tokens(&mut providers, &auth);
+        assert_eq!(providers[0].auth_token, "sk-from-auth");
+        assert_eq!(providers[1].auth_token, "sk-keep");
+    }
+
+    #[test]
+    fn merge_live_providers_skips_duplicate_ids() {
+        let primary = vec![OpenCodeLiveProvider {
+            id: "acme".into(),
+            name: "From json".into(),
+            base_url: "https://acme.test/v1".into(),
+            auth_token: String::new(),
+            protocol_type: ProtocolType::OpenAiChat,
+            models: vec!["a".into()],
+            current_model: None,
+        }];
+        let extra = vec![
+            OpenCodeLiveProvider {
+                id: "acme".into(),
+                name: "From legacy".into(),
+                base_url: "https://legacy.test/v1".into(),
+                auth_token: String::new(),
+                protocol_type: ProtocolType::OpenAiChat,
+                models: vec!["b".into()],
+                current_model: None,
+            },
+            OpenCodeLiveProvider {
+                id: "other".into(),
+                name: "Other".into(),
+                base_url: "https://other.test/v1".into(),
+                auth_token: String::new(),
+                protocol_type: ProtocolType::OpenAiChat,
+                models: vec!["c".into()],
+                current_model: None,
+            },
+        ];
+        let merged = merge_live_providers(primary, extra);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].name, "From json");
+        assert_eq!(merged[1].id, "other");
     }
 
     fn mcp_server(name: &str, enabled_opencode: bool, config: Value) -> McpServer {

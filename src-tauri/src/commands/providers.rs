@@ -860,18 +860,17 @@ pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppSta
 
 /// OpenCode 配置可携带多个自有供应商（provider 段 + 顶层 model 引用当前项）。
 /// 全部同步：base_url 已存在则更新名称/模型/密钥/协议；否则新建。
-/// 顶层 model 指向的供应商同步后设为当前。
+/// OpenCode 无激活切换，导入不标记 `is_current`。
 fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
     let live_providers = opencode::read_live_providers()?;
     if live_providers.is_empty() {
         let config_path = crate::config::get_opencode_config_path();
         return Err(AppError::Config(format!(
-            "未在 OpenCode 配置中找到可导入的供应商（{}）。请确认 provider 段含 baseURL；托管项 aisw-* / ai-switcher 不会导入。若同时存在 opencode.json 与 opencode.jsonc，将优先读取含 provider 的文件。",
+            "未在 OpenCode 配置中找到可导入的供应商（{}）。请确认 provider 段含 baseURL 或 baseUrl；托管项 aisw-* / ai-switcher 不会导入。若同时存在 opencode.json 与 opencode.jsonc，将优先读取含 provider 的文件。也可检查旧版 config.json 与 auth.json。",
             config_path.display()
         )));
     }
     let existing = state.db.with_conn(|conn| dao::list_providers(conn, ProviderTarget::OpenCode))?;
-    let mut current_provider_id: Option<String> = None;
     for live in &live_providers {
         let normalized_base_url = normalize_base_url(&live.base_url)?;
         let default_model = live
@@ -889,7 +888,7 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
             .cloned()
             .collect();
         let matched = existing.iter().find(|p| p.base_url == normalized_base_url);
-        let provider = state.db.with_conn(|conn| {
+        state.db.with_conn(|conn| {
             dao::upsert_provider(
                 conn,
                 &ProviderInput {
@@ -918,12 +917,6 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
                 },
             )
         })?;
-        if live.current_model.is_some() {
-            current_provider_id = Some(provider.id);
-        }
-    }
-    if let Some(provider_id) = current_provider_id {
-        state.db.with_conn(|conn| dao::set_current_provider(conn, &provider_id))?;
     }
     // 导入只更新 DB；OpenCode 侧用户自有项已存在，再把 AI-Switcher 托管项同步出去。
     sync_opencode_providers_to_live(state)?;
@@ -952,14 +945,7 @@ pub(crate) fn sync_opencode_providers_to_live(state: &AppState) -> AppResult<()>
                     .unwrap_or_default())
             })
             .unwrap_or_default();
-        for model in &provider.failover_models {
-            if !extra_models.iter().any(|item| item == model) {
-                extra_models.push(model.clone());
-            }
-        }
-        if uses_antigravity_model_catalog(&provider) {
-            extra_models = crate::antigravity::model_catalog::filter_listable_model_ids(&extra_models);
-        }
+        extra_models = extra_models_for_ag_catalog_apply(&provider, extra_models);
         entries.push((runtime, extra_models));
     }
     opencode::apply_all_providers(&entries)
@@ -1091,14 +1077,7 @@ pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
                     .unwrap_or_default())
             })
             .unwrap_or_default();
-        for model in &provider.failover_models {
-            if !extra_models.iter().any(|item| item == model) {
-                extra_models.push(model.clone());
-            }
-        }
-        if uses_antigravity_model_catalog(&provider) {
-            extra_models = crate::antigravity::model_catalog::filter_listable_model_ids(&extra_models);
-        }
+        extra_models = extra_models_for_ag_catalog_apply(&provider, extra_models);
         entries.push((runtime, extra_models));
     }
     sync_managed_dsh_providers(&entries)
@@ -1262,21 +1241,52 @@ fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<s
     }
 
     let context_window = provider.model_context_window.unwrap_or(200_000);
+    let openai_compatible = matches!(
+        provider.protocol_type,
+        crate::provider::ProtocolType::OpenAiChat
+            | crate::provider::ProtocolType::OpenAiResponses
+            | crate::provider::ProtocolType::Proxy
+    );
     ids.into_iter()
         .map(|id| {
-            let reasoning = id.contains("thinking")
-                || id.contains("reason")
-                || id.starts_with("claude-opus")
-                || id.starts_with("claude-sonnet")
-                || id.starts_with("gpt-5");
-            json!({
+            let mut entry = json!({
                 "id": id,
-                "reasoning": reasoning,
+                "reasoning": true,
                 "input": ["text", "image"],
                 "contextWindow": context_window,
-            })
+            });
+            if openai_compatible {
+                entry["thinkingLevelMap"] = json!({
+                    "off": "off",
+                    "minimal": "minimal",
+                    "low": "low",
+                    "medium": "medium",
+                    "high": "high",
+                    "xhigh": "xhigh",
+                    "max": "max"
+                });
+            }
+            entry
         })
         .collect()
+}
+
+fn extra_models_for_ag_catalog_apply(provider: &Provider, mut extra_models: Vec<String>) -> Vec<String> {
+    extend_unique_models(&mut extra_models, provider.failover_models.clone());
+    if !uses_antigravity_model_catalog(provider) {
+        return extra_models;
+    }
+    extend_unique_models(&mut extra_models, crate::antigravity::list_model_ids());
+    extend_unique_models(
+        &mut extra_models,
+        crate::antigravity::model_catalog::provider_suggestion_ids(24),
+    );
+    extra_models.retain(|id| {
+        let trimmed = id.trim();
+        crate::antigravity::model_catalog::is_agent_facing_model(trimmed)
+            && !crate::antigravity::model_catalog::is_retired_model(trimmed)
+    });
+    extra_models
 }
 
 fn extra_models_for_pi_apply(
@@ -2527,6 +2537,61 @@ mod tests {
         );
     }
 
+    fn pi_test_provider(protocol: ProtocolType, model: &str) -> Provider {
+        Provider {
+            id: "p1".into(),
+            name: "Pi Gateway".into(),
+            base_url: "https://api.example.test/v1".into(),
+            api_key: "sk-test".into(),
+            api_key_set: true,
+            model: model.into(),
+            model_context_window: Some(128_000),
+            web_search_enabled: None,
+            auto_review_model_override: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: protocol,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
+            notes: String::new(),
+            target_app: ProviderTarget::Pi,
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        }
+    }
+
+    #[test]
+    fn pi_models_always_declare_reasoning_and_image_input() {
+        let provider = pi_test_provider(ProtocolType::OpenAiChat, "gemini-3.6-flash");
+        let entries = build_pi_model_entries(&provider, &["qwen3.6-plus".into(), "custom-id".into()]);
+        let by_id = |id: &str| {
+            entries
+                .iter()
+                .find(|entry| entry["id"] == id)
+                .unwrap_or_else(|| panic!("missing {id}"))
+        };
+        for id in ["gemini-3.6-flash", "qwen3.6-plus", "custom-id"] {
+            let entry = by_id(id);
+            assert_eq!(entry["reasoning"], true, "{id} must declare reasoning");
+            assert_eq!(entry["input"], serde_json::json!(["text", "image"]));
+            assert_eq!(entry["thinkingLevelMap"]["high"], "high");
+            assert_eq!(entry["contextWindow"], 128_000);
+        }
+    }
+
+    #[test]
+    fn pi_anthropic_models_skip_openai_thinking_level_map() {
+        let provider = pi_test_provider(ProtocolType::Anthropic, "claude-sonnet-4-6");
+        let entries = build_pi_model_entries(&provider, &[]);
+        assert_eq!(entries[0]["reasoning"], true);
+        assert!(entries[0].get("thinkingLevelMap").is_none());
+    }
+
     #[test]
     fn old_model_cache_remains_available_but_is_stale() {
         let result = model_result_from_cache(
@@ -2644,5 +2709,41 @@ mod tests {
         let left = BTreeMap::from([("ANTHROPIC_API_KEY".into(), Some(Value::String("  ".into())))]);
         let right = BTreeMap::from([("ANTHROPIC_API_KEY".into(), None)]);
         assert!(managed_fields_match(&left, &right));
+    }
+
+    #[test]
+    fn ag_opencode_extra_models_keep_gemini_from_failover_and_suggestions() {
+        let provider = Provider {
+            id: "p-ag".into(),
+            name: "Antigravity (Built-in)".into(),
+            base_url: "http://127.0.0.1:15830/v1".into(),
+            api_key: "local".into(),
+            api_key_set: true,
+            model: "claude-sonnet-4-6".into(),
+            model_context_window: Some(200_000),
+            web_search_enabled: None,
+            auto_review_model_override: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::Anthropic,
+            provider_kind: ProviderKind::Antigravity,
+            auth_binding: String::new(),
+            notes: String::new(),
+            target_app: ProviderTarget::OpenCode,
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: vec!["gemini-3.7-flash".into()],
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        };
+        let extra = extra_models_for_ag_catalog_apply(
+            &provider,
+            vec!["claude-sonnet-4-6".into(), "chat_20706".into()],
+        );
+        assert!(extra.iter().any(|id| id == "claude-sonnet-4-6"));
+        assert!(extra.iter().any(|id| id.starts_with("gemini-")));
+        assert!(!extra.iter().any(|id| id == "chat_20706"));
     }
 }

@@ -988,7 +988,7 @@ export interface NodeRuntimeStatus {
   installHint: string;
 }
 
-export type SessionProvider = "claude_code" | "codex" | "opencode" | "pi";
+export type SessionProvider = "claude_code" | "codex" | "opencode" | "pi" | "dsh";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;
