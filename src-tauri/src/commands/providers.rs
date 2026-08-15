@@ -1285,6 +1285,7 @@ fn extra_models_for_ag_catalog_apply(provider: &Provider, mut extra_models: Vec<
         let trimmed = id.trim();
         crate::antigravity::model_catalog::is_agent_facing_model(trimmed)
             && !crate::antigravity::model_catalog::is_retired_model(trimmed)
+            && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
     });
     extra_models
 }

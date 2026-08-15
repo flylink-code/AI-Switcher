@@ -111,7 +111,9 @@ fn opencode_sdk_base_url(provider: &Provider) -> String {
 }
 
 /// OpenCode 把缺失的 `limit.context` 当成 0；未配置时写 Pi/AG 同档的 200k。
+/// `limit.output` 在较新的 OpenCode schema 里是必填，缺了会 ConfigInvalidError。
 const OPENCODE_DEFAULT_CONTEXT_WINDOW: u64 = 200_000;
+const OPENCODE_DEFAULT_OUTPUT_TOKENS: u64 = 32_000;
 
 fn opencode_model_context(provider: &Provider) -> u64 {
     provider
@@ -120,8 +122,13 @@ fn opencode_model_context(provider: &Provider) -> u64 {
         .unwrap_or(OPENCODE_DEFAULT_CONTEXT_WINDOW)
 }
 
+fn opencode_model_output(context: u64) -> u64 {
+    OPENCODE_DEFAULT_OUTPUT_TOKENS.min(context.max(1))
+}
+
 /// OpenCode 自定义模型缺字段时默认无图片、无推理档位。托管项必须显式声明。
 fn opencode_model_entry(provider: &Provider, model_id: &str) -> Value {
+    let context = opencode_model_context(provider);
     let mut entry = json!({
         "name": model_id,
         "attachment": true,
@@ -130,7 +137,10 @@ fn opencode_model_entry(provider: &Provider, model_id: &str) -> Value {
             "input": ["text", "image"],
             "output": ["text"]
         },
-        "limit": { "context": opencode_model_context(provider) }
+        "limit": {
+            "context": context,
+            "output": opencode_model_output(context)
+        }
     });
     if matches!(
         provider.protocol_type,
@@ -709,6 +719,7 @@ mod tests {
         assert_eq!(model["modalities"]["output"], json!(["text"]));
         assert_eq!(model["variants"]["high"]["reasoningEffort"], "high");
         assert_eq!(model["limit"]["context"], 200_000);
+        assert_eq!(model["limit"]["output"], 32_000);
         assert_eq!(value["models"]["mini"]["variants"]["low"]["reasoningEffort"], "low");
     }
 
@@ -721,6 +732,7 @@ mod tests {
         assert_eq!(model["modalities"]["input"], json!(["text", "image"]));
         assert!(model.get("variants").is_none());
         assert_eq!(model["limit"]["context"], 200_000);
+        assert_eq!(model["limit"]["output"], 32_000);
     }
 
     #[test]
@@ -729,14 +741,22 @@ mod tests {
         provider.model_context_window = None;
         let value = managed_provider_value(&provider, &[]);
         assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
 
         provider.model_context_window = Some(0);
         let value = managed_provider_value(&provider, &[]);
         assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
 
         provider.model_context_window = Some(128_000);
         let value = managed_provider_value(&provider, &[]);
         assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 128_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
+
+        provider.model_context_window = Some(8_000);
+        let value = managed_provider_value(&provider, &[]);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 8_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 8_000);
     }
 
     #[test]

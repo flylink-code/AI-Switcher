@@ -9,12 +9,14 @@ use serde_json::{json, Value};
 use crate::error::{AppError, AppResult};
 
 const UPSTREAM_FALLBACKS: [&str; 3] = [
-    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal",
     "https://daily-cloudcode-pa.googleapis.com/v1internal",
     "https://cloudcode-pa.googleapis.com/v1internal",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal",
 ];
 
-const USER_AGENT: &str = "antigravity";
+/// Same Cloud Code client fingerprint as quota probes. A generic `antigravity`
+/// UA is accepted inconsistently and can 429 newer Gemini variants.
+const USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
 
 /// Anthropic beta marker for Claude models served via Cloud Code
 /// (mirrors Antigravity-Manager's claude.rs handling).
@@ -150,6 +152,7 @@ impl UpstreamClient {
                     Ok(response) => {
                         let status = response.status();
                         if status.is_success() {
+                            log::info!("Antigravity generate {method} {url} → {status}");
                             return Ok(response);
                         }
                         // 429: honor a short Retry-After in place once; otherwise bubble
@@ -178,6 +181,10 @@ impl UpstreamClient {
                         // (sandbox often 403s while production still works).
                         let text = response.text().await.unwrap_or_default();
                         last_error = format!("upstream {status}: {text}");
+                        log::warn!(
+                            "Antigravity generate {method} {url} → {status}: {}",
+                            text.chars().take(180).collect::<String>()
+                        );
                         break;
                     }
                     Err(error) => {

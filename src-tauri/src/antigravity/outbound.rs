@@ -283,6 +283,7 @@ pub fn build_async_client(connect_secs: u64, timeout_secs: u64) -> reqwest::Clie
 pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
     apply_cached_to_blocking(
         reqwest::blocking::Client::builder()
+            .connect_timeout(Duration::from_secs(timeout_secs.min(10)))
             .timeout(Duration::from_secs(timeout_secs))
             .user_agent("ai-switcher-antigravity"),
     )
@@ -290,6 +291,7 @@ pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
     .or_else(|error| {
         log::error!("Antigravity blocking client build failed ({error}); falling back to direct");
         reqwest::blocking::Client::builder()
+            .connect_timeout(Duration::from_secs(timeout_secs.min(10)))
             .timeout(Duration::from_secs(timeout_secs))
             .no_proxy()
             .user_agent("ai-switcher-antigravity")

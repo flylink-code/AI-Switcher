@@ -147,9 +147,9 @@ export default function AntigravityPage() {
       if (cancelled || inFlight) return;
       inFlight = true;
       try {
-        await refreshAntigravityQuotas();
+        const next = await refreshAntigravityQuotas();
         if (!cancelled) {
-          await queryClient.invalidateQueries({ queryKey: ["antigravity-accounts"] });
+          queryClient.setQueryData(["antigravity-accounts"], next);
           await queryClient.invalidateQueries({ queryKey: ["antigravity-gateway"] });
           await queryClient.invalidateQueries({ queryKey: ["antigravity-models"] });
         }
@@ -262,7 +262,8 @@ export default function AntigravityPage() {
 
   const quotaMutation = useMutation({
     mutationFn: refreshAntigravityQuotas,
-    onSuccess: async () => {
+    onSuccess: async (accounts) => {
+      queryClient.setQueryData(["antigravity-accounts"], accounts);
       message.success(t("antigravity.quotaRefreshed"));
       await refresh();
     },
@@ -273,12 +274,8 @@ export default function AntigravityPage() {
     setActionAccountId(id);
     try {
       await setAntigravityActiveAccount(id);
-      try {
-        await refreshAntigravityQuotas();
-      } catch {
-        // Active switch still succeeds even if a quota probe fails.
-      }
       await refresh();
+      message.success(t("antigravity.setActiveDone"));
     } catch (error) {
       message.error(errMsg(error));
     } finally {

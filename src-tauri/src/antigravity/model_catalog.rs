@@ -13,7 +13,8 @@ use crate::antigravity::quota::ModelQuota;
 const FALLBACK_IDS: &[&str] = &[
     "claude-sonnet-4-6",
     "claude-opus-4-6-thinking",
-    "gemini-3.7-flash",
+    "gemini-3.7-flash-high",
+    "gemini-3.6-flash-high",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,14 +36,9 @@ static CATALOG: RwLock<CatalogState> = RwLock::new(CatalogState {
     updated_at: 0,
 });
 
-/// Gemini reasoning levels, ordered low → high for bare-name fallback.
-///
-/// Cloud Code has no separate reasoning parameter — the level is encoded in the
-/// model id suffix (`gemini-3.6-flash-high`). Level variants are exposed to
-/// clients (Claude Code / Desktop / Codex) as-is so each client picks its own
-/// level in its model selector; the gateway only composes a fallback variant
-/// when a client sends a bare Gemini name with no suffix.
-const LEVEL_SUFFIXES: [&str; 3] = ["low", "medium", "high"];
+/// Gemini reasoning levels, ordered high → medium → low so a bare name
+/// (`gemini-3.7-flash`) maps to the same variant the official IDE uses.
+const LEVEL_SUFFIXES: [&str; 3] = ["high", "medium", "low"];
 
 /// Split a model id into (base, explicit level suffix) when it ends with
 /// `-low` / `-medium` / `-high`.
@@ -71,7 +67,7 @@ pub fn explicit_level_suffix(id: &str) -> Option<&'static str> {
 ///   unchanged (explicit client choice wins — clients select the level via the
 ///   suffixed ids exposed in `/v1/models`).
 /// - Bare Gemini names: keep the bare id when it exists upstream; otherwise
-///   pick the first available variant in low → medium → high order.
+///   pick the first available variant in high → medium → low order.
 pub fn with_reasoning_level(id: &str) -> String {
     let trimmed = id.trim();
     let lower = trimmed.to_ascii_lowercase();
@@ -128,6 +124,40 @@ pub fn with_forced_level(id: &str, level: &str) -> String {
     candidate
 }
 
+/// When Cloud Code 429s a Gemini level variant, try the next lower one on the
+/// same account before rotating. Official Antigravity lists
+/// `gemini-3.7-flash-high|medium|low` (no bare id).
+pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
+    let trimmed = id.trim().to_string();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if !lower.starts_with("gemini-") {
+        return vec![trimmed];
+    }
+    let (base, suffix) = split_level_suffix(&lower);
+    let rest: &[&str] = match suffix {
+        Some("high") => &["medium", "low"],
+        Some("medium") => &["low"],
+        _ => &[],
+    };
+    let catalog = list_model_ids();
+    let exists = |candidate: &str| {
+        catalog
+            .iter()
+            .any(|model| model.eq_ignore_ascii_case(candidate))
+    };
+    let mut out = vec![trimmed];
+    for level in rest {
+        let candidate = format!("{base}-{level}");
+        if exists(&candidate) && !out.iter().any(|item| item.eq_ignore_ascii_case(&candidate)) {
+            out.push(candidate);
+        }
+    }
+    out
+}
+
 fn lock_write() -> std::sync::RwLockWriteGuard<'static, CatalogState> {
     match CATALOG.write() {
         Ok(guard) => guard,
@@ -174,43 +204,33 @@ pub fn is_retired_model(id: &str) -> bool {
     false
 }
 
-fn catalog_has_gemini_37(models: &[CatalogModel]) -> bool {
-    models
-        .iter()
-        .any(|model| model.id.to_ascii_lowercase().starts_with("gemini-3.7"))
-}
-
-/// When 3.7 is live, hide older Gemini generations from catalog/failover lists.
-fn is_superseded_gemini(id: &str, has_37: bool) -> bool {
-    if !has_37 {
-        return false;
-    }
+fn is_live_gemini_family(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
-    lower.starts_with("gemini-") && !lower.starts_with("gemini-3.7")
+    lower.starts_with("gemini-3.6") || lower.starts_with("gemini-3.7")
 }
 
-/// Remap legacy Gemini ids that clients may still send after catalog pruning.
+/// Hide Gemini ids that Cloud Code no longer serves. 3.6 and 3.7 both stay.
+fn is_superseded_gemini(id: &str) -> bool {
+    let lower = id.trim().to_ascii_lowercase();
+    lower.starts_with("gemini-") && !is_live_gemini_family(&lower)
+}
+
+/// Remap retired Gemini ids (2.5 / 3 / 3.1 / 3.5). 3.6 and 3.7 pass through.
 pub fn should_remap_legacy_gemini(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
-    if !lower.starts_with("gemini-") || lower.starts_with("gemini-3.7") {
+    if !lower.starts_with("gemini-") || is_live_gemini_family(&lower) {
         return false;
     }
-    if is_retired_model(&lower) {
-        return true;
-    }
-    list_model_ids()
-        .iter()
-        .any(|model| model.to_ascii_lowercase().starts_with("gemini-3.7"))
+    is_retired_model(&lower) || is_superseded_gemini(&lower)
 }
 
 /// Drop retired and superseded models from a catalog snapshot.
 pub fn prune_catalog_models(mut models: Vec<CatalogModel>) -> Vec<CatalogModel> {
-    let has_37 = catalog_has_gemini_37(&models);
     models.retain(|model| {
         let lower = model.id.to_ascii_lowercase();
         is_agent_facing_model(&lower)
             && !is_retired_model(&lower)
-            && !is_superseded_gemini(&lower, has_37)
+            && !is_superseded_gemini(&lower)
     });
     models.sort_by(|left, right| left.id.cmp(&right.id));
     models.dedup_by(|left, right| left.id == right.id);
@@ -543,7 +563,7 @@ mod tests {
         ]);
         let ids: Vec<_> = pruned.iter().map(|model| model.id.as_str()).collect();
         assert!(ids.contains(&"gemini-3.7-flash"));
-        assert!(!ids.contains(&"gemini-3.6-flash-high"));
+        assert!(ids.contains(&"gemini-3.6-flash-high"));
         assert!(ids.contains(&"claude-sonnet-4-6"));
         assert!(!ids.contains(&"gemini-3-flash"));
         assert!(!ids.contains(&"gemini-3.1-pro-high"));
@@ -553,26 +573,31 @@ mod tests {
 
     #[test]
     fn with_reasoning_level_passthrough_and_bare_fallback() {
-        // Fallback catalog exposes the bare Gemini 3.7 Flash id.
+        // Fallback catalog exposes the live Cloud Code Flash ids (`-high`).
         assert_eq!(with_reasoning_level("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
         assert_eq!(with_reasoning_level("gemini-3.6-flash-high"), "gemini-3.6-flash-high");
         assert_eq!(with_reasoning_level("claude-sonnet-4-6"), "claude-sonnet-4-6");
         assert_eq!(
             with_reasoning_level("gemini-3.7-flash"),
-            "gemini-3.7-flash"
+            "gemini-3.7-flash-high"
         );
         assert_eq!(with_reasoning_level("gemini-9.9-flash"), "gemini-9.9-flash");
     }
 
     #[test]
-    fn catalog_exposes_gemini_37_flash() {
+    fn catalog_exposes_gemini_36_and_37_flash() {
         let ids = list_model_ids();
-        assert!(ids.iter().any(|id| id == "gemini-3.7-flash"));
-        assert!(!ids.iter().any(|id| id == "gemini-3.6-flash-high"));
+        assert!(ids.iter().any(|id| id == "gemini-3.7-flash-high"));
+        assert!(ids.iter().any(|id| id == "gemini-3.6-flash-high"));
         assert!(!ids.iter().any(|id| id == "gemini-3.1-pro-high"));
+        assert!(!should_remap_legacy_gemini("gemini-3.6-flash"));
+        assert!(!should_remap_legacy_gemini("gemini-3.6-flash-high"));
+        assert!(!should_remap_legacy_gemini("gemini-3.7-flash"));
+        assert!(should_remap_legacy_gemini("gemini-3.1-pro"));
+        assert!(should_remap_legacy_gemini("gemini-3-flash"));
         assert_eq!(
-            preferred_gemini_pro().as_deref(),
-            preferred_gemini_flash().as_deref()
+            preferred_gemini_flash().as_deref(),
+            Some("gemini-3.7-flash-high")
         );
     }
 
@@ -584,10 +609,23 @@ mod tests {
         );
         assert_eq!(
             with_forced_level("gemini-3.6-flash-high", "low"),
-            "gemini-3.6-flash-low"
+            "gemini-3.6-flash-high"
         );
         assert_eq!(with_forced_level("gemini-3.6-flash", "high"), "gemini-3.6-flash-high");
         assert_eq!(with_forced_level("claude-sonnet-4-6", "low"), "claude-sonnet-4-6");
+    }
+
+    #[test]
+    fn gemini_429_chain_starts_with_requested_id() {
+        let chain = gemini_level_fallback_chain("gemini-3.7-flash-high");
+        assert_eq!(
+            chain.first().map(String::as_str),
+            Some("gemini-3.7-flash-high")
+        );
+        assert_eq!(
+            gemini_level_fallback_chain("claude-sonnet-4-6"),
+            vec!["claude-sonnet-4-6".to_string()]
+        );
     }
 
     #[test]

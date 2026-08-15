@@ -1,7 +1,10 @@
 //! Cloud Code quota fetch (independent implementation).
 //!
-//! Uses `fetchAvailableModels` + `retrieveUserQuotaSummary` with sandbox → daily → prod
-//! fallbacks. Does not vendor third-party Antigravity-Manager source.
+//! Uses `fetchAvailableModels` + `retrieveUserQuotaSummary` with daily → prod → sandbox
+//! fallbacks. Sandbox is last: Clash/SOCKS often hangs there. Timeouts match
+//! Antigravity-Manager's 15s info client.
+
+use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -14,22 +17,26 @@ use crate::error::{AppError, AppResult};
 /// an empty/forbidden quota response despite a valid OAuth token.
 const QUOTA_USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
 
+/// Connect / total timeouts for quota probes (Antigravity-Manager uses 15s).
+const QUOTA_CONNECT_SECS: u64 = 8;
+const QUOTA_TIMEOUT_SECS: u64 = 15;
+
 const MODELS_ENDPOINTS: [&str; 3] = [
-    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
     "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
     "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
 ];
 
 const SUMMARY_ENDPOINTS: [&str; 3] = [
-    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:retrieveUserQuotaSummary",
     "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
     "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:retrieveUserQuotaSummary",
 ];
 
 const PROJECT_ENDPOINTS: [&str; 3] = [
-    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:loadCodeAssist",
     "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:loadCodeAssist",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -169,6 +176,20 @@ impl QuotaSnapshot {
             None => true, // unknown → allow until 429
         }
     }
+
+    /// `fetchAvailableModels` has no 5h/weekly groups. If summary is empty or
+    /// timed out, keep the previous bars instead of wiping them to `—`.
+    pub fn retain_groups_if_empty(&mut self, previous: Option<&QuotaSnapshot>) {
+        if !self.groups.is_empty() {
+            return;
+        }
+        if let Some(groups) = previous
+            .map(|quota| quota.groups.clone())
+            .filter(|groups| !groups.is_empty())
+        {
+            self.groups = groups;
+        }
+    }
 }
 
 struct ProjectMeta {
@@ -181,29 +202,51 @@ pub async fn fetch_quota(
     access_token: &str,
     cached_project_id: Option<&str>,
 ) -> AppResult<(QuotaSnapshot, Option<String>)> {
-    let client = crate::antigravity::outbound::build_async_client(15, 45);
+    let client = crate::antigravity::outbound::build_async_client(
+        QUOTA_CONNECT_SECS,
+        QUOTA_TIMEOUT_SECS,
+    );
 
-    // Always call loadCodeAssist so subscription tier (paidTier) refreshes even when
-    // project_id is already cached. Fall back to the cached project if meta omits it.
-    let mut meta = fetch_project_meta(&client, access_token).await;
+    let cached_pid = cached_project_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    // Bars come from retrieveUserQuotaSummary. Run it alongside models (and
+    // loadCodeAssist when project_id is already cached) so a slow host on one
+    // API does not starve the 5h/weekly snapshot.
+    let (mut meta, mut snapshot) = if let Some(pid) = cached_pid {
+        let (meta, models_result, groups) = tokio::join!(
+            fetch_project_meta(&client, access_token),
+            fetch_models_quota(&client, access_token, Some(pid), None),
+            fetch_quota_summary_bounded(&client, access_token, Some(pid)),
+        );
+        let mut snapshot = models_result?;
+        if let Some(groups) = groups {
+            snapshot.groups = groups;
+        }
+        (meta, snapshot)
+    } else {
+        let meta = fetch_project_meta(&client, access_token).await;
+        let (models_result, groups) = tokio::join!(
+            fetch_models_quota(
+                &client,
+                access_token,
+                meta.project_id.as_deref(),
+                meta.subscription_tier.clone(),
+            ),
+            fetch_quota_summary_bounded(&client, access_token, meta.project_id.as_deref()),
+        );
+        let mut snapshot = models_result?;
+        if let Some(groups) = groups {
+            snapshot.groups = groups;
+        }
+        (meta, snapshot)
+    };
+
     if meta.project_id.is_none() {
-        if let Some(pid) = cached_project_id.filter(|value| !value.trim().is_empty()) {
+        if let Some(pid) = cached_pid {
             meta.project_id = Some(pid.to_string());
         }
-    }
-
-    let mut snapshot = fetch_models_quota(
-        &client,
-        access_token,
-        meta.project_id.as_deref(),
-        meta.subscription_tier.clone(),
-    )
-    .await?;
-
-    if let Some(groups) =
-        fetch_quota_summary(&client, access_token, meta.project_id.as_deref()).await
-    {
-        snapshot.groups = groups;
     }
     if snapshot.subscription_tier.is_none() {
         snapshot.subscription_tier = meta.subscription_tier;
@@ -215,6 +258,7 @@ pub async fn fetch_quota(
 async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> ProjectMeta {
     let body = json!({ "metadata": { "ideType": "ANTIGRAVITY" } });
     for url in PROJECT_ENDPOINTS {
+        let started = Instant::now();
         let Ok(response) = client
             .post(url)
             .bearer_auth(access_token)
@@ -224,9 +268,18 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
             .send()
             .await
         else {
+            log::warn!(
+                "Antigravity loadCodeAssist {url} request failed in {}ms",
+                started.elapsed().as_millis()
+            );
             continue;
         };
         if !response.status().is_success() {
+            log::warn!(
+                "Antigravity loadCodeAssist {url} → {} in {}ms",
+                response.status(),
+                started.elapsed().as_millis()
+            );
             continue;
         }
         let Ok(value) = response.json::<Value>().await else {
@@ -439,10 +492,10 @@ async fn fetch_models_quota(
                     }
                     if !status.is_success() {
                         last_error = format!("{url} → {status}: {body}");
-                        if status.as_u16() == 429 || status.is_server_error() {
-                            break;
-                        }
-                        return Err(AppError::Other(format!("拉取模型额度失败: {last_error}")));
+                        log::warn!("Antigravity fetchAvailableModels {last_error}");
+                        // Auth/forbidden handled above. Other 4xx (sandbox 404) and
+                        // 5xx/429: try the next host instead of failing the refresh.
+                        break;
                     }
                     let value: Value = serde_json::from_str(&body).map_err(|error| {
                         AppError::Other(format!("解析模型额度失败: {error}"))
@@ -519,8 +572,12 @@ fn parse_models_response(value: &Value) -> QuotaSnapshot {
         }
     }
 
-    for id in collect_sort_model_ids(value) {
-        push_model(id, 0, String::new(), None);
+    for key in ["agentModelSorts", "clientModelSorts"] {
+        if let Some(sorts) = value.get(key) {
+            for id in collect_sort_model_ids(sorts) {
+                push_model(id, 0, String::new(), None);
+            }
+        }
     }
 
     models.sort_by(|left, right| left.name.cmp(&right.name));
@@ -562,6 +619,25 @@ fn walk_model_ids(value: &Value, ids: &mut Vec<String>) {
     }
 }
 
+async fn fetch_quota_summary_bounded(
+    client: &reqwest::Client,
+    access_token: &str,
+    project_id: Option<&str>,
+) -> Option<Vec<QuotaGroup>> {
+    match tokio::time::timeout(
+        Duration::from_secs(25),
+        fetch_quota_summary(client, access_token, project_id),
+    )
+    .await
+    {
+        Ok(groups) => groups,
+        Err(_) => {
+            log::warn!("Antigravity quota summary timed out after 25s");
+            None
+        }
+    }
+}
+
 async fn fetch_quota_summary(
     client: &reqwest::Client,
     access_token: &str,
@@ -575,6 +651,13 @@ async fn fetch_quota_summary(
     let mut best: Option<Vec<QuotaGroup>> = None;
     let mut best_score = -1i32;
     for url in SUMMARY_ENDPOINTS {
+        if url.contains(".sandbox.googleapis.com") && best_score >= 10 {
+            log::info!(
+                "Antigravity quota summary skipping sandbox (already have score={best_score})"
+            );
+            continue;
+        }
+        let started = Instant::now();
         let Ok(response) = client
             .post(url)
             .bearer_auth(access_token)
@@ -584,16 +667,32 @@ async fn fetch_quota_summary(
             .send()
             .await
         else {
+            log::warn!(
+                "Antigravity quota summary {url} request failed in {}ms",
+                started.elapsed().as_millis()
+            );
             continue;
         };
-        if !response.status().is_success() {
+        let status = response.status();
+        let elapsed_ms = started.elapsed().as_millis();
+        if !status.is_success() {
+            log::warn!("Antigravity quota summary {url} → {status} in {elapsed_ms}ms");
+            // 401/403: every host will reject the same token.
+            if status.as_u16() == 401 || status.as_u16() == 403 {
+                break;
+            }
             continue;
         }
         let Ok(value) = response.json::<Value>().await else {
+            log::warn!("Antigravity quota summary {url} JSON parse failed in {elapsed_ms}ms");
             continue;
         };
         let groups = parse_summary_groups(&value);
         let score = summary_completeness_score(&groups);
+        log::info!(
+            "Antigravity quota summary {url} → {} groups score={score} in {elapsed_ms}ms",
+            groups.len()
+        );
         if score > best_score {
             best_score = score;
             best = Some(groups);
@@ -900,6 +999,30 @@ mod tests {
             extract_tier(&restricted).as_deref(),
             Some("Standard (Restricted)")
         );
+    }
+
+    #[test]
+    fn empty_groups_keep_previous_summary_bars() {
+        let previous = QuotaSnapshot {
+            groups: vec![QuotaGroup {
+                display_name: "Gemini Models".into(),
+                buckets: vec![QuotaBucket {
+                    bucket_id: "gemini-weekly".into(),
+                    window: "weekly".into(),
+                    remaining_fraction: 0.42,
+                    reset_time: "t".into(),
+                    display_name: None,
+                }],
+            }],
+            last_updated: 1,
+            ..QuotaSnapshot::default()
+        };
+        let mut next = QuotaSnapshot {
+            last_updated: 2,
+            ..QuotaSnapshot::default()
+        };
+        next.retain_groups_if_empty(Some(&previous));
+        assert_eq!(next.gemini_window_percent("weekly"), Some(42));
     }
 
     #[test]

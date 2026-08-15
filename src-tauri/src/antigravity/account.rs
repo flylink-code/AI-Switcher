@@ -246,7 +246,16 @@ impl AccountStore {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         }
         for account in &mut guard.accounts {
-            account.is_active = account.id == account_id;
+            let activate = account.id == account_id;
+            account.is_active = activate;
+            if activate {
+                // Explicit user choice should take effect on the next request,
+                // even if a recent 429 left this account in cooldown.
+                account.cooldown_until = None;
+                if account.health_score < 0.5 {
+                    account.health_score = 0.5;
+                }
+            }
         }
         persist(&guard)?;
         Ok(())
@@ -398,6 +407,8 @@ impl AccountStore {
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         };
+        let mut quota = quota;
+        quota.retain_groups_if_empty(account.quota.as_ref());
         account.remaining_quota = quota.remaining_hint_percent();
         if let Some(pid) = project_id.filter(|value| !value.trim().is_empty()) {
             account.token.project_id = Some(pid);

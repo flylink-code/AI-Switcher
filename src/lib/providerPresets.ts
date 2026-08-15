@@ -108,6 +108,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -121,7 +122,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     protocolType: "openai_responses",
     baseUrl: "http://127.0.0.1:8045/v1",
     model: "claude-sonnet-4-6",
-    failoverModels: ["gemini-3.7-flash", "claude-opus-4-6-thinking"],
+    failoverModels: ["gemini-3.7-flash", "gemini-3.6-flash", "claude-opus-4-6-thinking"],
     modelContextWindow: 200_000,
     notes:
       "External Antigravity-Manager OpenAI Responses endpoint for Codex (wire_api=responses). Start AG Manager and fill its API key.",
@@ -135,11 +136,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
     notes:
-      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到 gemini-3.6-flash；也可在模型映射里改成其他 Gemini。",
+      "Built-in Antigravity gateway. Claude Code 的 Haiku 槽默认映射到当前 Flash（优先 gemini-3.7-flash，其次 gemini-3.6-flash）；也可在模型映射里改成其他 Gemini。",
     targets: CLAUDE_OPENCODE,
   },
   {
@@ -150,6 +152,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
     ],
     modelContextWindow: 200_000,
@@ -165,6 +168,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -181,6 +185,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -197,6 +202,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     model: "claude-sonnet-4-6",
     failoverModels: [
       "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "claude-opus-4-6-thinking",
       "claude-sonnet-4-6-thinking",
     ],
@@ -211,6 +217,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     baseUrl: "http://127.0.0.1:15830",
     model: "claude-sonnet-4-6",
     failoverModels: [
+      "gemini-3.7-flash",
+      "gemini-3.6-flash",
       "gemini-3.6-flash-high",
       "gemini-3.6-flash-low",
       "claude-opus-4-6-thinking",

@@ -28,6 +28,7 @@ use crate::antigravity::map::responses::{
     ResponsesStreamEncoder,
 };
 use crate::antigravity::map::list_public_models;
+use crate::antigravity::model_catalog;
 use crate::antigravity::upstream::{unwrap_v1internal, wrap_v1internal};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
@@ -202,6 +203,11 @@ async fn dispatch_generation(
 ) -> Response {
     let started = Instant::now();
     let session_key = session_key_from_headers(headers);
+    let model_chain = model_catalog::gemini_level_fallback_chain(&model);
+    log::info!(
+        "Antigravity dispatch model={model} chain={} stream={stream}",
+        model_chain.join(">")
+    );
     let mut exclude: Vec<String> = Vec::new();
     let mut exclude_labels: Vec<String> = Vec::new();
     let mut last_error = String::from("upstream failed");
@@ -231,6 +237,7 @@ async fn dispatch_generation(
         };
         exclude.push(account.id.clone());
         let account_email = if account.email.trim().is_empty() { account.id.clone() } else { account.email.clone() };
+        log::info!("Antigravity hop={hop} account={account_email}");
         exclude_labels.push(account_email);
 
         let project_id = match ensure_project_id(
@@ -249,42 +256,68 @@ async fn dispatch_generation(
             }
         };
 
-        let wrapped = wrap_v1internal(&project_id, &model, request.clone());
-        // 500/502/504 are usually transient blips: retry the same account with
-        // a short backoff before burning a rotation (503/529 already got
-        // per-host backoff inside `generate`).
-        let mut server_error_retry = 0u32;
-        let upstream = loop {
-            match state
-                .upstream
-                .generate(&access_token, &wrapped, stream)
-                .await
-            {
-                Ok(response) => {
-                    let status = response.status();
-                    if matches!(status.as_u16(), 500 | 502 | 504) && server_error_retry < 2 {
-                        server_error_retry += 1;
-                        log::warn!(
-                            "Antigravity upstream {status}; same-account retry {server_error_retry}/2"
-                        );
-                        tokio::time::sleep(std::time::Duration::from_secs(
-                            2 << server_error_retry,
-                        ))
-                        .await;
-                        continue;
+        let mut current_model = String::new();
+        let mut model_idx = 0usize;
+        let upstream = 'levels: loop {
+            current_model = model_chain
+                .get(model_idx)
+                .cloned()
+                .unwrap_or_else(|| model.clone());
+            let wrapped = wrap_v1internal(&project_id, &current_model, request.clone());
+            // 500/502/504 are usually transient blips: retry the same account with
+            // a short backoff before burning a rotation (503/529 already got
+            // per-host backoff inside `generate`).
+            let mut server_error_retry = 0u32;
+            let attempt = loop {
+                match state
+                    .upstream
+                    .generate(&access_token, &wrapped, stream)
+                    .await
+                {
+                    Ok(response) => {
+                        let status = response.status();
+                        if matches!(status.as_u16(), 500 | 502 | 504) && server_error_retry < 2 {
+                            server_error_retry += 1;
+                            log::warn!(
+                                "Antigravity upstream {status}; same-account retry {server_error_retry}/2"
+                            );
+                            tokio::time::sleep(std::time::Duration::from_secs(
+                                2 << server_error_retry,
+                            ))
+                            .await;
+                            continue;
+                        }
+                        break Ok(response);
                     }
-                    break Ok(response);
+                    Err(error) => break Err(error),
                 }
-                Err(error) => break Err(error),
+            };
+            let response = match attempt {
+                Ok(response) => response,
+                Err(error) => {
+                    last_error = error.to_string();
+                    let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
+                    break 'levels Err(());
+                }
+            };
+            if response.status().as_u16() == 429 && model_idx + 1 < model_chain.len() {
+                let next = &model_chain[model_idx + 1];
+                let text = response.text().await.unwrap_or_default();
+                last_error = format!(
+                    "upstream 429: {}",
+                    text.trim().chars().take(240).collect::<String>()
+                );
+                log::warn!(
+                    "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
+                );
+                model_idx += 1;
+                continue 'levels;
             }
+            break 'levels Ok(response);
         };
         let upstream = match upstream {
             Ok(response) => response,
-            Err(error) => {
-                last_error = error.to_string();
-                let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
-                continue;
-            }
+            Err(()) => continue,
         };
 
         let status = upstream.status();
@@ -327,7 +360,7 @@ async fn dispatch_generation(
         let log_id = usage_log::insert_request(
             &state.db,
             Some(account_label),
-            &model,
+            &current_model,
             Some(status.as_u16() as i64),
             started,
             protocol,
@@ -338,7 +371,7 @@ async fn dispatch_generation(
         if stream {
             return stream_response(
                 upstream,
-                model.clone(),
+                current_model.clone(),
                 protocol,
                 state.db.clone(),
                 log_id,
@@ -358,7 +391,7 @@ async fn dispatch_generation(
                 match protocol {
                     WireProtocol::Anthropic => {
                         Json(gemini_to_anthropic_response(
-                            &model,
+                            &current_model,
                             &gemini,
                             session_key.as_deref(),
                             thoughts_allowed,
@@ -367,11 +400,11 @@ async fn dispatch_generation(
                         .into_response()
                     }
                     WireProtocol::OpenAiChat => {
-                        Json(gemini_to_openai_response(&model, &gemini, &tool_params))
+                        Json(gemini_to_openai_response(&current_model, &gemini, &tool_params))
                             .into_response()
                     }
                     WireProtocol::OpenAiResponses => {
-                        Json(gemini_to_responses_response(&model, &gemini, &tool_params))
+                        Json(gemini_to_responses_response(&current_model, &gemini, &tool_params))
                             .into_response()
                     }
                 }

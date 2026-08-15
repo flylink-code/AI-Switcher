@@ -1,6 +1,7 @@
 //! Background + manual Antigravity quota refresh against Cloud Code.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use crate::antigravity::account::store as account_store;
 use crate::antigravity::quota::fetch_quota;
@@ -9,6 +10,7 @@ use crate::error::{AppError, AppResult};
 
 pub const QUOTA_REFRESH_INTERVAL_SECS: u64 = 5 * 60;
 pub const QUOTA_REFRESH_EVENT: &str = "antigravity-quota-refreshed";
+const ACCOUNT_QUOTA_BUDGET: Duration = Duration::from_secs(90);
 
 static REFRESH_RUNNING: AtomicBool = AtomicBool::new(false);
 
@@ -38,33 +40,68 @@ fn try_acquire_refresh_lock() -> Option<RefreshGuard> {
 }
 
 pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<AntigravityAccountPublic> {
-    let (access_token, account) = account_store().ensure_access_token(account_id)?;
-    let quota_result = fetch_quota(&access_token, account.token.project_id.as_deref()).await;
+    let id = account_id.to_string();
+    let (access_token, account) = tokio::task::spawn_blocking(move || {
+        account_store().ensure_access_token(&id)
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("额度刷新任务失败: {error}")))??;
+
+    let quota_result = tokio::time::timeout(
+        ACCOUNT_QUOTA_BUDGET,
+        fetch_quota(&access_token, account.token.project_id.as_deref()),
+    )
+    .await
+    .map_err(|_| {
+        AppError::Other(format!(
+            "刷新 {} 额度超时（Cloud Code 无响应）",
+            account.email
+        ))
+    })?;
     let (quota, project_id) = match quota_result {
         Ok(result) => result,
-        Err(error) if error.to_string().contains("401") || error.to_string().contains("Unauthorized") => {
+        Err(error)
+            if error.to_string().contains("401") || error.to_string().contains("Unauthorized") =>
+        {
             log::info!(
                 "Antigravity quota access token rejected for {}; forcing token renewal and retrying",
                 account.email
             );
-            let (access_token, refreshed_account) = match account_store().force_refresh_access_token(account_id) {
-                Ok(result) => result,
-                Err(refresh_error) => {
-                    let detail = refresh_error.to_string();
-                    if detail.contains("invalid_grant") || detail.contains("revoked") {
-                        account_store().mark_reauthorization_required(
-                            account_id,
-                            "Google 授权已失效，请重新用浏览器登录此账号",
-                        )?;
-                        return Err(AppError::Config(format!(
-                            "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",
-                            account.email
-                        )));
+            let retry_id = account_id.to_string();
+            let (access_token, refreshed_account) =
+                match tokio::task::spawn_blocking(move || {
+                    account_store().force_refresh_access_token(&retry_id)
+                })
+                .await
+                .map_err(|error| AppError::Other(format!("Token 刷新任务失败: {error}")))?
+                {
+                    Ok(result) => result,
+                    Err(refresh_error) => {
+                        let detail = refresh_error.to_string();
+                        if detail.contains("invalid_grant") || detail.contains("revoked") {
+                            account_store().mark_reauthorization_required(
+                                account_id,
+                                "Google 授权已失效，请重新用浏览器登录此账号",
+                            )?;
+                            return Err(AppError::Config(format!(
+                                "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",
+                                account.email
+                            )));
+                        }
+                        return Err(refresh_error);
                     }
-                    return Err(refresh_error);
-                }
-            };
-            fetch_quota(&access_token, refreshed_account.token.project_id.as_deref()).await?
+                };
+            tokio::time::timeout(
+                ACCOUNT_QUOTA_BUDGET,
+                fetch_quota(&access_token, refreshed_account.token.project_id.as_deref()),
+            )
+            .await
+            .map_err(|_| {
+                AppError::Other(format!(
+                    "刷新 {} 额度超时（Cloud Code 无响应）",
+                    account.email
+                ))
+            })??
         }
         Err(error) => return Err(error),
     };

@@ -390,6 +390,15 @@ pub fn builtin_base_url() -> String {
     format!("http://127.0.0.1:{port}")
 }
 
+/// Drop in-memory session→account bindings so a newly marked active account
+/// is used on the next request instead of a previous sticky session.
+pub fn clear_sticky_sessions() {
+    let slot = lock_manager();
+    if let Some(manager) = slot.as_ref() {
+        manager.pool.clear_sticky();
+    }
+}
+
 pub fn builtin_api_key() -> String {
     lock_manager()
         .as_ref()

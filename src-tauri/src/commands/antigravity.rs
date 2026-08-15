@@ -1,10 +1,11 @@
 //! Tauri commands for the built-in Antigravity gateway.
 
 use crate::antigravity::{
-    gateway_status, import_accounts_json, list_accounts, login_with_browser, refresh_all_account_quotas,
-    refresh_one_account_quota, remove_account, set_active_account, set_gateway_api_key,
-    set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway, AntigravityAccountPublic,
-    AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL, DEFAULT_GATEWAY_PORT,
+    clear_sticky_sessions, gateway_status, import_accounts_json, list_accounts, login_with_browser,
+    refresh_all_account_quotas, refresh_one_account_quota, remove_account, set_active_account,
+    set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway,
+    AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
+    DEFAULT_GATEWAY_PORT,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -38,7 +39,9 @@ pub fn remove_antigravity_account(account_id: String) -> AppResult<()> {
 
 #[tauri::command]
 pub fn set_antigravity_active_account(account_id: String) -> AppResult<()> {
-    set_active_account(&account_id)
+    set_active_account(&account_id)?;
+    clear_sticky_sessions();
+    Ok(())
 }
 
 #[tauri::command]
@@ -132,7 +135,7 @@ pub async fn ensure_antigravity_provider(
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(crate::antigravity::model_catalog::preferred_default_model);
     let gemini_flash = crate::antigravity::model_catalog::preferred_gemini_flash()
-        .unwrap_or_else(|| "gemini-3.6-flash-high".into());
+        .unwrap_or_else(|| "gemini-3.7-flash-high".into());
     let gemini_pro = crate::antigravity::model_catalog::preferred_gemini_pro()
         .unwrap_or_else(|| gemini_flash.clone());
     let claude_opus = crate::antigravity::model_catalog::preferred_claude_opus()

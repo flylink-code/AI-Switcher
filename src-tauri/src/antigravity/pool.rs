@@ -86,35 +86,33 @@ impl AccountPool {
             }
         }
 
-        if let Some(session) = session_key.filter(|value| !value.is_empty()) {
-            if let Ok(guard) = self.sticky.lock() {
-                if let Some(account_id) = guard.get(session) {
-                    if let Some(account) = candidates.iter().find(|item| &item.id == account_id) {
-                        return store().ensure_access_token(&account.id);
-                    }
-                }
-            }
-        }
-
-        if let Some(preferred) = preferred_account_id.filter(|value| !value.is_empty()) {
-            if let Some(account) = candidates.iter().find(|item| item.id == preferred) {
-                let selected = store().ensure_access_token(&account.id)?;
-                self.bind_session(session_key, &selected.1.id);
-                return Ok(selected);
-            }
-        }
-
-        if let Some(active) = candidates.iter().find(|item| item.is_active) {
-            let selected = store().ensure_access_token(&active.id)?;
-            self.bind_session(session_key, &selected.1.id);
-            return Ok(selected);
-        }
-
-        sort_candidates_best_first(&mut candidates);
-        let best = &candidates[0];
-        let selected = store().ensure_access_token(&best.id)?;
+        let sticky_id = session_key
+            .filter(|value| !value.is_empty())
+            .and_then(|session| {
+                self.sticky
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.get(session).cloned())
+            });
+        let Some(chosen) =
+            choose_candidate(&candidates, preferred_account_id, sticky_id.as_deref())
+        else {
+            return Err(AppError::Other(explain_unavailable(&accounts, now)));
+        };
+        log::info!(
+            "Antigravity pool select {} via {}",
+            chosen.email,
+            selection_reason(chosen, preferred_account_id, sticky_id.as_deref())
+        );
+        let selected = store().ensure_access_token(&chosen.id)?;
         self.bind_session(session_key, &selected.1.id);
         Ok(selected)
+    }
+
+    pub fn clear_sticky(&self) {
+        if let Ok(mut guard) = self.sticky.lock() {
+            guard.clear();
+        }
     }
 
     pub fn rotate_after_failure(
@@ -298,19 +296,66 @@ fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
     "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into()
 }
 
+/// Prefer an explicit account, then the user-marked active account, then a
+/// sticky session binding. Sticky must not override a newly set active account.
+fn choose_candidate<'a>(
+    candidates: &'a [AntigravityAccount],
+    preferred_account_id: Option<&str>,
+    sticky_account_id: Option<&str>,
+) -> Option<&'a AntigravityAccount> {
+    if candidates.is_empty() {
+        return None;
+    }
+    if let Some(preferred) = preferred_account_id.filter(|value| !value.is_empty()) {
+        if let Some(account) = candidates.iter().find(|item| item.id == preferred) {
+            return Some(account);
+        }
+    }
+    if let Some(active) = candidates.iter().find(|item| item.is_active) {
+        return Some(active);
+    }
+    if let Some(sticky) = sticky_account_id.filter(|value| !value.is_empty()) {
+        if let Some(account) = candidates.iter().find(|item| item.id == sticky) {
+            return Some(account);
+        }
+    }
+    let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
+    ranked.sort_by(|left, right| compare_candidates(left, right));
+    ranked.first().copied()
+}
+
+fn selection_reason(
+    chosen: &AntigravityAccount,
+    preferred_account_id: Option<&str>,
+    sticky_account_id: Option<&str>,
+) -> &'static str {
+    if preferred_account_id.is_some_and(|id| id == chosen.id) {
+        return "preferred";
+    }
+    if chosen.is_active {
+        return "active";
+    }
+    if sticky_account_id.is_some_and(|id| id == chosen.id) {
+        return "sticky";
+    }
+    "best"
+}
+
+fn compare_candidates(left: &AntigravityAccount, right: &AntigravityAccount) -> std::cmp::Ordering {
+    right
+        .health_score
+        .partial_cmp(&left.health_score)
+        .unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| {
+            right
+                .remaining_quota
+                .unwrap_or(0)
+                .cmp(&left.remaining_quota.unwrap_or(0))
+        })
+}
+
 fn sort_candidates_best_first(candidates: &mut [AntigravityAccount]) {
-    candidates.sort_by(|left, right| {
-        right
-            .health_score
-            .partial_cmp(&left.health_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| {
-                right
-                    .remaining_quota
-                    .unwrap_or(0)
-                    .cmp(&left.remaining_quota.unwrap_or(0))
-            })
-    });
+    candidates.sort_by(|left, right| compare_candidates(left, right));
 }
 
 #[cfg(test)]
@@ -365,5 +410,46 @@ mod tests {
         let now = Utc::now().timestamp();
         let accounts = vec![sample("a1", Some(now + 30)), sample("a2", None)];
         assert!(soft_select_cooled_account(&accounts, now).is_none());
+    }
+
+    #[test]
+    fn active_account_beats_sticky_session() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        let candidates = vec![a1, a2];
+        let chosen = choose_candidate(&candidates, None, Some("a2")).expect("chosen");
+        assert_eq!(chosen.id, "a1");
+        assert_eq!(
+            selection_reason(chosen, None, Some("a2")),
+            "active"
+        );
+    }
+
+    #[test]
+    fn sticky_used_when_active_is_not_schedulable() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = false;
+        a2.is_active = false;
+        let candidates = vec![a1, a2];
+        let chosen = choose_candidate(&candidates, None, Some("a2")).expect("chosen");
+        assert_eq!(chosen.id, "a2");
+        assert_eq!(
+            selection_reason(chosen, None, Some("a2")),
+            "sticky"
+        );
+    }
+
+    #[test]
+    fn preferred_beats_active() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        let candidates = vec![a1, a2];
+        let chosen = choose_candidate(&candidates, Some("a2"), Some("a1")).expect("chosen");
+        assert_eq!(chosen.id, "a2");
     }
 }

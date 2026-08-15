@@ -107,33 +107,64 @@ function bucketLooksClaudeGpt(bucketId: string): boolean {
   );
 }
 
-/// 与后端 group_window_percent 同逻辑：按家族 + 窗口选 remainingFraction 最大的
-/// bucket，返回其 resetTime（决定配额条展示的重置时间）。
-function windowResetTime(
+function bucketMatchesFamily(
+  groupDisplayName: string,
+  bucketId: string,
+  family: QuotaFamily,
+): boolean {
+  const groupIsGemini = groupDisplayName.toLowerCase().includes("gemini");
+  switch (family) {
+    case "gemini":
+      return bucketLooksGemini(bucketId) || groupIsGemini;
+    case "claudeGpt":
+      return (
+        bucketLooksClaudeGpt(bucketId) ||
+        (!groupIsGemini && !bucketLooksGemini(bucketId))
+      );
+    default: {
+      const _exhaustive: never = family;
+      return _exhaustive;
+    }
+  }
+}
+
+function bestBucket(
   account: AntigravityAccountPublic,
   window: string,
   family: QuotaFamily,
-): string | null {
+): AntigravityQuotaBucket | null {
   const groups = account.quota?.groups ?? [];
   let best: AntigravityQuotaBucket | null = null;
   for (const group of groups) {
-    const groupIsGemini = group.displayName.toLowerCase().includes("gemini");
     for (const bucket of group.buckets) {
       if (normalizeQuotaWindow(bucket.window, bucket.bucketId) !== normalizeQuotaWindow(window)) {
         continue;
       }
-      const matches =
-        family === "gemini"
-          ? bucketLooksGemini(bucket.bucketId) || groupIsGemini
-          : bucketLooksClaudeGpt(bucket.bucketId) ||
-            (!groupIsGemini && !bucketLooksGemini(bucket.bucketId));
-      if (!matches) continue;
+      if (!bucketMatchesFamily(group.displayName, bucket.bucketId, family)) continue;
       if (best == null || bucket.remainingFraction > best.remainingFraction) {
         best = bucket;
       }
     }
   }
-  return best?.resetTime || null;
+  return best;
+}
+
+function percentFromGroups(
+  account: AntigravityAccountPublic,
+  window: string,
+  family: QuotaFamily,
+): number | null {
+  const bucket = bestBucket(account, window, family);
+  if (bucket == null) return null;
+  return Math.round(bucket.remainingFraction * 100);
+}
+
+function windowResetTime(
+  account: AntigravityAccountPublic,
+  window: string,
+  family: QuotaFamily,
+): string | null {
+  return bestBucket(account, window, family)?.resetTime || null;
 }
 
 export function accountQuotaSummary(account: AntigravityAccountPublic): {
@@ -148,10 +179,10 @@ export function accountQuotaSummary(account: AntigravityAccountPublic): {
   quotaUpdatedAt: number | null;
 } {
   return {
-    geminiFiveHour: account.quotaGemini5hPercent ?? null,
-    geminiWeekly: account.quotaGeminiWeeklyPercent ?? null,
-    claudeFiveHour: account.quotaClaude5hPercent ?? null,
-    claudeWeekly: account.quotaClaudeWeeklyPercent ?? null,
+    geminiFiveHour: account.quotaGemini5hPercent ?? percentFromGroups(account, "5h", "gemini"),
+    geminiWeekly: account.quotaGeminiWeeklyPercent ?? percentFromGroups(account, "weekly", "gemini"),
+    claudeFiveHour: account.quotaClaude5hPercent ?? percentFromGroups(account, "5h", "claudeGpt"),
+    claudeWeekly: account.quotaClaudeWeeklyPercent ?? percentFromGroups(account, "weekly", "claudeGpt"),
     geminiFiveHourReset: windowResetTime(account, "5h", "gemini"),
     geminiWeeklyReset: windowResetTime(account, "weekly", "gemini"),
     claudeFiveHourReset: windowResetTime(account, "5h", "claudeGpt"),
