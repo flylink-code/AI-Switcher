@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.11**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.12**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,7 +41,7 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), Pi
 
 ## Features
 
-### Navigation & layout (1.3.8)
+### Navigation & layout
 
 - **Two layouts**: switch **sidebar** / **top** navigation in the title bar (browser-like default vs vertical tabs); preference stored as `cs.layoutMode`
 - **Top nav (seven items)**: Overview · Providers · Usage · Accounts & quota · Workspace · **Sessions** · Settings
@@ -54,6 +54,7 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), Pi
 ### Providers and switching
 
 - Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness separately
+- **Standardized Thinking / Reasoning translation**: Visual configuration for thinking mode, token budget (`budget_tokens` / `thinking_budget`), and reasoning effort (`reasoning_effort`); seamlessly bridges differences across Anthropic, OpenAI, Gemini, and DeepSeek (`reasoning_content` stream to thinking blocks)
 - Provider cards can **copy to another Agent**; Providers page can **import from another Agent** (fields mapped to the target protocol)
 - Providers page can **diagnose** each node and **quarantine** 401/403 failures (quarantined nodes are skipped by failover)
 - Codex providers can toggle catalog **Web Search** (writes `supports_search_tool` / `web_search_tool_type`)
@@ -65,7 +66,7 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), Pi
 
 ### Local proxy
 
-Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Optional automatic failover (off by default). **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
+Anthropic Messages-compatible forwarding, model mapping, credential injection, streaming, status, and logs. Supports **transparent failover**: automatically falls back to secondary provider candidates upon 429, 5xx, or connection timeout errors according to priority and model whitelists, recording full fallback trace diagnostics to the usage log. **Proxy-backed sessions can hot-switch upstreams**; direct (non-proxy) setups may still need a CLI restart.
 
 Entry point: **Settings → Tools & environment → Local proxy** (port / force restart / failover). Day-to-day provider switches still start/stop the proxy from the Providers page. Multi-turn `openai_responses` assistant history uses `output_text` (avoids 502 from the second turn).
 
@@ -74,7 +75,9 @@ Entry point: **Settings → Tools & environment → Local proxy** (port / force 
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Google / Antigravity (Cloud Code) for Claude Code, Claude Desktop, Codex, Pi, and DeepSeek Harness:
 
 - **Protocols**: Anthropic `/v1/messages`, OpenAI Chat `/v1/chat/completions`, and OpenAI Responses `/v1/responses` (Codex must bind `openai_responses`)
-- **Account pool**: browser OAuth import, multi-account quota scheduling and cooldown rotation; **Set active** makes the gateway prefer that account (clears sticky sessions and cooldown); refresh quota to sync the live model catalog; background auto-refresh
+- **Account pool & smart scheduling**: browser OAuth import, 403 error circuit breaking and 429 tiered cooldown probes; **dynamic weighted round-robin and best account recommendation** based on real-time remaining quota ratio and health score; low quota (<15%) proactive warnings; **Set active** makes the gateway prefer that account (clears sticky sessions and cooldown); background auto-refresh for quotas and live model catalog
+- **Claude Desktop 429**: when the account pool is exhausted the gateway returns **429 + Retry-After** (no longer disguised as 502), so Desktop does not treat it as a 5xx fault and retry-storm; the local proxy also skips failing over AG 429s to unrelated providers
+- **Usage passthrough**: parse Gemini `usageMetadata` (including thought tokens) and return real input/output on Anthropic / OpenAI Chat / Responses stream trailers
 - **Model catalog**: Gemini **3.6 and 3.7 coexist** (Cloud Code ids are `-high` / `-medium` / `-low`); a 429 on 3.7-high degrades to medium/low on the same account before rotating
 - **One-click bind**: ensure providers on the Accounts & quota page, then switch from each tool’s provider list
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
@@ -98,7 +101,7 @@ Reads/writes `~/.pi/agent/models.json` and `auth.json`. Same model as OpenCode: 
 - **Sessions & usage**: scans `message.usage` in `~/.pi/agent/sessions/**/*.jsonl`; Usage refresh syncs (deduped against Antigravity gateway rows)
 - **Agent tools**: detect/install/update the Pi CLI (Node.js ≥22)
 
-### DeepSeek Harness (1.3.11)
+### DeepSeek Harness
 
 Reads/writes `~/.dsh/settings.yaml` and `~/.dsh/.credentials.yaml`. Same model as OpenCode / Pi: multiple providers coexist; save to sync — no switch step:
 
@@ -108,7 +111,7 @@ Reads/writes `~/.dsh/settings.yaml` and `~/.dsh/.credentials.yaml`. Same model a
 - **Sessions & usage**: scans `~/.dsh/sessions/**/*.jsonl.zstd`; Usage refresh syncs
 - **Agent tools**: detect/install/update the DeepSeek Harness CLI (Node.js ≥22); Workspace can launch the web UI
 
-### Agent tools (1.3.7 / 1.3.11)
+### Agent tools
 
 Unified detect/install under **Settings → Tools & environment → Agent tools**:
 
@@ -140,10 +143,10 @@ Manage Claude Code plugins, editor patch helpers, and Claude Desktop language pa
 
 ### Usage, environment, and system
 
-- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi / DeepSeek Harness local session events (including JSONL backfill for Anthropic-compatible direct upstreams, Pi sessions, and DSH `jsonl.zstd`); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters; period selector on the right of the toolbar (1.3.10)
+- Usage: merges proxy logs with Codex / Claude Code / OpenCode / Pi / DeepSeek Harness local session events (including JSONL backfill for Anthropic-compatible direct upstreams, Pi sessions, and DSH `jsonl.zstd`); multi-currency estimates; Opus / Codex Fast tier (`*-fast`) matching; in-page source filters; period selector on the right of the toolbar
 - Environment: config paths, library migration / portable export, WSL·SSH sync, **doctor diagnostics and one-click visibility repair** (does not force-rewrite a direct `ANTHROPIC_BASE_URL`)
 - Tray switching, EN/ZH UI, light / dark / system theme, launch at login
-- About **Check for updates** uses the same dialog as the title-bar prompt (1.3.9)
+- About **Check for updates** uses the same dialog as the title-bar prompt
 
 ---
 

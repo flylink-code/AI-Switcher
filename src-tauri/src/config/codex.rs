@@ -806,6 +806,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: true,
             created_at: 0,
             health_status: None,

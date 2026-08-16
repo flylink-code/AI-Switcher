@@ -220,6 +220,7 @@ pub async fn ensure_antigravity_provider(
         },
         failover_group: 0,
         failover_models,
+        thinking_config: None,
     };
 
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
@@ -229,6 +230,25 @@ pub async fn ensure_antigravity_provider(
 pub fn list_antigravity_models() -> AppResult<Vec<crate::antigravity::CatalogModel>> {
     let _ = list_accounts();
     Ok(crate::antigravity::list_catalog_models())
+}
+
+#[tauri::command]
+pub fn get_antigravity_pool_warning() -> AppResult<crate::antigravity::pool::PoolQuotaWarning> {
+    match crate::antigravity::pool_instance() {
+        Ok(pool) => pool.check_quota_warning(),
+        Err(_) => crate::antigravity::AccountPool::new().check_quota_warning(),
+    }
+}
+
+#[tauri::command]
+pub fn get_antigravity_recommended_account() -> AppResult<Option<crate::antigravity::AntigravityAccountPublic>> {
+    let pool = match crate::antigravity::pool_instance() {
+        Ok(p) => p,
+        Err(_) => std::sync::Arc::new(crate::antigravity::AccountPool::new()),
+    };
+    Ok(pool
+        .recommend_best_account()?
+        .map(|ref a| crate::antigravity::AntigravityAccountPublic::from(a)))
 }
 
 #[tauri::command]

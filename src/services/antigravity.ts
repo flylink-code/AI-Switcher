@@ -4,6 +4,7 @@ import type {
   AntigravityCatalogModel,
   AntigravityDefaults,
   AntigravityGatewayStatus,
+  PoolQuotaWarning,
   Provider,
   ProviderTarget,
 } from "@/types/backend";
@@ -17,6 +18,7 @@ export type {
   AntigravityQuotaBucket,
   AntigravityQuotaGroup,
   AntigravityQuotaSnapshot,
+  PoolQuotaWarning,
 } from "@/types/backend";
 
 export async function listAntigravityAccounts(): Promise<AntigravityAccountPublic[]> {
@@ -105,4 +107,12 @@ export async function ensureAntigravityProvider(
 
 export async function getAntigravityDefaults(): Promise<AntigravityDefaults> {
   return call<AntigravityDefaults>("get_antigravity_defaults");
+}
+
+export async function getAntigravityPoolWarning(): Promise<PoolQuotaWarning> {
+  return call<PoolQuotaWarning>("get_antigravity_pool_warning");
+}
+
+export async function getAntigravityRecommendedAccount(): Promise<AntigravityAccountPublic | null> {
+  return call<AntigravityAccountPublic | null>("get_antigravity_recommended_account");
 }

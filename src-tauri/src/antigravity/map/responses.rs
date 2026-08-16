@@ -5,6 +5,7 @@ use uuid::Uuid;
 
 use super::args_fix::{correct_tool_args, ToolParamKeys};
 use super::openai::{openai_to_gemini_request, GeminiRequestParts};
+use crate::antigravity::usage_log::GeminiUsage;
 
 /// Convert an OpenAI Responses request into Gemini generateContent parts.
 pub fn responses_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
@@ -322,7 +323,7 @@ pub fn gemini_to_responses_response(model: &str, gemini: &Value, tool_params: &T
     } else {
         "completed"
     };
-    let usage = usage_from_gemini(gemini);
+    let usage = GeminiUsage::parse(gemini).responses_usage();
     let mut body = json!({
         "id": format!("resp_{}", Uuid::new_v4().simple()),
         "object": "response",
@@ -402,20 +403,6 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
     (text, tool_calls, finish_reason)
 }
 
-fn usage_from_gemini(gemini: &Value) -> Value {
-    let meta = gemini.get("usageMetadata").cloned().unwrap_or(json!({}));
-    let prompt = meta.get("promptTokenCount").and_then(Value::as_u64).unwrap_or(0);
-    let completion = meta
-        .get("candidatesTokenCount")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    json!({
-        "input_tokens": prompt,
-        "output_tokens": completion,
-        "total_tokens": prompt + completion,
-    })
-}
-
 /// Stateful Gemini chunk → Responses SSE event bytes.
 pub struct ResponsesStreamEncoder {
     model: String,
@@ -426,8 +413,7 @@ pub struct ResponsesStreamEncoder {
     completed: bool,
     output_index: usize,
     status: String,
-    input_tokens: i64,
-    output_tokens: i64,
+    usage: GeminiUsage,
     full_text: String,
     sequence: u64,
     /// Completed function_call items for the final `response.completed.output`.
@@ -448,8 +434,7 @@ impl ResponsesStreamEncoder {
             completed: false,
             output_index: 0,
             status: "completed".into(),
-            input_tokens: 0,
-            output_tokens: 0,
+            usage: GeminiUsage::default(),
             full_text: String::new(),
             sequence: 0,
             function_outputs: Vec::new(),
@@ -665,13 +650,7 @@ impl ResponsesStreamEncoder {
             "model": self.model,
             // Codex (and the Responses SDK) re-reads the final envelope for UI text.
             "output": final_output,
-            "usage": {
-                "input_tokens": self.input_tokens,
-                "output_tokens": self.output_tokens,
-                "total_tokens": self.input_tokens.saturating_add(self.output_tokens),
-                "input_tokens_details": { "cached_tokens": 0 },
-                "output_tokens_details": { "reasoning_tokens": 0 },
-            }
+            "usage": self.usage.responses_usage(),
         });
         if self.status == "incomplete" {
             response["incomplete_details"] = json!({ "reason": "max_output_tokens" });
@@ -756,17 +735,7 @@ impl ResponsesStreamEncoder {
     }
 
     fn note_usage(&mut self, gemini: &Value) {
-        let usage = usage_from_gemini(gemini);
-        if let Some(input) = usage.get("input_tokens").and_then(Value::as_i64) {
-            if input > 0 {
-                self.input_tokens = input;
-            }
-        }
-        if let Some(output) = usage.get("output_tokens").and_then(Value::as_i64) {
-            if output > 0 {
-                self.output_tokens = output;
-            }
-        }
+        self.usage.merge_max(GeminiUsage::parse(gemini));
     }
 }
 
@@ -918,6 +887,36 @@ mod tests {
         assert!(
             end.contains("\"text\":\"hello\"") || end.contains("\"text\": \"hello\""),
             "completed.output must include text: {end}"
+        );
+    }
+
+    #[test]
+    fn stream_encoder_counts_thoughts_in_output_and_reasoning_details() {
+        let mut enc = ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new());
+        let chunk = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "ok" }] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {
+                "promptTokenCount": 1500,
+                "candidatesTokenCount": 20,
+                "thoughtsTokenCount": 80
+            }
+        });
+        let _ = enc.encode_gemini_chunk(&chunk);
+        let end = String::from_utf8(enc.finish()).unwrap();
+        assert!(
+            end.contains("\"output_tokens\":100") || end.contains("\"output_tokens\": 100"),
+            "thoughts should be included in output_tokens: {end}"
+        );
+        assert!(
+            end.contains("\"reasoning_tokens\":80") || end.contains("\"reasoning_tokens\": 80"),
+            "reasoning_tokens should carry thoughtsTokenCount: {end}"
+        );
+        assert!(
+            end.contains("\"total_tokens\":1600") || end.contains("\"total_tokens\": 1600"),
+            "total should be prompt + candidates + thoughts: {end}"
         );
     }
 

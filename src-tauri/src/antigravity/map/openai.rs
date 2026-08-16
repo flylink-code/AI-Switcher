@@ -6,6 +6,7 @@ use uuid::Uuid;
 use super::args_fix::{correct_tool_args, param_keys_from_declarations, ToolParamKeys};
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
+use crate::antigravity::usage_log::GeminiUsage;
 
 pub struct GeminiRequestParts {
     pub model: String,
@@ -309,7 +310,7 @@ pub fn gemini_to_openai_response(model: &str, gemini: &Value, tool_params: &Tool
         message["tool_calls"] = json!(tool_calls);
         message["content"] = Value::Null;
     }
-    let usage = usage_from_gemini(gemini);
+    let usage = GeminiUsage::parse(gemini).openai_usage();
     json!({
         "id": format!("chatcmpl-{}", Uuid::new_v4().simple()),
         "object": "chat.completion",
@@ -337,7 +338,7 @@ pub fn gemini_to_openai_sse_chunk(
     if !tool_calls.is_empty() {
         delta["tool_calls"] = json!(tool_calls);
     }
-    json!({
+    let mut chunk = json!({
         "id": format!("chatcmpl-{}", Uuid::new_v4().simple()),
         "object": "chat.completion.chunk",
         "created": chrono::Utc::now().timestamp(),
@@ -347,6 +348,32 @@ pub fn gemini_to_openai_sse_chunk(
             "delta": delta,
             "finish_reason": if finish_reason == "null" { Value::Null } else { json!(finish_reason) },
         }]
+    });
+    let usage = GeminiUsage::parse(gemini_chunk);
+    if !usage.is_empty() {
+        chunk["usage"] = usage.openai_usage();
+    }
+    chunk
+}
+
+/// Final `include_usage` chunk emitted before `data: [DONE]`.
+pub fn openai_usage_sse_chunk(model: &str, input: i64, output: i64) -> Value {
+    let usage = GeminiUsage {
+        input,
+        output,
+        ..GeminiUsage::default()
+    };
+    json!({
+        "id": format!("chatcmpl-{}", Uuid::new_v4().simple()),
+        "object": "chat.completion.chunk",
+        "created": chrono::Utc::now().timestamp(),
+        "model": model,
+        "choices": [{
+            "index": 0,
+            "delta": {},
+            "finish_reason": "stop",
+        }],
+        "usage": usage.openai_usage(),
     })
 }
 
@@ -409,20 +436,6 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
         }
     }
     (text, tool_calls, finish_reason)
-}
-
-fn usage_from_gemini(gemini: &Value) -> Value {
-    let meta = gemini.get("usageMetadata").cloned().unwrap_or(json!({}));
-    let prompt = meta.get("promptTokenCount").and_then(Value::as_u64).unwrap_or(0);
-    let completion = meta
-        .get("candidatesTokenCount")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    json!({
-        "prompt_tokens": prompt,
-        "completion_tokens": completion,
-        "total_tokens": prompt + completion,
-    })
 }
 
 #[cfg(test)]
@@ -533,5 +546,29 @@ mod tests {
         .unwrap();
         assert_eq!(args["-n"], json!(true));
         assert!(args.get("n").is_none());
+    }
+
+    #[test]
+    fn sse_chunk_and_trailer_include_prompt_and_thought_tokens() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "hi" }] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {
+                "promptTokenCount": 1500,
+                "candidatesTokenCount": 20,
+                "thoughtsTokenCount": 80
+            }
+        });
+        let chunk = gemini_to_openai_sse_chunk("gemini-3.7-flash-high", &gemini, &ToolParamKeys::new());
+        assert_eq!(chunk["usage"]["prompt_tokens"], 1500);
+        assert_eq!(chunk["usage"]["completion_tokens"], 100);
+        assert_eq!(chunk["usage"]["total_tokens"], 1600);
+
+        let trailer = openai_usage_sse_chunk("gemini-3.7-flash-high", 1500, 100);
+        assert_eq!(trailer["usage"]["prompt_tokens"], 1500);
+        assert_eq!(trailer["usage"]["completion_tokens"], 100);
+        assert_eq!(trailer["choices"][0]["delta"], json!({}));
     }
 }

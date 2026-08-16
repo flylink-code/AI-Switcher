@@ -53,6 +53,27 @@ pub fn responses_request_to_anthropic_messages(body: &Value, model: &str) -> App
     if let Some(choice) = body.get("tool_choice") {
         result["tool_choice"] = responses_tool_choice_to_anthropic(choice);
     }
+
+    let effort = body
+        .pointer("/reasoning/effort")
+        .or_else(|| body.get("reasoning_effort"))
+        .and_then(Value::as_str);
+    if let Some(effort) = effort {
+        let budget = match effort.to_ascii_lowercase().as_str() {
+            "minimal" | "low" => 2048,
+            "medium" => 8192,
+            "high" => 16384,
+            _ => 8192,
+        };
+        result["thinking"] = json!({
+            "type": "enabled",
+            "budget_tokens": budget
+        });
+        if max_tokens <= budget {
+            result["max_tokens"] = json!(budget + 2048);
+        }
+    }
+
     Ok(result)
 }
 
@@ -774,5 +795,18 @@ mod tests {
         let body = json!({"input": "ping", "max_output_tokens": 32});
         let anthropic = responses_request_to_anthropic_messages(&body, "claude-sonnet").unwrap();
         assert_eq!(anthropic["messages"][0], json!({"role": "user", "content": "ping"}));
+    }
+
+    #[test]
+    fn responses_reasoning_effort_maps_to_anthropic_thinking() {
+        let body = json!({
+            "input": "solve",
+            "reasoning": {"effort": "high"},
+            "max_output_tokens": 1000
+        });
+        let anthropic = responses_request_to_anthropic_messages(&body, "claude-3-7-sonnet").unwrap();
+        assert_eq!(anthropic["thinking"]["type"], "enabled");
+        assert_eq!(anthropic["thinking"]["budget_tokens"], 16384);
+        assert!(anthropic["max_tokens"].as_u64().unwrap() > 16384);
     }
 }

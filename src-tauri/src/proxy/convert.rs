@@ -40,7 +40,76 @@ pub fn reinject_chat_prompt_cache_key(
     }
 }
 
-pub fn anthropic_to_openai_chat(request: &Value, model: &str, stream: bool) -> Value {
+pub fn extract_anthropic_thinking(request: &Value) -> Option<crate::provider::ThinkingConfig> {
+    let mut config = crate::provider::ThinkingConfig::default();
+    let mut found = false;
+
+    if let Some(thinking) = request.get("thinking") {
+        if let Some(kind) = thinking.get("type").and_then(Value::as_str) {
+            config.mode = Some(kind.to_string());
+            found = true;
+        }
+        if let Some(budget) = thinking.get("budget_tokens").and_then(Value::as_u64) {
+            config.budget_tokens = Some(budget as u32);
+            found = true;
+        }
+        if let Some(effort) = thinking.get("effort").and_then(Value::as_str) {
+            config.reasoning_effort = Some(effort.to_string());
+            found = true;
+        }
+    }
+    if let Some(effort) = request
+        .pointer("/output_config/effort")
+        .or_else(|| request.get("effort"))
+        .and_then(Value::as_str)
+    {
+        config.reasoning_effort = Some(effort.to_string());
+        found = true;
+    }
+    if found {
+        Some(config)
+    } else {
+        None
+    }
+}
+
+/// Overlay provider defaults onto request thinking. The request wins for
+/// explicit fields; a client `thinking.type=enabled` without budget/effort
+/// still picks up the provider-level budget so Claude Code traffic is covered.
+fn merge_thinking_config(
+    request: &Value,
+    provider_thinking: Option<&crate::provider::ThinkingConfig>,
+) -> Option<crate::provider::ThinkingConfig> {
+    match (extract_anthropic_thinking(request), provider_thinking) {
+        (None, provider) => provider.cloned(),
+        (Some(request_cfg), None) => Some(request_cfg),
+        (Some(mut request_cfg), Some(provider)) => {
+            if request_cfg.is_disabled() {
+                return Some(request_cfg);
+            }
+            if request_cfg.budget_tokens.is_none() {
+                request_cfg.budget_tokens = provider.budget_tokens;
+            }
+            let request_effort_empty = request_cfg
+                .reasoning_effort
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty();
+            if request_effort_empty {
+                request_cfg.reasoning_effort = provider.reasoning_effort.clone();
+            }
+            Some(request_cfg)
+        }
+    }
+}
+
+pub fn anthropic_to_openai_chat(
+    request: &Value,
+    model: &str,
+    stream: bool,
+    provider_thinking: Option<&crate::provider::ThinkingConfig>,
+) -> Value {
     let mut messages = Vec::new();
     if let Some(system) = request.get("system") {
         let text = content_text(system);
@@ -70,10 +139,24 @@ pub fn anthropic_to_openai_chat(request: &Value, model: &str, stream: bool) -> V
     if let Some(choice) = request.get("tool_choice") {
         result["tool_choice"] = anthropic_tool_choice(choice);
     }
+
+    if let Some(cfg) = merge_thinking_config(request, provider_thinking) {
+        if !cfg.is_disabled() {
+            if let Some(effort) = cfg.resolved_reasoning_effort() {
+                result["reasoning_effort"] = json!(effort);
+            }
+        }
+    }
+
     result
 }
 
-pub fn anthropic_to_openai_responses(request: &Value, model: &str, stream: bool) -> Value {
+pub fn anthropic_to_openai_responses(
+    request: &Value,
+    model: &str,
+    stream: bool,
+    provider_thinking: Option<&crate::provider::ThinkingConfig>,
+) -> Value {
     let mut result = json!({
         "model": model,
         "input": anthropic_messages_to_responses_input(request),
@@ -96,6 +179,15 @@ pub fn anthropic_to_openai_responses(request: &Value, model: &str, stream: bool)
     if let Some(choice) = request.get("tool_choice") {
         result["tool_choice"] = anthropic_tool_choice_to_responses(choice);
     }
+
+    if let Some(cfg) = merge_thinking_config(request, provider_thinking) {
+        if !cfg.is_disabled() {
+            if let Some(effort) = cfg.resolved_reasoning_effort() {
+                result["reasoning"] = json!({ "effort": effort });
+            }
+        }
+    }
+
     result
 }
 
@@ -122,6 +214,14 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
     let choice = value.get("choices").and_then(Value::as_array).and_then(|items| items.first());
     let message = choice.and_then(|choice| choice.get("message")).cloned().unwrap_or_else(|| json!({}));
     let mut content = Vec::new();
+    if let Some(reasoning) = message
+        .get("reasoning_content")
+        .or_else(|| message.get("reasoning"))
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+    {
+        content.push(json!({"type": "thinking", "thinking": reasoning}));
+    }
     if let Some(text) = message.get("content").and_then(Value::as_str).filter(|text| !text.is_empty()) {
         content.push(json!({"type": "text", "text": text}));
     }
@@ -315,6 +415,7 @@ pub struct OpenAiSseConverter {
     /// Accumulated tool-call argument text already emitted as `input_json_delta`.
     tool_arguments_sent: BTreeMap<usize, String>,
     open_blocks: Vec<usize>,
+    thinking_block: Option<usize>,
     input_tokens: i64,
     cache_read_input_tokens: i64,
     cache_creation_input_tokens: i64,
@@ -336,6 +437,7 @@ impl OpenAiSseConverter {
             tool_blocks: BTreeMap::new(),
             tool_arguments_sent: BTreeMap::new(),
             open_blocks: Vec::new(),
+            thinking_block: None,
             input_tokens: 0,
             cache_read_input_tokens: 0,
             cache_creation_input_tokens: 0,
@@ -389,7 +491,27 @@ impl OpenAiSseConverter {
             return;
         };
         let delta = choice.get("delta").unwrap_or(&Value::Null);
+        if let Some(reasoning) = delta
+            .get("reasoning_content")
+            .or_else(|| delta.get("reasoning"))
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+        {
+            let index = self.ensure_thinking_block(output);
+            push_event(output, "content_block_delta", json!({
+                "type":"content_block_delta", "index":index,
+                "delta":{"type":"thinking_delta", "thinking":reasoning}
+            }));
+        }
         if let Some(text) = delta.get("content").and_then(Value::as_str).filter(|text| !text.is_empty()) {
+            if let Some(t_idx) = self.thinking_block.take() {
+                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                    self.open_blocks.remove(pos);
+                }
+                push_event(output, "content_block_stop", json!({
+                    "type":"content_block_stop", "index":t_idx
+                }));
+            }
             let index = self.ensure_text_block((0, 0), output);
             push_event(output, "content_block_delta", json!({
                 "type":"content_block_delta", "index":index,
@@ -397,6 +519,14 @@ impl OpenAiSseConverter {
             }));
         }
         for call in delta.get("tool_calls").and_then(Value::as_array).into_iter().flatten() {
+            if let Some(t_idx) = self.thinking_block.take() {
+                if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
+                    self.open_blocks.remove(pos);
+                }
+                push_event(output, "content_block_stop", json!({
+                    "type":"content_block_stop", "index":t_idx
+                }));
+            }
             let upstream_index = call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
             let index = self.ensure_tool_block(
                 upstream_index,
@@ -573,6 +703,22 @@ impl OpenAiSseConverter {
             }
         }}));
         self.started = true;
+    }
+
+    fn ensure_thinking_block(&mut self, output: &mut String) -> usize {
+        if let Some(index) = self.thinking_block {
+            return index;
+        }
+        self.ensure_started(output);
+        let index = self.next_block_index;
+        self.next_block_index += 1;
+        self.thinking_block = Some(index);
+        self.open_blocks.push(index);
+        push_event(output, "content_block_start", json!({
+            "type":"content_block_start", "index":index,
+            "content_block":{"type":"thinking", "thinking":""}
+        }));
+        index
     }
 
     fn ensure_text_block(&mut self, key: (usize, usize), output: &mut String) -> usize {
@@ -829,7 +975,7 @@ mod tests {
             ]}],
             "tools":[{"name":"lookup","description":"Find data","input_schema":{"type":"object"}}]
         });
-        let output = anthropic_to_openai_chat(&request, "gpt-test", true);
+        let output = anthropic_to_openai_chat(&request, "gpt-test", true, None);
         assert_eq!(output["model"], "gpt-test");
         assert_eq!(output["stream"], true);
         assert_eq!(output["stream_options"]["include_usage"], true);
@@ -924,7 +1070,7 @@ mod tests {
             "tools":[{"name":"lookup","description":"Find","input_schema":{"type":"object","properties":{"q":{"type":"string"}}}}],
             "tool_choice":{"type":"tool","name":"lookup"}
         });
-        let output = anthropic_to_openai_responses(&request, "gpt-test", false);
+        let output = anthropic_to_openai_responses(&request, "gpt-test", false, None);
         assert_eq!(output["instructions"], "Be concise.");
         assert_eq!(output["input"][0]["type"], "message");
         assert_eq!(output["input"][0]["role"], "user");
@@ -946,7 +1092,7 @@ mod tests {
                 {"role":"user","content":"继续"}
             ]
         });
-        let output = anthropic_to_openai_responses(&request, "gpt-test", true);
+        let output = anthropic_to_openai_responses(&request, "gpt-test", true, None);
         let input = output["input"].as_array().expect("input array");
         assert_eq!(input.len(), 3);
         assert_eq!(input[0]["type"], "message");
@@ -975,7 +1121,7 @@ mod tests {
                 ]}
             ]
         });
-        let output = anthropic_to_openai_responses(&request, "gpt-test", false);
+        let output = anthropic_to_openai_responses(&request, "gpt-test", false, None);
         assert_eq!(output["instructions"], "System rule");
         assert!(output["input"].as_array().unwrap().iter().all(|item| {
             item.get("role").and_then(Value::as_str) != Some("system")
@@ -1127,5 +1273,60 @@ mod tests {
         assert_eq!(body["prompt_cache_key"], "sess-42");
         reinject_chat_prompt_cache_key(&mut body, Some("ignored"), Some("other"), true);
         assert_eq!(body["prompt_cache_key"], "sess-42");
+    }
+
+    #[test]
+    fn anthropic_thinking_translates_to_openai_chat_and_responses() {
+        let request = json!({
+            "model": "claude-3-7-sonnet",
+            "messages": [{"role": "user", "content": "solve math"}],
+            "thinking": {"type": "enabled", "budget_tokens": 16000}
+        });
+        let chat = anthropic_to_openai_chat(&request, "o3-mini", false, None);
+        assert_eq!(chat["reasoning_effort"], "medium");
+        assert!(chat.get("thinking_budget").is_none());
+
+        let responses = anthropic_to_openai_responses(&request, "o3-mini", false, None);
+        assert_eq!(responses["reasoning"]["effort"], "medium");
+
+        let provider = crate::provider::ThinkingConfig {
+            mode: Some("budget".into()),
+            budget_tokens: Some(16000),
+            reasoning_effort: None,
+            prefix_thought: None,
+        };
+        let enabled_only = json!({
+            "model": "claude-3-7-sonnet",
+            "messages": [{"role": "user", "content": "solve math"}],
+            "thinking": {"type": "enabled"}
+        });
+        let merged = anthropic_to_openai_chat(&enabled_only, "o3-mini", false, Some(&provider));
+        assert_eq!(merged["reasoning_effort"], "medium");
+        assert!(merged.get("thinking_budget").is_none());
+    }
+
+    #[test]
+    fn deepseek_reasoning_content_streams_as_anthropic_thinking_events() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Chat, "fallback");
+        let thought_chunk = converter.push_event(&json!({
+            "id": "chatcmpl_r1",
+            "model": "deepseek-r1",
+            "choices": [{"delta": {"reasoning_content": "let me think"}, "finish_reason": null}]
+        }));
+        let thought_str = String::from_utf8(thought_chunk).unwrap();
+        assert!(thought_str.contains("event: content_block_start"));
+        assert!(thought_str.contains("\"type\":\"thinking\""));
+        assert!(thought_str.contains("event: content_block_delta"));
+        assert!(thought_str.contains("\"type\":\"thinking_delta\""));
+        assert!(thought_str.contains("\"thinking\":\"let me think\""));
+
+        let text_chunk = converter.push_event(&json!({
+            "choices": [{"delta": {"content": "the answer is 42"}, "finish_reason": "stop"}]
+        }));
+        let text_str = String::from_utf8(text_chunk).unwrap();
+        assert!(text_str.contains("event: content_block_stop"));
+        assert!(text_str.contains("event: content_block_start"));
+        assert!(text_str.contains("\"type\":\"text\""));
+        assert!(text_str.contains("\"text\":\"the answer is 42\""));
     }
 }

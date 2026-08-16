@@ -150,6 +150,7 @@ export function ProviderForm({
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
   const watchedFailoverModels = Form.useWatch("failoverModels", form) ?? [];
   const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
+  const watchedThinkingMode = Form.useWatch(["thinkingConfig", "mode"], form) ?? "auto";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
 
@@ -190,6 +191,12 @@ export function ProviderForm({
         targetApp: editing.targetApp,
         failoverGroup: editing.failoverGroup ?? 0,
         failoverModels: editing.failoverModels ?? [],
+        thinkingConfig: editing.thinkingConfig ?? {
+          mode: "auto",
+          budgetTokens: undefined,
+          reasoningEffort: undefined,
+          prefixThought: true,
+        },
       });
       void getCachedProviderModels(editing.id)
         .then((result) => {
@@ -213,6 +220,12 @@ export function ProviderForm({
         targetApp: target,
         failoverGroup: 0,
         failoverModels: [],
+        thinkingConfig: {
+          mode: "auto",
+          budgetTokens: undefined,
+          reasoningEffort: undefined,
+          prefixThought: true,
+        },
         modelMapping: { ...EMPTY_MODEL_MAPPING },
       });
     }
@@ -770,6 +783,76 @@ export function ProviderForm({
               ))}
             </Row>
           </>
+        )}
+
+        <Typography.Title level={5} style={{ marginBlock: "8px 4px" }}>
+          {t("providers.thinkingSection")}
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 10, fontSize: 12 }}>
+          {t("providers.thinkingSectionHint")}
+        </Typography.Paragraph>
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={8}>
+            <Form.Item
+              name={["thinkingConfig", "mode"]}
+              label={t("providers.fieldThinkingMode")}
+            >
+              <Select
+                options={[
+                  { value: "auto", label: t("providers.thinkingModeAuto") },
+                  { value: "budget", label: t("providers.thinkingModeBudget") },
+                  { value: "effort", label: t("providers.thinkingModeEffort") },
+                  { value: "disabled", label: t("providers.thinkingModeDisabled") },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          {watchedThinkingMode !== "disabled" && (
+            <>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name={["thinkingConfig", "budgetTokens"]}
+                  label={t("providers.fieldBudgetTokens")}
+                  extra={t("providers.budgetTokensHint")}
+                >
+                  <InputNumber
+                    min={1024}
+                    max={131072}
+                    step={1024}
+                    placeholder="16000"
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name={["thinkingConfig", "reasoningEffort"]}
+                  label={t("providers.fieldReasoningEffort")}
+                  extra={t("providers.reasoningEffortHint")}
+                >
+                  <Select
+                    allowClear
+                    placeholder="medium"
+                    options={[
+                      { value: "low", label: t("providers.reasoningEffortLow") },
+                      { value: "medium", label: t("providers.reasoningEffortMedium") },
+                      { value: "high", label: t("providers.reasoningEffortHigh") },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </>
+          )}
+        </Row>
+        {watchedThinkingMode !== "disabled" && (
+          <Form.Item
+            name={["thinkingConfig", "prefixThought"]}
+            valuePropName="checked"
+            extra={t("providers.fieldPrefixThoughtHint")}
+            style={{ marginBottom: 12 }}
+          >
+            <Checkbox>{t("providers.fieldPrefixThought")}</Checkbox>
+          </Form.Item>
         )}
 
         <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>

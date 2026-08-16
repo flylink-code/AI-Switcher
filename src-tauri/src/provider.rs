@@ -202,6 +202,88 @@ pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapp
     }
 }
 
+/// Thinking / Reasoning configuration for upstream LLM calls.
+/// Standardizes parameters across Anthropic (budget_tokens), OpenAI (reasoning_effort),
+/// Gemini (thinking_budget), and DeepSeek (thinking prefix / tags).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ThinkingConfig {
+    /// Thinking mode: "auto" | "disabled" | "budget" | "effort"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    /// Thinking budget in tokens (Anthropic `thinking.budget_tokens`, Gemini `thinking_budget`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub budget_tokens: Option<u32>,
+    /// Reasoning effort level: "minimal" | "low" | "medium" | "high" (OpenAI `reasoning_effort`, Responses `reasoning.effort`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
+    /// Whether to strip or handle reasoning tags / prefix thought
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prefix_thought: Option<bool>,
+}
+
+impl ThinkingConfig {
+    pub fn is_empty(&self) -> bool {
+        self.mode.as_deref().unwrap_or("").trim().is_empty()
+            && self.budget_tokens.is_none()
+            && self.reasoning_effort.as_deref().unwrap_or("").trim().is_empty()
+            && self.prefix_thought.is_none()
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.mode.as_deref() == Some("disabled")
+    }
+
+    /// Map budget tokens or explicit reasoning effort to normalized OpenAI effort ("low" | "medium" | "high").
+    pub fn resolved_reasoning_effort(&self) -> Option<&'static str> {
+        if self.is_disabled() {
+            return None;
+        }
+        if let Some(effort) = self.reasoning_effort.as_deref().map(str::trim) {
+            match effort.to_ascii_lowercase().as_str() {
+                "minimal" | "low" => return Some("low"),
+                "medium" => return Some("medium"),
+                "high" => return Some("high"),
+                _ => {}
+            }
+        }
+        if let Some(budget) = self.budget_tokens {
+            if budget <= 4096 {
+                return Some("low");
+            } else if budget <= 16384 {
+                return Some("medium");
+            } else {
+                return Some("high");
+            }
+        }
+        None
+    }
+
+    /// Map explicit effort or tokens to Anthropic `budget_tokens`.
+    pub fn resolved_budget_tokens(&self) -> Option<u32> {
+        if self.is_disabled() {
+            return None;
+        }
+        if let Some(budget) = self.budget_tokens {
+            return Some(budget);
+        }
+        if let Some(effort) = self.reasoning_effort.as_deref().map(str::trim) {
+            match effort.to_ascii_lowercase().as_str() {
+                "minimal" | "low" => return Some(2048),
+                "medium" => return Some(8192),
+                "high" => return Some(16384),
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Map to Gemini thinking budget tokens.
+    pub fn resolved_gemini_thinking_budget(&self) -> Option<u32> {
+        self.resolved_budget_tokens()
+    }
+}
+
 /// Build a create-payload that copies a provider onto another Agent.
 ///
 /// Copies credentials, URL, model, and failover. Protocol / Base URL are
@@ -240,6 +322,7 @@ pub fn copied_provider_input(
         notes: source.notes.clone(),
         failover_group: source.failover_group,
         failover_models: adapt_copied_failover_models(source, dest),
+        thinking_config: source.thinking_config.clone(),
     })
 }
 
@@ -676,6 +759,8 @@ pub struct Provider {
     #[serde(default)]
     pub failover_models: Vec<String>,
     #[serde(default)]
+    pub thinking_config: Option<ThinkingConfig>,
+    #[serde(default)]
     pub is_current: bool,
     #[serde(default)]
     pub created_at: i64,
@@ -800,6 +885,8 @@ pub struct ProviderInput {
     pub failover_group: i64,
     #[serde(default)]
     pub failover_models: Vec<String>,
+    #[serde(default)]
+    pub thinking_config: Option<ThinkingConfig>,
 }
 
 /// Sanitized result of a provider connectivity check.
@@ -867,6 +954,8 @@ pub struct ProviderExportEntry {
     pub failover_group: i64,
     #[serde(default)]
     pub failover_models: Vec<String>,
+    #[serde(default)]
+    pub thinking_config: Option<ThinkingConfig>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -895,7 +984,7 @@ mod tests {
         api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
         openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
         normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType,
-        Provider, ProviderKind, ProviderTarget,
+        Provider, ProviderKind, ProviderTarget, ThinkingConfig,
     };
 
     #[test]
@@ -1041,6 +1130,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1071,6 +1161,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1101,6 +1192,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1136,6 +1228,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1227,6 +1320,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: vec!["deepseek-v4-flash".into()],
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1344,5 +1438,36 @@ mod tests {
             vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
         );
         assert!(!input.model_mapping.has_explicit_roles());
+    }
+
+    #[test]
+    fn thinking_config_standardizes_and_resolves_properly() {
+        let budget_cfg = ThinkingConfig {
+            mode: Some("budget".into()),
+            budget_tokens: Some(16000),
+            reasoning_effort: None,
+            prefix_thought: None,
+        };
+        assert_eq!(budget_cfg.resolved_reasoning_effort(), Some("medium"));
+        assert_eq!(budget_cfg.resolved_budget_tokens(), Some(16000));
+        assert_eq!(budget_cfg.resolved_gemini_thinking_budget(), Some(16000));
+
+        let effort_cfg = ThinkingConfig {
+            mode: Some("effort".into()),
+            budget_tokens: None,
+            reasoning_effort: Some("high".into()),
+            prefix_thought: None,
+        };
+        assert_eq!(effort_cfg.resolved_reasoning_effort(), Some("high"));
+        assert_eq!(effort_cfg.resolved_budget_tokens(), Some(16384));
+
+        let disabled_cfg = ThinkingConfig {
+            mode: Some("disabled".into()),
+            budget_tokens: Some(8000),
+            reasoning_effort: Some("low".into()),
+            prefix_thought: None,
+        };
+        assert_eq!(disabled_cfg.resolved_reasoning_effort(), None);
+        assert_eq!(disabled_cfg.resolved_budget_tokens(), None);
     }
 }

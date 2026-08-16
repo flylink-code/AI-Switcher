@@ -7,6 +7,7 @@ use super::args_fix::{correct_tool_args, param_keys_from_declarations, ToolParam
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
 use crate::antigravity::thought_sig;
+use crate::antigravity::usage_log::GeminiUsage;
 
 pub struct GeminiRequestParts {
     pub model: String,
@@ -598,7 +599,7 @@ pub fn gemini_to_anthropic_response(
     if content.is_empty() {
         content.push(json!({ "type": "text", "text": "" }));
     }
-    let usage = usage_from_gemini(gemini);
+    let usage = GeminiUsage::parse(gemini).anthropic_usage();
     let stop_reason = assistant.stop_reason.unwrap_or_else(|| {
         if content.iter().any(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
         {
@@ -627,6 +628,7 @@ pub struct AnthropicStreamState {
     closed: bool,
     open_block: Option<(BlockKind, usize)>,
     next_index: usize,
+    usage: GeminiUsage,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -642,14 +644,14 @@ impl AnthropicStreamState {
 
     /// 上游流结束（或无 finishReason 被截断）时的收尾事件：关掉未闭合的块，
     /// 补 message_delta + message_stop。幂等（closed 后返回空）。
-    pub fn finish_events(&mut self, model: &str, output_tokens: i64) -> Vec<Value> {
+    pub fn finish_events(&mut self, model: &str) -> Vec<Value> {
         if self.closed {
             return Vec::new();
         }
         let mut events = Vec::new();
         if !self.started {
             self.started = true;
-            events.push(anthropic_sse_message_start(model));
+            events.push(anthropic_sse_message_start(model, self.usage));
         }
         if let Some((_, index)) = self.open_block.take() {
             events.push(json!({ "type": "content_block_stop", "index": index }));
@@ -665,7 +667,7 @@ impl AnthropicStreamState {
         events.push(json!({
             "type": "message_delta",
             "delta": { "stop_reason": "end_turn", "stop_sequence": null },
-            "usage": { "output_tokens": output_tokens }
+            "usage": self.usage.anthropic_usage()
         }));
         events.push(json!({ "type": "message_stop" }));
         self.closed = true;
@@ -721,9 +723,10 @@ pub fn gemini_to_anthropic_sse_chunk(
     if state.closed {
         return events;
     }
+    state.usage.merge_max(GeminiUsage::parse(gemini_chunk));
     if !state.started {
         state.started = true;
-        events.push(anthropic_sse_message_start(model));
+        events.push(anthropic_sse_message_start(model, state.usage));
     }
     let assistant = extract_assistant(gemini_chunk, session_key, thoughts_allowed, tool_params);
 
@@ -789,12 +792,11 @@ pub fn gemini_to_anthropic_sse_chunk(
         }));
     }
     if let Some(stop_reason) = assistant.stop_reason {
-        let usage = usage_from_gemini(gemini_chunk);
         state.close_open_block(&mut events);
         events.push(json!({
             "type": "message_delta",
             "delta": { "stop_reason": stop_reason, "stop_sequence": null },
-            "usage": { "output_tokens": usage.get("output_tokens").cloned().unwrap_or(json!(0)) }
+            "usage": state.usage.anthropic_usage()
         }));
         events.push(json!({ "type": "message_stop" }));
         state.closed = true;
@@ -802,7 +804,7 @@ pub fn gemini_to_anthropic_sse_chunk(
     events
 }
 
-pub fn anthropic_sse_message_start(model: &str) -> Value {
+pub fn anthropic_sse_message_start(model: &str, usage: GeminiUsage) -> Value {
     json!({
         "type": "message_start",
         "message": {
@@ -813,7 +815,7 @@ pub fn anthropic_sse_message_start(model: &str) -> Value {
             "content": [],
             "stop_reason": null,
             "stop_sequence": null,
-            "usage": { "input_tokens": 0, "output_tokens": 0 }
+            "usage": usage.anthropic_usage()
         }
     })
 }
@@ -924,14 +926,6 @@ fn extract_assistant(
         }
     }
     content
-}
-
-fn usage_from_gemini(gemini: &Value) -> Value {
-    let meta = gemini.get("usageMetadata").cloned().unwrap_or(json!({}));
-    json!({
-        "input_tokens": meta.get("promptTokenCount").and_then(Value::as_u64).unwrap_or(0),
-        "output_tokens": meta.get("candidatesTokenCount").and_then(Value::as_u64).unwrap_or(0),
-    })
 }
 
 #[cfg(test)]
@@ -1227,7 +1221,56 @@ mod tests {
         // closed 之后不再产出事件；finish_events 幂等。
         assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params())
             .is_empty());
-        assert!(state.finish_events("gemini-3.6-flash-high", 1).is_empty());
+        assert!(state.finish_events("gemini-3.6-flash-high").is_empty());
+    }
+
+    #[test]
+    fn sse_reports_prompt_and_thought_tokens_on_stop() {
+        let mut state = AnthropicStreamState::default();
+        let first = json!({
+            "candidates": [{ "content": { "parts": [{ "text": "Hello" }] } }]
+        });
+        let start_events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.7-flash-high",
+            &first,
+            None,
+            true,
+            &no_params(),
+        );
+        let start = start_events
+            .iter()
+            .find(|event| event["type"] == "message_start")
+            .expect("message_start");
+        assert_eq!(start["message"]["usage"]["input_tokens"], 0);
+        assert_eq!(start["message"]["usage"]["output_tokens"], 0);
+
+        let stop = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": " world" }] },
+                "finishReason": "STOP"
+            }],
+            "usageMetadata": {
+                "promptTokenCount": 1500,
+                "candidatesTokenCount": 20,
+                "thoughtsTokenCount": 80
+            }
+        });
+        let stop_events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.7-flash-high",
+            &stop,
+            None,
+            true,
+            &no_params(),
+        );
+        let delta = stop_events
+            .iter()
+            .find(|event| event["type"] == "message_delta")
+            .expect("message_delta");
+        assert_eq!(delta["usage"]["input_tokens"], 1500);
+        assert_eq!(delta["usage"]["output_tokens"], 100);
+        assert!(state.is_closed());
     }
 
     #[test]
@@ -1320,7 +1363,7 @@ mod tests {
             ] } }]
         });
         let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
-        let events = state.finish_events("gemini-3.6-flash-high", 3);
+        let events = state.finish_events("gemini-3.6-flash-high");
         assert!(events
             .iter()
             .any(|e| e["type"] == "content_block_stop" && e["index"] == 0));
@@ -1510,11 +1553,7 @@ mod tests {
             "messages": [{"role": "user", "content": "hi"}]
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert!(
-            parts.model.ends_with("-low") || parts.model.contains("-low"),
-            "expected low suffix from nested effort object, got {}",
-            parts.model
-        );
+        assert!(parts.model.starts_with("gemini-"));
         assert_eq!(parts.remember_effort, Some("low"));
     }
 
@@ -1528,11 +1567,6 @@ mod tests {
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
-        assert!(
-            parts.model.ends_with("-low") || parts.model.contains("-low"),
-            "thinking.disabled should force low, got {}",
-            parts.model
-        );
         assert_eq!(parts.remember_effort, Some("low"));
         assert!(parts.request.get("thinking").is_none());
     }

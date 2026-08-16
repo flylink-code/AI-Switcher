@@ -336,6 +336,25 @@ impl AccountStore {
         persist(&guard)
     }
 
+    /// Mark account forbidden on 403 response with cooldown and warning.
+    pub fn mark_forbidden_403(&self, account_id: &str, reason: &str) -> AppResult<()> {
+        let mut guard = self.lock_accounts();
+        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
+            return Ok(());
+        };
+        account.cooldown_until = Some(Utc::now().timestamp() + 300);
+        account.health_score = (account.health_score * 0.4).max(0.05);
+        if let Some(quota) = account.quota.as_mut() {
+            quota.is_forbidden = true;
+            quota.forbidden_reason = Some(reason.to_string());
+        } else {
+            let snapshot = QuotaSnapshot::empty_forbidden(reason);
+            account.remaining_quota = snapshot.remaining_hint_percent();
+            account.quota = Some(snapshot);
+        }
+        persist(&guard)
+    }
+
     /// Adjust only the cooldown window (e.g. honor an upstream Retry-After
     /// after the pool already applied its default cooldown) without the
     /// health-score penalty of [`Self::mark_cooldown`].

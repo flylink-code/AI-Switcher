@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 22;
+pub const SCHEMA_VERSION: u32 = 23;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -34,6 +34,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             sort_index    INTEGER NOT NULL DEFAULT 0,
             failover_group INTEGER NOT NULL DEFAULT 0,
             failover_models TEXT NOT NULL DEFAULT '[]',
+            thinking_config_json TEXT NOT NULL DEFAULT '{}',
             is_current    BOOLEAN NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
@@ -223,6 +224,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 22 {
         migrate_v21_to_v22(conn)?;
+    }
+    if current < 23 {
+        migrate_v22_to_v23(conn)?;
     }
     Ok(())
 }
@@ -773,6 +777,29 @@ fn migrate_v21_to_v22(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 22)
 }
 
+/// Provider-level thinking & reasoning configuration for cross-protocol translation.
+fn migrate_v22_to_v23(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 23);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'thinking_config_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN thinking_config_json TEXT NOT NULL DEFAULT '{}';",
+        )?;
+    }
+    set_user_version(conn, 23)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -978,6 +1005,51 @@ mod tests {
         let count: i64 = conn
             .query_row(
                 "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'auto_review_model_override';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn v22_providers_gain_thinking_config_json_idempotently() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE providers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                model TEXT,
+                model_mapping_json TEXT NOT NULL DEFAULT '{}',
+                protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+                target_app TEXT NOT NULL DEFAULT 'claude_code',
+                notes TEXT NOT NULL DEFAULT '',
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                is_current BOOLEAN NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE mcp_servers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL
+            );
+            INSERT INTO providers (id, name, base_url, model)
+            VALUES ('legacy', 'Legacy', 'https://api.example.test', 'old-default');
+            PRAGMA user_version = 22;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'thinking_config_json';",
                 [],
                 |row| row.get(0),
             )

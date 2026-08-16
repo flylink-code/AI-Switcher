@@ -38,6 +38,7 @@ pub use agents::{
 };
 pub use antigravity::{
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
+    get_antigravity_pool_warning, get_antigravity_recommended_account,
     import_antigravity_accounts, list_antigravity_accounts, list_antigravity_models,
     refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
     set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,

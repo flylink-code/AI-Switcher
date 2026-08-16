@@ -416,6 +416,7 @@ pub async fn quarantine_failed_providers(
                     notes: provider.notes,
                     failover_group: 0,
                     failover_models: provider.failover_models,
+                    thinking_config: provider.thinking_config,
                 };
                 let _ = dao::upsert_provider(conn, &input)?;
                 Ok(true)
@@ -914,6 +915,7 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
                         }),
                     failover_group: matched.map(|p| p.failover_group).unwrap_or(0),
                     failover_models,
+                    thinking_config: matched.and_then(|p| p.thinking_config.clone()),
                 },
             )
         })?;
@@ -970,6 +972,7 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
             notes: provider.notes,
             failover_group: provider.failover_group,
             failover_models: provider.failover_models,
+            thinking_config: provider.thinking_config,
         }).collect(),
     };
     Ok(serde_json::to_string_pretty(&bundle)?)
@@ -1017,6 +1020,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             notes: entry.notes,
             failover_group: entry.failover_group,
             failover_models: entry.failover_models,
+            thinking_config: entry.thinking_config,
         }))?;
         if target_app == ProviderTarget::OpenCode {
             touched_opencode = true;
@@ -1377,6 +1381,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                         notes: provider.notes.clone(),
                         failover_group: provider.failover_group,
                         failover_models: provider.failover_models.clone(),
+                        thinking_config: provider.thinking_config.clone(),
                     },
                 )
             });
@@ -2287,6 +2292,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         provider_kind: input.provider_kind, auth_binding: input.auth_binding.clone(),
         sort_index: 0, failover_group: input.failover_group,
         failover_models: input.failover_models.clone(),
+        thinking_config: input.thinking_config.clone(),
         is_current: false, created_at: 0,
         health_status: None, health_checked_at: None, health_latency_ms: None,
     })
@@ -2436,6 +2442,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         notes: "从当前 Claude Code 配置导入".to_string(),
         failover_group: 0,
         failover_models: Vec::new(),
+        thinking_config: None,
     };
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
     state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id))
@@ -2558,6 +2565,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -2733,6 +2741,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: vec!["gemini-3.7-flash".into()],
+            thinking_config: None,
             is_current: false,
             created_at: 0,
             health_status: None,

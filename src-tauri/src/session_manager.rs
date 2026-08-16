@@ -3767,13 +3767,12 @@ mod tests {
 
         let result = migrate_claude_code_session(path.to_str().unwrap(), "gpt-test").unwrap();
         let migrated = fs::read_to_string(&result.session.source_path).unwrap();
-        assert!(migrated.contains("This session is being continued"));
-        assert!(migrated.contains("continue"));
         assert!(!migrated.contains("tool_keep"));
         assert!(!migrated.contains("tool_result"));
         // Continuation summaries become a one-turn portable seed without the
         // Claude compact-resume marker phrase.
         assert!(migrated.contains("迁移上下文"));
+        assert!(migrated.contains("fiber debug"));
         assert!(!migrated.contains("This session is being continued from a previous conversation"));
         assert!(!migrated.contains("Continue the conversation from where it left off without asking"));
     }

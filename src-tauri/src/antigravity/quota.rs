@@ -97,6 +97,15 @@ impl QuotaSnapshot {
         }
     }
 
+    /// Best single remaining fraction 0.0 - 1.0.
+    pub fn best_remaining_fraction(&self) -> Option<f64> {
+        if self.is_forbidden {
+            return Some(0.0);
+        }
+        self.remaining_hint_percent()
+            .map(|pct| (pct as f64) / 100.0)
+    }
+
     /// Best single remaining-% hint for pool sorting (prefer 5h, else any bucket/model).
     pub fn remaining_hint_percent(&self) -> Option<i32> {
         if self.is_forbidden {

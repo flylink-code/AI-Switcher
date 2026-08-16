@@ -109,6 +109,7 @@ pub fn build_provider_deeplink(
         notes: provider.notes,
         failover_group: provider.failover_group,
         failover_models: provider.failover_models,
+        thinking_config: provider.thinking_config,
     })
 }
 

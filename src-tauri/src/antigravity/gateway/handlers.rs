@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use bytes::Bytes;
@@ -417,18 +417,19 @@ async fn dispatch_generation(
     }
 
     let clipped_error: String = last_error.chars().take(400).collect();
+    let status = client_status_from_upstream_error(&clipped_error);
     let _ = usage_log::insert_request(
         &state.db,
         exclude_labels.last().map(String::as_str),
         &model,
-        Some(StatusCode::BAD_GATEWAY.as_u16() as i64),
+        Some(status.as_u16() as i64),
         started,
         protocol,
         stream,
         Some("upstream"),
         Some(&clipped_error),
     );
-    error_json(StatusCode::BAD_GATEWAY, &clipped_error)
+    error_json(status, &clipped_error)
 }
 
 async fn ensure_project_id(
@@ -646,7 +647,19 @@ impl StreamState {
 
     fn finish_events(&mut self) -> Bytes {
         match self.protocol {
-            WireProtocol::OpenAiChat => Bytes::from("data: [DONE]\n\n"),
+            WireProtocol::OpenAiChat => {
+                let mut out = String::new();
+                if self.last_input > 0 || self.last_output > 0 {
+                    let chunk = crate::antigravity::map::openai::openai_usage_sse_chunk(
+                        &self.model,
+                        self.last_input,
+                        self.last_output,
+                    );
+                    out.push_str(&format!("data: {chunk}\n\n"));
+                }
+                out.push_str("data: [DONE]\n\n");
+                Bytes::from(out)
+            }
             WireProtocol::OpenAiResponses => {
                 if let Some(encoder) = self.responses_encoder.as_mut() {
                     Bytes::from(encoder.finish())
@@ -656,7 +669,7 @@ impl StreamState {
             }
             WireProtocol::Anthropic => {
                 let mut anthropic = self.anthropic.take().unwrap_or_default();
-                let events = anthropic.finish_events(&self.model, self.last_output);
+                let events = anthropic.finish_events(&self.model);
                 self.anthropic = Some(anthropic);
                 let mut out = Vec::new();
                 for event in events {
@@ -720,17 +733,55 @@ fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), Response> 
     Ok(())
 }
 
+/// Map the last upstream/pool error to a client status.
+///
+/// Claude Desktop treats HTTP 502 as a server fault and retries immediately
+/// (1–3s), which turns a Cloud Code 429 into a request storm. Preserve 429 so
+/// the client (and local proxy) can back off.
+fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
+    let lower = last_error.to_ascii_lowercase();
+    if lower.contains("429")
+        || lower.contains("resource_exhausted")
+        || lower.contains("resource has been exhausted")
+        || lower.contains("too many requests")
+    {
+        StatusCode::TOO_MANY_REQUESTS
+    } else if lower.contains("401") || lower.contains("unauthenticated") {
+        StatusCode::UNAUTHORIZED
+    } else if lower.contains("403") || lower.contains("forbidden") || lower.contains("permission denied") {
+        StatusCode::FORBIDDEN
+    } else {
+        StatusCode::BAD_GATEWAY
+    }
+}
+
+fn error_type_for_status(status: StatusCode) -> &'static str {
+    match status.as_u16() {
+        429 => "rate_limit_error",
+        401 => "authentication_error",
+        403 => "permission_error",
+        _ => "antigravity_gateway_error",
+    }
+}
+
 fn error_json(status: StatusCode, message: &str) -> Response {
-    (
+    let mut response = (
         status,
         Json(json!({
+            "type": "error",
             "error": {
                 "message": message,
-                "type": "antigravity_gateway_error",
+                "type": error_type_for_status(status),
             }
         })),
     )
-        .into_response()
+        .into_response();
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        response
+            .headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("45"));
+    }
+    response
 }
 
 #[cfg(test)]
@@ -749,5 +800,27 @@ mod tests {
         assert!(encoded.contains("data: {"));
         assert!(encoded.contains("\"stop_reason\":\"end_turn\""));
         assert!(encoded.ends_with("\n\n"));
+    }
+
+    #[test]
+    fn client_status_preserves_upstream_429() {
+        assert_eq!(
+            client_status_from_upstream_error(
+                "upstream 429 Too Many Requests: Resource has been exhausted"
+            ),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            client_status_from_upstream_error("RESOURCE_EXHAUSTED"),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            client_status_from_upstream_error("upstream 403: permission denied"),
+            StatusCode::FORBIDDEN
+        );
+        assert_eq!(
+            client_status_from_upstream_error("invalid upstream json"),
+            StatusCode::BAD_GATEWAY
+        );
     }
 }

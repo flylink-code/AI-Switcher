@@ -520,7 +520,7 @@ mod tests {
         assert!(payload.codex.is_none());
         let scope = payload.claude_code.unwrap();
         assert!(scope.mcp_ids.is_empty());
-        assert!(scope.skill_ids.is_empty());
+        assert!(scope.provider_id.is_none());
     }
 
     #[test]

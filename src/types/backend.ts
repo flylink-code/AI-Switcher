@@ -15,6 +15,13 @@ export interface ClaudeModelMapping {
   subagent: string;
 }
 
+export interface ThinkingConfig {
+  mode?: string | null;
+  budgetTokens?: number | null;
+  reasoningEffort?: string | null;
+  prefixThought?: boolean | null;
+}
+
 /** A single API provider (mirrors `crate::provider::Provider`). */
 export interface Provider {
   id: string;
@@ -40,6 +47,7 @@ export interface Provider {
   failoverGroup: number;
   /** Empty = any model; otherwise request/mapped model must match. */
   failoverModels: string[];
+  thinkingConfig?: ThinkingConfig | null;
   isCurrent: boolean;
   createdAt: number;
   healthStatus?: string | null;
@@ -69,6 +77,7 @@ export interface ProviderInput {
   notes: string;
   failoverGroup?: number;
   failoverModels?: string[];
+  thinkingConfig?: ThinkingConfig | null;
 }
 
 export interface ConnectionTestResult {
@@ -1171,4 +1180,12 @@ export interface AntigravityDefaults {
   defaultModel?: string;
   geminiFlash?: string | null;
   geminiPro?: string | null;
+}
+
+export interface PoolQuotaWarning {
+  hasWarning: boolean;
+  warningLevel: string;
+  message: string;
+  minRemainingFraction: number;
+  totalUsableAccounts: number;
 }

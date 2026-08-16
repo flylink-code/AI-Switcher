@@ -4,13 +4,25 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::account::{store, AntigravityAccount};
 use crate::error::{AppError, AppResult};
 
 const DEFAULT_COOLDOWN_SECS: i64 = 20;
-const AUTH_COOLDOWN_SECS: i64 = 120;
+const RATE_LIMIT_COOLDOWN_SECS: i64 = 45;
+const AUTH_COOLDOWN_SECS: i64 = 180;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolQuotaWarning {
+    pub has_warning: bool,
+    pub warning_level: String, // "none" | "low_quota" | "exhausted"
+    pub message: String,
+    pub min_remaining_fraction: f64,
+    pub total_usable_accounts: usize,
+}
 
 pub struct AccountPool {
     sticky: Mutex<HashMap<String, String>>,
@@ -122,16 +134,22 @@ impl AccountPool {
         session_key: Option<&str>,
         exclude: &[String],
     ) -> AppResult<(String, AntigravityAccount)> {
-        let cooldown = if status == 401 || status == 403 {
-            AUTH_COOLDOWN_SECS
+        if status == 403 {
+            let _ = store().mark_forbidden_403(failed_account_id, "上游返回 403 权限受限/账号异常");
         } else {
-            DEFAULT_COOLDOWN_SECS
-        };
-        let _ = store().mark_cooldown(
-            failed_account_id,
-            cooldown,
-            &format!("upstream status {status}"),
-        );
+            let cooldown = if status == 401 {
+                AUTH_COOLDOWN_SECS
+            } else if status == 429 {
+                RATE_LIMIT_COOLDOWN_SECS
+            } else {
+                DEFAULT_COOLDOWN_SECS
+            };
+            let _ = store().mark_cooldown(
+                failed_account_id,
+                cooldown,
+                &format!("upstream status {status}"),
+            );
+        }
         if let Some(session) = session_key {
             if let Ok(mut guard) = self.sticky.lock() {
                 guard.remove(session);
@@ -182,6 +200,83 @@ impl AccountPool {
 
     pub fn new_session_key() -> String {
         Uuid::new_v4().to_string()
+    }
+
+    /// Recommends the highest scored account currently schedulable in the pool.
+    pub fn recommend_best_account(&self) -> AppResult<Option<AntigravityAccount>> {
+        let accounts = store().list_accounts()?;
+        let now = Utc::now().timestamp();
+        let mut candidates: Vec<_> = accounts
+            .into_iter()
+            .filter(|account| account_is_schedulable(account, now))
+            .collect();
+        if candidates.is_empty() {
+            return Ok(None);
+        }
+        sort_candidates_best_first(&mut candidates);
+        Ok(candidates.into_iter().next())
+    }
+
+    /// Check if the account pool is nearing quota exhaustion and needs warning.
+    pub fn check_quota_warning(&self) -> AppResult<PoolQuotaWarning> {
+        let accounts = store().list_accounts()?;
+        let now = Utc::now().timestamp();
+        let non_disabled: Vec<_> = accounts.into_iter().filter(|a| !a.disabled).collect();
+        if non_disabled.is_empty() {
+            return Ok(PoolQuotaWarning {
+                has_warning: true,
+                warning_level: "exhausted".into(),
+                message: "没有已启用的 Antigravity 账号".into(),
+                min_remaining_fraction: 0.0,
+                total_usable_accounts: 0,
+            });
+        }
+        let usable: Vec<_> = non_disabled
+            .iter()
+            .filter(|a| account_is_schedulable(a, now))
+            .cloned()
+            .collect();
+        let total_usable = usable.len();
+        if total_usable == 0 {
+            return Ok(PoolQuotaWarning {
+                has_warning: true,
+                warning_level: "exhausted".into(),
+                message: "所有 Antigravity 账号均处于冷却或配额耗尽状态".into(),
+                min_remaining_fraction: 0.0,
+                total_usable_accounts: 0,
+            });
+        }
+        let min_fraction = usable
+            .iter()
+            .map(|a| {
+                a.quota
+                    .as_ref()
+                    .and_then(|q| q.best_remaining_fraction())
+                    .or_else(|| a.remaining_quota.map(|q| (q as f64) / 100.0))
+                    .unwrap_or(1.0)
+            })
+            .fold(1.0f64, f64::min);
+
+        if min_fraction < 0.15 {
+            Ok(PoolQuotaWarning {
+                has_warning: true,
+                warning_level: "low_quota".into(),
+                message: format!(
+                    "Antigravity 账号配额较低（剩余约 {:.0}%），建议关注或补充账号",
+                    min_fraction * 100.0
+                ),
+                min_remaining_fraction: min_fraction,
+                total_usable_accounts: total_usable,
+            })
+        } else {
+            Ok(PoolQuotaWarning {
+                has_warning: false,
+                warning_level: "none".into(),
+                message: "配额充足".into(),
+                min_remaining_fraction: min_fraction,
+                total_usable_accounts: total_usable,
+            })
+        }
     }
 
     fn bind_session(&self, session_key: Option<&str>, account_id: &str) {
@@ -341,16 +436,28 @@ fn selection_reason(
     "best"
 }
 
+pub fn candidate_scheduling_score(account: &AntigravityAccount) -> f64 {
+    let quota_fraction = account
+        .quota
+        .as_ref()
+        .and_then(|q| q.best_remaining_fraction())
+        .or_else(|| account.remaining_quota.map(|q| (q as f64) / 100.0))
+        .unwrap_or(1.0)
+        .clamp(0.0, 1.0);
+    let health = (account.health_score as f64).clamp(0.0, 1.0);
+    // Dynamic weighted score: 60% remaining quota + 40% health score
+    quota_fraction * 0.6 + health * 0.4
+}
+
 fn compare_candidates(left: &AntigravityAccount, right: &AntigravityAccount) -> std::cmp::Ordering {
-    right
-        .health_score
-        .partial_cmp(&left.health_score)
+    let score_right = candidate_scheduling_score(right);
+    let score_left = candidate_scheduling_score(left);
+    score_right
+        .partial_cmp(&score_left)
         .unwrap_or(std::cmp::Ordering::Equal)
         .then_with(|| {
-            right
-                .remaining_quota
-                .unwrap_or(0)
-                .cmp(&left.remaining_quota.unwrap_or(0))
+            // Least recently used tie breaker for load balancing
+            left.last_used.cmp(&right.last_used)
         })
 }
 
@@ -451,5 +558,18 @@ mod tests {
         let candidates = vec![a1, a2];
         let chosen = choose_candidate(&candidates, Some("a2"), Some("a1")).expect("chosen");
         assert_eq!(chosen.id, "a2");
+    }
+
+    #[test]
+    fn candidate_scheduling_score_ranks_health_and_quota() {
+        let mut healthy_high_quota = sample("high", None);
+        healthy_high_quota.health_score = 1.0;
+        healthy_high_quota.remaining_quota = Some(90);
+
+        let mut low_quota = sample("low", None);
+        low_quota.health_score = 1.0;
+        low_quota.remaining_quota = Some(10);
+
+        assert!(candidate_scheduling_score(&healthy_high_quota) > candidate_scheduling_score(&low_quota));
     }
 }

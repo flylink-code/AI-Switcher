@@ -23,8 +23,8 @@ use super::codex_anthropic::{
 use super::{
     codex_auto_review::apply_auto_review_model_override, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
-    log_early_failure, log_request, next_failover_provider, record_provider_failure,
-    record_provider_success, session_prompt_cache_hint, FAILOVER_MAX_HOPS, ProxyState,
+    log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider, record_provider_failure,
+    record_provider_success, session_prompt_cache_hint, should_failover_upstream_status, FAILOVER_MAX_HOPS, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -110,10 +110,12 @@ pub async fn codex_proxy_handler(
     let mut is_anthropic_upstream = prepared.is_anthropic_upstream;
     let mut is_stream = prepared.is_stream;
     let mut compact_fallback = prepared.compact_fallback;
+    let mut failover_trace: Vec<String> = Vec::new();
     let mut upstream = match prepared.request.body(prepared.request_body).send().await {
         Ok(response) => response,
         Err(error) => {
             record_provider_failure(&state, &provider.id);
+            failover_trace.push(format!("{}({}) 网络错误", provider.name, provider.id));
             let mut excluded = vec![provider.id.clone()];
             let mut last_error = error.to_string();
             let mut recovered = None::<reqwest::Response>;
@@ -140,6 +142,7 @@ pub async fn codex_proxy_handler(
                             .await
                         {
                             Ok(response) => {
+                                failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
                                 provider = fallback;
                                 is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
                                 is_stream = fallback_prepared.is_stream;
@@ -149,6 +152,7 @@ pub async fn codex_proxy_handler(
                             }
                             Err(fallback_error) => {
                                 record_provider_failure(&state, &fallback.id);
+                                failover_trace.push(format!("{}({}) 失败: {fallback_error}", fallback.name, fallback.id));
                                 last_error = fallback_error.to_string();
                             }
                         }
@@ -159,7 +163,12 @@ pub async fn codex_proxy_handler(
             match recovered {
                 Some(response) => response,
                 None => {
-                    let _ = log_request(
+                    let failover_diag = if !failover_trace.is_empty() {
+                        Some(format!("故障降级失败: {}", failover_trace.join(" → ")))
+                    } else {
+                        None
+                    };
+                    let _ = log_request_with_diagnostic(
                         &state,
                         &provider,
                         None,
@@ -167,6 +176,7 @@ pub async fn codex_proxy_handler(
                         &route,
                         is_stream,
                         Some("network"),
+                        failover_diag.as_deref(),
                     );
                     return json_error(
                         StatusCode::BAD_GATEWAY,
@@ -177,8 +187,11 @@ pub async fn codex_proxy_handler(
         }
     };
 
-    if is_retryable_upstream_status(&state, upstream.status()) {
+    if is_retryable_upstream_status(&state, upstream.status())
+        && should_failover_upstream_status(&provider, upstream.status())
+    {
         record_provider_failure(&state, &provider.id);
+        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
         let mut excluded = vec![provider.id.clone()];
         for _ in 0..FAILOVER_MAX_HOPS {
             let Some(fallback) =
@@ -211,12 +224,15 @@ pub async fn codex_proxy_handler(
                         compact_fallback = fallback_prepared.compact_fallback;
                         upstream = response;
                         if !is_retryable_upstream_status(&state, upstream.status()) {
+                            failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
                             break;
                         }
                         record_provider_failure(&state, &provider.id);
+                        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
                     }
                     Err(error) => {
                         record_provider_failure(&state, &fallback.id);
+                        failover_trace.push(format!("{}({}) 连接失败: {error}", fallback.name, fallback.id));
                         log::warn!("Codex 备用供应商 {} 连接失败: {error}", fallback.id);
                     }
                 }
@@ -228,7 +244,12 @@ pub async fn codex_proxy_handler(
     if status.is_success() {
         record_provider_success(&state, &provider.id);
     }
-    let log_id = log_request(
+    let failover_diag = if !failover_trace.is_empty() {
+        Some(format!("故障降级: {}", failover_trace.join(" → ")))
+    } else {
+        None
+    };
+    let log_id = log_request_with_diagnostic(
         &state,
         &provider,
         Some(i64::from(status.as_u16())),
@@ -240,6 +261,7 @@ pub async fn codex_proxy_handler(
         } else {
             Some("upstream")
         },
+        failover_diag.as_deref(),
     );
 
     let is_streaming = is_stream

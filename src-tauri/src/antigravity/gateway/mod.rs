@@ -148,6 +148,10 @@ pub fn gateway_status() -> AppResult<AntigravityGatewayStatus> {
     })
 }
 
+pub fn pool_instance() -> AppResult<Arc<AccountPool>> {
+    with_manager(|manager| Ok(Arc::clone(&manager.pool)))
+}
+
 pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<AntigravityGatewayStatus> {
     with_manager(|manager| {
         let settings = crate::antigravity::outbound::save_settings(

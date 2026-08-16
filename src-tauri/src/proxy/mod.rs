@@ -506,6 +506,13 @@ pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCod
     codes.contains(&status.as_u16())
 }
 
+/// Antigravity already rotated its account pool on 429. Failing over to
+/// unrelated Desktop providers (Kimi / DeepSeek / …) with a Gemini model id
+/// produces extra 4xx/502 rows, and Claude Desktop then retries 502 immediately.
+pub(crate) fn should_failover_upstream_status(provider: &Provider, status: StatusCode) -> bool {
+    !(provider.is_antigravity() && status == StatusCode::TOO_MANY_REQUESTS)
+}
+
 pub fn default_retryable_status_codes() -> Vec<u16> {
     let mut codes = Vec::new();
     codes.extend(400..=404);
@@ -758,10 +765,12 @@ async fn proxy_handler(
     };
     let mut translated = prepared.translated;
     let mut retry_without_stream_options = compatible_stream_retry(&provider, &prepared, incoming_stream);
+    let mut failover_trace: Vec<String> = Vec::new();
     let mut upstream_resp = match prepared.builder.body(prepared.outgoing_body).send().await {
         Ok(r) => r,
         Err(e) => {
             record_provider_failure(&state, &provider.id);
+            failover_trace.push(format!("{}({}) 网络错误", provider.name, provider.id));
             let mut excluded = vec![provider.id.clone()];
             let mut last_error = e.to_string();
             let mut recovered = None::<reqwest::Response>;
@@ -800,12 +809,14 @@ async fn proxy_handler(
                     .await
                 {
                     Ok(response) => {
+                        failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
                         provider = fallback;
                         recovered = Some(response);
                         break;
                     }
                     Err(fallback_error) => {
                         record_provider_failure(&state, &fallback.id);
+                        failover_trace.push(format!("{}({}) 失败: {fallback_error}", fallback.name, fallback.id));
                         last_error = fallback_error.to_string();
                     }
                 }
@@ -813,7 +824,12 @@ async fn proxy_handler(
             match recovered {
                 Some(response) => response,
                 None => {
-                    log_request(
+                    let failover_diag = if !failover_trace.is_empty() {
+                        Some(format!("故障降级失败: {}", failover_trace.join(" → ")))
+                    } else {
+                        None
+                    };
+                    log_request_with_diagnostic(
                         &state,
                         &provider,
                         Some(502),
@@ -821,6 +837,7 @@ async fn proxy_handler(
                         uri.path(),
                         incoming_stream,
                         Some("network"),
+                        failover_diag.as_deref(),
                     );
                     if translated {
                         log::warn!("转发到 OpenAI 兼容上游失败: {last_error}");
@@ -838,8 +855,11 @@ async fn proxy_handler(
         }
     };
 
-    if is_retryable_upstream_status(&state, upstream_resp.status()) {
+    if is_retryable_upstream_status(&state, upstream_resp.status())
+        && should_failover_upstream_status(&provider, upstream_resp.status())
+    {
         record_provider_failure(&state, &provider.id);
+        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream_resp.status()));
         let mut excluded = vec![provider.id.clone()];
         for _ in 0..FAILOVER_MAX_HOPS {
             let Some(mut fallback) =
@@ -882,12 +902,15 @@ async fn proxy_handler(
                     retry_without_stream_options = fallback_retry;
                     upstream_resp = response;
                     if !is_retryable_upstream_status(&state, upstream_resp.status()) {
+                        failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
                         break;
                     }
                     record_provider_failure(&state, &provider.id);
+                    failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream_resp.status()));
                 }
                 Err(error) => {
                     record_provider_failure(&state, &fallback.id);
+                    failover_trace.push(format!("{}({}) 连接失败: {error}", fallback.name, fallback.id));
                     log::warn!("备用供应商 {} 连接失败: {error}", fallback.id);
                 }
             }
@@ -984,7 +1007,21 @@ async fn proxy_handler(
     }
     let duration_ms = started.elapsed().as_millis() as i64;
     let error_category = (!status.is_success()).then(|| "upstream");
-    let log_id = log_request(&state, &provider, Some(status.as_u16() as i64), duration_ms, uri.path(), incoming_stream, error_category);
+    let failover_diag = if !failover_trace.is_empty() {
+        Some(format!("故障降级: {}", failover_trace.join(" → ")))
+    } else {
+        None
+    };
+    let log_id = log_request_with_diagnostic(
+        &state,
+        &provider,
+        Some(status.as_u16() as i64),
+        duration_ms,
+        uri.path(),
+        incoming_stream,
+        error_category,
+        failover_diag.as_deref(),
+    );
 
     // OpenAI upstreams are normalized into Anthropic JSON. For an Anthropic
     // streaming request, keep the OpenAI upstream stream open and translate each
@@ -1437,17 +1474,40 @@ fn find_sse_frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
 }
 
 fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
-    if provider.model.trim().is_empty() {
-        return original.clone();
-    }
-
     let mut value: Value = match serde_json::from_slice(original) {
         Ok(v) => v,
         Err(_) => return original.clone(),
     };
 
-    if value.get("model").is_some() {
+    if !provider.model.trim().is_empty() && value.get("model").is_some() {
         value["model"] = Value::String(provider.model.trim().to_string());
+    }
+
+    if let Some(cfg) = provider.thinking_config.as_ref() {
+        if cfg.is_disabled() {
+            if let Some(obj) = value.as_object_mut() {
+                obj.remove("thinking");
+            }
+        } else if let Some(budget) = cfg.resolved_budget_tokens() {
+            let needs_inject = match value.get("thinking") {
+                None => true,
+                Some(t) => {
+                    t.get("type").and_then(Value::as_str) == Some("enabled")
+                        && t.get("budget_tokens").is_none()
+                }
+            };
+            if needs_inject {
+                value["thinking"] = serde_json::json!({
+                    "type": "enabled",
+                    "budget_tokens": budget
+                });
+                if let Some(max_tokens) = value.get("max_tokens").and_then(Value::as_u64) {
+                    if max_tokens <= budget as u64 {
+                        value["max_tokens"] = serde_json::json!(budget as u64 + 1024);
+                    }
+                }
+            }
+        }
     }
 
     serde_json::to_vec(&value)
@@ -1484,7 +1544,7 @@ fn encode_upstream_request(
     match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
             let mut request =
-                convert::anthropic_to_openai_chat(incoming, provider.model.trim(), stream);
+                convert::anthropic_to_openai_chat(incoming, provider.model.trim(), stream, provider.thinking_config.as_ref());
             convert::reinject_chat_prompt_cache_key(
                 &mut request,
                 incoming
@@ -1500,7 +1560,7 @@ fn encode_upstream_request(
         }
         ProtocolType::OpenAiResponses => {
             let mut request =
-                convert::anthropic_to_openai_responses(incoming, provider.model.trim(), stream);
+                convert::anthropic_to_openai_responses(incoming, provider.model.trim(), stream, provider.thinking_config.as_ref());
             if provider.is_codex_oauth() {
                 convert::apply_codex_oauth_response_body(&mut request);
             }
@@ -1513,7 +1573,7 @@ fn encode_upstream_request(
     }
 }
 
-pub(crate) fn log_request(
+pub(crate) fn log_request_with_diagnostic(
     state: &ProxyState,
     provider: &Provider,
     status: Option<i64>,
@@ -1521,12 +1581,16 @@ pub(crate) fn log_request(
     route: &str,
     is_stream: bool,
     error_category: Option<&str>,
+    custom_diagnostic: Option<&str>,
 ) -> Option<String> {
     let model = if provider.model.trim().is_empty() {
         None
     } else {
         Some(provider.model.trim())
     };
+    let diag = custom_diagnostic
+        .map(str::to_string)
+        .or_else(|| error_category.map(error_diagnostic).map(str::to_string));
     match state.db.with_conn(|conn| {
         insert_proxy_log(
             conn,
@@ -1540,7 +1604,7 @@ pub(crate) fn log_request(
             Some(route),
             is_stream,
             error_category,
-            error_category.map(error_diagnostic),
+            diag.as_deref(),
         )
     }) {
         Ok(id) => {
@@ -1552,6 +1616,27 @@ pub(crate) fn log_request(
             None
         }
     }
+}
+
+pub(crate) fn log_request(
+    state: &ProxyState,
+    provider: &Provider,
+    status: Option<i64>,
+    duration_ms: i64,
+    route: &str,
+    is_stream: bool,
+    error_category: Option<&str>,
+) -> Option<String> {
+    log_request_with_diagnostic(
+        state,
+        provider,
+        status,
+        duration_ms,
+        route,
+        is_stream,
+        error_category,
+        None,
+    )
 }
 
 fn validate_desktop_gateway_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
@@ -1823,6 +1908,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
             is_current: true,
             created_at: 0,
             health_status: None,
@@ -1855,6 +1941,24 @@ mod tests {
     }
 
     #[test]
+    fn antigravity_429_does_not_failover_to_other_providers() {
+        let ag = Provider {
+            provider_kind: ProviderKind::Antigravity,
+            ..provider(ProtocolType::Anthropic)
+        };
+        let standard = provider(ProtocolType::Anthropic);
+        assert!(!should_failover_upstream_status(
+            &ag,
+            StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(should_failover_upstream_status(&ag, StatusCode::BAD_GATEWAY));
+        assert!(should_failover_upstream_status(
+            &standard,
+            StatusCode::TOO_MANY_REQUESTS
+        ));
+    }
+
+    #[test]
     fn next_failover_provider_orders_by_group_and_filters_models() {
         use crate::database::dao::providers::{set_current_provider, upsert_provider};
         use crate::database::dao::settings::set_setting;
@@ -1883,6 +1987,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 0,
                     failover_models: Vec::new(),
+                    thinking_config: None,
                 },
             )?;
             set_current_provider(conn, &current.id)?;
@@ -1907,6 +2012,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 1,
                     failover_models: vec!["gpt-4o".into()],
+                    thinking_config: None,
                 },
             )?;
             let group0 = upsert_provider(
@@ -1929,6 +2035,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 0,
                     failover_models: Vec::new(),
+                    thinking_config: None,
                 },
             )?;
             Ok((current.id, group0.id))

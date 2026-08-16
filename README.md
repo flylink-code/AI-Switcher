@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.11**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.12**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,7 +41,7 @@
 
 ## 能做什么
 
-### 导航与布局（1.3.8）
+### 导航与布局
 
 - **双布局**：标题栏可切换 **左侧导航** / **顶部导航**（类似浏览器默认标签与垂直标签）；偏好写入 `cs.layoutMode`
 - **顶部导航七项**：概览 · 供应商 · 用量统计 · 账号与额度 · 工作区 · **会话** · 设置
@@ -54,6 +54,7 @@
 ### 供应商与切换
 
 - 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- **Thinking / Reasoning 统一参数转译**：供应商可视化配置思考模式、Token 预算（`budget_tokens` / `thinking_budget`）与推理强度（`reasoning_effort`），自动抹平 Anthropic、OpenAI、Gemini 与 DeepSeek（`reasoning_content` 转思考块）协议差异
 - 供应商卡片可 **复制到其他 Agent**；供应商页支持 **从其他 Agent 导入**（字段按目标协议转换）
 - 供应商页可 **诊断测速** 各节点，并 **一键隔离** 401/403 失效节点（隔离后不再作为故障切换备选）
 - Codex 供应商可开关 catalog **Web Search**（写入模型目录 `supports_search_tool` / `web_search_tool_type`）
@@ -65,16 +66,18 @@
 
 ### 本地代理
 
-Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。可选自动故障切换（默认关闭）。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
+Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。支持**透明故障切换 (Failover)**：在上游遭遇 429、5xx 或连接超时异常时，自动按优先级与模型白名单降级至备用供应商重试，并全程记录降级链路诊断到日志面板。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
 
-入口在 **设置 → 工具与环境 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。`openai_responses` 多轮对话的 assistant 历史使用 `output_text`（避免第二轮起 502）。
+入口在 **设置 → 工具与环境 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。`openai_responses` 多轮对话的 assistant 历史使用 `output_text`（避���第二轮起 502）。
 
 ### Antigravity 网关
 
 内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex、Pi、DeepSeek Harness 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
-- **账号池**：浏览器 OAuth 导入、多账号额度调度与冷却轮换；**设为活跃**后网关优先走该账号（并清会话粘滞与冷却）；刷新额度同步实时模型目录；后台自动刷新额度
+- **账号池与智能调度**：浏览器 OAuth 导入，403 异常熔断与 429 阶梯冷却探针；基于实时剩余配额比例与健康度提供**动态加权轮询与最优账号推荐**；配额不足 (<15%) 自动预警提示；**设为活跃**后网关优先走该账号（并清会话粘滞与冷却）；后台自动刷新额度与实时模型目录
+- **Claude Desktop 429**：账号池耗尽时向客户端回传 **429 + Retry-After**（不再伪装成 502），避免 Desktop 把网关故障当 5xx 猛重试；本地代理也不再把 AG 的 429 切到其他供应商
+- **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **模型目录**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；3.7-high 遇 429 时同账号降到 medium/low，再轮换账号
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
@@ -98,7 +101,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **会话与用量**：扫描 `~/.pi/agent/sessions/**/*.jsonl` 的 `message.usage`；用量页刷新会同步（与 Antigravity 网关已记账的回合去重）
 - **Agent 工具**：检测/安装/更新 Pi CLI（需 Node.js ≥22）
 
-### DeepSeek Harness（1.3.11）
+### DeepSeek Harness
 
 读写 `~/.dsh/settings.yaml` 与 `~/.dsh/.credentials.yaml`。与 OpenCode / Pi 相同：多供应商并存、保存即同步，无需切换：
 
@@ -106,9 +109,9 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **直连上游**：按 YAML 写入各端点，不经本地代理；Anthropic 可用 Antigravity 网关
 - **工作区**：Prompts、MCP；不接 Plugins、Agents、Profiles、Skills
 - **会话与用量**：扫描 `~/.dsh/sessions/**/*.jsonl.zstd`；用量页刷新会同步
-- **Agent 工具**：检测/安装/更新 DeepSeek Harness CLI（需 Node.js ≥22）；工作区可一键启动网页端
+- **Agent 工具**：检测/安装/更新 DeepSeek Harness CLI（需 Node.js ≥22）���工作区可一键启动网页端
 
-### Agent 工具（1.3.7 / 1.3.11）
+### Agent 工具
 
 在 **设置 → 工具与环境 → Agent 工具** 中统一检测与安装：
 
@@ -140,10 +143,10 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ### 用量、环境与系统
 
-- 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi / DeepSeek Harness 本地会话事件（含 Anthropic 兼容第三方直连、Pi JSONL 与 DSH `jsonl.zstd` 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤；时间范围选择在工具栏右侧（1.3.10）
+- 用量：合并代理日志与 Codex / Claude Code / OpenCode / Pi / DeepSeek Harness 本地会话事件（含 Anthropic 兼容第三方直连、Pi JSONL 与 DSH `jsonl.zstd` 回填）；支持多币种预估；识别 Opus / Codex Fast tier（`*-fast`）；页内数据源过滤；时间范围选择在工具栏右侧
 - 环境：配置路径、资料库迁移 / 便携导出、WSL·SSH 同步、**doctor 诊断与一键可见性修复**（不强制改写直连 `ANTHROPIC_BASE_URL`）
 - 托盘快捷切换、中英界面、浅色 / 深色 / 跟随系统、开机自启
-- 关于页「检查更新」与标题栏共用同一更新弹窗（1.3.9）
+- 关于页「检查更新」与标题栏共用同一更新弹窗
 
 ---
 

@@ -81,33 +81,105 @@ pub fn insert_request(
     }
 }
 
+/// Parsed Gemini `usageMetadata` for wire-protocol translation.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GeminiUsage {
+    pub input: i64,
+    pub output: i64,
+    pub thoughts: i64,
+    pub cached: i64,
+}
+
+impl GeminiUsage {
+    pub fn parse(gemini: &Value) -> Self {
+        let meta = gemini.get("usageMetadata").unwrap_or(&Value::Null);
+        let input = meta_count(meta, "promptTokenCount");
+        let candidates = meta_count(meta, "candidatesTokenCount");
+        let thoughts = meta_count(meta, "thoughtsTokenCount");
+        let cached = meta_count(meta, "cachedContentTokenCount");
+        let total = meta_count(meta, "totalTokenCount");
+        let mut output = candidates.saturating_add(thoughts);
+        if output == 0 && total > input {
+            output = total.saturating_sub(input);
+        }
+        Self {
+            input,
+            output,
+            thoughts,
+            cached,
+        }
+    }
+
+    /// Keep the highest counts seen on a stream (Gemini often only fills metadata late).
+    pub fn merge_max(&mut self, other: Self) {
+        if other.input > self.input {
+            self.input = other.input;
+        }
+        if other.output > self.output {
+            self.output = other.output;
+        }
+        if other.thoughts > self.thoughts {
+            self.thoughts = other.thoughts;
+        }
+        if other.cached > self.cached {
+            self.cached = other.cached;
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.input == 0 && self.output == 0
+    }
+
+    pub fn anthropic_usage(&self) -> Value {
+        let mut usage = serde_json::json!({
+            "input_tokens": self.input,
+            "output_tokens": self.output,
+        });
+        if self.cached > 0 {
+            usage["cache_read_input_tokens"] = serde_json::json!(self.cached);
+        }
+        usage
+    }
+
+    pub fn openai_usage(&self) -> Value {
+        let mut usage = serde_json::json!({
+            "prompt_tokens": self.input,
+            "completion_tokens": self.output,
+            "total_tokens": self.input.saturating_add(self.output),
+        });
+        if self.cached > 0 {
+            usage["prompt_tokens_details"] = serde_json::json!({ "cached_tokens": self.cached });
+        }
+        usage
+    }
+
+    pub fn responses_usage(&self) -> Value {
+        serde_json::json!({
+            "input_tokens": self.input,
+            "output_tokens": self.output,
+            "total_tokens": self.input.saturating_add(self.output),
+            "input_tokens_details": { "cached_tokens": self.cached.max(0) },
+            "output_tokens_details": { "reasoning_tokens": self.thoughts.max(0) },
+        })
+    }
+}
+
+fn meta_count(meta: &Value, key: &str) -> i64 {
+    meta.get(key)
+        .and_then(Value::as_i64)
+        .or_else(|| meta.get(key).and_then(Value::as_u64).map(|value| value as i64))
+        .unwrap_or(0)
+}
+
 pub fn tokens_from_gemini(gemini: &Value) -> (i64, i64) {
-    let meta = gemini.get("usageMetadata").unwrap_or(&Value::Null);
-    let input = meta
-        .get("promptTokenCount")
-        .and_then(Value::as_i64)
-        .or_else(|| {
-            meta.get("promptTokenCount")
-                .and_then(Value::as_u64)
-                .map(|value| value as i64)
-        })
-        .unwrap_or(0);
-    let output = meta
-        .get("candidatesTokenCount")
-        .and_then(Value::as_i64)
-        .or_else(|| {
-            meta.get("candidatesTokenCount")
-                .and_then(Value::as_u64)
-                .map(|value| value as i64)
-        })
-        .unwrap_or(0);
-    (input, output)
+    let usage = GeminiUsage::parse(gemini);
+    (usage.input, usage.output)
 }
 
 /// Best-effort token update from a Gemini (or unwrapped v1internal) body.
 pub fn update_usage_from_gemini(db: &Arc<Database>, log_id: &str, account_id: Option<&str>, gemini: &Value) {
-    let (input, output) = tokens_from_gemini(gemini);
-    if input == 0 && output == 0 {
+    let usage = GeminiUsage::parse(gemini);
+    if usage.is_empty() {
         return;
     }
     if let Err(error) = db.with_conn(|conn| {
@@ -117,10 +189,10 @@ pub fn update_usage_from_gemini(db: &Arc<Database>, log_id: &str, account_id: Op
             Some(TARGET_APP),
             account_id,
             None,
-            input,
+            usage.input,
+            usage.cached,
             0,
-            0,
-            output,
+            usage.output,
         )
     }) {
         log::error!("更新 Antigravity Token 用量失败: {error}");
@@ -155,5 +227,42 @@ pub fn update_usage_tokens(
         log::error!("更新 Antigravity Token 用量失败: {error}");
     } else {
         crate::usage_events::notify_log_recorded();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GeminiUsage;
+    use serde_json::json;
+
+    #[test]
+    fn tokens_from_gemini_include_thoughts_and_total_fallback() {
+        let with_thoughts = json!({
+            "usageMetadata": {
+                "promptTokenCount": 100,
+                "candidatesTokenCount": 20,
+                "thoughtsTokenCount": 80,
+                "cachedContentTokenCount": 40
+            }
+        });
+        let usage = GeminiUsage::parse(&with_thoughts);
+        assert_eq!(usage.input, 100);
+        assert_eq!(usage.output, 100);
+        assert_eq!(usage.thoughts, 80);
+        assert_eq!(usage.cached, 40);
+        assert_eq!(usage.anthropic_usage()["input_tokens"], 100);
+        assert_eq!(usage.anthropic_usage()["output_tokens"], 100);
+        assert_eq!(usage.anthropic_usage()["cache_read_input_tokens"], 40);
+
+        let total_only = json!({
+            "usageMetadata": {
+                "promptTokenCount": 80,
+                "totalTokenCount": 120
+            }
+        });
+        let fallback = GeminiUsage::parse(&total_only);
+        assert_eq!(fallback.input, 80);
+        assert_eq!(fallback.output, 40);
+        assert_eq!(fallback.thoughts, 0);
     }
 }

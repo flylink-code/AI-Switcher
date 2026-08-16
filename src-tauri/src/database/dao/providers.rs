@@ -36,7 +36,8 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
-                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id),
+                thinking_config_json
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -52,7 +53,8 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
-                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id),
+                thinking_config_json
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -71,7 +73,8 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 (SELECT checked_at FROM provider_health WHERE provider_id = providers.id),
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
-                (SELECT detail FROM provider_health WHERE provider_id = providers.id)
+                (SELECT detail FROM provider_health WHERE provider_id = providers.id),
+                thinking_config_json
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -119,6 +122,13 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     ))?;
     let auto_review_model_override =
         normalized_auto_review_model_override(input.target_app, input.auto_review_model_override.clone());
+    let thinking_config_json = serde_json::to_string(
+        input
+            .thinking_config
+            .as_ref()
+            .filter(|cfg| !cfg.is_empty())
+            .unwrap_or(&crate::provider::ThinkingConfig::default()),
+    )?;
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
@@ -146,7 +156,8 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             "UPDATE providers SET name = ?, base_url = ?, api_key = ?, model = ?,
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
                 auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
-                web_search_enabled = ?, failover_group = ?, failover_models = ? WHERE id = ?;",
+                web_search_enabled = ?, failover_group = ?, failover_models = ?,
+                thinking_config_json = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
@@ -155,6 +166,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 web_search_sql(input.web_search_enabled),
                 input.failover_group,
                 serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
+                thinking_config_json,
                 id,
             ],
         )?;
@@ -180,8 +192,8 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models, thinking_config_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
@@ -190,6 +202,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             web_search_sql(input.web_search_enabled),
             input.failover_group,
             serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
+            thinking_config_json,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -359,6 +372,11 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         .filter(|value| !value.is_empty())
         .collect();
     let health_detail: Option<String> = row.get(21)?;
+    let thinking_config_json: Option<String> = row.get(22).ok();
+    let thinking_config = thinking_config_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<crate::provider::ThinkingConfig>(raw).ok())
+        .filter(|cfg| !cfg.is_empty());
     Ok(Provider {
         api_key_set: !api_key.is_empty()
             || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
@@ -384,6 +402,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),
         failover_group: row.get(19)?,
         failover_models,
+        thinking_config,
     })
 }
 
@@ -454,6 +473,7 @@ mod tests {
             notes: String::new(),
             failover_group: 0,
             failover_models: Vec::new(),
+            thinking_config: None,
         }
     }
 
@@ -580,6 +600,28 @@ mod tests {
                 created.failover_models,
                 vec!["claude-opus".to_string(), "gpt-5".to_string()]
             );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn thinking_config_roundtrips_on_upsert() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut input = provider_input("https://thinking.example.test/v1");
+            input.thinking_config = Some(crate::provider::ThinkingConfig {
+                mode: Some("budget".into()),
+                budget_tokens: Some(16000),
+                reasoning_effort: Some("high".into()),
+                prefix_thought: Some(true),
+            });
+            let created = upsert_provider(conn, &input)?;
+            let loaded = created.thinking_config.expect("thinking_config");
+            assert_eq!(loaded.mode.as_deref(), Some("budget"));
+            assert_eq!(loaded.budget_tokens, Some(16000));
+            assert_eq!(loaded.reasoning_effort.as_deref(), Some("high"));
+            assert_eq!(loaded.prefix_thought, Some(true));
             Ok(())
         })
         .unwrap();
