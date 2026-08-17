@@ -46,6 +46,8 @@ interface ProviderFormProps {
   /** When editing, the provider being edited; when null, creating. */
   editing: Provider | null;
   target: ProviderTarget;
+  /** Unified catalog: hide Claude role mapping, keep existing DB mapping on save. */
+  gatewayCatalog?: boolean;
   /** Shown after copying a provider from another Agent. */
   importHint?: string | null;
   onCancel: () => void;
@@ -129,10 +131,25 @@ const EMPTY_MODEL_MAPPING: ClaudeModelMapping = {
   subagent: "",
 };
 
+function uniqueModelIds(ids: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of ids) {
+    const id = String(raw ?? "").trim();
+    if (!id) continue;
+    const key = id.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(id);
+  }
+  return result;
+}
+
 export function ProviderForm({
   open,
   editing,
   target,
+  gatewayCatalog = false,
   importHint,
   onCancel,
   onSubmit,
@@ -149,6 +166,8 @@ export function ProviderForm({
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
   const watchedDefaultModel = Form.useWatch("model", form) ?? "";
   const watchedFailoverModels = Form.useWatch("failoverModels", form) ?? [];
+  const watchedHiddenModels: string[] = Form.useWatch("hiddenModels", form) ?? [];
+  const watchedMapping = Form.useWatch("modelMapping", form) ?? EMPTY_MODEL_MAPPING;
   const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
   const watchedThinkingMode = Form.useWatch(["thinkingConfig", "mode"], form) ?? "auto";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
@@ -161,6 +180,7 @@ export function ProviderForm({
   const isDsh = (editing?.targetApp ?? target) === "dsh";
   // Codex / OpenCode / Pi / Dsh 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
   const isDirect = isCodex || isOpenCode || isPi || isDsh;
+  const hideRoleMapping = isDirect || gatewayCatalog;
   const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
   // Seed with the loaded default so the sync effect never treats open/edit as a "change".
   const prevModelRef = useRef<string>("");
@@ -191,6 +211,7 @@ export function ProviderForm({
         targetApp: editing.targetApp,
         failoverGroup: editing.failoverGroup ?? 0,
         failoverModels: editing.failoverModels ?? [],
+        hiddenModels: editing.hiddenModels ?? [],
         thinkingConfig: editing.thinkingConfig ?? {
           mode: "auto",
           budgetTokens: undefined,
@@ -220,6 +241,7 @@ export function ProviderForm({
         targetApp: target,
         failoverGroup: 0,
         failoverModels: [],
+        hiddenModels: [],
         thinkingConfig: {
           mode: "auto",
           budgetTokens: undefined,
@@ -238,7 +260,7 @@ export function ProviderForm({
 
   useEffect(() => {
     if (!open) return;
-    if (isDirect) return;
+    if (hideRoleMapping) return;
     const model = watchedDefaultModel?.trim() ?? "";
     if (!model || model === prevModelRef.current) return;
     const previous = prevModelRef.current;
@@ -250,7 +272,7 @@ export function ProviderForm({
       mappingTarget,
     );
     form.setFieldValue("modelMapping", nextMapping);
-  }, [open, watchedDefaultModel, mappingTarget, form, isDirect]);
+  }, [open, watchedDefaultModel, mappingTarget, form, hideRoleMapping]);
 
   const handleOk = async () => {
     try {
@@ -259,12 +281,18 @@ export function ProviderForm({
       if (isDirect && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
         baseUrl = ensureOpenAiV1Suffix(baseUrl);
       }
+      const defaultModel = String(values.model ?? "").trim();
+      const mapping = isDirect
+        ? { ...EMPTY_MODEL_MAPPING }
+        : (values.modelMapping ?? { ...EMPTY_MODEL_MAPPING });
+      const hiddenModels = uniqueModelIds(values.hiddenModels ?? []).filter(
+        (id) => id.toLowerCase() !== defaultModel.toLowerCase(),
+      );
       const normalized = {
         ...values,
         baseUrl,
-        modelMapping: isDirect
-          ? { ...EMPTY_MODEL_MAPPING }
-          : (values.modelMapping ?? { ...EMPTY_MODEL_MAPPING }),
+        modelMapping: mapping,
+        hiddenModels,
       };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       await onSubmit(normalized);
@@ -361,6 +389,21 @@ export function ProviderForm({
       ].filter((model) => model?.trim()),
     ),
   ].map((model) => ({ value: model }));
+  const candidateModels = uniqueModelIds([
+    watchedDefaultModel,
+    ...models,
+    ...(watchedFailoverModels ?? []),
+    watchedMapping.sonnet,
+    watchedMapping.opus,
+    watchedMapping.haiku,
+    watchedMapping.fable,
+    watchedMapping.subagent,
+  ]);
+  const defaultModelKey = String(watchedDefaultModel ?? "").trim().toLowerCase();
+  const visibleModelValue = candidateModels.filter((id) => {
+    if (id.toLowerCase() === defaultModelKey) return true;
+    return !watchedHiddenModels.some((hidden) => hidden.trim().toLowerCase() === id.toLowerCase());
+  });
   const modelCacheText = modelResult
     ? modelResult.source === "cache"
       ? t(modelResult.stale ? "providers.modelCacheStale" : "providers.modelCacheFresh", {
@@ -739,7 +782,36 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        {!isDirect && (
+        <Form.Item name="hiddenModels" hidden>
+          <Select mode="multiple" />
+        </Form.Item>
+        <Form.Item
+          label={t("providers.visibleModels")}
+          extra={t("providers.visibleModelsHint")}
+        >
+          <Select
+            mode="multiple"
+            value={visibleModelValue}
+            options={candidateModels.map((id) => ({
+              value: id,
+              label: id,
+              disabled: id.toLowerCase() === defaultModelKey,
+            }))}
+            placeholder={t("providers.visibleModels")}
+            style={{ width: "100%" }}
+            onChange={(visible: string[]) => {
+              const nextHidden = uniqueModelIds([
+                ...watchedHiddenModels.filter(
+                  (id) => !candidateModels.some((candidate) => candidate.toLowerCase() === id.trim().toLowerCase()),
+                ),
+                ...candidateModels.filter((id) => !visible.includes(id)),
+              ]).filter((id) => id.toLowerCase() !== defaultModelKey);
+              form.setFieldValue("hiddenModels", nextHidden);
+            }}
+          />
+        </Form.Item>
+
+        {!hideRoleMapping && (
           <>
             <div
               style={{

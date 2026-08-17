@@ -53,6 +53,29 @@ export async function getCurrentProvider(target: ProviderTarget): Promise<Provid
   return call<Provider | null>("get_current_provider", { target });
 }
 
+export async function getGatewayCatalogEnabled(target: ProviderTarget): Promise<boolean> {
+  return call<boolean>("get_gateway_catalog_enabled", { target });
+}
+
+export async function setGatewayCatalogEnabled(
+  target: ProviderTarget,
+  enabled: boolean,
+): Promise<boolean> {
+  return call<boolean>("set_gateway_catalog_enabled", { target, enabled });
+}
+
+export async function getGatewayCatalogSubagent(): Promise<string> {
+  return call<string>("get_gateway_catalog_subagent");
+}
+
+export async function setGatewayCatalogSubagent(model: string): Promise<string> {
+  return call<string>("set_gateway_catalog_subagent", { model });
+}
+
+export async function listGatewayCatalogModels(target: ProviderTarget): Promise<string[]> {
+  return call<string[]>("list_gateway_catalog_models", { target });
+}
+
 export async function createProvider(input: ProviderInput): Promise<Provider> {
   return call<Provider>("create_provider", { input });
 }

@@ -183,7 +183,7 @@ pub async fn ensure_antigravity_provider(
     };
 
     let input = ProviderInput {
-        id: existing.map(|provider| provider.id),
+        id: existing.as_ref().map(|provider| provider.id.clone()),
         name: if target == ProviderTarget::Pi || target == ProviderTarget::Dsh {
             "Antigravity".to_string()
         } else {
@@ -220,6 +220,10 @@ pub async fn ensure_antigravity_provider(
         },
         failover_group: 0,
         failover_models,
+        hidden_models: existing
+            .as_ref()
+            .map(|provider| provider.hidden_models.clone())
+            .unwrap_or_default(),
         thinking_config: None,
     };
 

@@ -593,7 +593,10 @@ pub fn gemini_to_anthropic_response(
         content.push(block);
     }
     if !assistant.text.is_empty() {
-        content.push(json!({ "type": "text", "text": assistant.text }));
+        content.push(json!({
+            "type": "text",
+            "text": super::latex::unwrap_gemini_latex(&assistant.text)
+        }));
     }
     content.extend(assistant.tools.iter().cloned());
     if content.is_empty() {
@@ -629,6 +632,7 @@ pub struct AnthropicStreamState {
     open_block: Option<(BlockKind, usize)>,
     next_index: usize,
     usage: GeminiUsage,
+    text_carry: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -653,6 +657,7 @@ impl AnthropicStreamState {
             self.started = true;
             events.push(anthropic_sse_message_start(model, self.usage));
         }
+        self.flush_text_carry(&mut events, true);
         if let Some((_, index)) = self.open_block.take() {
             events.push(json!({ "type": "content_block_stop", "index": index }));
         } else {
@@ -675,9 +680,48 @@ impl AnthropicStreamState {
     }
 
     fn close_open_block(&mut self, events: &mut Vec<Value>) {
+        self.flush_text_carry(events, true);
         if let Some((_, index)) = self.open_block.take() {
             events.push(json!({ "type": "content_block_stop", "index": index }));
         }
+    }
+
+    fn push_visible_text(&mut self, chunk: &str, events: &mut Vec<Value>) {
+        if chunk.is_empty() {
+            return;
+        }
+        let _ = self.open_block_if_needed(BlockKind::Text, events);
+        self.text_carry.push_str(chunk);
+        self.flush_text_carry(events, false);
+    }
+
+    fn flush_text_carry(&mut self, events: &mut Vec<Value>, force: bool) {
+        if self.text_carry.is_empty() {
+            return;
+        }
+        let Some((BlockKind::Text, index)) = self.open_block else {
+            if force {
+                self.text_carry.clear();
+            }
+            return;
+        };
+        let emit = if force {
+            let out = super::latex::unwrap_gemini_latex(&self.text_carry);
+            self.text_carry.clear();
+            out
+        } else {
+            let (safe, rest) = super::latex::split_safe_latex_prefix(&self.text_carry);
+            self.text_carry = rest;
+            super::latex::unwrap_gemini_latex(&safe)
+        };
+        if emit.is_empty() {
+            return;
+        }
+        events.push(json!({
+            "type": "content_block_delta",
+            "index": index,
+            "delta": { "type": "text_delta", "text": emit }
+        }));
     }
 
     fn open_block_if_needed(&mut self, kind: BlockKind, events: &mut Vec<Value>) -> usize {
@@ -750,12 +794,7 @@ pub fn gemini_to_anthropic_sse_chunk(
         }
     }
     if !assistant.text.is_empty() {
-        let index = state.open_block_if_needed(BlockKind::Text, &mut events);
-        events.push(json!({
-            "type": "content_block_delta",
-            "index": index,
-            "delta": { "type": "text_delta", "text": assistant.text }
-        }));
+        state.push_visible_text(&assistant.text, &mut events);
     }
     if !assistant.tools.is_empty() {
         // Anthropic requires closing the previous block before tool_use blocks.
@@ -1297,6 +1336,72 @@ mod tests {
         assert_eq!(content[0]["signature"], "sig-nonstream-1");
         assert_eq!(content[1]["type"], "text");
         assert_eq!(content[1]["text"], "好的");
+    }
+
+    #[test]
+    fn non_stream_unwraps_visible_gemini_latex_but_not_thinking() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "算 $t_{WB}$" },
+                    { "text": "加入 $10\\ \\mu\\text{s}$ 的 $t_{WB}$" }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response = gemini_to_anthropic_response(
+            "gemini-3.6-flash-high",
+            &gemini,
+            None,
+            true,
+            &no_params(),
+        );
+        let content = response["content"].as_array().unwrap();
+        assert_eq!(content[0]["thinking"], "算 $t_{WB}$");
+        assert_eq!(content[1]["text"], "加入 10 μs 的 t_WB");
+    }
+
+    #[test]
+    fn sse_unwraps_gemini_latex_split_across_chunks() {
+        let mut state = AnthropicStreamState::default();
+        let chunk1 = json!({
+            "candidates": [{ "content": { "parts": [{ "text": "延时 $10\\ \\mu" }] } }]
+        });
+        let e1 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk1,
+            None,
+            true,
+            &no_params(),
+        );
+        let first: String = e1
+            .iter()
+            .filter(|event| event["delta"]["type"] == "text_delta")
+            .filter_map(|event| event["delta"]["text"].as_str())
+            .collect();
+        assert_eq!(first, "延时 ");
+
+        let chunk2 = json!({
+            "candidates": [{
+                "content": { "parts": [{ "text": "\\text{s}$" }] },
+                "finishReason": "STOP"
+            }]
+        });
+        let e2 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk2,
+            None,
+            true,
+            &no_params(),
+        );
+        let second: String = e2
+            .iter()
+            .filter(|event| event["delta"]["type"] == "text_delta")
+            .filter_map(|event| event["delta"]["text"].as_str())
+            .collect();
+        assert_eq!(second, "10 μs");
     }
 
     #[test]

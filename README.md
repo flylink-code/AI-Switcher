@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.12**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.13**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -54,6 +54,8 @@
 ### 供应商与切换
 
 - 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- **Claude Code / Codex 路由模式**（默认独立供应商）：开关在对应 Agent 下一级。可切 **统一模型目录**，保存后全部可见模型经本地代理合并，CLI `/model` 选用；目录模式不写 Custom `*_NAME`，角色 id 保持稳定；Claude Code 子代理模型在目录设置里单独指定。供应商可隐藏不进 `/model` 的型号（默认模型不可藏）。Codex 目录下 Chat 中转会把 `/v1/responses` 转成 `/v1/chat/completions`。OpenCode / Pi / DeepSeek Harness 仍为原生多供应商并存
+- 供应商卡片只显示**默认模型**，其余进入目录的型号以 `+N` 展示
 - **Thinking / Reasoning 统一参数转译**：供应商可视化配置思考模式、Token 预算（`budget_tokens` / `thinking_budget`）与推理强度（`reasoning_effort`），自动抹平 Anthropic、OpenAI、Gemini 与 DeepSeek（`reasoning_content` 转思考块）协议差异
 - 供应商卡片可 **复制到其他 Agent**；供应商页支持 **从其他 Agent 导入**（字段按目标协议转换）
 - 供应商页可 **诊断测速** 各节点，并 **一键隔离** 401/403 失效节点（隔离后不再作为故障切换备选）
@@ -75,7 +77,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex、Pi、DeepSeek Harness 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
-- **账号池与智能调度**：浏览器 OAuth 导入，403 异常熔断与 429 阶梯冷却探针；基于实时剩余配额比例与健康度提供**动态加权轮询与最优账号推荐**；配额不足 (<15%) 自动预警提示；**设为活跃**后网关优先走该账号（并清会话粘滞与冷却）；后台自动刷新额度与实时模型目录
+- **账号池与智能调度**：浏览器 OAuth 导入，403 异常熔断与 429 阶梯冷却探针；基于实时剩余配额比例与健康度提供**动态加权轮询与最优账号推荐**；配额不足 (<15%) 自动预警提示；**设为活跃**后网关优先走该账号（并清会话粘滞与冷却）；后台自动刷新额度与实时模型目录。新账号若项目「待获取」会自动 `onboardUser`，5h/7d 额度条依赖 Cloud Code 项目 ID
 - **Claude Desktop 429**：账号池耗尽时向客户端回传 **429 + Retry-After**（不再伪装成 502），避免 Desktop 把网关故障当 5xx 猛重试；本地代理也不再把 AG 的 429 切到其他供应商
 - **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **模型目录**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；3.7-high 遇 429 时同账号降到 medium/low，再轮换账号

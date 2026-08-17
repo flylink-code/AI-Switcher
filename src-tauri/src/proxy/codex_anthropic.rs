@@ -364,7 +364,7 @@ fn copy_if_present(from: &Value, to: &mut Value, key: &str) {
     }
 }
 
-fn push_responses_event(output: &mut String, event_type: &str, data: Value) {
+pub(crate) fn push_responses_event(output: &mut String, event_type: &str, data: Value) {
     output.push_str("event: ");
     output.push_str(event_type);
     output.push('\n');

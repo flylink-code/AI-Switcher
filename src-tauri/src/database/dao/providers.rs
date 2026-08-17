@@ -3,6 +3,7 @@
 use chrono::Utc;
 use rusqlite::{params, Connection};
 
+use crate::catalog;
 use crate::error::{AppError, AppResult};
 use crate::provider::{
     normalize_provider_base_url, normalized_auto_review_model_override, normalized_model_mapping,
@@ -37,7 +38,7 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json
+                thinking_config_json, hidden_models_json
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -54,7 +55,7 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json
+                thinking_config_json, hidden_models_json
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -74,7 +75,7 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json
+                thinking_config_json, hidden_models_json
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -157,7 +158,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
                 auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
                 web_search_enabled = ?, failover_group = ?, failover_models = ?,
-                thinking_config_json = ? WHERE id = ?;",
+                thinking_config_json = ?, hidden_models_json = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
@@ -167,6 +168,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 input.failover_group,
                 serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
                 thinking_config_json,
+                serde_json::to_string(&normalize_failover_models(&input.hidden_models))?,
                 id,
             ],
         )?;
@@ -192,8 +194,8 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models, thinking_config_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models, thinking_config_json, hidden_models_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
@@ -203,6 +205,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             input.failover_group,
             serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
             thinking_config_json,
+            serde_json::to_string(&normalize_failover_models(&input.hidden_models))?,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -292,12 +295,15 @@ pub fn migrate_plaintext_api_keys(conn: &Connection) -> AppResult<()> {
 }
 
 /// Delete a provider by id. The active provider for switchable targets cannot
-/// be deleted. Catalog targets (OpenCode / Pi / Dsh) have no activation, so a
-/// leftover `is_current` marker must not block the last remaining row.
+/// be deleted. Catalog / gateway-catalog targets have no exclusive activation,
+/// so a leftover `is_current` marker must not block the last remaining row.
 /// Also removes the stored credential from the OS keyring (best-effort).
 pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-    if provider.is_current && !provider.target_app.is_catalog_target() {
+    if provider.is_current
+        && !provider.target_app.is_catalog_target()
+        && !catalog::enabled_for_conn(conn, provider.target_app)
+    {
         return Err(AppError::Config("不能删除当前激活的供应商".to_string()));
     }
     let tx = conn.unchecked_transaction()?;
@@ -377,6 +383,13 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         .as_deref()
         .and_then(|raw| serde_json::from_str::<crate::provider::ThinkingConfig>(raw).ok())
         .filter(|cfg| !cfg.is_empty());
+    let hidden_models_json: String = row.get(23).unwrap_or_else(|_| "[]".to_string());
+    let hidden_models = serde_json::from_str::<Vec<String>>(&hidden_models_json)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .collect();
     Ok(Provider {
         api_key_set: !api_key.is_empty()
             || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
@@ -402,6 +415,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),
         failover_group: row.get(19)?,
         failover_models,
+        hidden_models,
         thinking_config,
     })
 }
@@ -473,6 +487,7 @@ mod tests {
             notes: String::new(),
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
         }
     }
@@ -577,11 +592,31 @@ mod tests {
     fn switchable_target_cannot_delete_current_provider() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
-            let provider = upsert_provider(conn, &provider_input("https://api.example.test"))?;
+            let mut input = provider_input("https://api.example.test");
+            input.target_app = ProviderTarget::ClaudeDesktop;
+            let provider = upsert_provider(conn, &input)?;
             set_current_provider(conn, &provider.id)?;
             let err = delete_provider(conn, &provider.id).expect_err("current blocked");
             assert!(err.to_string().contains("不能删除当前激活的供应商"));
             assert!(get_provider(conn, &provider.id)?.is_some());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn gateway_catalog_target_can_delete_current_provider() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(
+                conn,
+                crate::catalog::GATEWAY_CATALOG_CODE_KEY,
+                "true",
+            )?;
+            let provider = upsert_provider(conn, &provider_input("https://api.example.test"))?;
+            set_current_provider(conn, &provider.id)?;
+            delete_provider(conn, &provider.id)?;
+            assert!(get_provider(conn, &provider.id)?.is_none());
             Ok(())
         })
         .unwrap();

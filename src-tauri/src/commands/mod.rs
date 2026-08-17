@@ -114,8 +114,11 @@ pub use sessions::{
 };
 pub use providers::{
     batch_diagnose_providers, copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
-    get_cached_provider_models, get_current_provider, import_live_config, import_providers_json,
-    list_providers, quarantine_failed_providers, reorder_providers, speedtest_provider_endpoint, switch_provider, switch_to_official,
+    get_cached_provider_models, get_current_provider, get_gateway_catalog_enabled,
+    get_gateway_catalog_subagent, import_live_config, import_providers_json,
+    list_gateway_catalog_models, list_providers, quarantine_failed_providers, reorder_providers,
+    set_gateway_catalog_enabled, set_gateway_catalog_subagent, speedtest_provider_endpoint,
+    switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
 };
 pub use proxy::{

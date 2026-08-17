@@ -155,6 +155,21 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
             out.push(candidate);
         }
     }
+    // Cloud Code 3.6 flash only publishes `-high` (no medium/low). A lone 429
+    // would otherwise hammer the same id; fall through to 3.7 flash levels on
+    // the same account. Always include 3.7-high (FALLBACK_IDS / production
+    // default); medium/low only when the live catalog lists them.
+    if out.len() == 1 && lower.starts_with("gemini-3.6") {
+        for level in LEVEL_SUFFIXES {
+            let candidate = format!("gemini-3.7-flash-{level}");
+            let known_high = candidate.eq_ignore_ascii_case("gemini-3.7-flash-high");
+            if (exists(&candidate) || known_high)
+                && !out.iter().any(|item| item.eq_ignore_ascii_case(&candidate))
+            {
+                out.push(candidate);
+            }
+        }
+    }
     out
 }
 
@@ -626,6 +641,16 @@ mod tests {
             gemini_level_fallback_chain("claude-sonnet-4-6"),
             vec!["claude-sonnet-4-6".to_string()]
         );
+        let chain_36 = gemini_level_fallback_chain("gemini-3.6-flash-high");
+        assert_eq!(
+            chain_36.first().map(String::as_str),
+            Some("gemini-3.6-flash-high")
+        );
+        assert!(
+            chain_36.iter().any(|id| id == "gemini-3.7-flash-high"),
+            "3.6 has no medium/low; 429 must fall through to 3.7 flash: {chain_36:?}"
+        );
+        assert!(chain_36.len() >= 2);
     }
 
     #[test]

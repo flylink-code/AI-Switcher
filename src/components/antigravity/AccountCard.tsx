@@ -104,6 +104,11 @@ export function AccountCard({
             {account.disabledReason}。{t("antigravity.reauthorizeHint")}
           </Text>
         )}
+        {!account.hasProjectId && !account.disabled && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("antigravity.quotaNeedsProject")}
+          </Text>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <QuotaMiniBar
             label={t("antigravity.quotaGemini5h")}

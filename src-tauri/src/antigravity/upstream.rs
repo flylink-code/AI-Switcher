@@ -70,43 +70,7 @@ impl UpstreamClient {
     }
 
     pub async fn fetch_project_id(&self, access_token: &str) -> AppResult<String> {
-        let body = json!({
-            "metadata": { "ideType": "ANTIGRAVITY" }
-        });
-        let mut last_error = String::from("loadCodeAssist failed");
-        let client = self.http();
-        for base in UPSTREAM_FALLBACKS {
-            let url = format!("{base}:loadCodeAssist");
-            match client
-                .post(&url)
-                .bearer_auth(access_token)
-                .header("Content-Type", "application/json")
-                .header("User-Agent", USER_AGENT)
-                .header("x-client-name", "antigravity")
-                .json(&body)
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    let status = response.status();
-                    let value = response.json::<Value>().await.unwrap_or(Value::Null);
-                    if status.is_success() {
-                        if let Some(project) = value
-                            .get("cloudaicompanionProject")
-                            .and_then(Value::as_str)
-                            .filter(|value| !value.is_empty())
-                        {
-                            return Ok(project.to_string());
-                        }
-                        last_error = "账号无法获取 cloudaicompanionProject".into();
-                    } else {
-                        last_error = format!("loadCodeAssist {status}: {value}");
-                    }
-                }
-                Err(error) => last_error = error.to_string(),
-            }
-        }
-        Err(AppError::Other(last_error))
+        crate::antigravity::quota::resolve_project_id(access_token).await
     }
 
     pub async fn generate(

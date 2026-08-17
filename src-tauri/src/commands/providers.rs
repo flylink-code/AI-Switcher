@@ -1,5 +1,6 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
+use crate::catalog::{self, build_catalog, CatalogStyle};
 use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync, opencode};
 use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
@@ -44,24 +45,124 @@ pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>)
     state.db.with_conn(|conn| dao::list_providers(conn, target))
 }
 
+fn gateway_catalog_on(state: &AppState, target: ProviderTarget) -> bool {
+    catalog::enabled(state.db.as_ref(), target)
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_enabled(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    if !target.supports_gateway_catalog() {
+        return Ok(false);
+    }
+    Ok(gateway_catalog_on(&state, target))
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_enabled(
+    target: ProviderTarget,
+    enabled: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    let Some(key) = catalog::setting_key(target) else {
+        return Err(AppError::Config("此 Agent 不支持统一模型目录".to_string()));
+    };
+    state
+        .db
+        .with_conn(|conn| set_setting(conn, key, if enabled { "true" } else { "false" }))?;
+    if enabled {
+        sync_gateway_catalog_target(target, Some(&app), &state).await?;
+    } else if let Some(provider) = state
+        .db
+        .with_conn(|conn| dao::get_current_provider(conn, target))?
+    {
+        let _ = apply_target_provider(&provider, Some(&app), &state).await?;
+    } else {
+        restore_official_for_target(target, Some(&app), &state, true).await?;
+    }
+    crate::commands::proxy::publish_target_status(&app, &state, target).await;
+    Ok(enabled)
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_subagent(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    Ok(catalog_subagent_model(&state).unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_subagent(
+    model: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    let trimmed = model.trim().to_string();
+    state.db.with_conn(|conn| {
+        set_setting(conn, catalog::GATEWAY_CATALOG_CODE_SUBAGENT_KEY, &trimmed)
+    })?;
+    if gateway_catalog_on(&state, ProviderTarget::ClaudeCode) {
+        if let Some(provider) = state
+            .db
+            .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeCode))?
+        {
+            let _ = apply_target_provider(&provider, Some(&app), &state).await?;
+        }
+    }
+    Ok(trimmed)
+}
+
+#[tauri::command]
+pub fn list_gateway_catalog_models(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let style = match target {
+        ProviderTarget::ClaudeCode => CatalogStyle::Claude,
+        ProviderTarget::Codex => CatalogStyle::Codex,
+        _ => return Ok(Vec::new()),
+    };
+    let pairs = load_gateway_pairs(&state, target)?;
+    Ok(build_catalog(style, &pairs)
+        .into_iter()
+        .map(|entry| entry.public_id)
+        .collect())
+}
+
+fn catalog_subagent_model(state: &AppState) -> Option<String> {
+    state
+        .db
+        .with_conn(|conn| get_setting(conn, catalog::GATEWAY_CATALOG_CODE_SUBAGENT_KEY))
+        .ok()
+        .flatten()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 #[tauri::command]
 pub fn get_current_provider(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Option<Provider>> {
     state.db.with_conn(|conn| dao::get_current_provider(conn, target))
 }
 
 #[tauri::command]
-pub fn create_provider(input: ProviderInput, state: tauri::State<'_, AppState>) -> AppResult<Provider> {
+pub async fn create_provider(
+    input: ProviderInput,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    sync_catalog_target(&state, provider.target_app)?;
+    sync_live_providers(&state, provider.target_app, Some(&app)).await?;
     Ok(provider)
 }
 
 /// Copy a configured provider (including API key) onto another Agent, adapting
 /// protocol / Base URL / Claude role mapping for the destination.
 #[tauri::command]
-pub fn copy_provider_to_target(
+pub async fn copy_provider_to_target(
     id: String,
     target: ProviderTarget,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
     let (source, api_key, existing_names) = state.db.with_conn(|conn| {
@@ -86,7 +187,7 @@ pub fn copy_provider_to_target(
             })?;
         }
     }
-    sync_catalog_target(&state, provider.target_app)?;
+    sync_live_providers(&state, provider.target_app, Some(&app)).await?;
     Ok(provider)
 }
 
@@ -100,8 +201,10 @@ pub async fn update_provider(
         return Err(AppError::Config("更新供应商时缺少 id".to_string()));
     }
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
-    if matches!(provider.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh) {
-        sync_catalog_target(&state, provider.target_app)?;
+    if provider.target_app.hides_provider_switch()
+        || gateway_catalog_on(&state, provider.target_app)
+    {
+        sync_live_providers(&state, provider.target_app, Some(&app)).await?;
     } else if provider.is_current {
         let _ = apply_target_provider(&provider, Some(&app), &state).await?;
     }
@@ -109,14 +212,18 @@ pub async fn update_provider(
 }
 
 #[tauri::command]
-pub fn delete_provider(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub async fn delete_provider(
+    id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
     let target = state.db.with_conn(|conn| {
         dao::get_provider(conn, &id)?
             .map(|provider| provider.target_app)
             .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))
     })?;
     state.db.with_conn(|conn| dao::delete_provider(conn, &id))?;
-    sync_catalog_target(&state, target)?;
+    sync_live_providers(&state, target, Some(&app)).await?;
     Ok(())
 }
 
@@ -164,7 +271,9 @@ pub async fn switch_provider_for_target<R: tauri::Runtime>(
         return Err(AppError::Config("供应商不属于此应用".to_string()));
     }
     if provider.is_current {
-        let needs_proxy = provider.is_codex_oauth() || provider.requires_local_proxy();
+        let needs_proxy = gateway_catalog_on(state, target)
+            || provider.is_codex_oauth()
+            || provider.requires_local_proxy();
         let proxy_running = state.proxy.lock().await.status_for(target).running;
         if needs_proxy == proxy_running {
             log::debug!(
@@ -416,6 +525,7 @@ pub async fn quarantine_failed_providers(
                     notes: provider.notes,
                     failover_group: 0,
                     failover_models: provider.failover_models,
+                    hidden_models: provider.hidden_models,
                     thinking_config: provider.thinking_config,
                 };
                 let _ = dao::upsert_provider(conn, &input)?;
@@ -779,6 +889,15 @@ pub async fn switch_to_official_for_target<R: tauri::Runtime>(
     app: Option<&tauri::AppHandle<R>>,
     state: &AppState,
 ) -> AppResult<()> {
+    restore_official_for_target(target, app, state, true).await
+}
+
+async fn restore_official_for_target<R: tauri::Runtime>(
+    target: ProviderTarget,
+    app: Option<&tauri::AppHandle<R>>,
+    state: &AppState,
+    clear_gateway_catalog: bool,
+) -> AppResult<()> {
     let mut snapshot = SwitchSnapshot::capture(state, target).await?;
     let result: AppResult<()> = async {
         match target {
@@ -805,7 +924,15 @@ pub async fn switch_to_official_for_target<R: tauri::Runtime>(
         if let Some(app) = app {
             crate::commands::proxy::publish_target_stopped(app, state, target).await;
         }
-        state.db.with_conn(|conn| dao::clear_current_provider(conn, target))?;
+        state.db.with_conn(|conn| {
+            dao::clear_current_provider(conn, target)?;
+            if clear_gateway_catalog {
+                if let Some(key) = catalog::setting_key(target) {
+                    set_setting(conn, key, "false")?;
+                }
+            }
+            Ok(())
+        })?;
         Ok(())
     }
     .await;
@@ -831,8 +958,20 @@ pub async fn switch_to_official_for_target<R: tauri::Runtime>(
 }
 
 #[tauri::command]
-pub fn reorder_providers(ordered_ids: Vec<String>, target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    state.db.with_conn(|conn| dao::reorder_providers(conn, &ordered_ids, target))
+pub async fn reorder_providers(
+    ordered_ids: Vec<String>,
+    target: ProviderTarget,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    state.db.with_conn(|conn| dao::reorder_providers(conn, &ordered_ids, target))?;
+    if gateway_catalog_on(&state, target) {
+        if let Some(first_id) = ordered_ids.first() {
+            let _ = state.db.with_conn(|conn| dao::set_current_provider(conn, first_id));
+        }
+        sync_live_providers(&state, target, Some(&app)).await?;
+    }
+    Ok(())
 }
 
 /// Import a live third-party configuration into its matching application list.
@@ -915,6 +1054,9 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
                         }),
                     failover_group: matched.map(|p| p.failover_group).unwrap_or(0),
                     failover_models,
+                    hidden_models: matched
+                        .map(|p| p.hidden_models.clone())
+                        .unwrap_or_default(),
                     thinking_config: matched.and_then(|p| p.thinking_config.clone()),
                 },
             )
@@ -972,6 +1114,7 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
             notes: provider.notes,
             failover_group: provider.failover_group,
             failover_models: provider.failover_models,
+            hidden_models: provider.hidden_models,
             thinking_config: provider.thinking_config,
         }).collect(),
     };
@@ -981,7 +1124,11 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
 /// Import an exported bundle non-destructively. Existing matching providers are
 /// skipped and no imported record contains a credential.
 #[tauri::command]
-pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) -> AppResult<ProviderImportResult> {
+pub async fn import_providers_json(
+    json: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ProviderImportResult> {
     let bundle: ProviderExportBundle = serde_json::from_str(&json)
         .map_err(|_| AppError::Config("供应商导入文件无效".to_string()))?;
     if bundle.version != 1 {
@@ -992,6 +1139,8 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     let mut touched_opencode = false;
     let mut touched_pi = false;
     let mut touched_dsh = false;
+    let mut touched_code = false;
+    let mut touched_codex = false;
     for entry in bundle.providers {
         let normalized_base_url = normalize_base_url(&entry.base_url)?;
         let existing = state.db.with_conn(|conn| dao::list_providers(conn, entry.target_app))?;
@@ -1020,6 +1169,7 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
             notes: entry.notes,
             failover_group: entry.failover_group,
             failover_models: entry.failover_models,
+            hidden_models: entry.hidden_models,
             thinking_config: entry.thinking_config,
         }))?;
         if target_app == ProviderTarget::OpenCode {
@@ -1031,6 +1181,12 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
         if target_app == ProviderTarget::Dsh {
             touched_dsh = true;
         }
+        if target_app == ProviderTarget::ClaudeCode {
+            touched_code = true;
+        }
+        if target_app == ProviderTarget::Codex {
+            touched_codex = true;
+        }
         imported += 1;
     }
     if touched_opencode {
@@ -1041,6 +1197,12 @@ pub fn import_providers_json(json: String, state: tauri::State<'_, AppState>) ->
     }
     if touched_dsh {
         sync_dsh_providers_to_live(&state)?;
+    }
+    if touched_code && gateway_catalog_on(&state, ProviderTarget::ClaudeCode) {
+        sync_gateway_catalog_target(ProviderTarget::ClaudeCode, Some(&app), &state).await?;
+    }
+    if touched_codex && gateway_catalog_on(&state, ProviderTarget::Codex) {
+        sync_gateway_catalog_target(ProviderTarget::Codex, Some(&app), &state).await?;
     }
     Ok(ProviderImportResult { imported, skipped })
 }
@@ -1054,7 +1216,67 @@ fn sync_catalog_target(state: &AppState, target: ProviderTarget) -> AppResult<()
     }
 }
 
-/// 把 DB 中全部 DeepSeek Harness 供应商写入 `settings.yaml` / `.credentials.yaml`（多供应商��存，无需切换）。
+async fn sync_live_providers<R: tauri::Runtime>(
+    state: &AppState,
+    target: ProviderTarget,
+    app: Option<&tauri::AppHandle<R>>,
+) -> AppResult<()> {
+    if target.is_catalog_target() {
+        return sync_catalog_target(state, target);
+    }
+    if gateway_catalog_on(state, target) {
+        return sync_gateway_catalog_target(target, app, state).await;
+    }
+    Ok(())
+}
+
+pub(crate) fn load_gateway_pairs(state: &AppState, target: ProviderTarget) -> AppResult<Vec<(Provider, Vec<String>)>> {
+    let providers = state
+        .db
+        .with_conn(|conn| dao::list_providers(conn, target))?;
+    let mut entries = Vec::with_capacity(providers.len());
+    for provider in providers {
+        let cached = state
+            .db
+            .with_conn(|conn| {
+                Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                    .map(|cache| cache.models)
+                    .unwrap_or_default())
+            })
+            .unwrap_or_default();
+        entries.push((provider, cached));
+    }
+    Ok(entries)
+}
+
+async fn sync_gateway_catalog_target<R: tauri::Runtime>(
+    target: ProviderTarget,
+    app: Option<&tauri::AppHandle<R>>,
+    state: &AppState,
+) -> AppResult<()> {
+    if !gateway_catalog_on(state, target) {
+        return Ok(());
+    }
+    let pairs = load_gateway_pairs(state, target)?;
+    if pairs.is_empty() {
+        return restore_official_for_target(target, app, state, false).await;
+    }
+    if !pairs.iter().any(|(provider, _)| provider.is_current) {
+        state
+            .db
+            .with_conn(|conn| dao::set_current_provider(conn, &pairs[0].0.id))?;
+    }
+    let default = pairs
+        .iter()
+        .find(|(provider, _)| provider.is_current)
+        .or(pairs.first())
+        .map(|(provider, _)| provider.clone())
+        .expect("gateway catalog has at least one provider");
+    let _ = apply_target_provider(&default, app, state).await?;
+    Ok(())
+}
+
+/// 把 DB 中全部 DeepSeek Harness 供应商写入 `settings.yaml` / `.credentials.yaml`（多供应商并存，无需切换）。
 pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
     use crate::config::dsh::sync_managed_dsh_providers;
 
@@ -1243,6 +1465,7 @@ fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<s
             }
         }
     }
+    ids = provider.filter_hidden_models(ids);
 
     let context_window = provider.model_context_window.unwrap_or(200_000);
     let openai_compatible = matches!(
@@ -1277,21 +1500,20 @@ fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<s
 
 fn extra_models_for_ag_catalog_apply(provider: &Provider, mut extra_models: Vec<String>) -> Vec<String> {
     extend_unique_models(&mut extra_models, provider.failover_models.clone());
-    if !uses_antigravity_model_catalog(provider) {
-        return extra_models;
+    if uses_antigravity_model_catalog(provider) {
+        extend_unique_models(&mut extra_models, crate::antigravity::list_model_ids());
+        extend_unique_models(
+            &mut extra_models,
+            crate::antigravity::model_catalog::provider_suggestion_ids(24),
+        );
+        extra_models.retain(|id| {
+            let trimmed = id.trim();
+            crate::antigravity::model_catalog::is_agent_facing_model(trimmed)
+                && !crate::antigravity::model_catalog::is_retired_model(trimmed)
+                && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
+        });
     }
-    extend_unique_models(&mut extra_models, crate::antigravity::list_model_ids());
-    extend_unique_models(
-        &mut extra_models,
-        crate::antigravity::model_catalog::provider_suggestion_ids(24),
-    );
-    extra_models.retain(|id| {
-        let trimmed = id.trim();
-        crate::antigravity::model_catalog::is_agent_facing_model(trimmed)
-            && !crate::antigravity::model_catalog::is_retired_model(trimmed)
-            && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
-    });
-    extra_models
+    provider.filter_hidden_models(extra_models)
 }
 
 fn extra_models_for_pi_apply(
@@ -1328,7 +1550,7 @@ fn extra_models_for_pi_apply(
             }
         }
     }
-    Ok(ids)
+    Ok(provider.filter_hidden_models(ids))
 }
 
 fn extend_unique_models(ids: &mut Vec<String>, extra: Vec<String>) {
@@ -1381,6 +1603,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                         notes: provider.notes.clone(),
                         failover_group: provider.failover_group,
                         failover_models: provider.failover_models.clone(),
+                        hidden_models: provider.hidden_models.clone(),
                         thinking_config: provider.thinking_config.clone(),
                     },
                 )
@@ -1398,6 +1621,13 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .flatten()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| crate::antigravity::gateway::builtin_api_key())
+    } else if gateway_catalog_on(state, provider.target_app) {
+        state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default()
     } else {
         state.db.with_conn(|conn| {
             dao::resolve_api_key(conn, &provider.id)?.ok_or_else(|| {
@@ -1415,7 +1645,10 @@ async fn apply_target_provider<R: tauri::Runtime>(
     if runtime_provider.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
-    let uses_proxy = runtime_provider.is_codex_oauth() || runtime_provider.requires_local_proxy();
+    let gateway_catalog = gateway_catalog_on(state, runtime_provider.target_app);
+    let uses_proxy = gateway_catalog
+        || runtime_provider.is_codex_oauth()
+        || runtime_provider.requires_local_proxy();
     let result: AppResult<(Option<CodexProviderSyncResult>, Option<&'static str>)> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
@@ -1423,15 +1656,29 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     &runtime_provider,
                     state,
                     uses_proxy,
+                    gateway_catalog,
                     proxy_port,
                 )?;
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
                 }
                 let provider = runtime_provider.clone();
+                let subagent = if gateway_catalog {
+                    catalog_subagent_model(state)
+                } else {
+                    None
+                };
                 tauri::async_runtime::spawn_blocking(move || {
                     if uses_proxy {
-                        claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
+                        if gateway_catalog {
+                            claude_code::apply_provider_to_settings_via_catalog_proxy(
+                                &provider,
+                                proxy_port,
+                                subagent.as_deref(),
+                            )
+                        } else {
+                            claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
+                        }
                     } else {
                         claude_code::apply_provider_to_settings(&provider)
                     }
@@ -1462,26 +1709,43 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::Codex).await?;
                 }
-                let extra_models = state
-                    .db
-                    .with_conn(|conn| {
-                        Ok(dao::get_provider_model_cache(conn, &runtime_provider.id)?
-                            .map(|cache| cache.models)
-                            .unwrap_or_default())
-                    })
-                    .unwrap_or_default();
                 let provider = runtime_provider.clone();
                 let api_key = runtime_provider.api_key.clone();
-                let apply_info = tauri::async_runtime::spawn_blocking(move || {
-                    codex::apply_provider(
-                        &provider,
-                        &api_key,
-                        if uses_proxy { Some(proxy_port) } else { None },
-                        &extra_models,
-                    )
-                })
-                .await
-                .map_err(|error| AppError::Tauri(format!("Codex 配置写入任务失败: {error}")))??;
+                let apply_info = if gateway_catalog {
+                    let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
+                    let catalog = build_catalog(CatalogStyle::Codex, &pairs);
+                    tauri::async_runtime::spawn_blocking(move || {
+                        codex::apply_provider_with_catalog(
+                            &provider,
+                            &api_key,
+                            Some(proxy_port),
+                            &catalog,
+                        )
+                    })
+                    .await
+                    .map_err(|error| AppError::Tauri(format!("Codex 配置写入任务失败: {error}")))??
+                } else {
+                    let extra_models = runtime_provider.filter_hidden_models(
+                        state
+                            .db
+                            .with_conn(|conn| {
+                                Ok(dao::get_provider_model_cache(conn, &runtime_provider.id)?
+                                    .map(|cache| cache.models)
+                                    .unwrap_or_default())
+                            })
+                            .unwrap_or_default(),
+                    );
+                    tauri::async_runtime::spawn_blocking(move || {
+                        codex::apply_provider(
+                            &provider,
+                            &api_key,
+                            if uses_proxy { Some(proxy_port) } else { None },
+                            &extra_models,
+                        )
+                    })
+                    .await
+                    .map_err(|error| AppError::Tauri(format!("Codex 配置写入任务失败: {error}")))??
+                };
                 let codex_notice = if apply_info.preserved_official_login {
                     Some("preserved_official_login")
                 } else {
@@ -1868,7 +2132,12 @@ fn managed_fields_match(
     normalize_managed_fields(left) == normalize_managed_fields(right)
 }
 
-fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap<String, Option<Value>> {
+fn expected_code_fields(
+    provider: &Provider,
+    proxy: bool,
+    catalog: bool,
+    port: u16,
+) -> BTreeMap<String, Option<Value>> {
     use crate::provider::{
         ClaudeModelRole, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID, CLAUDE_OPUS_ROLE_ID,
         CLAUDE_SONNET_ROLE_ID,
@@ -1884,6 +2153,12 @@ fn expected_code_fields(provider: &Provider, proxy: bool, port: u16) -> BTreeMap
     values.insert("ANTHROPIC_AUTH_TOKEN".to_string(), Some(Value::String(if proxy {
         "local-proxy-code".to_string()
     } else { provider.api_key.clone() })));
+    if catalog {
+        values.insert(
+            "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY".to_string(),
+            Some(Value::String("1".to_string())),
+        );
+    }
     let roles = [
         (
             "ANTHROPIC_DEFAULT_SONNET_MODEL",
@@ -1963,9 +2238,15 @@ fn upgrade_code_ownership_fields(
     }
 }
 
-fn prepare_code_ownership(provider: &Provider, state: &AppState, proxy: bool, port: u16) -> AppResult<CodeOwnership> {
+fn prepare_code_ownership(
+    provider: &Provider,
+    state: &AppState,
+    proxy: bool,
+    catalog: bool,
+    port: u16,
+) -> AppResult<CodeOwnership> {
     let current = code_managed_fields()?;
-    let expected = expected_code_fields(provider, proxy, port);
+    let expected = expected_code_fields(provider, proxy, catalog, port);
     let raw = state.db.with_conn(|conn| get_setting(conn, CODE_OWNERSHIP_KEY))?;
     if let Some(raw) = raw.filter(|value| !value.is_empty()) {
         let mut ownership: CodeOwnership = serde_json::from_str(&raw)
@@ -2101,11 +2382,26 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
 }
 
 /// Reapply the active Codex provider when the managed `ai_switcher` entry is
-/// out of sync with the current routing mode:
-/// - Anthropic / OAuth: must point at the local proxy
-/// - OpenAI-compatible: must point at the real upstream (older builds pinned
-///   these to the local proxy, which breaks chat when the desktop app is closed)
+/// out of sync with the current routing mode.
 pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<()> {
+    if gateway_catalog_on(state, ProviderTarget::Codex) {
+        let current = state
+            .db
+            .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::Codex))?;
+        if current.is_none() {
+            return Ok(());
+        }
+        let port = get_saved_proxy_port(state, ProviderTarget::Codex);
+        if let Some(current_base) = codex::managed_provider_base_url() {
+            if is_local_proxy_base_url_for_port(&current_base, port) {
+                return Ok(());
+            }
+        }
+        sync_gateway_catalog_target(ProviderTarget::Codex, None::<&tauri::AppHandle>, state).await?;
+        log::info!("Codex 统一目录模式：已把 managed provider 指回本地代理 {port}");
+        return Ok(());
+    }
+
     let provider = state
         .db
         .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::Codex))?;
@@ -2114,7 +2410,6 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
     };
     let port = get_saved_proxy_port(state, ProviderTarget::Codex);
     let Some(current_base) = codex::managed_provider_base_url() else {
-        // Missing managed entry — a full apply restores it.
         let _ = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await?;
         log::info!("Codex managed provider entry missing; reapplied current provider");
         return Ok(());
@@ -2162,9 +2457,10 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
     let Some(provider) = provider else {
         return Ok(());
     };
-    let proxy = provider.requires_local_proxy();
+    let catalog = gateway_catalog_on(state, ProviderTarget::ClaudeCode);
+    let proxy = catalog || provider.requires_local_proxy();
     let port = get_saved_proxy_port(state, ProviderTarget::ClaudeCode);
-    let expected = expected_code_fields(&provider, proxy, port);
+    let expected = expected_code_fields(&provider, proxy, catalog, port);
     let current = code_managed_fields()?;
     let model_keys = [
         "ANTHROPIC_MODEL",
@@ -2292,6 +2588,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         provider_kind: input.provider_kind, auth_binding: input.auth_binding.clone(),
         sort_index: 0, failover_group: input.failover_group,
         failover_models: input.failover_models.clone(),
+        hidden_models: input.hidden_models.clone(),
         thinking_config: input.thinking_config.clone(),
         is_current: false, created_at: 0,
         health_status: None, health_checked_at: None, health_latency_ms: None,
@@ -2442,6 +2739,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         notes: "从当前 Claude Code 配置导入".to_string(),
         failover_group: 0,
         failover_models: Vec::new(),
+        hidden_models: Vec::new(),
         thinking_config: None,
     };
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
@@ -2565,6 +2863,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -2741,6 +3040,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: vec!["gemini-3.7-flash".into()],
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -2755,5 +3055,20 @@ mod tests {
         assert!(extra.iter().any(|id| id == "claude-sonnet-4-6"));
         assert!(extra.iter().any(|id| id.starts_with("gemini-")));
         assert!(!extra.iter().any(|id| id == "chat_20706"));
+    }
+
+    #[test]
+    fn extra_models_omit_hidden_but_keep_default() {
+        let mut provider = pi_test_provider(ProtocolType::OpenAiChat, "keep-me");
+        provider.failover_models = vec!["hide-me".into(), "show-me".into()];
+        provider.hidden_models = vec!["hide-me".into(), "keep-me".into()];
+        let extra = extra_models_for_ag_catalog_apply(
+            &provider,
+            vec!["keep-me".into(), "hide-me".into(), "cached".into()],
+        );
+        assert!(extra.iter().any(|id| id == "keep-me"));
+        assert!(extra.iter().any(|id| id == "show-me"));
+        assert!(extra.iter().any(|id| id == "cached"));
+        assert!(!extra.iter().any(|id| id == "hide-me"));
     }
 }

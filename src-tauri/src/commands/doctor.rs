@@ -221,19 +221,31 @@ pub async fn repair_doctor_check(
             })
         }
         "codex_catalog" => {
-            let provider = state.db.with_conn(|conn| {
-                dao::get_current_provider(conn, ProviderTarget::Codex)?
-                    .ok_or_else(|| AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into()))
-            })?;
-            let extra_models = state
-                .db
-                .with_conn(|conn| {
-                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                        .map(|cache| cache.models)
-                        .unwrap_or_default())
-                })
-                .unwrap_or_default();
-            let path = codex::repair_model_catalog_file(&provider, &extra_models)?;
+            let catalog = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
+                let pairs = crate::commands::providers::load_gateway_pairs(&state, ProviderTarget::Codex)?;
+                if pairs.is_empty() {
+                    return Err(AppError::Config("没有 Codex 供应商，无法重建 model catalog".into()));
+                }
+                crate::catalog::build_catalog(crate::catalog::CatalogStyle::Codex, &pairs)
+            } else {
+                let provider = state
+                    .db
+                    .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::Codex))?
+                    .ok_or_else(|| AppError::Config("没有当前 Codex 供应商，无法重建 model catalog".into()))?;
+                let extra = state
+                    .db
+                    .with_conn(|conn| {
+                        Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                            .map(|cache| cache.models)
+                            .unwrap_or_default())
+                    })
+                    .unwrap_or_default();
+                crate::catalog::build_catalog(
+                    crate::catalog::CatalogStyle::Codex,
+                    &[(provider, extra)],
+                )
+            };
+            let path = codex::repair_model_catalog_file(&catalog)?;
             Ok(DoctorRepairResult {
                 id,
                 message: format!("已重建 model catalog: {path}"),

@@ -22,7 +22,7 @@ use crate::provider::{
 
 /// The exact Claude Code fields owned by this application. Other
 /// `ANTHROPIC_*` variables may be user-managed and must be left untouched.
-pub const MANAGED_ENV_KEYS: [&str; 15] = [
+pub const MANAGED_ENV_KEYS: [&str; 16] = [
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
     "ANTHROPIC_API_KEY",
@@ -38,6 +38,7 @@ pub const MANAGED_ENV_KEYS: [&str; 15] = [
     "CLAUDE_CODE_SUBAGENT_MODEL",
     "ANTHROPIC_SMALL_FAST_MODEL",
     "ANTHROPIC_REASONING_MODEL",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
 ];
 const PROXY_ROLE_MODELS: [(&str, &str, crate::provider::ClaudeModelRole); 4] = [
     (
@@ -79,7 +80,28 @@ pub fn apply_provider_to_settings_via_proxy(
     provider: &Provider,
     proxy_port: u16,
 ) -> AppResult<()> {
-    apply_provider_to_settings_via_proxy_at(provider, proxy_port, &get_claude_settings_path())
+    apply_provider_to_settings_via_proxy_at(
+        provider,
+        proxy_port,
+        &get_claude_settings_path(),
+        false,
+        None,
+    )
+}
+
+/// Catalog mode: same proxy endpoint, plus Claude Code gateway model discovery.
+pub fn apply_provider_to_settings_via_catalog_proxy(
+    provider: &Provider,
+    proxy_port: u16,
+    subagent_model: Option<&str>,
+) -> AppResult<()> {
+    apply_provider_to_settings_via_proxy_at(
+        provider,
+        proxy_port,
+        &get_claude_settings_path(),
+        true,
+        subagent_model,
+    )
 }
 
 /// Path-injected variant for tests. Backs up to the app backup dir, then mutates
@@ -102,6 +124,8 @@ pub fn apply_provider_to_settings_via_proxy_at(
     provider: &Provider,
     proxy_port: u16,
     path: &Path,
+    catalog_discovery: bool,
+    subagent_model: Option<&str>,
 ) -> AppResult<()> {
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
@@ -110,7 +134,12 @@ pub fn apply_provider_to_settings_via_proxy_at(
     remove_managed_keys(env);
     set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
     set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
-    inject_proxy_models(env, provider);
+    if catalog_discovery {
+        set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
+        inject_catalog_proxy_models(env, provider, subagent_model);
+    } else {
+        inject_proxy_models(env, provider);
+    }
 
     write_settings(path, &settings)
 }
@@ -327,6 +356,24 @@ fn inject_proxy_models(env: &mut Map<String, Value>, provider: &Provider) {
     );
 }
 
+/// Catalog mode: keep stable role ids for Explore/classifier, but do not advertise
+/// custom `*_NAME` aliases (those show up as "Custom Haiku/Opus model" in `/model`).
+fn inject_catalog_proxy_models(
+    env: &mut Map<String, Value>,
+    provider: &Provider,
+    subagent_model: Option<&str>,
+) {
+    for (model_key, stable_model, _) in PROXY_ROLE_MODELS {
+        set_str(env, model_key, stable_model);
+        set_str(env, &format!("{model_key}_NAME"), stable_model);
+    }
+    let subagent = subagent_model
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| provider.model.trim());
+    set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", subagent);
+}
+
 fn is_proxy_role_model(model: &str) -> bool {
     let normalized = model.trim().to_ascii_lowercase();
     PROXY_ROLE_MODELS
@@ -392,6 +439,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: true,
             created_at: 0,
@@ -507,13 +555,14 @@ mod tests {
         )
         .unwrap();
 
-        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path).unwrap();
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path, false, None).unwrap();
         let written: Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
 
         assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15821");
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "local-proxy-code");
+        assert!(!env.contains_key("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"));
         assert!(!env.contains_key("ANTHROPIC_MODEL"));
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL"], "claude-sonnet-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"], "deepseek-sonnet");
@@ -526,5 +575,22 @@ mod tests {
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "deepseek-agent");
         assert_eq!(env["ENABLE_TOOL_SEARCH"], "true");
         assert_eq!(written["enabledPlugins"]["github@example"], true);
+    }
+
+    #[test]
+    fn catalog_proxy_mode_enables_gateway_model_discovery() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path, true, Some("claude.ag.gemini-3.7-flash")).unwrap();
+        let written: Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let env = written["env"].as_object().unwrap();
+        assert_eq!(
+            env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"],
+            "1"
+        );
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
+        assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
+        assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
     }
 }

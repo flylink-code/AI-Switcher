@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 23;
+pub const SCHEMA_VERSION: u32 = 24;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -34,6 +34,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             sort_index    INTEGER NOT NULL DEFAULT 0,
             failover_group INTEGER NOT NULL DEFAULT 0,
             failover_models TEXT NOT NULL DEFAULT '[]',
+            hidden_models_json TEXT NOT NULL DEFAULT '[]',
             thinking_config_json TEXT NOT NULL DEFAULT '{}',
             is_current    BOOLEAN NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
@@ -227,6 +228,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 23 {
         migrate_v22_to_v23(conn)?;
+    }
+    if current < 24 {
+        migrate_v23_to_v24(conn)?;
     }
     Ok(())
 }
@@ -798,6 +802,29 @@ fn migrate_v22_to_v23(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 23)
+}
+
+/// Per-provider denylist so unused models stay out of /model and live catalogs.
+fn migrate_v23_to_v24(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 24);
+    }
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'hidden_models_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN hidden_models_json TEXT NOT NULL DEFAULT '[]';",
+        )?;
+    }
+    set_user_version(conn, 24)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

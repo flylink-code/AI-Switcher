@@ -12,7 +12,8 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use serde_json::Value;
 
-use crate::database::dao::providers::{get_current_provider, resolve_api_key};
+use crate::catalog::{openai_models_payload, rewrite_json_model, CatalogStyle};
+use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, resolve_api_key};
 use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
 use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
 
@@ -20,27 +21,48 @@ use super::codex_anthropic::{
     anthropic_response_to_responses, anthropic_version_header, parse_anthropic_sse_frame,
     responses_request_to_anthropic_messages, AnthropicSseToResponsesConverter,
 };
+use super::codex_chat::{
+    chat_response_to_responses, is_unsupported_content_type_error, responses_to_chat_completions_body,
+    ChatSseToResponsesConverter,
+};
 use super::{
     codex_auto_review::apply_auto_review_model_override, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider, record_provider_failure,
-    record_provider_success, session_prompt_cache_hint, should_failover_upstream_status, FAILOVER_MAX_HOPS, ProxyState,
+    record_provider_success, select_gateway_runtime_provider, session_prompt_cache_hint,
+    should_failover_upstream_status, FAILOVER_MAX_HOPS, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
+    if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
+        match super::load_gateway_catalog(&state, CatalogStyle::Codex) {
+            Ok((_, entries)) if !entries.is_empty() => {
+                let body = openai_models_payload(&entries);
+                return Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+            }
+            Ok(_) => return json_error(StatusCode::BAD_GATEWAY, "没有已配置的 Codex 供应商"),
+            Err(error) => return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()),
+        }
+    }
     match state
         .db
         .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
     {
         Ok(Some(provider)) => {
-            let body = serde_json::json!({
-                "object": "list",
-                "data": [{
-                    "id": provider.model,
-                    "object": "model",
-                    "owned_by": "ai-switcher"
-                }]
-            });
+            let cached = state
+                .db
+                .with_conn(|conn| {
+                    Ok(get_provider_model_cache(conn, &provider.id)?
+                        .map(|cache| cache.models)
+                        .unwrap_or_default())
+                })
+                .unwrap_or_default();
+            let entries = crate::catalog::build_catalog(CatalogStyle::Codex, &[(provider, cached)]);
+            let body = openai_models_payload(&entries);
             Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, "application/json")
@@ -65,34 +87,7 @@ pub async fn codex_proxy_handler(
         return json_error(StatusCode::METHOD_NOT_ALLOWED, "仅支持 POST");
     }
 
-    let mut provider = match state
-        .db
-        .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
-    {
-        Ok(Some(provider)) => provider,
-        Ok(None) => {
-            log_early_failure(
-                &state,
-                &route,
-                "provider",
-                Some(502),
-                started.elapsed().as_millis() as i64,
-            );
-            return json_error(StatusCode::BAD_GATEWAY, "没有当前 Codex 供应商");
-        }
-        Err(error) => {
-            log_early_failure(
-                &state,
-                &route,
-                "configuration",
-                Some(500),
-                started.elapsed().as_millis() as i64,
-            );
-            return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
-        }
-    };
-
-    let original_body = body;
+    let mut original_body = body;
     let requested_model = serde_json::from_slice::<Value>(&original_body)
         .ok()
         .and_then(|value| {
@@ -102,14 +97,76 @@ pub async fn codex_proxy_handler(
                 .map(str::to_string)
         })
         .unwrap_or_default();
-    let prepared = match prepare_codex_upstream(&state, &provider, &route, &headers, &original_body)
-    {
+    let mut provider = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
+        match select_gateway_runtime_provider(&state, &requested_model) {
+            Ok(Some((selected, upstream))) => {
+                original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
+                selected
+            }
+            Ok(None) => {
+                log_early_failure(
+                    &state,
+                    &route,
+                    "provider",
+                    Some(502),
+                    started.elapsed().as_millis() as i64,
+                );
+                return json_error(StatusCode::BAD_GATEWAY, "没有可路由的 Codex 供应商");
+            }
+            Err(error) => {
+                log_early_failure(
+                    &state,
+                    &route,
+                    "configuration",
+                    Some(500),
+                    started.elapsed().as_millis() as i64,
+                );
+                return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
+            }
+        }
+    } else {
+        match state
+            .db
+            .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
+        {
+            Ok(Some(provider)) => provider,
+            Ok(None) => {
+                log_early_failure(
+                    &state,
+                    &route,
+                    "provider",
+                    Some(502),
+                    started.elapsed().as_millis() as i64,
+                );
+                return json_error(StatusCode::BAD_GATEWAY, "没有当前 Codex 供应商");
+            }
+            Err(error) => {
+                log_early_failure(
+                    &state,
+                    &route,
+                    "configuration",
+                    Some(500),
+                    started.elapsed().as_millis() as i64,
+                );
+                return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
+            }
+        }
+    };
+    let prepared = match prepare_codex_upstream(
+        &state,
+        &provider,
+        &route,
+        &headers,
+        &original_body,
+        false,
+    ) {
         Ok(prepared) => prepared,
         Err(response) => return response,
     };
     let mut is_anthropic_upstream = prepared.is_anthropic_upstream;
     let mut is_stream = prepared.is_stream;
     let mut compact_fallback = prepared.compact_fallback;
+    let mut is_chat_bridge = prepared.is_chat_bridge;
     let mut failover_trace: Vec<String> = Vec::new();
     let mut upstream = match prepared.request.body(prepared.request_body).send().await {
         Ok(response) => response,
@@ -133,7 +190,14 @@ pub async fn codex_proxy_handler(
                     provider.id,
                     fallback.id
                 );
-                match prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body) {
+                match prepare_codex_upstream(
+                    &state,
+                    &fallback,
+                    &route,
+                    &headers,
+                    &original_body,
+                    false,
+                ) {
                     Ok(fallback_prepared) => {
                         match fallback_prepared
                             .request
@@ -147,6 +211,7 @@ pub async fn codex_proxy_handler(
                                 is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
                                 is_stream = fallback_prepared.is_stream;
                                 compact_fallback = fallback_prepared.compact_fallback;
+                                is_chat_bridge = fallback_prepared.is_chat_bridge;
                                 recovered = Some(response);
                                 break;
                             }
@@ -208,9 +273,14 @@ pub async fn codex_proxy_handler(
                 upstream.status(),
                 fallback.id
             );
-            if let Ok(fallback_prepared) =
-                prepare_codex_upstream(&state, &fallback, &route, &headers, &original_body)
-            {
+            if let Ok(fallback_prepared) = prepare_codex_upstream(
+                &state,
+                &fallback,
+                &route,
+                &headers,
+                &original_body,
+                false,
+            ) {
                 match fallback_prepared
                     .request
                     .body(fallback_prepared.request_body)
@@ -222,6 +292,7 @@ pub async fn codex_proxy_handler(
                         is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
                         is_stream = fallback_prepared.is_stream;
                         compact_fallback = fallback_prepared.compact_fallback;
+                        is_chat_bridge = fallback_prepared.is_chat_bridge;
                         upstream = response;
                         if !is_retryable_upstream_status(&state, upstream.status()) {
                             failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
@@ -240,7 +311,92 @@ pub async fn codex_proxy_handler(
         }
     }
 
-    let status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut prefetched_bytes: Option<Bytes> = None;
+    let mut status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let retry_chat = !is_chat_bridge
+        && !is_anthropic_upstream
+        && compact_fallback.is_none()
+        && provider.protocol_type == ProtocolType::OpenAiResponses
+        && !codex_compact::is_responses_compact_route(&route)
+        && !route.contains("chat/completions")
+        && status == StatusCode::BAD_REQUEST;
+    let mut upstream = Some(upstream);
+    if retry_chat {
+        let current = upstream.take().expect("Codex upstream response");
+        match current.bytes().await {
+            Ok(error_bytes) => {
+                if is_unsupported_content_type_error(&error_bytes) {
+                    match prepare_codex_upstream(
+                        &state,
+                        &provider,
+                        &route,
+                        &headers,
+                        &original_body,
+                        true,
+                    ) {
+                        Ok(chat_prepared) => match chat_prepared
+                            .request
+                            .body(chat_prepared.request_body)
+                            .send()
+                            .await
+                        {
+                            Ok(response) => {
+                                failover_trace.push(format!(
+                                    "{}({}) Responses 400 后改走 Chat Completions",
+                                    provider.name, provider.id
+                                ));
+                                is_chat_bridge = chat_prepared.is_chat_bridge;
+                                is_stream = chat_prepared.is_stream;
+                                compact_fallback = chat_prepared.compact_fallback;
+                                status = StatusCode::from_u16(response.status().as_u16())
+                                    .unwrap_or(StatusCode::BAD_GATEWAY);
+                                upstream = Some(response);
+                            }
+                            Err(_) => {
+                                prefetched_bytes = Some(error_bytes);
+                            }
+                        },
+                        Err(_) => {
+                            prefetched_bytes = Some(error_bytes);
+                        }
+                    }
+                } else {
+                    prefetched_bytes = Some(error_bytes);
+                }
+            }
+            Err(error) => {
+                return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {error}"));
+            }
+        }
+    }
+
+    if let Some(bytes) = prefetched_bytes {
+        if status.is_success() {
+            record_provider_success(&state, &provider.id);
+        }
+        let failover_diag = if !failover_trace.is_empty() {
+            Some(format!("故障降级: {}", failover_trace.join(" → ")))
+        } else {
+            None
+        };
+        let _ = log_request_with_diagnostic(
+            &state,
+            &provider,
+            Some(i64::from(status.as_u16())),
+            started.elapsed().as_millis() as i64,
+            &route,
+            is_stream,
+            Some("upstream"),
+            failover_diag.as_deref(),
+        );
+        return Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(bytes))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+
+    let upstream = upstream.expect("Codex upstream response");
     if status.is_success() {
         record_provider_success(&state, &provider.id);
     }
@@ -290,6 +446,19 @@ pub async fn codex_proxy_handler(
             is_streaming,
             log_id,
             started,
+        )
+        .await;
+    }
+
+    if is_chat_bridge {
+        return forward_chat_bridge_upstream(
+            state,
+            provider,
+            upstream,
+            status,
+            is_streaming,
+            log_id,
+            None,
         )
         .await;
     }
@@ -416,6 +585,8 @@ struct PreparedCodexUpstream {
     is_anthropic_upstream: bool,
     /// When set, wrap a successful JSON upstream body into `response.compaction`.
     compact_fallback: Option<CompactFallback>,
+    /// Codex client sent Responses; upstream is Chat Completions.
+    is_chat_bridge: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -424,12 +595,24 @@ enum CompactFallback {
     Anthropic,
 }
 
+fn should_bridge_responses_to_chat(protocol: ProtocolType, route: &str, force_chat: bool) -> bool {
+    if codex_compact::is_responses_compact_route(route) || route.contains("chat/completions") {
+        return false;
+    }
+    force_chat
+        || matches!(
+            protocol,
+            ProtocolType::OpenAiChat | ProtocolType::Proxy
+        )
+}
+
 fn prepare_codex_upstream(
     state: &ProxyState,
     provider: &Provider,
     route: &str,
     headers: &HeaderMap,
     original_body: &Bytes,
+    force_chat: bool,
 ) -> Result<PreparedCodexUpstream, Response> {
     let api_key = match state
         .db
@@ -446,6 +629,8 @@ fn prepare_codex_upstream(
 
     let is_compact = codex_compact::is_responses_compact_route(route);
     let is_anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
+    let wants_chat_bridge =
+        !is_compact && should_bridge_responses_to_chat(provider.protocol_type, route, force_chat);
     if is_anthropic_upstream && route.contains("chat/completions") {
         return Err(json_error(
             StatusCode::BAD_REQUEST,
@@ -457,7 +642,7 @@ fn prepare_codex_upstream(
         codex_compact::compact_upstream_path(provider.protocol_type).to_string()
     } else if is_anthropic_upstream {
         "/v1/messages".to_string()
-    } else if route.contains("chat/completions") {
+    } else if route.contains("chat/completions") || wants_chat_bridge {
         "/v1/chat/completions".to_string()
     } else {
         "/v1/responses".to_string()
@@ -591,6 +776,28 @@ fn prepare_codex_upstream(
             stream,
             None,
         )
+    } else if wants_chat_bridge {
+        let parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        let chat = match responses_to_chat_completions_body(&parsed) {
+            Ok(value) => value,
+            Err(error) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, error));
+            }
+        };
+        let stream = chat
+            .get("stream")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        (
+            serde_json::to_vec(&chat).unwrap_or_default(),
+            stream,
+            None,
+        )
     } else {
         let stream = serde_json::from_slice::<Value>(&body)
             .ok()
@@ -616,6 +823,7 @@ fn prepare_codex_upstream(
             || key.eq_ignore_ascii_case("content-length")
             || key.eq_ignore_ascii_case("x-api-key")
             || key.eq_ignore_ascii_case("anthropic-version")
+            || key.eq_ignore_ascii_case("content-type")
         {
             continue;
         }
@@ -630,7 +838,207 @@ fn prepare_codex_upstream(
         is_stream,
         is_anthropic_upstream,
         compact_fallback,
+        is_chat_bridge: wants_chat_bridge,
     })
+}
+
+async fn forward_chat_bridge_upstream(
+    state: ProxyState,
+    provider: Provider,
+    upstream: reqwest::Response,
+    status: StatusCode,
+    is_streaming: bool,
+    log_id: Option<String>,
+    prefetched_bytes: Option<Bytes>,
+) -> Response {
+    if !is_streaming {
+        let response_bytes = if let Some(bytes) = prefetched_bytes {
+            bytes
+        } else {
+            match upstream.bytes().await {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {error}"));
+                }
+            }
+        };
+        if !status.is_success() {
+            return Response::builder()
+                .status(status)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(response_bytes))
+                .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        }
+        let chat: Value = match serde_json::from_slice(&response_bytes) {
+            Ok(value) => value,
+            Err(_) => {
+                return json_error(
+                    StatusCode::BAD_GATEWAY,
+                    "Chat Completions 上游返回了无法转换的响应",
+                );
+            }
+        };
+        let responses = chat_response_to_responses(&chat, provider.model.trim());
+        let _ = state.codex_history.record_response(&responses);
+        let encoded = serde_json::to_vec(&responses).unwrap_or_default();
+        if let Some(id) = log_id.as_deref() {
+            if let Some(usage) = extract_usage_from_json(&encoded) {
+                let _ = state.db.with_conn(|conn| {
+                    update_proxy_log_usage_idempotent(
+                        conn,
+                        id,
+                        Some(state.target.as_str()),
+                        Some(provider.id.as_str()),
+                        usage.envelope_id.as_deref(),
+                        usage.input_tokens,
+                        usage.cache_read_input_tokens,
+                        usage.cache_creation_input_tokens,
+                        usage.output_tokens,
+                    )
+                });
+            }
+        }
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(encoded))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+    }
+
+    let db = Arc::clone(&state.db);
+    let history = Arc::clone(&state.codex_history);
+    let target_app = state.target.as_str().to_string();
+    let provider_id = provider.id.clone();
+    let fallback_model = provider.model.clone();
+    let stream = futures_util::stream::unfold(
+        (
+            upstream.bytes_stream(),
+            Vec::new(),
+            ChatSseToResponsesConverter::new(&fallback_model),
+            false,
+            None::<String>,
+            Vec::<u8>::new(),
+        ),
+        move |(mut upstream_stream, mut buffer, mut converter, done, mut response_id, mut out_buf)| {
+            let db = Arc::clone(&db);
+            let history = Arc::clone(&history);
+            let target_app = target_app.clone();
+            let provider_id = provider_id.clone();
+            let stream_log_id = log_id.clone();
+            async move {
+                if done {
+                    return None;
+                }
+                let next = upstream_stream.next().await;
+                let (output, done) = match next {
+                    Some(Ok(bytes)) => {
+                        buffer.extend_from_slice(&bytes);
+                        let mut output = Vec::new();
+                        while let Some((end, delimiter_len)) = find_sse_frame_end(&buffer) {
+                            let frame = buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
+                            let Ok(frame) = std::str::from_utf8(&frame) else {
+                                continue;
+                            };
+                            if let Some(data) = parse_chat_sse_data(frame) {
+                                if data == "[DONE]" {
+                                    output.extend(converter.finish_done());
+                                } else if let Ok(chunk) = serde_json::from_str::<Value>(&data) {
+                                    output.extend(converter.push_chat_chunk(&chunk));
+                                }
+                            }
+                        }
+                        (output, false)
+                    }
+                    Some(Err(_)) => (converter.finish_done(), true),
+                    None => {
+                        let mut rest = Vec::new();
+                        if !buffer.is_empty() {
+                            if let Ok(frame) = std::str::from_utf8(&buffer) {
+                                if let Some(data) = parse_chat_sse_data(frame) {
+                                    if data == "[DONE]" {
+                                        rest.extend(converter.finish_done());
+                                    } else if let Ok(chunk) = serde_json::from_str::<Value>(&data) {
+                                        rest.extend(converter.push_chat_chunk(&chunk));
+                                    }
+                                }
+                            }
+                            buffer.clear();
+                        }
+                        rest.extend(converter.finish_done());
+                        (rest, true)
+                    }
+                };
+                out_buf.extend_from_slice(&output);
+                while let Some(block) = super::codex_history::take_sse_block(&mut out_buf) {
+                    if let Ok(text) = std::str::from_utf8(&block) {
+                        let mut data_parts = Vec::new();
+                        for line in text.lines() {
+                            if let Some(data) = line.strip_prefix("data:") {
+                                data_parts.push(data.trim_start());
+                            }
+                        }
+                        let data = data_parts.join("\n");
+                        if !data.is_empty() && data != "[DONE]" {
+                            if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                                history.inspect_sse_event(&value, &mut response_id);
+                            }
+                        }
+                    }
+                }
+                if let Some(id) = stream_log_id.as_deref() {
+                    if let Some(usage) = extract_usage_from_sse(&output) {
+                        let _ = db.with_conn(|conn| {
+                            update_proxy_log_usage_idempotent(
+                                conn,
+                                id,
+                                Some(target_app.as_str()),
+                                Some(provider_id.as_str()),
+                                usage.envelope_id.as_deref(),
+                                usage.input_tokens,
+                                usage.cache_read_input_tokens,
+                                usage.cache_creation_input_tokens,
+                                usage.output_tokens,
+                            )
+                        });
+                    }
+                }
+                if output.is_empty() && done {
+                    return None;
+                }
+                Some((
+                    Ok::<Bytes, Infallible>(Bytes::from(output)),
+                    (upstream_stream, buffer, converter, done, response_id, out_buf),
+                ))
+            }
+        },
+    );
+
+    Response::builder()
+        .status(if status.is_success() {
+            StatusCode::OK
+        } else {
+            status
+        })
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header("x-accel-buffering", "no")
+        .body(Body::from_stream(stream))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn parse_chat_sse_data(frame: &str) -> Option<String> {
+    let mut data_parts = Vec::new();
+    for line in frame.lines() {
+        if let Some(data) = line.strip_prefix("data:") {
+            data_parts.push(data.trim_start());
+        }
+    }
+    let data = data_parts.join("\n");
+    if data.is_empty() {
+        None
+    } else {
+        Some(data)
+    }
 }
 
 async fn forward_compact_anthropic_fallback(
@@ -928,5 +1336,55 @@ mod tests {
             }),
             "tool_result missing: {anthropic}"
         );
+    }
+
+    #[test]
+    fn openai_chat_responses_route_bridges_to_chat() {
+        assert!(should_bridge_responses_to_chat(
+            ProtocolType::OpenAiChat,
+            "/v1/responses",
+            false
+        ));
+        assert!(should_bridge_responses_to_chat(
+            ProtocolType::Proxy,
+            "/v1/responses",
+            false
+        ));
+        assert!(!should_bridge_responses_to_chat(
+            ProtocolType::OpenAiResponses,
+            "/v1/responses",
+            false
+        ));
+        assert!(should_bridge_responses_to_chat(
+            ProtocolType::OpenAiResponses,
+            "/v1/responses",
+            true
+        ));
+        assert!(!should_bridge_responses_to_chat(
+            ProtocolType::Anthropic,
+            "/v1/responses",
+            false
+        ));
+        assert!(!should_bridge_responses_to_chat(
+            ProtocolType::OpenAiChat,
+            "/v1/chat/completions",
+            false
+        ));
+    }
+
+    #[test]
+    fn responses_input_array_converts_to_chat_completions_messages() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "stream": true,
+            "input": [
+                { "role": "user", "content": [{ "type": "input_text", "text": "hello" }] }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        assert_eq!(chat["model"], "gpt-5.6-luna");
+        assert_eq!(chat["stream"], true);
+        assert_eq!(chat["messages"][0]["role"], "user");
+        assert_eq!(chat["messages"][0]["content"], "hello");
     }
 }

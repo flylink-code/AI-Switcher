@@ -482,6 +482,7 @@ pub fn provider_inputs_from_preview(preview: &ImportPreview) -> AppResult<Vec<Pr
             notes: entry.notes,
             failover_group: entry.failover_group,
             failover_models: entry.failover_models,
+            hidden_models: entry.hidden_models,
             thinking_config: entry.thinking_config,
         });
     }
@@ -534,6 +535,7 @@ mod tests {
             notes: String::new(),
             failover_group: 1,
             failover_models: vec!["gpt-5".into()],
+            hidden_models: Vec::new(),
             thinking_config: None,
         };
         let link = build_provider_share_link(&entry).unwrap();

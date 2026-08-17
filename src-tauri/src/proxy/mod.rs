@@ -9,6 +9,7 @@ mod convert;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;
+mod codex_chat;
 mod codex_compact;
 mod codex_history;
 
@@ -36,10 +37,11 @@ use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
     update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
-use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
+use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
+use crate::catalog::{build_catalog, claude_discovery_payload, resolve_request, rewrite_json_model, CatalogStyle};
 use crate::provider::{
     api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
     Provider, ProviderTarget,
@@ -439,6 +441,86 @@ pub(crate) fn next_failover_provider(
     Ok(None)
 }
 
+pub(crate) fn load_gateway_catalog(
+    state: &ProxyState,
+    style: CatalogStyle,
+) -> AppResult<(Vec<Provider>, Vec<crate::catalog::CatalogEntry>)> {
+    let providers = state
+        .db
+        .with_conn(|conn| list_providers(conn, state.target))?;
+    let mut pairs = Vec::with_capacity(providers.len());
+    for provider in &providers {
+        let cached = state
+            .db
+            .with_conn(|conn| {
+                Ok(get_provider_model_cache(conn, &provider.id)?
+                    .map(|cache| cache.models)
+                    .unwrap_or_default())
+            })
+            .unwrap_or_default();
+        pairs.push((provider.clone(), cached));
+    }
+    let entries = build_catalog(style, &pairs);
+    Ok((providers, entries))
+}
+
+fn gateway_catalog_enabled(state: &ProxyState) -> bool {
+    crate::catalog::enabled(state.db.as_ref(), state.target)
+}
+
+fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
+    if provider.is_codex_oauth() {
+        match crate::codex_oauth::manager().get_valid_token(Some(&provider.auth_binding)) {
+            Ok((token, account_id)) => {
+                provider.api_key = token;
+                provider.auth_binding = account_id;
+                provider.base_url = crate::codex_oauth::CODEX_OAUTH_BASE_URL.to_string();
+                provider.protocol_type = ProtocolType::OpenAiResponses;
+                return Ok(Some(provider));
+            }
+            Err(error) => {
+                log::error!("代理读取 ChatGPT OAuth 凭据失败: {error}");
+                return Ok(None);
+            }
+        }
+    }
+    provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
+        Ok(Some(key)) => key,
+        Ok(None) => return Ok(None),
+        Err(error) => {
+            log::error!("代理读取供应商凭据失败: {error}");
+            return Ok(None);
+        }
+    };
+    if provider.is_antigravity() && provider.api_key.trim().is_empty() {
+        provider.api_key = crate::antigravity::gateway::builtin_api_key();
+    }
+    Ok(Some(provider))
+}
+
+pub(crate) fn select_gateway_runtime_provider(
+    state: &ProxyState,
+    requested_model: &str,
+) -> AppResult<Option<(Provider, String)>> {
+    let style = if state.target == ProviderTarget::Codex {
+        CatalogStyle::Codex
+    } else {
+        CatalogStyle::Claude
+    };
+    let (providers, entries) = load_gateway_catalog(state, style)?;
+    let Some((provider_id, upstream)) = resolve_request(&entries, &providers, requested_model) else {
+        return Ok(None);
+    };
+    let Some(provider) = providers.into_iter().find(|provider| provider.id == provider_id) else {
+        return Ok(None);
+    };
+    let Some(mut provider) = hydrate_provider_credential(state, provider)? else {
+        return Ok(None);
+    };
+    provider.model = upstream.clone();
+    Ok(Some((provider, upstream)))
+}
+
 fn prepare_upstream_request(
     state: &ProxyState,
     provider: &mut Provider,
@@ -652,18 +734,31 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
     if let Err(error) = validate_desktop_gateway_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
-    match state
-        .db
-        .with_conn(|conn| get_current_provider(conn, state.target))
-    {
-        Ok(Some(provider)) => {
-            axum::Json(crate::config::claude_desktop::model_list_response(&provider))
-                .into_response()
+    if state.target == ProviderTarget::ClaudeCode && gateway_catalog_enabled(&state) {
+        match load_gateway_catalog(&state, CatalogStyle::Claude) {
+            Ok((_, entries)) if !entries.is_empty() => {
+                axum::Json(claude_discovery_payload(&entries)).into_response()
+            }
+            Ok(_) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有已配置的第三方供应商"),
+            Err(error) => {
+                log::error!("读取模型目录失败: {error}");
+                json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+            }
         }
-        Ok(None) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商"),
-        Err(error) => {
-            log::error!("读取模型目录失败: {error}");
-            json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+    } else {
+        match state
+            .db
+            .with_conn(|conn| get_current_provider(conn, state.target))
+        {
+            Ok(Some(provider)) => {
+                axum::Json(crate::config::claude_desktop::model_list_response(&provider))
+                    .into_response()
+            }
+            Ok(None) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商"),
+            Err(error) => {
+                log::error!("读取模型目录失败: {error}");
+                json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+            }
         }
     }
 }
@@ -680,10 +775,19 @@ async fn proxy_handler(
     }
     let started = Instant::now();
 
-    // Resolve the active provider synchronously.
-    let provider: Option<Provider> = match state
-        .db
-        .with_conn(|conn| get_current_provider(conn, state.target)) {
+    // Resolve a seed provider so body-read failures can still be logged.
+    let provider: Option<Provider> = match state.db.with_conn(|conn| {
+        if state.target == ProviderTarget::ClaudeCode && crate::catalog::enabled_for_conn(conn, state.target) {
+            let listed = list_providers(conn, state.target)?;
+            Ok(listed
+                .iter()
+                .find(|item| item.is_current)
+                .cloned()
+                .or_else(|| listed.first().cloned()))
+        } else {
+            get_current_provider(conn, state.target)
+        }
+    }) {
         Ok(p) => p,
         Err(e) => {
             log::error!("代理读取当前供应商失败: {e}");
@@ -743,11 +847,39 @@ async fn proxy_handler(
         }
     };
     let incoming_stream = convert::wants_stream(&incoming);
-    let requested_model = incoming
+    let mut incoming = incoming;
+    let mut body_bytes = body_bytes;
+    let mut requested_model = incoming
         .get("model")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    if state.target == ProviderTarget::ClaudeCode && gateway_catalog_enabled(&state) {
+        match select_gateway_runtime_provider(&state, &requested_model) {
+            Ok(Some((selected, upstream))) => {
+                provider = selected;
+                requested_model = upstream.clone();
+                if let Some(object) = incoming.as_object_mut() {
+                    object.insert("model".to_string(), Value::String(upstream.clone()));
+                }
+                body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &upstream));
+            }
+            Ok(None) => {
+                log_early_failure(
+                    &state,
+                    uri.path(),
+                    "provider",
+                    Some(503),
+                    started.elapsed().as_millis() as i64,
+                );
+                return json_error(StatusCode::SERVICE_UNAVAILABLE, "没有可路由的第三方供应商");
+            }
+            Err(error) => {
+                log::error!("按模型选择供应商失败: {error}");
+                return json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录");
+            }
+        }
+    }
     let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream) {
         Ok(request) => request,
         Err(error) => {
@@ -1908,6 +2040,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: true,
             created_at: 0,
@@ -1987,6 +2120,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 0,
                     failover_models: Vec::new(),
+                    hidden_models: Vec::new(),
                     thinking_config: None,
                 },
             )?;
@@ -2012,6 +2146,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 1,
                     failover_models: vec!["gpt-4o".into()],
+                    hidden_models: Vec::new(),
                     thinking_config: None,
                 },
             )?;
@@ -2035,6 +2170,7 @@ mod tests {
                     notes: String::new(),
                     failover_group: 0,
                     failover_models: Vec::new(),
+                    hidden_models: Vec::new(),
                     thinking_config: None,
                 },
             )?;

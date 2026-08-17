@@ -393,6 +393,9 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
             .and_then(Value::as_array)
         {
             for (index, part) in parts.iter().enumerate() {
+                if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                    continue;
+                }
                 if let Some(chunk) = part.get("text").and_then(Value::as_str) {
                     text.push_str(chunk);
                 }
@@ -435,7 +438,11 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
             };
         }
     }
-    (text, tool_calls, finish_reason)
+    (
+        super::latex::unwrap_gemini_latex(&text),
+        tool_calls,
+        finish_reason,
+    )
 }
 
 #[cfg(test)]
@@ -570,5 +577,20 @@ mod tests {
         assert_eq!(trailer["usage"]["prompt_tokens"], 1500);
         assert_eq!(trailer["usage"]["completion_tokens"], 100);
         assert_eq!(trailer["choices"][0]["delta"], json!({}));
+    }
+
+    #[test]
+    fn skips_thought_parts_and_unwraps_visible_latex() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "内部 $t_{WB}$" },
+                    { "text": "延时 $10\\ \\mu\\text{s}$" }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response = gemini_to_openai_response("gpt-4o", &gemini, &ToolParamKeys::new());
+        assert_eq!(response["choices"][0]["message"]["content"], "延时 10 μs");
     }
 }

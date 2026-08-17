@@ -400,7 +400,11 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
             };
         }
     }
-    (text, tool_calls, finish_reason)
+    (
+        super::latex::unwrap_gemini_latex(&text),
+        tool_calls,
+        finish_reason,
+    )
 }
 
 /// Stateful Gemini chunk → Responses SSE event bytes.

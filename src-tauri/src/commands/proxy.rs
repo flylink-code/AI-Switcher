@@ -328,6 +328,9 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
         let needs_proxy = state
             .db
             .with_conn(|conn| {
+                if crate::catalog::enabled_for_conn(conn, target) {
+                    return Ok(get_current_provider(conn, target)?.is_some());
+                }
                 Ok(get_current_provider(conn, target)?
                     .is_some_and(|provider| provider.requires_local_proxy()))
             })

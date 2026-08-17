@@ -39,6 +39,12 @@ const PROJECT_ENDPOINTS: [&str; 3] = [
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:loadCodeAssist",
 ];
 
+const ONBOARD_ENDPOINTS: [&str; 3] = [
+    "https://daily-cloudcode-pa.googleapis.com/v1internal:onboardUser",
+    "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
+    "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:onboardUser",
+];
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct QuotaBucket {
@@ -206,6 +212,20 @@ struct ProjectMeta {
     subscription_tier: Option<String>,
 }
 
+/// Resolve Cloud Code `cloudaicompanionProject`, onboarding when loadCodeAssist
+/// returns a tier but no project yet (new / never-opened Antigravity accounts).
+pub async fn resolve_project_id(access_token: &str) -> AppResult<String> {
+    let client = crate::antigravity::outbound::build_async_client(
+        QUOTA_CONNECT_SECS,
+        QUOTA_TIMEOUT_SECS,
+    );
+    fetch_project_meta(&client, access_token)
+        .await
+        .project_id
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError::Other("账号无法获取 cloudaicompanionProject".into()))
+}
+
 /// Fetch quota for one account access token.
 pub async fn fetch_quota(
     access_token: &str,
@@ -294,12 +314,19 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
         let Ok(value) = response.json::<Value>().await else {
             continue;
         };
-        let project_id = value
-            .get("cloudaicompanionProject")
-            .and_then(Value::as_str)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string);
         let subscription_tier = extract_tier(&value);
+        if let Some(project_id) = extract_cloudaicompanion_project(&value) {
+            return ProjectMeta {
+                project_id: Some(project_id),
+                subscription_tier,
+            };
+        }
+        // loadCodeAssist often returns paidTier (PRO) with no project until the
+        // account has been onboarded. Do not treat this as a finished lookup.
+        log::info!(
+            "Antigravity loadCodeAssist {url} has no project; trying onboardUser"
+        );
+        let project_id = onboard_user_project(client, access_token, &value).await;
         return ProjectMeta {
             project_id,
             subscription_tier,
@@ -309,6 +336,146 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
         project_id: None,
         subscription_tier: None,
     }
+}
+
+fn extract_cloudaicompanion_project(value: &Value) -> Option<String> {
+    for key in ["cloudaicompanionProject", "projectId", "project"] {
+        let Some(field) = value.get(key) else {
+            continue;
+        };
+        if let Some(text) = field.as_str().map(str::trim).filter(|text| !text.is_empty()) {
+            return Some(normalize_project_id(text));
+        }
+        if let Some(obj) = field.as_object() {
+            for nested in ["id", "projectId", "name"] {
+                if let Some(text) = obj
+                    .get(nested)
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|text| !text.is_empty())
+                {
+                    return Some(normalize_project_id(text));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_project_from_onboard(value: &Value) -> Option<String> {
+    value
+        .get("response")
+        .and_then(extract_cloudaicompanion_project)
+        .or_else(|| extract_cloudaicompanion_project(value))
+}
+
+fn normalize_project_id(raw: &str) -> String {
+    raw.trim()
+        .strip_prefix("projects/")
+        .unwrap_or(raw.trim())
+        .to_string()
+}
+
+fn default_onboard_tier_id(load: &Value) -> String {
+    if let Some(tiers) = load.get("allowedTiers").and_then(Value::as_array) {
+        let default = tiers.iter().find(|tier| {
+            tier.get("isDefault")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        });
+        if let Some(id) = default.and_then(tier_id_value) {
+            return id;
+        }
+    }
+    extract_tier_id_from_key(load, "currentTier")
+        .or_else(|| extract_tier_id_from_key(load, "paidTier"))
+        .unwrap_or_else(|| "free-tier".to_string())
+}
+
+fn extract_tier_id_from_key(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(tier_id_value)
+}
+
+fn tier_id_value(tier: &Value) -> Option<String> {
+    if let Some(text) = tier
+        .get("id")
+        .or_else(|| tier.get("slug"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+    {
+        return Some(text.to_string());
+    }
+    tier.as_array()
+        .and_then(|items| items.first())
+        .and_then(tier_id_value)
+}
+
+async fn onboard_user_project(
+    client: &reqwest::Client,
+    access_token: &str,
+    load: &Value,
+) -> Option<String> {
+    let tier_id = default_onboard_tier_id(load);
+    log::info!("Antigravity onboardUser starting tier={tier_id}");
+    let body = json!({
+        "tier_id": tier_id,
+        "metadata": {
+            "ide_type": "ANTIGRAVITY",
+            "ide_version": "4.3.0",
+            "ide_name": "antigravity",
+        }
+    });
+    for url in ONBOARD_ENDPOINTS {
+        for attempt in 1..=5 {
+            let started = Instant::now();
+            let Ok(response) = client
+                .post(url)
+                .bearer_auth(access_token)
+                .header("Content-Type", "application/json")
+                .header("User-Agent", QUOTA_USER_AGENT)
+                .json(&body)
+                .send()
+                .await
+            else {
+                log::warn!(
+                    "Antigravity onboardUser {url} request failed in {}ms",
+                    started.elapsed().as_millis()
+                );
+                break;
+            };
+            let status = response.status();
+            let Ok(value) = response.json::<Value>().await else {
+                log::warn!(
+                    "Antigravity onboardUser {url} → {status} JSON parse failed in {}ms",
+                    started.elapsed().as_millis()
+                );
+                break;
+            };
+            if !status.is_success() {
+                log::warn!(
+                    "Antigravity onboardUser {url} → {status} in {}ms",
+                    started.elapsed().as_millis()
+                );
+                break;
+            }
+            if let Some(project_id) = extract_project_from_onboard(&value) {
+                log::info!("Antigravity onboardUser {url} assigned project");
+                return Some(project_id);
+            }
+            let done = value
+                .get("done")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if done {
+                log::warn!("Antigravity onboardUser {url} completed without project");
+                break;
+            }
+            log::info!("Antigravity onboardUser {url} poll {attempt}/5 not done yet");
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+    }
+    None
 }
 
 #[derive(Clone, Copy)]
@@ -1008,6 +1175,51 @@ mod tests {
             extract_tier(&restricted).as_deref(),
             Some("Standard (Restricted)")
         );
+    }
+
+    #[test]
+    fn extracts_project_from_string_or_object() {
+        let as_string = json!({ "cloudaicompanionProject": "gen-lang-client-abc" });
+        assert_eq!(
+            extract_cloudaicompanion_project(&as_string).as_deref(),
+            Some("gen-lang-client-abc")
+        );
+
+        let as_object = json!({
+            "paidTier": { "id": "AI_PRO", "name": "Google AI Pro" },
+            "cloudaicompanionProject": { "id": "proj-9", "name": "projects/proj-9" }
+        });
+        assert_eq!(
+            extract_cloudaicompanion_project(&as_object).as_deref(),
+            Some("proj-9")
+        );
+
+        let onboard = json!({
+            "done": true,
+            "response": {
+                "cloudaicompanionProject": { "id": "onboard-1" }
+            }
+        });
+        assert_eq!(
+            extract_project_from_onboard(&onboard).as_deref(),
+            Some("onboard-1")
+        );
+    }
+
+    #[test]
+    fn onboard_tier_prefers_allowed_default() {
+        let load = json!({
+            "paidTier": { "id": "AI_PRO" },
+            "currentTier": { "id": "free-tier" },
+            "allowedTiers": [
+                { "id": "legacy-tier" },
+                { "id": "standard-tier", "isDefault": true }
+            ]
+        });
+        assert_eq!(default_onboard_tier_id(&load), "standard-tier");
+
+        let paid_only = json!({ "paidTier": { "id": "AI_PRO" } });
+        assert_eq!(default_onboard_tier_id(&paid_only), "AI_PRO");
     }
 
     #[test]

@@ -66,12 +66,23 @@ impl ProviderTarget {
         }
     }
 
-    /// OpenCode / Pi / Dsh 多供应商并存，没有「当前激活」切换。
+    /// OpenCode / Pi / Dsh 把全部供应商写入 Agent 自己的配置，没有「当前激活」切换。
     pub fn is_catalog_target(self) -> bool {
         matches!(
             self,
             ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
         )
+    }
+
+    /// Claude Code / Codex 可选「统一模型目录」（由设置项开启）。
+    pub fn supports_gateway_catalog(self) -> bool {
+        matches!(self, ProviderTarget::ClaudeCode | ProviderTarget::Codex)
+    }
+
+    /// 供应商页隐藏「设为当前」；保存/删除即同步 live 配置。
+    /// Code / Codex 目录模式由设置项控制，不在这里判断。
+    pub fn hides_provider_switch(self) -> bool {
+        self.is_catalog_target()
     }
 }
 
@@ -322,6 +333,7 @@ pub fn copied_provider_input(
         notes: source.notes.clone(),
         failover_group: source.failover_group,
         failover_models: adapt_copied_failover_models(source, dest),
+        hidden_models: source.hidden_models.clone(),
         thinking_config: source.thinking_config.clone(),
     })
 }
@@ -758,6 +770,9 @@ pub struct Provider {
     /// Empty = accept any model as failover candidate; otherwise request model must match.
     #[serde(default)]
     pub failover_models: Vec<String>,
+    /// Models omitted from /model and live catalogs. Default `model` is never hidden.
+    #[serde(default)]
+    pub hidden_models: Vec<String>,
     #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
     #[serde(default)]
@@ -808,6 +823,23 @@ impl Provider {
         self.target_app == ProviderTarget::ClaudeDesktop
             && (self.model_mapping.has_explicit_roles()
                 || !is_claude_desktop_safe_model(self.model.trim()))
+    }
+
+    /// Hidden from picker/catalog lists. The default model is never hidden.
+    pub fn is_hidden_model(&self, id: &str) -> bool {
+        let id = id.trim();
+        if id.is_empty() || id.eq_ignore_ascii_case(self.model.trim()) {
+            return false;
+        }
+        self.hidden_models
+            .iter()
+            .any(|hidden| hidden.trim().eq_ignore_ascii_case(id))
+    }
+
+    pub fn filter_hidden_models(&self, ids: Vec<String>) -> Vec<String> {
+        ids.into_iter()
+            .filter(|id| !self.is_hidden_model(id))
+            .collect()
     }
 
     /// Whether this provider may serve `requested_model` during failover.
@@ -886,6 +918,8 @@ pub struct ProviderInput {
     #[serde(default)]
     pub failover_models: Vec<String>,
     #[serde(default)]
+    pub hidden_models: Vec<String>,
+    #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
 }
 
@@ -954,6 +988,8 @@ pub struct ProviderExportEntry {
     pub failover_group: i64,
     #[serde(default)]
     pub failover_models: Vec<String>,
+    #[serde(default)]
+    pub hidden_models: Vec<String>,
     #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
 }
@@ -1130,6 +1166,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -1161,6 +1198,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -1192,6 +1230,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -1228,6 +1267,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,
@@ -1283,6 +1323,24 @@ mod tests {
     }
 
     #[test]
+    fn hidden_models_never_hide_default() {
+        let mut provider = provider_with_mapping();
+        provider.model = "keep-me".into();
+        provider.hidden_models = vec!["keep-me".into(), "hide-me".into()];
+        assert!(!provider.is_hidden_model("keep-me"));
+        assert!(provider.is_hidden_model("hide-me"));
+        let filtered = provider.filter_hidden_models(vec![
+            "keep-me".into(),
+            "hide-me".into(),
+            "ok".into(),
+        ]);
+        assert_eq!(
+            filtered,
+            vec!["keep-me".to_string(), "ok".to_string()]
+        );
+    }
+
+    #[test]
     fn failover_model_whitelist_matches_request_or_mapped_upstream() {
         let mut provider = provider_with_mapping();
         provider.failover_models = vec!["opus-upstream".into()];
@@ -1320,6 +1378,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: vec!["deepseek-v4-flash".into()],
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: false,
             created_at: 0,

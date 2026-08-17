@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use toml_edit::{value, Array, DocumentMut, Item, Table};
 
+use crate::catalog::{build_catalog, CatalogEntry, CatalogStyle};
 use crate::config::{atomic_write, get_backup_dir, get_codex_auth_path, get_codex_config_dir, get_codex_config_path};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
@@ -147,13 +148,20 @@ pub fn apply_provider(
     proxy_port: Option<u16>,
     extra_models: &[String],
 ) -> AppResult<CodexApplyInfo> {
-    // `MoveFileExW` removes the delete-then-rename race, but Windows can still
-    // return ERROR_ALREADY_EXISTS while NSIS, Defender, or a just-relaunched
-    // Codex process settles directory state. Retry the complete multi-file
-    // write so each attempt reloads a coherent config.toml snapshot.
+    let catalog = catalog_for_single_provider(provider, extra_models);
+    apply_provider_with_catalog(provider, api_key, proxy_port, &catalog)
+}
+
+/// Apply the managed `ai_switcher` slot and a pre-built (possibly multi-provider) catalog.
+pub fn apply_provider_with_catalog(
+    provider: &Provider,
+    api_key: &str,
+    proxy_port: Option<u16>,
+    catalog: &[CatalogEntry],
+) -> AppResult<CodexApplyInfo> {
     const MAX_ATTEMPTS: u32 = 6;
     for attempt in 1..=MAX_ATTEMPTS {
-        match apply_provider_once(provider, api_key, proxy_port, extra_models) {
+        match apply_provider_once(provider, api_key, proxy_port, catalog) {
             Ok(info) => return Ok(info),
             Err(error) if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS => {
                 let delay_ms = 500u64.saturating_mul(u64::from(attempt)).min(2_500);
@@ -176,7 +184,7 @@ fn apply_provider_once(
     provider: &Provider,
     api_key: &str,
     proxy_port: Option<u16>,
-    extra_models: &[String],
+    catalog: &[CatalogEntry],
 ) -> AppResult<CodexApplyInfo> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
@@ -189,7 +197,7 @@ fn apply_provider_once(
     let existing_auth = read_auth_json(&auth_path)?;
 
     let mut doc = load_document(&config_path)?;
-    write_managed_provider(&mut doc, provider, proxy_port, extra_models)?;
+    write_managed_provider(&mut doc, provider, proxy_port, catalog)?;
     let preserved_official_login =
         apply_auth_strategy(&mut doc, existing_auth.as_ref(), proxy_port, api_key);
     atomic_write(&config_path, doc.to_string().as_bytes())?;
@@ -341,17 +349,43 @@ fn clear_stale_third_party_auth_if_needed(auth_path: &Path) -> AppResult<bool> {
     Ok(true)
 }
 
+fn catalog_for_single_provider(provider: &Provider, extra_models: &[String]) -> Vec<CatalogEntry> {
+    let mut extras = extra_models.to_vec();
+    if provider.protocol_type != ProtocolType::Anthropic
+        && should_inject_openai_model_suggestions(provider.model.trim())
+    {
+        for suggestion in CODEX_MODEL_SUGGESTIONS {
+            if !extras.iter().any(|existing| existing.eq_ignore_ascii_case(suggestion))
+                && !provider.model.trim().eq_ignore_ascii_case(suggestion)
+            {
+                extras.push((*suggestion).to_string());
+            }
+        }
+    }
+    build_catalog(CatalogStyle::Codex, &[(provider.clone(), extras)])
+}
+
 fn write_managed_provider(
     doc: &mut DocumentMut,
     provider: &Provider,
     proxy_port: Option<u16>,
-    extra_models: &[String],
+    catalog: &[CatalogEntry],
 ) -> AppResult<()> {
+    let fallback = if catalog.is_empty() {
+        catalog_for_single_provider(provider, &[])
+    } else {
+        Vec::new()
+    };
+    let catalog = if catalog.is_empty() {
+        fallback.as_slice()
+    } else {
+        catalog
+    };
     let provider_id = MANAGED_PROVIDER_ID;
     let model = provider.model.trim();
     let context_window = effective_model_context_window(provider);
     let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
-    write_model_catalog(provider, anthropic_upstream, extra_models)?;
+    write_catalog_entries(catalog)?;
     doc["model"] = value(model);
     doc["model_provider"] = value(provider_id);
     doc["model_context_window"] = value(context_window as i64);
@@ -434,56 +468,30 @@ fn codex_model_display_name(slug: &str) -> String {
     }
 }
 
-fn write_model_catalog(
-    provider: &Provider,
-    anthropic_upstream: bool,
-    extra_models: &[String],
-) -> AppResult<()> {
-    let model = provider.model.trim();
-    if model.is_empty() {
-        return Err(AppError::Config("Codex 默认模型不能为空".to_string()));
+fn write_catalog_entries(entries: &[CatalogEntry]) -> AppResult<()> {
+    if entries.is_empty() {
+        return Err(AppError::Config("Codex 模型目录不能为空".to_string()));
     }
-    let context_window = effective_model_context_window(provider);
-    let web_search_enabled =
-        !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
-
-    let mut slugs: Vec<String> = Vec::new();
-    let mut push_slug = |raw: &str| {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            return;
-        }
-        if slugs.iter().any(|existing| existing.eq_ignore_ascii_case(trimmed)) {
-            return;
-        }
-        slugs.push(trimmed.to_string());
-    };
-    push_slug(model);
-    for entry in &provider.failover_models {
-        push_slug(entry);
-    }
-    for entry in extra_models {
-        push_slug(entry);
-    }
-    if !anthropic_upstream && should_inject_openai_model_suggestions(model) {
-        for entry in CODEX_MODEL_SUGGESTIONS {
-            push_slug(entry);
-        }
-    }
-
-    let models: Vec<Value> = slugs
+    let models: Vec<Value> = entries
         .iter()
         .enumerate()
-        .map(|(index, slug)| {
-            // Lower priority number = higher list preference in Codex.
-            let priority = 1 + index as i64;
-            codex_model_catalog_entry(
-                slug,
-                context_window,
-                anthropic_upstream,
-                web_search_enabled,
-                priority,
-            )
+        .map(|(index, entry)| {
+            let mut value = codex_model_catalog_entry(
+                &entry.public_id,
+                entry.context_window,
+                entry.anthropic_upstream,
+                entry.web_search_enabled,
+                1 + index as i64,
+            );
+            let pretty = codex_model_display_name(&entry.upstream_slug);
+            let display_name = if entry.public_id == entry.upstream_slug {
+                pretty
+            } else {
+                entry.display_name.clone()
+            };
+            value["display_name"] = Value::String(display_name.clone());
+            value["description"] = Value::String(display_name);
+            value
         })
         .collect();
     let catalog = serde_json::json!({ "models": models });
@@ -719,10 +727,9 @@ pub fn set_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearch
     })
 }
 
-/// Rewrite `ai-switcher-model-catalog.json` from the current managed provider row.
-pub fn repair_model_catalog_file(provider: &Provider, extra_models: &[String]) -> AppResult<String> {
-    let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
-    write_model_catalog(provider, anthropic_upstream, extra_models)?;
+/// Rewrite `ai-switcher-model-catalog.json` from a merged gateway catalog.
+pub fn repair_model_catalog_file(catalog: &[CatalogEntry]) -> AppResult<String> {
+    write_catalog_entries(catalog)?;
     let path = get_codex_config_dir().join(MODEL_CATALOG_FILENAME);
     let config_path = get_codex_config_path();
     let mut doc = load_document(&config_path)?;
@@ -806,6 +813,7 @@ mod tests {
             sort_index: 0,
             failover_group: 0,
             failover_models: Vec::new(),
+            hidden_models: Vec::new(),
             thinking_config: None,
             is_current: true,
             created_at: 0,
@@ -888,6 +896,26 @@ mod tests {
         assert_eq!(models[0]["context_window"], 272_000);
         assert_eq!(models[0]["priority"], 1);
         assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
+        std::env::remove_var("CODEX_HOME");
+    }
+
+    #[test]
+    fn independent_apply_replaces_leftover_loopback_base_url() {
+        let provider = sample_codex_provider();
+        let mut doc = DocumentMut::new();
+        doc["model_providers"] = Item::Table(Table::new());
+        doc["model_providers"][MANAGED_PROVIDER_ID] = Item::Table(Table::new());
+        doc["model_providers"][MANAGED_PROVIDER_ID]["base_url"] =
+            value("http://127.0.0.1:15823/v1");
+        doc["model_providers"][MANAGED_PROVIDER_ID]["wire_api"] = value("responses");
+
+        let temp = tempfile::tempdir().unwrap();
+        std::env::set_var("CODEX_HOME", temp.path());
+        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        let base_url = entry.get("base_url").and_then(Item::as_str).unwrap_or("");
+        assert_eq!(base_url, "https://api.example.com/v1");
+        assert!(!base_url.contains("127.0.0.1"));
         std::env::remove_var("CODEX_HOME");
     }
 

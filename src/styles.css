@@ -742,6 +742,24 @@ body {
   flex-wrap: wrap;
   margin: 2px 0 4px 0;
   min-height: 22px;
+  min-width: 0;
+}
+
+.cc-provider-meta-tag,
+.cc-provider-model-tag {
+  margin: 0;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--color-bg-subtle, rgba(0, 0, 0, 0.04));
+}
+
+.cc-provider-model-tag {
+  display: inline-block;
+  max-width: min(100%, 240px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .cc-provider-card-metrics {

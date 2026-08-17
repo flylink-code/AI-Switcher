@@ -47,6 +47,8 @@ export interface Provider {
   failoverGroup: number;
   /** Empty = any model; otherwise request/mapped model must match. */
   failoverModels: string[];
+  /** Models omitted from /model and live catalogs. Default model is never hidden. */
+  hiddenModels?: string[];
   thinkingConfig?: ThinkingConfig | null;
   isCurrent: boolean;
   createdAt: number;
@@ -77,6 +79,7 @@ export interface ProviderInput {
   notes: string;
   failoverGroup?: number;
   failoverModels?: string[];
+  hiddenModels?: string[];
   thinkingConfig?: ThinkingConfig | null;
 }
 

@@ -7,6 +7,7 @@
 
 mod backup;
 mod agents;
+mod catalog;
 mod antigravity;
 mod claude_plugins;
 mod coding;
@@ -66,7 +67,8 @@ use crate::commands::{
     set_antigravity_outbound_proxy, start_antigravity_gateway, start_antigravity_oauth_login,
     stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
-    get_autostart_enabled, get_current_provider, get_db_info, get_paths,
+    get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled,
+    get_gateway_catalog_subagent, get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
     get_managed_apps_runtime_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
@@ -78,7 +80,7 @@ use crate::commands::{
     get_skill_repository, get_skill_repository_snapshot, list_skill_repositories, add_skill_repository, remove_skill_repository, ignore_unmanaged_skill, list_github_repository_skills, refresh_github_repository_skills, register_unmanaged_skill, scan_unmanaged_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
     search_mcp_registry,
-    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
+    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_gateway_catalog_enabled, set_gateway_catalog_subagent, list_gateway_catalog_models, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, speedtest_provider_endpoint, test_provider_connection, test_provider_input, batch_diagnose_providers, quarantine_failed_providers,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
@@ -230,6 +232,11 @@ pub fn run() {
             install_editor_localization_helper,
             list_providers,
             get_current_provider,
+            get_gateway_catalog_enabled,
+            set_gateway_catalog_enabled,
+            get_gateway_catalog_subagent,
+            set_gateway_catalog_subagent,
+            list_gateway_catalog_models,
             copy_provider_to_target,
             create_provider,
             update_provider,

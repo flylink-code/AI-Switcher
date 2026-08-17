@@ -2,6 +2,7 @@
 
 pub mod anthropic;
 pub mod args_fix;
+pub mod latex;
 pub mod models;
 pub mod openai;
 pub mod responses;
