@@ -368,11 +368,11 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
                     let name = fc.get("name").cloned().unwrap_or(json!("tool"));
-                    let args = correct_tool_args(
+                    let args = super::latex::unwrap_latex_in_tool_args(correct_tool_args(
                         name.as_str().unwrap_or("tool"),
                         fc.get("args").cloned().unwrap_or(json!({})),
                         tool_params,
-                    );
+                    ));
                     tool_calls.push(json!({
                         "id": id,
                         "index": index,

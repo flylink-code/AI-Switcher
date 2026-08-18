@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.14**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.15**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -53,7 +53,7 @@ Install Claude Code, Claude Desktop, the Codex CLI, OpenCode (CLI / Desktop), Pi
 
 ### Providers and switching
 
-- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness separately
+- Manage third-party APIs, model mappings, import/export, connection tests, Base URL speed tests, and model discovery for Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness separately. If `/v1/models` returns 404 (DeepSeek Anthropic-compat bases), discovery falls back to host-root `GET /models`
 - **Claude Code / Codex routing mode** (default: independent providers): the toggle sits one level under the Agent. Switch to a **unified model catalog** so every visible model is merged through the local proxy and picked with `/model`. Catalog mode does not write Custom `*_NAME` aliases; role ids stay stable. Code and Codex each have their own catalog subagent, plus **Hide official built-in models** (luna/sol/terra, gpt-5.4*, and similar picker slugs stay out of `/model`; client requests for those ids rewrite to the subagent or current default). Codex catalog mode failovers AG/upstream 429 to the next provider and rewrites the model instead of sending a Gemini id to an OpenAI relay. Providers can hide models from `/model` (the default model cannot be hidden). Codex Chat relays convert `/v1/responses` to `/v1/chat/completions`. OpenCode / Pi / DeepSeek Harness stay native multi-provider catalogs
 - Provider cards show only the **default model**; extra catalog models appear as `+N`
 - **Standardized Thinking / Reasoning translation**: Visual configuration for thinking mode, token budget (`budget_tokens` / `thinking_budget`), and reasoning effort (`reasoning_effort`); seamlessly bridges differences across Anthropic, OpenAI, Gemini, and DeepSeek (`reasoning_content` stream to thinking blocks)
@@ -81,6 +81,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Googl
 - **Claude Desktop 429**: when the account pool is exhausted the gateway returns **429 + Retry-After** (no longer disguised as 502), so Desktop does not treat it as a 5xx fault and retry-storm. Desktop / independent-provider mode still skip failing over AG 429s to unrelated providers. **Codex unified catalog** failovers to the next catalog provider and rewrites the model to that provider’s default or catalog subagent
 - **Usage passthrough**: parse Gemini `usageMetadata` (including thought tokens) and return real input/output on Anthropic / OpenAI Chat / Responses stream trailers
 - **Streaming Chinese**: decode UTF-8 only after a complete SSE line, so a Chinese character split across TCP chunks is not replaced with U+FFFD
+- **KaTeX unwrap**: Gemini visible text and Write/Edit file payloads turn `$\\le 50\\text{g}$` into `≤ 50g`; Edit match strings and Grep patterns stay unchanged
 - **Model catalog**: Gemini **3.6 and 3.7 coexist** (Cloud Code ids are `-high` / `-medium` / `-low`); a 429 on 3.7-high degrades to medium/low on the same account before rotating
 - **One-click bind**: ensure providers on the Accounts & quota page, then switch from each tool’s provider list
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)

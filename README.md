@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.14**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.15**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -53,7 +53,7 @@
 
 ### 供应商与切换
 
-- 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现
+- 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现。刷新模型时若 `/v1/models` 返回 404（例如 DeepSeek Anthropic 兼容地址），会回退到宿主根 `GET /models`
 - **Claude Code / Codex 路由模式**（默认独立供应商）：开关在对应 Agent 下一级。可切 **统一模型目录**，保存后全部可见模型经本地代理合并，CLI `/model` 选用；目录模式不写 Custom `*_NAME`，角色 id 保持稳定。Code / Codex 可分别指定目录级子代理，并可 **隐藏官方内置模型**（luna/sol/terra、gpt-5.4* 等建议不进目录；客户端仍请求时改写成子代理或当前默认）。Codex 目录下 AG/上游 429 会切到下一供应商并改写模型，不再拿 Gemini id 去问 OpenAI 中转。供应商可隐藏不进 `/model` 的型号（默认模型不可藏）。Codex 目录下 Chat 中转会把 `/v1/responses` 转成 `/v1/chat/completions`。OpenCode / Pi / DeepSeek Harness 仍为原生多供应商并存
 - 供应商卡片只显示**默认模型**，其余进入目录的型号以 `+N` 展示
 - **Thinking / Reasoning 统一参数转译**：供应商可视化配置思考模式、Token 预算（`budget_tokens` / `thinking_budget`）与推理强度（`reasoning_effort`），自动抹平 Anthropic、OpenAI、Gemini 与 DeepSeek（`reasoning_content` 转思考块）协议差异
@@ -81,6 +81,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **Claude Desktop 429**：账号池耗尽时向客户端回传 **429 + Retry-After**（不再伪装成 502），避免 Desktop 把网关故障当 5xx 猛重试；Desktop / 独立供应商模式仍不把 AG 429 切到其他供应商。**Codex 统一目录**下会切到下一目录供应商，并把模型改成接管方默认或子代理
 - **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
+- **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
 - **模型目录**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；3.7-high 遇 429 时同账号降到 medium/low，再轮换账号
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）

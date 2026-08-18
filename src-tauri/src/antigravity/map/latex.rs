@@ -2,6 +2,8 @@
 //! Claude Code does not render that math, so the raw source shows up as
 //! garbled output. Unwrap common spans into plain text / unicode.
 
+use serde_json::Value;
+
 /// Convert Gemini-visible LaTeX into text Claude Code can display.
 pub fn unwrap_gemini_latex(input: &str) -> String {
     if input.is_empty() {
@@ -171,10 +173,14 @@ fn decode_latex_inner(inner: &str) -> String {
     s = s.replace("\\&", "&");
     s = s.replace("\\$", "$");
     s = collapse_spaces(&s);
+    // `$1\sim 2$` becomes `1~ 2` after `\sim` → `~`; tighten range tilde.
+    s = s.replace(" ~ ", "~").replace("~ ", "~").replace(" ~", "~");
     s
 }
 
 const LATEX_SYMBOLS: &[(&str, &str)] = &[
+    ("\\leqslant", "≤"),
+    ("\\geqslant", "≥"),
     ("\\rightarrow", "→"),
     ("\\Rightarrow", "⇒"),
     ("\\leftarrow", "←"),
@@ -187,8 +193,15 @@ const LATEX_SYMBOLS: &[(&str, &str)] = &[
     ("\\infty", "∞"),
     ("\\circ", "°"),
     ("\\degree", "°"),
+    ("\\quad", " "),
+    ("\\qquad", " "),
     ("\\sim", "~"),
     ("\\to", "→"),
+    ("\\pm", "±"),
+    ("\\mp", "∓"),
+    ("\\ne", "≠"),
+    ("\\le", "≤"),
+    ("\\ge", "≥"),
     ("\\mu", "μ"),
     ("\\alpha", "α"),
     ("\\beta", "β"),
@@ -265,6 +278,51 @@ fn collapse_spaces(input: &str) -> String {
     out.trim().to_string()
 }
 
+/// Unwrap KaTeX in tool-call string arguments (Write `contents`, Edit `new_string`).
+/// Leave match/search fields alone so an Edit can still find raw `$...$` on disk.
+pub fn unwrap_latex_in_tool_args(args: Value) -> Value {
+    unwrap_latex_value(args, None)
+}
+
+fn unwrap_latex_value(value: Value, key: Option<&str>) -> Value {
+    if key.is_some_and(skip_unwrap_arg_key) {
+        return value;
+    }
+    match value {
+        Value::String(text) => Value::String(unwrap_gemini_latex(&text)),
+        Value::Array(items) => Value::Array(
+            items
+                .into_iter()
+                .map(|item| unwrap_latex_value(item, key))
+                .collect(),
+        ),
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(child_key, child)| {
+                    let next = unwrap_latex_value(child, Some(&child_key));
+                    (child_key, next)
+                })
+                .collect(),
+        ),
+        other => other,
+    }
+}
+
+fn skip_unwrap_arg_key(key: &str) -> bool {
+    matches!(
+        key,
+        "old_string"
+            | "oldString"
+            | "old_str"
+            | "pattern"
+            | "regex"
+            | "path"
+            | "glob"
+            | "file_path"
+            | "filePath"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,6 +353,40 @@ mod tests {
     fn leaves_shell_and_currency_alone() {
         assert_eq!(unwrap_gemini_latex("export $HOME"), "export $HOME");
         assert_eq!(unwrap_gemini_latex("costs $10"), "costs $10");
+    }
+
+    #[test]
+    fn unwraps_watch_spec_units_and_comparisons() {
+        assert_eq!(unwrap_gemini_latex("$\\le 50\\text{g}$"), "≤ 50g");
+        assert_eq!(unwrap_gemini_latex("延迟 $\\le 30\\text{ms}$"), "延迟 ≤ 30ms");
+        assert_eq!(
+            unwrap_gemini_latex("分辨率 $\\ge 240\\times280$ 或 $320\\times385$"),
+            "分辨率 ≥ 240×280 或 320×385"
+        );
+        assert_eq!(
+            unwrap_gemini_latex("使用 $\\ge 1\\sim 2$ 天，待机 $\\ge 3\\sim 5$ 天"),
+            "使用 ≥ 1~2 天，待机 ≥ 3~5 天"
+        );
+        assert_eq!(
+            unwrap_gemini_latex("ESD 接触 $\\ge \\pm4\\text{kV}$、空气 $\\ge \\pm8\\text{kV}$"),
+            "ESD 接触 ≥ ±4kV、空气 ≥ ±8kV"
+        );
+        assert_eq!(unwrap_gemini_latex("$\\leq 10$"), "≤ 10");
+    }
+
+    #[test]
+    fn unwraps_write_contents_but_keeps_edit_old_string() {
+        let args = serde_json::json!({
+            "path": "spec.md",
+            "contents": "重量 $\\le 50\\text{g}$",
+            "old_string": "重量 $\\le 50\\text{g}$",
+            "new_string": "重量 $\\le 50\\text{g}$"
+        });
+        let out = unwrap_latex_in_tool_args(args);
+        assert_eq!(out["path"], "spec.md");
+        assert_eq!(out["contents"], "重量 ≤ 50g");
+        assert_eq!(out["old_string"], "重量 $\\le 50\\text{g}$");
+        assert_eq!(out["new_string"], "重量 ≤ 50g");
     }
 
     #[test]

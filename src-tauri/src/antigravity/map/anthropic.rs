@@ -934,11 +934,11 @@ fn extract_assistant(
                         }
                     }
                     let name = fc.get("name").cloned().unwrap_or(json!("tool"));
-                    let args = correct_tool_args(
+                    let args = super::latex::unwrap_latex_in_tool_args(correct_tool_args(
                         name.as_str().unwrap_or("tool"),
                         fc.get("args").cloned().unwrap_or(json!({})),
                         tool_params,
-                    );
+                    ));
                     content.tools.push(json!({
                         "type": "tool_use",
                         "id": id,
@@ -1208,6 +1208,37 @@ mod tests {
         assert_eq!(tool["input"]["-n"], json!(true));
         assert!(tool["input"].get("n").is_none());
         assert_eq!(tool["input"]["pattern"], json!("antigravity"));
+    }
+
+    #[test]
+    fn write_tool_contents_unwrap_katex_but_keep_edit_old_string() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "functionCall": { "id": "toolu_write_1", "name": "Write",
+                        "args": { "path": "spec.md", "contents": "重量 $\\le 50\\text{g}$" } } },
+                    { "functionCall": { "id": "toolu_edit_1", "name": "Edit",
+                        "args": {
+                            "old_string": "重量 $\\le 50\\text{g}$",
+                            "new_string": "重量 $\\le 50\\text{g}$"
+                        } } }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let response = gemini_to_anthropic_response(
+            "gemini-3.6-flash",
+            &gemini,
+            None,
+            false,
+            &no_params(),
+        );
+        assert_eq!(response["content"][0]["input"]["contents"], "重量 ≤ 50g");
+        assert_eq!(
+            response["content"][1]["input"]["old_string"],
+            "重量 $\\le 50\\text{g}$"
+        );
+        assert_eq!(response["content"][1]["input"]["new_string"], "重量 ≤ 50g");
     }
 
     #[test]

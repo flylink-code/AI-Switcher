@@ -718,37 +718,9 @@ async fn discover_provider_models_with_key(
         });
     }
 
-    let url = api_endpoint_url(&provider.base_url, "/v1/models")?;
-    let client = discovery_http_client(&url)?;
-    let response = client
-        .get(url)
-        .header(header::AUTHORIZATION, format!("Bearer {key}"))
-        .header("x-api-key", key)
-        .send()
-        .await;
-    let discovered = match response {
-        Ok(response) if response.status().is_success() => {
-            match response.bytes().await {
-                Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
-                    Ok(value) => {
-                        let models = extract_model_ids(&value);
-                        if models.is_empty() {
-                            Err("供应商没有返回可用的模型".to_string())
-                        } else {
-                            Ok(models)
-                        }
-                    }
-                    Err(_) => Err("模型发现响应不是有效 JSON".to_string()),
-                },
-                Err(_) => Err("读取模型发现响应失败".to_string()),
-            }
-        }
-        Ok(response) => Err(format!(
-            "供应商不支持模型发现（HTTP {}）",
-            response.status().as_u16()
-        )),
-        Err(_) => Err("无法连接模型发现端点".to_string()),
-    };
+    let urls = model_discovery_urls(&provider.base_url)?;
+    let client = discovery_http_client(urls.first().map(String::as_str).unwrap_or(""))?;
+    let discovered = fetch_discovered_models(&client, &urls, &key).await;
     match discovered {
         Ok(models) => {
             if cache_result {
@@ -876,6 +848,105 @@ fn model_result_from_cache(
             }
         }
     }
+}
+
+/// Candidate model-list URLs. DeepSeek's official list is `GET /models` on the
+/// host root; Anthropic-compat bases (`.../anthropic`) 404 on `/v1/models`.
+fn model_discovery_urls(base_url: &str) -> AppResult<Vec<String>> {
+    let mut urls = Vec::new();
+    let mut push = |url: String| {
+        if !url.is_empty() && !urls.iter().any(|existing| existing == &url) {
+            urls.push(url);
+        }
+    };
+    push(api_endpoint_url(base_url, "/v1/models")?);
+    push(api_endpoint_url(base_url, "/models")?);
+
+    let base = normalize_base_url(base_url)?;
+    if let Some(root) = base.strip_suffix("/v1") {
+        if root.contains("://") {
+            push(format!("{root}/models"));
+        }
+    }
+    if let Some(root) = strip_anthropic_compat_path(&base) {
+        push(api_endpoint_url(&root, "/v1/models")?);
+        push(api_endpoint_url(&root, "/models")?);
+    }
+    Ok(urls)
+}
+
+fn strip_anthropic_compat_path(base: &str) -> Option<String> {
+    let lower = base.to_ascii_lowercase();
+    let needle = "/anthropic";
+    let idx = lower.rfind(needle)?;
+    let after = &lower[idx + needle.len()..];
+    if !(after.is_empty() || after.starts_with('/')) {
+        return None;
+    }
+    let root = base[..idx].trim_end_matches('/');
+    if root.contains("://") {
+        Some(root.to_string())
+    } else {
+        None
+    }
+}
+
+fn should_try_next_discovery_status(status: u16) -> bool {
+    matches!(status, 404 | 405 | 501)
+}
+
+async fn fetch_discovered_models(
+    client: &reqwest::Client,
+    urls: &[String],
+    key: &str,
+) -> Result<Vec<String>, String> {
+    let mut last_error = "无法连接模型发现端点".to_string();
+    for url in urls {
+        let response = client
+            .get(url)
+            .header(header::AUTHORIZATION, format!("Bearer {key}"))
+            .header("x-api-key", key)
+            .header("anthropic-version", "2023-06-01")
+            .send()
+            .await;
+        match response {
+            Ok(response) if response.status().is_success() => {
+                let parsed = match response.bytes().await {
+                    Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
+                        Ok(value) => {
+                            let models = extract_model_ids(&value);
+                            if models.is_empty() {
+                                Err("供应商没有返回可用的模型".to_string())
+                            } else {
+                                Ok(models)
+                            }
+                        }
+                        Err(_) => Err("模型发现响应不是有效 JSON".to_string()),
+                    },
+                    Err(_) => Err("读取模型发现响应失败".to_string()),
+                };
+                match parsed {
+                    Ok(models) => return Ok(models),
+                    Err(error) => {
+                        last_error = error;
+                        continue;
+                    }
+                }
+            }
+            Ok(response) => {
+                let status = response.status().as_u16();
+                last_error = format!("供应商不支持模型发现（HTTP {status}）");
+                if should_try_next_discovery_status(status) {
+                    continue;
+                }
+                return Err(last_error);
+            }
+            Err(_) => {
+                last_error = "无法连接模型发现端点".to_string();
+            }
+        }
+    }
+    Err(last_error)
 }
 
 fn extract_model_ids(value: &Value) -> Vec<String> {
@@ -2838,6 +2909,48 @@ mod tests {
         assert!(!is_antigravity_gateway_base_url("https://api.anthropic.com"));
         assert!(url_targets_loopback("http://127.0.0.1:15830/v1/models"));
         assert!(!url_targets_loopback("https://api.deepseek.com/v1/models"));
+    }
+
+    #[test]
+    fn deepseek_anthropic_discovery_falls_back_to_host_models() {
+        assert_eq!(
+            model_discovery_urls("https://api.deepseek.com/anthropic").unwrap(),
+            vec![
+                "https://api.deepseek.com/anthropic/v1/models".to_string(),
+                "https://api.deepseek.com/anthropic/models".to_string(),
+                "https://api.deepseek.com/v1/models".to_string(),
+                "https://api.deepseek.com/models".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn deepseek_openai_discovery_includes_unversioned_models() {
+        assert_eq!(
+            model_discovery_urls("https://api.deepseek.com").unwrap(),
+            vec![
+                "https://api.deepseek.com/v1/models".to_string(),
+                "https://api.deepseek.com/models".to_string(),
+            ]
+        );
+        assert_eq!(
+            model_discovery_urls("https://api.deepseek.com/v1").unwrap(),
+            vec![
+                "https://api.deepseek.com/v1/models".to_string(),
+                "https://api.deepseek.com/models".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn versioned_openai_discovery_does_not_duplicate_v1_models() {
+        assert_eq!(
+            model_discovery_urls("https://api.moonshot.cn/v1").unwrap(),
+            vec![
+                "https://api.moonshot.cn/v1/models".to_string(),
+                "https://api.moonshot.cn/models".to_string(),
+            ]
+        );
     }
 
     #[test]
