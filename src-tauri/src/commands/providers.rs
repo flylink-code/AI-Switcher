@@ -1,6 +1,6 @@
 //! Provider management commands scoped to Claude Code or Claude Desktop.
 
-use crate::catalog::{self, build_catalog, CatalogStyle};
+use crate::catalog::{self, build_catalog_with, CatalogStyle};
 use crate::config::{claude_code, claude_desktop, codex, codex_provider_sync, opencode};
 use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
@@ -88,29 +88,65 @@ pub async fn set_gateway_catalog_enabled(
 }
 
 #[tauri::command]
-pub fn get_gateway_catalog_subagent(state: tauri::State<'_, AppState>) -> AppResult<String> {
-    Ok(catalog_subagent_model(&state).unwrap_or_default())
+pub fn get_gateway_catalog_subagent(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    Ok(catalog_subagent_model(&state, target).unwrap_or_default())
 }
 
 #[tauri::command]
 pub async fn set_gateway_catalog_subagent(
+    target: ProviderTarget,
     model: String,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<String> {
+    let Some(key) = catalog::subagent_setting_key(target) else {
+        return Err(AppError::Config("此 Agent 不支持目录子代理".to_string()));
+    };
     let trimmed = model.trim().to_string();
-    state.db.with_conn(|conn| {
-        set_setting(conn, catalog::GATEWAY_CATALOG_CODE_SUBAGENT_KEY, &trimmed)
-    })?;
-    if gateway_catalog_on(&state, ProviderTarget::ClaudeCode) {
+    state.db.with_conn(|conn| set_setting(conn, key, &trimmed))?;
+    if gateway_catalog_on(&state, target) {
         if let Some(provider) = state
             .db
-            .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeCode))?
+            .with_conn(|conn| dao::get_current_provider(conn, target))?
         {
             let _ = apply_target_provider(&provider, Some(&app), &state).await?;
         }
     }
     Ok(trimmed)
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_hide_official(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    if !target.supports_gateway_catalog() {
+        return Ok(false);
+    }
+    Ok(catalog::hide_official(state.db.as_ref(), target))
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_hide_official(
+    target: ProviderTarget,
+    enabled: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    let Some(key) = catalog::hide_official_setting_key(target) else {
+        return Err(AppError::Config("此 Agent 不支持隐藏官方内置模型".to_string()));
+    };
+    state
+        .db
+        .with_conn(|conn| set_setting(conn, key, if enabled { "true" } else { "false" }))?;
+    if gateway_catalog_on(&state, target) {
+        sync_gateway_catalog_target(target, Some(&app), &state).await?;
+    }
+    crate::commands::proxy::publish_target_status(&app, &state, target).await;
+    Ok(enabled)
 }
 
 #[tauri::command]
@@ -124,20 +160,15 @@ pub fn list_gateway_catalog_models(
         _ => return Ok(Vec::new()),
     };
     let pairs = load_gateway_pairs(&state, target)?;
-    Ok(build_catalog(style, &pairs)
+    let hide_official = catalog::hide_official(state.db.as_ref(), target);
+    Ok(build_catalog_with(style, &pairs, hide_official)
         .into_iter()
         .map(|entry| entry.public_id)
         .collect())
 }
 
-fn catalog_subagent_model(state: &AppState) -> Option<String> {
-    state
-        .db
-        .with_conn(|conn| get_setting(conn, catalog::GATEWAY_CATALOG_CODE_SUBAGENT_KEY))
-        .ok()
-        .flatten()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+fn catalog_subagent_model(state: &AppState, target: ProviderTarget) -> Option<String> {
+    catalog::subagent_model(state.db.as_ref(), target)
 }
 
 #[tauri::command]
@@ -1664,7 +1695,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 }
                 let provider = runtime_provider.clone();
                 let subagent = if gateway_catalog {
-                    catalog_subagent_model(state)
+                    catalog_subagent_model(state, ProviderTarget::ClaudeCode)
                 } else {
                     None
                 };
@@ -1713,7 +1744,9 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 let api_key = runtime_provider.api_key.clone();
                 let apply_info = if gateway_catalog {
                     let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
-                    let catalog = build_catalog(CatalogStyle::Codex, &pairs);
+                    let hide_official =
+                        catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
+                    let catalog = build_catalog_with(CatalogStyle::Codex, &pairs, hide_official);
                     tauri::async_runtime::spawn_blocking(move || {
                         codex::apply_provider_with_catalog(
                             &provider,

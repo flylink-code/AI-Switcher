@@ -64,12 +64,26 @@ export async function setGatewayCatalogEnabled(
   return call<boolean>("set_gateway_catalog_enabled", { target, enabled });
 }
 
-export async function getGatewayCatalogSubagent(): Promise<string> {
-  return call<string>("get_gateway_catalog_subagent");
+export async function getGatewayCatalogSubagent(target: ProviderTarget): Promise<string> {
+  return call<string>("get_gateway_catalog_subagent", { target });
 }
 
-export async function setGatewayCatalogSubagent(model: string): Promise<string> {
-  return call<string>("set_gateway_catalog_subagent", { model });
+export async function setGatewayCatalogSubagent(
+  target: ProviderTarget,
+  model: string,
+): Promise<string> {
+  return call<string>("set_gateway_catalog_subagent", { target, model });
+}
+
+export async function getGatewayCatalogHideOfficial(target: ProviderTarget): Promise<boolean> {
+  return call<boolean>("get_gateway_catalog_hide_official", { target });
+}
+
+export async function setGatewayCatalogHideOfficial(
+  target: ProviderTarget,
+  enabled: boolean,
+): Promise<boolean> {
+  return call<boolean>("set_gateway_catalog_hide_official", { target, enabled });
 }
 
 export async function listGatewayCatalogModels(target: ProviderTarget): Promise<string[]> {

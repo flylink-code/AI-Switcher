@@ -41,7 +41,7 @@ use crate::database::dao::providers::{get_current_provider, get_provider_model_c
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::catalog::{build_catalog, claude_discovery_payload, resolve_request, rewrite_json_model, CatalogStyle};
+use crate::catalog::{claude_discovery_payload, resolve_request, rewrite_json_model, CatalogStyle};
 use crate::provider::{
     api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
     Provider, ProviderTarget,
@@ -397,6 +397,15 @@ pub(crate) fn next_failover_provider(
     exclude_ids: &[String],
     requested_model: &str,
 ) -> AppResult<Option<Provider>> {
+    next_failover_provider_ex(state, exclude_ids, requested_model, false)
+}
+
+pub(crate) fn next_failover_provider_ex(
+    state: &ProxyState,
+    exclude_ids: &[String],
+    requested_model: &str,
+    ignore_model_filter: bool,
+) -> AppResult<Option<Provider>> {
     let enabled = state.db.with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
         .as_deref() == Some("true");
     if !enabled {
@@ -414,7 +423,7 @@ pub(crate) fn next_failover_provider(
         if exclude_ids.iter().any(|id| id == &candidate.id)
             || candidate.base_url.trim().is_empty()
             || circuit_is_open(state, &candidate.id)
-            || !candidate.allows_failover_for_request(requested_model)
+            || (!ignore_model_filter && !candidate.allows_failover_for_request(requested_model))
         {
             continue;
         }
@@ -460,7 +469,11 @@ pub(crate) fn load_gateway_catalog(
             .unwrap_or_default();
         pairs.push((provider.clone(), cached));
     }
-    let entries = build_catalog(style, &pairs);
+    let entries = crate::catalog::build_catalog_with(
+        style,
+        &pairs,
+        crate::catalog::hide_official(state.db.as_ref(), state.target),
+    );
     Ok((providers, entries))
 }
 
@@ -502,13 +515,32 @@ pub(crate) fn select_gateway_runtime_provider(
     state: &ProxyState,
     requested_model: &str,
 ) -> AppResult<Option<(Provider, String)>> {
+    select_gateway_runtime_provider_with(state, requested_model, false)
+}
+
+pub(crate) fn select_gateway_runtime_provider_with(
+    state: &ProxyState,
+    requested_model: &str,
+    force_catalog_subagent: bool,
+) -> AppResult<Option<(Provider, String)>> {
     let style = if state.target == ProviderTarget::Codex {
         CatalogStyle::Codex
     } else {
         CatalogStyle::Claude
     };
     let (providers, entries) = load_gateway_catalog(state, style)?;
-    let Some((provider_id, upstream)) = resolve_request(&entries, &providers, requested_model) else {
+    let hide_official = crate::catalog::hide_official(state.db.as_ref(), state.target);
+    let subagent = crate::catalog::subagent_model(state.db.as_ref(), state.target);
+    let requested = crate::catalog::normalize_client_request(
+        style,
+        &entries,
+        &providers,
+        requested_model,
+        hide_official,
+        subagent.as_deref(),
+        force_catalog_subagent,
+    );
+    let Some((provider_id, upstream)) = resolve_request(&entries, &providers, &requested) else {
         return Ok(None);
     };
     let Some(provider) = providers.into_iter().find(|provider| provider.id == provider_id) else {
@@ -592,6 +624,19 @@ pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCod
 /// unrelated Desktop providers (Kimi / DeepSeek / …) with a Gemini model id
 /// produces extra 4xx/502 rows, and Claude Desktop then retries 502 immediately.
 pub(crate) fn should_failover_upstream_status(provider: &Provider, status: StatusCode) -> bool {
+    should_failover_upstream_status_ex(provider, status, false)
+}
+
+/// `catalog_cross_provider_429` lets Codex unified-catalog mode fail over an
+/// Antigravity 429 onto the next catalog provider (with a rewritten model).
+pub(crate) fn should_failover_upstream_status_ex(
+    provider: &Provider,
+    status: StatusCode,
+    catalog_cross_provider_429: bool,
+) -> bool {
+    if catalog_cross_provider_429 {
+        return true;
+    }
     !(provider.is_antigravity() && status == StatusCode::TOO_MANY_REQUESTS)
 }
 
@@ -2089,6 +2134,16 @@ mod tests {
             &standard,
             StatusCode::TOO_MANY_REQUESTS
         ));
+        assert!(should_failover_upstream_status_ex(
+            &ag,
+            StatusCode::TOO_MANY_REQUESTS,
+            true
+        ));
+        assert!(!should_failover_upstream_status_ex(
+            &ag,
+            StatusCode::TOO_MANY_REQUESTS,
+            false
+        ));
     }
 
     #[test]
@@ -2202,6 +2257,16 @@ mod tests {
         )
         .unwrap();
         assert!(filtered.is_none(), "group1 whitelist should reject opus");
+
+        let ignored = next_failover_provider_ex(
+            &state,
+            &[current_id.clone(), group0_id.clone()],
+            "claude-opus-5",
+            true,
+        )
+        .unwrap()
+        .expect("catalog failover ignores model whitelist");
+        assert_eq!(ignored.name, "Group1");
 
         let matched = next_failover_provider(
             &state,

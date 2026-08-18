@@ -12,6 +12,13 @@ fn is_auto_review_subagent(value: &str) -> bool {
     )
 }
 
+pub(crate) fn has_subagent_header(headers: &HeaderMap) -> bool {
+    headers
+        .get(SUBAGENT_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| !value.trim().is_empty())
+}
+
 /// When `x-openai-subagent` is `guardian` or `auto_review` (case-insensitive) and
 /// `model_override` is set, rewrite the JSON request body's `model` field.
 ///
@@ -103,5 +110,12 @@ mod tests {
             apply_auto_review_model_override(&headers, body, Some("cheap-model")),
             Bytes::from_static(body)
         );
+    }
+
+    #[test]
+    fn has_subagent_header_detects_any_nonempty_value() {
+        assert!(has_subagent_header(&headers_with_subagent("explore")));
+        assert!(has_subagent_header(&headers_with_subagent("guardian")));
+        assert!(!has_subagent_header(&HeaderMap::new()));
     }
 }

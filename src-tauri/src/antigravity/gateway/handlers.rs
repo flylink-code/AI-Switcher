@@ -467,7 +467,7 @@ async fn stream_response(
     let stream = futures_util::stream::unfold(
         StreamState {
             upstream: byte_stream,
-            buffer: String::new(),
+            buffer: SseLineBuffer::new(),
             model,
             protocol,
             anthropic: matches!(protocol, WireProtocol::Anthropic)
@@ -501,7 +501,7 @@ async fn stream_response(
                 .await;
                 match next_frame {
                     Ok(Some(Ok(bytes))) => {
-                        state.buffer.push_str(&String::from_utf8_lossy(&bytes));
+                        state.buffer.push(&bytes);
                     }
                     Ok(Some(Err(_))) | Ok(None) => {
                         let trailing = state.finish_events();
@@ -539,9 +539,47 @@ async fn stream_response(
         .unwrap_or_else(|_| error_json(StatusCode::INTERNAL_SERVER_ERROR, "stream build failed"))
 }
 
+/// SSE line buffer that never decodes a TCP chunk with `from_utf8_lossy`.
+/// Gemini Chinese is 3-byte UTF-8; splitting a character across chunks and
+/// replacing it with U+FFFD is the usual “中文乱码” seen only on this path.
+struct SseLineBuffer {
+    bytes: Vec<u8>,
+}
+
+impl SseLineBuffer {
+    fn new() -> Self {
+        Self { bytes: Vec::new() }
+    }
+
+    fn push(&mut self, chunk: &[u8]) {
+        self.bytes.extend_from_slice(chunk);
+    }
+
+    fn take_line(&mut self) -> Option<String> {
+        let idx = self.bytes.iter().position(|&b| b == b'\n')?;
+        let mut line: Vec<u8> = self.bytes.drain(..=idx).collect();
+        if line.last() == Some(&b'\n') {
+            line.pop();
+        }
+        if line.last() == Some(&b'\r') {
+            line.pop();
+        }
+        match String::from_utf8(line) {
+            Ok(text) => Some(text),
+            Err(_) => Some(String::new()),
+        }
+    }
+
+    fn finish(&mut self) {
+        if !self.bytes.is_empty() && self.bytes.last() != Some(&b'\n') {
+            self.bytes.push(b'\n');
+        }
+    }
+}
+
 struct StreamState {
     upstream: futures_util::stream::BoxStream<'static, Result<Bytes, reqwest::Error>>,
-    buffer: String,
+    buffer: SseLineBuffer,
     model: String,
     protocol: WireProtocol,
     finished: bool,
@@ -584,100 +622,98 @@ impl StreamState {
     }
 
     fn take_line_event(&mut self) -> Option<Bytes> {
-        let idx = self.buffer.find('\n')?;
-        let line = self.buffer[..idx].trim_end_matches('\r').to_string();
-        self.buffer.drain(..=idx);
-        if line.is_empty() {
-            return None;
-        }
-        let data = line
-            .strip_prefix("data:")
-            .map(str::trim)
-            .unwrap_or(line.as_str());
-        if data.is_empty() || data == "[DONE]" {
-            return None;
-        }
-        let Ok(value) = serde_json::from_str::<Value>(data) else {
-            return None;
-        };
-        let gemini = unwrap_v1internal(&value);
-        self.note_usage(&gemini);
-        match self.protocol {
-            WireProtocol::Anthropic => {
-                let model = self.model.clone();
-                let session = self.session_key.clone();
-                let mut anthropic = self.anthropic.take().unwrap_or_default();
-                let events = gemini_to_anthropic_sse_chunk(
-                    &mut anthropic,
-                    &model,
+        loop {
+            let line = self.buffer.take_line()?;
+            if line.is_empty() {
+                continue;
+            }
+            let data = line
+                .strip_prefix("data:")
+                .map(str::trim)
+                .unwrap_or(line.as_str());
+            if data.is_empty() || data == "[DONE]" {
+                continue;
+            }
+            let Ok(value) = serde_json::from_str::<Value>(data) else {
+                continue;
+            };
+            let gemini = unwrap_v1internal(&value);
+            self.note_usage(&gemini);
+            let mapped = match self.protocol {
+                WireProtocol::Anthropic => {
+                    let model = self.model.clone();
+                    let session = self.session_key.clone();
+                    let mut anthropic = self.anthropic.take().unwrap_or_default();
+                    let events = gemini_to_anthropic_sse_chunk(
+                        &mut anthropic,
+                        &model,
+                        &gemini,
+                        session.as_deref(),
+                        self.thoughts_allowed,
+                        &self.tool_params,
+                    );
+                    self.anthropic = Some(anthropic);
+                    let mut out = Vec::new();
+                    for event in events {
+                        out.extend_from_slice(&anthropic_sse(&event));
+                    }
+                    out
+                }
+                WireProtocol::OpenAiChat => sse_data(&gemini_to_openai_sse_chunk(
+                    &self.model,
                     &gemini,
-                    session.as_deref(),
-                    self.thoughts_allowed,
                     &self.tool_params,
-                );
-                self.anthropic = Some(anthropic);
-                let mut out = Vec::new();
-                for event in events {
-                    out.extend_from_slice(&anthropic_sse(&event));
+                ))
+                .to_vec(),
+                WireProtocol::OpenAiResponses => {
+                    let Some(encoder) = self.responses_encoder.as_mut() else {
+                        continue;
+                    };
+                    encoder.encode_gemini_chunk(&gemini)
                 }
-                if out.is_empty() {
-                    None
-                } else {
-                    Some(Bytes::from(out))
-                }
+            };
+            if mapped.is_empty() {
+                continue;
             }
-            WireProtocol::OpenAiChat => Some(sse_data(&gemini_to_openai_sse_chunk(
-                &self.model,
-                &gemini,
-                &self.tool_params,
-            ))),
-            WireProtocol::OpenAiResponses => {
-                let Some(encoder) = self.responses_encoder.as_mut() else {
-                    return None;
-                };
-                let bytes = encoder.encode_gemini_chunk(&gemini);
-                if bytes.is_empty() {
-                    None
-                } else {
-                    Some(Bytes::from(bytes))
-                }
-            }
+            return Some(Bytes::from(mapped));
         }
     }
 
     fn finish_events(&mut self) -> Bytes {
+        self.buffer.finish();
+        let mut out = Vec::new();
+        while let Some(event) = self.take_line_event() {
+            out.extend_from_slice(&event);
+        }
         match self.protocol {
             WireProtocol::OpenAiChat => {
-                let mut out = String::new();
+                let mut trailer = String::new();
                 if self.last_input > 0 || self.last_output > 0 {
                     let chunk = crate::antigravity::map::openai::openai_usage_sse_chunk(
                         &self.model,
                         self.last_input,
                         self.last_output,
                     );
-                    out.push_str(&format!("data: {chunk}\n\n"));
+                    trailer.push_str(&format!("data: {chunk}\n\n"));
                 }
-                out.push_str("data: [DONE]\n\n");
-                Bytes::from(out)
+                trailer.push_str("data: [DONE]\n\n");
+                out.extend_from_slice(trailer.as_bytes());
             }
             WireProtocol::OpenAiResponses => {
                 if let Some(encoder) = self.responses_encoder.as_mut() {
-                    Bytes::from(encoder.finish())
-                } else {
-                    Bytes::new()
+                    out.extend_from_slice(&encoder.finish());
                 }
             }
             WireProtocol::Anthropic => {
                 let mut anthropic = self.anthropic.take().unwrap_or_default();
                 let events = anthropic.finish_events(&self.model);
                 self.anthropic = Some(anthropic);
-                let mut out = Vec::new();
                 for event in events {
                     out.extend_from_slice(&anthropic_sse(&event));
                 }
-                Bytes::from(out)
             }
         }
+        Bytes::from(out)
     }
 }
 
@@ -822,5 +858,47 @@ mod tests {
             client_status_from_upstream_error("invalid upstream json"),
             StatusCode::BAD_GATEWAY
         );
+    }
+
+    #[test]
+    fn sse_line_buffer_reassembles_split_chinese_utf8() {
+        let line = "data: {\"text\":\"你好世界\"}\n";
+        let bytes = line.as_bytes();
+        let 你 = "你".len();
+        let split_at = "data: {\"text\":\"".len() + 1; // mid-character of 你
+        assert!(split_at < "data: {\"text\":\"你好".len());
+        assert!(!bytes[..split_at].is_empty());
+        assert_ne!(你, 1);
+
+        let mut buffer = SseLineBuffer::new();
+        buffer.push(&bytes[..split_at]);
+        assert!(buffer.take_line().is_none(), "incomplete line must wait");
+        buffer.push(&bytes[split_at..]);
+        let got = buffer.take_line().expect("complete line");
+        assert_eq!(got, "data: {\"text\":\"你好世界\"}");
+        assert!(!got.contains('\u{FFFD}'));
+    }
+
+    #[test]
+    fn sse_line_buffer_skips_empty_separator_and_keeps_next_frame() {
+        let mut buffer = SseLineBuffer::new();
+        buffer.push(b"data: {\"a\":1}\n\ndata: {\"b\":2}\n");
+        assert_eq!(buffer.take_line().as_deref(), Some("data: {\"a\":1}"));
+        assert_eq!(buffer.take_line().as_deref(), Some(""));
+        assert_eq!(buffer.take_line().as_deref(), Some("data: {\"b\":2}"));
+    }
+
+    #[test]
+    fn lossy_utf8_on_split_chinese_would_corrupt() {
+        let text = "你好";
+        let bytes = text.as_bytes();
+        let split = 1; // inside 你
+        let corrupted = format!(
+            "{}{}",
+            String::from_utf8_lossy(&bytes[..split]),
+            String::from_utf8_lossy(&bytes[split..])
+        );
+        assert_ne!(corrupted, text);
+        assert!(corrupted.contains('\u{FFFD}'));
     }
 }

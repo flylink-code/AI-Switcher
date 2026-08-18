@@ -11,6 +11,7 @@ import {
   Popconfirm,
   Segmented,
   Space,
+  Switch,
   Tag,
   Tooltip,
   Typography,
@@ -54,6 +55,7 @@ import {
   getCodexAuthStatus,
   getGatewayCatalogEnabled,
   getGatewayCatalogSubagent,
+  getGatewayCatalogHideOfficial,
   getPaths,
   getPiSettings,
   listGatewayCatalogModels,
@@ -61,6 +63,7 @@ import {
   quarantineFailedProviders,
   setGatewayCatalogEnabled,
   setGatewayCatalogSubagent,
+  setGatewayCatalogHideOfficial,
   startCodexOauthLogin,
   updatePiSettings,
 } from "@/services/api";
@@ -101,6 +104,10 @@ export default function ProvidersPage() {
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [subagentDraft, setSubagentDraft] = useState<string | undefined>(undefined);
 
+  useEffect(() => {
+    setSubagentDraft(undefined);
+  }, [target]);
+
   const piSettingsQuery = useQuery({
     queryKey: ["pi-settings"],
     queryFn: async () => {
@@ -127,9 +134,14 @@ export default function ProvidersPage() {
     enabled: gatewayCatalog,
   });
   const subagentQuery = useQuery({
-    queryKey: ["gateway-catalog-subagent"],
-    queryFn: getGatewayCatalogSubagent,
-    enabled: target === "claude_code" && gatewayCatalog,
+    queryKey: ["gateway-catalog-subagent", target],
+    queryFn: () => getGatewayCatalogSubagent(target),
+    enabled: gatewayCatalog,
+  });
+  const hideOfficialQuery = useQuery({
+    queryKey: ["gateway-catalog-hide-official", target],
+    queryFn: () => getGatewayCatalogHideOfficial(target),
+    enabled: gatewayCatalog,
   });
 
   const handleRunDoctor = async () => {
@@ -233,6 +245,7 @@ export default function ProvidersPage() {
       await catalogQuery.refetch();
       await catalogModelsQuery.refetch();
       await subagentQuery.refetch();
+      await hideOfficialQuery.refetch();
       await store.load(target);
       await proxyQuery.refetch();
       void message.success(
@@ -248,7 +261,7 @@ export default function ProvidersPage() {
   const handleSubagentChange = async (model: string) => {
     const next = model.trim();
     try {
-      await setGatewayCatalogSubagent(next);
+      await setGatewayCatalogSubagent(target, next);
       setSubagentDraft(undefined);
       await subagentQuery.refetch();
       void message.success(t("providers.catalogSubagentSaved"));
@@ -256,6 +269,22 @@ export default function ProvidersPage() {
       void message.error(errMsg(error));
     }
   };
+  const handleHideOfficialChange = async (enabled: boolean) => {
+    setCatalogBusy(true);
+    try {
+      await setGatewayCatalogHideOfficial(target, enabled);
+      await hideOfficialQuery.refetch();
+      await catalogModelsQuery.refetch();
+      void message.success(
+        enabled ? t("providers.catalogHideOfficialOn") : t("providers.catalogHideOfficialOff"),
+      );
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
+
   const antigravityQuery = useQuery({
     queryKey: ["antigravity-gateway"],
     queryFn: getAntigravityGatewayStatus,
@@ -518,12 +547,14 @@ export default function ProvidersPage() {
                 ]}
               />
             </Space>
-            {gatewayCatalog && target === "claude_code" && (
+            {gatewayCatalog && (
               <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Space direction="vertical" size={0}>
                   <strong>{t("providers.catalogSubagentLabel")}</strong>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.catalogSubagentHint")}
+                    {target === "codex"
+                      ? t("providers.catalogSubagentHintCodex")
+                      : t("providers.catalogSubagentHint")}
                   </Text>
                 </Space>
                 <AutoComplete
@@ -543,6 +574,21 @@ export default function ProvidersPage() {
                       void handleSubagentChange(next);
                     }
                   }}
+                />
+              </Space>
+            )}
+            {gatewayCatalog && (
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space direction="vertical" size={0}>
+                  <strong>{t("providers.catalogHideOfficialLabel")}</strong>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.catalogHideOfficialHint")}
+                  </Text>
+                </Space>
+                <Switch
+                  checked={hideOfficialQuery.data === true}
+                  disabled={catalogBusy || hideOfficialQuery.isLoading}
+                  onChange={(checked) => void handleHideOfficialChange(checked)}
                 />
               </Space>
             )}

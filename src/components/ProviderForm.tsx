@@ -765,7 +765,7 @@ export function ProviderForm({
           </Form.Item>
         )}
 
-        {isCodex && (
+        {isCodex && !gatewayCatalog && (
           <Form.Item
             name="autoReviewModelOverride"
             label={t("providers.autoReviewModelOverride")}

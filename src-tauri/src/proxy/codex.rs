@@ -26,11 +26,13 @@ use super::codex_chat::{
     ChatSseToResponsesConverter,
 };
 use super::{
-    codex_auto_review::apply_auto_review_model_override, convert, codex_compact, extract_usage_from_json,
+    codex_auto_review::{apply_auto_review_model_override, has_subagent_header}, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
-    log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider, record_provider_failure,
-    record_provider_success, select_gateway_runtime_provider, session_prompt_cache_hint,
-    should_failover_upstream_status, FAILOVER_MAX_HOPS, ProxyState,
+    log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider,
+    next_failover_provider_ex, record_provider_failure,
+    record_provider_success, select_gateway_runtime_provider_with,
+    session_prompt_cache_hint, should_failover_upstream_status_ex,
+    FAILOVER_MAX_HOPS, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -97,8 +99,13 @@ pub async fn codex_proxy_handler(
                 .map(str::to_string)
         })
         .unwrap_or_default();
-    let mut provider = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
-        match select_gateway_runtime_provider(&state, &requested_model) {
+    let catalog_mode = crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex);
+    let mut provider = if catalog_mode {
+        match select_gateway_runtime_provider_with(
+            &state,
+            &requested_model,
+            has_subagent_header(&headers),
+        ) {
             Ok(Some((selected, upstream))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
                 selected
@@ -177,11 +184,12 @@ pub async fn codex_proxy_handler(
             let mut last_error = error.to_string();
             let mut recovered = None::<reqwest::Response>;
             for _ in 0..FAILOVER_MAX_HOPS {
-                let Some(fallback) =
-                    next_failover_provider(&state, &excluded, &requested_model)
-                        .ok()
-                        .flatten()
-                else {
+                let Some(fallback) = next_codex_failover_provider(
+                    &state,
+                    &excluded,
+                    &requested_model,
+                    catalog_mode,
+                ) else {
                     break;
                 };
                 excluded.push(fallback.id.clone());
@@ -190,12 +198,18 @@ pub async fn codex_proxy_handler(
                     provider.id,
                     fallback.id
                 );
+                let failover_body = catalog_failover_body_if_needed(
+                    &state,
+                    &fallback,
+                    &original_body,
+                    catalog_mode,
+                );
                 match prepare_codex_upstream(
                     &state,
                     &fallback,
                     &route,
                     &headers,
-                    &original_body,
+                    &failover_body,
                     false,
                 ) {
                     Ok(fallback_prepared) => {
@@ -253,17 +267,18 @@ pub async fn codex_proxy_handler(
     };
 
     if is_retryable_upstream_status(&state, upstream.status())
-        && should_failover_upstream_status(&provider, upstream.status())
+        && should_failover_upstream_status_ex(&provider, upstream.status(), catalog_mode)
     {
         record_provider_failure(&state, &provider.id);
         failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
         let mut excluded = vec![provider.id.clone()];
         for _ in 0..FAILOVER_MAX_HOPS {
-            let Some(fallback) =
-                next_failover_provider(&state, &excluded, &requested_model)
-                    .ok()
-                    .flatten()
-            else {
+            let Some(fallback) = next_codex_failover_provider(
+                &state,
+                &excluded,
+                &requested_model,
+                catalog_mode,
+            ) else {
                 break;
             };
             excluded.push(fallback.id.clone());
@@ -273,12 +288,18 @@ pub async fn codex_proxy_handler(
                 upstream.status(),
                 fallback.id
             );
+            let failover_body = catalog_failover_body_if_needed(
+                &state,
+                &fallback,
+                &original_body,
+                catalog_mode,
+            );
             if let Ok(fallback_prepared) = prepare_codex_upstream(
                 &state,
                 &fallback,
                 &route,
                 &headers,
-                &original_body,
+                &failover_body,
                 false,
             ) {
                 match fallback_prepared
@@ -578,6 +599,42 @@ pub async fn codex_proxy_handler(
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
+fn next_codex_failover_provider(
+    state: &ProxyState,
+    excluded: &[String],
+    requested_model: &str,
+    catalog_mode: bool,
+) -> Option<Provider> {
+    if catalog_mode {
+        next_failover_provider_ex(state, excluded, requested_model, true)
+    } else {
+        next_failover_provider(state, excluded, requested_model)
+    }
+    .ok()
+    .flatten()
+}
+
+fn catalog_failover_body_if_needed(
+    state: &ProxyState,
+    fallback: &Provider,
+    original_body: &Bytes,
+    catalog_mode: bool,
+) -> Bytes {
+    if !catalog_mode {
+        return original_body.clone();
+    }
+    let subagent = crate::catalog::subagent_model(state.db.as_ref(), ProviderTarget::Codex);
+    let entries = super::load_gateway_catalog(state, CatalogStyle::Codex)
+        .map(|(_, entries)| entries)
+        .unwrap_or_default();
+    let upstream =
+        crate::catalog::failover_upstream_for_provider(fallback, &entries, subagent.as_deref());
+    if upstream.is_empty() {
+        return original_body.clone();
+    }
+    Bytes::from(rewrite_json_model(original_body, &upstream))
+}
+
 struct PreparedCodexUpstream {
     request: reqwest::RequestBuilder,
     request_body: Vec<u8>,
@@ -658,11 +715,17 @@ fn prepare_codex_upstream(
     };
 
     // Failover must use the *target* provider's auto-review override.
-    let body = apply_auto_review_model_override(
-        headers,
-        original_body,
-        provider.auto_review_model_override.as_deref(),
-    );
+    // Catalog mode rewrites any subagent at routing time; keep the per-provider
+    // override for independent mode only.
+    let body = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
+        Bytes::copy_from_slice(original_body)
+    } else {
+        apply_auto_review_model_override(
+            headers,
+            original_body,
+            provider.auto_review_model_override.as_deref(),
+        )
+    };
 
     let needs_history_enrich = is_anthropic_upstream
         || (is_compact

@@ -286,6 +286,12 @@ mod tests {
     }
 
     #[test]
+    fn leaves_plain_chinese_untouched() {
+        let raw = "将超时时间放宽至 500 毫秒，并在地址 0x10 后加入建立延时。";
+        assert_eq!(unwrap_gemini_latex(raw), raw);
+    }
+
+    #[test]
     fn leaves_shell_and_currency_alone() {
         assert_eq!(unwrap_gemini_latex("export $HOME"), "export $HOME");
         assert_eq!(unwrap_gemini_latex("costs $10"), "costs $10");

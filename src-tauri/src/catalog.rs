@@ -19,11 +19,30 @@ use crate::provider::{
 pub const GATEWAY_CATALOG_CODE_KEY: &str = "gateway_catalog_claude_code";
 pub const GATEWAY_CATALOG_CODEX_KEY: &str = "gateway_catalog_codex";
 pub const GATEWAY_CATALOG_CODE_SUBAGENT_KEY: &str = "gateway_catalog_claude_code_subagent";
+pub const GATEWAY_CATALOG_CODEX_SUBAGENT_KEY: &str = "gateway_catalog_codex_subagent";
+pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY: &str = "gateway_catalog_hide_official_claude_code";
+pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY: &str = "gateway_catalog_hide_official_codex";
 
 pub fn setting_key(target: ProviderTarget) -> Option<&'static str> {
     match target {
         ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_KEY),
         ProviderTarget::Codex => Some(GATEWAY_CATALOG_CODEX_KEY),
+        _ => None,
+    }
+}
+
+pub fn subagent_setting_key(target: ProviderTarget) -> Option<&'static str> {
+    match target {
+        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_SUBAGENT_KEY),
+        ProviderTarget::Codex => Some(GATEWAY_CATALOG_CODEX_SUBAGENT_KEY),
+        _ => None,
+    }
+}
+
+pub fn hide_official_setting_key(target: ProviderTarget) -> Option<&'static str> {
+    match target {
+        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY),
+        ProviderTarget::Codex => Some(GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY),
         _ => None,
     }
 }
@@ -38,6 +57,33 @@ pub fn enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> 
 pub fn enabled(db: &Database, target: ProviderTarget) -> bool {
     db.with_conn(|conn| Ok(enabled_for_conn(conn, target)))
         .unwrap_or(false)
+}
+
+pub fn hide_official_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
+    let Some(key) = hide_official_setting_key(target) else {
+        return false;
+    };
+    get_setting(conn, key).ok().flatten().as_deref() == Some("true")
+}
+
+pub fn hide_official(db: &Database, target: ProviderTarget) -> bool {
+    db.with_conn(|conn| Ok(hide_official_for_conn(conn, target)))
+        .unwrap_or(false)
+}
+
+pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    let key = subagent_setting_key(target)?;
+    get_setting(conn, key)
+        .ok()
+        .flatten()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
+    db.with_conn(|conn| Ok(subagent_for_conn(conn, target)))
+        .ok()
+        .flatten()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +136,14 @@ pub fn passes_claude_discovery(id: &str) -> bool {
 }
 
 pub fn collect_provider_slugs(provider: &Provider, cached: &[String]) -> Vec<String> {
+    collect_provider_slugs_with(provider, cached, false)
+}
+
+pub fn collect_provider_slugs_with(
+    provider: &Provider,
+    cached: &[String],
+    hide_official: bool,
+) -> Vec<String> {
     let mut ids = catalog_models_from_provider(provider);
     extend_unique(&mut ids, cached.iter().cloned());
     if uses_antigravity_catalog(provider) {
@@ -105,10 +159,23 @@ pub fn collect_provider_slugs(provider: &Provider, cached: &[String]) -> Vec<Str
                 && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
         });
     }
+    if hide_official {
+        ids.retain(|id| {
+            !is_injected_official_model_slug(id) || is_explicit_saved_model(provider, id)
+        });
+    }
     provider.filter_hidden_models(ids)
 }
 
 pub fn build_catalog(style: CatalogStyle, providers: &[(Provider, Vec<String>)]) -> Vec<CatalogEntry> {
+    build_catalog_with(style, providers, false)
+}
+
+pub fn build_catalog_with(
+    style: CatalogStyle,
+    providers: &[(Provider, Vec<String>)],
+    hide_official: bool,
+) -> Vec<CatalogEntry> {
     let mut taken = BTreeSet::new();
     let mut entries = Vec::new();
     for (provider, cached) in providers {
@@ -116,7 +183,7 @@ pub fn build_catalog(style: CatalogStyle, providers: &[(Provider, Vec<String>)])
         let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
         let web_search_enabled = !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
         let context_window = effective_model_context_window(provider);
-        for upstream in collect_provider_slugs(provider, cached) {
+        for upstream in collect_provider_slugs_with(provider, cached, hide_official) {
             let public_id = unique_public_id(style, &upstream, &slug, &mut taken);
             entries.push(CatalogEntry {
                 public_id,
@@ -207,6 +274,145 @@ pub fn rewrite_json_model(body: &[u8], upstream: &str) -> Vec<u8> {
         object.insert("model".to_string(), Value::String(upstream.to_string()));
     }
     serde_json::to_vec(&value).unwrap_or_else(|_| body.to_vec())
+}
+
+/// Built-in ChatGPT/Codex picker slugs that are not user-saved catalog models.
+pub fn is_injected_official_model_slug(id: &str) -> bool {
+    is_official_openai_builtin(catalog_model_stem(id))
+}
+
+pub fn catalog_in_entries(entries: &[CatalogEntry], requested: &str) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return false;
+    }
+    entries.iter().any(|entry| {
+        entry.public_id.eq_ignore_ascii_case(requested)
+            || entry.upstream_slug.eq_ignore_ascii_case(requested)
+    })
+}
+
+pub fn catalog_fallback_id(
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    subagent: Option<&str>,
+) -> String {
+    if let Some(sub) = subagent.map(str::trim).filter(|value| !value.is_empty()) {
+        return sub.to_string();
+    }
+    let current = providers
+        .iter()
+        .find(|provider| provider.is_current)
+        .or_else(|| providers.first());
+    let Some(current) = current else {
+        return String::new();
+    };
+    let default = current.model.trim();
+    if let Some(entry) = entries.iter().find(|entry| {
+        entry.provider_id == current.id && entry.upstream_slug.eq_ignore_ascii_case(default)
+    }) {
+        return entry.public_id.clone();
+    }
+    default.to_string()
+}
+
+/// Rewrite client-facing ids that should not hit official ChatGPT/Claude built-ins.
+pub fn normalize_client_request(
+    style: CatalogStyle,
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    requested: &str,
+    hide_official: bool,
+    subagent: Option<&str>,
+    force_subagent: bool,
+) -> String {
+    let fallback = catalog_fallback_id(entries, providers, subagent);
+    if force_subagent {
+        return fallback;
+    }
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return fallback;
+    }
+    let in_catalog = catalog_in_entries(entries, requested);
+    if hide_official && is_injected_official_model_slug(requested) && !in_catalog {
+        return fallback;
+    }
+    if hide_official
+        && style == CatalogStyle::Claude
+        && is_claude_role_request(requested)
+        && !in_catalog
+    {
+        return fallback;
+    }
+    requested.to_string()
+}
+
+/// On catalog failover, send the takeover provider's own default (or a subagent
+/// that actually belongs to that provider), never the original Gemini id.
+pub fn failover_upstream_for_provider(
+    fallback: &Provider,
+    entries: &[CatalogEntry],
+    subagent: Option<&str>,
+) -> String {
+    if let Some(sub) = subagent.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(entry) = entries.iter().find(|entry| {
+            entry.provider_id == fallback.id
+                && (entry.public_id.eq_ignore_ascii_case(sub)
+                    || entry.upstream_slug.eq_ignore_ascii_case(sub))
+        }) {
+            return entry.upstream_slug.clone();
+        }
+    }
+    let default = fallback.model.trim();
+    if !default.is_empty() {
+        return default.to_string();
+    }
+    entries
+        .iter()
+        .find(|entry| entry.provider_id == fallback.id)
+        .map(|entry| entry.upstream_slug.clone())
+        .unwrap_or_default()
+}
+
+fn is_explicit_saved_model(provider: &Provider, id: &str) -> bool {
+    let needle = id.trim();
+    if needle.is_empty() {
+        return false;
+    }
+    if provider.model.trim().eq_ignore_ascii_case(needle) {
+        return true;
+    }
+    provider
+        .failover_models
+        .iter()
+        .any(|model| model.trim().eq_ignore_ascii_case(needle))
+}
+
+fn catalog_model_stem(id: &str) -> &str {
+    let trimmed = id.trim();
+    if let Some(rest) = trimmed.strip_prefix("claude.") {
+        if let Some((_, model)) = rest.split_once('.') {
+            return model;
+        }
+    }
+    trimmed
+}
+
+fn is_official_openai_builtin(id: &str) -> bool {
+    let m = id.trim().to_ascii_lowercase();
+    m == "gpt-5.6-luna"
+        || m.starts_with("gpt-5.6-luna-")
+        || m == "gpt-5.6-sol"
+        || m.starts_with("gpt-5.6-sol-")
+        || m == "gpt-5.6-terra"
+        || m.starts_with("gpt-5.6-terra-")
+        || m == "gpt-5.5"
+        || m.starts_with("gpt-5.5-")
+        || m == "gpt-5.4"
+        || m.starts_with("gpt-5.4-")
+        || m == "gpt-5.3-codex"
+        || m.starts_with("gpt-5.3-codex-")
 }
 
 fn unique_public_id(
@@ -399,5 +605,104 @@ mod tests {
         let value: Value = serde_json::from_slice(&rewritten).unwrap();
         assert_eq!(value["model"], "kimi-k2");
         assert_eq!(value["stream"], true);
+    }
+
+    #[test]
+    fn hide_official_keeps_explicit_default_and_drops_suggested_slugs() {
+        let mut relay = provider("p1", "sub2api", "gpt-5.4-mini");
+        relay.failover_models = vec!["kimi-k2".into()];
+        let cached = vec!["gpt-5.6-luna".into(), "gpt-5.4-mini".into(), "kimi-k2".into()];
+        let visible = collect_provider_slugs_with(&relay, &cached, true);
+        assert!(visible.iter().any(|id| id == "gpt-5.4-mini"));
+        assert!(visible.iter().any(|id| id == "kimi-k2"));
+        assert!(!visible.iter().any(|id| id == "gpt-5.6-luna"));
+        let injected = collect_provider_slugs_with(&relay, &cached, false);
+        assert!(injected.iter().any(|id| id == "gpt-5.6-luna"));
+    }
+
+    #[test]
+    fn normalize_rewrites_official_slug_to_catalog_subagent() {
+        let mut ag = provider("ag", "Antigravity", "gemini-3.7-flash-high");
+        ag.is_current = true;
+        let relay = provider("p2", "sub2api", "gpt-5.4-mini");
+        let providers = vec![ag.clone(), relay.clone()];
+        let catalog = build_catalog_with(
+            CatalogStyle::Codex,
+            &[(ag, vec![]), (relay, vec![])],
+            true,
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Codex,
+                &catalog,
+                &providers,
+                "gpt-5.6-luna",
+                true,
+                Some("gpt-5.4-mini"),
+                false,
+            ),
+            "gpt-5.4-mini"
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Codex,
+                &catalog,
+                &providers,
+                "gemini-3.7-flash-high",
+                true,
+                Some("gpt-5.4-mini"),
+                false,
+            ),
+            "gemini-3.7-flash-high"
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Codex,
+                &catalog,
+                &providers,
+                "gpt-5.6-luna",
+                true,
+                Some("gpt-5.4-mini"),
+                true,
+            ),
+            "gpt-5.4-mini"
+        );
+    }
+
+    #[test]
+    fn hide_official_maps_claude_role_ids_to_subagent() {
+        let kimi = provider("p1", "Kimi", "kimi-k2");
+        let providers = vec![kimi.clone()];
+        let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]);
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                CLAUDE_HAIKU_ROLE_ID,
+                true,
+                Some("claude.kimi.kimi-k2"),
+                false,
+            ),
+            "claude.kimi.kimi-k2"
+        );
+    }
+
+    #[test]
+    fn catalog_failover_uses_takeover_default_not_gemini() {
+        let ag = provider("ag", "Antigravity", "gemini-3.7-flash-high");
+        let relay = provider("p2", "sub2api", "gpt-5.4-mini");
+        let catalog = build_catalog(
+            CatalogStyle::Codex,
+            &[(ag, vec![]), (relay.clone(), vec![])],
+        );
+        assert_eq!(
+            failover_upstream_for_provider(&relay, &catalog, Some("gemini-3.7-flash-high")),
+            "gpt-5.4-mini"
+        );
+        assert_eq!(
+            failover_upstream_for_provider(&relay, &catalog, Some("gpt-5.4-mini")),
+            "gpt-5.4-mini"
+        );
     }
 }

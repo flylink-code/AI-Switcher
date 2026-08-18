@@ -226,7 +226,8 @@ pub async fn repair_doctor_check(
                 if pairs.is_empty() {
                     return Err(AppError::Config("没有 Codex 供应商，无法重建 model catalog".into()));
                 }
-                crate::catalog::build_catalog(crate::catalog::CatalogStyle::Codex, &pairs)
+                let hide_official = crate::catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
+                crate::catalog::build_catalog_with(crate::catalog::CatalogStyle::Codex, &pairs, hide_official)
             } else {
                 let provider = state
                     .db
