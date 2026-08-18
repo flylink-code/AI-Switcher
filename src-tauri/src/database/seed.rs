@@ -12,7 +12,7 @@ use crate::error::AppResult;
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
 /// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
-const CATALOG_VERSION: &str = "2026-08-07-ag2";
+const CATALOG_VERSION: &str = "2026-08-18-ag3";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -49,8 +49,9 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "Anthropic", model: "claude-sonnet-5", input: 2.0, cache_read: 0.2, cache_write: 2.5, output: 10.0, batch_input: 1.0, batch_output: 5.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Anthropic", model: "claude-haiku-4.5", input: 1.0, cache_read: 0.1, cache_write: 1.25, output: 5.0, batch_input: 0.5, batch_output: 2.5, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.1-pro", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
-    DefaultPricing { provider: "Google", model: "gemini-3.5-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 9.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.7-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.6-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Google", model: "gemini-3.5-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 9.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.5-flash-lite", input: 0.3, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-2.5-flash-lite", input: 0.1, cache_read: 0.0, cache_write: 0.0, output: 0.4, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "DeepSeek", model: "deepseek-v4-pro", input: 3.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
@@ -75,6 +76,11 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "Antigravity", model: "claude-sonnet-4-6", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Antigravity", model: "claude-sonnet-4-6-thinking", input: 3.0, cache_read: 0.3, cache_write: 3.75, output: 15.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
     DefaultPricing { provider: "Antigravity", model: "claude-opus-4-6-thinking", input: 5.0, cache_read: 0.5, cache_write: 6.25, output: 25.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://platform.claude.com/docs/en/about-claude/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.7-flash-high", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.7-flash-medium", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.7-flash-low", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.6-flash-high", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "Antigravity", model: "gemini-3.6-flash-low", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 7.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Antigravity", model: "gemini-3-flash", input: 0.5, cache_read: 0.0, cache_write: 0.0, output: 3.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Antigravity", model: "gemini-3-flash-agent", input: 0.5, cache_read: 0.0, cache_write: 0.0, output: 3.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Antigravity", model: "gemini-3-pro-high", input: 2.0, cache_read: 0.0, cache_write: 0.0, output: 12.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
