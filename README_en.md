@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.15**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.16**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -82,7 +82,8 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) that wraps Googl
 - **Usage passthrough**: parse Gemini `usageMetadata` (including thought tokens) and return real input/output on Anthropic / OpenAI Chat / Responses stream trailers
 - **Streaming Chinese**: decode UTF-8 only after a complete SSE line, so a Chinese character split across TCP chunks is not replaced with U+FFFD
 - **KaTeX unwrap**: Gemini visible text and Write/Edit file payloads turn `$\\le 50\\text{g}$` into `≤ 50g`; Edit match strings and Grep patterns stay unchanged
-- **Model catalog**: Gemini **3.6 and 3.7 coexist** (Cloud Code ids are `-high` / `-medium` / `-low`); a 429 on 3.7-high degrades to medium/low on the same account before rotating
+- **Claude Code subagents**: Explore / Haiku use the catalog subagent slot instead of the current `/model` default; `thinking: disabled` does not rewrite an explicit Gemini suffix or sticky `-low` onto the parent session
+- **Model catalog**: Gemini **3.6 and 3.7 coexist** (Cloud Code ids are `-high` / `-medium` / `-low`); a same-account 429 walks the level chain (including `3.6-flash-low` → `3.7-flash-*`). When quota bars still have remaining, try one more account with a short cooldown instead of parking the whole pool
 - **One-click bind**: ensure providers on the Accounts & quota page, then switch from each tool’s provider list
 - **Usage**: gateway requests land in `proxy_request_logs` (`target_app=antigravity`)
 - **Note**: personal-use gateway — review account and upstream terms yourself; do not use it as a commercial relay

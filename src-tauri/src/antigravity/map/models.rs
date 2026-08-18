@@ -6,7 +6,8 @@ use crate::antigravity::model_catalog;
 
 pub fn map_model_id(requested: &str) -> String {
     let lower = requested.trim().to_ascii_lowercase();
-    let mapped = match lower.as_str() {
+    let lower = strip_claude_catalog_alias(&lower);
+    let mapped = match lower {
         "" => model_catalog::preferred_default_model(),
         "claude-sonnet-4-5"
         | "claude-sonnet-4-5-20250929"
@@ -22,8 +23,7 @@ pub fn map_model_id(requested: &str) -> String {
         "claude-haiku-4"
         | "claude-haiku-4-5"
         | "claude-3-haiku-20240307"
-        | "claude-haiku-4-5-20251001" => model_catalog::preferred_gemini_flash()
-            .unwrap_or_else(|| "gemini-3.7-flash-high".into()),
+        | "claude-haiku-4-5-20251001" => model_catalog::preferred_gemini_flash_low(),
         "gemini-flash"
         | "gemini-2.5-flash"
         | "gemini-3-flash"
@@ -50,6 +50,15 @@ pub fn map_model_id(requested: &str) -> String {
     // Explicit level suffixes pass through; bare Gemini names compose to a
     // catalog variant (high → medium → low fallback) here.
     model_catalog::with_reasoning_level(&mapped)
+}
+
+/// Unified catalog ids look like `claude.antigravity--built-in.gemini-3.6-flash-low`.
+/// Independent / direct gateway calls may send that public id unchanged.
+fn strip_claude_catalog_alias(id: &str) -> &str {
+    let Some(rest) = id.strip_prefix("claude.") else {
+        return id;
+    };
+    rest.split_once('.').map(|(_, model)| model).unwrap_or(rest)
 }
 
 /// Map an Anthropic effort value (GA `output_config.effort` or the beta
@@ -93,6 +102,15 @@ mod tests {
         assert_eq!(map_model_id("gemini-3.6-flash"), "gemini-3.6-flash-high");
         assert_eq!(map_model_id("gemini-3.6-flash-low"), "gemini-3.6-flash-low");
         assert_eq!(map_model_id("gemini-3.7-flash"), "gemini-3.7-flash-high");
+        let haiku = map_model_id("claude-haiku-4-5");
+        assert!(
+            haiku.ends_with("-low"),
+            "Haiku/subagent traffic must use flash-low, got {haiku}"
+        );
+        assert_eq!(
+            map_model_id("claude.antigravity--built-in.gemini-3.6-flash-low"),
+            "gemini-3.6-flash-low"
+        );
     }
 
     #[test]

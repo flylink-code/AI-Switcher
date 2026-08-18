@@ -63,8 +63,15 @@ pub fn anthropic_to_gemini_request(
             model = model_catalog::with_forced_level(&model, level);
             remember_effort = Some(level);
         } else if thinking_kind.as_deref() == Some("disabled") {
-            model = model_catalog::with_forced_level(&model, "low");
-            remember_effort = Some("low");
+            // Claude Code Explore / Haiku / classifiers send thinking=disabled.
+            // Only compose `-low` onto a *bare* Gemini id. An explicit suffix
+            // (catalog default or CLAUDE_CODE_SUBAGENT_MODEL) must stay put.
+            // Never sticky this onto the parent session — Code reuses the same
+            // x-claude-session-id for the main agent, which would pin later
+            // `gemini-3.6-flash` turns to `-low`.
+            if requested_explicit.is_none() {
+                model = model_catalog::with_forced_level(&model, "low");
+            }
         } else if let Some(level) = requested_explicit {
             // Client already picked a suffixed id — pass through (map_model_id
             // kept it) and remember for bare follow-up turns in the session.
@@ -1703,8 +1710,24 @@ mod tests {
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(parts.model.starts_with("gemini-"));
-        assert_eq!(parts.remember_effort, Some("low"));
+        assert_eq!(
+            parts.remember_effort, None,
+            "classifier/subagent must not sticky -low onto the parent session"
+        );
         assert!(parts.request.get("thinking").is_none());
+    }
+
+    #[test]
+    fn thinking_disabled_keeps_explicit_suffix_and_does_not_sticky() {
+        let body = json!({
+            "model": "gemini-3.6-flash-high",
+            "max_tokens": 128,
+            "thinking": { "type": "disabled" },
+            "messages": [{"role": "user", "content": "explore"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, Some("low"), None).unwrap();
+        assert_eq!(parts.model, "gemini-3.6-flash-high");
+        assert_eq!(parts.remember_effort, None);
     }
 
     #[test]

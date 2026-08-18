@@ -136,6 +136,7 @@ pub async fn ensure_antigravity_provider(
         .unwrap_or_else(crate::antigravity::model_catalog::preferred_default_model);
     let gemini_flash = crate::antigravity::model_catalog::preferred_gemini_flash()
         .unwrap_or_else(|| "gemini-3.7-flash-high".into());
+    let gemini_flash_low = crate::antigravity::model_catalog::preferred_gemini_flash_low();
     let gemini_pro = crate::antigravity::model_catalog::preferred_gemini_pro()
         .unwrap_or_else(|| gemini_flash.clone());
     let claude_opus = crate::antigravity::model_catalog::preferred_claude_opus()
@@ -171,10 +172,10 @@ pub async fn ensure_antigravity_provider(
             ClaudeModelMapping {
                 sonnet: default_model.clone(),
                 opus: claude_opus.clone(),
-                haiku: gemini_flash.clone(),
+                haiku: gemini_flash_low.clone(),
                 fable: default_model.clone(),
                 subagent: if target == ProviderTarget::ClaudeCode {
-                    gemini_flash.clone()
+                    gemini_flash_low.clone()
                 } else {
                     String::new()
                 },
@@ -215,7 +216,7 @@ pub async fn ensure_antigravity_provider(
             "Pi custom provider → Antigravity gateway (anthropic-messages; baseUrl is gateway root, SDK appends /v1/messages; no Claude role mapping)".to_string()
         } else {
             format!(
-                "Built-in Antigravity gateway (live catalog; Haiku→{gemini_flash}, Pro hint→{gemini_pro})"
+                "Built-in Antigravity gateway (live catalog; Haiku/subagent→{gemini_flash_low}, Pro hint→{gemini_pro})"
             )
         },
         failover_group: 0,
@@ -269,6 +270,7 @@ pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
         "models": crate::antigravity::list_catalog_models(),
         "defaultModel": crate::antigravity::model_catalog::preferred_default_model(),
         "geminiFlash": crate::antigravity::model_catalog::preferred_gemini_flash(),
+        "geminiFlashLow": crate::antigravity::model_catalog::preferred_gemini_flash_low(),
         "geminiPro": crate::antigravity::model_catalog::preferred_gemini_pro(),
     }))
 }

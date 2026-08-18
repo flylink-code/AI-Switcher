@@ -245,13 +245,17 @@ export function mappingFromAntigravityPreset(
 ): ClaudeModelMapping {
   const sonnet = defaultModel.trim() || "claude-sonnet-4-6";
   const flash = options?.geminiFlash?.trim() || "gemini-3.7-flash";
+  const flashLow =
+    flash.endsWith("-low") || flash.endsWith("-medium") || flash.endsWith("-high")
+      ? flash.replace(/-(?:high|medium)$/, "-low")
+      : `${flash}-low`;
   const opus = options?.opus?.trim() || "claude-opus-4-6-thinking";
   return {
     sonnet,
     opus,
-    haiku: flash,
+    haiku: flashLow,
     fable: sonnet,
-    subagent: target === "claude_code" ? flash : "",
+    subagent: target === "claude_code" ? flashLow : "",
   };
 }
 

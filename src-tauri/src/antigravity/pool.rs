@@ -13,6 +13,12 @@ use crate::error::{AppError, AppResult};
 const DEFAULT_COOLDOWN_SECS: i64 = 20;
 const RATE_LIMIT_COOLDOWN_SECS: i64 = 45;
 const AUTH_COOLDOWN_SECS: i64 = 180;
+/// Cloud Code sometimes sends a huge Retry-After (hourly/daily reset). Capping
+/// keeps a global RESOURCE_EXHAUSTED from parking every account for hours.
+const MAX_RATE_LIMIT_COOLDOWN_SECS: i64 = 120;
+/// SKU/RPM 429 while 5h/7d bars still have remaining. Short so another account
+/// can pick up the same request without parking the first number for 45s+.
+const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -465,6 +471,30 @@ fn sort_candidates_best_first(candidates: &mut [AntigravityAccount]) {
     candidates.sort_by(|left, right| compare_candidates(left, right));
 }
 
+/// 429 with remaining quota is a Cloud Code SKU/RPM limit — do not walk the
+/// rest of the pool. The gateway may still try one extra account (short cooldown).
+/// Only treat the snapshot as "rotate freely" when this account is empty.
+pub(crate) fn should_rotate_pool_on_429(account: &AntigravityAccount) -> bool {
+    account
+        .quota
+        .as_ref()
+        .is_some_and(|quota| !quota.has_usable_quota())
+}
+
+pub(crate) fn rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
+    match retry_after {
+        Some(secs) => (secs as i64).clamp(1, MAX_RATE_LIMIT_COOLDOWN_SECS),
+        None => RATE_LIMIT_COOLDOWN_SECS,
+    }
+}
+
+pub(crate) fn sku_rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
+    match retry_after {
+        Some(secs) => (secs as i64).clamp(1, SKU_RATE_LIMIT_COOLDOWN_SECS),
+        None => SKU_RATE_LIMIT_COOLDOWN_SECS,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -571,5 +601,26 @@ mod tests {
         low_quota.remaining_quota = Some(10);
 
         assert!(candidate_scheduling_score(&healthy_high_quota) > candidate_scheduling_score(&low_quota));
+    }
+
+    #[test]
+    fn rate_limit_429_does_not_rotate_when_quota_remains() {
+        let ready = sample("a1", None);
+        assert!(!should_rotate_pool_on_429(&ready));
+
+        let mut exhausted = sample("a2", None);
+        exhausted.quota = Some(QuotaSnapshot::empty_forbidden("5h empty"));
+        exhausted.remaining_quota = Some(0);
+        assert!(should_rotate_pool_on_429(&exhausted));
+    }
+
+    #[test]
+    fn rate_limit_cooldown_caps_huge_retry_after() {
+        assert_eq!(rate_limit_cooldown_secs(None), 45);
+        assert_eq!(rate_limit_cooldown_secs(Some(2)), 2);
+        assert_eq!(rate_limit_cooldown_secs(Some(3600)), 120);
+        assert_eq!(sku_rate_limit_cooldown_secs(None), 15);
+        assert_eq!(sku_rate_limit_cooldown_secs(Some(2)), 2);
+        assert_eq!(sku_rate_limit_cooldown_secs(Some(3600)), 15);
     }
 }

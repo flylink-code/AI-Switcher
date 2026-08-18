@@ -34,6 +34,9 @@ use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
 
 const MAX_FAILOVER_HOPS: usize = 3;
+/// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
+/// plus one other; do not walk the rest of the pool (that cools every number).
+const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
@@ -211,15 +214,25 @@ async fn dispatch_generation(
     let mut exclude: Vec<String> = Vec::new();
     let mut exclude_labels: Vec<String> = Vec::new();
     let mut last_error = String::from("upstream failed");
+    let mut last_fail_status: u16 = 0;
+    let mut last_attempted_model = model.clone();
 
     for hop in 0..MAX_FAILOVER_HOPS {
         let selected = if hop == 0 {
             state.pool.select_async(None, session_key.as_deref()).await
         } else {
             let failed = exclude.last().cloned().unwrap_or_default();
+            if failed.is_empty() {
+                break;
+            }
+            let status = if last_fail_status == 0 {
+                500
+            } else {
+                last_fail_status
+            };
             state
                 .pool
-                .rotate_after_failure_async(&failed, 429, session_key.as_deref(), &exclude)
+                .rotate_after_failure_async(&failed, status, session_key.as_deref(), &exclude)
                 .await
         };
         let (access_token, account) = match selected {
@@ -238,7 +251,7 @@ async fn dispatch_generation(
         exclude.push(account.id.clone());
         let account_email = if account.email.trim().is_empty() { account.id.clone() } else { account.email.clone() };
         log::info!("Antigravity hop={hop} account={account_email}");
-        exclude_labels.push(account_email);
+        exclude_labels.push(account_email.clone());
 
         let project_id = match ensure_project_id(
             state,
@@ -251,18 +264,20 @@ async fn dispatch_generation(
             Ok(value) => value,
             Err(error) => {
                 last_error = error;
+                last_fail_status = 500;
                 let _ = account_store().mark_cooldown(&account.id, 45, &last_error);
                 continue;
             }
         };
 
-        let mut current_model = String::new();
+        let mut current_model;
         let mut model_idx = 0usize;
         let upstream = 'levels: loop {
             current_model = model_chain
                 .get(model_idx)
                 .cloned()
                 .unwrap_or_else(|| model.clone());
+            last_attempted_model = current_model.clone();
             let wrapped = wrap_v1internal(&project_id, &current_model, request.clone());
             // 500/502/504 are usually transient blips: retry the same account with
             // a short backoff before burning a rotation (503/529 already got
@@ -296,6 +311,7 @@ async fn dispatch_generation(
                 Ok(response) => response,
                 Err(error) => {
                     last_error = error.to_string();
+                    last_fail_status = 502;
                     let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
                     break 'levels Err(());
                 }
@@ -331,26 +347,45 @@ async fn dispatch_generation(
                 let clipped: String = detail.chars().take(240).collect();
                 format!("upstream {status}: {clipped}")
             };
-            let _ = state
-                .pool
-                .rotate_after_failure_async(
-                    &account.id,
-                    status.as_u16(),
-                    session_key.as_deref(),
-                    &exclude,
-                )
-                .await;
-            // Honor the upstream Retry-After as the cooldown window for 429.
+            last_fail_status = status.as_u16();
             if status.as_u16() == 429 {
-                if let Some(seconds) = retry_after {
-                    let _ = account_store().adjust_cooldown_secs(&account.id, seconds as i64);
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
+                let cooldown = if rotate_pool {
+                    crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
+                } else {
+                    crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
+                };
+                let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                if rotate_pool {
+                    log::warn!(
+                        "Antigravity 429 on {} with empty quota snapshot; rotating",
+                        account_email
+                    );
+                } else if hop + 1 >= MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS {
+                    // Same-account model fallback already ran. One extra account
+                    // covers SKU capacity on another number; more hops cool the pool.
+                    log::warn!(
+                        "Antigravity 429 RESOURCE_EXHAUSTED on {} ({last_attempted_model}) with remaining quota; not walking the rest of the pool",
+                        account_email
+                    );
+                    break;
+                } else {
+                    log::warn!(
+                        "Antigravity 429 RESOURCE_EXHAUSTED on {} ({last_attempted_model}) with remaining quota; trying one more account",
+                        account_email
+                    );
                 }
+            } else if status.as_u16() == 403 {
+                let _ = account_store().mark_forbidden_403(&account.id, &last_error);
+            } else {
+                let _ = account_store().mark_cooldown(&account.id, 180, &last_error);
             }
             continue;
         }
         if !status.is_success() {
             let text = upstream.text().await.unwrap_or_default();
             last_error = format!("upstream {status}: {text}");
+            last_fail_status = status.as_u16();
             let _ = account_store().mark_cooldown(&account.id, 15, &last_error);
             continue;
         }
@@ -421,7 +456,7 @@ async fn dispatch_generation(
     let _ = usage_log::insert_request(
         &state.db,
         exclude_labels.last().map(String::as_str),
-        &model,
+        &last_attempted_model,
         Some(status.as_u16() as i64),
         started,
         protocol,

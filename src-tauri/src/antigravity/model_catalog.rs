@@ -155,11 +155,13 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
             out.push(candidate);
         }
     }
-    // Cloud Code 3.6 flash only publishes `-high` (no medium/low). A lone 429
-    // would otherwise hammer the same id; fall through to 3.7 flash levels on
-    // the same account. Always include 3.7-high (FALLBACK_IDS / production
-    // default); medium/low only when the live catalog lists them.
-    if out.len() == 1 && lower.starts_with("gemini-3.6") {
+    // 3.6-flash catalog often lists only `-high`, but Cloud Code still serves
+    // `-low` (and 3.7 flash). A lone 429 on 3.6-high must not hammer that id.
+    if lower.starts_with("gemini-3.6") {
+        let low_36 = "gemini-3.6-flash-low";
+        if !out.iter().any(|item| item.eq_ignore_ascii_case(low_36)) {
+            out.push(low_36.to_string());
+        }
         for level in LEVEL_SUFFIXES {
             let candidate = format!("gemini-3.7-flash-{level}");
             let known_high = candidate.eq_ignore_ascii_case("gemini-3.7-flash-high");
@@ -472,6 +474,45 @@ pub fn preferred_gemini_flash() -> Option<String> {
         .cloned()
 }
 
+/// Light Gemini Flash for Haiku / subagents. Prefer `-low` so Claude Code
+/// Explore/compact and Codex `x-openai-subagent` do not stampede `*-high`.
+/// Cloud Code does serve `gemini-3.6-flash-low`; keep it first when listed.
+pub fn preferred_gemini_flash_low() -> String {
+    let ids = list_model_ids();
+    let is_flash_low = |id: &&String| {
+        id.starts_with("gemini-") && id.contains("flash") && id.ends_with("-low") && !id.contains("image")
+    };
+    ids.iter()
+        .find(|id| id.as_str() == "gemini-3.6-flash-low")
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.7-flash-low"))
+        .or_else(|| ids.iter().find(is_flash_low))
+        .cloned()
+        .unwrap_or_else(|| "gemini-3.6-flash-low".into())
+}
+
+/// Expose medium/low siblings for each Gemini flash `-high` so catalog routing
+/// can send Haiku/subagent traffic to `-low` even when Cloud Code's model list
+/// only advertised `-high`.
+pub fn extend_flash_level_variants(ids: &mut Vec<String>) {
+    let snapshot = ids.clone();
+    for id in snapshot {
+        let lower = id.to_ascii_lowercase();
+        if !lower.starts_with("gemini-") || !lower.contains("flash") || lower.contains("image") {
+            continue;
+        }
+        let (base, _) = split_level_suffix(&lower);
+        if !base.contains("flash") {
+            continue;
+        }
+        for level in LEVEL_SUFFIXES {
+            let candidate = format!("{base}-{level}");
+            if !ids.iter().any(|existing| existing.eq_ignore_ascii_case(&candidate)) {
+                ids.push(candidate);
+            }
+        }
+    }
+}
+
 pub fn preferred_claude_opus() -> Option<String> {
     let ids = list_model_ids();
     ids.iter()
@@ -614,6 +655,11 @@ mod tests {
             preferred_gemini_flash().as_deref(),
             Some("gemini-3.7-flash-high")
         );
+        assert!(
+            preferred_gemini_flash_low().ends_with("-low"),
+            "subagent flash must be a -low variant, got {}",
+            preferred_gemini_flash_low()
+        );
     }
 
     #[test]
@@ -647,10 +693,23 @@ mod tests {
             Some("gemini-3.6-flash-high")
         );
         assert!(
+            chain_36.iter().any(|id| id == "gemini-3.6-flash-low"),
+            "3.6-high 429 should try 3.6-low before leaving the family: {chain_36:?}"
+        );
+        assert!(
             chain_36.iter().any(|id| id == "gemini-3.7-flash-high"),
-            "3.6 has no medium/low; 429 must fall through to 3.7 flash: {chain_36:?}"
+            "3.6-high 429 should still fall through to 3.7 flash: {chain_36:?}"
         );
         assert!(chain_36.len() >= 2);
+        let chain_36_low = gemini_level_fallback_chain("gemini-3.6-flash-low");
+        assert_eq!(
+            chain_36_low.first().map(String::as_str),
+            Some("gemini-3.6-flash-low")
+        );
+        assert!(
+            chain_36_low.iter().any(|id| id == "gemini-3.7-flash-high"),
+            "3.6-low RESOURCE_EXHAUSTED must fall through to 3.7-high: {chain_36_low:?}"
+        );
     }
 
     #[test]

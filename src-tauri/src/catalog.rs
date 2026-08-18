@@ -152,6 +152,7 @@ pub fn collect_provider_slugs_with(
             &mut ids,
             crate::antigravity::model_catalog::provider_suggestion_ids(24),
         );
+        crate::antigravity::model_catalog::extend_flash_level_variants(&mut ids);
         ids.retain(|id| {
             let trimmed = id.trim();
             crate::antigravity::model_catalog::is_agent_facing_model(trimmed)
@@ -316,6 +317,43 @@ pub fn catalog_fallback_id(
     default.to_string()
 }
 
+/// Codex/Claude Code subagents must not inherit the current default (`*-high`).
+/// Empty catalog-subagent setting → lightest flash-low already in the catalog.
+fn catalog_subagent_target(
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    subagent: Option<&str>,
+) -> String {
+    if let Some(sub) = subagent.map(str::trim).filter(|value| !value.is_empty()) {
+        return sub.to_string();
+    }
+    if let Some(id) = light_flash_catalog_id(entries) {
+        return id;
+    }
+    catalog_fallback_id(entries, providers, None)
+}
+
+fn light_flash_catalog_id(entries: &[CatalogEntry]) -> Option<String> {
+    let rank = |slug: &str| -> u8 {
+        let lower = slug.to_ascii_lowercase();
+        if !(lower.contains("flash") && lower.ends_with("-low")) {
+            return 99;
+        }
+        if lower.contains("gemini-3.6") {
+            0
+        } else if lower.contains("gemini-3.7") {
+            1
+        } else {
+            2
+        }
+    };
+    entries
+        .iter()
+        .filter(|entry| rank(&entry.upstream_slug) < 99)
+        .min_by_key(|entry| rank(&entry.upstream_slug))
+        .map(|entry| entry.public_id.clone())
+}
+
 /// Rewrite client-facing ids that should not hit official ChatGPT/Claude built-ins.
 pub fn normalize_client_request(
     style: CatalogStyle,
@@ -328,13 +366,22 @@ pub fn normalize_client_request(
 ) -> String {
     let fallback = catalog_fallback_id(entries, providers, subagent);
     if force_subagent {
-        return fallback;
+        return catalog_subagent_target(entries, providers, subagent);
     }
     let requested = requested.trim();
     if requested.is_empty() {
         return fallback;
     }
     let in_catalog = catalog_in_entries(entries, requested);
+    let lower = requested.to_ascii_lowercase();
+    let haiku_or_subagent = lower.contains("haiku") || lower.contains("subagent");
+    // Claude Code Explore / compact / Task agents send the stable Haiku role
+    // id. That must hit the catalog subagent slot even when "hide official"
+    // is off — otherwise resolve_request treats it as a role and inherits the
+    // current /model default (same SKU as the main session).
+    if style == CatalogStyle::Claude && haiku_or_subagent && !in_catalog {
+        return catalog_subagent_target(entries, providers, subagent);
+    }
     if hide_official && is_injected_official_model_slug(requested) && !in_catalog {
         return fallback;
     }
@@ -587,6 +634,30 @@ mod tests {
     }
 
     #[test]
+    fn claude_catalog_antigravity_gemini_public_id_rewrites_to_upstream() {
+        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.6-flash-low");
+        ag.provider_kind = ProviderKind::Antigravity;
+        ag.protocol_type = ProtocolType::Anthropic;
+        let providers = vec![ag.clone()];
+        let catalog = build_catalog(
+            CatalogStyle::Claude,
+            &[(ag, vec!["gemini-3.6-flash-low".into()])],
+        );
+        let public = catalog
+            .iter()
+            .find(|entry| entry.upstream_slug == "gemini-3.6-flash-low")
+            .expect("catalog keeps an explicitly saved 3.6-flash-low default");
+        assert_eq!(
+            public.public_id,
+            "claude.antigravity--built-in.gemini-3.6-flash-low"
+        );
+        assert_eq!(
+            resolve_request(&catalog, &providers, &public.public_id),
+            Some(("ag".into(), "gemini-3.6-flash-low".into()))
+        );
+    }
+
+    #[test]
     fn collect_provider_slugs_omits_hidden_but_keeps_default() {
         let mut kimi = provider("p1", "Kimi", "kimi-k2");
         kimi.failover_models = vec!["kimi-hidden".into(), "kimi-ok".into()];
@@ -670,6 +741,35 @@ mod tests {
     }
 
     #[test]
+    fn catalog_subagent_without_setting_uses_flash_low() {
+        let mut ag = provider("ag", "Antigravity", "gemini-3.7-flash-high");
+        ag.provider_kind = ProviderKind::Antigravity;
+        ag.base_url = "http://127.0.0.1:15830".into();
+        ag.is_current = true;
+        let catalog = build_catalog_with(CatalogStyle::Codex, &[(ag.clone(), vec![])], false);
+        assert!(
+            catalog
+                .iter()
+                .any(|entry| entry.upstream_slug.ends_with("flash-low")),
+            "AG catalog must list flash-low for subagent routing: {:?}",
+            catalog.iter().map(|e| &e.upstream_slug).collect::<Vec<_>>()
+        );
+        let routed = normalize_client_request(
+            CatalogStyle::Codex,
+            &catalog,
+            &[ag],
+            "gpt-5.6-codex",
+            false,
+            None,
+            true,
+        );
+        assert!(
+            routed.to_ascii_lowercase().contains("flash-low"),
+            "empty catalog subagent must not inherit flash-high, got {routed}"
+        );
+    }
+
+    #[test]
     fn hide_official_maps_claude_role_ids_to_subagent() {
         let kimi = provider("p1", "Kimi", "kimi-k2");
         let providers = vec![kimi.clone()];
@@ -685,6 +785,37 @@ mod tests {
                 false,
             ),
             "claude.kimi.kimi-k2"
+        );
+    }
+
+    #[test]
+    fn catalog_haiku_uses_subagent_when_official_models_are_visible() {
+        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.6-flash-high");
+        ag.provider_kind = ProviderKind::Antigravity;
+        let providers = vec![ag.clone()];
+        let catalog = build_catalog(
+            CatalogStyle::Claude,
+            &[(
+                ag,
+                vec![
+                    "gemini-3.6-flash-high".into(),
+                    "gemini-3.6-flash-low".into(),
+                ],
+            )],
+        );
+        let routed = normalize_client_request(
+            CatalogStyle::Claude,
+            &catalog,
+            &providers,
+            CLAUDE_HAIKU_ROLE_ID,
+            false,
+            Some("claude.antigravity--built-in.gemini-3.6-flash-low"),
+            false,
+        );
+        assert_eq!(
+            routed,
+            "claude.antigravity--built-in.gemini-3.6-flash-low",
+            "Haiku/Explore must use the catalog subagent, not the current default high"
         );
     }
 

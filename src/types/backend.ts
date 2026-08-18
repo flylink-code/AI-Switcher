@@ -1182,6 +1182,7 @@ export interface AntigravityDefaults {
   models?: AntigravityCatalogModel[];
   defaultModel?: string;
   geminiFlash?: string | null;
+  geminiFlashLow?: string | null;
   geminiPro?: string | null;
 }
 
