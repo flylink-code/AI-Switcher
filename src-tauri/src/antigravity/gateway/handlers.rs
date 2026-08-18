@@ -326,6 +326,7 @@ async fn dispatch_generation(
                 log::warn!(
                     "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
                 );
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
                 model_idx += 1;
                 continue 'levels;
             }

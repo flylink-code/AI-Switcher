@@ -54,7 +54,7 @@
 ### 供应商与切换
 
 - 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现。刷新模型时若 `/v1/models` 返回 404（例如 DeepSeek Anthropic 兼容地址），会回退到宿主根 `GET /models`
-- **Claude Code / Codex 路由模式**（默认独立供应商）：开关在对应 Agent 下一级。可切 **统一模型目录**，保存后全部可见模型经本地代理合并，CLI `/model` 选用；目录模式不写 Custom `*_NAME`，角色 id 保持稳定。Code / Codex 可分别指定目录级子代理，并可 **隐藏官方内置模型**（luna/sol/terra、gpt-5.4* 等建议不进目录；客户端仍请求时改写成子代理或当前默认）。Codex 目录下 AG/上游 429 会切到下一供应商并改写模型，不再拿 Gemini id 去问 OpenAI 中转。供应商可隐藏不进 `/model` 的型号（默认模型不可藏）。Codex 目录下 Chat 中转会把 `/v1/responses` 转成 `/v1/chat/completions`。OpenCode / Pi / DeepSeek Harness 仍为原生多供应商并存
+- **Claude Code / Codex 路由模式**（默认独立供应商）：开关在对应 Agent 下一级。可切 **统一模型目录**，保存后全部可见模型经本地代理合并，CLI `/model` 选用；目录模式不写 Custom `*_NAME`，角色 id 保持稳定。Code / Codex 可分别指定目录级子代理（Code 写入 `CLAUDE_CODE_SUBAGENT_MODEL`，Codex 代理改写 `x-openai-subagent`），并可 **隐藏官方内置模型**（luna/sol/terra、gpt-5.4* 等建议不进目录；客户端仍请求时改写成子代理或当前默认）。Codex 目录下 AG/上游 429 会切到下一供应商并改写模型，不再拿 Gemini id 去问 OpenAI 中转。供应商可隐藏不进 `/model` 的型号（默认模型不可藏）。Codex 目录下 Chat 中转会把 `/v1/responses` 转成 `/v1/chat/completions`（若 Responses 遇到 400 `Unsupported content type` 亦自动回退为 Chat 格式重试）。OpenCode / Pi / DeepSeek Harness 仍为原生多供应商并存
 - 供应商卡片只显示**默认模型**，其余进入目录的型号以 `+N` 展示
 - **Thinking / Reasoning 统一参数转译**：供应商可视化配置思考模式、Token 预算（`budget_tokens` / `thinking_budget`）与推理强度（`reasoning_effort`），自动抹平 Anthropic、OpenAI、Gemini 与 DeepSeek（`reasoning_content` 转思考块）协议差异
 - 供应商卡片可 **复制到其他 Agent**；供应商页支持 **从其他 Agent 导入**（字段按目标协议转换）
@@ -82,8 +82,8 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
 - **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
-- **Claude Code 子代理**：Explore / Haiku 走目录子代理槽，不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
-- **模型目录**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含 `3.6-flash-low` → `3.7-flash-*`）。额度条仍有余量时短冷却后再试 1 个账号，避免一次 SKU 限速把整池打进冷却
+- **Claude Code 子代理**：Explore / Haiku 走目录子代理槽（优先 `gemini-3.7-flash-low`），不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
+- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含 `3.6-flash-low` → `3.7-flash-*`），并在重试间加入微等待退避；实现 URL 级限流识别与跨端点 Fallback（`daily` 节点遭遇 `Resource has been exhausted` 时自动无缝降级到生产端点重试，解决 Claude Code 启动与收尾阶段高频短请求踩 429 问题）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号，避免一次 SKU 限速把整池打进冷却；失败日志记录最后尝试的模型而非仅初始请求 ID
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转
@@ -278,6 +278,7 @@ scripts/                  Windows 开发 / 构建脚本
 |---|---|---|
 | AI Toolbox | 多工具配置、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
 | Antigravity-Manager | Antigravity / Cloud Code 反代、账号池与协议映射思路 | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
+| sub2api | Antigravity URL 级限流识别与端点重试机制 | [sub2api](https://github.com/sub2api) |
 | CLIProxyAPI | 多协议网关与上游适配思路 | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
 | cc Proxy | Desktop 本地代理与模型替换 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
 | CC Switch | 供应商切换、Tauri、会话与托盘 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |

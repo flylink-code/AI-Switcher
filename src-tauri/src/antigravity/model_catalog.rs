@@ -476,18 +476,18 @@ pub fn preferred_gemini_flash() -> Option<String> {
 
 /// Light Gemini Flash for Haiku / subagents. Prefer `-low` so Claude Code
 /// Explore/compact and Codex `x-openai-subagent` do not stampede `*-high`.
-/// Cloud Code does serve `gemini-3.6-flash-low`; keep it first when listed.
+/// Prefer `gemini-3.7-flash-low` for higher concurrency capacity, falling back to 3.6-low.
 pub fn preferred_gemini_flash_low() -> String {
     let ids = list_model_ids();
     let is_flash_low = |id: &&String| {
         id.starts_with("gemini-") && id.contains("flash") && id.ends_with("-low") && !id.contains("image")
     };
     ids.iter()
-        .find(|id| id.as_str() == "gemini-3.6-flash-low")
-        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.7-flash-low"))
+        .find(|id| id.as_str() == "gemini-3.7-flash-low")
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.6-flash-low"))
         .or_else(|| ids.iter().find(is_flash_low))
         .cloned()
-        .unwrap_or_else(|| "gemini-3.6-flash-low".into())
+        .unwrap_or_else(|| "gemini-3.7-flash-low".into())
 }
 
 /// Expose medium/low siblings for each Gemini flash `-high` so catalog routing

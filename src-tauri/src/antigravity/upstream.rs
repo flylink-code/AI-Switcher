@@ -22,6 +22,16 @@ const USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
 /// (mirrors Antigravity-Manager's claude.rs handling).
 const ANTHROPIC_BETA_CLAUDE_CODE: &str = "claude-code-20250219";
 
+/// Helper to detect URL/node-level rate limits (e.g. "Resource has been exhausted" on daily cluster)
+/// where failing over to production cloudcode-pa endpoint can succeed (mirrors sub2api).
+pub fn is_url_level_rate_limit(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    (lower.contains("resource has been exhausted")
+        || lower.contains("resource_exhausted")
+        || lower.contains("too many requests"))
+        && !lower.contains("capacity on this model")
+}
+
 /// Parse the `Retry-After` header as whole seconds (integer form only).
 pub fn retry_after_secs(response: &reqwest::Response) -> Option<u64> {
     response
@@ -91,7 +101,8 @@ impl UpstreamClient {
             .is_some_and(|model| model.starts_with("claude-"));
         let mut last_error = String::from("upstream request failed");
         let client = self.http();
-        for base in UPSTREAM_FALLBACKS {
+        for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
+            let has_next_url = idx + 1 < UPSTREAM_FALLBACKS.len();
             let url = match query {
                 Some(q) => format!("{base}:{method}?{q}"),
                 None => format!("{base}:{method}"),
@@ -119,8 +130,8 @@ impl UpstreamClient {
                             log::info!("Antigravity generate {method} {url} → {status}");
                             return Ok(response);
                         }
-                        // 429: honor a short Retry-After in place once; otherwise bubble
-                        // for pool failover (the handler reads Retry-After for cooldown).
+                        // 429: honor a short Retry-After in place once; otherwise check
+                        // for URL fallback (daily → prod) or bubble for pool failover.
                         if status.as_u16() == 429 {
                             let retry_after = retry_after_secs(&response);
                             if !retried_429_in_place && retry_after.is_some_and(|s| s <= 2) {
@@ -128,6 +139,21 @@ impl UpstreamClient {
                                 tokio::time::sleep(Duration::from_secs(retry_after.unwrap_or(1).max(1)))
                                     .await;
                                 continue;
+                            }
+                            if has_next_url {
+                                let text = response.text().await.unwrap_or_default();
+                                if is_url_level_rate_limit(&text) {
+                                    let next_base = UPSTREAM_FALLBACKS[idx + 1];
+                                    log::warn!(
+                                        "Antigravity URL fallback (429): {url} → {next_base} ({})",
+                                        text.chars().take(120).collect::<String>()
+                                    );
+                                    tokio::time::sleep(Duration::from_millis(150)).await;
+                                    break;
+                                }
+                                last_error = format!("upstream 429: {text}");
+                                log::warn!("Antigravity account quota exhausted: {text}");
+                                break;
                             }
                             return Ok(response);
                         }
