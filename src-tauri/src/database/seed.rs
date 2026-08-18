@@ -12,7 +12,7 @@ use crate::error::AppResult;
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
 /// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
-const CATALOG_VERSION: &str = "2026-08-18-ag3";
+const CATALOG_VERSION: &str = "2026-08-18-ds1";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -54,6 +54,10 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
     DefaultPricing { provider: "Google", model: "gemini-3.5-flash", input: 1.5, cache_read: 0.0, cache_write: 0.0, output: 9.0, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-3.5-flash-lite", input: 0.3, cache_read: 0.0, cache_write: 0.0, output: 2.5, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
     DefaultPricing { provider: "Google", model: "gemini-2.5-flash-lite", input: 0.1, cache_read: 0.0, cache_write: 0.0, output: 0.4, batch_input: 0.0, batch_output: 0.0, currency: "USD", source_url: "https://ai.google.dev/gemini-api/docs/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-chat", input: 2.0, cache_read: 0.5, cache_write: 0.0, output: 8.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-reasoner", input: 4.0, cache_read: 1.0, cache_write: 0.0, output: 16.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-v3", input: 2.0, cache_read: 0.5, cache_write: 0.0, output: 8.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
+    DefaultPricing { provider: "DeepSeek", model: "deepseek-r1", input: 4.0, cache_read: 1.0, cache_write: 0.0, output: 16.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
     DefaultPricing { provider: "DeepSeek", model: "deepseek-v4-pro", input: 3.0, cache_read: 0.0, cache_write: 0.0, output: 6.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
     DefaultPricing { provider: "DeepSeek", model: "deepseek-v4-flash", input: 1.0, cache_read: 0.0, cache_write: 0.0, output: 2.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://api-docs.deepseek.com/quick_start/pricing" },
     DefaultPricing { provider: "Alibaba Qwen", model: "qwen3.7-max", input: 12.0, cache_read: 0.0, cache_write: 0.0, output: 36.0, batch_input: 0.0, batch_output: 0.0, currency: "CNY", source_url: "https://www.alibabacloud.com/help/en/model-studio/models" },
