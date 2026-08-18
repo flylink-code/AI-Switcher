@@ -8,12 +8,16 @@
 
 默认只在本机工作：API Key 进系统凭据库，改配置前自动备份，会话只读本地 JSONL。
 
-| 平台 | 安装包 | 说明 |
-|---|---|---|
-| Windows 10/11 | NSIS `.exe`（推荐）/ MSI | 完整功能 |
-| Linux（预览） | AppImage / `.deb` | **Ubuntu 22.04 / Debian 12 及以上**（WebKitGTK 4.1）；18.04 / 20.04 无法运行 |
+
+| 平台            | 安装包                  | 说明                                                                 |
+| ------------- | -------------------- | ------------------------------------------------------------------ |
+| Windows 10/11 | NSIS `.exe`（推荐）/ MSI | 完整功能                                                               |
+| Linux（预览）     | AppImage / `.deb`    | **Ubuntu 22.04 / Debian 12 及以上**（WebKitGTK 4.1）；18.04 / 20.04 无法运行 |
+
 
 ---
+
+
 
 ## 开源说明
 
@@ -28,6 +32,8 @@
 
 ---
 
+
+
 ## 安装
 
 从 [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) 下载最新版：
@@ -39,7 +45,11 @@
 
 ---
 
+
+
 ## 能做什么
+
+
 
 ### 导航与布局
 
@@ -50,6 +60,8 @@
 - **显示 Agent**：设置页可勾选哪些工具出现在全局与各页切换器中
 - **工作区按 Agent 过滤 Tab**：先选 Agent，再只显示其支持的 MCP / Prompts / Skills / Agents / Plugins / 项目
 - **Agent 切换**：供应商页 / 代理页 / 工作区内独立切换（Claude Code / Desktop / Codex / OpenCode / Pi / DeepSeek Harness）
+
+
 
 ### 供应商与切换
 
@@ -66,11 +78,13 @@
 - Codex 写入 `~/.codex/config.toml`；OpenAI 兼容上游可直连，Anthropic / OAuth 仍经本地代理
 - Deep Link：`ai-switcher://v1/import?resource=provider|mcp&payload=...`（导入前预览确认）
 
+
+
 ### 本地代理
 
 Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、状态与日志。支持**透明故障切换 (Failover)**：在上游遭遇 429、5xx 或连接超时异常时，自动按优先级与模型白名单降级至备用供应商重试，并全程记录降级链路诊断到日志面板。**经本地代理的会话可热切换上游**；直连非代理场景仍可能需重启 CLI。
 
-入口在 **设置 → 工具与环境 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。`openai_responses` 多轮对话的 assistant 历史使用 `output_text`（避���第二轮起 502）。
+入口在 **设置 → 工具与环境 → 本地代理**（改端口 / 强制重启 / 故障切换）；日常换供应商时由供应商页自动匹配启停。`openai_responses` 多轮对话的 assistant 历史使用 `output_text`（避免第二轮起 502）。
 
 ### Antigravity 网关
 
@@ -83,10 +97,12 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
 - **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
 - **Claude Code 子代理**：Explore / Haiku 走目录子代理槽（优先 `gemini-3.7-flash-low`），不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
-- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含 `3.6-flash-low` → `3.7-flash-*`），并在重试间加入微等待退避；实现 URL 级限流识别与跨端点 Fallback（`daily` 节点遭遇 `Resource has been exhausted` 时自动无缝降级到生产端点重试，解决 Claude Code 启动与收尾阶段高频短请求踩 429 问题）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号，避免一次 SKU 限速把整池打进冷却；失败日志记录最后尝试的模型而非仅初始请求 ID
+- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含 `3.6-flash-low` → `3.7-flash-`*），并在重试间加入微等待退避；实现 URL 级限流识别与跨端点 Fallback（`daily` 节点遭遇 `Resource has been exhausted` 时自动无缝降级到生产端点重试，解决 Claude Code 启动与收尾阶段高频短请求踩 429 问题）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号，避免一次 SKU 限速把整池打进冷却；失败日志记录最后尝试的模型而非仅初始请求 ID
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转
+
+
 
 ### OpenCode
 
@@ -95,6 +111,8 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **供应商同步**：保存/删除/导入后写入 `aisw-<id>` 段；OpenCode 内直接选模型；托管模型会写入 `limit.context`（默认 200000）与 `limit.output`（默认 32000），避免 OpenCode 报 ConfigInvalidError
 - **从本地导入**：工作台/供应商页「更新本地已有配置」从 `opencode.json(c)` 批量同步（跳过托管项与 Desktop 内置连接器）
 - **会话与用量**：扫描 `opencode.db`；**设置 → Agent 工具** 检测/安装/更新 OpenCode CLI（需 Node.js ≥22）
+
+
 
 ### Pi
 
@@ -106,6 +124,8 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **会话与用量**：扫描 `~/.pi/agent/sessions/**/*.jsonl` 的 `message.usage`；用量页刷新会同步（与 Antigravity 网关已记账的回合去重）
 - **Agent 工具**：检测/安装/更新 Pi CLI（需 Node.js ≥22）
 
+
+
 ### DeepSeek Harness
 
 读写 `~/.dsh/settings.yaml` 与 `~/.dsh/.credentials.yaml`。与 OpenCode / Pi 相同：多供应商并存、保存即同步，无需切换：
@@ -114,7 +134,9 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **直连上游**：按 YAML 写入各端点，不经本地代理；Anthropic 可用 Antigravity 网关
 - **工作区**：Prompts、MCP；不接 Plugins、Agents、Profiles、Skills
 - **会话与用量**：扫描 `~/.dsh/sessions/**/*.jsonl.zstd`；用量页刷新会同步
-- **Agent 工具**：检测/安装/更新 DeepSeek Harness CLI（需 Node.js ≥22）���工作区可一键启动网页端
+- **Agent 工具**：检测/安装/更新 DeepSeek Harness CLI（需 Node.js ≥22）工作区可一键启动网页端
+
+
 
 ### Agent 工具
 
@@ -133,6 +155,8 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - Skills：Claude Code、Codex 与 Pi 支持 GitHub / ZIP 安装、启停、更新与删除；可添加/移除多个 Skill 仓库并进仓挑选安装到对应 Agent；可扫描散落 Skill 一键登记/忽略
 - Agents：管理 Claude Code 用户级 `~/.claude/agents`
 - **插件**：工作区单一「插件」Tab，页内切换 Claude Code / Codex；市场列表、安装目录、启停、卸载、检查/更新市场与插件
+
+
 
 ### 项目（Profiles）
 
@@ -155,15 +179,19 @@ Claude Code 插件、编辑器补丁助手、Claude Desktop 语言包分区管�
 
 ---
 
+
+
 ## 会话说明
 
-| 来源 | 路径 |
-|---|---|
-| Claude Code | `~/.claude/projects/**/*.jsonl` |
-| Codex | `$CODEX_HOME/sessions/**/*.jsonl`（默认 `~/.codex/sessions/`） |
-| OpenCode | `~/.local/share/opencode/opencode.db`（及 legacy JSON storage） |
-| Pi | `~/.pi/agent/sessions/**/*.jsonl` |
-| DeepSeek Harness | `~/.dsh/sessions/**/*.jsonl.zstd` |
+
+| 来源               | 路径                                                           |
+| ---------------- | ------------------------------------------------------------ |
+| Claude Code      | `~/.claude/projects/**/*.jsonl`                              |
+| Codex            | `$CODEX_HOME/sessions/**/*.jsonl`（默认 `~/.codex/sessions/`）   |
+| OpenCode         | `~/.local/share/opencode/opencode.db`（及 legacy JSON storage） |
+| Pi               | `~/.pi/agent/sessions/**/*.jsonl`                            |
+| DeepSeek Harness | `~/.dsh/sessions/**/*.jsonl.zstd`                            |
+
 
 列表只读元数据；打开详情或全文搜索时才读消息。路径限制在会话根目录内。浏览不改原文件。
 
@@ -171,29 +199,35 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 
 ---
 
+
+
 ## 数据与配置
 
-| 路径 | 用途 |
-|---|---|
-| `~/.claude/settings.json` | Claude Code 当前供应商 |
-| `~/.claude.json` | Claude Code MCP / 项目配置 |
-| `~/.claude/projects/` | Claude Code 会话 |
-| `~/.claude/skills/` | Claude Code Skills |
-| `%LOCALAPPDATA%\Claude-3p\configLibrary\` | Claude Desktop 第三方配置（Windows） |
-| `$CODEX_HOME` 或 `~/.codex/` | Codex 配置、会话、Skills、Plugins |
-| `~/.config/opencode/opencode.json` | OpenCode 供应商（CLI 与 Desktop 共享；亦支持 `opencode.jsonc`） |
-| `~/.local/share/opencode/` | OpenCode 会话数据库 |
-| `~/.pi/agent/models.json` / `auth.json` | Pi 供应商与凭据 |
-| `~/.pi/agent/sessions/` | Pi 会话 JSONL |
-| `~/.pi/agent/AGENTS.md` / `skills/` / `mcp.json` | Pi Prompts / Skills / MCP |
-| `~/.dsh/settings.yaml` / `.credentials.yaml` | DeepSeek Harness 供应商与凭据 |
-| `~/.dsh/sessions/` | DeepSeek Harness 会话（`jsonl.zstd`） |
-| `~/.claude/agents/` | Claude Code Agents |
-| `~/.claude-switcher/`（可改） | 本应用资料库：数据库、备份、日志 |
+
+| 路径                                               | 用途                                                  |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `~/.claude/settings.json`                        | Claude Code 当前供应商                                   |
+| `~/.claude.json`                                 | Claude Code MCP / 项目配置                              |
+| `~/.claude/projects/`                            | Claude Code 会话                                      |
+| `~/.claude/skills/`                              | Claude Code Skills                                  |
+| `%LOCALAPPDATA%\Claude-3p\configLibrary\`        | Claude Desktop 第三方配置（Windows）                       |
+| `$CODEX_HOME` 或 `~/.codex/`                      | Codex 配置、会话、Skills、Plugins                          |
+| `~/.config/opencode/opencode.json`               | OpenCode 供应商（CLI 与 Desktop 共享；亦支持 `opencode.jsonc`） |
+| `~/.local/share/opencode/`                       | OpenCode 会话数据库                                      |
+| `~/.pi/agent/models.json` / `auth.json`          | Pi 供应商与凭据                                           |
+| `~/.pi/agent/sessions/`                          | Pi 会话 JSONL                                         |
+| `~/.pi/agent/AGENTS.md` / `skills/` / `mcp.json` | Pi Prompts / Skills / MCP                           |
+| `~/.dsh/settings.yaml` / `.credentials.yaml`     | DeepSeek Harness 供应商与凭据                             |
+| `~/.dsh/sessions/`                               | DeepSeek Harness 会话（`jsonl.zstd`）                   |
+| `~/.claude/agents/`                              | Claude Code Agents                                  |
+| `~/.claude-switcher/`（可改）                        | 本应用资料库：数据库、备份、日志                                    |
+
 
 产品名已改为 AI-Switcher，仍保留原应用标识与默认资料库路径以兼容旧用户。资料库可迁到其他盘（SHA-256 校验，重启生效）。导出 / 同步默认不含 API Key。
 
 ---
+
+
 
 ## 安全与隐私
 
@@ -203,6 +237,8 @@ Claude Desktop 仅检测数据目录并提供官方入口 `claude://claude.ai/ne
 - 除连接测试、模型发现、更新检查、用户主动下载与确认的远端归档推送外，不上传本地内容
 
 ---
+
+
 
 ## 从源码开发
 
@@ -228,13 +264,17 @@ pnpm build:exe:bundle       # MSI + NSIS
 scripts\build-exe.bat release skip-tests   # 跳过测试
 ```
 
-| 产物 | 路径 |
-|---|---|
-| 正式版 | `src-tauri\target\release\AISwitcher.exe` |
+
+| 产物   | 路径                                                |
+| ---- | ------------------------------------------------- |
+| 正式版  | `src-tauri\target\release\AISwitcher.exe`         |
 | 测试副本 | `release\AISwitcher.exe` / `AISwitcher-debug.exe` |
-| 安装包 | `src-tauri\target\release\bundle\` |
+| 安装包  | `src-tauri\target\release\bundle\`                |
+
 
 ---
+
+
 
 ## 项目结构
 
@@ -255,6 +295,8 @@ scripts/                  Windows 开发 / 构建脚本
 
 ---
 
+
+
 ## 当前边界
 
 - 产品客户端范围：Claude Code + Claude Desktop + Codex + OpenCode + Pi + DeepSeek Harness；Antigravity 网关可把 Gemini / Cloud Code 上游接到上述客户端
@@ -270,20 +312,25 @@ scripts/                  Windows 开发 / 构建脚本
 
 ---
 
+
+
 ## 参考与致谢
 
 独立项目，与下列仓库及 Anthropic / OpenAI 均无隶属关系。表中许可证指**上游仓库自身**的许可；AI-Switcher 源码仍以本仓库 [MIT](LICENSE) 为准。引用或移植上游代码时，请同时遵守其许可证与版权声明。
 
-| 项目 | 参考方向 | 上游 |
-|---|---|---|
-| AI Toolbox | 多工具配置、会话与桌面信息架构 | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT |
-| Antigravity-Manager | Antigravity / Cloud Code 反代、账号池与协议映射思路 | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) |
-| sub2api | Antigravity URL 级限流识别与端点重试机制 | [sub2api](https://github.com/sub2api) |
-| CLIProxyAPI | 多协议网关与上游适配思路 | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) |
-| cc Proxy | Desktop 本地代理与模型替换 | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy) |
-| CC Switch | 供应商切换、Tauri、会话与托盘 | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT |
-| Claude Code VS Code 中文包 | 扩展定位与汉化流程 | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT |
-| Claude Code 中文插件 | CLI 中文化安装与恢复 | [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) |
-| Claude Desktop 中文补丁 | 安装发现与语言包 | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) |
-| Code Switch | 本地代理、故障切换、Codex 配置 | [daodao97/code-swtich](https://github.com/daodao97/code-swtich) Apache-2.0 |
-| Codex++ | Codex API 写入与历史会话同步 | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |
+
+| 项目                      | 参考方向                                   | 上游                                                                               |
+| ----------------------- | -------------------------------------- | -------------------------------------------------------------------------------- |
+| AI Toolbox              | 多工具配置、会话与桌面信息架构                        | [coulsontl/ai-toolbox](https://github.com/coulsontl/ai-toolbox) MIT              |
+| Antigravity-Manager     | Antigravity / Cloud Code 反代、账号池与协议映射思路 | [lbjlaq/Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager)      |
+| sub2api                 | Antigravity URL 级限流识别与端点重试机制           | [sub2api](https://github.com/sub2api)                                            |
+| CLIProxyAPI             | 多协议网关与上游适配思路                           | [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)        |
+| cc Proxy                | Desktop 本地代理与模型替换                      | [arhsis/cc-proxy](https://github.com/arhsis/cc-proxy)                            |
+| CC Switch               | 供应商切换、Tauri、会话与托盘                      | [farion1231/cc-switch](https://github.com/farion1231/cc-switch) MIT              |
+| Claude Code VS Code 中文包 | 扩展定位与汉化流程                              | [zstings/claude-code-zh-cn](https://github.com/zstings/claude-code-zh-cn) MIT    |
+| Claude Code 中文插件        | CLI 中文化安装与恢复                           | [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn)      |
+| Claude Desktop 中文补丁     | 安装发现与语言包                               | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)    |
+| Code Switch             | 本地代理、故障切换、Codex 配置                     | [daodao97/code-swtich](https://github.com/daodao97/code-swtich) Apache-2.0       |
+| Codex++                 | Codex API 写入与历史会话同步                    | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |
+
+
