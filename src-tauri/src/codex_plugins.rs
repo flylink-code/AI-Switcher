@@ -17,7 +17,6 @@ use serde::Serialize;
 use serde_json::Value;
 use toml_edit::{value, DocumentMut, Item, Table};
 
-use crate::commands::tools::run_codex_cli;
 use crate::config::{atomic_write, get_codex_config_path, get_codex_plugins_cache_dir};
 use crate::error::{AppError, AppResult};
 
@@ -569,12 +568,16 @@ pub fn check_plugin_update(plugin_id: &str) -> AppResult<CodexPluginUpdateStatus
 }
 
 pub fn check_plugin_updates() -> AppResult<Vec<CodexPluginUpdateStatus>> {
-    let _ = upgrade_marketplace(None);
+    log::info!("检查 Codex 插件更新: 刷新 marketplace");
+    if let Err(error) = upgrade_marketplace(None) {
+        log::warn!("刷新 Codex marketplace 失败（仍用本地目录比较版本）: {error}");
+    }
     let snap = list_plugins_snapshot()?;
     let mut out = Vec::new();
     for plugin in snap.plugins.into_iter().filter(|p| p.installed) {
         out.push(evaluate_codex_update_status(&plugin.plugin_id));
     }
+    log::info!("检查 Codex 插件更新完成: {} 个已安装插件", out.len());
     Ok(out)
 }
 
@@ -665,7 +668,7 @@ fn first_nonempty(primary: &str, fallback: &str) -> String {
 
 fn run_codex_plugin_args(args: &[&str]) -> AppResult<std::process::Output> {
     // GUI sessions often omit npm global dirs from PATH; resolve like doctor/tools.
-    run_codex_cli(args)
+    crate::commands::tools::run_codex_cli_timeout(args, crate::process_util::CLI_COMMAND_TIMEOUT)
 }
 
 fn parse_marketplace_json(stdout: &str) -> Vec<CodexMarketplace> {

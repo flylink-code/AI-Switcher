@@ -337,7 +337,7 @@ fn quote_cmd_arg(value: &str) -> String {
 
 /// Run a resolved CLI (handles Windows `.cmd`/`.bat` shims and GUI PATH gaps).
 #[cfg(windows)]
-fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
+fn command_for_tool_at_path(path: &Path, args: &[&str]) -> Command {
     use std::os::windows::process::CommandExt;
 
     let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("");
@@ -354,24 +354,35 @@ fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
             .raw_arg(command_line)
             .env("PATH", compact_execution_path(tool_dir))
             .creation_flags(CREATE_NO_WINDOW);
-        command.output()
+        command
     } else {
         let mut command = Command::new(path);
         command
             .args(args)
             .env("PATH", compact_execution_path(tool_dir))
             .creation_flags(CREATE_NO_WINDOW);
-        command.output()
+        command
     }
+}
+
+#[cfg(windows)]
+fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
+    command_for_tool_at_path(path, args).output()
+}
+
+#[cfg(not(windows))]
+fn command_for_tool_at_path(path: &Path, args: &[&str]) -> Command {
+    let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
+    let mut command = Command::new(path);
+    command
+        .args(args)
+        .env("PATH", unix_execution_path(tool_dir));
+    command
 }
 
 #[cfg(not(windows))]
 fn run_tool_at_path(path: &Path, args: &[&str]) -> io::Result<Output> {
-    let tool_dir = path.parent().unwrap_or_else(|| Path::new("."));
-    Command::new(path)
-        .args(args)
-        .env("PATH", unix_execution_path(tool_dir))
-        .output()
+    command_for_tool_at_path(path, args).output()
 }
 
 fn probe_native_installations() -> Probe {
@@ -1290,6 +1301,20 @@ pub(crate) fn run_codex_cli(args: &[&str]) -> AppResult<Output> {
         )
     })?;
     run_tool_at_path(&path, args).map_err(|error| {
+        AppError::Other(format!(
+            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
+        ))
+    })
+}
+
+pub(crate) fn run_codex_cli_timeout(args: &[&str], timeout: Duration) -> AppResult<Output> {
+    let path = resolve_codex_cli_path().ok_or_else(|| {
+        AppError::Other(
+            "无法启动 Codex CLI（请确认已安装并在 PATH 中）: program not found".into(),
+        )
+    })?;
+    let mut command = command_for_tool_at_path(&path, args);
+    crate::process_util::output_with_timeout(&mut command, timeout).map_err(|error| {
         AppError::Other(format!(
             "无法启动 Codex CLI（请确认已安装并在 PATH 中）: {error}"
         ))

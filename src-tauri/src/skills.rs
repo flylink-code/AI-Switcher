@@ -5,10 +5,12 @@
 //! by Claude Code. Installation accepts GitHub repository URLs only and uses a
 //! repository archive download rather than executing arbitrary Git commands.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use chrono::Utc;
@@ -24,6 +26,9 @@ use crate::error::{AppError, AppResult};
 
 const SKILL_FILE: &str = "SKILL.md";
 const MAX_ARCHIVE_BYTES: u64 = 100 * 1024 * 1024;
+const GITHUB_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
+const GITHUB_REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+const GITHUB_HARD_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_SKILL_REPOSITORY: &str = "https://github.com/anthropics/skills";
 const SKILL_REPOSITORY_CONFIG_FILE: &str = "skills.json";
 const SKILL_SOURCES_CONFIG_FILE: &str = "skill-sources.json";
@@ -426,9 +431,77 @@ pub fn delete_skill(name: &str, target: SkillTarget) -> AppResult<()> {
 pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<SkillUpdateStatus> {
     let skill = list_skills(target)?.into_iter().find(|skill| skill.name == name)
         .ok_or_else(|| AppError::Config(format!("Skill 不存在: {name}")))?;
-    let Some(source) = skill.source else {
-        return Ok(SkillUpdateStatus {
-            name: skill.name,
+    match classify_skill_for_update(&skill) {
+        SkillCheckPlan::Ready(status) => Ok(status),
+        SkillCheckPlan::Github { source_url, source } => {
+            let (archive, repo) = download_github_archive(&source_url).await?;
+            Ok(compare_installed_github_skill(&skill, &source, Arc::new(archive), &repo).await)
+        }
+    }
+}
+
+pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpdateStatus>> {
+    let skills = list_skills(target)?;
+    let order: Vec<String> = skills.iter().map(|skill| skill.name.clone()).collect();
+    let mut statuses: HashMap<String, SkillUpdateStatus> = HashMap::new();
+    let mut by_repo: BTreeMap<String, Vec<Skill>> = BTreeMap::new();
+
+    for skill in skills {
+        match classify_skill_for_update(&skill) {
+            SkillCheckPlan::Ready(status) => {
+                statuses.insert(skill.name.clone(), status);
+            }
+            SkillCheckPlan::Github { source_url, .. } => {
+                match normalize_github_url(&source_url) {
+                    Ok(repo_url) => by_repo.entry(repo_url).or_default().push(skill),
+                    Err(error) => {
+                        let name = skill.name.clone();
+                        statuses.insert(name.clone(), skill_check_error(&name, skill.source.as_ref(), error));
+                    }
+                }
+            }
+        }
+    }
+
+    for (repo_url, group) in by_repo {
+        log::info!("检查 Skill 更新: 下载 {}（{} 个）", repo_url, group.len());
+        match download_github_archive(&repo_url).await {
+            Ok((bytes, repo)) => {
+                let archive = Arc::new(bytes);
+                for skill in group {
+                    let source = skill.source.clone().expect("github Skill 必有来源记录");
+                    let status = compare_installed_github_skill(&skill, &source, archive.clone(), &repo).await;
+                    statuses.insert(skill.name.clone(), status);
+                }
+            }
+            Err(error) => {
+                log::warn!("检查 Skill 更新失败 {repo_url}: {error}");
+                let message = error.to_string();
+                for skill in group {
+                    statuses.insert(
+                        skill.name.clone(),
+                        skill_check_error(&skill.name, skill.source.as_ref(), &message),
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(order.into_iter().filter_map(|name| statuses.remove(&name)).collect())
+}
+
+enum SkillCheckPlan {
+    Ready(SkillUpdateStatus),
+    Github {
+        source_url: String,
+        source: InstalledSkillSource,
+    },
+}
+
+fn classify_skill_for_update(skill: &Skill) -> SkillCheckPlan {
+    let Some(source) = skill.source.clone() else {
+        return SkillCheckPlan::Ready(SkillUpdateStatus {
+            name: skill.name.clone(),
             status: "untracked".to_string(),
             message: "此 Skill 没有可检查的 GitHub 来源记录".to_string(),
             local_modified: false,
@@ -437,8 +510,8 @@ pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<Sk
         });
     };
     if source.kind != "github" {
-        return Ok(SkillUpdateStatus {
-            name: skill.name,
+        return SkillCheckPlan::Ready(SkillUpdateStatus {
+            name: skill.name.clone(),
             status: "unsupported".to_string(),
             message: "仅 GitHub 来源的 Skill 支持更新检查".to_string(),
             local_modified: false,
@@ -446,13 +519,55 @@ pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<Sk
             remote_revision: None,
         });
     }
-    let source_url = source.source_url.clone()
-        .ok_or_else(|| AppError::Config("Skill 来源记录缺少地址".to_string()))?;
-    let local_hash = skill_content_hash(Path::new(&skill.path))?;
+    let Some(source_url) = source.source_url.clone().filter(|url| !url.trim().is_empty()) else {
+        return SkillCheckPlan::Ready(skill_check_error(
+            &skill.name,
+            Some(&source),
+            "Skill 来源记录缺少地址",
+        ));
+    };
+    SkillCheckPlan::Github { source_url, source }
+}
+
+fn skill_check_error(
+    name: &str,
+    source: Option<&InstalledSkillSource>,
+    error: impl std::fmt::Display,
+) -> SkillUpdateStatus {
+    SkillUpdateStatus {
+        name: name.to_string(),
+        status: "error".to_string(),
+        message: error.to_string(),
+        local_modified: false,
+        local_revision: source.and_then(|item| item.revision.clone()),
+        remote_revision: None,
+    }
+}
+
+async fn compare_installed_github_skill(
+    skill: &Skill,
+    source: &InstalledSkillSource,
+    archive: Arc<Vec<u8>>,
+    repo: &str,
+) -> SkillUpdateStatus {
+    let local_hash = match skill_content_hash(Path::new(&skill.path)) {
+        Ok(hash) => hash,
+        Err(error) => return skill_check_error(&skill.name, Some(source), error),
+    };
     let local_modified = local_hash != source.content_sha256;
-    let (archive, repo) = download_github_archive(&source_url).await?;
-    let remote_hash = archive_skill_hash(&archive, source.repository_path.as_deref(), &repo)?;
     let remote_revision = archive_revision(&archive);
+    let repository_path = source.repository_path.clone();
+    let repo_owned = repo.to_string();
+    let hash_archive = archive.clone();
+    let remote_hash = match tokio::task::spawn_blocking(move || {
+        archive_skill_hash(&hash_archive, repository_path.as_deref(), &repo_owned)
+    })
+    .await
+    {
+        Ok(Ok(hash)) => hash,
+        Ok(Err(error)) => return skill_check_error(&skill.name, Some(source), error),
+        Err(error) => return skill_check_error(&skill.name, Some(source), error),
+    };
     let status = if local_modified {
         "local_modified"
     } else if remote_hash == local_hash {
@@ -464,24 +579,16 @@ pub async fn check_skill_update(name: &str, target: SkillTarget) -> AppResult<Sk
         "local_modified" => "检测到本地修改，已保留原文件且不会自动覆盖",
         "up_to_date" => "Skill 已是最新版本",
         _ => "发现可用更新，请确认后重新安装以应用",
-    }.to_string();
-    Ok(SkillUpdateStatus {
-        name: skill.name,
+    }
+    .to_string();
+    SkillUpdateStatus {
+        name: skill.name.clone(),
         status: status.to_string(),
         message,
         local_modified,
-        local_revision: source.revision,
+        local_revision: source.revision.clone(),
         remote_revision,
-    })
-}
-
-pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpdateStatus>> {
-    let names = list_skills(target)?.into_iter().map(|skill| skill.name).collect::<Vec<_>>();
-    let mut statuses = Vec::with_capacity(names.len());
-    for name in names {
-        statuses.push(check_skill_update(&name, target).await?);
     }
-    Ok(statuses)
 }
 
 pub async fn update_github_skills(names: &[String], target: SkillTarget) -> AppResult<Vec<Skill>> {
@@ -666,36 +773,42 @@ async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> 
 }
 
 async fn download_github_archive_once(archive_url: &str) -> AppResult<Vec<u8>> {
-    let mut response = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .build()
-        .map_err(|e| AppError::Other(format!("创建 GitHub 请求客户端失败: {e}")))?
-        .get(archive_url)
-        .header("User-Agent", "Claude-Switcher")
-        // Some proxies add a Content-Encoding header that this minimal client does not
-        // decode. Asking for identity keeps the GitHub ZIP bytes intact end-to-end.
-        .header(reqwest::header::ACCEPT_ENCODING, "identity")
-        .send()
-        .await
-        .map_err(|e| AppError::Other(format!("GitHub 请求阶段失败: {e}")))?;
-    if !response.status().is_success() {
-        return Err(AppError::Config(format!("GitHub 下载失败（HTTP {}）", response.status())));
-    }
-    if response.content_length().is_some_and(|size| size > MAX_ARCHIVE_BYTES) {
-        return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
-    }
-    let mut archive = Vec::new();
-    while let Some(chunk) = response.chunk().await
-        .map_err(|e| AppError::Other(format!("GitHub 响应体读取失败: {e}")))?
-    {
-        let next_len = archive.len() as u64 + chunk.len() as u64;
-        if next_len > MAX_ARCHIVE_BYTES {
+    let request = async {
+        let mut response = reqwest::Client::builder()
+            .connect_timeout(GITHUB_CONNECT_TIMEOUT)
+            .timeout(GITHUB_REQUEST_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::limited(5))
+            .build()
+            .map_err(|e| AppError::Other(format!("创建 GitHub 请求客户端失败: {e}")))?
+            .get(archive_url)
+            .header("User-Agent", "Claude-Switcher")
+            // Some proxies add a Content-Encoding header that this minimal client does not
+            // decode. Asking for identity keeps the GitHub ZIP bytes intact end-to-end.
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .send()
+            .await
+            .map_err(|e| AppError::Other(format!("GitHub 请求阶段失败: {e}")))?;
+        if !response.status().is_success() {
+            return Err(AppError::Config(format!("GitHub 下载失败（HTTP {}）", response.status())));
+        }
+        if response.content_length().is_some_and(|size| size > MAX_ARCHIVE_BYTES) {
             return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
         }
-        archive.extend_from_slice(&chunk);
-    }
-    Ok(archive)
+        let mut archive = Vec::new();
+        while let Some(chunk) = response.chunk().await
+            .map_err(|e| AppError::Other(format!("GitHub 响应体读取失败: {e}")))?
+        {
+            let next_len = archive.len() as u64 + chunk.len() as u64;
+            if next_len > MAX_ARCHIVE_BYTES {
+                return Err(AppError::Config("GitHub Skill 压缩包超过 100 MB 限制".to_string()));
+            }
+            archive.extend_from_slice(&chunk);
+        }
+        Ok(archive)
+    };
+    tokio::time::timeout(GITHUB_HARD_TIMEOUT, request)
+        .await
+        .map_err(|_| AppError::Other("GitHub Skill 下载超时（30s）".into()))?
 }
 
 fn repository_skill_entries(bytes: &[u8], fallback_name: &str) -> AppResult<Vec<(RepositorySkill, usize)>> {
@@ -1053,6 +1166,29 @@ mod tests {
             "https://github.com/anthropics/skills",
         );
         assert!(normalize_github_url("https://github.com/anthropics/skills/tree/main").is_err());
+    }
+
+    #[test]
+    fn local_import_skill_is_skipped_without_github_download() {
+        let skill = Skill {
+            name: "hardware-scheme-diagram".into(),
+            path: "/tmp/x".into(),
+            enabled: true,
+            description: String::new(),
+            description_zh: None,
+            source: Some(InstalledSkillSource {
+                kind: "local_import".into(),
+                source_url: None,
+                revision: None,
+                repository_path: None,
+                installed_at: 0,
+                content_sha256: String::new(),
+            }),
+        };
+        match classify_skill_for_update(&skill) {
+            SkillCheckPlan::Ready(status) => assert_eq!(status.status, "unsupported"),
+            SkillCheckPlan::Github { .. } => panic!("local_import must not trigger a GitHub download"),
+        }
     }
 
     #[test]

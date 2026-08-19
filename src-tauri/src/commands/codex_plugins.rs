@@ -3,6 +3,7 @@ use crate::codex_plugins::{
     CodexPluginUpdateStatus, CodexPluginsSnapshot,
 };
 use crate::error::AppResult;
+use crate::process_util::spawn_blocking_result;
 
 #[tauri::command]
 pub fn list_codex_plugins() -> AppResult<CodexPluginsSnapshot> {
@@ -25,43 +26,43 @@ pub fn list_codex_plugin_catalog() -> AppResult<CodexPluginCatalog> {
 }
 
 #[tauri::command]
-pub fn add_codex_plugin_marketplace(source: String) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::add_marketplace(&source)
+pub async fn add_codex_plugin_marketplace(source: String) -> AppResult<CodexPluginCommandResult> {
+    spawn_blocking_result(move || codex_plugins::add_marketplace(&source)).await
 }
 
 #[tauri::command]
-pub fn remove_codex_plugin_marketplace(name: String) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::remove_marketplace(&name)
+pub async fn remove_codex_plugin_marketplace(name: String) -> AppResult<CodexPluginCommandResult> {
+    spawn_blocking_result(move || codex_plugins::remove_marketplace(&name)).await
 }
 
 #[tauri::command]
-pub fn upgrade_codex_plugin_marketplace(
+pub async fn upgrade_codex_plugin_marketplace(
     name: Option<String>,
 ) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::upgrade_marketplace(name.as_deref())
+    spawn_blocking_result(move || codex_plugins::upgrade_marketplace(name.as_deref())).await
 }
 
 #[tauri::command]
-pub fn uninstall_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::uninstall_plugin(&plugin_id)
+pub async fn uninstall_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
+    spawn_blocking_result(move || codex_plugins::uninstall_plugin(&plugin_id)).await
 }
 
 #[tauri::command]
-pub fn install_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::install_plugin(&plugin_id)
+pub async fn install_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
+    spawn_blocking_result(move || codex_plugins::install_plugin(&plugin_id)).await
 }
 
 #[tauri::command]
-pub fn update_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
-    codex_plugins::update_plugin(&plugin_id)
+pub async fn update_codex_plugin(plugin_id: String) -> AppResult<CodexPluginCommandResult> {
+    spawn_blocking_result(move || codex_plugins::update_plugin(&plugin_id)).await
 }
 
 #[tauri::command]
-pub fn check_codex_plugin_update(plugin_id: String) -> AppResult<CodexPluginUpdateStatus> {
-    codex_plugins::check_plugin_update(&plugin_id)
+pub async fn check_codex_plugin_update(plugin_id: String) -> AppResult<CodexPluginUpdateStatus> {
+    spawn_blocking_result(move || codex_plugins::check_plugin_update(&plugin_id)).await
 }
 
 #[tauri::command]
-pub fn check_codex_plugin_updates() -> AppResult<Vec<CodexPluginUpdateStatus>> {
-    codex_plugins::check_plugin_updates()
+pub async fn check_codex_plugin_updates() -> AppResult<Vec<CodexPluginUpdateStatus>> {
+    spawn_blocking_result(codex_plugins::check_plugin_updates).await
 }

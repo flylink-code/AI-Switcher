@@ -287,12 +287,21 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
 
   const checkAllUpdates = async () => {
     setCheckingUpdates(true);
+    const hide = message.loading(t("skills.checkingUpdates"), 0);
     try {
       const statuses = await checkSkillUpdates(target);
       setUpdateStatuses(Object.fromEntries(statuses.map((status) => [status.name, status])));
+      const available = statuses.filter((status) => status.status === "update_available").length;
+      const failed = statuses.filter((status) => status.status === "error").length;
+      if (failed > 0) {
+        void message.warning(t("skills.checkUpdatesPartial", { total: statuses.length, available, failed }));
+      } else {
+        void message.success(t("skills.checkUpdatesDone", { total: statuses.length, available }));
+      }
     } catch (e) {
       void message.error(errMsg(e));
     } finally {
+      hide();
       setCheckingUpdates(false);
     }
   };
@@ -714,7 +723,7 @@ function errMsg(e: unknown) {
 
 function SkillStatus({ status, t }: { status?: SkillUpdateStatus; t: (key: string) => string }) {
   if (!status) return <Text type="secondary">—</Text>;
-  const color = status.status === "update_available" ? "orange" : status.status === "up_to_date" ? "green" : "default";
+  const color = status.status === "update_available" ? "orange" : status.status === "up_to_date" ? "green" : status.status === "error" ? "red" : "default";
   const label = status.status === "update_available" ? t("skills.updateAvailable") : status.status === "up_to_date" ? t("skills.upToDate") : status.message;
   return <Text title={status.message}><Tag color={color}>{label}</Tag></Text>;
 }

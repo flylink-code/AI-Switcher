@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -458,12 +459,16 @@ pub fn check_plugin_update(
 
 /// Refresh all marketplaces, then check every installed plugin.
 pub fn check_plugin_updates(executable: &Path) -> AppResult<Vec<ClaudePluginUpdateStatus>> {
-    let _ = update_marketplace(executable, None);
+    log::info!("检查 Claude 插件更新: 刷新 marketplace");
+    if let Err(error) = update_marketplace(executable, None) {
+        log::warn!("刷新 Claude marketplace 失败（仍用本地目录比较版本）: {error}");
+    }
     let snap = list_plugins_snapshot()?;
     let mut out = Vec::new();
     for plugin in snap.plugins.into_iter().filter(|p| p.installed) {
         out.push(evaluate_claude_update_status(&plugin.plugin_id));
     }
+    log::info!("检查 Claude 插件更新完成: {} 个已安装插件", out.len());
     Ok(out)
 }
 
@@ -641,6 +646,14 @@ fn enrich_git_path_error(error: AppError) -> AppError {
 }
 
 fn run_claude_plugin_args(executable: &Path, args: &[&str]) -> AppResult<Output> {
+    run_claude_plugin_args_timeout(executable, args, crate::process_util::CLI_COMMAND_TIMEOUT)
+}
+
+fn run_claude_plugin_args_timeout(
+    executable: &Path,
+    args: &[&str],
+    timeout: Duration,
+) -> AppResult<Output> {
     let path_env = plugin_cli_path_env(executable.parent());
     let work_dir = crate::config::get_home_dir();
     #[cfg(windows)]
@@ -651,7 +664,7 @@ fn run_claude_plugin_args(executable: &Path, args: &[&str]) -> AppResult<Output>
             .extension()
             .and_then(|value| value.to_str())
             .unwrap_or("");
-        if extension.eq_ignore_ascii_case("cmd")
+        let mut command = if extension.eq_ignore_ascii_case("cmd")
             || extension.eq_ignore_ascii_case("bat")
             || extension.is_empty()
         {
@@ -667,27 +680,27 @@ fn run_claude_plugin_args(executable: &Path, args: &[&str]) -> AppResult<Output>
                 .current_dir(&work_dir)
                 .env("PATH", &path_env)
                 .creation_flags(CREATE_NO_WINDOW);
-            return command
-                .output()
-                .map_err(|e| AppError::Other(format!("启动 Claude Code 失败: {e}")));
-        }
-        let mut command = Command::new(executable);
-        command
-            .args(args)
-            .current_dir(&work_dir)
-            .env("PATH", &path_env)
-            .creation_flags(CREATE_NO_WINDOW);
-        command
-            .output()
+            command
+        } else {
+            let mut command = Command::new(executable);
+            command
+                .args(args)
+                .current_dir(&work_dir)
+                .env("PATH", &path_env)
+                .creation_flags(CREATE_NO_WINDOW);
+            command
+        };
+        crate::process_util::output_with_timeout(&mut command, timeout)
             .map_err(|e| AppError::Other(format!("启动 Claude Code 失败: {e}")))
     }
     #[cfg(not(windows))]
     {
-        Command::new(executable)
+        let mut command = Command::new(executable);
+        command
             .args(args)
             .current_dir(&work_dir)
-            .env("PATH", &path_env)
-            .output()
+            .env("PATH", &path_env);
+        crate::process_util::output_with_timeout(&mut command, timeout)
             .map_err(|e| AppError::Other(format!("启动 Claude Code 失败: {e}")))
     }
 }

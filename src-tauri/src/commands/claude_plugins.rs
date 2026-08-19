@@ -3,6 +3,7 @@ use crate::claude_plugins::{
     ClaudePluginUpdateStatus, ClaudePluginsSnapshot,
 };
 use crate::error::AppResult;
+use crate::process_util::spawn_blocking_result;
 
 #[tauri::command]
 pub fn list_claude_plugins() -> AppResult<ClaudePluginsSnapshot> {
@@ -25,51 +26,75 @@ pub fn list_claude_plugin_catalog() -> AppResult<ClaudePluginCatalog> {
 }
 
 #[tauri::command]
-pub fn add_claude_plugin_marketplace(source: String) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::add_marketplace(&executable, &source)
+pub async fn add_claude_plugin_marketplace(source: String) -> AppResult<ClaudePluginCommandResult> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::add_marketplace(&executable, &source)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn remove_claude_plugin_marketplace(name: String) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::remove_marketplace(&executable, &name)
+pub async fn remove_claude_plugin_marketplace(name: String) -> AppResult<ClaudePluginCommandResult> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::remove_marketplace(&executable, &name)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn update_claude_plugin_marketplace(
+pub async fn update_claude_plugin_marketplace(
     name: Option<String>,
 ) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::update_marketplace(&executable, name.as_deref())
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::update_marketplace(&executable, name.as_deref())
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn uninstall_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::uninstall_plugin(&executable, &plugin_id)
+pub async fn uninstall_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::uninstall_plugin(&executable, &plugin_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn install_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::install_plugin(&executable, &plugin_id)
+pub async fn install_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::install_plugin(&executable, &plugin_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn update_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::update_plugin(&executable, &plugin_id)
+pub async fn update_claude_plugin(plugin_id: String) -> AppResult<ClaudePluginCommandResult> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::update_plugin(&executable, &plugin_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn check_claude_plugin_update(plugin_id: String) -> AppResult<ClaudePluginUpdateStatus> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::check_plugin_update(&executable, &plugin_id)
+pub async fn check_claude_plugin_update(plugin_id: String) -> AppResult<ClaudePluginUpdateStatus> {
+    spawn_blocking_result(move || {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::check_plugin_update(&executable, &plugin_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn check_claude_plugin_updates() -> AppResult<Vec<ClaudePluginUpdateStatus>> {
-    let executable = claude_plugins::resolve_claude_executable()?;
-    claude_plugins::check_plugin_updates(&executable)
+pub async fn check_claude_plugin_updates() -> AppResult<Vec<ClaudePluginUpdateStatus>> {
+    spawn_blocking_result(|| {
+        let executable = claude_plugins::resolve_claude_executable()?;
+        claude_plugins::check_plugin_updates(&executable)
+    })
+    .await
 }

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.18**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.19**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -152,9 +152,9 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - MCP：统一维护并可同步到 Codex / Pi；支持远程 HTTP/SSE、OAuth 状态清理，以及 Desktop Connectors / `.mcpb` 冲突提示
 - MCP Registry：浏览官方 Registry 并安装可安全转换为 Claude 配置的条目（需密钥/URL 模板的仍需手动配置）
 - Prompts：`CLAUDE.md` / Codex `AGENTS.md` / Pi `~/.pi/agent/AGENTS.md` 预设，支持重命名与一键激活；可编辑当前工作区的项目级 Prompt；Pi 可管理 `~/.pi/agent/prompts/` 模板
-- Skills：Claude Code、Codex 与 Pi 支持 GitHub / ZIP 安装、启停、更新与删除；可添加/移除多个 Skill 仓库并进仓挑选安装到对应 Agent；可扫描散落 Skill 一键登记/忽略
+- Skills：Claude Code、Codex 与 Pi 支持 GitHub / ZIP 安装、启停、更新与删除；可添加/移除多个 Skill 仓库并进仓挑选安装到对应 Agent；可扫描散落 Skill 一键登记/忽略。「检查全部更新」按仓库合并下载，单条失败不中止整批，也不阻塞窗口
 - Agents：管理 Claude Code 用户级 `~/.claude/agents`
-- **插件**：工作区单一「插件」Tab，页内切换 Claude Code / Codex；市场列表、安装目录、启停、卸载、检查/更新市场与插件
+- **插件**：工作区单一「插件」Tab，页内切换 Claude Code / Codex；市场列表、安装目录、启停、卸载、检查/更新市场与插件。检查更新在后台执行并有超时，避免 Windows「未响应」
 
 
 

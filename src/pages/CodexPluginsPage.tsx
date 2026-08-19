@@ -625,7 +625,9 @@ function PluginUpdateStatusTag({
       ? "orange"
       : status.status === "up_to_date"
         ? "green"
-        : "default";
+        : status.status === "error"
+          ? "red"
+          : "default";
   const label =
     status.status === "update_available"
       ? t(`${ns}.updateAvailable`)

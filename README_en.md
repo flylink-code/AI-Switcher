@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.18**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.19**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -37,7 +37,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google 
 - **Protocol Adaptations**: Complete-line UTF-8 decoding to prevent character corruption, LaTeX KaTeX text unwrap, and real token usage passthrough.
 
 ### 4. Extensions & Ecosystem Integration
-- **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization.
+- **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization. Check-all Skill/plugin updates run off the UI thread (per-repo GitHub zips, 90s plugin CLI timeout) so the window stays responsive.
 - **Local Session Manager**: Browse, search, backup, and export local session histories across all supported AI coding agents.
 - **Localization**: Built-in Claude Code Chinese plugins, desktop language packs, and editor patch tools.
 
