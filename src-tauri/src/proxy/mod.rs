@@ -360,6 +360,17 @@ struct PreparedUpstreamRequest {
     translated: bool,
 }
 
+fn apply_catalog_subagent_signal(
+    builder: reqwest::RequestBuilder,
+    is_catalog_subagent: bool,
+) -> reqwest::RequestBuilder {
+    if is_catalog_subagent {
+        builder.header(CS_SUBAGENT_HEADER, "1")
+    } else {
+        builder
+    }
+}
+
 fn circuit_is_open(state: &ProxyState, provider_id: &str) -> bool {
     let Ok(mut circuits) = state.circuits.lock() else { return false; };
     let Some(circuit) = circuits.get(provider_id) else { return false; };
@@ -511,10 +522,12 @@ fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> Ap
     Ok(Some(provider))
 }
 
+pub(crate) const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
+
 pub(crate) fn select_gateway_runtime_provider(
     state: &ProxyState,
     requested_model: &str,
-) -> AppResult<Option<(Provider, String)>> {
+) -> AppResult<Option<(Provider, String, bool)>> {
     select_gateway_runtime_provider_with(state, requested_model, false)
 }
 
@@ -522,7 +535,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
     force_catalog_subagent: bool,
-) -> AppResult<Option<(Provider, String)>> {
+) -> AppResult<Option<(Provider, String, bool)>> {
     let style = if state.target == ProviderTarget::Codex {
         CatalogStyle::Codex
     } else {
@@ -531,6 +544,8 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let hide_official = crate::catalog::hide_official(state.db.as_ref(), state.target);
     let subagent = crate::catalog::subagent_model(state.db.as_ref(), state.target);
+    let subagent_slot =
+        crate::catalog::catalog_subagent_target(&entries, &providers, subagent.as_deref());
     let requested = crate::catalog::normalize_client_request(
         style,
         &entries,
@@ -540,6 +555,8 @@ pub(crate) fn select_gateway_runtime_provider_with(
         subagent.as_deref(),
         force_catalog_subagent,
     );
+    let is_catalog_subagent =
+        force_catalog_subagent || requested.eq_ignore_ascii_case(&subagent_slot);
     let Some((provider_id, upstream)) = resolve_request(&entries, &providers, &requested) else {
         return Ok(None);
     };
@@ -550,7 +567,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
         return Ok(None);
     };
     provider.model = upstream.clone();
-    Ok(Some((provider, upstream)))
+    Ok(Some((provider, upstream, is_catalog_subagent)))
 }
 
 fn prepare_upstream_request(
@@ -899,11 +916,13 @@ async fn proxy_handler(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    let mut is_catalog_subagent = false;
     if state.target == ProviderTarget::ClaudeCode && gateway_catalog_enabled(&state) {
         match select_gateway_runtime_provider(&state, &requested_model) {
-            Ok(Some((selected, upstream))) => {
+            Ok(Some((selected, upstream, routed_subagent))) => {
                 provider = selected;
                 requested_model = upstream.clone();
+                is_catalog_subagent = routed_subagent;
                 if let Some(object) = incoming.as_object_mut() {
                     object.insert("model".to_string(), Value::String(upstream.clone()));
                 }
@@ -943,7 +962,11 @@ async fn proxy_handler(
     let mut translated = prepared.translated;
     let mut retry_without_stream_options = compatible_stream_retry(&provider, &prepared, incoming_stream);
     let mut failover_trace: Vec<String> = Vec::new();
-    let mut upstream_resp = match prepared.builder.body(prepared.outgoing_body).send().await {
+    let mut upstream_resp = match apply_catalog_subagent_signal(prepared.builder, is_catalog_subagent)
+        .body(prepared.outgoing_body)
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             record_provider_failure(&state, &provider.id);
@@ -979,11 +1002,13 @@ async fn proxy_handler(
                 translated = fallback_prepared.translated;
                 retry_without_stream_options =
                     compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-                match fallback_prepared
-                    .builder
-                    .body(fallback_prepared.outgoing_body)
-                    .send()
-                    .await
+                match apply_catalog_subagent_signal(
+                    fallback_prepared.builder,
+                    is_catalog_subagent,
+                )
+                .body(fallback_prepared.outgoing_body)
+                .send()
+                .await
                 {
                     Ok(response) => {
                         failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
@@ -1067,8 +1092,7 @@ async fn proxy_handler(
             let fallback_translated = fallback_prepared.translated;
             let fallback_retry =
                 compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-            match fallback_prepared
-                .builder
+            match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
                 .body(fallback_prepared.outgoing_body)
                 .send()
                 .await

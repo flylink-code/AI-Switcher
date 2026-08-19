@@ -14,6 +14,7 @@ use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
+use super::limiter::AccountLimiter;
 use super::pool::AccountPool;
 use super::upstream::UpstreamClient;
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -31,6 +32,7 @@ pub struct GatewayState {
     pub db: Arc<Database>,
     pub pool: Arc<AccountPool>,
     pub upstream: Arc<UpstreamClient>,
+    pub limiter: Arc<AccountLimiter>,
     pub api_key: Arc<Mutex<String>>,
 }
 
@@ -58,6 +60,7 @@ struct GatewayManager {
     runtime: Option<GatewayRuntime>,
     pool: Arc<AccountPool>,
     upstream: Arc<UpstreamClient>,
+    limiter: Arc<AccountLimiter>,
     api_key: Arc<Mutex<String>>,
 }
 
@@ -93,6 +96,7 @@ pub fn init_gateway(db: Arc<Database>) {
         .unwrap_or_else(|| DEFAULT_API_KEY.to_string());
     // Build clients outside the lock so a proxy/client panic cannot poison the manager.
     let upstream = Arc::new(UpstreamClient::new());
+    let limiter = Arc::new(AccountLimiter::new());
     let api_key = Arc::new(Mutex::new(api_key));
     let mut slot = lock_manager();
     *slot = Some(GatewayManager {
@@ -100,6 +104,7 @@ pub fn init_gateway(db: Arc<Database>) {
         runtime: None,
         pool: Arc::new(AccountPool::new()),
         upstream,
+        limiter,
         api_key,
     });
 }
@@ -239,6 +244,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
             db: manager.db.clone(),
             pool: manager.pool.clone(),
             upstream: manager.upstream.clone(),
+            limiter: manager.limiter.clone(),
             api_key: manager.api_key.clone(),
         };
         (state, bind_port, manager.db.clone())

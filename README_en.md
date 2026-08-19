@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.17**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.18**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -33,7 +33,7 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google Cloud Code to Anthropic Messages and OpenAI Chat/Responses protocols:
 - **Smart Account Pool Scheduling**: Browser OAuth import, real-time quota probes, dynamic weighted round-robin, and best account recommendation.
 - **URL-Level 429 Intelligent Fallback**: Accurately recognizes node-level rate limits (`Resource has been exhausted`) and automatically falls back to production endpoints with micro-backoff, resolving burst 429s during session start and summary turns.
-- **Graceful Tier Degradation**: Seamlessly downgrades across Gemini 3.6/3.7 tiers (high/medium/low) with jitter protection.
+- **Graceful Tier Degradation**: Seamlessly downgrades across Gemini 3.6/3.7 tiers (high/medium/low), including upward fallback when subagents hit `flash-low` RPM limits; classifies URL-level vs account RPM 429s with at-most-once daily→prod endpoint fallback; per-account concurrency gates for subagent bursts via `x-cs-subagent`.
 - **Protocol Adaptations**: Complete-line UTF-8 decoding to prevent character corruption, LaTeX KaTeX text unwrap, and real token usage passthrough.
 
 ### 4. Extensions & Ecosystem Integration

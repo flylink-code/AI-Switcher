@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.16**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.18**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -97,7 +97,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
 - **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
 - **Claude Code 子代理**：Explore / Haiku 走目录子代理槽（优先 `gemini-3.7-flash-low`），不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
-- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含 `3.6-flash-low` → `3.7-flash-`*），并在重试间加入微等待退避；实现 URL 级限流识别与跨端点 Fallback（`daily` 节点遭遇 `Resource has been exhausted` 时自动无缝降级到生产端点重试，解决 Claude Code 启动与收尾阶段高频短请求踩 429 问题）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号，避免一次 SKU 限速把整池打进冷却；失败日志记录最后尝试的模型而非仅初始请求 ID
+- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含子代理 `3.7-flash-low` 向上回退至 medium/high，以及 `3.6-flash-low` → `3.7-flash-`*），并在重试间加入微等待退避；区分 URL 级与账号 RPM 型 429，每请求最多一次 daily→prod 端点 Fallback，避免 sandbox 连接失败伪装成 502；子代理请求经 `x-cs-subagent` 走单账号并发闸门（主会话与子代理分池排队）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号；失败日志记录最后尝试的模型与 429 分类
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转

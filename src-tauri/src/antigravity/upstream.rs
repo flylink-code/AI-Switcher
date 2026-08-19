@@ -22,14 +22,61 @@ const USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
 /// (mirrors Antigravity-Manager's claude.rs handling).
 const ANTHROPIC_BETA_CLAUDE_CODE: &str = "claude-code-20250219";
 
+/// How a Cloud Code 429 should be handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RateLimitKind {
+    /// Daily-cluster node RPM; a single failover to production may help.
+    UrlLevel,
+    /// Account/project RPM on a SKU; same-host backoff only.
+    AccountRateLimit,
+    /// Per-model quota exhausted; bubble to dispatch for model downgrade.
+    ModelQuotaExhausted,
+}
+
+impl RateLimitKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::UrlLevel => "url_rpm",
+            Self::AccountRateLimit => "account_rpm",
+            Self::ModelQuotaExhausted => "model_quota",
+        }
+    }
+}
+
+/// Classify a 429 response body. `host_index` is the index into
+/// [`UPSTREAM_FALLBACKS`] (0 = daily, 1 = prod, 2 = sandbox).
+pub fn classify_rate_limit_429(body: &str, host_index: usize) -> RateLimitKind {
+    let lower = body.to_ascii_lowercase();
+    if lower.contains("capacity on this model") {
+        return RateLimitKind::ModelQuotaExhausted;
+    }
+    let generic = lower.contains("resource has been exhausted")
+        || lower.contains("resource_exhausted")
+        || lower.contains("too many requests");
+    if !generic {
+        return RateLimitKind::AccountRateLimit;
+    }
+    // Generic "resource exhausted" on the daily host is often URL-level; on
+    // production it is usually account/project RPM and must not fan out to sandbox.
+    if host_index == 0 {
+        RateLimitKind::UrlLevel
+    } else {
+        RateLimitKind::AccountRateLimit
+    }
+}
+
+/// Classify a 429 body when the originating host is unknown (e.g. gateway logs).
+pub fn classify_rate_limit_body(body: &str) -> RateLimitKind {
+    classify_rate_limit_429(body, usize::MAX)
+}
+
 /// Helper to detect URL/node-level rate limits (e.g. "Resource has been exhausted" on daily cluster)
 /// where failing over to production cloudcode-pa endpoint can succeed (mirrors sub2api).
 pub fn is_url_level_rate_limit(body: &str) -> bool {
-    let lower = body.to_ascii_lowercase();
-    (lower.contains("resource has been exhausted")
-        || lower.contains("resource_exhausted")
-        || lower.contains("too many requests"))
-        && !lower.contains("capacity on this model")
+    matches!(
+        classify_rate_limit_429(body, 0),
+        RateLimitKind::UrlLevel
+    )
 }
 
 /// Parse the `Retry-After` header as whole seconds (integer form only).
@@ -49,6 +96,27 @@ fn parse_retry_after(value: &str) -> Option<u64> {
 /// (exponential 10s → 20s, mirroring Antigravity-Manager's 10s~60s policy).
 fn server_error_backoff(attempt: u32) -> Duration {
     Duration::from_secs(10 << attempt.min(2))
+}
+
+fn rpm_backoff_delay(attempt: u32) -> Duration {
+    match attempt {
+        1 => Duration::from_millis(400),
+        _ => Duration::from_millis(1200),
+    }
+}
+
+fn rebuild_rate_limited_response(
+    text: String,
+    retry_after: Option<u64>,
+) -> reqwest::Response {
+    let mut builder = http::Response::builder().status(429);
+    if let Some(secs) = retry_after {
+        builder = builder.header("retry-after", secs.to_string());
+    }
+    let http_response = builder
+        .body(text)
+        .unwrap_or_else(|_| http::Response::new(String::new()));
+    reqwest::Response::from(http_response)
 }
 
 #[derive(Clone)]
@@ -101,14 +169,15 @@ impl UpstreamClient {
             .is_some_and(|model| model.starts_with("claude-"));
         let mut last_error = String::from("upstream request failed");
         let client = self.http();
+        let mut url_fallback_used = false;
         for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
-            let has_next_url = idx + 1 < UPSTREAM_FALLBACKS.len();
             let url = match query {
                 Some(q) => format!("{base}:{method}?{q}"),
                 None => format!("{base}:{method}"),
             };
             let mut server_error_attempt = 0u32;
-            let mut retried_429_in_place = false;
+            let mut retry_after_attempts = 0u32;
+            let mut rpm_backoff_attempt = 0u32;
             loop {
                 let mut request = client
                     .post(&url)
@@ -130,20 +199,25 @@ impl UpstreamClient {
                             log::info!("Antigravity generate {method} {url} → {status}");
                             return Ok(response);
                         }
-                        // 429: honor a short Retry-After in place once; otherwise check
-                        // for URL fallback (daily → prod) or bubble for pool failover.
                         if status.as_u16() == 429 {
                             let retry_after = retry_after_secs(&response);
-                            if !retried_429_in_place && retry_after.is_some_and(|s| s <= 2) {
-                                retried_429_in_place = true;
-                                tokio::time::sleep(Duration::from_secs(retry_after.unwrap_or(1).max(1)))
-                                    .await;
+                            if retry_after_attempts < 2 && retry_after.is_some_and(|s| s <= 5) {
+                                retry_after_attempts += 1;
+                                tokio::time::sleep(Duration::from_secs(
+                                    retry_after.unwrap_or(1).max(1),
+                                ))
+                                .await;
                                 continue;
                             }
-                            if has_next_url {
-                                let text = response.text().await.unwrap_or_default();
-                                if is_url_level_rate_limit(&text) {
-                                    let next_base = UPSTREAM_FALLBACKS[idx + 1];
+                            let text = response.text().await.unwrap_or_default();
+                            let kind = classify_rate_limit_429(&text, idx);
+                            last_error = format!("upstream 429: {text}");
+                            match kind {
+                                RateLimitKind::UrlLevel
+                                    if idx == 0 && !url_fallback_used =>
+                                {
+                                    url_fallback_used = true;
+                                    let next_base = UPSTREAM_FALLBACKS[1];
                                     log::warn!(
                                         "Antigravity URL fallback (429): {url} → {next_base} ({})",
                                         text.chars().take(120).collect::<String>()
@@ -151,11 +225,33 @@ impl UpstreamClient {
                                     tokio::time::sleep(Duration::from_millis(150)).await;
                                     break;
                                 }
-                                last_error = format!("upstream 429: {text}");
-                                log::warn!("Antigravity account quota exhausted: {text}");
-                                break;
+                                RateLimitKind::AccountRateLimit
+                                | RateLimitKind::ModelQuotaExhausted
+                                    if rpm_backoff_attempt < 2 =>
+                                {
+                                    rpm_backoff_attempt += 1;
+                                    log::debug!(
+                                        "Antigravity 429 {:?} on {url}; same-host backoff {rpm_backoff_attempt}/2",
+                                        kind
+                                    );
+                                    tokio::time::sleep(rpm_backoff_delay(rpm_backoff_attempt)).await;
+                                    continue;
+                                }
+                                RateLimitKind::ModelQuotaExhausted => {
+                                    log::warn!(
+                                        "Antigravity model quota exhausted: {}",
+                                        text.chars().take(180).collect::<String>()
+                                    );
+                                    return Ok(rebuild_rate_limited_response(text, retry_after));
+                                }
+                                _ => {
+                                    log::warn!(
+                                        "Antigravity account RPM exhausted on {url}: {}",
+                                        text.chars().take(180).collect::<String>()
+                                    );
+                                    return Ok(rebuild_rate_limited_response(text, retry_after));
+                                }
                             }
-                            return Ok(response);
                         }
                         if status.as_u16() == 401 {
                             return Ok(response);
@@ -237,5 +333,33 @@ mod tests {
         assert_eq!(server_error_backoff(2), Duration::from_secs(40));
         // Capped shift — attempts beyond 2 stay at 40s.
         assert_eq!(server_error_backoff(9), Duration::from_secs(40));
+    }
+
+    #[test]
+    fn classifies_model_quota_vs_account_rpm() {
+        assert_eq!(
+            classify_rate_limit_429(
+                r#"{"error":{"message":"capacity on this model is full"}}"#,
+                1
+            ),
+            RateLimitKind::ModelQuotaExhausted
+        );
+        assert_eq!(
+            classify_rate_limit_429(
+                r#"{"error":{"message":"Resource has been exhausted (e.g. check quota)."}}"#,
+                0
+            ),
+            RateLimitKind::UrlLevel
+        );
+        assert_eq!(
+            classify_rate_limit_429(
+                r#"{"error":{"message":"Resource has been exhausted (e.g. check quota)."}}"#,
+                1
+            ),
+            RateLimitKind::AccountRateLimit
+        );
+        assert!(is_url_level_rate_limit(
+            r#"{"error":{"message":"Resource has been exhausted"}}"#
+        ));
     }
 }

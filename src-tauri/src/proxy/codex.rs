@@ -30,7 +30,7 @@ use super::{
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider,
     next_failover_provider_ex, record_provider_failure,
-    record_provider_success, select_gateway_runtime_provider_with,
+    record_provider_success, select_gateway_runtime_provider_with, CS_SUBAGENT_HEADER,
     session_prompt_cache_hint, should_failover_upstream_status_ex,
     FAILOVER_MAX_HOPS, ProxyState,
 };
@@ -100,14 +100,16 @@ pub async fn codex_proxy_handler(
         })
         .unwrap_or_default();
     let catalog_mode = crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex);
+    let mut is_catalog_subagent = false;
     let mut provider = if catalog_mode {
         match select_gateway_runtime_provider_with(
             &state,
             &requested_model,
             has_subagent_header(&headers),
         ) {
-            Ok(Some((selected, upstream))) => {
+            Ok(Some((selected, upstream, routed_subagent))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
+                is_catalog_subagent = routed_subagent;
                 selected
             }
             Ok(None) => {
@@ -166,6 +168,7 @@ pub async fn codex_proxy_handler(
         &headers,
         &original_body,
         false,
+        is_catalog_subagent,
     ) {
         Ok(prepared) => prepared,
         Err(response) => return response,
@@ -211,6 +214,7 @@ pub async fn codex_proxy_handler(
                     &headers,
                     &failover_body,
                     false,
+                    is_catalog_subagent,
                 ) {
                     Ok(fallback_prepared) => {
                         match fallback_prepared
@@ -301,6 +305,7 @@ pub async fn codex_proxy_handler(
                 &headers,
                 &failover_body,
                 false,
+                is_catalog_subagent,
             ) {
                 match fallback_prepared
                     .request
@@ -354,6 +359,7 @@ pub async fn codex_proxy_handler(
                         &headers,
                         &original_body,
                         true,
+                        is_catalog_subagent,
                     ) {
                         Ok(chat_prepared) => match chat_prepared
                             .request
@@ -670,6 +676,7 @@ fn prepare_codex_upstream(
     headers: &HeaderMap,
     original_body: &Bytes,
     force_chat: bool,
+    is_catalog_subagent: bool,
 ) -> Result<PreparedCodexUpstream, Response> {
     let api_key = match state
         .db
@@ -878,6 +885,9 @@ fn prepare_codex_upstream(
         request = request.header(header::AUTHORIZATION, format!("Bearer {api_key}"));
     }
     request = request.header(header::CONTENT_TYPE, "application/json");
+    if is_catalog_subagent {
+        request = request.header(CS_SUBAGENT_HEADER, "1");
+    }
     for (name, value) in headers.iter() {
         let key = name.as_str();
         if is_hop_by_hop_header(key)

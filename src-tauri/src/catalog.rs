@@ -319,7 +319,7 @@ pub fn catalog_fallback_id(
 
 /// Codex/Claude Code subagents must not inherit the current default (`*-high`).
 /// Empty catalog-subagent setting → lightest flash-low already in the catalog.
-fn catalog_subagent_target(
+pub(crate) fn catalog_subagent_target(
     entries: &[CatalogEntry],
     providers: &[Provider],
     subagent: Option<&str>,

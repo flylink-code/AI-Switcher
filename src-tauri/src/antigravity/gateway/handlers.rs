@@ -29,7 +29,8 @@ use crate::antigravity::map::responses::{
 };
 use crate::antigravity::map::list_public_models;
 use crate::antigravity::model_catalog;
-use crate::antigravity::upstream::{unwrap_v1internal, wrap_v1internal};
+use crate::antigravity::limiter::LimiterPermit;
+use crate::antigravity::upstream::{classify_rate_limit_body, unwrap_v1internal, wrap_v1internal};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
 
@@ -37,6 +38,7 @@ const MAX_FAILOVER_HOPS: usize = 3;
 /// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
 /// plus one other; do not walk the rest of the pool (that cools every number).
 const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
+const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
@@ -253,6 +255,9 @@ async fn dispatch_generation(
         log::info!("Antigravity hop={hop} account={account_email}");
         exclude_labels.push(account_email.clone());
 
+        let is_subagent = is_subagent_request(headers);
+        let limiter_permit = state.limiter.acquire(&account.id, is_subagent).await;
+
         let project_id = match ensure_project_id(
             state,
             &access_token,
@@ -350,6 +355,7 @@ async fn dispatch_generation(
             };
             last_fail_status = status.as_u16();
             if status.as_u16() == 429 {
+                let kind = classify_rate_limit_body(&text);
                 let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
                 let cooldown = if rotate_pool {
                     crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
@@ -359,21 +365,21 @@ async fn dispatch_generation(
                 let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
                 if rotate_pool {
                     log::warn!(
-                        "Antigravity 429 on {} with empty quota snapshot; rotating",
-                        account_email
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with empty quota snapshot; rotating",
+                        kind.label()
                     );
                 } else if hop + 1 >= MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS {
                     // Same-account model fallback already ran. One extra account
                     // covers SKU capacity on another number; more hops cool the pool.
                     log::warn!(
-                        "Antigravity 429 RESOURCE_EXHAUSTED on {} ({last_attempted_model}) with remaining quota; not walking the rest of the pool",
-                        account_email
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with remaining quota; not walking the rest of the pool",
+                        kind.label()
                     );
                     break;
                 } else {
                     log::warn!(
-                        "Antigravity 429 RESOURCE_EXHAUSTED on {} ({last_attempted_model}) with remaining quota; trying one more account",
-                        account_email
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with remaining quota; trying one more account",
+                        kind.label()
                     );
                 }
             } else if status.as_u16() == 403 {
@@ -415,9 +421,11 @@ async fn dispatch_generation(
                 session_key.clone(),
                 thoughts_allowed,
                 tool_params,
+                limiter_permit,
             )
             .await;
         }
+        drop(limiter_permit);
         return match upstream.json::<Value>().await {
             Ok(value) => {
                 let gemini = unwrap_v1internal(&value);
@@ -496,6 +504,7 @@ async fn stream_response(
     session_key: Option<String>,
     thoughts_allowed: bool,
     tool_params: ToolParamKeys,
+    limiter_permit: LimiterPermit,
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
@@ -518,6 +527,7 @@ async fn stream_response(
             last_input: 0,
             last_output: 0,
             responses_encoder,
+            _limiter_permit: limiter_permit,
         },
         |mut state| async move {
             if state.finished {
@@ -631,6 +641,7 @@ struct StreamState {
     last_input: i64,
     last_output: i64,
     responses_encoder: Option<ResponsesStreamEncoder>,
+    _limiter_permit: LimiterPermit,
 }
 
 impl StreamState {
@@ -776,6 +787,17 @@ fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
+}
+
+fn is_subagent_request(headers: &HeaderMap) -> bool {
+    headers
+        .get(CS_SUBAGENT_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| {
+            let trimmed = value.trim();
+            !trimmed.is_empty() && trimmed != "0" && !trimmed.eq_ignore_ascii_case("false")
+        })
+        .unwrap_or(false)
 }
 
 fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), Response> {

@@ -7,6 +7,7 @@
 
 pub mod account;
 pub mod gateway;
+pub mod limiter;
 pub mod map;
 pub mod model_catalog;
 pub mod oauth;

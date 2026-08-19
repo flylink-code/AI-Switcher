@@ -140,6 +140,9 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
     let rest: &[&str] = match suffix {
         Some("high") => &["medium", "low"],
         Some("medium") => &["low"],
+        // Subagents usually land on `-low`; when that SKU RPM-limits, step up
+        // before rotating accounts (symmetric with high→medium→low).
+        Some("low") => &["medium", "high"],
         _ => &[],
     };
     let catalog = list_model_ids();
@@ -710,6 +713,29 @@ mod tests {
             chain_36_low.iter().any(|id| id == "gemini-3.7-flash-high"),
             "3.6-low RESOURCE_EXHAUSTED must fall through to 3.7-high: {chain_36_low:?}"
         );
+        let chain_37_low = gemini_level_fallback_chain("gemini-3.7-flash-low");
+        assert_eq!(
+            chain_37_low.first().map(String::as_str),
+            Some("gemini-3.7-flash-low")
+        );
+        assert!(
+            chain_37_low.len() > 1,
+            "3.7-low must have upward fallback for subagents: {chain_37_low:?}"
+        );
+        assert!(
+            chain_37_low.iter().any(|id| {
+                id == "gemini-3.7-flash-medium" || id == "gemini-3.7-flash-high"
+            }),
+            "3.7-low should step up to a higher flash tier: {chain_37_low:?}"
+        );
+        let chain_37_high = gemini_level_fallback_chain("gemini-3.7-flash-high");
+        let mut seen = std::collections::HashSet::new();
+        for id in &chain_37_high {
+            assert!(
+                seen.insert(id.to_ascii_lowercase()),
+                "high chain must not duplicate entries: {chain_37_high:?}"
+            );
+        }
     }
 
     #[test]
