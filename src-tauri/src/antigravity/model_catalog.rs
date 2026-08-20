@@ -140,8 +140,6 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
     let rest: &[&str] = match suffix {
         Some("high") => &["medium", "low"],
         Some("medium") => &["low"],
-        // Subagents land on `-low`; step to a cross-generation sibling at the
-        // same tier — never up into medium/high (main session SKUs).
         Some("low") => &[],
         _ => &[],
     };
@@ -162,6 +160,15 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
             let sibling = "gemini-3.7-flash-low";
             if !out.iter().any(|item| item.eq_ignore_ascii_case(sibling)) {
                 out.push(sibling.to_string());
+            }
+        }
+        // Last-resort escape hatch: same-base medium/high so a hot -low SKU
+        // does not hard-fail the whole request. Always offer these even when
+        // the cached catalog omitted a level (Cloud Code still serves them).
+        for level in ["medium", "high"] {
+            let candidate = format!("{base}-{level}");
+            if !out.iter().any(|item| item.eq_ignore_ascii_case(&candidate)) {
+                out.push(candidate);
             }
         }
     } else {
@@ -734,15 +741,17 @@ mod tests {
         );
         assert!(
             chain_37_low.iter().any(|id| id == "gemini-3.6-flash-low"),
-            "3.7-low should fall through to 3.6-low sibling, not main-session tiers: {chain_37_low:?}"
+            "3.7-low should fall through to 3.6-low sibling first: {chain_37_low:?}"
         );
         assert!(
-            !chain_37_low.iter().any(|id| {
-                id == "gemini-3.7-flash-medium" || id == "gemini-3.7-flash-high"
-            }),
-            "3.7-low must not step up into medium/high: {chain_37_low:?}"
+            chain_37_low.iter().any(|id| id == "gemini-3.7-flash-medium"),
+            "3.7-low must keep medium as an escape hatch: {chain_37_low:?}"
         );
-        assert!(chain_37_low.len() <= 2);
+        assert!(
+            chain_37_low.iter().any(|id| id == "gemini-3.7-flash-high"),
+            "3.7-low must keep high as a last-resort escape hatch: {chain_37_low:?}"
+        );
+        assert!(chain_37_low.len() >= 3);
         let chain_37_high = gemini_level_fallback_chain("gemini-3.7-flash-high");
         let mut seen = std::collections::HashSet::new();
         for id in &chain_37_high {

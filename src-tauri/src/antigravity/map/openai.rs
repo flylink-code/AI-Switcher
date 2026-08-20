@@ -6,6 +6,7 @@ use uuid::Uuid;
 use super::args_fix::{correct_tool_args, param_keys_from_declarations, ToolParamKeys};
 use super::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
+use crate::antigravity::thought_sig;
 use crate::antigravity::usage_log::GeminiUsage;
 
 pub struct GeminiRequestParts {
@@ -16,7 +17,10 @@ pub struct GeminiRequestParts {
     pub tool_params: ToolParamKeys,
 }
 
-pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
+pub fn openai_to_gemini_request(
+    body: &Value,
+    session_key: Option<&str>,
+) -> Result<GeminiRequestParts, String> {
     let mut model = map_model_id(body.get("model").and_then(Value::as_str).unwrap_or(""));
     let stream = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
 
@@ -99,10 +103,25 @@ pub fn openai_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, Stri
                         let args: Value =
                             serde_json::from_str(args_raw).unwrap_or_else(|_| json!({}));
                         let mut fc = json!({ "name": name, "args": args });
-                        if let Some(id) = call.get("id") {
-                            fc["id"] = id.clone();
+                        let id = call.get("id").and_then(Value::as_str);
+                        if let Some(id) = id {
+                            fc["id"] = json!(id);
                         }
-                        parts.push(json!({ "functionCall": fc }));
+                        let mut part = json!({ "functionCall": fc });
+                        // Gemini 3 要求历史 functionCall 携带 thought_signature。
+                        // Codex / OpenAI Chat 看不到该字段，按 tool id → 会话 → 哨兵回注。
+                        let signature = id
+                            .and_then(thought_sig::get_tool_signature)
+                            .or_else(|| {
+                                session_key.and_then(thought_sig::get_session_signature)
+                            })
+                            .unwrap_or_else(|| {
+                                thought_sig::SKIP_VALIDATOR_SENTINEL.to_string()
+                            });
+                        let signature = json!(signature);
+                        part["thoughtSignature"] = signature.clone();
+                        part["thought_signature"] = signature;
+                        parts.push(part);
                     }
                 }
                 if !parts.is_empty() {
@@ -300,8 +319,13 @@ fn parse_data_url(url: &str) -> Option<(String, String)> {
     Some((mime, data.to_string()))
 }
 
-pub fn gemini_to_openai_response(model: &str, gemini: &Value, tool_params: &ToolParamKeys) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini, tool_params);
+pub fn gemini_to_openai_response(
+    model: &str,
+    gemini: &Value,
+    session_key: Option<&str>,
+    tool_params: &ToolParamKeys,
+) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini, session_key, tool_params);
     let mut message = json!({
         "role": "assistant",
         "content": text,
@@ -328,9 +352,10 @@ pub fn gemini_to_openai_response(model: &str, gemini: &Value, tool_params: &Tool
 pub fn gemini_to_openai_sse_chunk(
     model: &str,
     gemini_chunk: &Value,
+    session_key: Option<&str>,
     tool_params: &ToolParamKeys,
 ) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk, tool_params);
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk, session_key, tool_params);
     let mut delta = json!({ "role": "assistant" });
     if !text.is_empty() {
         delta["content"] = json!(text);
@@ -377,7 +402,11 @@ pub fn openai_usage_sse_chunk(model: &str, input: i64, output: i64) -> Value {
     })
 }
 
-fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Vec<Value>, String) {
+pub(crate) fn extract_assistant(
+    gemini: &Value,
+    session_key: Option<&str>,
+    tool_params: &ToolParamKeys,
+) -> (String, Vec<Value>, String) {
     let mut text = String::new();
     let mut tool_calls = Vec::new();
     let mut finish_reason = "stop".to_string();
@@ -393,7 +422,14 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
             .and_then(Value::as_array)
         {
             for (index, part) in parts.iter().enumerate() {
+                let signature = part
+                    .get("thoughtSignature")
+                    .or_else(|| part.get("thought_signature"))
+                    .and_then(Value::as_str);
                 if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                    if let (Some(sig), Some(session)) = (signature, session_key) {
+                        thought_sig::cache_session_signature(session, sig);
+                    }
                     continue;
                 }
                 if let Some(chunk) = part.get("text").and_then(Value::as_str) {
@@ -405,6 +441,12 @@ fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Ve
                         .and_then(Value::as_str)
                         .map(str::to_string)
                         .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
+                    if let Some(sig) = signature {
+                        thought_sig::cache_tool_signature(&id, sig);
+                        if let Some(session) = session_key {
+                            thought_sig::cache_session_signature(session, sig);
+                        }
+                    }
                     let name = fc.get("name").cloned().unwrap_or(json!("tool"));
                     let args = super::latex::unwrap_latex_in_tool_args(correct_tool_args(
                         name.as_str().unwrap_or("tool"),
@@ -458,7 +500,7 @@ mod tests {
                 {"role": "user", "content": "hi"}
             ]
         });
-        let parts = openai_to_gemini_request(&body).unwrap();
+        let parts = openai_to_gemini_request(&body, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert!(parts.request.get("systemInstruction").is_some());
     }
@@ -482,7 +524,7 @@ mod tests {
                 }
             }]
         });
-        let parts = openai_to_gemini_request(&body).unwrap();
+        let parts = openai_to_gemini_request(&body, None).unwrap();
         let response = &parts.request["contents"][2]["parts"][0]["functionResponse"];
         assert_eq!(response["id"], json!("call_1"));
         assert_eq!(response["name"], json!("read_file"));
@@ -501,7 +543,7 @@ mod tests {
             "model": "gemini-3.6-flash",
             "reasoning_effort": "high",
             "messages": [{"role": "user", "content": "hi"}]
-        }))
+        }), None)
         .unwrap();
         assert!(gemini.model.starts_with("gemini-"));
         assert!(gemini.request.get("reasoning_effort").is_none());
@@ -510,7 +552,7 @@ mod tests {
             "model": "claude-sonnet-4-6",
             "reasoning_effort": "low",
             "messages": [{"role": "user", "content": "hi"}]
-        }))
+        }), None)
         .unwrap();
         assert_eq!(
             claude.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
@@ -534,7 +576,7 @@ mod tests {
                 }
             }]
         });
-        let parts = openai_to_gemini_request(&body).unwrap();
+        let parts = openai_to_gemini_request(&body, None).unwrap();
         let gemini = json!({
             "candidates": [{
                 "content": { "parts": [
@@ -544,7 +586,7 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let response = gemini_to_openai_response("gpt-4o", &gemini, &parts.tool_params);
+        let response = gemini_to_openai_response("gpt-4o", &gemini, None, &parts.tool_params);
         let args: Value = serde_json::from_str(
             response["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
                 .as_str()
@@ -568,7 +610,7 @@ mod tests {
                 "thoughtsTokenCount": 80
             }
         });
-        let chunk = gemini_to_openai_sse_chunk("gemini-3.7-flash-high", &gemini, &ToolParamKeys::new());
+        let chunk = gemini_to_openai_sse_chunk("gemini-3.7-flash-high", &gemini, None, &ToolParamKeys::new());
         assert_eq!(chunk["usage"]["prompt_tokens"], 1500);
         assert_eq!(chunk["usage"]["completion_tokens"], 100);
         assert_eq!(chunk["usage"]["total_tokens"], 1600);
@@ -590,7 +632,58 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let response = gemini_to_openai_response("gpt-4o", &gemini, &ToolParamKeys::new());
+        let response = gemini_to_openai_response("gpt-4o", &gemini, None, &ToolParamKeys::new());
         assert_eq!(response["choices"][0]["message"]["content"], "延时 10 μs");
+    }
+
+    #[test]
+    fn historical_tool_calls_get_thought_signature() {
+        let body = json!({
+            "model": "gemini-3.7-flash-high",
+            "messages": [
+                { "role": "user", "content": "hi" },
+                { "role": "assistant", "content": null, "tool_calls": [
+                    { "id": "call_hist_sig", "type": "function", "function": { "name": "read_file", "arguments": "{}" } }
+                ]},
+                { "role": "tool", "tool_call_id": "call_hist_sig", "content": "ok" }
+            ]
+        });
+        let parts = openai_to_gemini_request(&body, None).unwrap();
+        let part = &parts.request["contents"][1]["parts"][0];
+        assert_eq!(
+            part["thoughtSignature"],
+            json!(crate::antigravity::thought_sig::SKIP_VALIDATOR_SENTINEL)
+        );
+        assert_eq!(part["thoughtSignature"], part["thought_signature"]);
+
+        crate::antigravity::thought_sig::cache_tool_signature("call_hist_sig", "real-tool-sig");
+        let parts = openai_to_gemini_request(&body, None).unwrap();
+        assert_eq!(
+            parts.request["contents"][1]["parts"][0]["thoughtSignature"],
+            json!("real-tool-sig")
+        );
+    }
+
+    #[test]
+    fn response_function_call_caches_thought_signature() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "thinking", "thoughtSignature": "session-sig-chat" },
+                    { "functionCall": { "id": "call_cache_chat", "name": "Grep", "args": {} },
+                      "thoughtSignature": "tool-sig-chat" }
+                ] },
+                "finishReason": "STOP"
+            }]
+        });
+        let _ = gemini_to_openai_response("gpt-4o", &gemini, Some("sess_chat_sig"), &ToolParamKeys::new());
+        assert_eq!(
+            crate::antigravity::thought_sig::get_tool_signature("call_cache_chat").as_deref(),
+            Some("tool-sig-chat")
+        );
+        assert_eq!(
+            crate::antigravity::thought_sig::get_session_signature("sess_chat_sig").as_deref(),
+            Some("session-sig-chat")
+        );
     }
 }

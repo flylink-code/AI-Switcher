@@ -3,14 +3,17 @@
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::args_fix::{correct_tool_args, ToolParamKeys};
-use super::openai::{openai_to_gemini_request, GeminiRequestParts};
+use super::args_fix::ToolParamKeys;
+use super::openai::{extract_assistant, openai_to_gemini_request, GeminiRequestParts};
 use crate::antigravity::usage_log::GeminiUsage;
 
 /// Convert an OpenAI Responses request into Gemini generateContent parts.
-pub fn responses_to_gemini_request(body: &Value) -> Result<GeminiRequestParts, String> {
+pub fn responses_to_gemini_request(
+    body: &Value,
+    session_key: Option<&str>,
+) -> Result<GeminiRequestParts, String> {
     let chat = responses_to_chat_completions_body(body)?;
-    openai_to_gemini_request(&chat)
+    openai_to_gemini_request(&chat, session_key)
 }
 
 /// Normalize Responses wire shape into Chat Completions so we reuse the
@@ -296,8 +299,13 @@ fn responses_tool_to_chat(tool: &Value) -> Option<Value> {
 }
 
 /// Non-streaming Gemini → Responses JSON.
-pub fn gemini_to_responses_response(model: &str, gemini: &Value, tool_params: &ToolParamKeys) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini, tool_params);
+pub fn gemini_to_responses_response(
+    model: &str,
+    gemini: &Value,
+    session_key: Option<&str>,
+    tool_params: &ToolParamKeys,
+) -> Value {
+    let (text, tool_calls, finish_reason) = extract_assistant(gemini, session_key, tool_params);
     let mut output = Vec::new();
     if !text.is_empty() {
         output.push(json!({
@@ -339,74 +347,6 @@ pub fn gemini_to_responses_response(model: &str, gemini: &Value, tool_params: &T
     body
 }
 
-fn extract_assistant(gemini: &Value, tool_params: &ToolParamKeys) -> (String, Vec<Value>, String) {
-    let mut text = String::new();
-    let mut tool_calls = Vec::new();
-    let mut finish_reason = "stop".to_string();
-    let candidates = gemini
-        .get("candidates")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    if let Some(candidate) = candidates.first() {
-        if let Some(parts) = candidate
-            .get("content")
-            .and_then(|c| c.get("parts"))
-            .and_then(Value::as_array)
-        {
-            for (index, part) in parts.iter().enumerate() {
-                if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
-                    continue;
-                }
-                if let Some(chunk) = part.get("text").and_then(Value::as_str) {
-                    text.push_str(chunk);
-                }
-                if let Some(fc) = part.get("functionCall") {
-                    let id = fc
-                        .get("id")
-                        .and_then(Value::as_str)
-                        .map(str::to_string)
-                        .unwrap_or_else(|| format!("call_{}", Uuid::new_v4().simple()));
-                    let name = fc.get("name").cloned().unwrap_or(json!("tool"));
-                    let args = super::latex::unwrap_latex_in_tool_args(correct_tool_args(
-                        name.as_str().unwrap_or("tool"),
-                        fc.get("args").cloned().unwrap_or(json!({})),
-                        tool_params,
-                    ));
-                    tool_calls.push(json!({
-                        "id": id,
-                        "index": index,
-                        "type": "function",
-                        "function": {
-                            "name": name,
-                            "arguments": args.to_string(),
-                        }
-                    }));
-                    finish_reason = "tool_calls".into();
-                }
-            }
-        }
-        if let Some(reason) = candidate.get("finishReason").and_then(Value::as_str) {
-            finish_reason = match reason {
-                "MAX_TOKENS" => "length".into(),
-                "STOP" => {
-                    if tool_calls.is_empty() {
-                        "stop".into()
-                    } else {
-                        "tool_calls".into()
-                    }
-                }
-                other => other.to_ascii_lowercase(),
-            };
-        }
-    }
-    (
-        super::latex::unwrap_gemini_latex(&text),
-        tool_calls,
-        finish_reason,
-    )
-}
-
 /// Stateful Gemini chunk → Responses SSE event bytes.
 pub struct ResponsesStreamEncoder {
     model: String,
@@ -424,10 +364,11 @@ pub struct ResponsesStreamEncoder {
     function_outputs: Vec<Value>,
     /// 本次请求的工具声明参数键名，用于纠偏 args key。
     tool_params: ToolParamKeys,
+    session_key: Option<String>,
 }
 
 impl ResponsesStreamEncoder {
-    pub fn new(model: &str, tool_params: ToolParamKeys) -> Self {
+    pub fn new(model: &str, tool_params: ToolParamKeys, session_key: Option<String>) -> Self {
         let response_id = format!("resp_{}", Uuid::new_v4().simple());
         Self {
             model: model.to_string(),
@@ -443,6 +384,7 @@ impl ResponsesStreamEncoder {
             sequence: 0,
             function_outputs: Vec::new(),
             tool_params,
+            session_key,
         }
     }
 
@@ -459,7 +401,8 @@ impl ResponsesStreamEncoder {
         let mut out = String::new();
         self.ensure_started(&mut out);
         self.note_usage(gemini);
-        let (text, tool_calls, finish_reason) = extract_assistant(gemini, &self.tool_params);
+        let (text, tool_calls, finish_reason) =
+            extract_assistant(gemini, self.session_key.as_deref(), &self.tool_params);
         if finish_reason == "length" {
             self.status = "incomplete".into();
         }
@@ -822,7 +765,7 @@ mod tests {
             "reasoning": { "effort": "high" },
             "stream": false,
         });
-        let parts = responses_to_gemini_request(&body).unwrap();
+        let parts = responses_to_gemini_request(&body, None).unwrap();
         assert!(parts.model.contains("flash"));
         assert!(parts.model.contains("high") || parts.model.ends_with("-high") || parts.model.contains("flash"));
         assert!(parts.request.get("systemInstruction").is_some());
@@ -853,7 +796,7 @@ mod tests {
                 "parameters": { "type": "object", "properties": { "path": { "type": "string" } } }
             }]
         });
-        let parts = responses_to_gemini_request(&body).unwrap();
+        let parts = responses_to_gemini_request(&body, None).unwrap();
         let tools = parts.request.get("tools").unwrap();
         assert!(tools[0]["functionDeclarations"][0]["name"] == "read_file");
         let contents = parts.request["contents"].as_array().unwrap();
@@ -868,7 +811,7 @@ mod tests {
 
     #[test]
     fn stream_encoder_emits_created_and_completed() {
-        let mut enc = ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new());
+        let mut enc = ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "hello" }] },
@@ -896,7 +839,7 @@ mod tests {
 
     #[test]
     fn stream_encoder_counts_thoughts_in_output_and_reasoning_details() {
-        let mut enc = ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new());
+        let mut enc = ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "ok" }] },
@@ -933,5 +876,37 @@ mod tests {
         let compact = responses_compact_stub(&body);
         assert_eq!(compact["object"], "response.compaction");
         assert_eq!(compact["status"], "completed");
+    }
+
+    #[test]
+    fn historical_function_calls_get_thought_signature() {
+        let body = json!({
+            "model": "gemini-3.6-flash-low",
+            "input": [
+                { "role": "user", "content": "hi" },
+                {
+                    "type": "function_call",
+                    "call_id": "call_resp_sig",
+                    "name": "read_file",
+                    "arguments": "{}"
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_resp_sig",
+                    "output": "ok"
+                }
+            ]
+        });
+        let parts = responses_to_gemini_request(&body, None).unwrap();
+        let model_parts = parts.request["contents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|content| content["role"] == "model")
+            .unwrap();
+        assert_eq!(
+            model_parts["parts"][0]["thoughtSignature"],
+            json!(crate::antigravity::thought_sig::SKIP_VALIDATOR_SENTINEL)
+        );
     }
 }

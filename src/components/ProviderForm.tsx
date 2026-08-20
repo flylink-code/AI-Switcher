@@ -496,9 +496,6 @@ export function ProviderForm({
         .then((defaults) => {
           const liveIds = (defaults.models ?? []).map((model) => model.id).filter(Boolean);
           const defaultModel = defaults.defaultModel?.trim() || preset.model;
-          const flash = defaults.geminiFlash ?? "gemini-3.7-flash";
-          const flashLow = defaults.geminiFlashLow ?? "gemini-3.6-flash-low";
-          const pro = defaults.geminiPro ?? flash;
           const failover = liveIds.filter((id) => id !== defaultModel);
           const liveRoot = String(defaults.baseUrl || "http://127.0.0.1:15830").replace(/\/$/, "");
           const needsV1 =
@@ -517,10 +514,7 @@ export function ProviderForm({
             failoverModels: failover.length > 0 ? failover : preset.failoverModels ?? [],
             modelMapping: isDirect
               ? { ...EMPTY_MODEL_MAPPING }
-              : mappingFromAntigravityPreset(defaultModel, target, {
-                  geminiFlash: flashLow,
-                  geminiPro: pro,
-                }),
+              : mappingFromAntigravityPreset(defaultModel, target),
           });
           prevModelRef.current = defaultModel;
           setModels([...new Set([defaultModel, ...failover, ...(preset.failoverModels ?? [])])]);

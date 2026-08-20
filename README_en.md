@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.20**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.21**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -25,7 +25,7 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 ### 2. Provider Management & Unified Model Catalog
 - **Multi-Agent Configurations**: Independently manage API endpoints, credentials, model mappings, and Base URL latency diagnostics for Claude Code, Desktop, Codex, OpenCode, Pi, and DeepSeek Harness.
 - **Unified Catalog Mode**: Merge multi-provider models through a local proxy so any visible model can be switched seamlessly in the CLI via `/model`.
-- **Subagent Smart Routing**: Automatically routes Claude Code (Explore/Haiku) and Codex subagents to lightweight, high-capacity models (e.g. `gemini-3.7-flash-low`).
+- **Subagent Smart Routing**: Claude Code (Explore/Haiku) and Codex subagents follow the current default model when left empty; an explicit catalog subagent id is still honored.
 - **Thinking / Reasoning Translation**: Seamlessly bridges token budgets and reasoning effort across Anthropic, OpenAI, Gemini, and DeepSeek.
 - **Health Diagnostics & Failover**: One-click quarantine for 401/403 errors with transparent failover support on 429/5xx errors.
 
@@ -33,8 +33,8 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google Cloud Code to Anthropic Messages and OpenAI Chat/Responses protocols:
 - **Smart Account Pool Scheduling**: Browser OAuth import, real-time quota probes, dynamic weighted round-robin, and best account recommendation. Active account is a soft preference—under RPM pressure it yields to healthier accounts.
 - **URL-Level 429 Intelligent Fallback**: Accurately recognizes node-level rate limits (`Resource has been exhausted`) and automatically falls back to production endpoints with micro-backoff; remembers daily-host throttling with TTL and skips daily when hot.
-- **Graceful Tier Degradation**: Downgrades across Gemini 3.6/3.7 tiers without escalating `low` into main-session `high`; cross-generation siblings (e.g. `3.7-flash-low` → `3.6-flash-low`), at most two tiers per request; per-account token bucket (~30 RPM, burst 8), min-interval backoff, AIMD on 429, and retry deadlines (~8s non-stream / ~15s stream). **Accounts & Quotas** exposes manual concurrency and rate-limit settings; subagent bursts use a separate pool via `x-cs-subagent`.
-- **Protocol Adaptations**: Complete-line UTF-8 decoding to prevent character corruption, LaTeX KaTeX text unwrap, and real token usage passthrough.
+- **Graceful Tier Degradation**: Downgrades across Gemini 3.6/3.7 tiers (`3.7-flash-low` → `3.6-flash-low`, then same-base `medium`/`high` as a last resort; at most three tiers per request); per-account token bucket (~30 RPM, burst 8), min-interval backoff, AIMD on 429, and retry deadlines (~8s non-stream / ~15s stream). Local network failures are logged as `network` and do not cool accounts. **Accounts & Quotas** exposes manual concurrency and rate-limit settings; subagent bursts use a separate pool via `x-cs-subagent`.
+- **Protocol Adaptations**: OpenAI Chat / Responses replay Gemini 3 `thought_signature` on historical `functionCall` parts (tool-id cache, sentinel fallback) so Codex tool rounds are not rejected with 400; request-body 400/422 is returned as-is instead of being laundered into 429/502. Complete-line UTF-8 decoding to prevent character corruption, LaTeX KaTeX text unwrap, and real token usage passthrough.
 
 ### 4. Extensions & Ecosystem Integration
 - **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization. Check-all Skill/plugin updates run off the UI thread (per-repo GitHub zips, 90s plugin CLI timeout) so the window stays responsive.

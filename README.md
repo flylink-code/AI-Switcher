@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.20**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.21**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -96,8 +96,9 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 - **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
 - **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
-- **Claude Code 子代理**：Explore / Haiku 走目录子代理槽（优先 `gemini-3.7-flash-low`），不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
-- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（`low` 不再抬升到主会话 `high`，改为同级跨代兄弟如 `3.7-flash-low` → `3.6-flash-low`，单次请求最多 2 档）；区分 URL 级与账号 RPM 型 429，daily 主机限流带 TTL 记忆、烫手时跳过 daily，每请求最多一次 daily→prod 端点 Fallback；子代理经 `x-cs-subagent` 走独立并发池，非流式/流式重试各有截止时间（约 8s / 15s），超时立即 429 + Retry-After。每账号令牌桶（默认约 30 RPM、突发 8）+ 最小间隔退避 + 429 AIMD；**账号与额度**页可手动调节并发与限速
+- **Claude Code 子代理**：Explore / Haiku 走目录子代理槽；**留空则跟随当前默认模型**（不再预填 `flash-low`）。显式配置的子代理模型仍优先；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
+- **Codex / OpenAI 协议**：历史 `functionCall` 回注 Gemini 3 `thought_signature`（按 tool id 缓存，未命中用哨兵），避免多轮工具调用被上游 400。请求体错误（400/422）原样回传，不再跨主机重试后洗成 429/502
+- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（`3.7-flash-low` → `3.6-flash-low`，再以同 base 的 `medium`/`high` 作为最后出口，单次最多 3 档）；区分 URL 级与账号 RPM 型 429，daily 主机限流带 TTL 记忆、烫手时跳过 daily，每请求最多一次 daily→prod 端点 Fallback。本机网络失败（连不上/超时/出网代理抖动）记为 `network`，不冷却账号、不轮换池。子代理经 `x-cs-subagent` 走独立并发池，非流式/流式重试各有截止时间（约 8s / 15s），超时立即 429 + Retry-After。每账号令牌桶（默认约 30 RPM、突发 8）+ 最小间隔退避 + 429 AIMD；**账号与额度**页可手动调节并发与限速
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转

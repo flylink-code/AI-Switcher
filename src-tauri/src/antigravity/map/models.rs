@@ -23,7 +23,9 @@ pub fn map_model_id(requested: &str) -> String {
         "claude-haiku-4"
         | "claude-haiku-4-5"
         | "claude-3-haiku-20240307"
-        | "claude-haiku-4-5-20251001" => model_catalog::preferred_gemini_flash_low(),
+        | "claude-haiku-4-5-20251001" => {
+            model_catalog::preferred_gemini_flash().unwrap_or_else(|| "gemini-3.7-flash-high".into())
+        }
         "gemini-flash"
         | "gemini-2.5-flash"
         | "gemini-3-flash"
@@ -104,8 +106,8 @@ mod tests {
         assert_eq!(map_model_id("gemini-3.7-flash"), "gemini-3.7-flash-high");
         let haiku = map_model_id("claude-haiku-4-5");
         assert!(
-            haiku.ends_with("-low"),
-            "Haiku/subagent traffic must use flash-low, got {haiku}"
+            haiku.ends_with("-high") || haiku.ends_with("flash"),
+            "Haiku aliases now follow the main flash SKU, got {haiku}"
         );
         assert_eq!(
             map_model_id("claude.antigravity--built-in.gemini-3.6-flash-low"),

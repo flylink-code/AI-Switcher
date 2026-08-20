@@ -33,14 +33,14 @@ use crate::antigravity::limiter::LimiterPermit;
 use crate::antigravity::upstream::{classify_rate_limit_body, unwrap_v1internal, wrap_v1internal};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
-use crate::error::AppError;
+use crate::error::{AppError, AppResult};
 
 const MAX_FAILOVER_HOPS: usize = 3;
 /// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
 /// plus one other; do not walk the rest of the pool (that cools every number).
 const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
 const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
-const MAX_MODEL_LEVEL_ATTEMPTS: usize = 2;
+const MAX_MODEL_LEVEL_ATTEMPTS: usize = 3;
 const NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(8);
 const STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
 const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
@@ -113,7 +113,8 @@ pub async fn openai_chat_completions(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
     };
-    let mapped = match openai_to_gemini_request(&payload) {
+    let session_key = session_key_from_headers(&headers);
+    let mapped = match openai_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
@@ -143,7 +144,8 @@ pub async fn openai_responses(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
     };
-    let mapped = match responses_to_gemini_request(&payload) {
+    let session_key = session_key_from_headers(&headers);
+    let mapped = match responses_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
@@ -298,8 +300,14 @@ async fn dispatch_generation(
         {
             Ok(value) => value,
             Err(error) => {
-                last_error = error;
+                last_error = error.to_string();
                 last_fail_status = 500;
+                if !should_cool_account_on_generate_error(&error) {
+                    log::warn!(
+                        "Antigravity project lookup network error on {account_email}; not cooling account: {last_error}"
+                    );
+                    break;
+                }
                 let _ = account_store().mark_cooldown(&account.id, 45, &last_error);
                 continue;
             }
@@ -366,6 +374,12 @@ async fn dispatch_generation(
                     } else {
                         502
                     };
+                    if !should_cool_account_on_generate_error(&error) {
+                        log::warn!(
+                            "Antigravity generate network error on {account_email}; not cooling account: {last_error}"
+                        );
+                        break 'levels Err(());
+                    }
                     if last_fail_status == 502 {
                         let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
                     }
@@ -390,10 +404,40 @@ async fn dispatch_generation(
         };
         let upstream = match upstream {
             Ok(response) => response,
-            Err(()) => continue,
+            Err(()) => {
+                if last_error.starts_with("network/") {
+                    break;
+                }
+                continue;
+            }
         };
 
         let status = upstream.status();
+        if matches!(status.as_u16(), 400 | 422) {
+            let text = upstream.text().await.unwrap_or_default();
+            let clipped: String = text.trim().chars().take(400).collect();
+            last_error = if clipped.is_empty() {
+                format!("upstream {status}")
+            } else {
+                format!("upstream {status}: {clipped}")
+            };
+            last_fail_status = status.as_u16();
+            log::warn!(
+                "Antigravity request-body error {status} on {account_email} model={last_attempted_model}; not rotating: {last_error}"
+            );
+            let _ = usage_log::insert_request(
+                &state.db,
+                exclude_labels.last().map(String::as_str),
+                &last_attempted_model,
+                Some(status.as_u16() as i64),
+                started,
+                protocol,
+                stream,
+                Some("upstream"),
+                Some(&last_error),
+            );
+            return error_json(status, &last_error);
+        }
         if matches!(status.as_u16(), 401 | 403 | 429) {
             let retry_after = crate::antigravity::upstream::retry_after_secs(&upstream);
             let text = upstream.text().await.unwrap_or_default();
@@ -440,6 +484,32 @@ async fn dispatch_generation(
                 let _ = account_store().mark_cooldown(&account.id, 180, &last_error);
             }
             continue;
+        }
+        if is_request_body_status(status.as_u16()) {
+            let text = upstream.text().await.unwrap_or_default();
+            let clipped: String = text.trim().chars().take(400).collect();
+            last_error = if clipped.is_empty() {
+                format!("upstream {status}")
+            } else {
+                format!("upstream {status}: {clipped}")
+            };
+            log::warn!(
+                "Antigravity request-body error {status} on {account_email} model={last_attempted_model}: {last_error}"
+            );
+            let _ = usage_log::insert_request(
+                &state.db,
+                exclude_labels.last().map(String::as_str),
+                &last_attempted_model,
+                Some(status.as_u16() as i64),
+                started,
+                protocol,
+                stream,
+                Some("upstream"),
+                Some(&last_error),
+            );
+            let client_status =
+                StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_REQUEST);
+            return error_json(client_status, &last_error);
         }
         if !status.is_success() {
             let text = upstream.text().await.unwrap_or_default();
@@ -501,11 +571,21 @@ async fn dispatch_generation(
                         .into_response()
                     }
                     WireProtocol::OpenAiChat => {
-                        Json(gemini_to_openai_response(&current_model, &gemini, &tool_params))
+                        Json(gemini_to_openai_response(
+                            &current_model,
+                            &gemini,
+                            session_key.as_deref(),
+                            &tool_params,
+                        ))
                             .into_response()
                     }
                     WireProtocol::OpenAiResponses => {
-                        Json(gemini_to_responses_response(&current_model, &gemini, &tool_params))
+                        Json(gemini_to_responses_response(
+                            &current_model,
+                            &gemini,
+                            session_key.as_deref(),
+                            &tool_params,
+                        ))
                             .into_response()
                     }
                 }
@@ -519,9 +599,17 @@ async fn dispatch_generation(
 
     let clipped_error: String = last_error.chars().take(400).collect();
     let status = client_status_from_upstream_error(&clipped_error);
+    let error_category = dispatch_error_category(&clipped_error);
     if status == StatusCode::TOO_MANY_REQUESTS {
         log::warn!(
             "Antigravity dispatch failed 429 after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]",
+            started.elapsed().as_millis(),
+            exclude_labels.join(","),
+            models_tried.join(",")
+        );
+    } else if error_category == "network" {
+        log::warn!(
+            "Antigravity dispatch failed network after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]: {clipped_error}",
             started.elapsed().as_millis(),
             exclude_labels.join(","),
             models_tried.join(",")
@@ -535,7 +623,7 @@ async fn dispatch_generation(
         started,
         protocol,
         stream,
-        Some("upstream"),
+        Some(error_category),
         Some(&clipped_error),
     );
     error_json(status, &clipped_error)
@@ -546,15 +634,11 @@ async fn ensure_project_id(
     access_token: &str,
     account_id: &str,
     existing: Option<&str>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     if let Some(project) = existing.filter(|value| !value.trim().is_empty()) {
         return Ok(project.to_string());
     }
-    let project = state
-        .upstream
-        .fetch_project_id(access_token)
-        .await
-        .map_err(|error| error.to_string())?;
+    let project = state.upstream.fetch_project_id(access_token).await?;
     let _ = account_store().update_project_id(account_id, &project);
     Ok(project)
 }
@@ -573,7 +657,7 @@ async fn stream_response(
 ) -> Response {
     let byte_stream = upstream.bytes_stream().boxed();
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
-        .then(|| ResponsesStreamEncoder::new(&model, tool_params.clone()));
+        .then(|| ResponsesStreamEncoder::new(&model, tool_params.clone(), session_key.clone()));
     let stream = futures_util::stream::unfold(
         StreamState {
             upstream: byte_stream,
@@ -774,6 +858,7 @@ impl StreamState {
                 WireProtocol::OpenAiChat => sse_data(&gemini_to_openai_sse_chunk(
                     &self.model,
                     &gemini,
+                    self.session_key.as_deref(),
                     &self.tool_params,
                 ))
                 .to_vec(),
@@ -939,6 +1024,22 @@ fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), Response> 
 /// Claude Desktop treats HTTP 502 as a server fault and retries immediately
 /// (1–3s), which turns a Cloud Code 429 into a request storm. Preserve 429 so
 /// the client (and local proxy) can back off.
+fn is_request_body_status(status: u16) -> bool {
+    matches!(status, 400 | 422)
+}
+
+fn should_cool_account_on_generate_error(error: &AppError) -> bool {
+    !matches!(error, AppError::Network(_))
+}
+
+fn dispatch_error_category(last_error: &str) -> &'static str {
+    if last_error.starts_with("network/") {
+        "network"
+    } else {
+        "upstream"
+    }
+}
+
 fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
     let lower = last_error.to_ascii_lowercase();
     if lower.contains("429")
@@ -951,6 +1052,12 @@ fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
         StatusCode::UNAUTHORIZED
     } else if lower.contains("403") || lower.contains("forbidden") || lower.contains("permission denied") {
         StatusCode::FORBIDDEN
+    } else if lower.contains("400")
+        || lower.contains("422")
+        || lower.contains("thought_signature")
+        || lower.contains("invalid_argument")
+    {
+        StatusCode::BAD_REQUEST
     } else {
         StatusCode::BAD_GATEWAY
     }
@@ -961,6 +1068,7 @@ fn error_type_for_status(status: StatusCode) -> &'static str {
         429 => "rate_limit_error",
         401 => "authentication_error",
         403 => "permission_error",
+        400 | 422 => "invalid_request_error",
         _ => "antigravity_gateway_error",
     }
 }
@@ -1023,6 +1131,37 @@ mod tests {
             client_status_from_upstream_error("invalid upstream json"),
             StatusCode::BAD_GATEWAY
         );
+        assert_eq!(
+            client_status_from_upstream_error(
+                "upstream 400 Bad Request: Function call is missing a thought_signature"
+            ),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            client_status_from_upstream_error("network/connect: 3 hosts unreachable in 1200ms"),
+            StatusCode::BAD_GATEWAY
+        );
+    }
+
+    #[test]
+    fn network_errors_are_not_account_faults() {
+        assert!(!should_cool_account_on_generate_error(&AppError::Network(
+            "network/connect: 3 hosts unreachable".into()
+        )));
+        assert!(should_cool_account_on_generate_error(&AppError::Other(
+            "upstream 502: backend unavailable".into()
+        )));
+        assert_eq!(
+            dispatch_error_category("network/timeout: 3 hosts unreachable in 800ms"),
+            "network"
+        );
+        assert_eq!(
+            dispatch_error_category("upstream 502: backend unavailable"),
+            "upstream"
+        );
+        assert!(is_request_body_status(400));
+        assert!(is_request_body_status(422));
+        assert!(!is_request_body_status(502));
     }
 
     #[test]

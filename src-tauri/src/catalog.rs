@@ -317,41 +317,14 @@ pub fn catalog_fallback_id(
     default.to_string()
 }
 
-/// Codex/Claude Code subagents must not inherit the current default (`*-high`).
-/// Empty catalog-subagent setting → lightest flash-low already in the catalog.
+/// Codex/Claude Code subagents follow the current default unless a catalog
+/// subagent id is explicitly configured.
 pub(crate) fn catalog_subagent_target(
     entries: &[CatalogEntry],
     providers: &[Provider],
     subagent: Option<&str>,
 ) -> String {
-    if let Some(sub) = subagent.map(str::trim).filter(|value| !value.is_empty()) {
-        return sub.to_string();
-    }
-    if let Some(id) = light_flash_catalog_id(entries) {
-        return id;
-    }
-    catalog_fallback_id(entries, providers, None)
-}
-
-fn light_flash_catalog_id(entries: &[CatalogEntry]) -> Option<String> {
-    let rank = |slug: &str| -> u8 {
-        let lower = slug.to_ascii_lowercase();
-        if !(lower.contains("flash") && lower.ends_with("-low")) {
-            return 99;
-        }
-        if lower.contains("gemini-3.6") {
-            0
-        } else if lower.contains("gemini-3.7") {
-            1
-        } else {
-            2
-        }
-    };
-    entries
-        .iter()
-        .filter(|entry| rank(&entry.upstream_slug) < 99)
-        .min_by_key(|entry| rank(&entry.upstream_slug))
-        .map(|entry| entry.public_id.clone())
+    catalog_fallback_id(entries, providers, subagent)
 }
 
 /// Rewrite client-facing ids that should not hit official ChatGPT/Claude built-ins.
@@ -741,19 +714,12 @@ mod tests {
     }
 
     #[test]
-    fn catalog_subagent_without_setting_uses_flash_low() {
+    fn catalog_subagent_without_setting_follows_current_default() {
         let mut ag = provider("ag", "Antigravity", "gemini-3.7-flash-high");
         ag.provider_kind = ProviderKind::Antigravity;
         ag.base_url = "http://127.0.0.1:15830".into();
         ag.is_current = true;
         let catalog = build_catalog_with(CatalogStyle::Codex, &[(ag.clone(), vec![])], false);
-        assert!(
-            catalog
-                .iter()
-                .any(|entry| entry.upstream_slug.ends_with("flash-low")),
-            "AG catalog must list flash-low for subagent routing: {:?}",
-            catalog.iter().map(|e| &e.upstream_slug).collect::<Vec<_>>()
-        );
         let routed = normalize_client_request(
             CatalogStyle::Codex,
             &catalog,
@@ -764,8 +730,8 @@ mod tests {
             true,
         );
         assert!(
-            routed.to_ascii_lowercase().contains("flash-low"),
-            "empty catalog subagent must not inherit flash-high, got {routed}"
+            routed.to_ascii_lowercase().contains("flash-high"),
+            "empty catalog subagent must follow the current default, got {routed}"
         );
     }
 

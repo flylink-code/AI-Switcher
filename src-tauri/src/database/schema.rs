@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 24;
+pub const SCHEMA_VERSION: u32 = 25;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -231,6 +231,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 24 {
         migrate_v23_to_v24(conn)?;
+    }
+    if current < 25 {
+        migrate_v24_to_v25(conn)?;
     }
     Ok(())
 }
@@ -827,6 +830,71 @@ fn migrate_v23_to_v24(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 24)
 }
 
+/// Drop auto-seeded Antigravity haiku/subagent `*-flash-low` mappings so those
+/// roles fall back to the provider default. Custom values are left untouched.
+fn migrate_v24_to_v25(conn: &Connection) -> AppResult<()> {
+    let providers_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if providers_exists == 0 {
+        return set_user_version(conn, 25);
+    }
+    let has_kind: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'provider_kind';",
+        [],
+        |row| row.get(0),
+    )?;
+    let has_mapping: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'model_mapping_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_kind == 0 || has_mapping == 0 {
+        return set_user_version(conn, 25);
+    }
+    let rows = {
+        let mut stmt = conn.prepare(
+            "SELECT id, model_mapping_json FROM providers WHERE provider_kind = 'antigravity';",
+        )?;
+        let mapped = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        mapped.collect::<Result<Vec<_>, _>>()?
+    };
+    for (id, mapping_json) in rows {
+        let Ok(mut mapping) = serde_json::from_str::<serde_json::Value>(&mapping_json) else {
+            continue;
+        };
+        let Some(object) = mapping.as_object_mut() else {
+            continue;
+        };
+        let mut changed = false;
+        for key in ["haiku", "subagent"] {
+            let is_flash_low = object
+                .get(key)
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| {
+                    let lower = value.trim().to_ascii_lowercase();
+                    lower.contains("flash") && lower.ends_with("-low")
+                });
+            if is_flash_low {
+                object.insert(key.to_string(), serde_json::Value::String(String::new()));
+                changed = true;
+            }
+        }
+        if !changed {
+            continue;
+        }
+        conn.execute(
+            "UPDATE providers SET model_mapping_json = ? WHERE id = ?;",
+            rusqlite::params![mapping.to_string(), id],
+        )?;
+    }
+    set_user_version(conn, 25)
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -1082,6 +1150,86 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn v24_clears_antigravity_flash_low_haiku_and_subagent() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE providers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                model TEXT,
+                model_mapping_json TEXT NOT NULL DEFAULT '{}',
+                protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+                provider_kind TEXT NOT NULL DEFAULT 'standard',
+                target_app TEXT NOT NULL DEFAULT 'claude_code',
+                notes TEXT NOT NULL DEFAULT '',
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                is_current BOOLEAN NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0
+            );
+            PRAGMA user_version = 24;",
+        )
+        .unwrap();
+        let seeded = serde_json::json!({
+            "sonnet": "gemini-3.7-flash-high",
+            "opus": "claude-opus-4-6-thinking",
+            "haiku": "gemini-3.6-flash-low",
+            "fable": "gemini-3.7-flash-high",
+            "subagent": "gemini-3.7-flash-low",
+        })
+        .to_string();
+        let custom = serde_json::json!({
+            "haiku": "gemini-3.7-flash-medium",
+            "subagent": "gemini-3.7-flash-medium",
+        })
+        .to_string();
+        conn.execute(
+            "INSERT INTO providers (id, name, base_url, model, provider_kind, model_mapping_json)
+             VALUES ('ag', 'Antigravity', 'http://127.0.0.1:15830', 'gemini-3.7-flash-high', 'antigravity', ?);",
+            rusqlite::params![seeded],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO providers (id, name, base_url, model, provider_kind, model_mapping_json)
+             VALUES ('ag-custom', 'Antigravity Custom', 'http://127.0.0.1:15830', 'gemini-3.7-flash-high', 'antigravity', ?);",
+            rusqlite::params![custom],
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let mapping: String = conn
+            .query_row(
+                "SELECT model_mapping_json FROM providers WHERE id = 'ag';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&mapping).unwrap();
+        assert_eq!(value["haiku"], "");
+        assert_eq!(value["subagent"], "");
+        assert_eq!(value["sonnet"], "gemini-3.7-flash-high");
+
+        let custom: String = conn
+            .query_row(
+                "SELECT model_mapping_json FROM providers WHERE id = 'ag-custom';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let custom_value: serde_json::Value = serde_json::from_str(&custom).unwrap();
+        assert_eq!(custom_value["haiku"], "gemini-3.7-flash-medium");
+        assert_eq!(custom_value["subagent"], "gemini-3.7-flash-medium");
+
         let version: u32 = conn
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();

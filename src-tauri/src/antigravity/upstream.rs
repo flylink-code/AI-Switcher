@@ -122,6 +122,42 @@ fn rebuild_rate_limited_response(
     reqwest::Response::from(http_response)
 }
 
+fn rebuild_status_response(status: reqwest::StatusCode, text: String) -> reqwest::Response {
+    let http_response = http::Response::builder()
+        .status(status)
+        .header("content-type", "application/json")
+        .body(text)
+        .unwrap_or_else(|_| http::Response::new(String::new()));
+    reqwest::Response::from(http_response)
+}
+
+fn classify_reqwest_error(error: &reqwest::Error) -> String {
+    if error.is_timeout() {
+        "timeout"
+    } else if error.is_connect() {
+        "connect"
+    } else if error.is_decode() {
+        "decode"
+    } else if error.is_body() {
+        "body"
+    } else if error.is_request() {
+        "request"
+    } else {
+        "transport"
+    }
+    .to_string()
+}
+
+fn format_network_error(kind: &str, hosts_tried: u32, elapsed: Duration) -> String {
+    let proxy = crate::system_proxy::outbound_proxy_url()
+        .map(|url| format!(" via {url}"))
+        .unwrap_or_default();
+    format!(
+        "network/{kind}: {hosts_tried} hosts unreachable in {}ms{proxy}",
+        elapsed.as_millis()
+    )
+}
+
 #[derive(Clone)]
 pub struct UpstreamClient {
     client: std::sync::Arc<RwLock<Client>>,
@@ -193,8 +229,11 @@ impl UpstreamClient {
             .and_then(Value::as_str)
             .is_some_and(|model| model.starts_with("claude-"));
         let mut last_error = String::from("upstream request failed");
+        let mut last_was_network = false;
+        let started = Instant::now();
         let client = self.http();
         let mut url_fallback_used = false;
+        let mut hosts_tried = 0u32;
         for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
             if idx == 0 && self.daily_host_limited() {
                 log::debug!("Antigravity skipping daily host (recent URL-level 429)");
@@ -207,6 +246,7 @@ impl UpstreamClient {
             let mut server_error_attempt = 0u32;
             let mut retry_after_attempts = 0u32;
             let mut rpm_backoff_attempt = 0u32;
+            hosts_tried += 1;
             loop {
                 let mut request = client
                     .post(&url)
@@ -285,6 +325,17 @@ impl UpstreamClient {
                         if status.as_u16() == 401 {
                             return Ok(response);
                         }
+                        // Request-body errors will fail the same way on every host.
+                        // Returning them as-is keeps the real 400 from being laundered
+                        // into a later 429 / 502 after endpoint failover.
+                        if matches!(status.as_u16(), 400 | 422) {
+                            let text = response.text().await.unwrap_or_default();
+                            log::warn!(
+                                "Antigravity generate {method} {url} → {status}: {}",
+                                text.chars().take(180).collect::<String>()
+                            );
+                            return Ok(rebuild_status_response(status, text));
+                        }
                         // 503/529 are usually transient: back off on the same host before
                         // failing over to the next Cloud Code host.
                         if matches!(status.as_u16(), 503 | 529) && server_error_attempt < 2 {
@@ -303,13 +354,25 @@ impl UpstreamClient {
                         break;
                     }
                     Err(error) => {
-                        last_error = error.to_string();
+                        last_was_network = true;
+                        last_error = classify_reqwest_error(&error);
+                        log::warn!(
+                            "Antigravity generate {method} {url} network error: {last_error}"
+                        );
                         break;
                     }
                 }
             }
         }
-        Err(AppError::Other(last_error))
+        if last_was_network {
+            Err(AppError::Network(format_network_error(
+                &last_error,
+                hosts_tried,
+                started.elapsed(),
+            )))
+        } else {
+            Err(AppError::Other(last_error))
+        }
     }
 }
 
@@ -390,5 +453,28 @@ mod tests {
         assert!(is_url_level_rate_limit(
             r#"{"error":{"message":"Resource has been exhausted"}}"#
         ));
+    }
+
+    #[test]
+    fn rebuilds_client_error_status_without_laundering() {
+        let response = rebuild_status_response(
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"error":{"message":"missing thought_signature"}}"#.into(),
+        );
+        assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn network_error_mentions_kind_and_host_count() {
+        let message = format_network_error("connect", 3, Duration::from_millis(1200));
+        assert!(message.starts_with("network/connect:"));
+        assert!(message.contains("3 hosts"));
+        assert!(message.contains("1200ms"));
+        if let Some(proxy) = crate::system_proxy::outbound_proxy_url() {
+            assert!(
+                message.contains(&proxy),
+                "network diagnostic must include outbound proxy {proxy}: {message}"
+            );
+        }
     }
 }

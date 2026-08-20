@@ -371,13 +371,7 @@ fn inject_catalog_proxy_models(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| {
-            if provider.is_antigravity() {
-                crate::antigravity::model_catalog::preferred_gemini_flash_low()
-            } else {
-                provider.model.trim().to_string()
-            }
-        });
+        .unwrap_or_else(|| provider.model.trim().to_string());
     set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", &subagent);
 }
 

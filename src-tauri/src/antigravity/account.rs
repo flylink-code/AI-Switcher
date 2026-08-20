@@ -536,7 +536,19 @@ fn refresh_token_with_client(client: &Client, refresh_token: &str) -> AppResult<
                 ("grant_type", "refresh_token"),
             ])
             .send()
-            .map_err(|error| AppError::Other(format!("刷新 Google Token 失败: {error}")))?;
+            .map_err(|error| {
+                let kind = if error.is_timeout() {
+                    "timeout"
+                } else if error.is_connect() {
+                    "connect"
+                } else {
+                    "transport"
+                };
+                let proxy = crate::system_proxy::outbound_proxy_url()
+                    .map(|url| format!(" via {url}"))
+                    .unwrap_or_default();
+                AppError::Network(format!("network/{kind}: google token refresh failed{proxy}: {error}"))
+            })?;
         let status = response.status();
         let body_text = response
             .text()

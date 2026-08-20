@@ -30,6 +30,9 @@ pub enum AppError {
 
     #[error("{0}")]
     Other(String),
+
+    #[error("{0}")]
+    Network(String),
 }
 
 impl From<std::io::Error> for AppError {
