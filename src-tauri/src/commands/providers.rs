@@ -7,12 +7,12 @@ use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::provider::{
-    api_endpoint_url, catalog_models_from_provider, copied_provider_input, normalize_base_url, protocol_endpoint_path, ClaudeModelMapping,
-    ConnectionTestResult,
-    EndpointSpeedtestResult, LiveProviderInfo, ModelDiscoveryResult, Provider, ProviderExportBundle,
-    ProviderExportEntry, normalized_model_mapping, normalized_auto_review_model_override,
-    validate_target_protocol, ProviderImportResult, ProviderInput, ProviderKind, ProviderTarget,
-    ProtocolType,
+    api_endpoint_url, catalog_models_from_provider, copied_provider_input, normalize_base_url,
+    protocol_endpoint_path, should_activate_copied_provider, strip_anthropic_compat_path,
+    ClaudeModelMapping, ConnectionTestResult, EndpointSpeedtestResult, LiveProviderInfo,
+    ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
+    normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol,
+    ProviderImportResult, ProviderInput, ProviderKind, ProviderTarget, ProtocolType,
 };
 use crate::store::AppState;
 use chrono::Utc;
@@ -217,6 +217,17 @@ pub async fn copy_provider_to_target(
                 dao::save_provider_model_cache(conn, &provider.id, &cache.models, cache.checked_at)
             })?;
         }
+    }
+    if should_activate_copied_provider(provider.target_app) {
+        state
+            .db
+            .with_conn(|conn| dao::set_current_provider(conn, &provider.id))?;
+        let current = state
+            .db
+            .with_conn(|conn| dao::get_provider(conn, &provider.id))?
+            .ok_or_else(|| AppError::Config("复制后未能读回供应商".into()))?;
+        let _ = apply_target_provider(&current, Some(&app), &state).await?;
+        return Ok(current);
     }
     sync_live_providers(&state, provider.target_app, Some(&app)).await?;
     Ok(provider)
@@ -873,22 +884,6 @@ fn model_discovery_urls(base_url: &str) -> AppResult<Vec<String>> {
         push(api_endpoint_url(&root, "/models")?);
     }
     Ok(urls)
-}
-
-fn strip_anthropic_compat_path(base: &str) -> Option<String> {
-    let lower = base.to_ascii_lowercase();
-    let needle = "/anthropic";
-    let idx = lower.rfind(needle)?;
-    let after = &lower[idx + needle.len()..];
-    if !(after.is_empty() || after.starts_with('/')) {
-        return None;
-    }
-    let root = base[..idx].trim_end_matches('/');
-    if root.contains("://") {
-        Some(root.to_string())
-    } else {
-        None
-    }
 }
 
 fn should_try_next_discovery_status(status: u16) -> bool {

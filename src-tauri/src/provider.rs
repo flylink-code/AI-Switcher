@@ -297,10 +297,11 @@ impl ThinkingConfig {
 
 /// Build a create-payload that copies a provider onto another Agent.
 ///
-/// Copies credentials, URL, model, and failover. Protocol / Base URL are
-/// rewritten for Antigravity (Codex wants Responses + `/v1`; Pi/Claude want
-/// Anthropic at the gateway root). Claude Code/Desktop get a seeded
-/// Sonnet/Opus/Haiku mapping; Codex / OpenCode / Pi clear it.
+/// Copies credentials, URL, model, and failover. Protocol / Base URL follow
+/// the destination Agent (Anthropic for Claude Code/Desktop, Chat/Responses
+/// for Codex, vendor-specific recipes for Moonshot/DeepSeek). Claude
+/// Code/Desktop get a seeded Sonnet/Opus/Haiku mapping; Codex / OpenCode /
+/// Pi / DSH clear it and lift role ids into the default model.
 pub fn copied_provider_input(
     source: &Provider,
     dest: ProviderTarget,
@@ -314,6 +315,7 @@ pub fn copied_provider_input(
 
     let (protocol_type, base_url) = adapt_copied_wire(source, dest);
     validate_target_protocol(dest, protocol_type)?;
+    let model = adapt_copied_default_model(source, dest);
 
     Ok(ProviderInput {
         id: None,
@@ -321,11 +323,14 @@ pub fn copied_provider_input(
         base_url,
         api_key,
         clear_api_key: false,
-        model: source.model.clone(),
+        model: model.clone(),
         model_context_window: source.model_context_window,
-        auto_review_model_override: source.auto_review_model_override.clone(),
+        auto_review_model_override: normalized_auto_review_model_override(
+            dest,
+            source.auto_review_model_override.clone(),
+        ),
         web_search_enabled: source.web_search_enabled,
-        model_mapping: adapt_copied_model_mapping(&source.model_mapping, &source.model, dest),
+        model_mapping: adapt_copied_model_mapping(&source.model_mapping, &model, dest),
         protocol_type,
         provider_kind: source.provider_kind,
         auth_binding: source.auth_binding.clone(),
@@ -336,6 +341,15 @@ pub fn copied_provider_input(
         hidden_models: source.hidden_models.clone(),
         thinking_config: source.thinking_config.clone(),
     })
+}
+
+/// Switch-style Agents (one current provider) should activate a copy so live
+/// config is rewritten. Catalog Agents just insert the row.
+pub fn should_activate_copied_provider(dest: ProviderTarget) -> bool {
+    matches!(
+        dest,
+        ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop | ProviderTarget::Codex
+    )
 }
 
 /// Models Pi / OpenCode / Codex can list after a copy: default + failover + Claude roles.
@@ -363,9 +377,83 @@ fn adapt_copied_failover_models(source: &Provider, dest: ProviderTarget) -> Vec<
         ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
     ) {
         catalog_models_from_provider(source)
+            .into_iter()
+            .filter(|id| !looks_like_claude_role_id(id))
+            .collect()
     } else {
         source.failover_models.clone()
     }
+}
+
+fn adapt_copied_default_model(source: &Provider, dest: ProviderTarget) -> String {
+    let current = source.model.trim();
+    if !matches!(
+        dest,
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+    ) {
+        return current.to_string();
+    }
+    if !looks_like_claude_role_id(current) {
+        return current.to_string();
+    }
+    for role in [ClaudeModelRole::Sonnet, ClaudeModelRole::Haiku] {
+        let mapped = source.model_mapping.for_role(role, "").trim();
+        if !mapped.is_empty() && !looks_like_claude_role_id(mapped) {
+            return mapped.to_string();
+        }
+    }
+    current.to_string()
+}
+
+fn looks_like_claude_role_id(model: &str) -> bool {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if [
+        CLAUDE_SONNET_ROLE_ID,
+        CLAUDE_OPUS_ROLE_ID,
+        CLAUDE_HAIKU_ROLE_ID,
+        CLAUDE_FABLE_ROLE_ID,
+    ]
+    .iter()
+    .any(|id| trimmed.eq_ignore_ascii_case(id))
+    {
+        return true;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    lower.starts_with("claude-") && classify_claude_model_role(trimmed).is_some()
+}
+
+#[derive(Clone, Copy)]
+enum CopiedVendor {
+    Moonshot,
+    DeepSeek,
+    Generic,
+}
+
+fn classify_copied_vendor(base_url: &str) -> CopiedVendor {
+    let lower = base_url.to_ascii_lowercase();
+    if lower.contains("moonshot") || lower.contains("kimi") {
+        CopiedVendor::Moonshot
+    } else if lower.contains("deepseek") {
+        CopiedVendor::DeepSeek
+    } else {
+        CopiedVendor::Generic
+    }
+}
+
+fn vendor_host_root(base_url: &str) -> String {
+    strip_anthropic_compat_path(base_url)
+        .unwrap_or_else(|| strip_trailing_v1_path(base_url))
+}
+
+fn join_base(root: &str, suffix: &str) -> String {
+    format!(
+        "{}/{}",
+        root.trim().trim_end_matches('/'),
+        suffix.trim_start_matches('/')
+    )
 }
 
 fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, String) {
@@ -373,10 +461,11 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
         ProtocolType::Proxy => ProtocolType::OpenAiChat,
         other => other,
     };
+    let url = source.base_url.trim().trim_end_matches('/').to_string();
     if source.is_antigravity() {
-        let root = strip_trailing_v1_path(&source.base_url);
+        let root = strip_trailing_v1_path(&url);
         return match dest {
-            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, format!("{root}/v1")),
+            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, join_base(&root, "v1")),
             ProviderTarget::ClaudeCode
             | ProviderTarget::ClaudeDesktop
             | ProviderTarget::OpenCode
@@ -384,7 +473,31 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
             | ProviderTarget::Dsh => (ProtocolType::Anthropic, root),
         };
     }
-    (protocol, source.base_url.clone())
+    let root = vendor_host_root(&url);
+    match classify_copied_vendor(&url) {
+        CopiedVendor::Moonshot => match dest {
+            ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => {
+                (ProtocolType::Anthropic, join_base(&root, "anthropic"))
+            }
+            ProviderTarget::Codex
+            | ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh => (ProtocolType::OpenAiChat, join_base(&root, "v1")),
+        },
+        CopiedVendor::DeepSeek => match dest {
+            ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => {
+                (ProtocolType::Anthropic, join_base(&root, "anthropic"))
+            }
+            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, root),
+            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => (protocol, url),
+        },
+        CopiedVendor::Generic => match dest {
+            ProviderTarget::Codex if strip_anthropic_compat_path(&url).is_some() => {
+                (ProtocolType::OpenAiChat, join_base(&root, "v1"))
+            }
+            _ => (protocol, url),
+        },
+    }
 }
 
 fn adapt_copied_model_mapping(
@@ -430,6 +543,24 @@ fn strip_trailing_v1_path(base_url: &str) -> String {
         .map(|value| value.trim_end_matches('/').to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| trimmed.to_string())
+}
+
+/// If `base` ends with `/anthropic` (optionally followed by more path), return the host root.
+pub fn strip_anthropic_compat_path(base: &str) -> Option<String> {
+    let trimmed = base.trim().trim_end_matches('/');
+    let lower = trimmed.to_ascii_lowercase();
+    let needle = "/anthropic";
+    let idx = lower.rfind(needle)?;
+    let after = &lower[idx + needle.len()..];
+    if !(after.is_empty() || after.starts_with('/')) {
+        return None;
+    }
+    let root = trimmed[..idx].trim_end_matches('/');
+    if root.contains("://") {
+        Some(root.to_string())
+    } else {
+        None
+    }
 }
 
 fn unique_provider_name(existing_names: &[String], name: &str) -> String {
@@ -1019,8 +1150,8 @@ mod tests {
     use super::{
         api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
         openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
-        normalized_model_mapping, validate_target_protocol, ClaudeModelMapping, ProtocolType,
-        Provider, ProviderKind, ProviderTarget, ThinkingConfig,
+        should_activate_copied_provider, normalized_model_mapping, validate_target_protocol,
+        ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget, ThinkingConfig,
     };
 
     #[test]
@@ -1497,6 +1628,133 @@ mod tests {
             vec!["deepseek-v4-pro".to_string(), "deepseek-v4-flash".to_string()]
         );
         assert!(!input.model_mapping.has_explicit_roles());
+    }
+
+    fn kimi_anthropic_code_provider() -> Provider {
+        let mut source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        source.name = "Kimi".into();
+        source.base_url = "https://api.moonshot.cn/anthropic".into();
+        source.model = "claude-sonnet-4-5".into();
+        source.model_mapping = ClaudeModelMapping {
+            sonnet: "kimi-k3".into(),
+            opus: "kimi-k3".into(),
+            haiku: "kimi-k3".into(),
+            fable: "kimi-k3".into(),
+            subagent: "kimi-k3".into(),
+        };
+        source.failover_models = vec!["kimi-k2.6".into()];
+        source
+    }
+
+    #[test]
+    fn copy_kimi_anthropic_to_codex_uses_chat_and_lifts_model() {
+        let source = kimi_anthropic_code_provider();
+        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::OpenAiChat);
+        assert_eq!(input.base_url, "https://api.moonshot.cn/v1");
+        assert_eq!(input.model, "kimi-k3");
+        assert!(!input.model_mapping.has_explicit_roles());
+        assert!(input.failover_models.iter().any(|id| id == "kimi-k3"));
+        assert!(!input
+            .failover_models
+            .iter()
+            .any(|id| id == "claude-sonnet-4-5"));
+    }
+
+    #[test]
+    fn copy_kimi_chat_preset_to_codex_keeps_chat_wire() {
+        let mut source = kimi_anthropic_code_provider();
+        source.protocol_type = ProtocolType::OpenAiChat;
+        source.base_url = "https://api.moonshot.cn/v1".into();
+        source.model = "kimi-k3".into();
+        source.model_mapping = ClaudeModelMapping::default();
+        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::OpenAiChat);
+        assert_eq!(input.base_url, "https://api.moonshot.cn/v1");
+        assert_eq!(input.model, "kimi-k3");
+    }
+
+    #[test]
+    fn copy_deepseek_anthropic_to_codex_uses_responses_root() {
+        let source = sample_provider(
+            ProviderTarget::ClaudeCode,
+            ProviderKind::Standard,
+            ProtocolType::Anthropic,
+        );
+        let input = copied_provider_input(&source, ProviderTarget::Codex, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::OpenAiResponses);
+        assert_eq!(input.base_url, "https://api.deepseek.com");
+        assert_eq!(input.model, "deepseek-v4-pro");
+        assert!(!input.model_mapping.has_explicit_roles());
+    }
+
+    #[test]
+    fn copy_kimi_chat_to_claude_code_uses_anthropic_compat() {
+        let mut source = kimi_anthropic_code_provider();
+        source.target_app = ProviderTarget::Codex;
+        source.protocol_type = ProtocolType::OpenAiChat;
+        source.base_url = "https://api.moonshot.cn/v1".into();
+        source.model = "kimi-k3".into();
+        source.model_mapping = ClaudeModelMapping::default();
+        let input =
+            copied_provider_input(&source, ProviderTarget::ClaudeCode, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::Anthropic);
+        assert_eq!(input.base_url, "https://api.moonshot.cn/anthropic");
+        assert_eq!(input.model, "kimi-k3");
+        assert_eq!(input.model_mapping.sonnet, "kimi-k3");
+        assert_eq!(input.model_mapping.subagent, "kimi-k3");
+    }
+
+    #[test]
+    fn copy_deepseek_responses_to_claude_code_uses_anthropic() {
+        let mut source = sample_provider(
+            ProviderTarget::Codex,
+            ProviderKind::Standard,
+            ProtocolType::OpenAiResponses,
+        );
+        source.base_url = "https://api.deepseek.com".into();
+        source.model_mapping = ClaudeModelMapping::default();
+        let input =
+            copied_provider_input(&source, ProviderTarget::ClaudeCode, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::Anthropic);
+        assert_eq!(input.base_url, "https://api.deepseek.com/anthropic");
+        assert_eq!(input.model_mapping.sonnet, "deepseek-v4-pro");
+    }
+
+    #[test]
+    fn copy_kimi_anthropic_to_opencode_uses_chat() {
+        let source = kimi_anthropic_code_provider();
+        let input =
+            copied_provider_input(&source, ProviderTarget::OpenCode, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::OpenAiChat);
+        assert_eq!(input.base_url, "https://api.moonshot.cn/v1");
+        assert_eq!(input.model, "kimi-k3");
+        assert!(!input.model_mapping.has_explicit_roles());
+    }
+
+    #[test]
+    fn copy_code_to_desktop_keeps_protocol_and_clears_subagent() {
+        let source = kimi_anthropic_code_provider();
+        let input =
+            copied_provider_input(&source, ProviderTarget::ClaudeDesktop, &[], String::new()).unwrap();
+        assert_eq!(input.protocol_type, ProtocolType::Anthropic);
+        assert_eq!(input.base_url, "https://api.moonshot.cn/anthropic");
+        assert_eq!(input.model_mapping.sonnet, "kimi-k3");
+        assert!(input.model_mapping.subagent.trim().is_empty());
+    }
+
+    #[test]
+    fn activate_copied_provider_only_for_switch_style_agents() {
+        assert!(should_activate_copied_provider(ProviderTarget::ClaudeCode));
+        assert!(should_activate_copied_provider(ProviderTarget::ClaudeDesktop));
+        assert!(should_activate_copied_provider(ProviderTarget::Codex));
+        assert!(!should_activate_copied_provider(ProviderTarget::OpenCode));
+        assert!(!should_activate_copied_provider(ProviderTarget::Pi));
+        assert!(!should_activate_copied_provider(ProviderTarget::Dsh));
     }
 
     #[test]

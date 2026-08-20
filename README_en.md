@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.21**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.22**
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -28,6 +28,7 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 - **Subagent Smart Routing**: Claude Code (Explore/Haiku) and Codex subagents follow the current default model when left empty; an explicit catalog subagent id is still honored.
 - **Thinking / Reasoning Translation**: Seamlessly bridges token budgets and reasoning effort across Anthropic, OpenAI, Gemini, and DeepSeek.
 - **Health Diagnostics & Failover**: One-click quarantine for 401/403 errors with transparent failover support on 429/5xx errors.
+- **Copy across Agents**: Protocol, Base URL, and Claude role mappings are rewritten for the destination (e.g. Kimi Anthropic → Codex Chat `/v1`). Copies onto Code / Desktop / Codex become current and update live config.
 
 ### 3. Antigravity Gateway (Smart Cloud Code Proxy)
 Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google Cloud Code to Anthropic Messages and OpenAI Chat/Responses protocols:
