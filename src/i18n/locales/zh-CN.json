@@ -1446,7 +1446,7 @@
     "hideTestCommand": "收起测试命令",
     "outboundSection": "出站代理",
     "limiterSection": "并发与限速",
-    "limiterHint": "按账号限制并发与请求速率，减轻 Cloud Code 429。保存后立即生效（进行中的流式请求不受影响）。",
+    "limiterHint": "按账号限制并发与请求速率。等不到槽位或触达截止会回 429，不会放行打爆上游。保存后立即生效（进行中的流式请求不受影响）。",
     "limiterAccountConcurrency": "账号并发",
     "limiterSubagentConcurrency": "子代理并发",
     "limiterMinInterval": "最小间隔 ms",

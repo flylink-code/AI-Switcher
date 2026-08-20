@@ -1446,7 +1446,7 @@
     "hideTestCommand": "Hide test command",
     "outboundSection": "Outbound proxy",
     "limiterSection": "Concurrency & rate limits",
-    "limiterHint": "Per-account in-flight caps and request pacing to reduce Cloud Code 429s. Takes effect immediately after save (active streams keep their slots).",
+    "limiterHint": "Per-account in-flight caps and request pacing. A full slot or retry deadline returns 429 instead of bypassing the gate. Takes effect immediately after save (active streams keep their slots).",
     "limiterAccountConcurrency": "Account concurrency",
     "limiterSubagentConcurrency": "Subagent concurrency",
     "limiterMinInterval": "Min interval ms",

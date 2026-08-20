@@ -30,7 +30,7 @@ const DEFAULT_LIMITER: AntigravityLimiterSettings = {
   minRequestIntervalMs: 300,
   ratePerMin: 30,
   tokenBurst: 8,
-  acquireTimeoutSecs: 20,
+  acquireTimeoutSecs: 8,
 };
 
 interface GatewayCardProps {
@@ -228,7 +228,7 @@ export function GatewayCard({
               max={120}
               value={limiter.acquireTimeoutSecs}
               onChange={(value) =>
-                patchLimiter({ acquireTimeoutSecs: typeof value === "number" ? value : 20 })
+                patchLimiter({ acquireTimeoutSecs: typeof value === "number" ? value : 8 })
               }
               addonBefore={t("antigravity.limiterAcquireTimeout", { defaultValue: "等待超时 s" })}
             />

@@ -13,8 +13,8 @@ use crate::error::{AppError, AppResult};
 pub const DEFAULT_ACCOUNT_CONCURRENCY: usize = 4;
 /// Extra cap for catalog subagent traffic on the same account.
 pub const DEFAULT_SUBAGENT_CONCURRENCY: usize = 2;
-/// Wait this long for a slot before proceeding without a permit.
-pub const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 20;
+/// Wait this long for a slot, then return busy (never bypass the gate).
+pub const DEFAULT_ACQUIRE_TIMEOUT_SECS: u64 = 8;
 pub const DEFAULT_MIN_REQUEST_INTERVAL_MS: u64 = 300;
 pub const DEFAULT_RATE_PER_MIN: u32 = 30;
 pub const DEFAULT_TOKEN_BURST: u32 = 8;
@@ -184,6 +184,28 @@ impl RateState {
             .is_none_or(|last| now.duration_since(last) >= config.min_request_interval)
     }
 
+    fn wait_hint(&self, now: Instant, config: &LimiterConfig) -> Option<Duration> {
+        if let Some(until) = self.backoff_until {
+            if until > now {
+                return Some(until.saturating_duration_since(now));
+            }
+        }
+        if !self.min_interval_ok(now, config) {
+            if let Some(last) = self.last_request {
+                let elapsed = now.saturating_duration_since(last);
+                if elapsed < config.min_request_interval {
+                    return Some(config.min_request_interval - elapsed);
+                }
+            }
+        }
+        if config.rate_per_min > 0.0 && self.tokens < 1.0 {
+            let need = (1.0 - self.tokens).max(0.0);
+            let secs = (need * 60.0 / config.rate_per_min.max(0.1)).clamp(0.05, 8.0);
+            return Some(Duration::from_secs_f64(secs));
+        }
+        None
+    }
+
     fn is_under_pressure(&mut self, now: Instant, config: &LimiterConfig) -> bool {
         self.refill(now, config);
         if self.backoff_until.is_some_and(|until| until > now) {
@@ -239,9 +261,22 @@ pub struct LimiterPermit {
     _subagent: Option<OwnedSemaphorePermit>,
 }
 
-pub struct AcquireResult {
-    pub permit: LimiterPermit,
-    pub rate_ok: bool,
+pub enum AcquireOutcome {
+    Granted(LimiterPermit),
+    /// Token bucket / min-interval / 429 backoff still blocked after waiting.
+    RateLimited,
+    /// Concurrency slots were full for the whole wait; request must not bypass.
+    Busy,
+}
+
+impl std::fmt::Debug for AcquireOutcome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Granted(_) => write!(f, "Granted(..)"),
+            Self::RateLimited => write!(f, "RateLimited"),
+            Self::Busy => write!(f, "Busy"),
+        }
+    }
 }
 
 impl AccountLimiter {
@@ -315,49 +350,63 @@ impl AccountLimiter {
         });
     }
 
-    pub async fn acquire(&self, account_id: &str, is_subagent: bool) -> AcquireResult {
+    pub async fn acquire(&self, account_id: &str, is_subagent: bool) -> AcquireOutcome {
+        let timeout = self.config().acquire_timeout;
+        self.acquire_until(account_id, is_subagent, Instant::now() + timeout)
+            .await
+    }
+
+    pub async fn acquire_until(
+        &self,
+        account_id: &str,
+        is_subagent: bool,
+        deadline: Instant,
+    ) -> AcquireOutcome {
         let config = self.config();
         let slots = self.slots_for(&config, account_id);
-        let now = Instant::now();
-        let rate_ok = slots
-            .rate
-            .lock()
-            .map(|mut state| state.try_consume(now, &config))
-            .unwrap_or(true);
 
-        let timeout = config.acquire_timeout;
+        let timeout = remaining_until(deadline).min(config.acquire_timeout);
+        if timeout.is_zero() {
+            return AcquireOutcome::Busy;
+        }
 
         let total = match tokio::time::timeout(timeout, slots.total.clone().acquire_owned()).await {
-            Ok(Ok(permit)) => Some(permit),
-            Ok(Err(_)) | Err(_) => None,
+            Ok(Ok(permit)) => permit,
+            Ok(Err(_)) | Err(_) => {
+                log::debug!("Antigravity account limiter timeout for {account_id}; not bypassing");
+                return AcquireOutcome::Busy;
+            }
         };
 
         let subagent = if is_subagent {
-            match tokio::time::timeout(timeout, slots.subagent.clone().acquire_owned()).await {
+            let sub_timeout = remaining_until(deadline).min(config.acquire_timeout);
+            if sub_timeout.is_zero() {
+                return AcquireOutcome::Busy;
+            }
+            match tokio::time::timeout(sub_timeout, slots.subagent.clone().acquire_owned()).await {
                 Ok(Ok(permit)) => Some(permit),
-                Ok(Err(_)) | Err(_) => None,
+                Ok(Err(_)) | Err(_) => {
+                    log::debug!(
+                        "Antigravity subagent limiter timeout for {account_id}; not bypassing"
+                    );
+                    drop(total);
+                    return AcquireOutcome::Busy;
+                }
             }
         } else {
             None
         };
 
-        if is_subagent && subagent.is_none() {
-            log::debug!(
-                "Antigravity subagent limiter timeout for {account_id}; proceeding without subagent slot"
-            );
-        } else if total.is_none() {
-            log::debug!(
-                "Antigravity account limiter timeout for {account_id}; proceeding without slot"
-            );
+        if !wait_for_rate(&slots, &config, deadline).await {
+            drop(subagent);
+            drop(total);
+            return AcquireOutcome::RateLimited;
         }
 
-        AcquireResult {
-            rate_ok,
-            permit: LimiterPermit {
-                _total: total,
-                _subagent: subagent,
-            },
-        }
+        AcquireOutcome::Granted(LimiterPermit {
+            _total: Some(total),
+            _subagent: subagent,
+        })
     }
 
     fn slots_for(&self, config: &LimiterConfig, account_id: &str) -> Arc<AccountSlots> {
@@ -378,6 +427,41 @@ impl AccountLimiter {
     }
 }
 
+fn remaining_until(deadline: Instant) -> Duration {
+    deadline.saturating_duration_since(Instant::now())
+}
+
+async fn wait_for_rate(slots: &AccountSlots, config: &LimiterConfig, deadline: Instant) -> bool {
+    loop {
+        let now = Instant::now();
+        if now >= deadline {
+            return false;
+        }
+        let consumed = slots
+            .rate
+            .lock()
+            .map(|mut state| state.try_consume(now, config))
+            .unwrap_or(true);
+        if consumed {
+            return true;
+        }
+        let hint = slots
+            .rate
+            .lock()
+            .map(|mut state| {
+                state.refill(now, config);
+                state.wait_hint(now, config)
+            })
+            .unwrap_or(None)
+            .unwrap_or(Duration::from_millis(20));
+        let remaining = remaining_until(deadline);
+        if remaining.is_zero() {
+            return false;
+        }
+        tokio::time::sleep(hint.min(remaining)).await;
+    }
+}
+
 impl Default for AccountLimiter {
     fn default() -> Self {
         Self::new()
@@ -388,12 +472,19 @@ impl Default for AccountLimiter {
 mod tests {
     use super::*;
 
+    fn granted(outcome: AcquireOutcome) -> LimiterPermit {
+        match outcome {
+            AcquireOutcome::Granted(permit) => permit,
+            other => panic!("expected Granted, got {other:?}"),
+        }
+    }
+
     #[tokio::test]
     async fn subagent_requests_share_a_smaller_cap() {
         let limiter = AccountLimiter::new();
-        let _main = limiter.acquire("acct-a", false).await;
-        let _sub1 = limiter.acquire("acct-a", true).await;
-        let _sub2 = limiter.acquire("acct-a", true).await;
+        let _main = granted(limiter.acquire("acct-a", false).await);
+        let _sub1 = granted(limiter.acquire("acct-a", true).await);
+        let _sub2 = granted(limiter.acquire("acct-a", true).await);
         let late = tokio::time::timeout(
             Duration::from_millis(200),
             limiter.acquire("acct-a", true),
@@ -403,11 +494,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn acquire_timeout_does_not_bypass_gate() {
+        let limiter = AccountLimiter::new();
+        let mut updated = LimiterSettings::default();
+        updated.account_concurrency = 1;
+        updated.subagent_concurrency = 1;
+        limiter.apply_settings(&updated).unwrap();
+        let _held = granted(limiter.acquire("acct-busy", false).await);
+        let denied = limiter
+            .acquire_until(
+                "acct-busy",
+                false,
+                Instant::now() + Duration::from_millis(80),
+            )
+            .await;
+        assert!(
+            matches!(denied, AcquireOutcome::Busy),
+            "full account must 429 rather than proceed without a slot: {denied:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn rate_limiter_denies_during_backoff_window() {
         let limiter = AccountLimiter::new();
         limiter.note_upstream_rate_limited("acct-b");
-        let denied = limiter.acquire("acct-b", false).await;
-        assert!(!denied.rate_ok, "429 backoff should deny immediate acquire");
+        let denied = limiter
+            .acquire_until(
+                "acct-b",
+                false,
+                Instant::now() + Duration::from_millis(50),
+            )
+            .await;
+        assert!(
+            matches!(denied, AcquireOutcome::RateLimited),
+            "429 backoff should deny a short acquire: {denied:?}"
+        );
         assert!(limiter.is_under_pressure("acct-b"));
     }
 

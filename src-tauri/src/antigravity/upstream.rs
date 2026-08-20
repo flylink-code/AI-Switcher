@@ -13,6 +13,8 @@ const UPSTREAM_FALLBACKS: [&str; 3] = [
     "https://cloudcode-pa.googleapis.com/v1internal",
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal",
 ];
+const GENERATE_CONNECT_SECS: u64 = 5;
+const GENERATE_TIMEOUT_SECS: u64 = 600;
 
 /// Skip the daily cluster for this long after a URL-level 429.
 const DAILY_HOST_LIMITED_TTL: Duration = Duration::from_secs(90);
@@ -98,7 +100,7 @@ fn parse_retry_after(value: &str) -> Option<u64> {
 /// Seconds to back off before retrying a 503/529 on the same host
 /// (exponential 10s → 20s, mirroring Antigravity-Manager's 10s~60s policy).
 fn server_error_backoff(attempt: u32) -> Duration {
-    Duration::from_secs(10 << attempt.min(2))
+    Duration::from_millis(400 * (1u64 << attempt.min(2)))
 }
 
 fn rpm_backoff_delay(attempt: u32) -> Duration {
@@ -149,7 +151,8 @@ fn classify_reqwest_error(error: &reqwest::Error) -> String {
 }
 
 fn format_network_error(kind: &str, hosts_tried: u32, elapsed: Duration) -> String {
-    let proxy = crate::system_proxy::outbound_proxy_url()
+    let proxy = crate::antigravity::outbound::current_effective_proxy()
+        .or_else(crate::system_proxy::outbound_proxy_url)
         .map(|url| format!(" via {url}"))
         .unwrap_or_default();
     format!(
@@ -168,7 +171,10 @@ impl UpstreamClient {
     pub fn new() -> Self {
         Self {
             client: std::sync::Arc::new(RwLock::new(
-                crate::antigravity::outbound::build_async_client(20, 600),
+                crate::antigravity::outbound::build_async_client(
+                    GENERATE_CONNECT_SECS,
+                    GENERATE_TIMEOUT_SECS,
+                ),
             )),
             daily_limited_until: Arc::new(RwLock::new(None)),
         }
@@ -197,7 +203,10 @@ impl UpstreamClient {
     /// Rebuild the underlying HTTP client after outbound proxy settings change.
     pub fn reload(&self) {
         if let Ok(mut guard) = self.client.write() {
-            *guard = crate::antigravity::outbound::build_async_client(20, 600);
+            *guard = crate::antigravity::outbound::build_async_client(
+                GENERATE_CONNECT_SECS,
+                GENERATE_TIMEOUT_SECS,
+            );
         }
     }
 
@@ -205,7 +214,12 @@ impl UpstreamClient {
         self.client
             .read()
             .map(|guard| guard.clone())
-            .unwrap_or_else(|_| crate::antigravity::outbound::build_async_client(20, 600))
+            .unwrap_or_else(|_| {
+                crate::antigravity::outbound::build_async_client(
+                    GENERATE_CONNECT_SECS,
+                    GENERATE_TIMEOUT_SECS,
+                )
+            })
     }
 
     pub async fn fetch_project_id(&self, access_token: &str) -> AppResult<String> {
@@ -238,6 +252,12 @@ impl UpstreamClient {
             if idx == 0 && self.daily_host_limited() {
                 log::debug!("Antigravity skipping daily host (recent URL-level 429)");
                 continue;
+            }
+            if idx == 2 && last_was_network {
+                log::warn!(
+                    "Antigravity skipping sandbox host after network failure on earlier Cloud Code hosts"
+                );
+                break;
             }
             let url = match query {
                 Some(q) => format!("{base}:{method}?{q}"),
@@ -420,11 +440,10 @@ mod tests {
 
     #[test]
     fn server_error_backoff_grows_exponentially() {
-        assert_eq!(server_error_backoff(0), Duration::from_secs(10));
-        assert_eq!(server_error_backoff(1), Duration::from_secs(20));
-        assert_eq!(server_error_backoff(2), Duration::from_secs(40));
-        // Capped shift — attempts beyond 2 stay at 40s.
-        assert_eq!(server_error_backoff(9), Duration::from_secs(40));
+        assert_eq!(server_error_backoff(0), Duration::from_millis(400));
+        assert_eq!(server_error_backoff(1), Duration::from_millis(800));
+        assert_eq!(server_error_backoff(2), Duration::from_millis(1600));
+        assert_eq!(server_error_backoff(9), Duration::from_millis(1600));
     }
 
     #[test]
@@ -470,7 +489,9 @@ mod tests {
         assert!(message.starts_with("network/connect:"));
         assert!(message.contains("3 hosts"));
         assert!(message.contains("1200ms"));
-        if let Some(proxy) = crate::system_proxy::outbound_proxy_url() {
+        if let Some(proxy) = crate::antigravity::outbound::current_effective_proxy()
+            .or_else(crate::system_proxy::outbound_proxy_url)
+        {
             assert!(
                 message.contains(&proxy),
                 "network diagnostic must include outbound proxy {proxy}: {message}"

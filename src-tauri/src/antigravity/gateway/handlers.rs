@@ -29,7 +29,7 @@ use crate::antigravity::map::responses::{
 };
 use crate::antigravity::map::list_public_models;
 use crate::antigravity::model_catalog;
-use crate::antigravity::limiter::LimiterPermit;
+use crate::antigravity::limiter::{AcquireOutcome, LimiterPermit};
 use crate::antigravity::upstream::{classify_rate_limit_body, unwrap_v1internal, wrap_v1internal};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
@@ -39,11 +39,16 @@ const MAX_FAILOVER_HOPS: usize = 3;
 /// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
 /// plus one other; do not walk the rest of the pool (that cools every number).
 const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
+/// Local token-bucket / concurrency busy: try one other account, then 429.
+const MAX_LOCAL_LIMITER_HOPS: usize = 2;
 const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 const MAX_MODEL_LEVEL_ATTEMPTS: usize = 3;
-const NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(8);
-const STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
+const SUBAGENT_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(8);
+const SUBAGENT_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
+const MAIN_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(25);
+const MAIN_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(45);
 const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
+const UPSTREAM_500_RETRY_BACKOFF: Duration = Duration::from_millis(250);
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
@@ -214,7 +219,8 @@ async fn dispatch_generation(
     tool_params: ToolParamKeys,
 ) -> Response {
     let started = Instant::now();
-    let retry_deadline = retry_deadline_for(stream, started);
+    let is_subagent = should_treat_as_subagent(headers, &model, &request, stream);
+    let retry_deadline = retry_deadline_for(stream, is_subagent, started);
     let session_key = session_key_from_headers(headers);
     let model_chain: Vec<String> = model_catalog::gemini_level_fallback_chain(&model)
         .into_iter()
@@ -231,6 +237,7 @@ async fn dispatch_generation(
     let mut last_attempted_model = model.clone();
     let mut upstream_calls: u32 = 0;
     let mut models_tried: Vec<String> = Vec::new();
+    let mut limiter_hops: usize = 0;
 
     for hop in 0..MAX_FAILOVER_HOPS {
         if past_retry_deadline(retry_deadline) {
@@ -280,15 +287,37 @@ async fn dispatch_generation(
         log::info!("Antigravity hop={hop} account={account_email}");
         exclude_labels.push(account_email.clone());
 
-        let is_subagent = should_treat_as_subagent(headers, &model, &request, stream);
-        let acquire = state.limiter.acquire(&account.id, is_subagent).await;
-        if !acquire.rate_ok {
-            log::warn!("Antigravity rate limiter denied {account_email}; rotating account");
-            last_fail_status = 429;
-            last_error = "local rate limit: account hot".into();
-            continue;
-        }
-        let limiter_permit = acquire.permit;
+        let acquire = state
+            .limiter
+            .acquire_until(&account.id, is_subagent, retry_deadline)
+            .await;
+        let limiter_permit = match acquire {
+            AcquireOutcome::Granted(permit) => permit,
+            AcquireOutcome::Busy => {
+                limiter_hops += 1;
+                last_fail_status = 429;
+                last_error = "local rate limit: account busy".into();
+                log::warn!(
+                    "Antigravity limiter {last_error} on {account_email}; hop={limiter_hops}/{MAX_LOCAL_LIMITER_HOPS}"
+                );
+                if limiter_hops >= MAX_LOCAL_LIMITER_HOPS || past_retry_deadline(retry_deadline) {
+                    break;
+                }
+                continue;
+            }
+            AcquireOutcome::RateLimited => {
+                limiter_hops += 1;
+                last_fail_status = 429;
+                last_error = "local rate limit: account hot".into();
+                log::warn!(
+                    "Antigravity limiter {last_error} on {account_email}; hop={limiter_hops}/{MAX_LOCAL_LIMITER_HOPS}"
+                );
+                if limiter_hops >= MAX_LOCAL_LIMITER_HOPS || past_retry_deadline(retry_deadline) {
+                    break;
+                }
+                continue;
+            }
+        };
 
         let project_id = match ensure_project_id(
             state,
@@ -341,28 +370,30 @@ async fn dispatch_generation(
                 if past_retry_deadline(retry_deadline) {
                     break Err(AppError::Other("retry deadline exceeded".into()));
                 }
+                let Some(budget) = remaining_until(retry_deadline) else {
+                    break Err(AppError::Other("retry deadline exceeded".into()));
+                };
                 upstream_calls += 1;
-                match state
-                    .upstream
-                    .generate(&access_token, &wrapped, stream)
-                    .await
+                match tokio::time::timeout(
+                    budget,
+                    state.upstream.generate(&access_token, &wrapped, stream),
+                )
+                .await
                 {
-                    Ok(response) => {
+                    Ok(Ok(response)) => {
                         let status = response.status();
-                        if matches!(status.as_u16(), 500 | 502 | 504) && server_error_retry < 2 {
+                        if matches!(status.as_u16(), 500 | 502 | 504) && server_error_retry < 1 {
                             server_error_retry += 1;
                             log::warn!(
-                                "Antigravity upstream {status}; same-account retry {server_error_retry}/2"
+                                "Antigravity upstream {status}; same-account retry {server_error_retry}/1"
                             );
-                            tokio::time::sleep(std::time::Duration::from_secs(
-                                2 << server_error_retry,
-                            ))
-                            .await;
+                            tokio::time::sleep(UPSTREAM_500_RETRY_BACKOFF).await;
                             continue;
                         }
                         break Ok(response);
                     }
-                    Err(error) => break Err(error),
+                    Ok(Err(error)) => break Err(error),
+                    Err(_) => break Err(AppError::Other("retry deadline exceeded".into())),
                 }
             };
             let response = match attempt {
@@ -371,6 +402,8 @@ async fn dispatch_generation(
                     last_error = error.to_string();
                     last_fail_status = if last_error.contains("deadline") {
                         429
+                    } else if last_error.starts_with("network/") {
+                        504
                     } else {
                         502
                     };
@@ -387,6 +420,14 @@ async fn dispatch_generation(
                 }
             };
             if response.status().as_u16() == 429 && model_idx + 1 < model_chain.len() {
+                if remaining_until(retry_deadline).is_none() {
+                    last_error = format!(
+                        "retry deadline exceeded after {} upstream calls",
+                        upstream_calls
+                    );
+                    last_fail_status = 429;
+                    break 'levels Err(());
+                }
                 let next = &model_chain[model_idx + 1];
                 let text = response.text().await.unwrap_or_default();
                 last_error = format!(
@@ -406,6 +447,7 @@ async fn dispatch_generation(
             Ok(response) => response,
             Err(()) => {
                 if last_error.starts_with("network/") {
+                    last_fail_status = 504;
                     break;
                 }
                 continue;
@@ -598,7 +640,7 @@ async fn dispatch_generation(
     }
 
     let clipped_error: String = last_error.chars().take(400).collect();
-    let status = client_status_from_upstream_error(&clipped_error);
+    let status = client_status_from_dispatch(last_fail_status, &clipped_error);
     let error_category = dispatch_error_category(&clipped_error);
     if status == StatusCode::TOO_MANY_REQUESTS {
         log::warn!(
@@ -950,17 +992,24 @@ fn is_subagent_request(headers: &HeaderMap) -> bool {
         .unwrap_or(false)
 }
 
-fn retry_deadline_for(stream: bool, started: Instant) -> Instant {
-    started
-        + if stream {
-            STREAM_RETRY_DEADLINE
-        } else {
-            NON_STREAM_RETRY_DEADLINE
-        }
+fn retry_deadline_for(stream: bool, is_subagent: bool, started: Instant) -> Instant {
+    let budget = match (is_subagent, stream) {
+        (true, false) => SUBAGENT_NON_STREAM_RETRY_DEADLINE,
+        (true, true) => SUBAGENT_STREAM_RETRY_DEADLINE,
+        (false, false) => MAIN_NON_STREAM_RETRY_DEADLINE,
+        (false, true) => MAIN_STREAM_RETRY_DEADLINE,
+    };
+    started + budget
 }
 
 fn past_retry_deadline(deadline: Instant) -> bool {
     Instant::now() >= deadline
+}
+
+fn remaining_until(deadline: Instant) -> Option<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|duration| *duration > Duration::from_millis(50))
 }
 
 fn should_treat_as_subagent(
@@ -1040,20 +1089,35 @@ fn dispatch_error_category(last_error: &str) -> &'static str {
     }
 }
 
+fn client_status_from_dispatch(last_fail_status: u16, last_error: &str) -> StatusCode {
+    let from_error = client_status_from_upstream_error(last_error);
+    if last_fail_status == 429 || from_error == StatusCode::TOO_MANY_REQUESTS {
+        return StatusCode::TOO_MANY_REQUESTS;
+    }
+    if last_error.starts_with("network/") || last_fail_status == 504 {
+        return StatusCode::GATEWAY_TIMEOUT;
+    }
+    if matches!(last_fail_status, 400 | 401 | 403 | 422) {
+        return StatusCode::from_u16(last_fail_status).unwrap_or(from_error);
+    }
+    from_error
+}
+
 fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
     let lower = last_error.to_ascii_lowercase();
-    if lower.contains("429")
-        || lower.contains("resource_exhausted")
-        || lower.contains("resource has been exhausted")
-        || lower.contains("too many requests")
-    {
+    if looks_like_rate_limit(&lower) {
         StatusCode::TOO_MANY_REQUESTS
-    } else if lower.contains("401") || lower.contains("unauthenticated") {
+    } else if lower.starts_with("network/") {
+        StatusCode::GATEWAY_TIMEOUT
+    } else if looks_like_http_status(&lower, 401) || lower.contains("unauthenticated") {
         StatusCode::UNAUTHORIZED
-    } else if lower.contains("403") || lower.contains("forbidden") || lower.contains("permission denied") {
+    } else if looks_like_http_status(&lower, 403)
+        || lower.contains("forbidden")
+        || lower.contains("permission denied")
+    {
         StatusCode::FORBIDDEN
-    } else if lower.contains("400")
-        || lower.contains("422")
+    } else if looks_like_http_status(&lower, 400)
+        || looks_like_http_status(&lower, 422)
         || lower.contains("thought_signature")
         || lower.contains("invalid_argument")
     {
@@ -1063,13 +1127,53 @@ fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
     }
 }
 
+fn looks_like_rate_limit(lower: &str) -> bool {
+    lower.contains("retry deadline")
+        || lower.contains("local rate limit")
+        || lower.contains("resource_exhausted")
+        || lower.contains("resource has been exhausted")
+        || lower.contains("too many requests")
+        || looks_like_http_status(lower, 429)
+}
+
+/// Match `upstream 401` / ` 401:` so `34018ms` is not treated as HTTP 401.
+fn looks_like_http_status(lower: &str, code: u16) -> bool {
+    let token = code.to_string();
+    let prefixed = format!("upstream {token}");
+    if lower.contains(&prefixed) {
+        return true;
+    }
+    let padded = format!(" {token}");
+    let Some(index) = lower.find(&padded) else {
+        return false;
+    };
+    let after = index + padded.len();
+    let next = lower.as_bytes().get(after).copied();
+    matches!(next, None | Some(b' ') | Some(b':') | Some(b',') | Some(b'}') | Some(b'"'))
+        && lower.contains("upstream")
+}
+
 fn error_type_for_status(status: StatusCode) -> &'static str {
     match status.as_u16() {
         429 => "rate_limit_error",
         401 => "authentication_error",
         403 => "permission_error",
         400 | 422 => "invalid_request_error",
+        504 => "timeout_error",
         _ => "antigravity_gateway_error",
+    }
+}
+
+fn retry_after_header(status: StatusCode, message: &str) -> Option<&'static str> {
+    match status.as_u16() {
+        429 if looks_like_rate_limit(&message.to_ascii_lowercase())
+            && (message.contains("local rate") || message.contains("deadline")) =>
+        {
+            Some("8")
+        }
+        429 => Some("45"),
+        504 => Some("5"),
+        _ => None,
     }
 }
 
@@ -1085,10 +1189,10 @@ fn error_json(status: StatusCode, message: &str) -> Response {
         })),
     )
         .into_response();
-    if status == StatusCode::TOO_MANY_REQUESTS {
-        response
-            .headers_mut()
-            .insert(header::RETRY_AFTER, HeaderValue::from_static("45"));
+    if let Some(secs) = retry_after_header(status, message) {
+        if let Ok(value) = HeaderValue::from_str(secs) {
+            response.headers_mut().insert(header::RETRY_AFTER, value);
+        }
     }
     response
 }
@@ -1124,6 +1228,14 @@ mod tests {
             StatusCode::TOO_MANY_REQUESTS
         );
         assert_eq!(
+            client_status_from_upstream_error("retry deadline exceeded after 1 upstream calls"),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            client_status_from_upstream_error("local rate limit: account hot"),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
             client_status_from_upstream_error("upstream 403: permission denied"),
             StatusCode::FORBIDDEN
         );
@@ -1139,8 +1251,35 @@ mod tests {
         );
         assert_eq!(
             client_status_from_upstream_error("network/connect: 3 hosts unreachable in 1200ms"),
-            StatusCode::BAD_GATEWAY
+            StatusCode::GATEWAY_TIMEOUT
         );
+        assert_eq!(
+            client_status_from_upstream_error(
+                "network/connect: 3 hosts unreachable in 34018ms via http://127.0.0.1:17891"
+            ),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(
+            client_status_from_dispatch(
+                429,
+                "retry deadline exceeded after 4 upstream calls"
+            ),
+            StatusCode::TOO_MANY_REQUESTS
+        );
+        assert_eq!(
+            client_status_from_dispatch(504, "network/connect: 3 hosts unreachable in 15005ms"),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+    }
+
+    #[test]
+    fn main_session_retry_budget_is_longer_than_subagent() {
+        let started = Instant::now();
+        let main = retry_deadline_for(true, false, started);
+        let sub = retry_deadline_for(true, true, started);
+        assert!(main > sub);
+        assert_eq!(main.duration_since(started), MAIN_STREAM_RETRY_DEADLINE);
+        assert_eq!(sub.duration_since(started), SUBAGENT_STREAM_RETRY_DEADLINE);
     }
 
     #[test]
