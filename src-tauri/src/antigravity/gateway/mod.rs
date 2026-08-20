@@ -14,7 +14,7 @@ use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 use uuid::Uuid;
 
-use super::limiter::AccountLimiter;
+use super::limiter::{AccountLimiter, LimiterSettings};
 use super::pool::AccountPool;
 use super::upstream::UpstreamClient;
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -25,6 +25,7 @@ pub const DEFAULT_GATEWAY_PORT: u16 = 15830;
 const PORT_SETTING: &str = "antigravity_gateway_port";
 const API_KEY_SETTING: &str = "antigravity_gateway_api_key";
 const ENABLED_SETTING: &str = "antigravity_gateway_enabled";
+const LIMITER_SETTING: &str = "antigravity_gateway_limiter";
 const DEFAULT_API_KEY: &str = "sk-ai-switcher-antigravity";
 
 #[derive(Clone)]
@@ -47,6 +48,7 @@ pub struct AntigravityGatewayStatus {
     pub outbound_mode: String,
     pub outbound_proxy_url: String,
     pub effective_outbound_proxy: Option<String>,
+    pub limiter_settings: LimiterSettings,
 }
 
 struct GatewayRuntime {
@@ -97,12 +99,16 @@ pub fn init_gateway(db: Arc<Database>) {
     // Build clients outside the lock so a proxy/client panic cannot poison the manager.
     let upstream = Arc::new(UpstreamClient::new());
     let limiter = Arc::new(AccountLimiter::new());
+    if let Ok(settings) = load_limiter_settings(&db) {
+        let _ = limiter.apply_settings(&settings);
+    }
+    let pool = Arc::new(AccountPool::with_limiter(Arc::clone(&limiter)));
     let api_key = Arc::new(Mutex::new(api_key));
     let mut slot = lock_manager();
     *slot = Some(GatewayManager {
         db,
         runtime: None,
-        pool: Arc::new(AccountPool::new()),
+        pool,
         upstream,
         limiter,
         api_key,
@@ -149,12 +155,43 @@ pub fn gateway_status() -> AppResult<AntigravityGatewayStatus> {
             outbound_mode: outbound.mode.as_str().to_string(),
             outbound_proxy_url: outbound.proxy_url,
             effective_outbound_proxy: outbound.effective_proxy_url,
+            limiter_settings: manager.limiter.current_settings(),
         })
     })
 }
 
 pub fn pool_instance() -> AppResult<Arc<AccountPool>> {
     with_manager(|manager| Ok(Arc::clone(&manager.pool)))
+}
+
+pub fn load_limiter_settings(db: &Database) -> AppResult<LimiterSettings> {
+    db.with_conn(|conn| {
+        Ok(get_setting(conn, LIMITER_SETTING)
+            .ok()
+            .flatten()
+            .and_then(|raw| serde_json::from_str::<LimiterSettings>(&raw).ok())
+            .unwrap_or_default())
+    })
+}
+
+pub fn get_limiter_settings() -> AppResult<LimiterSettings> {
+    with_manager(|manager| Ok(manager.limiter.current_settings()))
+}
+
+pub fn set_limiter_settings(settings: LimiterSettings) -> AppResult<LimiterSettings> {
+    settings.validate()?;
+    with_manager(|manager| {
+        manager.limiter.apply_settings(&settings)?;
+        manager
+            .db
+            .with_conn(|conn| {
+                let raw = serde_json::to_string(&settings)
+                    .map_err(|error| AppError::Other(format!("序列化限速配置失败: {error}")))?;
+                set_setting(conn, LIMITER_SETTING, &raw)
+            })?;
+        Ok(())
+    })?;
+    get_limiter_settings()
 }
 
 pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<AntigravityGatewayStatus> {

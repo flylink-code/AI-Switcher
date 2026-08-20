@@ -1,6 +1,6 @@
 {
   "name": "ai-switcher",
-  "version": "1.3.19",
+  "version": "1.3.20",
   "private": true,
   "description": "Unified third-party API configuration manager for Claude Desktop, Claude Code & Codex",
   "license": "MIT",

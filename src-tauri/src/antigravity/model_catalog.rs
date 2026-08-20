@@ -140,9 +140,9 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
     let rest: &[&str] = match suffix {
         Some("high") => &["medium", "low"],
         Some("medium") => &["low"],
-        // Subagents usually land on `-low`; when that SKU RPM-limits, step up
-        // before rotating accounts (symmetric with high→medium→low).
-        Some("low") => &["medium", "high"],
+        // Subagents land on `-low`; step to a cross-generation sibling at the
+        // same tier — never up into medium/high (main session SKUs).
+        Some("low") => &[],
         _ => &[],
     };
     let catalog = list_model_ids();
@@ -152,10 +152,24 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
             .any(|model| model.eq_ignore_ascii_case(candidate))
     };
     let mut out = vec![trimmed];
-    for level in rest {
-        let candidate = format!("{base}-{level}");
-        if exists(&candidate) && !out.iter().any(|item| item.eq_ignore_ascii_case(&candidate)) {
-            out.push(candidate);
+    if suffix == Some("low") {
+        if lower.starts_with("gemini-3.7") {
+            let sibling = "gemini-3.6-flash-low";
+            if !out.iter().any(|item| item.eq_ignore_ascii_case(sibling)) {
+                out.push(sibling.to_string());
+            }
+        } else if lower.starts_with("gemini-3.6") {
+            let sibling = "gemini-3.7-flash-low";
+            if !out.iter().any(|item| item.eq_ignore_ascii_case(sibling)) {
+                out.push(sibling.to_string());
+            }
+        }
+    } else {
+        for level in rest {
+            let candidate = format!("{base}-{level}");
+            if exists(&candidate) && !out.iter().any(|item| item.eq_ignore_ascii_case(&candidate)) {
+                out.push(candidate);
+            }
         }
     }
     // 3.6-flash catalog often lists only `-high`, but Cloud Code still serves
@@ -719,15 +733,16 @@ mod tests {
             Some("gemini-3.7-flash-low")
         );
         assert!(
-            chain_37_low.len() > 1,
-            "3.7-low must have upward fallback for subagents: {chain_37_low:?}"
+            chain_37_low.iter().any(|id| id == "gemini-3.6-flash-low"),
+            "3.7-low should fall through to 3.6-low sibling, not main-session tiers: {chain_37_low:?}"
         );
         assert!(
-            chain_37_low.iter().any(|id| {
+            !chain_37_low.iter().any(|id| {
                 id == "gemini-3.7-flash-medium" || id == "gemini-3.7-flash-high"
             }),
-            "3.7-low should step up to a higher flash tier: {chain_37_low:?}"
+            "3.7-low must not step up into medium/high: {chain_37_low:?}"
         );
+        assert!(chain_37_low.len() <= 2);
         let chain_37_high = gemini_level_fallback_chain("gemini-3.7-flash-high");
         let mut seen = std::collections::HashSet::new();
         for id in &chain_37_high {

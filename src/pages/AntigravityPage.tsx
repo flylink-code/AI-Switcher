@@ -30,13 +30,20 @@ import {
   setAntigravityActiveAccount,
   setAntigravityGatewayApiKey,
   setAntigravityGatewayPort,
+  setAntigravityLimiterSettings,
   setAntigravityOutboundProxy,
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
   listProviders,
 } from "@/services/api";
-import type { AntigravityAccountPublic, AntigravityCatalogModel, AntigravityGatewayStatus, ProviderTarget } from "@/types/backend";
+import type {
+  AntigravityAccountPublic,
+  AntigravityCatalogModel,
+  AntigravityGatewayStatus,
+  AntigravityLimiterSettings,
+  ProviderTarget,
+} from "@/types/backend";
 import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import {
   AccountPoolOverview,
@@ -241,6 +248,15 @@ export default function AntigravityPage() {
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
+  const limiterMutation = useMutation({
+    mutationFn: (settings: AntigravityLimiterSettings) => setAntigravityLimiterSettings(settings),
+    onSuccess: async () => {
+      message.success(t("antigravity.limiterSaved", { defaultValue: "并发/限速已保存并立即生效" }));
+      await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error)),
+  });
+
   const ensureMutation = useMutation({
     mutationFn: (target: ProviderTarget) => ensureAntigravityProvider(target),
     onMutate: (target) => setBindingTarget(target),
@@ -336,6 +352,7 @@ export default function AntigravityPage() {
           startMutation={startMutation}
           stopMutation={stopMutation}
           outboundMutation={outboundMutation}
+          limiterMutation={limiterMutation}
           ensureMutation={ensureMutation}
           boundProvidersQuery={boundProvidersQuery}
           bindingTarget={bindingTarget}
@@ -364,6 +381,7 @@ interface AntigravityContentProps {
   startMutation: { isPending: boolean; mutateAsync: (args: { port: number; apiKey: string; outboundMode: string; outboundUrl: string }) => Promise<unknown> };
   stopMutation: { isPending: boolean; mutateAsync: () => Promise<unknown> };
   outboundMutation: { isPending: boolean; mutateAsync: (args: { mode: "direct" | "system" | "custom"; url: string }) => Promise<unknown> };
+  limiterMutation: { isPending: boolean; mutateAsync: (settings: AntigravityLimiterSettings) => Promise<unknown> };
   ensureMutation: { mutate: (target: ProviderTarget) => void };
   boundProvidersQuery: { data?: Map<ProviderTarget, boolean> };
   bindingTarget: ProviderTarget | null;
@@ -388,6 +406,7 @@ function AntigravityContent({
   startMutation,
   stopMutation,
   outboundMutation,
+  limiterMutation,
   ensureMutation,
   boundProvidersQuery,
   bindingTarget,
@@ -516,10 +535,14 @@ function AntigravityContent({
         onSaveOutbound={async (mode, url) => {
           await outboundMutation.mutateAsync({ mode, url });
         }}
+        onSaveLimiter={async (settings) => {
+          await limiterMutation.mutateAsync(settings);
+        }}
         onRefresh={refresh}
         isStarting={startMutation.isPending}
         isStopping={stopMutation.isPending}
         isSavingOutbound={outboundMutation.isPending}
+        isSavingLimiter={limiterMutation.isPending}
       />
 
       {/* Available Models */}

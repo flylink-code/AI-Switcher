@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::extract::State;
@@ -33,12 +33,17 @@ use crate::antigravity::limiter::LimiterPermit;
 use crate::antigravity::upstream::{classify_rate_limit_body, unwrap_v1internal, wrap_v1internal};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
+use crate::error::AppError;
 
 const MAX_FAILOVER_HOPS: usize = 3;
 /// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
 /// plus one other; do not walk the rest of the pool (that cools every number).
 const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
 const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
+const MAX_MODEL_LEVEL_ATTEMPTS: usize = 2;
+const NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(8);
+const STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
+const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
@@ -207,8 +212,12 @@ async fn dispatch_generation(
     tool_params: ToolParamKeys,
 ) -> Response {
     let started = Instant::now();
+    let retry_deadline = retry_deadline_for(stream, started);
     let session_key = session_key_from_headers(headers);
-    let model_chain = model_catalog::gemini_level_fallback_chain(&model);
+    let model_chain: Vec<String> = model_catalog::gemini_level_fallback_chain(&model)
+        .into_iter()
+        .take(MAX_MODEL_LEVEL_ATTEMPTS)
+        .collect();
     log::info!(
         "Antigravity dispatch model={model} chain={} stream={stream}",
         model_chain.join(">")
@@ -218,8 +227,18 @@ async fn dispatch_generation(
     let mut last_error = String::from("upstream failed");
     let mut last_fail_status: u16 = 0;
     let mut last_attempted_model = model.clone();
+    let mut upstream_calls: u32 = 0;
+    let mut models_tried: Vec<String> = Vec::new();
 
     for hop in 0..MAX_FAILOVER_HOPS {
+        if past_retry_deadline(retry_deadline) {
+            last_error = format!(
+                "retry deadline exceeded after {} upstream calls",
+                upstream_calls
+            );
+            last_fail_status = 429;
+            break;
+        }
         let selected = if hop == 0 {
             state.pool.select_async(None, session_key.as_deref()).await
         } else {
@@ -251,12 +270,23 @@ async fn dispatch_generation(
             }
         };
         exclude.push(account.id.clone());
-        let account_email = if account.email.trim().is_empty() { account.id.clone() } else { account.email.clone() };
+        let account_email = if account.email.trim().is_empty() {
+            account.id.clone()
+        } else {
+            account.email.clone()
+        };
         log::info!("Antigravity hop={hop} account={account_email}");
         exclude_labels.push(account_email.clone());
 
-        let is_subagent = is_subagent_request(headers);
-        let limiter_permit = state.limiter.acquire(&account.id, is_subagent).await;
+        let is_subagent = should_treat_as_subagent(headers, &model, &request, stream);
+        let acquire = state.limiter.acquire(&account.id, is_subagent).await;
+        if !acquire.rate_ok {
+            log::warn!("Antigravity rate limiter denied {account_email}; rotating account");
+            last_fail_status = 429;
+            last_error = "local rate limit: account hot".into();
+            continue;
+        }
+        let limiter_permit = acquire.permit;
 
         let project_id = match ensure_project_id(
             state,
@@ -275,13 +305,24 @@ async fn dispatch_generation(
             }
         };
 
-        let mut current_model;
+        let mut current_model = model.clone();
         let mut model_idx = 0usize;
         let upstream = 'levels: loop {
+            if past_retry_deadline(retry_deadline) {
+                last_error = format!(
+                    "retry deadline exceeded after {} upstream calls",
+                    upstream_calls
+                );
+                last_fail_status = 429;
+                break 'levels Err(());
+            }
             current_model = model_chain
                 .get(model_idx)
                 .cloned()
                 .unwrap_or_else(|| model.clone());
+            if !models_tried.iter().any(|item| item == &current_model) {
+                models_tried.push(current_model.clone());
+            }
             last_attempted_model = current_model.clone();
             let wrapped = wrap_v1internal(&project_id, &current_model, request.clone());
             // 500/502/504 are usually transient blips: retry the same account with
@@ -289,6 +330,10 @@ async fn dispatch_generation(
             // per-host backoff inside `generate`).
             let mut server_error_retry = 0u32;
             let attempt = loop {
+                if past_retry_deadline(retry_deadline) {
+                    break Err(AppError::Other("retry deadline exceeded".into()));
+                }
+                upstream_calls += 1;
                 match state
                     .upstream
                     .generate(&access_token, &wrapped, stream)
@@ -316,8 +361,14 @@ async fn dispatch_generation(
                 Ok(response) => response,
                 Err(error) => {
                     last_error = error.to_string();
-                    last_fail_status = 502;
-                    let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
+                    last_fail_status = if last_error.contains("deadline") {
+                        429
+                    } else {
+                        502
+                    };
+                    if last_fail_status == 502 {
+                        let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
+                    }
                     break 'levels Err(());
                 }
             };
@@ -355,6 +406,7 @@ async fn dispatch_generation(
             };
             last_fail_status = status.as_u16();
             if status.as_u16() == 429 {
+                state.limiter.note_upstream_rate_limited(&account.id);
                 let kind = classify_rate_limit_body(&text);
                 let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
                 let cooldown = if rotate_pool {
@@ -398,7 +450,12 @@ async fn dispatch_generation(
         }
 
         state.pool.note_success(&account.id);
-        let account_label = if account.email.trim().is_empty() { account.id.as_str() } else { account.email.as_str() };
+        state.limiter.note_upstream_success(&account.id);
+        let account_label = if account.email.trim().is_empty() {
+            account.id.as_str()
+        } else {
+            account.email.as_str()
+        };
         let log_id = usage_log::insert_request(
             &state.db,
             Some(account_label),
@@ -462,6 +519,14 @@ async fn dispatch_generation(
 
     let clipped_error: String = last_error.chars().take(400).collect();
     let status = client_status_from_upstream_error(&clipped_error);
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        log::warn!(
+            "Antigravity dispatch failed 429 after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]",
+            started.elapsed().as_millis(),
+            exclude_labels.join(","),
+            models_tried.join(",")
+        );
+    }
     let _ = usage_log::insert_request(
         &state.db,
         exclude_labels.last().map(String::as_str),
@@ -797,6 +862,48 @@ fn is_subagent_request(headers: &HeaderMap) -> bool {
             let trimmed = value.trim();
             !trimmed.is_empty() && trimmed != "0" && !trimmed.eq_ignore_ascii_case("false")
         })
+        .unwrap_or(false)
+}
+
+fn retry_deadline_for(stream: bool, started: Instant) -> Instant {
+    started
+        + if stream {
+            STREAM_RETRY_DEADLINE
+        } else {
+            NON_STREAM_RETRY_DEADLINE
+        }
+}
+
+fn past_retry_deadline(deadline: Instant) -> bool {
+    Instant::now() >= deadline
+}
+
+fn should_treat_as_subagent(
+    headers: &HeaderMap,
+    model: &str,
+    request: &Value,
+    stream: bool,
+) -> bool {
+    if is_subagent_request(headers) {
+        return true;
+    }
+    if stream {
+        return false;
+    }
+    let lower = model.trim().to_ascii_lowercase();
+    let sonnet_role = lower.contains("sonnet") || lower == "claude-sonnet-5";
+    sonnet_role && is_short_anthropic_payload(request)
+}
+
+fn is_short_anthropic_payload(request: &Value) -> bool {
+    let Some(messages) = request.get("messages").and_then(Value::as_array) else {
+        return false;
+    };
+    if messages.len() > 4 {
+        return false;
+    }
+    serde_json::to_string(request)
+        .map(|serialized| serialized.len() <= SHORT_PAYLOAD_MAX_BYTES)
         .unwrap_or(false)
 }
 

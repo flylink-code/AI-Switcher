@@ -567,6 +567,10 @@ pub(crate) fn select_gateway_runtime_provider_with(
         return Ok(None);
     };
     provider.model = upstream.clone();
+    log::info!(
+        "Catalog route client={requested_model} normalized={requested} provider={} upstream={upstream} subagent={is_catalog_subagent}",
+        provider.name
+    );
     Ok(Some((provider, upstream, is_catalog_subagent)))
 }
 

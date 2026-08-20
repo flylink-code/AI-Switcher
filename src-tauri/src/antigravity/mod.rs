@@ -25,10 +25,12 @@ pub use account::{
     AntigravityAccountPublic,
 };
 pub use gateway::{
-    clear_sticky_sessions, gateway_status, pool_instance, restore_gateway_if_enabled, set_gateway_api_key,
-    set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway, AntigravityGatewayStatus,
+    clear_sticky_sessions, gateway_status, get_limiter_settings, pool_instance,
+    restore_gateway_if_enabled, set_gateway_api_key, set_gateway_port, set_limiter_settings,
+    set_outbound_proxy, start_gateway, stop_gateway, AntigravityGatewayStatus,
     DEFAULT_GATEWAY_PORT,
 };
+pub use limiter::LimiterSettings;
 pub use oauth::login_with_browser;
 pub use model_catalog::{list_catalog_models, list_model_ids, CatalogModel};
 pub use outbound::DEFAULT_CLASH_PROXY_URL;

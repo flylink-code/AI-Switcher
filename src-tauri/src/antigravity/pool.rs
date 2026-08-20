@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::account::{store, AntigravityAccount};
+use super::limiter::AccountLimiter;
 use crate::error::{AppError, AppResult};
 
 const DEFAULT_COOLDOWN_SECS: i64 = 20;
@@ -32,12 +33,21 @@ pub struct PoolQuotaWarning {
 
 pub struct AccountPool {
     sticky: Mutex<HashMap<String, String>>,
+    limiter: Option<Arc<AccountLimiter>>,
 }
 
 impl AccountPool {
     pub fn new() -> Self {
         Self {
             sticky: Mutex::new(HashMap::new()),
+            limiter: None,
+        }
+    }
+
+    pub fn with_limiter(limiter: Arc<AccountLimiter>) -> Self {
+        Self {
+            sticky: Mutex::new(HashMap::new()),
+            limiter: Some(limiter),
         }
     }
 
@@ -112,9 +122,12 @@ impl AccountPool {
                     .ok()
                     .and_then(|guard| guard.get(session).cloned())
             });
-        let Some(chosen) =
-            choose_candidate(&candidates, preferred_account_id, sticky_id.as_deref())
-        else {
+        let Some(chosen) = choose_candidate(
+            &candidates,
+            preferred_account_id,
+            sticky_id.as_deref(),
+            self.limiter.as_deref(),
+        ) else {
             return Err(AppError::Other(explain_unavailable(&accounts, now)));
         };
         log::info!(
@@ -397,12 +410,13 @@ fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
     "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into()
 }
 
-/// Prefer an explicit account, then the user-marked active account, then a
-/// sticky session binding. Sticky must not override a newly set active account.
+/// Prefer an explicit account, then the user-marked active account (soft when
+/// hot), then a sticky session binding. Sticky must not override active.
 fn choose_candidate<'a>(
     candidates: &'a [AntigravityAccount],
     preferred_account_id: Option<&str>,
     sticky_account_id: Option<&str>,
+    limiter: Option<&AccountLimiter>,
 ) -> Option<&'a AntigravityAccount> {
     if candidates.is_empty() {
         return None;
@@ -413,6 +427,21 @@ fn choose_candidate<'a>(
         }
     }
     if let Some(active) = candidates.iter().find(|item| item.is_active) {
+        let active_hot = account_under_pressure(limiter, &active.id);
+        if !active_hot {
+            return Some(active);
+        }
+        let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
+        ranked.sort_by(|left, right| compare_candidates(left, right));
+        if let Some(alternate) = ranked.iter().find(|account| {
+            account.id != active.id && !account_under_pressure(limiter, &account.id)
+        }) {
+            log::info!(
+                "Antigravity pool: active {} is hot; soft-selecting {}",
+                active.email, alternate.email
+            );
+            return Some(*alternate);
+        }
         return Some(active);
     }
     if let Some(sticky) = sticky_account_id.filter(|value| !value.is_empty()) {
@@ -423,6 +452,12 @@ fn choose_candidate<'a>(
     let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
     ranked.sort_by(|left, right| compare_candidates(left, right));
     ranked.first().copied()
+}
+
+fn account_under_pressure(limiter: Option<&AccountLimiter>, account_id: &str) -> bool {
+    limiter
+        .map(|limiter| limiter.is_under_pressure(account_id))
+        .unwrap_or(false)
 }
 
 fn selection_reason(
@@ -556,12 +591,29 @@ mod tests {
         a1.is_active = true;
         a2.is_active = false;
         let candidates = vec![a1, a2];
-        let chosen = choose_candidate(&candidates, None, Some("a2")).expect("chosen");
+        let chosen = choose_candidate(&candidates, None, Some("a2"), None).expect("chosen");
         assert_eq!(chosen.id, "a1");
         assert_eq!(
             selection_reason(chosen, None, Some("a2")),
             "active"
         );
+    }
+
+    #[test]
+    fn active_under_pressure_yields_best_alternative() {
+        let limiter = AccountLimiter::new();
+        limiter.note_upstream_rate_limited("a1");
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a2.remaining_quota = Some(100);
+        a2.health_score = 1.0;
+        let candidates = vec![a1, a2];
+        let chosen =
+            choose_candidate(&candidates, None, None, Some(&limiter)).expect("chosen");
+        assert_eq!(chosen.id, "a2");
+        assert_eq!(selection_reason(chosen, None, None), "best");
     }
 
     #[test]
@@ -571,7 +623,7 @@ mod tests {
         a1.is_active = false;
         a2.is_active = false;
         let candidates = vec![a1, a2];
-        let chosen = choose_candidate(&candidates, None, Some("a2")).expect("chosen");
+        let chosen = choose_candidate(&candidates, None, Some("a2"), None).expect("chosen");
         assert_eq!(chosen.id, "a2");
         assert_eq!(
             selection_reason(chosen, None, Some("a2")),
@@ -586,7 +638,8 @@ mod tests {
         a1.is_active = true;
         a2.is_active = false;
         let candidates = vec![a1, a2];
-        let chosen = choose_candidate(&candidates, Some("a2"), Some("a1")).expect("chosen");
+        let chosen =
+            choose_candidate(&candidates, Some("a2"), Some("a1"), None).expect("chosen");
         assert_eq!(chosen.id, "a2");
     }
 

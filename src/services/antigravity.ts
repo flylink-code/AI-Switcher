@@ -4,6 +4,7 @@ import type {
   AntigravityCatalogModel,
   AntigravityDefaults,
   AntigravityGatewayStatus,
+  AntigravityLimiterSettings,
   PoolQuotaWarning,
   Provider,
   ProviderTarget,
@@ -14,6 +15,7 @@ export type {
   AntigravityCatalogModel,
   AntigravityDefaults,
   AntigravityGatewayStatus,
+  AntigravityLimiterSettings,
   AntigravityModelQuota,
   AntigravityQuotaBucket,
   AntigravityQuotaGroup,
@@ -68,6 +70,18 @@ export async function setAntigravityOutboundProxy(
   return call<AntigravityGatewayStatus>("set_antigravity_outbound_proxy", {
     mode,
     proxyUrl: proxyUrl ?? null,
+  });
+}
+
+export async function getAntigravityLimiterSettings(): Promise<AntigravityLimiterSettings> {
+  return call<AntigravityLimiterSettings>("get_antigravity_limiter_settings");
+}
+
+export async function setAntigravityLimiterSettings(
+  settings: AntigravityLimiterSettings,
+): Promise<AntigravityLimiterSettings> {
+  return call<AntigravityLimiterSettings>("set_antigravity_limiter_settings", {
+    settings,
   });
 }
 

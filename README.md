@@ -1,6 +1,6 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.19**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI** 与 **DeepSeek Harness** 的本地配置与供应商管理器。**v1.3.20**
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -91,13 +91,13 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 内建本地反代（默认 `http://127.0.0.1:15830`），把 Google / Antigravity（Cloud Code）包装成 Agent 可用接口，供 Claude Code、Claude Desktop、Codex、Pi、DeepSeek Harness 使用：
 
 - **协议**：Anthropic `/v1/messages`、OpenAI Chat `/v1/chat/completions`、OpenAI Responses `/v1/responses`（Codex 须绑定 `openai_responses`）
-- **账号池与智能调度**：浏览器 OAuth 导入，403 异常熔断与 429 阶梯冷却探针；基于实时剩余配额比例与健康度提供**动态加权轮询与最优账号推荐**；配额不足 (<15%) 自动预警提示；**设为活跃**后网关优先走该账号（并清会话粘滞与冷却）；后台自动刷新额度与实时模型目录。新账号若项目「待获取」会自动 `onboardUser`，5h/7d 额度条依赖 Cloud Code 项目 ID
+- **账号池与智能调度**：浏览器 OAuth 导入，403 异常熔断与 429 阶梯冷却探针；基于实时剩余配额比例与健康度提供**动态加权轮询与最优账号推荐**；配额不足 (<15%) 自动预警提示；**设为活跃**为软偏好——活跃账号若触达 RPM 压力会让位给更健康的账号（并清会话粘滞与冷却）；后台自动刷新额度与实时模型目录。新账号若项目「待获取」会自动 `onboardUser`，5h/7d 额度条依赖 Cloud Code 项目 ID
 - **Claude Desktop 429**：账号池耗尽时向客户端回传 **429 + Retry-After**（不再伪装成 502），避免 Desktop 把网关故障当 5xx 猛重试；Desktop / 独立供应商模式仍不把 AG 429 切到其他供应商。**Codex 统一目录**下会切到下一目录供应商，并把模型改成接管方默认或子代理
 - **用量回传**：解析 Gemini `usageMetadata`（含思考 token），在 Anthropic / OpenAI Chat / Responses 流式结束帧带回真实 input/output
 - **流式中文**：SSE 按完整行再解码 UTF-8，避免 TCP 半截汉字变成乱码
 - **KaTeX 展开**：Gemini 可见正文与 Write/Edit 写盘参数把 `$\\le 50\\text{g}$` 一类公式转成 `≤ 50g`；Edit 的匹配原文与 Grep 模式保持原样
 - **Claude Code 子代理**：Explore / Haiku 走目录子代理槽（优先 `gemini-3.7-flash-low`），不再误用当前 `/model` 默认；`thinking: disabled` 不改写已选 Gemini 后缀，也不把 `-low` 粘到主会话
-- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（含子代理 `3.7-flash-low` 向上回退至 medium/high，以及 `3.6-flash-low` → `3.7-flash-`*），并在重试间加入微等待退避；区分 URL 级与账号 RPM 型 429，每请求最多一次 daily→prod 端点 Fallback，避免 sandbox 连接失败伪装成 502；子代理请求经 `x-cs-subagent` 走单账号并发闸门（主会话与子代理分池排队）。额度条仍有余量时短冷却（≤15s）后再试 1 个账号；失败日志记录最后尝试的模型与 429 分类
+- **模型目录与调度**：Gemini **3.6 与 3.7 并存**（Cloud Code 真实 id 为 `-high` / `-medium` / `-low`）；同账号 429 时按档位链降级（`low` 不再抬升到主会话 `high`，改为同级跨代兄弟如 `3.7-flash-low` → `3.6-flash-low`，单次请求最多 2 档）；区分 URL 级与账号 RPM 型 429，daily 主机限流带 TTL 记忆、烫手时跳过 daily，每请求最多一次 daily→prod 端点 Fallback；子代理经 `x-cs-subagent` 走独立并发池，非流式/流式重试各有截止时间（约 8s / 15s），超时立即 429 + Retry-After。每账号令牌桶（默认约 30 RPM、突发 8）+ 最小间隔退避 + 429 AIMD；**账号与额度**页可手动调节并发与限速
 - **一键绑定**：在「账号与额度」页确保供应商后即可在各工具切换使用
 - **用量**：网关请求写入 `proxy_request_logs`（`target_app=antigravity`）
 - **说明**：个人自用网关，请自行评估账号与上游服务条款；勿用于商业中转

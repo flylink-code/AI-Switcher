@@ -1165,6 +1165,16 @@ export interface AntigravityGatewayStatus {
   outboundMode?: string;
   outboundProxyUrl?: string;
   effectiveOutboundProxy?: string | null;
+  limiterSettings?: AntigravityLimiterSettings;
+}
+
+export interface AntigravityLimiterSettings {
+  accountConcurrency: number;
+  subagentConcurrency: number;
+  minRequestIntervalMs: number;
+  ratePerMin: number;
+  tokenBurst: number;
+  acquireTimeoutSecs: number;
 }
 
 export interface AntigravityCatalogModel {

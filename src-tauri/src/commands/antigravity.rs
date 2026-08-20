@@ -1,9 +1,9 @@
 //! Tauri commands for the built-in Antigravity gateway.
 
 use crate::antigravity::{
-    clear_sticky_sessions, gateway_status, import_accounts_json, list_accounts, login_with_browser,
+    clear_sticky_sessions, gateway_status, get_limiter_settings, import_accounts_json, list_accounts, login_with_browser,
     refresh_all_account_quotas, refresh_one_account_quota, remove_account, set_active_account,
-    set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway, stop_gateway,
+    set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
     AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
     DEFAULT_GATEWAY_PORT,
 };
@@ -70,6 +70,18 @@ pub fn set_antigravity_outbound_proxy(
             .as_deref()
             .unwrap_or(DEFAULT_CLASH_PROXY_URL),
     )
+}
+
+#[tauri::command]
+pub fn get_antigravity_limiter_settings() -> AppResult<crate::antigravity::LimiterSettings> {
+    get_limiter_settings()
+}
+
+#[tauri::command]
+pub fn set_antigravity_limiter_settings(
+    settings: crate::antigravity::LimiterSettings,
+) -> AppResult<crate::antigravity::LimiterSettings> {
+    set_limiter_settings(settings)
 }
 
 #[tauri::command]

@@ -1,7 +1,7 @@
 //! Cloud Code v1internal upstream client (independent implementation).
 
-use std::sync::RwLock;
-use std::time::Duration;
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -13,6 +13,9 @@ const UPSTREAM_FALLBACKS: [&str; 3] = [
     "https://cloudcode-pa.googleapis.com/v1internal",
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal",
 ];
+
+/// Skip the daily cluster for this long after a URL-level 429.
+const DAILY_HOST_LIMITED_TTL: Duration = Duration::from_secs(90);
 
 /// Same Cloud Code client fingerprint as quota probes. A generic `antigravity`
 /// UA is accepted inconsistently and can 429 newer Gemini variants.
@@ -122,6 +125,7 @@ fn rebuild_rate_limited_response(
 #[derive(Clone)]
 pub struct UpstreamClient {
     client: std::sync::Arc<RwLock<Client>>,
+    daily_limited_until: Arc<RwLock<Option<Instant>>>,
 }
 
 impl UpstreamClient {
@@ -130,6 +134,27 @@ impl UpstreamClient {
             client: std::sync::Arc::new(RwLock::new(
                 crate::antigravity::outbound::build_async_client(20, 600),
             )),
+            daily_limited_until: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    fn daily_host_limited(&self) -> bool {
+        self.daily_limited_until
+            .read()
+            .ok()
+            .and_then(|guard| *guard)
+            .is_some_and(|until| Instant::now() < until)
+    }
+
+    fn mark_daily_limited(&self) {
+        if let Ok(mut guard) = self.daily_limited_until.write() {
+            *guard = Some(Instant::now() + DAILY_HOST_LIMITED_TTL);
+        }
+    }
+
+    fn clear_daily_limited(&self) {
+        if let Ok(mut guard) = self.daily_limited_until.write() {
+            *guard = None;
         }
     }
 
@@ -171,6 +196,10 @@ impl UpstreamClient {
         let client = self.http();
         let mut url_fallback_used = false;
         for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
+            if idx == 0 && self.daily_host_limited() {
+                log::debug!("Antigravity skipping daily host (recent URL-level 429)");
+                continue;
+            }
             let url = match query {
                 Some(q) => format!("{base}:{method}?{q}"),
                 None => format!("{base}:{method}"),
@@ -197,6 +226,7 @@ impl UpstreamClient {
                         let status = response.status();
                         if status.is_success() {
                             log::info!("Antigravity generate {method} {url} → {status}");
+                            self.clear_daily_limited();
                             return Ok(response);
                         }
                         if status.as_u16() == 429 {
@@ -217,6 +247,7 @@ impl UpstreamClient {
                                     if idx == 0 && !url_fallback_used =>
                                 {
                                     url_fallback_used = true;
+                                    self.mark_daily_limited();
                                     let next_base = UPSTREAM_FALLBACKS[1];
                                     log::warn!(
                                         "Antigravity URL fallback (429): {url} → {next_base} ({})",
@@ -225,14 +256,12 @@ impl UpstreamClient {
                                     tokio::time::sleep(Duration::from_millis(150)).await;
                                     break;
                                 }
-                                RateLimitKind::AccountRateLimit
-                                | RateLimitKind::ModelQuotaExhausted
-                                    if rpm_backoff_attempt < 2 =>
+                                RateLimitKind::ModelQuotaExhausted
+                                    if rpm_backoff_attempt < 1 =>
                                 {
                                     rpm_backoff_attempt += 1;
                                     log::debug!(
-                                        "Antigravity 429 {:?} on {url}; same-host backoff {rpm_backoff_attempt}/2",
-                                        kind
+                                        "Antigravity 429 model quota on {url}; same-host retry {rpm_backoff_attempt}/1"
                                     );
                                     tokio::time::sleep(rpm_backoff_delay(rpm_backoff_attempt)).await;
                                     continue;

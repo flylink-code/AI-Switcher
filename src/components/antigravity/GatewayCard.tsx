@@ -16,9 +16,22 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useTranslation } from "react-i18next";
-import type { AntigravityGatewayStatus, AntigravityCatalogModel } from "@/services/api";
+import type {
+  AntigravityGatewayStatus,
+  AntigravityCatalogModel,
+  AntigravityLimiterSettings,
+} from "@/services/api";
 
 const { Text, Paragraph } = Typography;
+
+const DEFAULT_LIMITER: AntigravityLimiterSettings = {
+  accountConcurrency: 4,
+  subagentConcurrency: 2,
+  minRequestIntervalMs: 300,
+  ratePerMin: 30,
+  tokenBurst: 8,
+  acquireTimeoutSecs: 20,
+};
 
 interface GatewayCardProps {
   status?: AntigravityGatewayStatus;
@@ -26,10 +39,12 @@ interface GatewayCardProps {
   onStartGateway: (port: number, apiKey?: string, outboundMode?: string, outboundUrl?: string) => Promise<void>;
   onStopGateway: () => Promise<void>;
   onSaveOutbound: (mode: "direct" | "system" | "custom", url: string) => Promise<void>;
+  onSaveLimiter: (settings: AntigravityLimiterSettings) => Promise<void>;
   onRefresh: () => void;
   isStarting?: boolean;
   isStopping?: boolean;
   isSavingOutbound?: boolean;
+  isSavingLimiter?: boolean;
 }
 
 export function GatewayCard({
@@ -38,10 +53,12 @@ export function GatewayCard({
   onStartGateway,
   onStopGateway,
   onSaveOutbound,
+  onSaveLimiter,
   onRefresh,
   isStarting = false,
   isStopping = false,
   isSavingOutbound = false,
+  isSavingLimiter = false,
 }: GatewayCardProps) {
   const { t } = useTranslation();
 
@@ -51,6 +68,7 @@ export function GatewayCard({
     "direct" | "system" | "custom" | null
   >(null);
   const [outboundUrlDraft, setOutboundUrlDraft] = useState<string | null>(null);
+  const [limiterDraft, setLimiterDraft] = useState<AntigravityLimiterSettings | null>(null);
   const [curlVisible, setCurlVisible] = useState(false);
 
   const port = portDraft ?? status?.port ?? 15830;
@@ -62,6 +80,11 @@ export function GatewayCard({
       : "custom");
   const outboundUrl =
     outboundUrlDraft ?? status?.outboundProxyUrl ?? "socks5://127.0.0.1:17891";
+  const limiter = limiterDraft ?? status?.limiterSettings ?? DEFAULT_LIMITER;
+
+  const patchLimiter = (patch: Partial<AntigravityLimiterSettings>) => {
+    setLimiterDraft({ ...limiter, ...patch });
+  };
 
   const sampleModel =
     models?.find((model) => model.id === "claude-sonnet-4-6")?.id ??
@@ -137,6 +160,85 @@ export function GatewayCard({
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t("antigravity.outboundEffective", {
               value: status?.effectiveOutboundProxy || t("antigravity.outboundNone"),
+            })}
+          </Text>
+        </Space>
+
+        <Divider style={{ margin: "4px 0" }} />
+
+        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+          <Text strong style={{ fontSize: 13 }}>
+            {t("antigravity.limiterSection", { defaultValue: "并发与限速" })}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("antigravity.limiterHint", {
+              defaultValue:
+                "按账号限制并发与请求速率，减轻 Cloud Code 429。保存后立即生效（进行中的流式请求不受影响）。",
+            })}
+          </Text>
+          <Space wrap>
+            <InputNumber
+              min={1}
+              max={16}
+              value={limiter.accountConcurrency}
+              onChange={(value) =>
+                patchLimiter({ accountConcurrency: typeof value === "number" ? value : 4 })
+              }
+              addonBefore={t("antigravity.limiterAccountConcurrency", { defaultValue: "账号并发" })}
+            />
+            <InputNumber
+              min={1}
+              max={8}
+              value={limiter.subagentConcurrency}
+              onChange={(value) =>
+                patchLimiter({ subagentConcurrency: typeof value === "number" ? value : 2 })
+              }
+              addonBefore={t("antigravity.limiterSubagentConcurrency", { defaultValue: "子代理并发" })}
+            />
+            <InputNumber
+              min={0}
+              max={5000}
+              step={50}
+              value={limiter.minRequestIntervalMs}
+              onChange={(value) =>
+                patchLimiter({ minRequestIntervalMs: typeof value === "number" ? value : 300 })
+              }
+              addonBefore={t("antigravity.limiterMinInterval", { defaultValue: "最小间隔 ms" })}
+            />
+            <InputNumber
+              min={0}
+              max={120}
+              value={limiter.ratePerMin}
+              onChange={(value) =>
+                patchLimiter({ ratePerMin: typeof value === "number" ? value : 30 })
+              }
+              addonBefore={t("antigravity.limiterRatePerMin", { defaultValue: "RPM 上限" })}
+            />
+            <InputNumber
+              min={1}
+              max={32}
+              value={limiter.tokenBurst}
+              onChange={(value) =>
+                patchLimiter({ tokenBurst: typeof value === "number" ? value : 8 })
+              }
+              addonBefore={t("antigravity.limiterTokenBurst", { defaultValue: "突发令牌" })}
+            />
+            <InputNumber
+              min={1}
+              max={120}
+              value={limiter.acquireTimeoutSecs}
+              onChange={(value) =>
+                patchLimiter({ acquireTimeoutSecs: typeof value === "number" ? value : 20 })
+              }
+              addonBefore={t("antigravity.limiterAcquireTimeout", { defaultValue: "等待超时 s" })}
+            />
+            <Button loading={isSavingLimiter} onClick={() => onSaveLimiter(limiter)}>
+              {t("antigravity.limiterSave", { defaultValue: "保存并发/限速" })}
+            </Button>
+          </Space>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("antigravity.limiterRateOffHint", {
+              defaultValue: "RPM 上限设为 0 可关闭令牌桶（仍保留并发闸门与 429 退避）。",
             })}
           </Text>
         </Space>
