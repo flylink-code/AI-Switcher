@@ -20,10 +20,20 @@ import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
-import { ProxyRuntimeCard, ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
+import { ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
+import type { ProviderTarget } from "@/types/backend";
 
 const { Text } = Typography;
+
+const PROXY_TARGETS: ProviderTarget[] = [
+  "claude_code",
+  "claude_desktop",
+  "codex",
+  "opencode",
+  "pi",
+  "cline",
+];
 
 export default function ProxyPage() {
   const { t } = useTranslation();
@@ -185,7 +195,7 @@ export default function ProxyPage() {
       {/* Same page-header pattern as Providers: switcher + status | actions */}
       <div className="cc-workbench-header">
         <div className="cc-header-left">
-          <AgentTargetSwitcher value={target} onChange={setProxyTarget} />
+          <AgentTargetSwitcher value={target} onChange={setProxyTarget} targets={PROXY_TARGETS} />
           {statusBadge}
         </div>
         {!isOpencode && (
@@ -222,42 +232,28 @@ export default function ProxyPage() {
         )}
       </div>
 
-      <ProxyRuntimeCard
+      <ProxyRoutePanel
         status={status}
         target={target}
+        port={port}
+        onPortChange={setPort}
+        busy={busy}
         clientLabel={t(`workspace.${target}`)}
       />
 
-      {!isOpencode ? (
-        <div className="proxy-panels-grid">
-          <ProxyRoutePanel
-            status={status}
-            target={target}
-            port={port}
-            onPortChange={setPort}
-            busy={busy}
-          />
-          <ResilienceSettings
-            failoverEnabled={failoverQuery.data ?? false}
-            failoverSaving={failoverQuery.isPending || failoverSaving}
-            onFailoverChange={(enabled) => void handleFailoverChange(enabled)}
-            retryCodes={retryCodes}
-            onRetryCodesChange={setRetryCodes}
-            retrySaving={retrySaving}
-            onRetryCodesSave={() => void handleRetryCodesSave()}
-            idleTimeout={idleTimeout}
-            onIdleTimeoutChange={setIdleTimeout}
-            idleSaving={idleSaving}
-            onIdleTimeoutSave={() => void handleIdleTimeoutSave()}
-          />
-        </div>
-      ) : (
-        <ProxyRoutePanel
-          status={status}
-          target={target}
-          port={port}
-          onPortChange={setPort}
-          busy={busy}
+      {!isOpencode && (
+        <ResilienceSettings
+          failoverEnabled={failoverQuery.data ?? false}
+          failoverSaving={failoverQuery.isPending || failoverSaving}
+          onFailoverChange={(enabled) => void handleFailoverChange(enabled)}
+          retryCodes={retryCodes}
+          onRetryCodesChange={setRetryCodes}
+          retrySaving={retrySaving}
+          onRetryCodesSave={() => void handleRetryCodesSave()}
+          idleTimeout={idleTimeout}
+          onIdleTimeoutChange={setIdleTimeout}
+          idleSaving={idleSaving}
+          onIdleTimeoutSave={() => void handleIdleTimeoutSave()}
         />
       )}
     </Space>

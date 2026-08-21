@@ -57,7 +57,7 @@ const INSTALLED_PAGE_SIZE = 8;
 function readSkillsTarget(): SkillTarget {
   if (typeof localStorage === "undefined") return "claude_code";
   const stored = localStorage.getItem(SKILLS_TARGET_KEY);
-  if (stored === "codex" || stored === "claude_code" || stored === "pi") return stored;
+  if (stored === "codex" || stored === "claude_code" || stored === "pi" || stored === "cline") return stored;
   return "claude_code";
 }
 
@@ -69,6 +69,8 @@ function getTargetLabel(target: SkillTarget): string {
       return "Codex";
     case "pi":
       return "Pi";
+    case "cline":
+      return "Cline";
   }
 }
 
@@ -82,7 +84,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const getValidSkillTarget = (preferred: SkillTarget): SkillTarget => {
-    const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex" || a === "pi");
+    const validTargets = visibleAgents.filter((a): a is SkillTarget => a === "claude_code" || a === "codex" || a === "pi" || a === "cline");
     if (validTargets.includes(preferred)) return preferred;
     return validTargets[0] ?? "claude_code";
   };
@@ -389,7 +391,7 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
           value={target}
           onChange={setInternalTarget}
           t={t}
-          targets={["claude_code", "codex", "pi"]}
+          targets={["claude_code", "codex", "pi", "cline"]}
         />
       )}
       <Card

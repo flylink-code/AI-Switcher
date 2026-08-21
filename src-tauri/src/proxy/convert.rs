@@ -99,9 +99,45 @@ fn merge_thinking_config(
             if request_effort_empty {
                 request_cfg.reasoning_effort = provider.reasoning_effort.clone();
             }
+            if request_cfg.prefix_thought.is_none() {
+                request_cfg.prefix_thought = provider.prefix_thought;
+            }
             Some(request_cfg)
         }
     }
+}
+
+const PREFIX_THOUGHT_HINT: &str =
+    "Think step by step before answering. Put internal reasoning first, then the final answer.";
+
+fn apply_prefix_thought(request: &mut Value) {
+    if let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) {
+        if let Some(system) = messages.iter_mut().find(|message| {
+            message.get("role").and_then(Value::as_str) == Some("system")
+        }) {
+            match system.get_mut("content") {
+                Some(Value::String(text)) if !text.contains("Think step by step") => {
+                    text.push_str("\n\n");
+                    text.push_str(PREFIX_THOUGHT_HINT);
+                }
+                Some(Value::String(_)) => {}
+                _ => {
+                    system["content"] = json!(PREFIX_THOUGHT_HINT);
+                }
+            }
+            return;
+        }
+        messages.insert(0, json!({ "role": "system", "content": PREFIX_THOUGHT_HINT }));
+        return;
+    }
+    if let Some(Value::String(instructions)) = request.get_mut("instructions") {
+        if !instructions.contains("Think step by step") {
+            instructions.push_str("\n\n");
+            instructions.push_str(PREFIX_THOUGHT_HINT);
+        }
+        return;
+    }
+    request["instructions"] = json!(PREFIX_THOUGHT_HINT);
 }
 
 pub fn anthropic_to_openai_chat(
@@ -145,6 +181,9 @@ pub fn anthropic_to_openai_chat(
             if let Some(effort) = cfg.resolved_reasoning_effort() {
                 result["reasoning_effort"] = json!(effort);
             }
+            if cfg.prefix_thought.unwrap_or(false) {
+                apply_prefix_thought(&mut result);
+            }
         }
     }
 
@@ -184,6 +223,9 @@ pub fn anthropic_to_openai_responses(
         if !cfg.is_disabled() {
             if let Some(effort) = cfg.resolved_reasoning_effort() {
                 result["reasoning"] = json!({ "effort": effort });
+            }
+            if cfg.prefix_thought.unwrap_or(false) {
+                apply_prefix_thought(&mut result);
             }
         }
     }
@@ -1303,6 +1345,24 @@ mod tests {
         let merged = anthropic_to_openai_chat(&enabled_only, "o3-mini", false, Some(&provider));
         assert_eq!(merged["reasoning_effort"], "medium");
         assert!(merged.get("thinking_budget").is_none());
+    }
+
+    #[test]
+    fn prefix_thought_injects_system_hint() {
+        let request = json!({
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": "solve math"}],
+            "thinking": {"type": "enabled"}
+        });
+        let provider = crate::provider::ThinkingConfig {
+            mode: Some("enabled".into()),
+            budget_tokens: None,
+            reasoning_effort: Some("medium".into()),
+            prefix_thought: Some(true),
+        };
+        let chat = anthropic_to_openai_chat(&request, "deepseek-chat", false, Some(&provider));
+        let system = chat["messages"][0]["content"].as_str().unwrap();
+        assert!(system.contains("Think step by step"));
     }
 
     #[test]

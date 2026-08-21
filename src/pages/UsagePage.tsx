@@ -325,6 +325,8 @@ export default function UsagePage() {
   const isPiOnly = logTargetApp === "pi";
   const includesDsh = visibleAgents.includes("dsh") && (logTargetApp === "all" || logTargetApp === "dsh");
   const isDshOnly = logTargetApp === "dsh";
+  const includesCline = visibleAgents.includes("cline") && (logTargetApp === "all" || logTargetApp === "cline");
+  const isClineOnly = logTargetApp === "cline";
 
   const agAccountsQuery = useQuery({
     queryKey: ["antigravity-accounts"],
@@ -529,6 +531,15 @@ export default function UsagePage() {
           closable
           message={t("usage.dshEmptyTitle")}
           description={t("usage.dshEmptyHint")}
+        />
+      )}
+      {includesCline && isClineOnly && (summary?.requestCount ?? 0) === 0 && (
+        <Alert
+          type="info"
+          showIcon
+          closable
+          message={t("usage.clineEmptyTitle")}
+          description={t("usage.clineEmptyHint")}
         />
       )}
 

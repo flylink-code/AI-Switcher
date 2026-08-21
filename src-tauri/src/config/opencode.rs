@@ -1124,6 +1124,7 @@ mod tests {
             enabled_codex: false,
             enabled_opencode,
             enabled_pi: false,
+            enabled_cline: false,
             sort_index: 0,
             created_at: 0,
         }

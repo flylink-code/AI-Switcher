@@ -110,14 +110,11 @@ pub fn openai_to_gemini_request(
                         let mut part = json!({ "functionCall": fc });
                         // Gemini 3 要求历史 functionCall 携带 thought_signature。
                         // Codex / OpenAI Chat 看不到该字段，按 tool id → 会话 → 哨兵回注。
-                        let signature = id
-                            .and_then(thought_sig::get_tool_signature)
-                            .or_else(|| {
-                                session_key.and_then(thought_sig::get_session_signature)
-                            })
-                            .unwrap_or_else(|| {
-                                thought_sig::SKIP_VALIDATOR_SENTINEL.to_string()
-                            });
+                        let signature = thought_sig::resolve_function_call_signature(
+                            id,
+                            session_key,
+                            Some(contents.len()),
+                        );
                         let signature = json!(signature);
                         part["thoughtSignature"] = signature.clone();
                         part["thought_signature"] = signature;
@@ -199,6 +196,14 @@ pub fn openai_to_gemini_request(
     if let Some(level) = claude_thinking_level {
         generation["thinkingConfig"] = json!({ "thinkingLevel": level });
     }
+    if model.to_ascii_lowercase().starts_with("gemini-") {
+        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model) {
+            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+            generation["maxOutputTokens"] =
+                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+            crate::antigravity::thinking::apply_thinking_budget(&mut generation, budget, true);
+        }
+    }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
     }
@@ -229,7 +234,9 @@ pub fn openai_to_gemini_request(
             // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects
             // many real-world tool schemas and can fail streamGenerateContent.
             request["toolConfig"] = json!({
-                "functionCallingConfig": { "mode": "AUTO" }
+                "functionCallingConfig": { "mode": "AUTO" },
+                "includeServerSideToolInvocations": true,
+                "include_server_side_tool_invocations": true
             });
         }
     }
@@ -612,8 +619,8 @@ mod tests {
         });
         let chunk = gemini_to_openai_sse_chunk("gemini-3.7-flash-high", &gemini, None, &ToolParamKeys::new());
         assert_eq!(chunk["usage"]["prompt_tokens"], 1500);
-        assert_eq!(chunk["usage"]["completion_tokens"], 100);
-        assert_eq!(chunk["usage"]["total_tokens"], 1600);
+        assert_eq!(chunk["usage"]["completion_tokens"], 20);
+        assert_eq!(chunk["usage"]["total_tokens"], 1520);
 
         let trailer = openai_usage_sse_chunk("gemini-3.7-flash-high", 1500, 100);
         assert_eq!(trailer["usage"]["prompt_tokens"], 1500);

@@ -33,6 +33,7 @@ const OPENCODE_LIVE_FILE_NAME: &str = "AGENTS.md";
 const OPENCODE_BACKUP_NAME: &str = "opencode-AGENTS.md";
 /// Pi live 文件的备份名（与 Codex / OpenCode 的 AGENTS.md 备份区分）。
 const PI_BACKUP_NAME: &str = "pi-AGENTS.md";
+const CLINE_BACKUP_NAME: &str = "cline-rules-AGENTS.md";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +44,8 @@ pub enum PromptTarget {
     OpenCode,
     #[serde(rename = "pi")]
     Pi,
+    #[serde(rename = "cline")]
+    Cline,
 }
 
 impl Default for PromptTarget {
@@ -85,6 +88,7 @@ pub fn prompts_dir(target: PromptTarget) -> PathBuf {
         PromptTarget::Codex => base.join("codex"),
         PromptTarget::OpenCode => base.join("opencode"),
         PromptTarget::Pi => base.join("pi"),
+        PromptTarget::Cline => base.join("cline"),
     }
 }
 
@@ -94,6 +98,7 @@ pub fn live_prompt_path(target: PromptTarget) -> PathBuf {
         PromptTarget::Codex => get_codex_config_dir().join(CODEX_LIVE_FILE_NAME),
         PromptTarget::OpenCode => get_opencode_config_dir().join(OPENCODE_LIVE_FILE_NAME),
         PromptTarget::Pi => crate::coding::pi::config::get_pi_global_agents_path(),
+        PromptTarget::Cline => crate::config::cline::cline_rules_dir().join("AGENTS.md"),
     }
 }
 
@@ -209,6 +214,7 @@ pub fn activate_prompt(target: PromptTarget, name: &str) -> AppResult<()> {
             PromptTarget::Codex => CODEX_LIVE_FILE_NAME,
             PromptTarget::OpenCode => OPENCODE_BACKUP_NAME,
             PromptTarget::Pi => PI_BACKUP_NAME,
+            PromptTarget::Cline => CLINE_BACKUP_NAME,
         };
         backup_file_named(&live, backup_name, LIVE_BACKUP_KEEP)?;
     }

@@ -91,6 +91,7 @@ pub async fn restore_config_backup(
             ProviderTarget::OpenCode => set_setting(conn, "v131.opencode_managed", "")?,
             ProviderTarget::Pi => set_setting(conn, "v136.pi_managed", "")?,
             ProviderTarget::Dsh => set_setting(conn, "v1310.dsh_managed", "")?,
+            ProviderTarget::Cline => set_setting(conn, "v1323.cline_managed", "")?,
         }
         Ok(())
     })?;
@@ -121,6 +122,7 @@ fn is_backup_for_target(target: ProviderTarget, name: &str) -> bool {
         ProviderTarget::OpenCode => name.starts_with("opencode-"),
         ProviderTarget::Pi => name.starts_with("pi-"),
         ProviderTarget::Dsh => name.starts_with("dsh-"),
+        ProviderTarget::Cline => name.starts_with("cline-"),
     }
 }
 
@@ -156,6 +158,9 @@ fn destination_for_backup(target: ProviderTarget, name: &str) -> AppResult<PathB
         )),
         ProviderTarget::Dsh => Err(AppError::Config(
             "DeepSeek Harness 仅支持多供应商自动同步，无需单独恢复配置文件".to_string(),
+        )),
+        ProviderTarget::Cline => Err(AppError::Config(
+            "Cline 仅支持多供应商自动同步，无需单独恢复配置文件".to_string(),
         )),
     }
 }

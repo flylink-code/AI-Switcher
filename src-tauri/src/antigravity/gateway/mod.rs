@@ -17,6 +17,7 @@ use uuid::Uuid;
 use super::limiter::{AccountLimiter, LimiterSettings};
 use super::pool::AccountPool;
 use super::upstream::UpstreamClient;
+use crate::antigravity::fast_path::FastPathSettings;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -26,6 +27,7 @@ const PORT_SETTING: &str = "antigravity_gateway_port";
 const API_KEY_SETTING: &str = "antigravity_gateway_api_key";
 const ENABLED_SETTING: &str = "antigravity_gateway_enabled";
 const LIMITER_SETTING: &str = "antigravity_gateway_limiter";
+const FAST_PATH_SETTING: &str = "antigravity_gateway_fast_path";
 const DEFAULT_API_KEY: &str = "sk-ai-switcher-antigravity";
 
 #[derive(Clone)]
@@ -49,6 +51,8 @@ pub struct AntigravityGatewayStatus {
     pub outbound_proxy_url: String,
     pub effective_outbound_proxy: Option<String>,
     pub limiter_settings: LimiterSettings,
+    #[serde(default)]
+    pub fast_path: FastPathSettings,
 }
 
 struct GatewayRuntime {
@@ -101,6 +105,9 @@ pub fn init_gateway(db: Arc<Database>) {
     let limiter = Arc::new(AccountLimiter::new());
     if let Ok(settings) = load_limiter_settings(&db) {
         let _ = limiter.apply_settings(&settings);
+    }
+    if let Ok(fast_path) = load_fast_path_settings(&db) {
+        crate::antigravity::fast_path::set_current_settings(fast_path);
     }
     let pool = Arc::new(AccountPool::with_limiter(Arc::clone(&limiter)));
     let api_key = Arc::new(Mutex::new(api_key));
@@ -156,6 +163,7 @@ pub fn gateway_status() -> AppResult<AntigravityGatewayStatus> {
             outbound_proxy_url: outbound.proxy_url,
             effective_outbound_proxy: outbound.effective_proxy_url,
             limiter_settings: manager.limiter.current_settings(),
+            fast_path: crate::antigravity::fast_path::current_settings(),
         })
     })
 }
@@ -192,6 +200,33 @@ pub fn set_limiter_settings(settings: LimiterSettings) -> AppResult<LimiterSetti
         Ok(())
     })?;
     get_limiter_settings()
+}
+
+pub fn load_fast_path_settings(db: &Database) -> AppResult<FastPathSettings> {
+    db.with_conn(|conn| {
+        Ok(get_setting(conn, FAST_PATH_SETTING)
+            .ok()
+            .flatten()
+            .and_then(|raw| serde_json::from_str::<FastPathSettings>(&raw).ok())
+            .unwrap_or_default())
+    })
+}
+
+pub fn get_fast_path_settings() -> AppResult<FastPathSettings> {
+    Ok(crate::antigravity::fast_path::current_settings())
+}
+
+pub fn set_fast_path_settings(settings: FastPathSettings) -> AppResult<FastPathSettings> {
+    crate::antigravity::fast_path::set_current_settings(settings.clone());
+    with_manager(|manager| {
+        manager.db.with_conn(|conn| {
+            let raw = serde_json::to_string(&settings)
+                .map_err(|error| AppError::Other(format!("序列化 fast-path 配置失败: {error}")))?;
+            set_setting(conn, FAST_PATH_SETTING, &raw)
+        })?;
+        Ok(())
+    })?;
+    get_fast_path_settings()
 }
 
 pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<AntigravityGatewayStatus> {
@@ -318,6 +353,8 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .route("/responses", any(handlers::openai_responses))
         .route("/v1/responses/compact", any(handlers::openai_responses_compact))
         .route("/responses/compact", any(handlers::openai_responses_compact))
+        .route("/v1/images/generations", any(handlers::openai_images_generations))
+        .route("/images/generations", any(handlers::openai_images_generations))
         .with_state(state)
         .layer(CorsLayer::permissive());
 

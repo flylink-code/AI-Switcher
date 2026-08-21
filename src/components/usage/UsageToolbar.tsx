@@ -19,7 +19,8 @@ const SOURCE_SHORT_LABEL: Record<UsageSourceFilter, string> = {
   codex: "agentSwitcher.codex",
   opencode: "agentSwitcher.opencode",
   pi: "agentSwitcher.pi",
-  dsh: "agentSwitcher.dsh",
+    dsh: "agentSwitcher.dsh",
+  cline: "agentSwitcher.cline",
   antigravity: "usage.sourceAntigravity",
 };
 

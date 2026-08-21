@@ -31,6 +31,7 @@ import {
   setAntigravityGatewayApiKey,
   setAntigravityGatewayPort,
   setAntigravityLimiterSettings,
+  setAntigravityFastPathSettings,
   setAntigravityOutboundProxy,
   startAntigravityGateway,
   startAntigravityOauthLogin,
@@ -42,6 +43,7 @@ import type {
   AntigravityCatalogModel,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
+  AntigravityFastPathSettings,
   ProviderTarget,
 } from "@/types/backend";
 import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
@@ -257,6 +259,15 @@ export default function AntigravityPage() {
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
+  const fastPathMutation = useMutation({
+    mutationFn: (settings: AntigravityFastPathSettings) => setAntigravityFastPathSettings(settings),
+    onSuccess: async () => {
+      message.success(t("antigravity.fastPathSaved", { defaultValue: "后台短路已保存" }));
+      await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error)),
+  });
+
   const ensureMutation = useMutation({
     mutationFn: (target: ProviderTarget) => ensureAntigravityProvider(target),
     onMutate: (target) => setBindingTarget(target),
@@ -353,6 +364,7 @@ export default function AntigravityPage() {
           stopMutation={stopMutation}
           outboundMutation={outboundMutation}
           limiterMutation={limiterMutation}
+          fastPathMutation={fastPathMutation}
           ensureMutation={ensureMutation}
           boundProvidersQuery={boundProvidersQuery}
           bindingTarget={bindingTarget}
@@ -382,6 +394,7 @@ interface AntigravityContentProps {
   stopMutation: { isPending: boolean; mutateAsync: () => Promise<unknown> };
   outboundMutation: { isPending: boolean; mutateAsync: (args: { mode: "direct" | "system" | "custom"; url: string }) => Promise<unknown> };
   limiterMutation: { isPending: boolean; mutateAsync: (settings: AntigravityLimiterSettings) => Promise<unknown> };
+  fastPathMutation: { isPending: boolean; mutateAsync: (settings: AntigravityFastPathSettings) => Promise<unknown> };
   ensureMutation: { mutate: (target: ProviderTarget) => void };
   boundProvidersQuery: { data?: Map<ProviderTarget, boolean> };
   bindingTarget: ProviderTarget | null;
@@ -407,6 +420,7 @@ function AntigravityContent({
   stopMutation,
   outboundMutation,
   limiterMutation,
+  fastPathMutation,
   ensureMutation,
   boundProvidersQuery,
   bindingTarget,
@@ -538,11 +552,15 @@ function AntigravityContent({
         onSaveLimiter={async (settings) => {
           await limiterMutation.mutateAsync(settings);
         }}
+        onSaveFastPath={async (settings) => {
+          await fastPathMutation.mutateAsync(settings);
+        }}
         onRefresh={refresh}
         isStarting={startMutation.isPending}
         isStopping={stopMutation.isPending}
         isSavingOutbound={outboundMutation.isPending}
         isSavingLimiter={limiterMutation.isPending}
+        isSavingFastPath={fastPathMutation.isPending}
       />
 
       {/* Available Models */}

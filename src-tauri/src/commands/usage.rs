@@ -37,6 +37,7 @@ enum UsageSource {
     OpenCode,
     Pi,
     Dsh,
+    Cline,
 }
 
 impl UsageSource {
@@ -50,6 +51,7 @@ impl UsageSource {
             "opencode" => Ok(Self::OpenCode),
             "pi" => Ok(Self::Pi),
             "dsh" => Ok(Self::Dsh),
+            "cline" => Ok(Self::Cline),
             _ => Err(AppError::Config("未知的用量来源筛选".to_string())),
         }
     }
@@ -66,6 +68,7 @@ impl UsageSource {
             Self::OpenCode => Some(Some("opencode")),
             Self::Pi => Some(Some("pi")),
             Self::Dsh => Some(Some("dsh")),
+            Self::Cline => Some(Some("cline")),
         }
     }
 
@@ -1236,6 +1239,15 @@ fn normalize_log_maintenance_policy(mut policy: LogMaintenancePolicy) -> LogMain
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_cline_source() {
+        assert_eq!(UsageSource::parse(Some("cline")).unwrap(), UsageSource::Cline);
+        assert_eq!(
+            UsageSource::parse(Some("cline")).unwrap().proxy_target(),
+            Some(Some("cline"))
+        );
+    }
 
     fn write_session(root: &Path, relative: &str, contents: &str) {
         let path = root.join(relative);

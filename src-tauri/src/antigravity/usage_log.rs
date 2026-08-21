@@ -98,7 +98,16 @@ impl GeminiUsage {
         let thoughts = meta_count(meta, "thoughtsTokenCount");
         let cached = meta_count(meta, "cachedContentTokenCount");
         let total = meta_count(meta, "totalTokenCount");
-        let mut output = candidates.saturating_add(thoughts);
+        let total_output = meta_count(meta, "totalOutputTokenCount")
+            .max(meta_count(meta, "total_output_tokens"));
+        // Classic Gemini usageMetadata: candidatesTokenCount already includes
+        // thought tokens. Newer Interactions-style payloads expose a separate
+        // total_output that does not, so thoughts must be added there only.
+        let mut output = if total_output > 0 {
+            total_output.saturating_add(thoughts)
+        } else {
+            candidates
+        };
         if output == 0 && total > input {
             output = total.saturating_sub(input);
         }
@@ -247,12 +256,23 @@ mod tests {
         });
         let usage = GeminiUsage::parse(&with_thoughts);
         assert_eq!(usage.input, 100);
-        assert_eq!(usage.output, 100);
+        assert_eq!(usage.output, 20);
         assert_eq!(usage.thoughts, 80);
         assert_eq!(usage.cached, 40);
         assert_eq!(usage.anthropic_usage()["input_tokens"], 100);
-        assert_eq!(usage.anthropic_usage()["output_tokens"], 100);
+        assert_eq!(usage.anthropic_usage()["output_tokens"], 20);
         assert_eq!(usage.anthropic_usage()["cache_read_input_tokens"], 40);
+
+        let interactions = json!({
+            "usageMetadata": {
+                "promptTokenCount": 100,
+                "totalOutputTokenCount": 20,
+                "thoughtsTokenCount": 80
+            }
+        });
+        let added = GeminiUsage::parse(&interactions);
+        assert_eq!(added.output, 100);
+        assert_eq!(added.thoughts, 80);
 
         let total_only = json!({
             "usageMetadata": {

@@ -82,7 +82,7 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
-  const isNativeCatalog = target === "opencode" || target === "pi" || target === "dsh";
+  const isNativeCatalog = target === "opencode" || target === "pi" || target === "dsh" || target === "cline";
   const supportsGatewayCatalog = target === "claude_code" || target === "codex";
 
   const [formOpen, setFormOpen] = useState(false);
@@ -666,6 +666,18 @@ export default function ProvidersPage() {
           </Button>
         </Space>
       )}
+      {target === "cline" && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+          message={
+            <span style={{ fontSize: "12.5px" }}>
+              Cline 走 OpenAI Responses + 本机代理，保存后写入 ~/.cline/ai-switcher.json。
+            </span>
+          }
+        />
+      )}
       {target === "codex" && (
         <OnboardingTip
           tipKey="providers_codex_auth"
@@ -691,7 +703,7 @@ export default function ProvidersPage() {
       {/* Provider Card List */}
       <div className="cc-provider-list">
         {/* Official Provider Card — same 3-row structure as custom cards */}
-        {target !== "opencode" && target !== "pi" && target !== "dsh" && (
+        {target !== "opencode" && target !== "pi" && target !== "dsh" && target !== "cline" && (
           <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
             <div className="cc-provider-card-body">
               <div className="cc-provider-card-header">

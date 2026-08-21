@@ -8,6 +8,7 @@ pub mod claude_code;
 pub mod claude_desktop;
 pub mod codex;
 pub mod codex_provider_sync;
+pub mod cline;
 pub mod dsh;
 pub mod opencode;
 pub mod paths;

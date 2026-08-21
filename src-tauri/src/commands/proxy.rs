@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 use tauri::{Emitter, Manager};
 
-use crate::database::dao::providers::get_current_provider;
+use crate::database::dao::providers::{get_current_provider, list_providers};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::AppResult;
@@ -168,6 +168,7 @@ fn port_key(target: crate::provider::ProviderTarget) -> &'static str {
         crate::provider::ProviderTarget::OpenCode => "proxy_port_opencode",
         crate::provider::ProviderTarget::Pi => "proxy_port_pi",
         crate::provider::ProviderTarget::Dsh => "proxy_port_dsh",
+        crate::provider::ProviderTarget::Cline => "proxy_port_cline",
     }
 }
 
@@ -188,6 +189,7 @@ fn get_saved_port_from_db(db: &Database, target: crate::provider::ProviderTarget
             crate::provider::ProviderTarget::OpenCode => DEFAULT_PORT + 3,
             crate::provider::ProviderTarget::Pi => DEFAULT_PORT + 4,
             crate::provider::ProviderTarget::Dsh => DEFAULT_PORT + 5,
+            crate::provider::ProviderTarget::Cline => DEFAULT_PORT + 6,
         })
 }
 
@@ -324,19 +326,29 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
         crate::provider::ProviderTarget::ClaudeCode,
         crate::provider::ProviderTarget::ClaudeDesktop,
         crate::provider::ProviderTarget::Codex,
+        crate::provider::ProviderTarget::Cline,
     ] {
-        let needs_proxy = state
-            .db
-            .with_conn(|conn| {
-                if crate::catalog::enabled_for_conn(conn, target) {
-                    return Ok(get_current_provider(conn, target)?.is_some());
-                }
-                Ok(get_current_provider(conn, target)?
-                    .is_some_and(|provider| provider.requires_local_proxy()))
-            })
-            .unwrap_or(false)
-            || (target == crate::provider::ProviderTarget::ClaudeDesktop
-                && crate::config::claude_desktop::active_profile_uses_local_proxy());
+        let needs_proxy = if target == crate::provider::ProviderTarget::Cline {
+            state
+                .db
+                .with_conn(|conn| {
+                    Ok(!list_providers(conn, crate::provider::ProviderTarget::Cline)?.is_empty())
+                })
+                .unwrap_or(false)
+        } else {
+            state
+                .db
+                .with_conn(|conn| {
+                    if crate::catalog::enabled_for_conn(conn, target) {
+                        return Ok(get_current_provider(conn, target)?.is_some());
+                    }
+                    Ok(get_current_provider(conn, target)?
+                        .is_some_and(|provider| provider.requires_local_proxy()))
+                })
+                .unwrap_or(false)
+                || (target == crate::provider::ProviderTarget::ClaudeDesktop
+                    && crate::config::claude_desktop::active_profile_uses_local_proxy())
+        };
 
         if !needs_proxy {
             continue;

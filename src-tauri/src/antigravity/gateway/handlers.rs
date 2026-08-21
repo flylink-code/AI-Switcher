@@ -80,14 +80,59 @@ pub async fn anthropic_messages(
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
     };
+    let fast_path = crate::antigravity::fast_path::current_settings();
+    if let Some(reply) = crate::antigravity::fast_path::try_short_circuit(&payload, &fast_path) {
+        let model = payload
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or("claude-haiku-4-5");
+        let _ = usage_log::insert_request(
+            &state.db,
+            None,
+            model,
+            Some(StatusCode::OK.as_u16() as i64),
+            Instant::now(),
+            WireProtocol::Anthropic,
+            payload.get("stream").and_then(Value::as_bool).unwrap_or(false),
+            None,
+            Some("fast_path"),
+        );
+        if payload.get("stream").and_then(Value::as_bool).unwrap_or(false) {
+            let sse = crate::antigravity::fast_path::anthropic_message_sse(model, &reply);
+            return (
+                [
+                    (header::CONTENT_TYPE, HeaderValue::from_static("text/event-stream")),
+                    (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
+                ],
+                sse,
+            )
+                .into_response();
+        }
+        return Json(crate::antigravity::fast_path::anthropic_message_json(model, &reply))
+            .into_response();
+    }
     let session_key = session_key_from_headers(&headers);
     let sticky = session_key
         .as_deref()
         .and_then(crate::antigravity::session_effort::get);
-    let mapped = match anthropic_to_gemini_request(&payload, sticky, session_key.as_deref()) {
+    let mut mapped = match anthropic_to_gemini_request(&payload, sticky, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
+    if fast_path.flash_degrade
+        && crate::antigravity::fast_path::detect_background_task(&payload).is_some()
+    {
+        mapped.model = crate::antigravity::fast_path::flash_degrade_model();
+        if let Some(generation) = mapped.request.get_mut("generationConfig") {
+            if let Some(object) = generation.as_object_mut() {
+                object.remove("thinkingConfig");
+            }
+        }
+        log::info!(
+            "Antigravity background task degraded to {}",
+            mapped.model
+        );
+    }
     if let (Some(session), Some(level)) = (session_key.as_deref(), mapped.remember_effort) {
         crate::antigravity::session_effort::set(session, level);
     }
@@ -207,11 +252,108 @@ pub async fn openai_responses_compact(
     Json(compact).into_response()
 }
 
+pub async fn openai_images_generations(
+    State(state): State<GatewayState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(response) = authorize(&state, &headers) {
+        return response;
+    }
+    if body.len() > 20 * 1024 * 1024 {
+        return error_json(StatusCode::PAYLOAD_TOO_LARGE, "image request exceeds 20MB");
+    }
+    let payload: Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+    };
+    let prompt = payload
+        .get("prompt")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if prompt.is_empty() {
+        return error_json(StatusCode::BAD_REQUEST, "prompt 不能为空");
+    }
+    let size = payload.get("size").and_then(Value::as_str).unwrap_or("1024x1024");
+    let quality = payload.get("quality").and_then(Value::as_str).unwrap_or("1k");
+    let aspect = match size {
+        "512x512" | "256x256" => "1:1",
+        "1792x1024" => "16:9",
+        "1024x1792" => "9:16",
+        _ => "1:1",
+    };
+    let image_size = match quality.to_ascii_lowercase().as_str() {
+        "hd" | "2k" => "2K",
+        "4k" => "4K",
+        _ => "1K",
+    };
+    let model = model_catalog::preferred_gemini_flash()
+        .unwrap_or_else(|| "gemini-3.7-flash-high".into());
+    let request = json!({
+        "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
+        "generationConfig": {
+            "responseModalities": ["IMAGE"],
+            "imageConfig": { "aspectRatio": aspect, "imageSize": image_size }
+        }
+    });
+    let selected = match state.pool.select_async(None, None).await {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::TOO_MANY_REQUESTS, &error.to_string()),
+    };
+    let (access_token, account) = selected;
+    let project_id = match ensure_project_id(
+        &state,
+        &access_token,
+        &account.id,
+        account.token.project_id.as_deref(),
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
+    };
+    let wrapped = wrap_v1internal(&project_id, &model, request);
+    let upstream = match state.upstream.generate(&access_token, &wrapped, false).await {
+        Ok(response) => response,
+        Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
+    };
+    if !upstream.status().is_success() {
+        let text = upstream.text().await.unwrap_or_default();
+        return error_json(StatusCode::BAD_GATEWAY, &text);
+    }
+    let gemini: Value = match upstream.json().await {
+        Ok(value) => unwrap_v1internal(&value),
+        Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
+    };
+    let mut images = Vec::new();
+    if let Some(parts) = gemini
+        .pointer("/candidates/0/content/parts")
+        .and_then(Value::as_array)
+    {
+        for part in parts {
+            if let Some(data) = part
+                .pointer("/inlineData/data")
+                .or_else(|| part.pointer("/inline_data/data"))
+                .and_then(Value::as_str)
+            {
+                images.push(json!({ "b64_json": data }));
+            }
+        }
+    }
+    Json(json!({
+        "created": chrono::Utc::now().timestamp(),
+        "data": images,
+    }))
+    .into_response()
+}
+
 async fn dispatch_generation(
     state: &GatewayState,
     headers: &HeaderMap,
     model: String,
-    request: Value,
+    mut request: Value,
     stream: bool,
     protocol: WireProtocol,
     diagnostic: Option<String>,
@@ -344,6 +486,8 @@ async fn dispatch_generation(
 
         let mut current_model = model.clone();
         let mut model_idx = 0usize;
+        let mut budget_rectified = false;
+        let mut in_place_retries = 0u32;
         let upstream = 'levels: loop {
             if past_retry_deadline(retry_deadline) {
                 last_error = format!(
@@ -419,27 +563,119 @@ async fn dispatch_generation(
                     break 'levels Err(());
                 }
             };
-            if response.status().as_u16() == 429 && model_idx + 1 < model_chain.len() {
-                if remaining_until(retry_deadline).is_none() {
-                    last_error = format!(
-                        "retry deadline exceeded after {} upstream calls",
-                        upstream_calls
-                    );
-                    last_fail_status = 429;
-                    break 'levels Err(());
-                }
-                let next = &model_chain[model_idx + 1];
+            if matches!(response.status().as_u16(), 400 | 422) && !budget_rectified {
+                let status = response.status();
                 let text = response.text().await.unwrap_or_default();
+                if crate::antigravity::thinking::is_budget_constraint_error(&text) {
+                    budget_rectified = true;
+                    crate::antigravity::thinking::rectify_generate_request(&mut request);
+                    log::warn!(
+                        "Antigravity thinkingBudget constraint on {account_email}; rectifying and retrying same account"
+                    );
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                    continue 'levels;
+                }
+                last_error = if text.trim().is_empty() {
+                    format!("upstream {status}")
+                } else {
+                    format!(
+                        "upstream {status}: {}",
+                        text.trim().chars().take(400).collect::<String>()
+                    )
+                };
+                last_fail_status = status.as_u16();
+                let _ = usage_log::insert_request(
+                    &state.db,
+                    exclude_labels.last().map(String::as_str),
+                    &last_attempted_model,
+                    Some(status.as_u16() as i64),
+                    started,
+                    protocol,
+                    stream,
+                    Some("upstream"),
+                    Some(&last_error),
+                );
+                return error_json(status, &last_error);
+            }
+            if response.status().as_u16() == 429 {
+                let retry_after = crate::antigravity::upstream::retry_after_secs(&response);
+                let text = response.text().await.unwrap_or_default();
+                let smart = crate::antigravity::retry_info::classify_retry(&text, retry_after);
+                match smart {
+                    crate::antigravity::retry_info::SmartRetry::InPlaceWait(delay)
+                        if in_place_retries < 1 =>
+                    {
+                        in_place_retries += 1;
+                        log::info!(
+                            "Antigravity RetryInfo in-place wait {:?} on {account_email}",
+                            delay
+                        );
+                        tokio::time::sleep(delay).await;
+                        continue 'levels;
+                    }
+                    crate::antigravity::retry_info::SmartRetry::CapacityNoPoolWalk => {
+                        last_error = format!(
+                            "upstream 429: {}",
+                            text.trim().chars().take(240).collect::<String>()
+                        );
+                        last_fail_status = 429;
+                        state.limiter.note_upstream_rate_limited(&account.id);
+                        let cooldown =
+                            crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after);
+                        let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                        log::warn!(
+                            "Antigravity MODEL_CAPACITY_EXHAUSTED on {account_email}; not walking the pool"
+                        );
+                        let _ = usage_log::insert_request(
+                            &state.db,
+                            exclude_labels.last().map(String::as_str),
+                            &last_attempted_model,
+                            Some(429),
+                            started,
+                            protocol,
+                            stream,
+                            Some("upstream"),
+                            Some(&last_error),
+                        );
+                        return error_json(StatusCode::TOO_MANY_REQUESTS, &last_error);
+                    }
+                    _ => {}
+                }
+                if model_idx + 1 < model_chain.len() {
+                    if remaining_until(retry_deadline).is_none() {
+                        last_error = format!(
+                            "retry deadline exceeded after {} upstream calls",
+                            upstream_calls
+                        );
+                        last_fail_status = 429;
+                        break 'levels Err(());
+                    }
+                    let next = &model_chain[model_idx + 1];
+                    last_error = format!(
+                        "upstream 429: {}",
+                        text.trim().chars().take(240).collect::<String>()
+                    );
+                    log::warn!(
+                        "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    model_idx += 1;
+                    continue 'levels;
+                }
                 last_error = format!(
                     "upstream 429: {}",
                     text.trim().chars().take(240).collect::<String>()
                 );
-                log::warn!(
-                    "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
-                );
-                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                model_idx += 1;
-                continue 'levels;
+                last_fail_status = 429;
+                state.limiter.note_upstream_rate_limited(&account.id);
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
+                let cooldown = if rotate_pool {
+                    crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
+                } else {
+                    crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
+                };
+                let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                break 'levels Err(());
             }
             break 'levels Ok(response);
         };
@@ -697,13 +933,21 @@ async fn stream_response(
     tool_params: ToolParamKeys,
     limiter_permit: LimiterPermit,
 ) -> Response {
-    let byte_stream = upstream.bytes_stream().boxed();
+    let mut byte_stream = upstream.bytes_stream().boxed();
+    let mut buffer = SseLineBuffer::new();
+    // Hold the first upstream frame briefly so we can still swap accounts
+    // before any bytes reach the client.
+    if let Ok(Some(Ok(bytes))) =
+        tokio::time::timeout(Duration::from_millis(750), byte_stream.next()).await
+    {
+        buffer.push(&bytes);
+    }
     let responses_encoder = matches!(protocol, WireProtocol::OpenAiResponses)
         .then(|| ResponsesStreamEncoder::new(&model, tool_params.clone(), session_key.clone()));
     let stream = futures_util::stream::unfold(
         StreamState {
             upstream: byte_stream,
-            buffer: SseLineBuffer::new(),
+            buffer,
             model,
             protocol,
             anthropic: matches!(protocol, WireProtocol::Anthropic)
@@ -774,6 +1018,17 @@ async fn stream_response(
         .header(header::CONNECTION, "keep-alive")
         .body(Body::from_stream(stream))
         .unwrap_or_else(|_| error_json(StatusCode::INTERNAL_SERVER_ERROR, "stream build failed"))
+}
+
+impl Drop for StreamState {
+    fn drop(&mut self) {
+        if !self.finished {
+            log::info!(
+                "Antigravity client disconnected; cancelling upstream stream model={}",
+                self.model
+            );
+        }
+    }
 }
 
 /// SSE line buffer that never decodes a TCP chunk with `from_utf8_lossy`.

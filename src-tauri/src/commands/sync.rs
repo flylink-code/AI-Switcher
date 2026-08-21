@@ -410,6 +410,16 @@ fn safe_ssh_host(value: &str) -> bool {
     })
 }
 
+#[tauri::command]
+pub fn get_wsl_runtime_status() -> crate::wsl_direct::WslRuntimeStatus {
+    crate::wsl_direct::detect_runtime()
+}
+
+#[tauri::command]
+pub fn sync_wsl_direct() -> AppResult<crate::wsl_direct::WslRuntimeStatus> {
+    crate::wsl_direct::sync_claude_codex_files()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,26 +1,25 @@
-//! Pi MCP 配置：`~/.pi/agent/mcp.json`（需配合 pi-mcp-adapter / pi-mcp-extension）。
+//! Cline MCP 配置：`~/.cline/data/settings/cline_mcp_settings.json`。
 //!
-//! 只改写顶层 `mcpServers`；保留 `settings` 及其他键。
+//! 只改写顶层 `mcpServers`；保留其余键。
 
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
 use crate::backup::backup_file_named;
-use crate::coding::pi::config::get_pi_dir;
 use crate::config::atomic::{read_json_file, write_json_file};
+use crate::config::cline::cline_mcp_settings_path;
 use crate::error::AppResult;
 use crate::mcp::McpServer;
 
 const MCP_BACKUP_KEEP: usize = 10;
 
-pub fn get_pi_mcp_path() -> PathBuf {
-    get_pi_dir().join("mcp.json")
+pub fn get_cline_mcp_path() -> PathBuf {
+    cline_mcp_settings_path()
 }
 
-/// 读取 Pi 全局 `mcpServers`。文件或键缺失 → 空。
 pub fn read_mcp_servers() -> AppResult<Map<String, Value>> {
-    read_mcp_servers_at(&get_pi_mcp_path())
+    read_mcp_servers_at(&get_cline_mcp_path())
 }
 
 fn read_mcp_servers_at(path: &Path) -> AppResult<Map<String, Value>> {
@@ -34,15 +33,13 @@ fn read_mcp_servers_at(path: &Path) -> AppResult<Map<String, Value>> {
         .unwrap_or_default())
 }
 
-/// 把启用了 Pi 的 MCP 服务器写入 live `mcp.json`。
 pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
-    sync_mcp_servers_at(&get_pi_mcp_path(), servers)
+    sync_mcp_servers_at(&get_cline_mcp_path(), servers)
 }
 
-/// 指定路径版本（便于测试）。
 pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> {
     let mut map = Map::new();
-    for server in servers.iter().filter(|s| s.enabled_pi) {
+    for server in servers.iter().filter(|s| s.enabled_cline) {
         map.insert(server.name.clone(), server.server_config.clone());
     }
 
@@ -53,7 +50,11 @@ pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> 
     }
 
     if path.exists() {
-        backup_file_named(path, "mcp.json", MCP_BACKUP_KEEP)?;
+        backup_file_named(path, "cline_mcp_settings.json", MCP_BACKUP_KEEP)?;
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
     }
 
     let obj = value.as_object_mut().expect("normalized to object");
@@ -72,7 +73,7 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    fn server(name: &str, enabled_pi: bool) -> McpServer {
+    fn server(name: &str, enabled_cline: bool) -> McpServer {
         McpServer {
             id: format!("mcp_{name}"),
             name: name.to_string(),
@@ -81,27 +82,27 @@ mod tests {
             enabled_claude_desktop: false,
             enabled_codex: false,
             enabled_opencode: false,
-            enabled_pi: enabled_pi,
-            enabled_cline: false,
+            enabled_pi: false,
+            enabled_cline,
             sort_index: 0,
             created_at: 0,
         }
     }
 
     #[test]
-    fn sync_writes_enabled_and_preserves_settings() {
+    fn sync_writes_enabled_and_preserves_other_keys() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("mcp.json");
+        let path = dir.path().join("cline_mcp_settings.json");
         fs::write(
             &path,
-            r#"{"settings":{"toolPrefix":"mcp"},"mcpServers":{"old":{"command":"x"}}}"#,
+            r#"{"keep":1,"mcpServers":{"old":{"command":"x"}}}"#,
         )
         .unwrap();
 
         sync_mcp_servers_at(&path, &[server("alpha", true), server("beta", false)]).unwrap();
 
         let value: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(value["settings"]["toolPrefix"], "mcp");
+        assert_eq!(value["keep"], 1);
         assert!(value["mcpServers"].get("alpha").is_some());
         assert!(value["mcpServers"].get("beta").is_none());
         assert!(value["mcpServers"].get("old").is_none());

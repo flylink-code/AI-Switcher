@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::error::{AppError, AppResult};
 use crate::mcp::{validate_server_input, McpServer, McpServerInput, McpTarget};
 
-const SERVER_SELECT: &str = "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, enabled_opencode, enabled_pi, sort_index, created_at";
+const SERVER_SELECT: &str = "SELECT id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, enabled_opencode, enabled_pi, enabled_cline, sort_index, created_at";
 
 /// List all MCP servers ordered by `sort_index`.
 pub fn list_mcp_servers(conn: &Connection) -> AppResult<Vec<McpServer>> {
@@ -47,7 +47,7 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
         }
         let changed = conn.execute(
             "UPDATE mcp_servers SET
-                name = ?, server_config = ?, enabled_claude_code = ?, enabled_claude_desktop = ?, enabled_codex = ?, enabled_opencode = ?, enabled_pi = ?
+                name = ?, server_config = ?, enabled_claude_code = ?, enabled_claude_desktop = ?, enabled_codex = ?, enabled_opencode = ?, enabled_pi = ?, enabled_cline = ?
              WHERE id = ?;",
             params![
                 name,
@@ -57,6 +57,7 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
                 input.enabled_codex as i64,
                 input.enabled_opencode as i64,
                 input.enabled_pi as i64,
+                input.enabled_cline as i64,
                 id,
             ],
         )?;
@@ -76,8 +77,8 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
     let sort_index = next_sort_index(conn)?;
     conn.execute(
         "INSERT INTO mcp_servers
-            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, enabled_opencode, enabled_pi, sort_index, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+            (id, name, server_config, enabled_claude_code, enabled_claude_desktop, enabled_codex, enabled_opencode, enabled_pi, enabled_cline, sort_index, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id,
             name,
@@ -87,6 +88,7 @@ pub fn upsert_mcp_server(conn: &Connection, input: &McpServerInput) -> AppResult
             input.enabled_codex as i64,
             input.enabled_opencode as i64,
             input.enabled_pi as i64,
+            input.enabled_cline as i64,
             sort_index,
             now,
         ],
@@ -127,6 +129,7 @@ pub fn set_mcp_enabled(
         McpTarget::Codex => "enabled_codex",
         McpTarget::OpenCode => "enabled_opencode",
         McpTarget::Pi => "enabled_pi",
+        McpTarget::Cline => "enabled_cline",
     };
     let changed = conn.execute(
         &format!("UPDATE mcp_servers SET {column} = ? WHERE id = ?;"),
@@ -153,6 +156,7 @@ pub fn import_mcp_entry(
     in_codex: bool,
     in_opencode: bool,
     in_pi: bool,
+    in_cline: bool,
 ) -> AppResult<bool> {
     if let Some(existing) = get_by_name(conn, name)? {
         if in_code {
@@ -170,6 +174,9 @@ pub fn import_mcp_entry(
         if in_pi {
             set_mcp_enabled(conn, &existing.id, McpTarget::Pi, true)?;
         }
+        if in_cline {
+            set_mcp_enabled(conn, &existing.id, McpTarget::Cline, true)?;
+        }
         return Ok(false);
     }
     let input = McpServerInput {
@@ -181,6 +188,7 @@ pub fn import_mcp_entry(
         enabled_codex: in_codex,
         enabled_opencode: in_opencode,
         enabled_pi: in_pi,
+        enabled_cline: in_cline,
     };
     upsert_mcp_server(conn, &input)?;
     Ok(true)
@@ -217,8 +225,9 @@ fn row_to_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<McpServer> {
         enabled_codex: row.get::<_, i64>(5)? != 0,
         enabled_opencode: row.get::<_, i64>(6)? != 0,
         enabled_pi: row.get::<_, i64>(7)? != 0,
-        sort_index: row.get(8)?,
-        created_at: row.get(9)?,
+        enabled_cline: row.get::<_, i64>(8)? != 0,
+        sort_index: row.get(9)?,
+        created_at: row.get(10)?,
     })
 }
 
@@ -245,6 +254,7 @@ mod tests {
             enabled_codex: false,
             enabled_opencode: false,
             enabled_pi: false,
+            enabled_cline: false,
         }
     }
 
@@ -283,9 +293,9 @@ mod tests {
         db.with_conn(|conn| {
             let cfg = json!({"url": "http://x"});
             // First seen in Claude Code only.
-            assert!(import_mcp_entry(conn, "svc", &cfg, true, false, false, false, false)?);
+            assert!(import_mcp_entry(conn, "svc", &cfg, true, false, false, false, false, false)?);
             // Later seen in Desktop too: not a new row, flag raised.
-            assert!(!import_mcp_entry(conn, "svc", &cfg, false, true, false, false, false)?);
+            assert!(!import_mcp_entry(conn, "svc", &cfg, false, true, false, false, false, false)?);
             let s = list_mcp_servers(conn)?.pop().unwrap();
             assert!(s.enabled_claude_code && s.enabled_claude_desktop);
             Ok(())

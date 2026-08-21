@@ -64,6 +64,8 @@ function promptLiveMeta(target: PromptTarget): { file: string; path: string } {
       return { file: "AGENTS.md", path: "~/.config/opencode/AGENTS.md" };
     case "pi":
       return { file: "AGENTS.md", path: "~/.pi/agent/AGENTS.md" };
+    case "cline":
+      return { file: "AGENTS.md", path: "~/.cline/rules/AGENTS.md" };
     default: {
       const _exhaustive: never = target;
       return _exhaustive;
@@ -83,7 +85,7 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
 
   const getValidPromptTarget = (preferred: PromptTarget): PromptTarget => {
-    const validTargets = visibleAgents.filter((a): a is PromptTarget => a === "claude_code" || a === "codex" || a === "opencode" || a === "pi");
+    const validTargets = visibleAgents.filter((a): a is PromptTarget => a === "claude_code" || a === "codex" || a === "opencode" || a === "pi" || a === "cline");
     if (validTargets.includes(preferred)) return preferred;
     return validTargets[0] ?? "claude_code";
   };
@@ -308,7 +310,7 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
             value={target}
             onChange={setInternalTarget}
             t={t}
-            targets={["claude_code", "codex", "opencode", "pi"]}
+            targets={["claude_code", "codex", "opencode", "pi", "cline"]}
           />
         )}
 

@@ -66,7 +66,9 @@ function sessionProviderLabel(provider: SessionProvider): string {
     case "pi":
       return "Pi";
     case "dsh":
-      return "DeepSeek Harness";
+      return "DSH";
+    case "cline":
+      return "Cline";
     default: {
       const _exhaustive: never = provider;
       return _exhaustive;
@@ -86,6 +88,8 @@ function sessionProviderColor(provider: SessionProvider): string {
       return "blue";
     case "dsh":
       return "geekblue";
+    case "cline":
+      return "orange";
     default: {
       const _exhaustive: never = provider;
       return _exhaustive;
@@ -542,7 +546,7 @@ export default function SessionsPage() {
         value={provider}
         onChange={setSessionsProvider}
         t={t}
-        targets={["claude_code", "codex", "opencode", "pi", "dsh"]}
+        targets={["claude_code", "codex", "opencode", "pi", "dsh", "cline"]}
       />
 
       <Card size="small" className="page-surface">

@@ -41,6 +41,7 @@ pub fn rename_prompt(
         PromptTarget::Codex => Some(PromptRenameScope::Codex),
         PromptTarget::OpenCode => None,
         PromptTarget::Pi => None,
+        PromptTarget::Cline => None,
     };
     if let Some(scope) = scope {
         state.db.with_conn(|conn| {

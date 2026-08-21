@@ -6,7 +6,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
 export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
-export const PROVIDER_TARGET_OPTIONS: ProviderTarget[] = [...TARGET_OPTIONS, "dsh"];
+export const PROVIDER_TARGET_OPTIONS: ProviderTarget[] = [...TARGET_OPTIONS, "dsh", "cline"];
 
 export const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",
@@ -15,6 +15,7 @@ export const LABEL_KEYS: Record<ProviderTarget, string> = {
   opencode: "workspace.opencode",
   pi: "workspace.pi",
   dsh: "workspace.dsh",
+  cline: "workspace.cline",
 };
 
 const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
@@ -24,6 +25,7 @@ const SHORT_LABEL_KEYS: Record<ProviderTarget, string> = {
   opencode: "agentSwitcher.opencode",
   pi: "agentSwitcher.pi",
   dsh: "agentSwitcher.dsh",
+  cline: "agentSwitcher.cline",
 };
 
 export interface AgentTargetSwitcherProps {

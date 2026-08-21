@@ -34,6 +34,7 @@ const SKILL_REPOSITORY_CONFIG_FILE: &str = "skills.json";
 const SKILL_SOURCES_CONFIG_FILE: &str = "skill-sources.json";
 const CODEX_SKILL_SOURCES_CONFIG_FILE: &str = "codex-skill-sources.json";
 const PI_SKILL_SOURCES_CONFIG_FILE: &str = "pi-skill-sources.json";
+const CLINE_SKILL_SOURCES_CONFIG_FILE: &str = "cline-skill-sources.json";
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +44,8 @@ pub enum SkillTarget {
     Codex,
     #[serde(rename = "pi")]
     Pi,
+    #[serde(rename = "cline")]
+    Cline,
 }
 
 fn skill_root(target: SkillTarget) -> PathBuf {
@@ -50,6 +53,7 @@ fn skill_root(target: SkillTarget) -> PathBuf {
         SkillTarget::ClaudeCode => get_claude_skills_dir(),
         SkillTarget::Codex => get_codex_skills_dir(),
         SkillTarget::Pi => get_pi_dir().join("skills"),
+        SkillTarget::Cline => crate::config::cline::cline_skills_dir(),
     }
 }
 
@@ -58,6 +62,7 @@ fn skill_sources_file(target: SkillTarget) -> &'static str {
         SkillTarget::ClaudeCode => SKILL_SOURCES_CONFIG_FILE,
         SkillTarget::Codex => CODEX_SKILL_SOURCES_CONFIG_FILE,
         SkillTarget::Pi => PI_SKILL_SOURCES_CONFIG_FILE,
+        SkillTarget::Cline => CLINE_SKILL_SOURCES_CONFIG_FILE,
     }
 }
 
@@ -1070,11 +1075,17 @@ fn discovery_scan_sources(target: SkillTarget) -> Vec<(PathBuf, String)> {
             sources.push((get_claude_skills_dir(), "claude_code".to_string()));
             sources.push((get_codex_skills_dir(), "codex".to_string()));
         }
+        SkillTarget::Cline => {
+            sources.push((get_claude_skills_dir(), "claude_code".to_string()));
+            sources.push((get_codex_skills_dir(), "codex".to_string()));
+            sources.push((get_pi_dir().join("skills"), "pi".to_string()));
+        }
     }
     sources.push((home.join(".agents").join("skills"), "agents".to_string()));
     sources.push((home.join(".codex").join("skills"), "codex".to_string()));
     sources.push((home.join(".claude").join("skills"), "claude_code".to_string()));
     sources.push((home.join(".pi").join("agent").join("skills"), "pi".to_string()));
+    sources.push((home.join(".cline").join("skills"), "cline".to_string()));
     // Deduplicate while preserving order.
     let mut seen = BTreeSet::new();
     sources.retain(|(path, _)| seen.insert(normalize_path_key(path)));
@@ -1196,6 +1207,7 @@ mod tests {
         assert_eq!(skill_sources_file(SkillTarget::ClaudeCode), SKILL_SOURCES_CONFIG_FILE);
         assert_eq!(skill_sources_file(SkillTarget::Codex), CODEX_SKILL_SOURCES_CONFIG_FILE);
         assert_eq!(skill_sources_file(SkillTarget::Pi), PI_SKILL_SOURCES_CONFIG_FILE);
+        assert_eq!(skill_sources_file(SkillTarget::Cline), CLINE_SKILL_SOURCES_CONFIG_FILE);
         assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Codex));
         assert_ne!(skill_sources_file(SkillTarget::ClaudeCode), skill_sources_file(SkillTarget::Pi));
         assert_eq!(SkillTarget::default(), SkillTarget::ClaudeCode);

@@ -178,8 +178,9 @@ export function ProviderForm({
   const isOpenCode = (editing?.targetApp ?? target) === "opencode";
   const isPi = (editing?.targetApp ?? target) === "pi";
   const isDsh = (editing?.targetApp ?? target) === "dsh";
-  // Codex / OpenCode / Pi / Dsh 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
-  const isDirect = isCodex || isOpenCode || isPi || isDsh;
+  const isCline = (editing?.targetApp ?? target) === "cline";
+  // Codex / OpenCode / Pi / Dsh / Cline 都不使用 Claude 的 Sonnet/Opus/Haiku 角色映射。
+  const isDirect = isCodex || isOpenCode || isPi || isDsh || isCline;
   const hideRoleMapping = isDirect || gatewayCatalog;
   const mappingTarget = (editing?.targetApp ?? target) === "claude_code" ? "claude_code" : "claude_desktop";
   // Seed with the loaded default so the sync effect never treats open/edit as a "change".
@@ -732,7 +733,7 @@ export function ProviderForm({
           />
         </Form.Item>
 
-        {(isCodex || isOpenCode || isPi || isDsh) && (
+        {(isCodex || isOpenCode || isPi || isDsh || isCline) && (
           <Form.Item
             name="modelContextWindow"
             label={t("providers.modelContextWindow")}

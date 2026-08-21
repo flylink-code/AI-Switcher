@@ -41,6 +41,8 @@ pub enum ProviderTarget {
     Pi,
     #[serde(rename = "dsh")]
     Dsh,
+    #[serde(rename = "cline")]
+    Cline,
 }
 
 impl ProviderTarget {
@@ -52,6 +54,7 @@ impl ProviderTarget {
             ProviderTarget::OpenCode => "opencode",
             ProviderTarget::Pi => "pi",
             ProviderTarget::Dsh => "dsh",
+            ProviderTarget::Cline => "cline",
         }
     }
 
@@ -62,6 +65,7 @@ impl ProviderTarget {
             "opencode" => ProviderTarget::OpenCode,
             "pi" => ProviderTarget::Pi,
             "dsh" => ProviderTarget::Dsh,
+            "cline" => ProviderTarget::Cline,
             _ => ProviderTarget::ClaudeCode,
         }
     }
@@ -70,7 +74,7 @@ impl ProviderTarget {
     pub fn is_catalog_target(self) -> bool {
         matches!(
             self,
-            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+            ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
         )
     }
 
@@ -178,13 +182,14 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
     }
     if target == ProviderTarget::Pi
         || target == ProviderTarget::Dsh
+        || target == ProviderTarget::Cline
     {
         if !matches!(
             protocol,
             ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
         ) {
             return Err(AppError::Config(
-                "Pi / DeepSeek Harness 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
+                "Pi / DeepSeek Harness / Cline 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
             ));
         }
     }
@@ -205,7 +210,7 @@ pub fn validate_provider_kind(target: ProviderTarget, kind: ProviderKind) -> App
 pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapping) -> ClaudeModelMapping {
     if matches!(
         target,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
     ) {
         ClaudeModelMapping::default()
     } else {
@@ -374,7 +379,7 @@ pub fn catalog_models_from_provider(provider: &Provider) -> Vec<String> {
 fn adapt_copied_failover_models(source: &Provider, dest: ProviderTarget) -> Vec<String> {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
     ) {
         catalog_models_from_provider(source)
             .into_iter()
@@ -389,7 +394,7 @@ fn adapt_copied_default_model(source: &Provider, dest: ProviderTarget) -> String
     let current = source.model.trim();
     if !matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
     ) {
         return current.to_string();
     }
@@ -465,7 +470,9 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
     if source.is_antigravity() {
         let root = strip_trailing_v1_path(&url);
         return match dest {
-            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, join_base(&root, "v1")),
+            ProviderTarget::Codex | ProviderTarget::Cline => {
+                (ProtocolType::OpenAiResponses, join_base(&root, "v1"))
+            }
             ProviderTarget::ClaudeCode
             | ProviderTarget::ClaudeDesktop
             | ProviderTarget::OpenCode
@@ -482,13 +489,14 @@ fn adapt_copied_wire(source: &Provider, dest: ProviderTarget) -> (ProtocolType, 
             ProviderTarget::Codex
             | ProviderTarget::OpenCode
             | ProviderTarget::Pi
-            | ProviderTarget::Dsh => (ProtocolType::OpenAiChat, join_base(&root, "v1")),
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline => (ProtocolType::OpenAiChat, join_base(&root, "v1")),
         },
         CopiedVendor::DeepSeek => match dest {
             ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => {
                 (ProtocolType::Anthropic, join_base(&root, "anthropic"))
             }
-            ProviderTarget::Codex => (ProtocolType::OpenAiResponses, root),
+            ProviderTarget::Codex | ProviderTarget::Cline => (ProtocolType::OpenAiResponses, root),
             ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => (protocol, url),
         },
         CopiedVendor::Generic => match dest {
@@ -507,7 +515,7 @@ fn adapt_copied_model_mapping(
 ) -> ClaudeModelMapping {
     if matches!(
         dest,
-        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh
+        ProviderTarget::Codex | ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline
     ) {
         return ClaudeModelMapping::default();
     }
@@ -599,12 +607,57 @@ pub fn normalized_auto_review_model_override(
 /// Codex bundled models.json uses 272000 as the default context window.
 pub const CODEX_DEFAULT_CONTEXT_WINDOW: u64 = 272_000;
 
+/// Split a `model[1M]` / `model[200K]` label from a catalog slug.
+pub fn split_model_window_label(model: &str) -> (String, Option<u64>) {
+    let trimmed = model.trim();
+    let Some(start) = trimmed.rfind('[') else {
+        return (trimmed.to_string(), None);
+    };
+    if !trimmed.ends_with(']') || start == 0 {
+        return (trimmed.to_string(), None);
+    }
+    let label = &trimmed[start + 1..trimmed.len() - 1];
+    let slug = trimmed[..start].trim().to_string();
+    if slug.is_empty() {
+        return (trimmed.to_string(), None);
+    }
+    (slug, parse_context_window_label(label))
+}
+
+pub fn parse_context_window_label(label: &str) -> Option<u64> {
+    let raw = label.trim().replace(['_', ','], "");
+    if raw.is_empty() {
+        return None;
+    }
+    let lower = raw.to_ascii_lowercase();
+    if let Some(number) = lower.strip_suffix('m') {
+        return number
+            .parse::<f64>()
+            .ok()
+            .map(|value| (value * 1_048_576.0) as u64)
+            .filter(|value| *value > 0);
+    }
+    if let Some(number) = lower.strip_suffix('k') {
+        return number
+            .parse::<f64>()
+            .ok()
+            .map(|value| (value * 1_000.0) as u64)
+            .filter(|value| *value > 0);
+    }
+    raw.parse().ok().filter(|value| *value > 0)
+}
+
 /// Resolve the effective Codex context window for catalog generation.
 pub fn effective_model_context_window(provider: &Provider) -> u64 {
     provider
         .model_context_window
         .filter(|window| *window > 0)
         .unwrap_or(CODEX_DEFAULT_CONTEXT_WINDOW)
+}
+
+pub fn context_window_for_model(provider: &Provider, model: &str) -> u64 {
+    let (_slug, labeled) = split_model_window_label(model);
+    labeled.unwrap_or_else(|| effective_model_context_window(provider))
 }
 
 /// Normalize and validate a provider Base URL.
@@ -948,6 +1001,9 @@ impl Provider {
         if matches!(self.target_app, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh) {
             return false;
         }
+        if self.target_app == ProviderTarget::Cline {
+            return true;
+        }
         if self.protocol_type.uses_proxy() {
             return true;
         }
@@ -1150,7 +1206,7 @@ mod tests {
     use super::{
         api_endpoint_url, copied_provider_input, ensure_openai_v1_suffix, normalize_base_url, normalize_provider_base_url,
         openai_compatible_base_url_needs_v1, protocol_endpoint_path, resolve_upstream_model,
-        should_activate_copied_provider, normalized_model_mapping, validate_target_protocol,
+        should_activate_copied_provider, split_model_window_label, normalized_model_mapping, validate_target_protocol,
         ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget, ThinkingConfig,
     };
 
@@ -1786,5 +1842,18 @@ mod tests {
         };
         assert_eq!(disabled_cfg.resolved_reasoning_effort(), None);
         assert_eq!(disabled_cfg.resolved_budget_tokens(), None);
+    }
+
+    #[test]
+    fn model_window_suffix_parses_1m_and_200k() {
+        assert_eq!(
+            split_model_window_label("gpt-5.4[1M]"),
+            ("gpt-5.4".into(), Some(1_048_576))
+        );
+        assert_eq!(
+            split_model_window_label("kimi-k2[200K]"),
+            ("kimi-k2".into(), Some(200_000))
+        );
+        assert_eq!(split_model_window_label("plain"), ("plain".into(), None));
     }
 }

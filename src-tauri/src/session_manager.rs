@@ -44,6 +44,8 @@ pub enum SessionProvider {
     Pi,
     #[serde(rename = "dsh")]
     Dsh,
+    #[serde(rename = "cline")]
+    Cline,
 }
 
 impl Default for SessionProvider {
@@ -214,6 +216,13 @@ pub fn scan_sessions(
     }
     if provider.is_none() || provider == Some(SessionProvider::Dsh) {
         let (metas, status) = scan_dsh_sessions();
+        for meta in metas {
+            indexed.push(ScanItem::Materialized(meta));
+        }
+        providers.push(status);
+    }
+    if provider.is_none() || provider == Some(SessionProvider::Cline) {
+        let (metas, status) = scan_cline_sessions();
         for meta in metas {
             indexed.push(ScanItem::Materialized(meta));
         }
@@ -439,6 +448,7 @@ pub fn load_session_messages(
         SessionProvider::OpenCode => load_opencode_messages(source_path),
         SessionProvider::Pi => load_pi_messages(source_path),
         SessionProvider::Dsh => load_dsh_messages(source_path),
+        SessionProvider::Cline => load_cline_messages(source_path),
     }
 }
 
@@ -845,6 +855,55 @@ fn scan_dsh_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
     (sessions, status)
 }
 
+fn scan_cline_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
+    let root = crate::config::cline::cline_sessions_dir();
+    let db_found = crate::config::cline::cline_sessions_db_candidates()
+        .into_iter()
+        .any(|path| path.is_file());
+    let available = root.is_dir() || db_found;
+    let status = SessionProviderStatus {
+        provider: SessionProvider::Cline,
+        status: if available { "available" } else { "not_found" }.to_string(),
+        detail: if available {
+            format!("发现 Cline 会话目录 ({})", root.display())
+        } else {
+            "未找到 Cline 会话目录".to_string()
+        },
+        root_path: Some(root.to_string_lossy().into_owned()),
+    };
+    let items = crate::coding::cline::session::scan_cline_sessions().unwrap_or_default();
+    let metas = items
+        .into_iter()
+        .map(|item| SessionMeta {
+            provider: SessionProvider::Cline,
+            session_id: item.id,
+            title: item.title,
+            summary: item.model.map(|model| format!("Model: {model}")),
+            project_dir: item.project_dir,
+            created_at: item.created_at,
+            last_active_at: item.last_active_at,
+            source_path: item.file_path,
+            resume_command: None,
+            pinned: false,
+        })
+        .collect();
+    (metas, status)
+}
+
+fn load_cline_messages(source_path: &str) -> AppResult<Vec<SessionMessage>> {
+    let root = crate::config::cline::cline_config_dir();
+    let source = validate_session_path_in_root(&root, Path::new(source_path))?;
+    let messages = crate::coding::cline::session::load_cline_messages(&source)?;
+    Ok(messages
+        .into_iter()
+        .map(|message| SessionMessage {
+            role: message.role,
+            content: message.content,
+            timestamp: message.timestamp,
+        })
+        .collect())
+}
+
 fn collect_dsh_session_paths(directory: &Path, paths: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(directory) else { return };
     for entry in entries.flatten() {
@@ -868,6 +927,7 @@ fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
         )),
         SessionProvider::Pi => Ok(crate::coding::pi::config::get_pi_dir().join("sessions")),
         SessionProvider::Dsh => Ok(crate::config::get_dsh_config_dir().join("sessions")),
+        SessionProvider::Cline => Err(AppError::Config("Cline 会话暂不支持归档、回收站与导入操作".to_string())),
     }
 }
 
@@ -892,6 +952,7 @@ fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<Ses
                 .map(|duration| duration.as_millis() as i64).unwrap_or(0);
             Ok(session_meta_from_path(SessionProvider::Dsh, path, mtime))
         }
+        SessionProvider::Cline => Ok(None),
     }
 }
 
@@ -942,6 +1003,7 @@ fn session_trash_dir(provider: SessionProvider) -> PathBuf {
         SessionProvider::OpenCode => "opencode",
         SessionProvider::Pi => "pi",
         SessionProvider::Dsh => "dsh",
+        SessionProvider::Cline => "cline",
         _ => "claude-code",
     };
     config::get_app_config_dir().join("session-trash").join(target)
@@ -1418,7 +1480,7 @@ fn session_meta_from_path(
             .and_then(|name| name.to_str())
             .filter(|name| !name.is_empty())
             .map(|name| name.replace('-', "/")),
-        SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi | SessionProvider::Dsh => None,
+        SessionProvider::Codex | SessionProvider::OpenCode | SessionProvider::Pi | SessionProvider::Dsh | SessionProvider::Cline => None,
     };
     let resume = match provider {
         SessionProvider::ClaudeCode => resume_command(&session_id),
@@ -1426,7 +1488,7 @@ fn session_meta_from_path(
         // OpenCode / Pi 元数据走 Materialized 路径，不会经过这里。
         SessionProvider::OpenCode => Some(format!("opencode -s {session_id}")),
         SessionProvider::Pi => Some(format!("pi --resume {session_id}")),
-        SessionProvider::Dsh => None,
+        SessionProvider::Dsh | SessionProvider::Cline => None,
     };
     Some(SessionMeta {
         provider,

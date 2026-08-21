@@ -1,9 +1,7 @@
 import React from "react";
-import { Button, Divider, Input, InputNumber, Space, Switch, Typography } from "antd";
-import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
-import FieldTimeOutlined from "@ant-design/icons/es/icons/FieldTimeOutlined";
+import { Button, Card, Divider, Input, InputNumber, Space, Switch, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import { Surface, Inline, Stack } from "@/components/ui";
+import { SettingsRow } from "@/components/settings";
 
 const { Text } = Typography;
 
@@ -41,94 +39,64 @@ export const ResilienceSettings: React.FC<ResilienceSettingsProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Surface padding="md" className={className} style={style}>
-      <Stack gap="md">
-        {/* Failover Header */}
-        <Inline justify="space-between" align="center">
-          <Inline gap="sm">
-            <SafetyCertificateOutlined style={{ fontSize: 16, color: "var(--color-brand)" }} />
-            <Text strong style={{ fontSize: "var(--font-size-md)", color: "var(--color-text-primary)" }}>
-              {t("proxy.failoverTitle", { defaultValue: "自动故障切换 (Failover)" })}
-            </Text>
-          </Inline>
-
-          <Switch
-            checked={failoverEnabled}
-            loading={failoverSaving}
-            disabled={failoverSaving}
-            checkedChildren={t("common.enabled", { defaultValue: "开启" })}
-            unCheckedChildren={t("common.disabled", { defaultValue: "关闭" })}
-            onChange={onFailoverChange}
-          />
-        </Inline>
-
-        <Stack gap="xs">
-          <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-            {t("proxy.failoverDescription")}
-          </Text>
-          <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-            {t("proxy.failoverGroupHint")}
-          </Text>
-        </Stack>
-
-        <Divider style={{ margin: 0 }} />
-
-        {/* Resilience Options: two-column grid on wide screens */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: "var(--space-4) var(--space-6)",
-          }}
-        >
-          {/* Retry Status Codes */}
-          <Stack gap="xs">
-            <Text strong style={{ fontSize: "var(--font-size-md)" }}>
-              {t("proxy.retryCodesTitle", { defaultValue: "触发重试的 HTTP 状态码" })}
-            </Text>
-            <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-              {t("proxy.retryCodesHint")}
-            </Text>
-            <Space.Compact style={{ width: "100%", maxWidth: 460 }}>
-              <Input
-                value={retryCodes}
-                onChange={(e) => onRetryCodesChange(e.target.value)}
-                placeholder="400-404,408,429,500-599"
-                size="small"
-              />
-              <Button size="small" loading={retrySaving} onClick={onRetryCodesSave}>
-                {t("common.save", { defaultValue: "保存" })}
-              </Button>
-            </Space.Compact>
-          </Stack>
-
-          {/* Streaming Idle Timeout */}
-          <Stack gap="xs">
-            <Inline gap="sm" align="center">
-              <FieldTimeOutlined style={{ color: "var(--color-brand)" }} />
-              <Text strong style={{ fontSize: "var(--font-size-md)" }}>
-                {t("proxy.idleTimeoutTitle", { defaultValue: "流式断连超时时间 (秒)" })}
-              </Text>
-            </Inline>
-            <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
-              {t("proxy.idleTimeoutHint")}
-            </Text>
-            <Inline gap="sm">
-              <InputNumber
-                min={5}
-                max={3600}
-                value={idleTimeout}
-                onChange={(v) => v != null && onIdleTimeoutChange(v)}
-                size="small"
-                style={{ width: 120 }}
-              />
-              <Button size="small" type="text" loading={idleSaving} onClick={onIdleTimeoutSave}>
-                {t("common.save", { defaultValue: "保存" })}
-              </Button>
-            </Inline>
-          </Stack>
-        </div>
-      </Stack>
-    </Surface>
+    <Card
+      size="small"
+      className={`page-surface ${className}`.trim()}
+      title={t("proxy.failoverTitle")}
+      extra={
+        <Switch
+          checked={failoverEnabled}
+          loading={failoverSaving}
+          disabled={failoverSaving}
+          checkedChildren={t("common.enabled")}
+          unCheckedChildren={t("common.disabled")}
+          onChange={onFailoverChange}
+        />
+      }
+      style={style}
+    >
+      <Space direction="vertical" size="small" style={{ width: "100%" }}>
+        <Text type="secondary">{t("proxy.failoverDescription")}</Text>
+        <Text type="secondary">{t("proxy.failoverGroupHint")}</Text>
+      </Space>
+      <Divider style={{ margin: "12px 0 0" }} />
+      <SettingsRow
+        title={t("proxy.retryCodesTitle")}
+        description={t("proxy.retryCodesHint")}
+        control={
+          <Space.Compact style={{ width: 360, maxWidth: "100%" }}>
+            <Input
+              value={retryCodes}
+              onChange={(event) => onRetryCodesChange(event.target.value)}
+              placeholder="400-404,408,429,500-599"
+              size="small"
+            />
+            <Button size="small" loading={retrySaving} onClick={onRetryCodesSave}>
+              {t("common.save")}
+            </Button>
+          </Space.Compact>
+        }
+      />
+      <SettingsRow
+        title={t("proxy.idleTimeoutTitle")}
+        description={t("proxy.idleTimeoutHint")}
+        control={
+          <Space.Compact>
+            <InputNumber
+              min={5}
+              max={3600}
+              value={idleTimeout}
+              onChange={(value) => value != null && onIdleTimeoutChange(value)}
+              size="small"
+              style={{ width: 120 }}
+            />
+            <Button size="small" loading={idleSaving} onClick={onIdleTimeoutSave}>
+              {t("common.save")}
+            </Button>
+          </Space.Compact>
+        }
+        style={{ borderBottom: "none" }}
+      />
+    </Card>
   );
 };

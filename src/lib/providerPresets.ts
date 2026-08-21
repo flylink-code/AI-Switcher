@@ -18,7 +18,7 @@ export interface ProviderPreset {
 
 const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "pi", "dsh"];
 const CLAUDE_OPENCODE: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "dsh"];
-const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"];
+const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"];
 
 /** Built-in quick-fill presets for common third-party gateways. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -207,7 +207,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       "claude-sonnet-4-6-thinking",
     ],
     modelContextWindow: 200_000,
-    notes: "External Antigravity-Manager gateway for DeepSeek Harness (anthropic-messages). Start AG Manager and fill its API key.",
+    notes: "External Antigravity-Manager gateway for DSH (anthropic-messages). Start AG Manager and fill its API key.",
     targets: ["dsh"],
   },
   {
@@ -225,7 +225,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       "claude-sonnet-4-6-thinking",
     ],
     modelContextWindow: 200_000,
-    notes: "Built-in Antigravity gateway for DeepSeek Harness (anthropic-messages; no Claude role mapping).",
+    notes: "Built-in Antigravity gateway for DSH (anthropic-messages; no Claude role mapping).",
     targets: ["dsh"],
   },
 ];

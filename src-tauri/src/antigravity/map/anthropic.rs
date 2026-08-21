@@ -135,14 +135,12 @@ pub fn anthropic_to_gemini_request(
             continue;
         }
         let gemini_role = if role == "assistant" { "model" } else { "user" };
-        // Gemini 3 要求历史 functionCall part 携带 thought_signature；
-        // 仅 Gemini 目标注入（Claude 目标由 Cloud Code 转回 Anthropic 格式，
-        // 多出的字段可能触发上游校验）。
         let parts = content_to_parts(
             message.get("content").unwrap_or(&Value::Null),
             &tool_names,
             gemini_target,
             session_key,
+            Some(contents.len()),
         );
         if parts.is_empty() {
             continue;
@@ -173,8 +171,6 @@ pub fn anthropic_to_gemini_request(
         generation["topP"] = json!(top_p);
     }
     if gemini_target && thoughts_allowed {
-        // thinking 变体 + 客户端开了 thinking 才请求下发思考文本
-        // （level 由模型 id 后缀决定）。
         generation["thinkingConfig"] = json!({ "includeThoughts": true });
     }
     if let Some(level) = claude_thinking_level {
@@ -183,14 +179,28 @@ pub fn anthropic_to_gemini_request(
             generation["thinkingConfig"]["includeThoughts"] = json!(true);
         }
     }
+    if gemini_target {
+        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model) {
+            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+            generation["maxOutputTokens"] =
+                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+            crate::antigravity::thinking::apply_thinking_budget(
+                &mut generation,
+                budget,
+                thoughts_allowed,
+            );
+        }
+    }
     if !generation.as_object().map(|o| o.is_empty()).unwrap_or(true) {
         request["generationConfig"] = generation;
     }
 
     let mut tool_params = ToolParamKeys::new();
     if let Some(tools) = body.get("tools").and_then(Value::as_array) {
+        let has_search = tools.iter().any(is_google_search_tool);
         let declarations: Vec<Value> = tools
             .iter()
+            .filter(|tool| !is_google_search_tool(tool))
             .filter_map(|tool| {
                 let name = tool.get("name").and_then(Value::as_str)?;
                 let description = tool.get("description").cloned().unwrap_or(json!(""));
@@ -205,13 +215,18 @@ pub fn anthropic_to_gemini_request(
                 }))
             })
             .collect();
+        if has_search && !declarations.is_empty() {
+            log::warn!(
+                "Antigravity dropping Google Search server tool; functionDeclarations cannot mix with it"
+            );
+        }
         if !declarations.is_empty() {
             tool_params = param_keys_from_declarations(&declarations);
             request["tools"] = json!([{ "functionDeclarations": declarations }]);
-            // AUTO matches Cloud Code / Antigravity clients; VALIDATED rejects many
-            // Desktop tool schemas and can fail streamGenerateContent.
             request["toolConfig"] = json!({
-                "functionCallingConfig": { "mode": "AUTO" }
+                "functionCallingConfig": { "mode": "AUTO" },
+                "includeServerSideToolInvocations": true,
+                "include_server_side_tool_invocations": true
             });
         }
     }
@@ -232,6 +247,49 @@ pub fn anthropic_to_gemini_request(
 /// `default`, validation keywords, ...) with a 400, so we keep only the subset
 /// Cloud Code accepts and normalize unions / type arrays.
 pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
+    let defs = collect_schema_defs(schema);
+    sanitize_schema_inner(schema, &defs, depth)
+}
+
+fn collect_schema_defs(schema: &Value) -> std::collections::HashMap<String, Value> {
+    let mut defs = std::collections::HashMap::new();
+    let Value::Object(map) = schema else {
+        return defs;
+    };
+    for key in ["$defs", "definitions"] {
+        if let Some(Value::Object(entries)) = map.get(key) {
+            for (name, value) in entries {
+                defs.insert(name.clone(), value.clone());
+            }
+        }
+    }
+    defs
+}
+
+fn resolve_schema_ref(
+    schema: &Value,
+    defs: &std::collections::HashMap<String, Value>,
+) -> Value {
+    let Some(pointer) = schema.get("$ref").and_then(Value::as_str) else {
+        return schema.clone();
+    };
+    let name = pointer.rsplit('/').next().unwrap_or(pointer);
+    let mut resolved = defs.get(name).cloned().unwrap_or_else(|| json!({}));
+    if let (Value::Object(base), Value::Object(extra)) = (&mut resolved, schema.clone()) {
+        for (key, value) in extra {
+            if key != "$ref" {
+                base.entry(key).or_insert(value);
+            }
+        }
+    }
+    resolved
+}
+
+fn sanitize_schema_inner(
+    schema: &Value,
+    defs: &std::collections::HashMap<String, Value>,
+    depth: usize,
+) -> Value {
     const MAX_DEPTH: usize = 10;
     const ALLOWED_KEYS: [&str; 8] = [
         "type",
@@ -243,16 +301,19 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
         "title",
         "nullable",
     ];
+    let schema = if schema.get("$ref").is_some() {
+        resolve_schema_ref(schema, defs)
+    } else {
+        schema.clone()
+    };
     let Value::Object(source) = schema else {
-        // Gemini requires every schema node to be an object; degrade bare
-        // booleans / nulls (legal in JSON Schema) to a generic object.
         return empty_object_schema();
     };
     if depth > MAX_DEPTH {
         return empty_object_schema();
     }
 
-    let mut map = source.clone();
+    let mut map = source;
 
     // Resolve union keywords: allOf merges every branch; anyOf/oneOf pick the
     // richest non-null branch. Branches are cleaned when merged below.
@@ -269,6 +330,11 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
         if let Some(Value::Array(branches)) = map.remove(key) {
             let mut best: Option<serde_json::Map<String, Value>> = None;
             for branch in branches {
+                let branch = if branch.get("$ref").is_some() {
+                    resolve_schema_ref(&branch, defs)
+                } else {
+                    branch
+                };
                 if let Value::Object(branch) = branch {
                     if branch.get("type").and_then(Value::as_str) == Some("null") {
                         continue;
@@ -286,7 +352,6 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
         }
     }
 
-    // Normalize `type`: ["string", "null"] → "string".
     match map.get("type") {
         Some(Value::Array(options)) => {
             let chosen = options
@@ -309,7 +374,7 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
         for key in keys {
             if let Some(value) = props.remove(&key) {
                 if value.is_object() {
-                    props.insert(key, sanitize_schema(&value, depth + 1));
+                    props.insert(key, sanitize_schema_inner(&value, defs, depth + 1));
                 }
             }
         }
@@ -318,7 +383,10 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
     match map.get("items") {
         Some(items) if items.is_object() => {
             let items = items.clone();
-            map.insert("items".into(), sanitize_schema(&items, depth + 1));
+            map.insert(
+                "items".into(),
+                sanitize_schema_inner(&items, defs, depth + 1),
+            );
         }
         Some(_) => {
             map.remove("items");
@@ -326,11 +394,8 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
         None => {}
     }
 
-    // Only keep fields Gemini understands (also drops $schema, propertyNames,
-    // additionalProperties, format, default, min*/max*, pattern, ...).
     map.retain(|key, _| ALLOWED_KEYS.contains(&key.as_str()));
 
-    // `required` must reference surviving properties.
     let kept_required: Option<Vec<Value>> = match (map.get("required"), map.get("properties")) {
         (Some(Value::Array(required)), Some(Value::Object(props))) => Some(
             required
@@ -367,6 +432,19 @@ pub(super) fn sanitize_schema(schema: &Value, depth: usize) -> Value {
     }
 
     Value::Object(map)
+}
+
+fn is_google_search_tool(tool: &Value) -> bool {
+    let name = tool
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            tool.get("google_search")
+                .and_then(|_| Some("google_search"))
+        })
+        .unwrap_or("");
+    let lower = name.to_ascii_lowercase();
+    lower == "google_search" || lower == "googlesearch" || tool.get("googleSearch").is_some()
 }
 
 fn empty_object_schema() -> Value {
@@ -476,13 +554,14 @@ fn content_to_parts(
     tool_names: &std::collections::HashMap<String, String>,
     gemini_target: bool,
     session_key: Option<&str>,
+    message_index: Option<usize>,
 ) -> Vec<Value> {
     match content {
         Value::String(text) => {
             if text.is_empty() {
                 Vec::new()
             } else {
-                vec![json!({ "text": text })]
+                super::history_media::parts_from_text(text)
             }
         }
         Value::Array(blocks) => {
@@ -491,19 +570,20 @@ fn content_to_parts(
                 let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
                 match block_type {
                     "thinking" | "redacted_thinking" => {
-                        // 客户端回传的 thinking 块不回放给 Gemini（模型不需要
-                        // 思考文本），但其 signature 可作为会话级签名补充来源。
                         if let (Some(session), Some(sig)) = (
                             session_key,
                             block.get("signature").and_then(Value::as_str),
                         ) {
                             thought_sig::cache_session_signature(session, sig);
+                            if let Some(index) = message_index {
+                                thought_sig::cache_session_index_signature(session, index, sig);
+                            }
                         }
                     }
                     "text" => {
                         if let Some(text) = block.get("text").and_then(Value::as_str) {
                             if !text.is_empty() {
-                                parts.push(json!({ "text": text }));
+                                parts.extend(super::history_media::parts_from_text(text));
                             }
                         }
                     }
@@ -517,16 +597,11 @@ fn content_to_parts(
                         }
                         let mut part = json!({ "functionCall": fc });
                         if gemini_target {
-                            // Gemini 3 签名校验：优先按 tool_use_id 精确命中，
-                            // 会话最新签名兜底，否则用哨兵值让上游跳过校验。
-                            let signature = id
-                                .and_then(thought_sig::get_tool_signature)
-                                .or_else(|| {
-                                    session_key.and_then(thought_sig::get_session_signature)
-                                })
-                                .unwrap_or_else(|| {
-                                    thought_sig::SKIP_VALIDATOR_SENTINEL.to_string()
-                                });
+                            let signature = thought_sig::resolve_function_call_signature(
+                                id,
+                                session_key,
+                                message_index,
+                            );
                             let signature = json!(signature);
                             part["thoughtSignature"] = signature.clone();
                             part["thought_signature"] = signature;
@@ -938,6 +1013,11 @@ fn extract_assistant(
                         thought_sig::cache_tool_signature(&id, sig);
                         if let Some(session) = session_key {
                             thought_sig::cache_session_signature(session, sig);
+                            thought_sig::cache_session_index_signature(
+                                session,
+                                content.tools.len(),
+                                sig,
+                            );
                         }
                     }
                     let name = fc.get("name").cloned().unwrap_or(json!("tool"));
@@ -1346,7 +1426,7 @@ mod tests {
             .find(|event| event["type"] == "message_delta")
             .expect("message_delta");
         assert_eq!(delta["usage"]["input_tokens"], 1500);
-        assert_eq!(delta["usage"]["output_tokens"], 100);
+        assert_eq!(delta["usage"]["output_tokens"], 20);
         assert!(state.is_closed());
     }
 
@@ -1758,6 +1838,53 @@ mod tests {
         assert_eq!(
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("high")
+        );
+    }
+
+    #[test]
+    fn gemini_budget_tokens_become_thinking_budget_and_pad_max_tokens() {
+        let body = json!({
+            "model": "gemini-3.7-flash",
+            "max_tokens": 100,
+            "thinking": { "type": "enabled", "budget_tokens": 8192 },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            json!(8192)
+        );
+        assert_eq!(parts.request["generationConfig"]["maxOutputTokens"], json!(8193));
+    }
+
+    #[test]
+    fn ref_defs_flatten_into_tool_parameters() {
+        let body = json!({
+            "model": "gemini-3.7-flash-high",
+            "max_tokens": 128,
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{
+                "name": "edit",
+                "description": "edit a file",
+                "input_schema": {
+                    "type": "object",
+                    "$defs": {
+                        "Path": { "type": "string", "description": "file path" }
+                    },
+                    "properties": {
+                        "path": { "$ref": "#/$defs/Path" }
+                    },
+                    "required": ["path"]
+                }
+            }]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let params = &parts.request["tools"][0]["functionDeclarations"][0]["parameters"];
+        assert_eq!(params["properties"]["path"]["type"], json!("string"));
+        assert!(params.get("$ref").is_none());
+        assert_eq!(
+            parts.request["toolConfig"]["includeServerSideToolInvocations"],
+            json!(true)
         );
     }
 }

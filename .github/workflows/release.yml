@@ -96,15 +96,17 @@ jobs:
 
             ## What's new
 
-            - Usage period selector moved to the right of the toolbar
-            - About **Check for updates** uses the same dialog as the title bar (fixes stacked/unstyled confirm in 1.3.8)
-            - Linux preview requires Ubuntu 22.04 / Debian 12+ (WebKitGTK 4.1); Ubuntu 18.04 / 20.04 are not supported
+            - Cline parity: local proxy :15827, usage from proxy logs, sessions from ~/.cline, workspace MCP / Prompts / Skills
+            - Antigravity gateway Wave 1: local short-circuit, thinkingBudget, RetryInfo, history media
+            - Local Anthropic web_search / web_fetch; WSL Direct sync; WebDAV library backup
+            - About-page release notes follow the UI language; local proxy uses a single-column settings layout
 
             ## 更新内容
 
-            - 用量页时间范围选择移到工具栏右侧
-            - 关于页「检查更新」与标题栏共用同一弹窗（修复 1.3.8 标题重复、与版本信息重叠）
-            - Linux 预览包需 Ubuntu 22.04 / Debian 12+（WebKitGTK 4.1）；不支持 18.04 / 20.04
+            - Cline 齐能力：本机代理 :15827、用量筛代理日志、会话扫 ~/.cline、工作区 MCP / Prompts / Skills
+            - AG 网关 Wave 1：后台请求本地短路、thinkingBudget、RetryInfo、历史媒体
+            - 本地执行 Anthropic web_search / web_fetch；WSL Direct；WebDAV 资料库备份
+            - 关于页本版本说明随界面语言；本地代理改为单列设置卡片
 
             ### Windows
             Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.

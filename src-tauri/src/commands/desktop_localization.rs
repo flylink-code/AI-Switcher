@@ -385,7 +385,7 @@ fn is_valid_upstream_revision(revision: &str) -> bool {
     if revision.len() == 40 && revision.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return true;
     }
-    // GitHub Release tags such as 1.4.3 (and older commit-folder caches).
+    // GitHub Release tags such as 1.4.6 (and older commit-folder caches).
     revision
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))

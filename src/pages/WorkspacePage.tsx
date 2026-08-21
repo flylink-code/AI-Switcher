@@ -8,7 +8,7 @@ import {
   preloadPage,
   type PageKey,
 } from "@/lib/pageRegistry";
-import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
+import { AgentTargetSwitcher, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 import { startDshWeb } from "@/services/api";
@@ -23,6 +23,7 @@ const AGENT_SUPPORTED_TABS: Record<ProviderTarget, PageKey[]> = {
   opencode: ["mcp", "prompts"],
   pi: ["mcp", "prompts", "skills"],
   dsh: ["mcp", "prompts"],
+  cline: ["mcp", "prompts", "skills"],
 };
 
 const WORKSPACE_PAGES: PageKey[] = [
@@ -115,7 +116,11 @@ export default function WorkspacePage() {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Space wrap>
-          <AgentTargetSwitcher value={workspaceTarget} onChange={setWorkspaceTarget} />
+          <AgentTargetSwitcher
+            value={workspaceTarget}
+            onChange={setWorkspaceTarget}
+            targets={PROVIDER_TARGET_OPTIONS}
+          />
           {workspaceTarget === "dsh" && (
             <Button
               type="primary"
@@ -123,10 +128,11 @@ export default function WorkspacePage() {
               loading={startingDsh}
               onClick={() => void runDsh()}
             >
-              {t("workspace.runDsh", { defaultValue: "运行 DeepSeek Harness" })}
+              {t("workspace.runDsh", { defaultValue: "运行 DSH" })}
             </Button>
           )}
         </Space>
+        {supportedTabs.length > 0 && (
         <div>
           <Segmented<PageKey>
             className="app-segmented-switcher"
@@ -139,8 +145,9 @@ export default function WorkspacePage() {
             }))}
           />
         </div>
+        )}
       </div>
-      <EmbeddedPage pageKey={activeTab} target={workspaceTarget} />
+      {supportedTabs.length > 0 && <EmbeddedPage pageKey={activeTab} target={workspaceTarget} />}
     </div>
   );
 }

@@ -4,7 +4,7 @@
  */
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
-export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh";
+export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
 export interface ClaudeModelMapping {
@@ -408,6 +408,7 @@ export interface McpServer {
   enabledCodex: boolean;
   enabledOpencode: boolean;
   enabledPi: boolean;
+  enabledCline: boolean;
   sortIndex: number;
   createdAt: number;
 }
@@ -422,9 +423,10 @@ export interface McpServerInput {
   enabledCodex: boolean;
   enabledOpencode: boolean;
   enabledPi: boolean;
+  enabledCline: boolean;
 }
 
-export type McpTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi";
+export type McpTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "cline";
 
 export interface CodexAuthStatus {
   configPath: string;
@@ -492,7 +494,7 @@ export interface PromptInfo {
   updatedAt: number;
 }
 
-export type PromptTarget = "claude_code" | "codex" | "opencode" | "pi";
+export type PromptTarget = "claude_code" | "codex" | "opencode" | "pi" | "cline";
 
 export interface PromptDetail extends PromptInfo {
   content: string;
@@ -521,7 +523,7 @@ export interface UnmanagedSkill {
   path: string;
 }
 
-export type SkillTarget = "claude_code" | "codex" | "pi";
+export type SkillTarget = "claude_code" | "codex" | "pi" | "cline";
 
 export interface Agent {
   name: string;
@@ -852,6 +854,22 @@ export interface SyncPushResult {
   bytes: number;
 }
 
+export interface WslRuntimeStatus {
+  location: string;
+  distro?: string | null;
+  linuxHome?: string | null;
+  skipCopy: boolean;
+  claudeUnc?: string | null;
+  codexUnc?: string | null;
+}
+
+export interface WebDavSettings {
+  url: string;
+  username: string;
+  remotePath: string;
+  passwordSet: boolean;
+}
+
 export interface LogMaintenanceResult {
   deleted: number;
   deletedByAge: number;
@@ -1000,7 +1018,7 @@ export interface NodeRuntimeStatus {
   installHint: string;
 }
 
-export type SessionProvider = "claude_code" | "codex" | "opencode" | "pi" | "dsh";
+export type SessionProvider = "claude_code" | "codex" | "opencode" | "pi" | "dsh" | "cline";
 
 export interface SessionProviderStatus {
   provider: SessionProvider;
@@ -1166,6 +1184,7 @@ export interface AntigravityGatewayStatus {
   outboundProxyUrl?: string;
   effectiveOutboundProxy?: string | null;
   limiterSettings?: AntigravityLimiterSettings;
+  fastPath?: AntigravityFastPathSettings;
 }
 
 export interface AntigravityLimiterSettings {
@@ -1175,6 +1194,15 @@ export interface AntigravityLimiterSettings {
   ratePerMin: number;
   tokenBurst: number;
   acquireTimeoutSecs: number;
+}
+
+export interface AntigravityFastPathSettings {
+  quotaMock: boolean;
+  titleSkip: boolean;
+  prefixDetect: boolean;
+  suggestionSkip: boolean;
+  filepathMock: boolean;
+  flashDegrade: boolean;
 }
 
 export interface AntigravityCatalogModel {

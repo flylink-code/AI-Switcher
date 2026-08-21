@@ -480,6 +480,7 @@ impl McpServerEnabled for crate::mcp::McpServer {
             McpTarget::Codex => self.enabled_codex,
             McpTarget::OpenCode => self.enabled_opencode,
             McpTarget::Pi => self.enabled_pi,
+            McpTarget::Cline => self.enabled_cline,
         }
     }
 }

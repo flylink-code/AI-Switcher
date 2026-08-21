@@ -75,6 +75,7 @@ interface FormValues {
   enabledCodex: boolean;
   enabledOpencode: boolean;
   enabledPi: boolean;
+  enabledCline: boolean;
 }
 
 const EXAMPLE_CONFIG: Record<string, unknown> = {
@@ -234,6 +235,7 @@ export default function McpPage() {
       enabledCodex: false,
       enabledOpencode: false,
       enabledPi: false,
+      enabledCline: false,
     });
     setFormOpen(true);
   };
@@ -249,6 +251,7 @@ export default function McpPage() {
       enabledCodex: server.enabledCodex,
       enabledOpencode: server.enabledOpencode,
       enabledPi: server.enabledPi,
+      enabledCline: server.enabledCline,
     });
     setFormOpen(true);
   };
@@ -289,6 +292,7 @@ export default function McpPage() {
         enabledCodex: values.enabledCodex,
         enabledOpencode: values.enabledOpencode,
         enabledPi: values.enabledPi,
+        enabledCline: values.enabledCline,
       };
       await saveMcpServer(input);
       void message.success(t(editing ? "mcp.updated" : "mcp.created"));
@@ -320,6 +324,7 @@ export default function McpPage() {
                 enabledCodex: target === "codex" ? enabled : item.enabledCodex,
                 enabledOpencode: target === "opencode" ? enabled : item.enabledOpencode,
                 enabledPi: target === "pi" ? enabled : item.enabledPi,
+                enabledCline: target === "cline" ? enabled : item.enabledCline,
               }
             : item,
         ),
@@ -597,6 +602,25 @@ export default function McpPage() {
                 checkedChildren={t("common.enabled")}
                 unCheckedChildren={t("common.disabled")}
                 onChange={(value) => void handleToggle(server, "pi", value)}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(visibleAgents.includes("cline")
+      ? [
+          {
+            title: "Cline",
+            dataIndex: "enabledCline",
+            width: 90,
+            render: (enabled: boolean, server: McpServer) => (
+              <Switch
+                size="small"
+                checked={enabled}
+                disabled={busy}
+                checkedChildren={t("common.enabled")}
+                unCheckedChildren={t("common.disabled")}
+                onChange={(value) => void handleToggle(server, "cline", value)}
               />
             ),
           },
@@ -951,6 +975,9 @@ export default function McpPage() {
               </Form.Item>
               <Form.Item name="enabledPi" valuePropName="checked" noStyle>
                 <Checkbox disabled={busy}>{t("mcp.enablePi")}</Checkbox>
+              </Form.Item>
+              <Form.Item name="enabledCline" valuePropName="checked" noStyle>
+                <Checkbox disabled={busy}>{t("mcp.enableCline")}</Checkbox>
               </Form.Item>
             </Space>
           </Form.Item>

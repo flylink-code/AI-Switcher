@@ -1015,7 +1015,7 @@ async fn restore_official_for_target<R: tauri::Runtime>(
                     })??;
             }
             // Pi / Dsh 无独立「官方配置」文件；清除当前供应商 + 停代理即可。
-            ProviderTarget::Pi | ProviderTarget::Dsh => {}
+            ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline => {}
         }
         state.proxy.lock().await.stop_target(target);
         if let Some(app) = app {
@@ -1083,11 +1083,14 @@ pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppSta
     if target == ProviderTarget::Dsh {
         return sync_dsh_providers_to_live(&state);
     }
+    if target == ProviderTarget::Cline {
+        return sync_cline_providers_to_live(&state);
+    }
     let live = match target {
         ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
         ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
         ProviderTarget::Codex => codex::read_current_live_provider()?,
-        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => unreachable!(),
+        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline => unreachable!(),
     };
     let Some(live) = live else {
         return Ok(());
@@ -1309,6 +1312,7 @@ fn sync_catalog_target(state: &AppState, target: ProviderTarget) -> AppResult<()
         ProviderTarget::OpenCode => sync_opencode_providers_to_live(state),
         ProviderTarget::Pi => sync_pi_providers_to_live(state),
         ProviderTarget::Dsh => sync_dsh_providers_to_live(state),
+        ProviderTarget::Cline => sync_cline_providers_to_live(state),
         _ => Ok(()),
     }
 }
@@ -1319,7 +1323,17 @@ async fn sync_live_providers<R: tauri::Runtime>(
     app: Option<&tauri::AppHandle<R>>,
 ) -> AppResult<()> {
     if target.is_catalog_target() {
+        if target == ProviderTarget::Cline {
+            let port = get_saved_proxy_port(state, target);
+            let _ = state.proxy.lock().await.start(port, target).await;
+        }
+        if matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::Codex) {
+            let _ = crate::wsl_direct::sync_claude_codex_files();
+        }
         return sync_catalog_target(state, target);
+    }
+    if matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::Codex) {
+        let _ = crate::wsl_direct::sync_claude_codex_files();
     }
     if gateway_catalog_on(state, target) {
         return sync_gateway_catalog_target(target, app, state).await;
@@ -1404,6 +1418,37 @@ pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
         entries.push((runtime, extra_models));
     }
     sync_managed_dsh_providers(&entries)
+}
+
+pub(crate) fn sync_cline_providers_to_live(state: &AppState) -> AppResult<()> {
+    use crate::config::cline::sync_managed_cline_providers;
+
+    let providers = state
+        .db
+        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Cline))?;
+    let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
+    for provider in providers {
+        let mut runtime = provider.clone();
+        runtime.api_key = state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
+            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
+        }
+        let extra_models = state
+            .db
+            .with_conn(|conn| {
+                Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                    .map(|cache| cache.models)
+                    .unwrap_or_default())
+            })
+            .unwrap_or_default();
+        entries.push((runtime, extra_models));
+    }
+    sync_managed_cline_providers(&entries)
 }
 
 /// 把 DB 中全部 Pi 供应商写入 `models.json` / `auth.json`（多供应商并存，无需切换）。
@@ -1898,6 +1943,10 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 sync_dsh_providers_to_live(state)?;
                 Ok((None, None))
             }
+            ProviderTarget::Cline => {
+                sync_cline_providers_to_live(state)?;
+                Ok((None, None))
+            }
         }
     }.await;
     let (session_sync, codex_notice) = match result {
@@ -1980,6 +2029,7 @@ impl SwitchSnapshot {
                 crate::config::get_dsh_settings_path(),
                 crate::config::get_dsh_credentials_path(),
             ],
+            ProviderTarget::Cline => vec![crate::config::cline::cline_config_dir().join("ai-switcher.json")],
         };
         let files = paths.into_iter().map(FileSnapshot::capture).collect::<AppResult<Vec<_>>>()?;
         let ownership_key = match target {
@@ -1989,6 +2039,7 @@ impl SwitchSnapshot {
             ProviderTarget::OpenCode => OPENCODE_OWNERSHIP_KEY,
             ProviderTarget::Pi => PI_OWNERSHIP_KEY,
             ProviderTarget::Dsh => "v1310.dsh_managed",
+            ProviderTarget::Cline => "v1323.cline_managed",
         };
         let ownership_value = state.db.with_conn(|conn| get_setting(conn, ownership_key))?;
         let proxy = {
@@ -2854,6 +2905,7 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
         ProviderTarget::OpenCode => "proxy_port_opencode",
         ProviderTarget::Pi => "proxy_port_pi",
         ProviderTarget::Dsh => "proxy_port_dsh",
+        ProviderTarget::Cline => "proxy_port_cline",
     };
     state.db.with_conn(|conn| get_setting(conn, key))
         .ok()
@@ -2867,6 +2919,7 @@ fn get_saved_proxy_port(state: &AppState, target: ProviderTarget) -> u16 {
             ProviderTarget::OpenCode => 15824,
             ProviderTarget::Pi => 15825,
             ProviderTarget::Dsh => 15826,
+            ProviderTarget::Cline => 15827,
         })
 }
 

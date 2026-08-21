@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   App,
   Button,
@@ -30,13 +30,27 @@ import { OnboardingTip } from "@/components/OnboardingTip";
 
 const { Text } = Typography;
 
+function changelogVersionKey(version: string): string {
+  return version.replace(/\./g, "_");
+}
+
+function changelogNotesForVersion(
+  t: (key: string, options: { returnObjects: true }) => unknown,
+  version: string | null,
+): string[] | null {
+  if (!version) return null;
+  const notes = t(`about.changelog.${changelogVersionKey(version)}`, { returnObjects: true });
+  if (!Array.isArray(notes) || notes.length === 0) return null;
+  return notes.every((item) => typeof item === "string") ? notes : null;
+}
+
 function errMsg(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /** App-only About: version, updater, onboarding tips. CLI tools live under Settings → Runtime Tools. */
 export default function AboutPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const { presentUpdate } = useAppUpdatePrompt();
   const queryClient = useQueryClient();
@@ -97,6 +111,11 @@ export default function AboutPage() {
     }
   };
 
+  const changelogNotes = useMemo(
+    () => changelogNotesForVersion(t, appVersion),
+    [appVersion, t, i18n.language],
+  );
+
   const saveUpdateSettings = async () => {
     if (!updateMirrorSettings) return;
     setSavingUpdateMirrorSettings(true);
@@ -116,9 +135,7 @@ export default function AboutPage() {
       <OnboardingTip
         tipKey="about"
         message={t("about.title")}
-        description={t("about.appOnlyDescription", {
-          defaultValue: "查看本应用版本、检查更新，以及恢复引导提示。Agent 工具请到设置 → Agent 工具。",
-        })}
+        description={t("about.appOnlyDescription")}
       />
 
       <Card size="small" className="page-surface" title={t("about.appSection")}>
@@ -182,6 +199,25 @@ export default function AboutPage() {
             {t("about.restoreOnboardingTips")}
           </Button>
         </Space>
+      </Card>
+
+      <Card
+        size="small"
+        className="page-surface"
+        title={t("about.changelogTitle")}
+        extra={appVersion ? <Tag color="blue">v{appVersion}</Tag> : null}
+      >
+        {appVersion == null ? null : changelogNotes ? (
+          <ul style={{ margin: 0, paddingInlineStart: 20 }}>
+            {changelogNotes.map((note) => (
+              <li key={note} style={{ marginBottom: 8, lineHeight: 1.55 }}>
+                <Text>{note}</Text>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Text type="secondary">{t("about.changelogEmpty")}</Text>
+        )}
       </Card>
     </Space>
   );

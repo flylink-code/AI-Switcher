@@ -70,6 +70,35 @@ export async function pushSyncArchive(
   });
 }
 
+export async function getWslRuntimeStatus(): Promise<import("@/types/backend").WslRuntimeStatus> {
+  return call("get_wsl_runtime_status", {});
+}
+
+export async function syncWslDirect(): Promise<import("@/types/backend").WslRuntimeStatus> {
+  return call("sync_wsl_direct", {});
+}
+
+export async function getWebDavSettings(): Promise<import("@/types/backend").WebDavSettings> {
+  return call("get_webdav_settings", {});
+}
+
+export async function setWebDavSettings(input: {
+  url: string;
+  username: string;
+  remotePath: string;
+  password?: string | null;
+}): Promise<import("@/types/backend").WebDavSettings> {
+  return call("set_webdav_settings", input);
+}
+
+export async function uploadLibraryToWebDav(includeCredentials = false): Promise<string> {
+  return call("upload_library_to_webdav", { includeCredentials });
+}
+
+export async function restoreLibraryFromWebDav(): Promise<LibraryRestoreResult> {
+  return call("restore_library_from_webdav", {});
+}
+
 // ---- Providers -------------------------------------------------------------
 
 export async function listConfigBackups(

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Button,
   Card,
+  Checkbox,
   Divider,
   Input,
   InputNumber,
@@ -20,6 +21,7 @@ import type {
   AntigravityGatewayStatus,
   AntigravityCatalogModel,
   AntigravityLimiterSettings,
+  AntigravityFastPathSettings,
 } from "@/services/api";
 
 const { Text, Paragraph } = Typography;
@@ -33,6 +35,15 @@ const DEFAULT_LIMITER: AntigravityLimiterSettings = {
   acquireTimeoutSecs: 8,
 };
 
+const DEFAULT_FAST_PATH: AntigravityFastPathSettings = {
+  quotaMock: true,
+  titleSkip: true,
+  prefixDetect: true,
+  suggestionSkip: false,
+  filepathMock: false,
+  flashDegrade: true,
+};
+
 interface GatewayCardProps {
   status?: AntigravityGatewayStatus;
   models?: AntigravityCatalogModel[];
@@ -40,11 +51,13 @@ interface GatewayCardProps {
   onStopGateway: () => Promise<void>;
   onSaveOutbound: (mode: "direct" | "system" | "custom", url: string) => Promise<void>;
   onSaveLimiter: (settings: AntigravityLimiterSettings) => Promise<void>;
+  onSaveFastPath: (settings: AntigravityFastPathSettings) => Promise<void>;
   onRefresh: () => void;
   isStarting?: boolean;
   isStopping?: boolean;
   isSavingOutbound?: boolean;
   isSavingLimiter?: boolean;
+  isSavingFastPath?: boolean;
 }
 
 export function GatewayCard({
@@ -54,11 +67,13 @@ export function GatewayCard({
   onStopGateway,
   onSaveOutbound,
   onSaveLimiter,
+  onSaveFastPath,
   onRefresh,
   isStarting = false,
   isStopping = false,
   isSavingOutbound = false,
   isSavingLimiter = false,
+  isSavingFastPath = false,
 }: GatewayCardProps) {
   const { t } = useTranslation();
 
@@ -69,6 +84,7 @@ export function GatewayCard({
   >(null);
   const [outboundUrlDraft, setOutboundUrlDraft] = useState<string | null>(null);
   const [limiterDraft, setLimiterDraft] = useState<AntigravityLimiterSettings | null>(null);
+  const [fastPathDraft, setFastPathDraft] = useState<AntigravityFastPathSettings | null>(null);
   const [curlVisible, setCurlVisible] = useState(false);
 
   const port = portDraft ?? status?.port ?? 15830;
@@ -81,9 +97,13 @@ export function GatewayCard({
   const outboundUrl =
     outboundUrlDraft ?? status?.outboundProxyUrl ?? "socks5://127.0.0.1:17891";
   const limiter = limiterDraft ?? status?.limiterSettings ?? DEFAULT_LIMITER;
+  const fastPath = fastPathDraft ?? status?.fastPath ?? DEFAULT_FAST_PATH;
 
   const patchLimiter = (patch: Partial<AntigravityLimiterSettings>) => {
     setLimiterDraft({ ...limiter, ...patch });
+  };
+  const patchFastPath = (patch: Partial<AntigravityFastPathSettings>) => {
+    setFastPathDraft({ ...fastPath, ...patch });
   };
 
   const sampleModel =
@@ -241,6 +261,51 @@ export function GatewayCard({
               defaultValue: "RPM 上限设为 0 可关闭令牌桶（仍保留并发闸门与 429 退避）。",
             })}
           </Text>
+          <Divider style={{ margin: "8px 0" }} />
+          <Text type="secondary">
+            {t("antigravity.fastPathTitle", { defaultValue: "后台请求短路" })}
+          </Text>
+          <Space wrap>
+            <Checkbox
+              checked={fastPath.quotaMock}
+              onChange={(event) => patchFastPath({ quotaMock: event.target.checked })}
+            >
+              {t("antigravity.fastPathQuota", { defaultValue: "额度探针" })}
+            </Checkbox>
+            <Checkbox
+              checked={fastPath.titleSkip}
+              onChange={(event) => patchFastPath({ titleSkip: event.target.checked })}
+            >
+              {t("antigravity.fastPathTitleSkip", { defaultValue: "会话标题" })}
+            </Checkbox>
+            <Checkbox
+              checked={fastPath.prefixDetect}
+              onChange={(event) => patchFastPath({ prefixDetect: event.target.checked })}
+            >
+              {t("antigravity.fastPathPrefix", { defaultValue: "命令 prefix" })}
+            </Checkbox>
+            <Checkbox
+              checked={fastPath.flashDegrade}
+              onChange={(event) => patchFastPath({ flashDegrade: event.target.checked })}
+            >
+              {t("antigravity.fastPathFlash", { defaultValue: "后台降级 Flash" })}
+            </Checkbox>
+            <Checkbox
+              checked={fastPath.suggestionSkip}
+              onChange={(event) => patchFastPath({ suggestionSkip: event.target.checked })}
+            >
+              {t("antigravity.fastPathSuggestion", { defaultValue: "Suggestion" })}
+            </Checkbox>
+            <Checkbox
+              checked={fastPath.filepathMock}
+              onChange={(event) => patchFastPath({ filepathMock: event.target.checked })}
+            >
+              {t("antigravity.fastPathFilepath", { defaultValue: "Filepath" })}
+            </Checkbox>
+            <Button loading={isSavingFastPath} onClick={() => onSaveFastPath(fastPath)}>
+              {t("antigravity.fastPathSave", { defaultValue: "保存短路" })}
+            </Button>
+          </Space>
         </Space>
 
         <Divider style={{ margin: "4px 0" }} />

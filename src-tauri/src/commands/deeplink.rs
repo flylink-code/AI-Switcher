@@ -131,6 +131,7 @@ pub fn build_mcp_deeplink(
         enabled_codex: server.enabled_codex,
         enabled_opencode: server.enabled_opencode,
         enabled_pi: server.enabled_pi,
+        enabled_cline: server.enabled_cline,
     })
 }
 

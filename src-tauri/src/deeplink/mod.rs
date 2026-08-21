@@ -92,6 +92,8 @@ pub struct McpExportEntry {
     pub enabled_opencode: bool,
     #[serde(default)]
     pub enabled_pi: bool,
+    #[serde(default)]
+    pub enabled_cline: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -335,6 +337,7 @@ fn normalize_mcp_bundle(value: Value) -> AppResult<McpExportBundle> {
                 enabled_codex: false,
                 enabled_opencode: false,
                 enabled_pi: false,
+                enabled_cline: false,
             })
             .collect();
         return Ok(McpExportBundle {
@@ -504,6 +507,7 @@ pub fn mcp_inputs_from_preview(preview: &ImportPreview) -> AppResult<Vec<McpServ
             enabled_codex: entry.enabled_codex,
             enabled_opencode: entry.enabled_opencode,
             enabled_pi: entry.enabled_pi,
+            enabled_cline: entry.enabled_cline,
         })
         .collect())
 }

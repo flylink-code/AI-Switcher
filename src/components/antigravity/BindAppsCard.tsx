@@ -13,6 +13,8 @@ export const BIND_TARGETS: ProviderTarget[] = [
   "codex",
   "opencode",
   "pi",
+  "dsh",
+  "cline",
 ];
 
 interface BindAppsCardProps {

@@ -60,7 +60,7 @@ const DEFAULTS: Pick<
   | "sessionsProvider"
   | "workbenchView"
 > = {
-  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh"],
+  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"],
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
@@ -73,11 +73,11 @@ const DEFAULTS: Pick<
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
-  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh";
+  return value === "claude_code" || value === "claude_desktop" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh" || value === "cline";
 }
 
 function isSessionProvider(value: unknown): value is SessionProvider {
-  return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh";
+  return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh" || value === "cline";
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
@@ -92,6 +92,8 @@ function sessionProviderFor(target: ProviderTarget): SessionProvider {
   if (target === "codex") return "codex";
   if (target === "opencode") return "opencode";
   if (target === "pi") return "pi";
+  if (target === "dsh") return "dsh";
+  if (target === "cline") return "cline";
   return "claude_code";
 }
 

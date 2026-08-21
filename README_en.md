@@ -1,6 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, and **DeepSeek Harness**. **v1.3.23**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.3.24**
+
+**This release:** Cline usage / sessions / workspace parity; Antigravity gateway Wave 1; local `web_search` / `web_fetch`; WSL Direct; WebDAV library backup; About-page release notes and a single-column local-proxy layout.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -23,7 +25,7 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 - **Agent Toolbox**: Detect and install/update Claude Code, Codex, OpenCode, Pi, and DeepSeek Harness CLI tools (requires local Node.js ≥ 22).
 
 ### 2. Provider Management & Unified Model Catalog
-- **Multi-Agent Configurations**: Independently manage API endpoints, credentials, model mappings, and Base URL latency diagnostics for Claude Code, Desktop, Codex, OpenCode, Pi, and DeepSeek Harness.
+- **Multi-Agent Configurations**: Independently manage API endpoints, credentials, model mappings, and Base URL latency diagnostics for Claude Code, Desktop, Codex, OpenCode, Pi, DSH, and Cline. Cline uses the local proxy on port **15827** (`~/.cline/ai-switcher.json`); usage is filtered from proxy logs; sessions scan `~/.cline/data`.
 - **Unified Catalog Mode**: Merge multi-provider models through a local proxy so any visible model can be switched seamlessly in the CLI via `/model`.
 - **Subagent Smart Routing**: Claude Code (Explore/Haiku) and Codex subagents follow the current default model when left empty; an explicit catalog subagent id is still honored.
 - **Thinking / Reasoning Translation**: Seamlessly bridges token budgets and reasoning effort across Anthropic, OpenAI, Gemini, and DeepSeek.
@@ -62,6 +64,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google 
 | OpenCode | `~/.config/opencode/opencode.json` · `~/.local/share/opencode/` |
 | Pi CLI | `~/.pi/agent/models.json` · `auth.json` · `sessions/` |
 | DeepSeek Harness | `~/.dsh/settings.yaml` · `.credentials.yaml` · `sessions/` |
+| Cline | `~/.cline/ai-switcher.json` · `data/settings/cline_mcp_settings.json` · `data/sessions/` |
 | Application Library | `~/.claude-switcher/` (relocatable; stores DB, backups, and logs) |
 
 ---
@@ -91,5 +94,7 @@ AI-Switcher is an independent community project and is not affiliated with Anthr
 
 **Special Thanks & Upstream Inspiration**:
 - [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) - Reverse proxy scheduling & protocol mapping
+- [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) - Background request short-circuit, stream lifetime, local web_search
 - [sub2api](https://github.com/sub2api) - URL-level rate limiting & upstream fallback
 - [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich)
+- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.13.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) v0.1.2 · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.6

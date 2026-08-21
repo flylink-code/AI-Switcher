@@ -1,11 +1,11 @@
 //! Tauri commands for the built-in Antigravity gateway.
 
 use crate::antigravity::{
-    clear_sticky_sessions, gateway_status, get_limiter_settings, import_accounts_json, list_accounts, login_with_browser,
+    clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings, import_accounts_json, list_accounts, login_with_browser,
     refresh_all_account_quotas, refresh_one_account_quota, remove_account, set_active_account,
-    set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
+    set_fast_path_settings, set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
     AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
-    DEFAULT_GATEWAY_PORT,
+    DEFAULT_GATEWAY_PORT, FastPathSettings,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -85,6 +85,18 @@ pub fn set_antigravity_limiter_settings(
 }
 
 #[tauri::command]
+pub fn get_antigravity_fast_path_settings() -> AppResult<FastPathSettings> {
+    get_fast_path_settings()
+}
+
+#[tauri::command]
+pub fn set_antigravity_fast_path_settings(
+    settings: FastPathSettings,
+) -> AppResult<FastPathSettings> {
+    set_fast_path_settings(settings)
+}
+
+#[tauri::command]
 pub async fn start_antigravity_gateway(port: Option<u16>) -> AppResult<AntigravityGatewayStatus> {
     start_gateway(port).await
 }
@@ -160,9 +172,9 @@ pub async fn ensure_antigravity_provider(
         .collect();
 
     let (protocol_type, base_url, model_mapping) = match target {
-        ProviderTarget::Codex => (
+        ProviderTarget::Codex | ProviderTarget::Cline => (
             ProtocolType::OpenAiResponses,
-            format!("{}/v1", status.base_url),
+            format!("{}/v1", status.base_url.trim_end_matches('/')),
             ClaudeModelMapping::default(),
         ),
         // OpenCode 经 `@ai-sdk/anthropic` 直连网关；baseURL 需带 /v1 供 SDK 拼 /messages。

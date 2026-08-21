@@ -146,7 +146,21 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                         }));
                     }
                     Some("function_call_output") => {
-                        if !pending_tool_calls.is_empty() {
+                        if pending_tool_calls.is_empty() {
+                            let tool_call_id = item
+                                .get("call_id")
+                                .and_then(Value::as_str)
+                                .unwrap_or("call_tool");
+                            messages.push(json!({
+                                "role": "assistant",
+                                "content": null,
+                                "tool_calls": [{
+                                    "id": tool_call_id,
+                                    "type": "function",
+                                    "function": { "name": "tool", "arguments": "{}" }
+                                }]
+                            }));
+                        } else {
                             messages.push(json!({
                                 "role": "assistant",
                                 "content": null,
@@ -182,7 +196,27 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                             messages.push(json!({ "role": chat_role, "content": content }));
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if let Some(text) = item.as_str().map(str::to_string).or_else(|| {
+                            item.get("content")
+                                .and_then(Value::as_str)
+                                .map(str::to_string)
+                                .or_else(|| {
+                                    item.get("text").and_then(Value::as_str).map(str::to_string)
+                                })
+                        }) {
+                            if !text.trim().is_empty() {
+                                if !pending_tool_calls.is_empty() {
+                                    messages.push(json!({
+                                        "role": "assistant",
+                                        "content": null,
+                                        "tool_calls": std::mem::take(&mut pending_tool_calls),
+                                    }));
+                                }
+                                messages.push(json!({ "role": "user", "content": text }));
+                            }
+                        }
+                    }
                 }
             }
             if !pending_tool_calls.is_empty() {
@@ -192,10 +226,32 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                     "tool_calls": pending_tool_calls,
                 }));
             }
+            rewrite_trailing_assistant_prefill(&mut messages);
             Ok(messages)
         }
         _ => Err("Responses input 必须是字符串或数组".into()),
     }
+}
+
+fn rewrite_trailing_assistant_prefill(messages: &mut Vec<Value>) {
+    let Some(last) = messages.last() else {
+        return;
+    };
+    if last.get("role").and_then(Value::as_str) != Some("assistant") {
+        return;
+    }
+    if last.get("tool_calls").is_some() {
+        return;
+    }
+    let content = last.get("content").cloned().unwrap_or(Value::Null);
+    if content_is_empty(&content) {
+        return;
+    }
+    messages.pop();
+    messages.push(json!({
+        "role": "user",
+        "content": content,
+    }));
 }
 
 fn convert_responses_content(content: &Value) -> Value {
@@ -854,16 +910,16 @@ mod tests {
         let _ = enc.encode_gemini_chunk(&chunk);
         let end = String::from_utf8(enc.finish()).unwrap();
         assert!(
-            end.contains("\"output_tokens\":100") || end.contains("\"output_tokens\": 100"),
-            "thoughts should be included in output_tokens: {end}"
+            end.contains("\"output_tokens\":20") || end.contains("\"output_tokens\": 20"),
+            "classic candidatesTokenCount already includes thoughts: {end}"
         );
         assert!(
             end.contains("\"reasoning_tokens\":80") || end.contains("\"reasoning_tokens\": 80"),
             "reasoning_tokens should carry thoughtsTokenCount: {end}"
         );
         assert!(
-            end.contains("\"total_tokens\":1600") || end.contains("\"total_tokens\": 1600"),
-            "total should be prompt + candidates + thoughts: {end}"
+            end.contains("\"total_tokens\":1520") || end.contains("\"total_tokens\": 1520"),
+            "total should be prompt + candidates: {end}"
         );
     }
 

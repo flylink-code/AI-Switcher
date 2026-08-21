@@ -78,6 +78,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
     let codex = crate::config::codex::read_mcp_servers()?;
     let opencode = crate::config::opencode::read_mcp_servers()?;
     let pi = crate::coding::pi::mcp::read_mcp_servers()?;
+    let cline = crate::coding::cline::mcp::read_mcp_servers()?;
 
     state.db.with_conn(|conn| {
         let mut imported = 0i64;
@@ -94,6 +95,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
                 codex.contains_key(name),
                 opencode.contains_key(name),
                 pi.contains_key(name),
+                cline.contains_key(name),
             )? {
                 imported += 1;
             } else {
@@ -113,6 +115,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
                 codex.contains_key(name),
                 opencode.contains_key(name),
                 pi.contains_key(name),
+                cline.contains_key(name),
             )? {
                 imported += 1;
             } else {
@@ -132,6 +135,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
                 true,
                 opencode.contains_key(name),
                 pi.contains_key(name),
+                cline.contains_key(name),
             )? {
                 imported += 1;
             } else {
@@ -151,6 +155,7 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
                 false,
                 true,
                 pi.contains_key(name),
+                cline.contains_key(name),
             )? {
                 imported += 1;
             } else {
@@ -165,7 +170,32 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
             {
                 continue;
             }
-            if dao::import_mcp_entry(conn, name, cfg, false, false, false, false, true)? {
+            if dao::import_mcp_entry(
+                conn,
+                name,
+                cfg,
+                false,
+                false,
+                false,
+                false,
+                true,
+                cline.contains_key(name),
+            )? {
+                imported += 1;
+            } else {
+                updated += 1;
+            }
+        }
+        for (name, cfg) in &cline {
+            if code.contains_key(name)
+                || desktop.contains_key(name)
+                || codex.contains_key(name)
+                || opencode.contains_key(name)
+                || pi.contains_key(name)
+            {
+                continue;
+            }
+            if dao::import_mcp_entry(conn, name, cfg, false, false, false, false, false, true)? {
                 imported += 1;
             } else {
                 updated += 1;
@@ -200,6 +230,7 @@ pub async fn install_mcp_registry_server(
         enabled_codex: false,
         enabled_opencode: false,
         enabled_pi: false,
+        enabled_cline: false,
     };
     let saved = state.db.with_conn(|conn| dao::upsert_mcp_server(conn, &input))?;
     sync_all(&state)?;
@@ -233,5 +264,6 @@ pub fn sync_all(state: &AppState) -> AppResult<()> {
     mcp::sync_to_files(&servers)?;
     crate::config::codex::sync_mcp_servers(&servers)?;
     crate::config::opencode::sync_mcp_servers(&servers)?;
-    crate::coding::pi::mcp::sync_mcp_servers(&servers)
+    crate::coding::pi::mcp::sync_mcp_servers(&servers)?;
+    crate::coding::cline::mcp::sync_mcp_servers(&servers)
 }

@@ -119,7 +119,28 @@ export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps)
   );
 }
 
-/** DeepSeek Harness icon. */
+/** Cline mark — distinct from DSH. */
+export function ClineIcon({ size = 16, style, className }: IconProps) {
+  return (
+    <SvgShell size={size} className={className} style={{ color: "#0EA5E9", ...style }}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        d="M17.2 7.2a6.4 6.4 0 1 0 0 9.6"
+      />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13.2 12H20l-2.2-2.2M20 12l-2.2 2.2"
+      />
+    </SvgShell>
+  );
+}
 export function DshIcon({ size = 16, style, className }: IconProps) {
   return (
     <SvgShell size={size} className={className} style={{ color: "#0066FF", ...style }}>
@@ -144,6 +165,8 @@ export function usageSourceIcon(source: UsageSourceFilter, props?: IconProps): R
       return <PiIcon {...props} />;
     case "dsh":
       return <DshIcon {...props} />;
+    case "cline":
+      return <ClineIcon {...props} />;
     case "antigravity":
       return <AntigravityOrbitIcon {...props} />;
     default: {
@@ -184,5 +207,6 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "opencode", labelKey: "usage.sourceOpenCode" },
   { value: "pi", labelKey: "workspace.pi" },
   { value: "dsh", labelKey: "workspace.dsh" },
+  { value: "cline", labelKey: "workspace.cline" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];

@@ -16,6 +16,7 @@ pub const SKIP_VALIDATOR_SENTINEL: &str = "skip_thought_signature_validator";
 
 const MAX_TOOL_SIGS: usize = 1024;
 const MAX_SESSION_SIGS: usize = 256;
+const MAX_SESSION_INDEX_SIGS: usize = 2048;
 
 #[derive(Default)]
 struct Cache {
@@ -23,6 +24,8 @@ struct Cache {
     tool: HashMap<String, String>,
     /// session_key → 最近一次签名（同会话兜底）。
     session: HashMap<String, String>,
+    /// (session_key, message_index) → signature for remapped tool ids.
+    session_index: HashMap<(String, usize), String>,
 }
 
 fn store() -> &'static Mutex<Cache> {
@@ -91,6 +94,53 @@ pub fn get_session_signature(session_key: &str) -> Option<String> {
     lock().session.get(key).cloned()
 }
 
+pub fn cache_session_index_signature(session_key: &str, index: usize, signature: &str) {
+    let key = session_key.trim();
+    if key.is_empty() || !usable(signature) {
+        return;
+    }
+    let mut guard = lock();
+    let map_key = (key.to_string(), index);
+    if guard.session_index.len() >= MAX_SESSION_INDEX_SIGS && !guard.session_index.contains_key(&map_key)
+    {
+        if let Some(evict) = guard.session_index.keys().next().cloned() {
+            guard.session_index.remove(&evict);
+        }
+    }
+    guard.session_index.insert(map_key, signature.to_string());
+}
+
+pub fn get_session_index_signature(session_key: &str, index: usize) -> Option<String> {
+    let key = session_key.trim();
+    if key.is_empty() {
+        return None;
+    }
+    lock().session_index.get(&(key.to_string(), index)).cloned()
+}
+
+pub fn resolve_function_call_signature(
+    tool_use_id: Option<&str>,
+    session_key: Option<&str>,
+    message_index: Option<usize>,
+) -> String {
+    if let Some(id) = tool_use_id {
+        if let Some(signature) = get_tool_signature(id) {
+            return signature;
+        }
+    }
+    if let (Some(session), Some(index)) = (session_key, message_index) {
+        if let Some(signature) = get_session_index_signature(session, index) {
+            return signature;
+        }
+    }
+    if let Some(session) = session_key {
+        if let Some(signature) = get_session_signature(session) {
+            return signature;
+        }
+    }
+    SKIP_VALIDATOR_SENTINEL.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +175,23 @@ mod tests {
         cache_session_signature("sess_mod_sentinel", SKIP_VALIDATOR_SENTINEL);
         assert_eq!(get_tool_signature("toolu_mod_sentinel"), None);
         assert_eq!(get_session_signature("sess_mod_sentinel"), None);
+    }
+
+    #[test]
+    fn session_index_roundtrip_is_independent_of_latest() {
+        cache_session_signature("sess_idx_rt", "latest-sig");
+        cache_session_index_signature("sess_idx_rt", 2, "turn-2-sig");
+        assert_eq!(
+            get_session_index_signature("sess_idx_rt", 2).as_deref(),
+            Some("turn-2-sig")
+        );
+        assert_eq!(
+            resolve_function_call_signature(None, Some("sess_idx_rt"), Some(2)).as_str(),
+            "turn-2-sig"
+        );
+        assert_eq!(
+            resolve_function_call_signature(None, Some("sess_idx_rt"), Some(9)).as_str(),
+            "latest-sig"
+        );
     }
 }

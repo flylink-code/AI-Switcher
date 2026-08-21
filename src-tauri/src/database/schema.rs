@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 25;
+pub const SCHEMA_VERSION: u32 = 26;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -76,6 +76,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             enabled_codex          BOOLEAN NOT NULL DEFAULT 0,
             enabled_opencode       BOOLEAN NOT NULL DEFAULT 0,
             enabled_pi             BOOLEAN NOT NULL DEFAULT 0,
+            enabled_cline          BOOLEAN NOT NULL DEFAULT 0,
             sort_index    INTEGER NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
@@ -234,6 +235,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 25 {
         migrate_v24_to_v25(conn)?;
+    }
+    if current < 26 {
+        migrate_v25_to_v26(conn)?;
     }
     Ok(())
 }
@@ -893,6 +897,20 @@ fn migrate_v24_to_v25(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 25)
+}
+
+fn migrate_v25_to_v26(conn: &Connection) -> AppResult<()> {
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('mcp_servers') WHERE name = 'enabled_cline';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(
+            "ALTER TABLE mcp_servers ADD COLUMN enabled_cline BOOLEAN NOT NULL DEFAULT 0;",
+        )?;
+    }
+    set_user_version(conn, 26)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

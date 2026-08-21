@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::provider::{
-    catalog_models_from_provider, effective_model_context_window, resolve_upstream_model,
+    catalog_models_from_provider, resolve_upstream_model,
     ProtocolType, Provider, ProviderTarget, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID,
     CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
 };
@@ -183,13 +183,14 @@ pub fn build_catalog_with(
         let slug = provider_slug(&provider.name, &provider.id);
         let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
         let web_search_enabled = !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
-        let context_window = effective_model_context_window(provider);
         for upstream in collect_provider_slugs_with(provider, cached, hide_official) {
-            let public_id = unique_public_id(style, &upstream, &slug, &mut taken);
+            let (slug_id, _) = crate::provider::split_model_window_label(&upstream);
+            let context_window = crate::provider::context_window_for_model(provider, &upstream);
+            let public_id = unique_public_id(style, &slug_id, &slug, &mut taken);
             entries.push(CatalogEntry {
                 public_id,
-                display_name: format!("{} · {}", provider.name.trim(), upstream),
-                upstream_slug: upstream,
+                display_name: format!("{} · {}", provider.name.trim(), slug_id),
+                upstream_slug: slug_id,
                 provider_id: provider.id.clone(),
                 context_window,
                 anthropic_upstream,

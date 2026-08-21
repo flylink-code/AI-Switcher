@@ -12,6 +12,7 @@ mod codex_auto_review;
 mod codex_chat;
 mod codex_compact;
 mod codex_history;
+mod web_tools;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -78,6 +79,7 @@ pub struct ProxyManager {
     desktop: Option<ProxyRuntime>,
     codex: Option<ProxyRuntime>,
     pi: Option<ProxyRuntime>,
+    cline: Option<ProxyRuntime>,
 }
 
 struct ProxyRuntime {
@@ -98,6 +100,7 @@ impl ProxyManager {
             desktop: None,
             codex: None,
             pi: None,
+            cline: None,
         }
     }
 
@@ -108,6 +111,7 @@ impl ProxyManager {
             ProviderTarget::Codex => self.codex.as_ref(),
             ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
             ProviderTarget::Pi => self.pi.as_ref(),
+            ProviderTarget::Cline => self.cline.as_ref(),
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
         ProxyStatus {
@@ -119,6 +123,7 @@ impl ProxyManager {
                 ProviderTarget::OpenCode => DEFAULT_PORT + 3,
                 ProviderTarget::Pi => DEFAULT_PORT + 4,
                 ProviderTarget::Dsh => DEFAULT_PORT + 5,
+                ProviderTarget::Cline => DEFAULT_PORT + 6,
             }),
             target_provider: if running {
                 self.db.with_conn(|conn| get_current_provider(conn, target)).ok().flatten().map(|provider| provider.name)
@@ -142,6 +147,7 @@ impl ProxyManager {
             ProviderTarget::Codex => self.codex.as_ref(),
             ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
             ProviderTarget::Pi => self.pi.as_ref(),
+            ProviderTarget::Cline => self.cline.as_ref(),
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
             return Ok(());
@@ -169,7 +175,7 @@ impl ProxyManager {
             started_at: Instant::now(),
         };
 
-        let app = if target == ProviderTarget::Codex {
+        let app = if matches!(target, ProviderTarget::Codex | ProviderTarget::Cline) {
             Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
@@ -223,6 +229,7 @@ impl ProxyManager {
             ProviderTarget::Codex => self.codex.replace(runtime),
             ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
             ProviderTarget::Pi => self.pi.replace(runtime),
+            ProviderTarget::Cline => self.cline.replace(runtime),
         };
         if let Some(previous) = previous {
             let _ = previous.shutdown_tx.send(());
@@ -239,6 +246,7 @@ impl ProxyManager {
         self.stop_target(ProviderTarget::ClaudeDesktop);
         self.stop_target(ProviderTarget::Codex);
         self.stop_target(ProviderTarget::Pi);
+        self.stop_target(ProviderTarget::Cline);
         log::info!("本地代理已停止");
     }
 
@@ -250,6 +258,7 @@ impl ProxyManager {
         self.stop_target_graceful(ProviderTarget::ClaudeDesktop).await;
         self.stop_target_graceful(ProviderTarget::Codex).await;
         self.stop_target_graceful(ProviderTarget::Pi).await;
+        self.stop_target_graceful(ProviderTarget::Cline).await;
         log::info!("本地代理已优雅停止");
     }
 
@@ -260,6 +269,7 @@ impl ProxyManager {
             ProviderTarget::Codex => self.codex.take(),
             ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
             ProviderTarget::Pi => self.pi.take(),
+            ProviderTarget::Cline => self.cline.take(),
         };
         if let Some(runtime) = runtime {
             let _ = runtime.shutdown_tx.send(());
@@ -274,6 +284,7 @@ impl ProxyManager {
             ProviderTarget::Codex => self.codex.take(),
             ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
             ProviderTarget::Pi => self.pi.take(),
+            ProviderTarget::Cline => self.cline.take(),
         };
         let Some(runtime) = runtime else {
             return;
@@ -914,7 +925,8 @@ async fn proxy_handler(
     };
     let incoming_stream = convert::wants_stream(&incoming);
     let mut incoming = incoming;
-    let mut body_bytes = body_bytes;
+    web_tools::rewrite_server_tools(&mut incoming);
+    let mut body_bytes = Bytes::from(serde_json::to_vec(&incoming).unwrap_or_else(|_| body_bytes.to_vec()));
     let mut requested_model = incoming
         .get("model")
         .and_then(Value::as_str)
@@ -1060,6 +1072,61 @@ async fn proxy_handler(
             }
         }
     };
+
+    if is_retryable_upstream_status(&state, upstream_resp.status())
+        && should_failover_upstream_status(&provider, upstream_resp.status())
+    {
+        // Ordered model fallback on the same provider before walking other vendors.
+        // Only used before any client bytes are written.
+        for next_model in provider.failover_models.clone() {
+            let next_model = next_model.trim().to_string();
+            if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
+                continue;
+            }
+            if let Some(object) = incoming.as_object_mut() {
+                object.insert("model".to_string(), Value::String(next_model.clone()));
+            }
+            body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &next_model));
+            requested_model = next_model.clone();
+            let Ok(fallback_prepared) = prepare_upstream_request(
+                &state,
+                &mut provider,
+                &method,
+                &headers,
+                &incoming,
+                &body_bytes,
+                incoming_stream,
+            ) else {
+                continue;
+            };
+            translated = fallback_prepared.translated;
+            retry_without_stream_options =
+                compatible_stream_retry(&provider, &fallback_prepared, incoming_stream);
+            match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
+                .body(fallback_prepared.outgoing_body)
+                .send()
+                .await
+            {
+                Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
+                    failover_trace.push(format!("{} 模型 {} 接管", provider.name, next_model));
+                    upstream_resp = response;
+                    break;
+                }
+                Ok(response) => {
+                    failover_trace.push(format!(
+                        "{} 模型 {} 状态码 {}",
+                        provider.name,
+                        next_model,
+                        response.status()
+                    ));
+                    upstream_resp = response;
+                }
+                Err(error) => {
+                    failover_trace.push(format!("{} 模型 {} 失败: {error}", provider.name, next_model));
+                }
+            }
+        }
+    }
 
     if is_retryable_upstream_status(&state, upstream_resp.status())
         && should_failover_upstream_status(&provider, upstream_resp.status())
@@ -1487,6 +1554,8 @@ async fn proxy_handler(
             ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
             _ => convert::openai_chat_to_anthropic(&upstream, provider.model.trim()),
         };
+        let mut anthropic = anthropic;
+        let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
         if let Some(id) = log_id.as_deref() {
             update_log_usage(
                 &state,
@@ -1535,6 +1604,15 @@ async fn proxy_handler(
                 );
                 return json_error(StatusCode::BAD_GATEWAY, format!("读取上游响应失败: {e}"));
             }
+        };
+        let response_bytes = if let Ok(mut json) = serde_json::from_slice::<Value>(&response_bytes) {
+            if web_tools::materialize_web_tool_uses(&mut json) {
+                Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| response_bytes.to_vec()))
+            } else {
+                response_bytes
+            }
+        } else {
+            response_bytes
         };
         if !status.is_success() {
             update_log_diagnostic(

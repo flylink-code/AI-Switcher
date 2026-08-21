@@ -43,6 +43,7 @@ pub use antigravity::{
     refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
     set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
     set_antigravity_limiter_settings, get_antigravity_limiter_settings,
+    get_antigravity_fast_path_settings, set_antigravity_fast_path_settings,
     set_antigravity_outbound_proxy, start_antigravity_gateway,
     start_antigravity_oauth_login, stop_antigravity_gateway,
 };
@@ -68,8 +69,9 @@ pub use codex_oauth::{
 };
 pub use app_update::{check_app_update, install_app_update};
 pub use backup::{
-    backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup,
-    restore_library_backup,
+    backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings,
+    preview_library_backup, restore_library_backup, restore_library_from_webdav,
+    set_webdav_settings, upload_library_to_webdav,
 };
 pub use db::get_db_info;
 pub use data_root::{get_data_root, migrate_data_root};
@@ -142,8 +144,8 @@ pub use system::{
     set_close_behavior, get_update_mirror_settings, set_update_mirror_settings,
 };
 pub use sync::{
-    delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync,
-    push_sync_archive, save_sync_target,
+    delete_sync_target, discover_wsl_distributions, get_wsl_runtime_status, list_sync_targets,
+    preview_sync, push_sync_archive, save_sync_target, sync_wsl_direct,
 };
 pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
 pub use pi::{

@@ -35,6 +35,7 @@ mod system_proxy;
 mod tray;
 mod usage;
 mod usage_events;
+mod wsl_direct;
 
 #[cfg(windows)]
 mod autostart_windows;
@@ -56,7 +57,7 @@ use crate::commands::{
     install_claude_plugin, list_claude_plugin_catalog, update_claude_plugin,
     update_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
     sync_codex_session_providers,
-    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, preview_library_backup, restore_library_backup, copy_provider_to_target, create_provider, delete_mcp_server, delete_prompt,
+    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings, preview_library_backup, restore_library_backup, restore_library_from_webdav, set_webdav_settings, upload_library_to_webdav, copy_provider_to_target, create_provider, delete_mcp_server, delete_prompt,
     delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
@@ -65,6 +66,7 @@ use crate::commands::{
     refresh_antigravity_account_quota, refresh_antigravity_quotas, remove_antigravity_account,
     set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
     get_antigravity_limiter_settings, set_antigravity_limiter_settings,
+    get_antigravity_fast_path_settings, set_antigravity_fast_path_settings,
     set_antigravity_outbound_proxy, start_antigravity_gateway, start_antigravity_oauth_login,
     stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
@@ -103,7 +105,7 @@ use crate::commands::{
     trash_claude_code_session,
     backup_sessions, export_session, export_session_markdown, export_sessions, import_session, list_trashed_sessions,
     restore_trashed_session, trash_session,
-    delete_sync_target, discover_wsl_distributions, list_sync_targets, preview_sync, push_sync_archive, save_sync_target,
+    delete_sync_target, discover_wsl_distributions, get_wsl_runtime_status, list_sync_targets, preview_sync, push_sync_archive, save_sync_target, sync_wsl_direct,
     set_app_language, get_update_mirror_settings, set_update_mirror_settings,
     restart_app,
     dismiss_onboarding_tip, get_close_behavior, get_dismissed_onboarding_tips, migrate_data_root,
@@ -222,6 +224,10 @@ pub fn run() {
             find_latest_library_archive_cmd,
             preview_library_backup,
             restore_library_backup,
+            get_webdav_settings,
+            set_webdav_settings,
+            upload_library_to_webdav,
+            restore_library_from_webdav,
             get_desktop_localization_status,
             get_localization_hub_status,
             download_desktop_localization_pack,
@@ -314,6 +320,8 @@ pub fn run() {
             set_antigravity_outbound_proxy,
             get_antigravity_limiter_settings,
             set_antigravity_limiter_settings,
+            get_antigravity_fast_path_settings,
+            set_antigravity_fast_path_settings,
             start_antigravity_gateway,
             start_antigravity_oauth_login,
             stop_antigravity_gateway,
@@ -416,6 +424,8 @@ pub fn run() {
             save_sync_target,
             delete_sync_target,
             discover_wsl_distributions,
+            get_wsl_runtime_status,
+            sync_wsl_direct,
             preview_sync,
             push_sync_archive,
             set_app_language,

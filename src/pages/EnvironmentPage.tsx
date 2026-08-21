@@ -55,6 +55,12 @@ import {
   setCodexWebSearchMode,
   deleteSyncTarget,
   discoverWslDistributions,
+  getWslRuntimeStatus,
+  getWebDavSettings,
+  setWebDavSettings,
+  syncWslDirect,
+  uploadLibraryToWebDav,
+  restoreLibraryFromWebDav,
   migrateDataRoot,
   listConfigBackups,
   ping,
@@ -150,6 +156,16 @@ export default function EnvironmentPage() {
   const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [syncPassword, setSyncPassword] = useState("");
   const [syncPasswordOpen, setSyncPasswordOpen] = useState(false);
+  const [webdavUrl, setWebdavUrl] = useState("");
+  const [webdavUser, setWebdavUser] = useState("");
+  const [webdavPassword, setWebdavPassword] = useState("");
+  const [webdavPath, setWebdavPath] = useState("/library.zip");
+
+  const wslStatusQuery = useQuery({ queryKey: ["wsl-runtime"], queryFn: getWslRuntimeStatus });
+  const webdavQuery = useQuery({
+    queryKey: ["webdav-settings"],
+    queryFn: getWebDavSettings,
+  });
 
   const onPing = useCallback(async () => {
     setRunning(true);
@@ -798,6 +814,116 @@ export default function EnvironmentPage() {
               <Popconfirm key="delete" title={t("env.confirmDeleteSync")} onConfirm={() => void removeSync(target)}><Button danger size="small">{t("usage.delete")}</Button></Popconfirm>,
             ]}><Space><Tag>{target.kind.toUpperCase()}</Tag><Text>{target.name}</Text><Text type="secondary">{target.remoteRoot}</Text></Space></List.Item>}
           />
+        </Card>
+
+        <Card size="small" className="page-surface" title={t("env.sections.wslDirect")}>
+          <Space direction="vertical" size="small" style={{ width: "100%" }}>
+            <Text type="secondary">{t("env.wslDirectHint")}</Text>
+            {wslStatusQuery.data && (
+              <Space wrap>
+                <Tag>{wslStatusQuery.data.location}</Tag>
+                {wslStatusQuery.data.distro && <Tag>{wslStatusQuery.data.distro}</Tag>}
+                {wslStatusQuery.data.linuxHome && <Text code>{wslStatusQuery.data.linuxHome}</Text>}
+              </Space>
+            )}
+            {wslStatusQuery.data?.skipCopy ? (
+              <Alert type="info" showIcon message={t("env.wslDirectSkip")} />
+            ) : (
+              <Button
+                size="small"
+                loading={running}
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      await syncWslDirect();
+                      await wslStatusQuery.refetch();
+                      void message.success(t("env.wslDirectSync"));
+                    } catch (error) {
+                      void message.error(error instanceof Error ? error.message : String(error));
+                    }
+                  })();
+                }}
+              >
+                {t("env.wslDirectSync")}
+              </Button>
+            )}
+          </Space>
+        </Card>
+
+        <Card size="small" className="page-surface" title={t("env.sections.webdav")}>
+          <Space direction="vertical" size="small" style={{ width: "100%" }}>
+            <Text type="secondary">{t("env.webdavHint")}</Text>
+            <Input
+              value={webdavUrl || webdavQuery.data?.url || ""}
+              onChange={(event) => setWebdavUrl(event.target.value)}
+              placeholder={t("env.webdavUrl")}
+            />
+            <Input
+              value={webdavUser || webdavQuery.data?.username || ""}
+              onChange={(event) => setWebdavUser(event.target.value)}
+              placeholder={t("env.webdavUser")}
+            />
+            <Input.Password
+              value={webdavPassword}
+              onChange={(event) => setWebdavPassword(event.target.value)}
+              placeholder={t("env.webdavPassword")}
+            />
+            <Input
+              value={webdavPath || webdavQuery.data?.remotePath || "/library.zip"}
+              onChange={(event) => setWebdavPath(event.target.value)}
+              placeholder={t("env.webdavPath")}
+            />
+            <Space wrap>
+              <Button
+                size="small"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      await setWebDavSettings({
+                        url: webdavUrl || webdavQuery.data?.url || "",
+                        username: webdavUser || webdavQuery.data?.username || "",
+                        remotePath: webdavPath || webdavQuery.data?.remotePath || "/library.zip",
+                        password: webdavPassword || null,
+                      });
+                      await webdavQuery.refetch();
+                      void message.success(t("env.webdavSave"));
+                    } catch (error) {
+                      void message.error(error instanceof Error ? error.message : String(error));
+                    }
+                  })();
+                }}
+              >
+                {t("env.webdavSave")}
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      const url = await uploadLibraryToWebDav(false);
+                      void message.success(url);
+                    } catch (error) {
+                      void message.error(error instanceof Error ? error.message : String(error));
+                    }
+                  })();
+                }}
+              >
+                {t("env.webdavUpload")}
+              </Button>
+              <Popconfirm title={t("env.webdavRestore")} onConfirm={() => {
+                void (async () => {
+                  try {
+                    await restoreLibraryFromWebDav();
+                    void message.success(t("env.webdavRestore"));
+                  } catch (error) {
+                    void message.error(error instanceof Error ? error.message : String(error));
+                  }
+                })();
+              }}>
+                <Button danger size="small">{t("env.webdavRestore")}</Button>
+              </Popconfirm>
+            </Space>
+          </Space>
         </Card>
 
         {db && (

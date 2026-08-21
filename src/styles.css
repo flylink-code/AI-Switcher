@@ -621,27 +621,12 @@ body {
   flex-wrap: wrap;
 }
 
-/* Proxy page: Providers-style header + compact context + balanced panels */
+/* Proxy page: Providers-style header + compact route context */
 .proxy-context-strip {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   line-height: 1.5;
   padding: 0 2px;
-}
-
-.proxy-panels-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  width: 100%;
-  min-width: 0;
-  align-items: start;
-}
-
-@media (min-width: 1024px) {
-  .proxy-panels-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .cc-provider-list {

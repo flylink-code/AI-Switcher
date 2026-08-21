@@ -3,6 +3,7 @@ import type {
   AntigravityAccountPublic,
   AntigravityCatalogModel,
   AntigravityDefaults,
+  AntigravityFastPathSettings,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
   PoolQuotaWarning,
@@ -14,6 +15,7 @@ export type {
   AntigravityAccountPublic,
   AntigravityCatalogModel,
   AntigravityDefaults,
+  AntigravityFastPathSettings,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
   AntigravityModelQuota,
@@ -81,6 +83,18 @@ export async function setAntigravityLimiterSettings(
   settings: AntigravityLimiterSettings,
 ): Promise<AntigravityLimiterSettings> {
   return call<AntigravityLimiterSettings>("set_antigravity_limiter_settings", {
+    settings,
+  });
+}
+
+export async function getAntigravityFastPathSettings(): Promise<AntigravityFastPathSettings> {
+  return call<AntigravityFastPathSettings>("get_antigravity_fast_path_settings");
+}
+
+export async function setAntigravityFastPathSettings(
+  settings: AntigravityFastPathSettings,
+): Promise<AntigravityFastPathSettings> {
+  return call<AntigravityFastPathSettings>("set_antigravity_fast_path_settings", {
     settings,
   });
 }
