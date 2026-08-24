@@ -569,6 +569,7 @@ pub async fn quarantine_failed_providers(
                     failover_models: provider.failover_models,
                     hidden_models: provider.hidden_models,
                     thinking_config: provider.thinking_config,
+                    custom_headers: provider.custom_headers,
                 };
                 let _ = dao::upsert_provider(conn, &input)?;
                 Ok(true)
@@ -731,7 +732,7 @@ async fn discover_provider_models_with_key(
 
     let urls = model_discovery_urls(&provider.base_url)?;
     let client = discovery_http_client(urls.first().map(String::as_str).unwrap_or(""))?;
-    let discovered = fetch_discovered_models(&client, &urls, &key).await;
+    let discovered = fetch_discovered_models(&client, &urls, &key, provider.custom_headers.as_ref()).await;
     match discovered {
         Ok(models) => {
             if cache_result {
@@ -894,16 +895,26 @@ async fn fetch_discovered_models(
     client: &reqwest::Client,
     urls: &[String],
     key: &str,
+    custom_headers: Option<&std::collections::HashMap<String, String>>,
 ) -> Result<Vec<String>, String> {
     let mut last_error = "无法连接模型发现端点".to_string();
     for url in urls {
-        let response = client
+        let mut request = client
             .get(url)
             .header(header::AUTHORIZATION, format!("Bearer {key}"))
             .header("x-api-key", key)
-            .header("anthropic-version", "2023-06-01")
-            .send()
-            .await;
+            .header("anthropic-version", "2023-06-01");
+        if let Some(headers) = custom_headers {
+            for (k, v) in headers {
+                if !crate::proxy::is_hop_by_hop_header(k)
+                    && !k.eq_ignore_ascii_case("host")
+                    && !k.eq_ignore_ascii_case("content-length")
+                {
+                    request = request.header(k.as_str(), v.as_str());
+                }
+            }
+        }
+        let response = request.send().await;
         match response {
             Ok(response) if response.status().is_success() => {
                 let parsed = match response.bytes().await {
@@ -1158,6 +1169,7 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
                         .map(|p| p.hidden_models.clone())
                         .unwrap_or_default(),
                     thinking_config: matched.and_then(|p| p.thinking_config.clone()),
+                    custom_headers: matched.and_then(|p| p.custom_headers.clone()),
                 },
             )
         })?;
@@ -1216,6 +1228,7 @@ pub fn export_providers(target: ProviderTarget, state: tauri::State<'_, AppState
             failover_models: provider.failover_models,
             hidden_models: provider.hidden_models,
             thinking_config: provider.thinking_config,
+            custom_headers: provider.custom_headers,
         }).collect(),
     };
     Ok(serde_json::to_string_pretty(&bundle)?)
@@ -1271,6 +1284,7 @@ pub async fn import_providers_json(
             failover_models: entry.failover_models,
             hidden_models: entry.hidden_models,
             thinking_config: entry.thinking_config,
+            custom_headers: entry.custom_headers,
         }))?;
         if target_app == ProviderTarget::OpenCode {
             touched_opencode = true;
@@ -1747,6 +1761,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                         failover_models: provider.failover_models.clone(),
                         hidden_models: provider.hidden_models.clone(),
                         thinking_config: provider.thinking_config.clone(),
+                        custom_headers: provider.custom_headers.clone(),
                     },
                 )
             });
@@ -2676,6 +2691,16 @@ async fn test_provider_with_key(
             if matches!(provider.protocol_type, ProtocolType::Anthropic) {
                 request = request.header("anthropic-version", "2023-06-01");
             }
+            if let Some(ref custom_headers) = provider.custom_headers {
+                for (k, v) in custom_headers {
+                    if !crate::proxy::is_hop_by_hop_header(k)
+                        && !k.eq_ignore_ascii_case("host")
+                        && !k.eq_ignore_ascii_case("content-length")
+                    {
+                        request = request.header(k.as_str(), v.as_str());
+                    }
+                }
+            }
             let started = std::time::Instant::now();
             let response = request.body(serde_json::to_vec(&payload)?).send().await;
             let latency_ms = Some(started.elapsed().as_millis() as u64);
@@ -2740,6 +2765,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         failover_models: input.failover_models.clone(),
         hidden_models: input.hidden_models.clone(),
         thinking_config: input.thinking_config.clone(),
+        custom_headers: input.custom_headers.clone(),
         is_current: false, created_at: 0,
         health_status: None, health_checked_at: None, health_latency_ms: None,
     })
@@ -2891,6 +2917,7 @@ fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &
         failover_models: Vec::new(),
         hidden_models: Vec::new(),
         thinking_config: None,
+        custom_headers: None,
     };
     let provider = state.db.with_conn(|conn| dao::upsert_provider(conn, &input))?;
     state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id))
@@ -3059,6 +3086,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -3236,6 +3264,7 @@ mod tests {
             failover_models: vec!["gemini-3.7-flash".into()],
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,

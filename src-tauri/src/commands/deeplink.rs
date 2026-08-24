@@ -111,6 +111,7 @@ pub fn build_provider_deeplink(
         failover_models: provider.failover_models,
         hidden_models: provider.hidden_models,
         thinking_config: provider.thinking_config,
+        custom_headers: provider.custom_headers,
     })
 }
 

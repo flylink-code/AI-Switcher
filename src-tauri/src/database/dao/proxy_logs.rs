@@ -1001,6 +1001,7 @@ pub struct ProxyRequestLog {
     pub is_stream: bool,
     pub error_category: Option<String>,
     pub diagnostic: Option<String>,
+    pub stream_outcome: Option<String>,
     pub data_source: String,
     pub session_id: Option<String>,
 }
@@ -1019,6 +1020,37 @@ pub struct ProxyLogFilters {
     pub since: Option<i64>,
     pub target_app: Option<String>,
     pub status_code: Option<i64>,
+    pub only_failures: Option<bool>,
+}
+
+pub fn update_proxy_log_stream_outcome(
+    conn: &Connection,
+    id: &str,
+    stream_outcome: &str,
+    duration_ms: Option<i64>,
+    error_category: Option<&str>,
+    diagnostic: Option<&str>,
+) -> AppResult<()> {
+    if let Some(duration) = duration_ms {
+        conn.execute(
+            "UPDATE proxy_request_logs
+             SET stream_outcome = ?, duration_ms = ?,
+                 error_category = COALESCE(?, error_category),
+                 diagnostic = COALESCE(?, diagnostic)
+             WHERE id = ?;",
+            params![stream_outcome, duration, error_category, diagnostic, id],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE proxy_request_logs
+             SET stream_outcome = ?,
+                 error_category = COALESCE(?, error_category),
+                 diagnostic = COALESCE(?, diagnostic)
+             WHERE id = ?;",
+            params![stream_outcome, error_category, diagnostic, id],
+        )?;
+    }
+    Ok(())
 }
 
 pub fn list_proxy_request_logs(
@@ -1046,6 +1078,9 @@ pub fn list_proxy_request_logs(
         conditions.push("l.status_code = ?".to_string());
         params.push(Box::new(status_code));
     }
+    if filters.only_failures.unwrap_or(false) {
+        conditions.push("(l.status_code >= 400 OR l.error_category IS NOT NULL OR l.stream_outcome IN ('midstream_error', 'cancelled'))".to_string());
+    }
 
     let where_clause = if conditions.is_empty() {
         format!("WHERE 1=1 {EFFECTIVE_USAGE_FILTER}")
@@ -1062,7 +1097,7 @@ pub fn list_proxy_request_logs(
                 l.input_tokens, l.cache_read_input_tokens, l.cache_creation_input_tokens,
                 l.output_tokens, l.usage_available, l.duration_ms, l.target_app, l.protocol, l.route,
                 l.is_stream, l.error_category, l.diagnostic,
-                COALESCE(l.data_source, 'proxy'), l.session_id
+                COALESCE(l.data_source, 'proxy'), l.session_id, l.stream_outcome
          FROM proxy_request_logs l
          {where_clause}
          ORDER BY l.created_at DESC
@@ -1095,6 +1130,7 @@ pub fn list_proxy_request_logs(
             diagnostic: row.get(17)?,
             data_source: row.get(18)?,
             session_id: row.get(19)?,
+            stream_outcome: row.get(20)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;

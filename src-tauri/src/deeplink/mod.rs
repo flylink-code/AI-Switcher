@@ -487,6 +487,7 @@ pub fn provider_inputs_from_preview(preview: &ImportPreview) -> AppResult<Vec<Pr
             failover_models: entry.failover_models,
             hidden_models: entry.hidden_models,
             thinking_config: entry.thinking_config,
+            custom_headers: entry.custom_headers,
         });
     }
     Ok(inputs)
@@ -541,6 +542,7 @@ mod tests {
             failover_models: vec!["gpt-5".into()],
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
         };
         let link = build_provider_share_link(&entry).unwrap();
         assert!(link.starts_with("ai-switcher://v1/import?resource=provider&payload="));

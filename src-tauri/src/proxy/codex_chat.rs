@@ -44,8 +44,18 @@ pub fn responses_to_chat_completions_body(body: &Value) -> Result<Value, String>
     }
     copy_if_present(body, &mut chat, "temperature");
     copy_if_present(body, &mut chat, "top_p");
+    copy_if_present(body, &mut chat, "enable_thinking");
     if let Some(effort) = extract_responses_effort(body) {
-        chat["reasoning_effort"] = json!(effort);
+        if effort == "none" {
+            if chat.get("enable_thinking").is_some() {
+                chat["enable_thinking"] = json!(false);
+            }
+        } else {
+            chat["reasoning_effort"] = json!(effort);
+            if chat.get("enable_thinking").is_some() {
+                chat["enable_thinking"] = json!(true);
+            }
+        }
     }
     if let Some(tools) = body.get("tools").and_then(Value::as_array) {
         let converted: Vec<Value> = tools.iter().filter_map(responses_tool_to_chat).collect();

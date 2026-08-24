@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 26;
+pub const SCHEMA_VERSION: u32 = 27;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -36,6 +36,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             failover_models TEXT NOT NULL DEFAULT '[]',
             hidden_models_json TEXT NOT NULL DEFAULT '[]',
             thinking_config_json TEXT NOT NULL DEFAULT '{}',
+            custom_headers_json TEXT NOT NULL DEFAULT '{}',
             is_current    BOOLEAN NOT NULL DEFAULT 0,
             created_at    INTEGER NOT NULL DEFAULT 0
         );",
@@ -103,6 +104,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             is_stream    BOOLEAN NOT NULL DEFAULT 0,
             error_category TEXT,
             diagnostic   TEXT,
+            stream_outcome TEXT,
             data_source  TEXT NOT NULL DEFAULT 'proxy',
             session_id   TEXT
         );
@@ -238,6 +240,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 26 {
         migrate_v25_to_v26(conn)?;
+    }
+    if current < 27 {
+        migrate_v26_to_v27(conn)?;
     }
     Ok(())
 }
@@ -911,6 +916,30 @@ fn migrate_v25_to_v26(conn: &Connection) -> AppResult<()> {
         )?;
     }
     set_user_version(conn, 26)
+}
+
+fn migrate_v26_to_v27(conn: &Connection) -> AppResult<()> {
+    let has_stream_outcome: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'stream_outcome';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_stream_outcome == 0 {
+        conn.execute_batch(
+            "ALTER TABLE proxy_request_logs ADD COLUMN stream_outcome TEXT;",
+        )?;
+    }
+    let has_custom_headers: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'custom_headers_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_custom_headers == 0 {
+        conn.execute_batch(
+            "ALTER TABLE providers ADD COLUMN custom_headers_json TEXT NOT NULL DEFAULT '{}';",
+        )?;
+    }
+    set_user_version(conn, 27)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {

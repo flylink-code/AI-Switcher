@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use super::account::{store, AntigravityAccount};
 use super::limiter::AccountLimiter;
+use super::quota::{quota_family_from_model, QuotaFamily};
 use crate::error::{AppError, AppResult};
 
 const DEFAULT_COOLDOWN_SECS: i64 = 20;
@@ -57,12 +58,18 @@ impl AccountPool {
         self: &Arc<Self>,
         preferred_account_id: Option<&str>,
         session_key: Option<&str>,
+        requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
         let pool = Arc::clone(self);
         let preferred = preferred_account_id.map(str::to_owned);
         let session = session_key.map(str::to_owned);
+        let model = requested_model.map(str::to_owned);
         tokio::task::spawn_blocking(move || {
-            pool.select(preferred.as_deref(), session.as_deref())
+            pool.select(
+                preferred.as_deref(),
+                session.as_deref(),
+                model.as_deref(),
+            )
         })
         .await
         .map_err(|error| AppError::Other(format!("Antigravity 账号选择任务失败: {error}")))?
@@ -75,13 +82,21 @@ impl AccountPool {
         status: u16,
         session_key: Option<&str>,
         exclude: &[String],
+        requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
         let pool = Arc::clone(self);
         let failed = failed_account_id.to_owned();
         let session = session_key.map(str::to_owned);
         let exclude = exclude.to_vec();
+        let model = requested_model.map(str::to_owned);
         tokio::task::spawn_blocking(move || {
-            pool.rotate_after_failure(&failed, status, session.as_deref(), &exclude)
+            pool.rotate_after_failure(
+                &failed,
+                status,
+                session.as_deref(),
+                &exclude,
+                model.as_deref(),
+            )
         })
         .await
         .map_err(|error| AppError::Other(format!("Antigravity 账号轮换任务失败: {error}")))?
@@ -91,18 +106,16 @@ impl AccountPool {
         &self,
         preferred_account_id: Option<&str>,
         session_key: Option<&str>,
+        requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
+        let family = requested_family(requested_model);
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
-        let mut candidates: Vec<_> = accounts
-            .iter()
-            .filter(|account| account_is_schedulable(account, now))
-            .cloned()
-            .collect();
+        let mut candidates = collect_schedulable_with_family_fallback(&accounts, now, family);
         if candidates.is_empty() {
             // Desktop health probes + short upstream blips can cool every account
             // at once. Prefer a soft retry over hard-failing with "no accounts".
-            if let Some(soft) = soft_select_cooled_account(&accounts, now) {
+            if let Some(soft) = soft_select_cooled_account(&accounts, now, family) {
                 log::warn!(
                     "Antigravity pool: all accounts cooling; soft-selecting {}",
                     soft.email
@@ -127,6 +140,7 @@ impl AccountPool {
             preferred_account_id,
             sticky_id.as_deref(),
             self.limiter.as_deref(),
+            family,
         ) else {
             return Err(AppError::Other(explain_unavailable(&accounts, now)));
         };
@@ -152,7 +166,9 @@ impl AccountPool {
         status: u16,
         session_key: Option<&str>,
         exclude: &[String],
+        requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
+        let family = requested_family(requested_model);
         if status == 403 {
             let _ = store().mark_forbidden_403(failed_account_id, "上游返回 403 权限受限/账号异常");
         } else {
@@ -176,26 +192,20 @@ impl AccountPool {
         }
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
-        let mut candidates: Vec<_> = accounts
+        let remaining: Vec<_> = accounts
             .iter()
             .filter(|account| account.id != failed_account_id)
             .filter(|account| !exclude.contains(&account.id))
-            .filter(|account| account_is_schedulable(account, now))
             .cloned()
             .collect();
+        let mut candidates = collect_schedulable_with_family_fallback(&remaining, now, family);
         if candidates.is_empty() {
-            let remaining: Vec<_> = accounts
-                .iter()
-                .filter(|account| account.id != failed_account_id)
-                .filter(|account| !exclude.contains(&account.id))
-                .cloned()
-                .collect();
             if remaining.is_empty() {
                 return Err(AppError::Other(
                     "Antigravity 已尝试所有可用账号，上游均失败".into(),
                 ));
             }
-            if let Some(soft) = soft_select_cooled_account(&remaining, now) {
+            if let Some(soft) = soft_select_cooled_account(&remaining, now, family) {
                 log::warn!(
                     "Antigravity pool rotate: soft-selecting cooled {}",
                     soft.email
@@ -206,7 +216,7 @@ impl AccountPool {
                 return Err(AppError::Other(explain_unavailable(&remaining, now)));
             }
         }
-        sort_candidates_best_first(&mut candidates);
+        sort_candidates_best_first(&mut candidates, family);
         let account = &candidates[0];
         let selected = store().ensure_access_token(&account.id)?;
         self.bind_session(session_key, &selected.1.id);
@@ -227,12 +237,12 @@ impl AccountPool {
         let now = Utc::now().timestamp();
         let mut candidates: Vec<_> = accounts
             .into_iter()
-            .filter(|account| account_is_schedulable(account, now))
+            .filter(|account| account_is_schedulable(account, now, None))
             .collect();
         if candidates.is_empty() {
             return Ok(None);
         }
-        sort_candidates_best_first(&mut candidates);
+        sort_candidates_best_first(&mut candidates, None);
         Ok(candidates.into_iter().next())
     }
 
@@ -252,7 +262,7 @@ impl AccountPool {
         }
         let usable: Vec<_> = non_disabled
             .iter()
-            .filter(|a| account_is_schedulable(a, now))
+            .filter(|a| account_is_schedulable(a, now, None))
             .cloned()
             .collect();
         let total_usable = usable.len();
@@ -314,7 +324,69 @@ impl Default for AccountPool {
     }
 }
 
-fn account_is_schedulable(account: &AntigravityAccount, now: i64) -> bool {
+fn requested_family(requested_model: Option<&str>) -> Option<QuotaFamily> {
+    requested_model
+        .filter(|model| !model.is_empty())
+        .map(quota_family_from_model)
+}
+
+fn quota_usable(account: &AntigravityAccount, family: Option<QuotaFamily>) -> bool {
+    let Some(quota) = account.quota.as_ref() else {
+        return true;
+    };
+    match family {
+        Some(family) => quota.has_usable_quota_for_family(family),
+        None => quota.has_usable_quota(),
+    }
+}
+
+fn account_has_family_remaining(
+    account: &AntigravityAccount,
+    family: Option<QuotaFamily>,
+) -> bool {
+    match family {
+        None => true,
+        Some(family) => account
+            .quota
+            .as_ref()
+            .map(|quota| quota.has_usable_quota_for_family(family))
+            .unwrap_or(true),
+    }
+}
+
+fn collect_schedulable(
+    accounts: &[AntigravityAccount],
+    now: i64,
+    family: Option<QuotaFamily>,
+) -> Vec<AntigravityAccount> {
+    accounts
+        .iter()
+        .filter(|account| account_is_schedulable(account, now, family))
+        .cloned()
+        .collect()
+}
+
+fn collect_schedulable_with_family_fallback(
+    accounts: &[AntigravityAccount],
+    now: i64,
+    family: Option<QuotaFamily>,
+) -> Vec<AntigravityAccount> {
+    let mut candidates = collect_schedulable(accounts, now, family);
+    if candidates.is_empty() && family.is_some() {
+        log::warn!(
+            "Antigravity pool: no accounts with {:?} remaining; soft-fallback to any schedulable account",
+            family
+        );
+        candidates = collect_schedulable(accounts, now, None);
+    }
+    candidates
+}
+
+fn account_is_schedulable(
+    account: &AntigravityAccount,
+    now: i64,
+    family: Option<QuotaFamily>,
+) -> bool {
     if account.disabled {
         return false;
     }
@@ -324,12 +396,7 @@ fn account_is_schedulable(account: &AntigravityAccount, now: i64) -> bool {
     {
         return false;
     }
-    if let Some(quota) = account.quota.as_ref() {
-        if !quota.has_usable_quota() {
-            return false;
-        }
-    }
-    true
+    quota_usable(account, family)
 }
 
 /// When every otherwise-healthy account is only blocked by cooldown, pick the
@@ -337,6 +404,7 @@ fn account_is_schedulable(account: &AntigravityAccount, now: i64) -> bool {
 fn soft_select_cooled_account(
     accounts: &[AntigravityAccount],
     now: i64,
+    family: Option<QuotaFamily>,
 ) -> Option<AntigravityAccount> {
     let non_disabled: Vec<&AntigravityAccount> =
         accounts.iter().filter(|account| !account.disabled).collect();
@@ -345,24 +413,14 @@ fn soft_select_cooled_account(
     }
     let all_cooling = non_disabled.iter().all(|account| {
         account.cooldown_until.is_some_and(|until| until > now)
-            && account
-                .quota
-                .as_ref()
-                .map(|quota| quota.has_usable_quota())
-                .unwrap_or(true)
+            && quota_usable(account, family)
     });
     if !all_cooling {
         return None;
     }
     let mut cooled: Vec<&AntigravityAccount> = non_disabled
         .into_iter()
-        .filter(|account| {
-            account
-                .quota
-                .as_ref()
-                .map(|quota| quota.has_usable_quota())
-                .unwrap_or(true)
-        })
+        .filter(|account| quota_usable(account, family))
         .collect();
     cooled.sort_by_key(|account| account.cooldown_until.unwrap_or(0));
     cooled.first().map(|account| (*account).clone())
@@ -417,6 +475,7 @@ fn choose_candidate<'a>(
     preferred_account_id: Option<&str>,
     sticky_account_id: Option<&str>,
     limiter: Option<&AccountLimiter>,
+    family: Option<QuotaFamily>,
 ) -> Option<&'a AntigravityAccount> {
     if candidates.is_empty() {
         return None;
@@ -427,30 +486,40 @@ fn choose_candidate<'a>(
         }
     }
     if let Some(active) = candidates.iter().find(|item| item.is_active) {
-        let active_hot = account_under_pressure(limiter, &active.id);
-        if !active_hot {
+        if account_has_family_remaining(active, family) {
+            let active_hot = account_under_pressure(limiter, &active.id);
+            if !active_hot {
+                return Some(active);
+            }
+            let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
+            ranked.sort_by(|left, right| compare_candidates(left, right, family));
+            if let Some(alternate) = ranked.iter().find(|account| {
+                account.id != active.id
+                    && !account_under_pressure(limiter, &account.id)
+                    && account_has_family_remaining(account, family)
+            }) {
+                log::info!(
+                    "Antigravity pool: active {} is hot; soft-selecting {}",
+                    active.email, alternate.email
+                );
+                return Some(*alternate);
+            }
             return Some(active);
         }
-        let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
-        ranked.sort_by(|left, right| compare_candidates(left, right));
-        if let Some(alternate) = ranked.iter().find(|account| {
-            account.id != active.id && !account_under_pressure(limiter, &account.id)
-        }) {
-            log::info!(
-                "Antigravity pool: active {} is hot; soft-selecting {}",
-                active.email, alternate.email
-            );
-            return Some(*alternate);
-        }
-        return Some(active);
+        log::info!(
+            "Antigravity pool: active {} has no remaining {:?} quota; skipping",
+            active.email, family
+        );
     }
     if let Some(sticky) = sticky_account_id.filter(|value| !value.is_empty()) {
         if let Some(account) = candidates.iter().find(|item| item.id == sticky) {
-            return Some(account);
+            if account_has_family_remaining(account, family) {
+                return Some(account);
+            }
         }
     }
     let mut ranked: Vec<&AntigravityAccount> = candidates.iter().collect();
-    ranked.sort_by(|left, right| compare_candidates(left, right));
+    ranked.sort_by(|left, right| compare_candidates(left, right, family));
     ranked.first().copied()
 }
 
@@ -478,21 +547,41 @@ fn selection_reason(
 }
 
 pub fn candidate_scheduling_score(account: &AntigravityAccount) -> f64 {
-    let quota_fraction = account
-        .quota
-        .as_ref()
-        .and_then(|q| q.best_remaining_fraction())
-        .or_else(|| account.remaining_quota.map(|q| (q as f64) / 100.0))
-        .unwrap_or(1.0)
-        .clamp(0.0, 1.0);
+    candidate_scheduling_score_for(account, None)
+}
+
+fn candidate_scheduling_score_for(
+    account: &AntigravityAccount,
+    family: Option<QuotaFamily>,
+) -> f64 {
+    let quota_fraction = if let Some(family) = family {
+        account
+            .quota
+            .as_ref()
+            .and_then(|q| q.remaining_fraction_for_family(family))
+            .or_else(|| account.remaining_quota.map(|q| (q as f64) / 100.0))
+            .unwrap_or(1.0)
+    } else {
+        account
+            .quota
+            .as_ref()
+            .and_then(|q| q.best_remaining_fraction())
+            .or_else(|| account.remaining_quota.map(|q| (q as f64) / 100.0))
+            .unwrap_or(1.0)
+    }
+    .clamp(0.0, 1.0);
     let health = (account.health_score as f64).clamp(0.0, 1.0);
     // Dynamic weighted score: 60% remaining quota + 40% health score
     quota_fraction * 0.6 + health * 0.4
 }
 
-fn compare_candidates(left: &AntigravityAccount, right: &AntigravityAccount) -> std::cmp::Ordering {
-    let score_right = candidate_scheduling_score(right);
-    let score_left = candidate_scheduling_score(left);
+fn compare_candidates(
+    left: &AntigravityAccount,
+    right: &AntigravityAccount,
+    family: Option<QuotaFamily>,
+) -> std::cmp::Ordering {
+    let score_right = candidate_scheduling_score_for(right, family);
+    let score_left = candidate_scheduling_score_for(left, family);
     score_right
         .partial_cmp(&score_left)
         .unwrap_or(std::cmp::Ordering::Equal)
@@ -502,18 +591,28 @@ fn compare_candidates(left: &AntigravityAccount, right: &AntigravityAccount) -> 
         })
 }
 
-fn sort_candidates_best_first(candidates: &mut [AntigravityAccount]) {
-    candidates.sort_by(|left, right| compare_candidates(left, right));
+fn sort_candidates_best_first(
+    candidates: &mut [AntigravityAccount],
+    family: Option<QuotaFamily>,
+) {
+    candidates.sort_by(|left, right| compare_candidates(left, right, family));
 }
 
-/// 429 with remaining quota is a Cloud Code SKU/RPM limit — do not walk the
-/// rest of the pool. The gateway may still try one extra account (short cooldown).
-/// Only treat the snapshot as "rotate freely" when this account is empty.
-pub(crate) fn should_rotate_pool_on_429(account: &AntigravityAccount) -> bool {
+/// 429 with remaining quota for the requested family is a Cloud Code SKU/RPM
+/// limit — do not walk the rest of the pool. Rotate freely only when this
+/// family's 5h/7d bars are empty (the other family must not keep the account
+/// "schedulable").
+pub(crate) fn should_rotate_pool_on_429(
+    account: &AntigravityAccount,
+    family: Option<QuotaFamily>,
+) -> bool {
     account
         .quota
         .as_ref()
-        .is_some_and(|quota| !quota.has_usable_quota())
+        .is_some_and(|quota| match family {
+            Some(family) => !quota.has_usable_quota_for_family(family),
+            None => !quota.has_usable_quota(),
+        })
 }
 
 pub(crate) fn rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
@@ -534,7 +633,7 @@ pub(crate) fn sku_rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
 mod tests {
     use super::*;
     use crate::antigravity::account::AntigravityToken;
-    use crate::antigravity::quota::QuotaSnapshot;
+    use crate::antigravity::quota::{QuotaBucket, QuotaGroup, QuotaSnapshot};
 
     fn sample(id: &str, cooldown_until: Option<i64>) -> AntigravityAccount {
         AntigravityAccount {
@@ -573,7 +672,7 @@ mod tests {
             sample("a1", Some(now + 30)),
             sample("a2", Some(now + 10)),
         ];
-        let soft = soft_select_cooled_account(&accounts, now).expect("soft");
+        let soft = soft_select_cooled_account(&accounts, now, None).expect("soft");
         assert_eq!(soft.id, "a2");
     }
 
@@ -581,7 +680,7 @@ mod tests {
     fn no_soft_select_when_one_is_ready() {
         let now = Utc::now().timestamp();
         let accounts = vec![sample("a1", Some(now + 30)), sample("a2", None)];
-        assert!(soft_select_cooled_account(&accounts, now).is_none());
+        assert!(soft_select_cooled_account(&accounts, now, None).is_none());
     }
 
     #[test]
@@ -591,7 +690,7 @@ mod tests {
         a1.is_active = true;
         a2.is_active = false;
         let candidates = vec![a1, a2];
-        let chosen = choose_candidate(&candidates, None, Some("a2"), None).expect("chosen");
+        let chosen = choose_candidate(&candidates, None, Some("a2"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a1");
         assert_eq!(
             selection_reason(chosen, None, Some("a2")),
@@ -611,7 +710,7 @@ mod tests {
         a2.health_score = 1.0;
         let candidates = vec![a1, a2];
         let chosen =
-            choose_candidate(&candidates, None, None, Some(&limiter)).expect("chosen");
+            choose_candidate(&candidates, None, None, Some(&limiter), None).expect("chosen");
         assert_eq!(chosen.id, "a2");
         assert_eq!(selection_reason(chosen, None, None), "best");
     }
@@ -623,7 +722,7 @@ mod tests {
         a1.is_active = false;
         a2.is_active = false;
         let candidates = vec![a1, a2];
-        let chosen = choose_candidate(&candidates, None, Some("a2"), None).expect("chosen");
+        let chosen = choose_candidate(&candidates, None, Some("a2"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a2");
         assert_eq!(
             selection_reason(chosen, None, Some("a2")),
@@ -639,7 +738,7 @@ mod tests {
         a2.is_active = false;
         let candidates = vec![a1, a2];
         let chosen =
-            choose_candidate(&candidates, Some("a2"), Some("a1"), None).expect("chosen");
+            choose_candidate(&candidates, Some("a2"), Some("a1"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a2");
     }
 
@@ -659,12 +758,12 @@ mod tests {
     #[test]
     fn rate_limit_429_does_not_rotate_when_quota_remains() {
         let ready = sample("a1", None);
-        assert!(!should_rotate_pool_on_429(&ready));
+        assert!(!should_rotate_pool_on_429(&ready, None));
 
         let mut exhausted = sample("a2", None);
         exhausted.quota = Some(QuotaSnapshot::empty_forbidden("5h empty"));
         exhausted.remaining_quota = Some(0);
-        assert!(should_rotate_pool_on_429(&exhausted));
+        assert!(should_rotate_pool_on_429(&exhausted, None));
     }
 
     #[test]
@@ -675,5 +774,124 @@ mod tests {
         assert_eq!(sku_rate_limit_cooldown_secs(None), 15);
         assert_eq!(sku_rate_limit_cooldown_secs(Some(2)), 2);
         assert_eq!(sku_rate_limit_cooldown_secs(Some(3600)), 15);
+    }
+
+    fn family_quota(
+        gemini_5h: f64,
+        gemini_week: f64,
+        claude_5h: f64,
+        claude_week: f64,
+    ) -> QuotaSnapshot {
+        QuotaSnapshot {
+            last_updated: Utc::now().timestamp(),
+            groups: vec![
+                QuotaGroup {
+                    display_name: "Gemini Models".into(),
+                    buckets: vec![
+                        QuotaBucket {
+                            bucket_id: "gemini-5h".into(),
+                            window: "5h".into(),
+                            remaining_fraction: gemini_5h,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                        QuotaBucket {
+                            bucket_id: "gemini-weekly".into(),
+                            window: "weekly".into(),
+                            remaining_fraction: gemini_week,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                    ],
+                },
+                QuotaGroup {
+                    display_name: "Claude + GPT".into(),
+                    buckets: vec![
+                        QuotaBucket {
+                            bucket_id: "3p-claude-5h".into(),
+                            window: "5h".into(),
+                            remaining_fraction: claude_5h,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                        QuotaBucket {
+                            bucket_id: "3p-claude-weekly".into(),
+                            window: "weekly".into(),
+                            remaining_fraction: claude_week,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                    ],
+                },
+            ],
+            ..QuotaSnapshot::default()
+        }
+    }
+
+    fn pick_for_model(accounts: &[AntigravityAccount], model: &str) -> String {
+        let now = 0;
+        let family = Some(quota_family_from_model(model));
+        let candidates: Vec<_> = accounts
+            .iter()
+            .filter(|account| account_is_schedulable(account, now, family))
+            .cloned()
+            .collect();
+        let chosen = choose_candidate(&candidates, None, None, None, family).expect("chosen");
+        chosen.id.clone()
+    }
+
+    #[test]
+    fn gemini_request_skips_account_with_only_claude_remaining() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.0, 0.0, 0.8, 0.8));
+        a2.quota = Some(family_quota(0.6, 0.6, 0.0, 0.0));
+        assert_eq!(
+            pick_for_model(&[a1, a2], "gemini-3.7-flash-high"),
+            "a2"
+        );
+    }
+
+    #[test]
+    fn claude_request_skips_account_with_only_gemini_remaining() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.8, 0.8, 0.0, 0.0));
+        a2.quota = Some(family_quota(0.0, 0.0, 0.7, 0.7));
+        assert_eq!(pick_for_model(&[a1, a2], "claude-opus-4-6"), "a2");
+    }
+
+    #[test]
+    fn active_account_skipped_when_requested_family_is_empty() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.0, 0.0, 0.9, 0.9));
+        a2.quota = Some(family_quota(0.4, 0.4, 0.1, 0.1));
+        let family = Some(QuotaFamily::Gemini);
+        let candidates = vec![a1, a2];
+        let chosen =
+            choose_candidate(&candidates, None, Some("a1"), None, family).expect("chosen");
+        assert_eq!(chosen.id, "a2");
+        assert_eq!(selection_reason(chosen, None, Some("a1")), "best");
+    }
+
+    #[test]
+    fn rotate_on_429_when_requested_family_empty() {
+        let mut gemini_empty = sample("a1", None);
+        gemini_empty.quota = Some(family_quota(0.0, 0.0, 0.8, 0.8));
+        assert!(should_rotate_pool_on_429(
+            &gemini_empty,
+            Some(QuotaFamily::Gemini)
+        ));
+        assert!(!should_rotate_pool_on_429(
+            &gemini_empty,
+            Some(QuotaFamily::ClaudeGpt)
+        ));
     }
 }

@@ -44,6 +44,57 @@ const DEFAULT_FAST_PATH: AntigravityFastPathSettings = {
   flashDegrade: true,
 };
 
+const FAST_PATH_TOGGLES: Array<{
+  key: keyof AntigravityFastPathSettings;
+  labelKey: string;
+  labelDefault: string;
+  hintKey: string;
+  hintDefault: string;
+}> = [
+  {
+    key: "quotaMock",
+    labelKey: "antigravity.fastPathQuota",
+    labelDefault: "额度探测",
+    hintKey: "antigravity.fastPathQuotaHint",
+    hintDefault: "启动时会发一条「查额度」请求。勾选后本机直接回复通过。",
+  },
+  {
+    key: "titleSkip",
+    labelKey: "antigravity.fastPathTitleSkip",
+    labelDefault: "会话标题",
+    hintKey: "antigravity.fastPathTitleSkipHint",
+    hintDefault: "侧栏会话名本会调一次模型。勾选后本机回占位名 Conversation。",
+  },
+  {
+    key: "prefixDetect",
+    labelKey: "antigravity.fastPathPrefix",
+    labelDefault: "命令前缀",
+    hintKey: "antigravity.fastPathPrefixHint",
+    hintDefault: "终端命令安全检查（注入、危险命令）。勾选后本机解析并回复。",
+  },
+  {
+    key: "flashDegrade",
+    labelKey: "antigravity.fastPathFlash",
+    labelDefault: "后台改走 Flash",
+    hintKey: "antigravity.fastPathFlashHint",
+    hintDefault: "未能短路的后台任务（摘要、压缩等）改用便宜的 Gemini Flash，不走主会话模型。",
+  },
+  {
+    key: "suggestionSkip",
+    labelKey: "antigravity.fastPathSuggestion",
+    labelDefault: "跳过建议",
+    hintKey: "antigravity.fastPathSuggestionHint",
+    hintDefault: "关掉 Claude Code 的「下一步建议」生成。默认关：误判会吞掉真实回复。",
+  },
+  {
+    key: "filepathMock",
+    labelKey: "antigravity.fastPathFilepath",
+    labelDefault: "路径提取",
+    hintKey: "antigravity.fastPathFilepathHint",
+    hintDefault: "从命令输出里抽文件路径。默认关：误判会漏路径。",
+  },
+];
+
 interface GatewayCardProps {
   status?: AntigravityGatewayStatus;
   models?: AntigravityCatalogModel[];
@@ -262,50 +313,48 @@ export function GatewayCard({
             })}
           </Text>
           <Divider style={{ margin: "8px 0" }} />
-          <Text type="secondary">
+          <Text strong style={{ fontSize: 13 }}>
             {t("antigravity.fastPathTitle", { defaultValue: "后台请求短路" })}
           </Text>
-          <Space wrap>
-            <Checkbox
-              checked={fastPath.quotaMock}
-              onChange={(event) => patchFastPath({ quotaMock: event.target.checked })}
-            >
-              {t("antigravity.fastPathQuota", { defaultValue: "额度探针" })}
-            </Checkbox>
-            <Checkbox
-              checked={fastPath.titleSkip}
-              onChange={(event) => patchFastPath({ titleSkip: event.target.checked })}
-            >
-              {t("antigravity.fastPathTitleSkip", { defaultValue: "会话标题" })}
-            </Checkbox>
-            <Checkbox
-              checked={fastPath.prefixDetect}
-              onChange={(event) => patchFastPath({ prefixDetect: event.target.checked })}
-            >
-              {t("antigravity.fastPathPrefix", { defaultValue: "命令 prefix" })}
-            </Checkbox>
-            <Checkbox
-              checked={fastPath.flashDegrade}
-              onChange={(event) => patchFastPath({ flashDegrade: event.target.checked })}
-            >
-              {t("antigravity.fastPathFlash", { defaultValue: "后台降级 Flash" })}
-            </Checkbox>
-            <Checkbox
-              checked={fastPath.suggestionSkip}
-              onChange={(event) => patchFastPath({ suggestionSkip: event.target.checked })}
-            >
-              {t("antigravity.fastPathSuggestion", { defaultValue: "Suggestion" })}
-            </Checkbox>
-            <Checkbox
-              checked={fastPath.filepathMock}
-              onChange={(event) => patchFastPath({ filepathMock: event.target.checked })}
-            >
-              {t("antigravity.fastPathFilepath", { defaultValue: "Filepath" })}
-            </Checkbox>
-            <Button loading={isSavingFastPath} onClick={() => onSaveFastPath(fastPath)}>
-              {t("antigravity.fastPathSave", { defaultValue: "保存短路" })}
-            </Button>
-          </Space>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("antigravity.fastPathHint", {
+              defaultValue:
+                "Claude Code 会额外发一些短请求（探测额度、生成会话标题、扫命令前缀等）。勾选后由本机直接回复，不占用 Cloud Code 额度；关掉则照常发给上游。",
+            })}
+          </Text>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "10px 20px",
+              width: "100%",
+            }}
+          >
+            {FAST_PATH_TOGGLES.map((item) => (
+              <Checkbox
+                key={item.key}
+                checked={fastPath[item.key]}
+                onChange={(event) =>
+                  patchFastPath({ [item.key]: event.target.checked })
+                }
+                style={{ alignItems: "flex-start", marginInlineStart: 0 }}
+              >
+                <div>
+                  <div>{t(item.labelKey, { defaultValue: item.labelDefault })}</div>
+                  <Text type="secondary" style={{ fontSize: 12, whiteSpace: "normal" }}>
+                    {t(item.hintKey, { defaultValue: item.hintDefault })}
+                  </Text>
+                </div>
+              </Checkbox>
+            ))}
+          </div>
+          <Button
+            loading={isSavingFastPath}
+            onClick={() => onSaveFastPath(fastPath)}
+            style={{ alignSelf: "flex-start" }}
+          >
+            {t("antigravity.fastPathSave", { defaultValue: "保存短路设置" })}
+          </Button>
         </Space>
 
         <Divider style={{ margin: "4px 0" }} />

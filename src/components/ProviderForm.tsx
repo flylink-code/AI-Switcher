@@ -145,6 +145,10 @@ function uniqueModelIds(ids: Array<string | undefined | null>): string[] {
   return result;
 }
 
+type ProviderFormData = ProviderInput & {
+  customHeaderList?: Array<{ key: string; value: string }>;
+};
+
 export function ProviderForm({
   open,
   editing,
@@ -156,7 +160,7 @@ export function ProviderForm({
 }: ProviderFormProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
-  const [form] = Form.useForm<ProviderInput>();
+  const [form] = Form.useForm<ProviderFormData>();
   const [models, setModels] = useState<string[]>([]);
   const [modelResult, setModelResult] = useState<ModelDiscoveryResult | null>(null);
   const [discovering, setDiscovering] = useState(false);
@@ -219,6 +223,9 @@ export function ProviderForm({
           reasoningEffort: undefined,
           prefixThought: true,
         },
+        customHeaderList: editing.customHeaders
+          ? Object.entries(editing.customHeaders).map(([key, value]) => ({ key, value }))
+          : [],
       });
       void getCachedProviderModels(editing.id)
         .then((result) => {
@@ -249,6 +256,7 @@ export function ProviderForm({
           reasoningEffort: undefined,
           prefixThought: true,
         },
+        customHeaderList: [],
         modelMapping: { ...EMPTY_MODEL_MAPPING },
       });
     }
@@ -275,6 +283,20 @@ export function ProviderForm({
     form.setFieldValue("modelMapping", nextMapping);
   }, [open, watchedDefaultModel, mappingTarget, form, hideRoleMapping]);
 
+  const parseCustomHeaders = (
+    list?: Array<{ key?: string; value?: string }>,
+  ): Record<string, string> | undefined => {
+    if (!Array.isArray(list)) return undefined;
+    const headers: Record<string, string> = {};
+    for (const item of list) {
+      const k = String(item?.key ?? "").trim();
+      if (k) {
+        headers[k] = String(item?.value ?? "");
+      }
+    }
+    return Object.keys(headers).length > 0 ? headers : undefined;
+  };
+
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
@@ -289,11 +311,14 @@ export function ProviderForm({
       const hiddenModels = uniqueModelIds(values.hiddenModels ?? []).filter(
         (id) => id.toLowerCase() !== defaultModel.toLowerCase(),
       );
-      const normalized = {
-        ...values,
+      const customHeaders = parseCustomHeaders(values.customHeaderList);
+      const { customHeaderList: _, ...payload } = values;
+      const normalized: ProviderInput = {
+        ...payload,
         baseUrl,
         modelMapping: mapping,
         hiddenModels,
+        customHeaders: customHeaders ?? null,
       };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       await onSubmit(normalized);
@@ -317,7 +342,13 @@ export function ProviderForm({
     try {
       await form.validateFields(["name", "baseUrl", "apiKey", "protocolType", "targetApp"]);
       const values = form.getFieldsValue(true);
-      const normalized = { ...values, baseUrl: normalizeBaseUrl(values.baseUrl) };
+      const customHeaders = parseCustomHeaders(values.customHeaderList);
+      const { customHeaderList: _, ...payload } = values;
+      const normalized: ProviderInput = {
+        ...payload,
+        baseUrl: normalizeBaseUrl(values.baseUrl),
+        customHeaders: customHeaders ?? null,
+      };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       const canPersist =
         editing !== null &&
@@ -347,7 +378,13 @@ export function ProviderForm({
     setTesting(true);
     try {
       const values = await form.validateFields();
-      const normalized = { ...values, baseUrl: normalizeBaseUrl(values.baseUrl) };
+      const customHeaders = parseCustomHeaders(values.customHeaderList);
+      const { customHeaderList: _, ...payload } = values;
+      const normalized: ProviderInput = {
+        ...payload,
+        baseUrl: normalizeBaseUrl(values.baseUrl),
+        customHeaders: customHeaders ?? null,
+      };
       form.setFieldValue("baseUrl", normalized.baseUrl);
       const result = await testProviderInput(normalized);
       void (result.ok ? message.success : message.error)(result.message);
@@ -954,6 +991,52 @@ export function ProviderForm({
             </Form.Item>
           </Col>
         </Row>
+
+        <Typography.Title level={5} style={{ marginBlock: "4px 8px" }}>
+          {t("providers.customHeadersSection")}
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 10, fontSize: 12 }}>
+          {t("providers.customHeadersSectionHint")}
+        </Typography.Paragraph>
+        <Form.List name="customHeaderList">
+          {(fields, { add, remove }) => (
+            <>
+              {fields.map(({ key, name, ...restField }) => (
+                <Row key={key} gutter={[8, 8]} align="middle" style={{ marginBottom: 8 }}>
+                  <Col xs={11} sm={10}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, "key"]}
+                      rules={[{ required: true, whitespace: true, message: t("providers.requiredName") }]}
+                      style={{ margin: 0 }}
+                    >
+                      <Input placeholder={t("providers.headerKey")} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={10} sm={11}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, "value"]}
+                      style={{ margin: 0 }}
+                    >
+                      <Input placeholder={t("providers.headerValue")} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={3} sm={3}>
+                    <Button type="text" danger onClick={() => remove(name)}>
+                      {t("common.delete") || "删除"}
+                    </Button>
+                  </Col>
+                </Row>
+              ))}
+              <Form.Item style={{ marginBottom: 12 }}>
+                <Button type="dashed" onClick={() => add()} block size="small">
+                  + {t("providers.addHeader")}
+                </Button>
+              </Form.Item>
+            </>
+          )}
+        </Form.List>
 
         <Form.Item name="notes" label={t("providers.fieldNotes")}>
           <Input.TextArea rows={2} />

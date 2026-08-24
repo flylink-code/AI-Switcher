@@ -88,6 +88,7 @@ pub fn ensure_codex_oauth_provider(
         failover_models: Vec::new(),
         hidden_models: Vec::new(),
         thinking_config: None,
+        custom_headers: None,
     };
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
 }

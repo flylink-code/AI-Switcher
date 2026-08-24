@@ -112,6 +112,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,

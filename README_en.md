@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.3.24**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.3.25**
 
-**This release:** Cline usage / sessions / workspace parity; Antigravity gateway Wave 1; local `web_search` / `web_fetch`; WSL Direct; WebDAV library backup; About-page release notes and a single-column local-proxy layout.
+**This release:** Qianfan Token Plan / Kimi reasoning effort / aggregator thinking dialects; native server-tool and compact-error isolation; stream-outcome logging and failures-only filter; 5h/7d quota views and custom request headers; Antigravity rotates accounts by model family; Windows Codex CLI uses the anchored Node; background short-circuit toggles now have descriptions.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.3.24**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.3.25**
 
-**本版**：Cline 用量 / 会话 / 工作区齐能力；AG 网关 Wave 1；本地 `web_search` / `web_fetch`；WSL Direct；WebDAV 资料库；关于页版本说明与本地代理单列布局。
+**本版**：千帆 Token Plan / Kimi 思考档位 / 聚合思考方言；网关原生工具与 compact 错误隔离；流中断标记与「仅看失败」；5h/7d 额度与自定义请求头；AG 按模型家族轮换账号；Codex Windows 锚定 Node；后台短路开关带说明。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

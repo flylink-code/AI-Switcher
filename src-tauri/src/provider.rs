@@ -3,6 +3,8 @@
 //! A provider is a third-party API endpoint (plus credentials and model name) that
 //! can be activated for Claude Code by writing its env vars into `settings.json`.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
@@ -259,7 +261,7 @@ impl ThinkingConfig {
             match effort.to_ascii_lowercase().as_str() {
                 "minimal" | "low" => return Some("low"),
                 "medium" => return Some("medium"),
-                "high" => return Some("high"),
+                "high" | "xhigh" | "max" | "ultra" => return Some("high"),
                 _ => {}
             }
         }
@@ -273,6 +275,22 @@ impl ThinkingConfig {
             }
         }
         None
+    }
+
+    /// Check if thinking is explicitly enabled or disabled for aggregator platforms (e.g. Novita/ModelScope `enable_thinking`).
+    pub fn resolved_enable_thinking(&self) -> Option<bool> {
+        if self.is_disabled() {
+            Some(false)
+        } else if self.budget_tokens.is_some()
+            || self.reasoning_effort.is_some()
+            || self.mode.as_deref() == Some("budget")
+            || self.mode.as_deref() == Some("effort")
+            || self.mode.as_deref() == Some("auto")
+        {
+            Some(true)
+        } else {
+            None
+        }
     }
 
     /// Map explicit effort or tokens to Anthropic `budget_tokens`.
@@ -345,6 +363,7 @@ pub fn copied_provider_input(
         failover_models: adapt_copied_failover_models(source, dest),
         hidden_models: source.hidden_models.clone(),
         thinking_config: source.thinking_config.clone(),
+        custom_headers: source.custom_headers.clone(),
     })
 }
 
@@ -960,6 +979,8 @@ pub struct Provider {
     #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
     #[serde(default)]
+    pub custom_headers: Option<HashMap<String, String>>,
+    #[serde(default)]
     pub is_current: bool,
     #[serde(default)]
     pub created_at: i64,
@@ -1108,6 +1129,8 @@ pub struct ProviderInput {
     pub hidden_models: Vec<String>,
     #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
+    #[serde(default)]
+    pub custom_headers: Option<HashMap<String, String>>,
 }
 
 /// Sanitized result of a provider connectivity check.
@@ -1179,6 +1202,8 @@ pub struct ProviderExportEntry {
     pub hidden_models: Vec<String>,
     #[serde(default)]
     pub thinking_config: Option<ThinkingConfig>,
+    #[serde(default)]
+    pub custom_headers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1355,6 +1380,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1387,6 +1413,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1419,6 +1446,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1456,6 +1484,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,
@@ -1567,6 +1596,7 @@ mod tests {
             failover_models: vec!["deepseek-v4-flash".into()],
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: false,
             created_at: 0,
             health_status: None,

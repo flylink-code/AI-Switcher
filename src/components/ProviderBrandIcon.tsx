@@ -23,6 +23,7 @@ const BRAND_RULES: BrandRule[] = [
   { match: ["moonshot", "kimi"], label: "Mo", color: "#6c5ce7" },
   { match: ["dashscope", "aliyuncs.com", "qwen"], label: "Qw", color: "#615ced" },
   { match: ["bigmodel.cn", "zhipu"], label: "Zp", color: "#365dff" },
+  { match: ["qianfan", "baidubce.com", "baidu"], label: "千", color: "#2932e1" },
   { match: ["openrouter"], label: "OR", color: "#6366f1" },
   { match: ["siliconflow", "siliconcloud"], label: "SF", color: "#7c3aed" },
   { match: ["api.githubcopilot.com", "copilot"], label: "CP", color: "#24292f" },
@@ -33,6 +34,9 @@ const BRAND_RULES: BrandRule[] = [
   { match: ["together"], label: "To", color: "#0ea5e9" },
   { match: ["fireworks"], label: "Fw", color: "#e11d48" },
   { match: ["perplexity"], label: "Px", color: "#20b8cd" },
+  { match: ["stepfun"], label: "阶", color: "#16d6d2" },
+  { match: ["modelscope"], label: "MS", color: "#624aff" },
+  { match: ["novita"], label: "No", color: "#000000" },
   { match: ["ollama", "localhost", "127.0.0.1", "0.0.0.0", "[::1]"], label: "本", color: "#6b7280" },
 ];
 

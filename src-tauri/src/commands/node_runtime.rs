@@ -15,6 +15,8 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub const FNM_NODE_DIST_MIRROR: &str = "https://npmmirror.com/mirrors/node";
 /// npm registry mirror for global CLI installs.
 pub const NPM_REGISTRY_MIRROR: &str = "https://registry.npmmirror.com";
+/// Official npm registry used when a mirror install cannot be verified.
+pub const NPM_REGISTRY_OFFICIAL: &str = "https://registry.npmjs.org";
 const DEFAULT_GITHUB_MIRROR_BASE: &str = "https://gh-proxy.com/";
 #[cfg(not(windows))]
 const FNM_RELEASE_ZIP_LINUX: &str =
@@ -719,6 +721,27 @@ pub fn run_anchored_npm_global_install(npm: &Path, node: &Path, package: &str) -
             "--registry",
             NPM_REGISTRY_MIRROR,
             "--force",
+        ],
+    )
+}
+
+/// Retry install from the official npm registry (no `--force`) after a mirror
+/// install could not be verified — typically a PATH/Node mismatch, not a
+/// corrupt package that needs overwriting.
+pub fn run_anchored_npm_global_install_official(
+    npm: &Path,
+    node: &Path,
+    package: &str,
+) -> io::Result<Output> {
+    run_anchored_npm(
+        npm,
+        node,
+        &[
+            "i",
+            "-g",
+            package,
+            "--registry",
+            NPM_REGISTRY_OFFICIAL,
         ],
     )
 }

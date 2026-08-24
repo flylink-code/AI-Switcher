@@ -298,7 +298,7 @@ pub async fn openai_images_generations(
             "imageConfig": { "aspectRatio": aspect, "imageSize": image_size }
         }
     });
-    let selected = match state.pool.select_async(None, None).await {
+    let selected = match state.pool.select_async(None, None, Some(&model)).await {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::TOO_MANY_REQUESTS, &error.to_string()),
     };
@@ -391,7 +391,7 @@ async fn dispatch_generation(
             break;
         }
         let selected = if hop == 0 {
-            state.pool.select_async(None, session_key.as_deref()).await
+            state.pool.select_async(None, session_key.as_deref(), Some(&model)).await
         } else {
             let failed = exclude.last().cloned().unwrap_or_default();
             if failed.is_empty() {
@@ -404,7 +404,13 @@ async fn dispatch_generation(
             };
             state
                 .pool
-                .rotate_after_failure_async(&failed, status, session_key.as_deref(), &exclude)
+                .rotate_after_failure_async(
+                    &failed,
+                    status,
+                    session_key.as_deref(),
+                    &exclude,
+                    Some(&model),
+                )
                 .await
         };
         let (access_token, account) = match selected {
@@ -668,7 +674,10 @@ async fn dispatch_generation(
                 );
                 last_fail_status = 429;
                 state.limiter.note_upstream_rate_limited(&account.id);
-                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
+                    &account,
+                    Some(crate::antigravity::quota::quota_family_from_model(&model)),
+                );
                 let cooldown = if rotate_pool {
                     crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
                 } else {
@@ -730,7 +739,10 @@ async fn dispatch_generation(
             if status.as_u16() == 429 {
                 state.limiter.note_upstream_rate_limited(&account.id);
                 let kind = classify_rate_limit_body(&text);
-                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(&account);
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
+                    &account,
+                    Some(crate::antigravity::quota::quota_family_from_model(&model)),
+                );
                 let cooldown = if rotate_pool {
                     crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
                 } else {
@@ -1230,6 +1242,7 @@ fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
     headers
         .get("x-session-id")
         .or_else(|| headers.get("x-claude-session-id"))
+        .or_else(|| headers.get("x-anthropic-session-id"))
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -1237,14 +1250,17 @@ fn session_key_from_headers(headers: &HeaderMap) -> Option<String> {
 }
 
 fn is_subagent_request(headers: &HeaderMap) -> bool {
-    headers
-        .get(CS_SUBAGENT_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .map(|value| {
-            let trimmed = value.trim();
-            !trimmed.is_empty() && trimmed != "0" && !trimmed.eq_ignore_ascii_case("false")
-        })
-        .unwrap_or(false)
+    let check = |key: &str| {
+        headers
+            .get(key)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| {
+                let trimmed = value.trim();
+                !trimmed.is_empty() && trimmed != "0" && !trimmed.eq_ignore_ascii_case("false")
+            })
+            .unwrap_or(false)
+    };
+    check(CS_SUBAGENT_HEADER) || check("x-claude-subagent") || check("x-subagent")
 }
 
 fn retry_deadline_for(stream: bool, is_subagent: bool, started: Instant) -> Instant {

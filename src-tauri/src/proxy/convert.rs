@@ -166,6 +166,7 @@ pub fn anthropic_to_openai_chat(
     }
     copy_if_present(request, &mut result, "temperature");
     copy_if_present(request, &mut result, "top_p");
+    copy_if_present(request, &mut result, "enable_thinking");
     if let Some(max) = request.get("max_tokens") {
         result["max_tokens"] = max.clone();
     }
@@ -177,9 +178,18 @@ pub fn anthropic_to_openai_chat(
     }
 
     if let Some(cfg) = merge_thinking_config(request, provider_thinking) {
-        if !cfg.is_disabled() {
+        if cfg.is_disabled() {
+            if result.get("enable_thinking").is_some() {
+                result["enable_thinking"] = json!(false);
+            }
+        } else {
             if let Some(effort) = cfg.resolved_reasoning_effort() {
                 result["reasoning_effort"] = json!(effort);
+            }
+            if let Some(enable_thinking) = cfg.resolved_enable_thinking() {
+                if result.get("enable_thinking").is_some() || cfg.mode.as_deref() == Some("enable_thinking") {
+                    result["enable_thinking"] = json!(enable_thinking);
+                }
             }
             if cfg.prefix_thought.unwrap_or(false) {
                 apply_prefix_thought(&mut result);
@@ -250,6 +260,18 @@ pub fn apply_codex_oauth_response_body(value: &mut Value) {
     if !items.contains(&encrypted_content) {
         items.push(encrypted_content);
     }
+}
+
+/// Strip non-standard fields from Codex Responses request bodies to avoid upstream 400 errors.
+pub fn sanitize_codex_responses_body(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    object.remove("prompt_cache_retention");
+    object.remove("prompt_cache_ttl");
+    object.remove("prompt_cache_key");
+    object.remove("wire_api");
+    object.remove("auto_review");
 }
 
 pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
@@ -852,9 +874,9 @@ fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
                         "name": block.get("name").and_then(Value::as_str).unwrap_or("tool"),
                         "arguments": serde_json::to_string(block.get("input").unwrap_or(&Value::Null)).unwrap_or_else(|_| "{}".to_string()),
                     })),
-                    Some("tool_result") => tool_items.push(json!({
+                    Some("tool_result") | Some("tool_search_tool_result") => tool_items.push(json!({
                         "type": "function_call_output",
-                        "call_id": block.get("tool_use_id").and_then(Value::as_str).unwrap_or("tool_call"),
+                        "call_id": block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),
                         "output": content_text(block.get("content").unwrap_or(&Value::Null)),
                     })),
                     _ => {}
@@ -915,7 +937,7 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
                 Some("thinking") => {},
                 Some("image") => if let Some(url) = image_url(block) { text_blocks.push(json!({"type":"image_url","image_url":{"url":url}})); },
                 Some("tool_use") => tool_calls.push(json!({"id":block.get("id").and_then(Value::as_str).unwrap_or("tool_call"),"type":"function","function":{"name":block.get("name").and_then(Value::as_str).unwrap_or("tool"),"arguments":serde_json::to_string(block.get("input").unwrap_or(&Value::Null)).unwrap_or_else(|_| "{}".to_string())}})),
-                Some("tool_result") => tool_results.push(json!({"role":"tool","tool_call_id":block.get("tool_use_id").and_then(Value::as_str).unwrap_or("tool_call"),"content":content_text(block.get("content").unwrap_or(&Value::Null))})),
+                Some("tool_result") | Some("tool_search_tool_result") => tool_results.push(json!({"role":"tool","tool_call_id":block.get("tool_use_id").or_else(|| block.get("id")).and_then(Value::as_str).unwrap_or("tool_call"),"content":content_text(block.get("content").unwrap_or(&Value::Null))})),
                 _ => {}
             }
         },
@@ -933,14 +955,54 @@ fn append_openai_message(message: &Value, output: &mut Vec<Value>) {
     output.extend(tool_results);
 }
 
+pub fn is_claude_server_tool_type(tool_type: &str) -> bool {
+    let lower = tool_type.trim().to_ascii_lowercase();
+    let prefixes = [
+        "advisor_",
+        "agent_toolset_",
+        "bash_",
+        "code_execution_",
+        "computer_",
+        "memory_",
+        "text_editor_",
+        "tool_search_tool_",
+        "web_fetch_",
+        "web_search_",
+    ];
+    prefixes.iter().any(|prefix| lower.starts_with(prefix))
+}
+
+fn extract_tool_name<'a>(tool: &'a Value) -> Option<&'a str> {
+    if let Some(name) = tool.get("name").and_then(Value::as_str) {
+        if !name.trim().is_empty() {
+            return Some(name);
+        }
+    }
+    if let Some(tool_type) = tool.get("type").and_then(Value::as_str) {
+        if is_claude_server_tool_type(tool_type) {
+            return Some(tool_type);
+        }
+    }
+    None
+}
+
 fn anthropic_tool_to_openai(tool: &Value) -> Option<Value> {
-    Some(json!({"type":"function","function":{"name":tool.get("name")?.as_str()?,"description":tool.get("description").and_then(Value::as_str).unwrap_or(""),"parameters":tool.get("input_schema").cloned().unwrap_or_else(|| json!({"type":"object","properties":{}}))}}))
+    let name = extract_tool_name(tool)?;
+    Some(json!({
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": tool.get("description").and_then(Value::as_str).unwrap_or(""),
+            "parameters": tool.get("input_schema").cloned().unwrap_or_else(|| json!({"type":"object","properties":{}}))
+        }
+    }))
 }
 
 fn anthropic_tool_to_responses(tool: &Value) -> Option<Value> {
+    let name = extract_tool_name(tool)?;
     Some(json!({
         "type": "function",
-        "name": tool.get("name")?.as_str()?,
+        "name": name,
         "description": tool.get("description").and_then(Value::as_str).unwrap_or(""),
         "parameters": tool.get("input_schema").cloned().unwrap_or_else(|| json!({"type":"object","properties":{}})),
     }))

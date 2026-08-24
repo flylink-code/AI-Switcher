@@ -270,8 +270,10 @@ pub async fn codex_proxy_handler(
         }
     };
 
+    let is_compact_route = codex_compact::is_responses_compact_route(&route);
     if is_retryable_upstream_status(&state, upstream.status())
         && should_failover_upstream_status_ex(&provider, upstream.status(), catalog_mode)
+        && !is_compact_route
     {
         record_provider_failure(&state, &provider.id);
         failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
@@ -869,11 +871,22 @@ fn prepare_codex_upstream(
             None,
         )
     } else {
-        let stream = serde_json::from_slice::<Value>(&body)
-            .ok()
-            .and_then(|value| value.get("stream").and_then(Value::as_bool))
+        let mut parsed: Value = match serde_json::from_slice(&body) {
+            Ok(value) => value,
+            Err(_) => {
+                return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
+            }
+        };
+        convert::sanitize_codex_responses_body(&mut parsed);
+        let stream = parsed
+            .get("stream")
+            .and_then(Value::as_bool)
             .unwrap_or(false);
-        (body.to_vec(), stream, None)
+        (
+            serde_json::to_vec(&parsed).unwrap_or_else(|_| body.to_vec()),
+            stream,
+            None,
+        )
     };
 
     let mut request = state.client.request(reqwest::Method::POST, &upstream_url);
@@ -902,6 +915,17 @@ fn prepare_codex_upstream(
         }
         if let Ok(value) = value.to_str() {
             request = request.header(key, value);
+        }
+    }
+
+    if let Some(ref custom_headers) = provider.custom_headers {
+        for (k, v) in custom_headers {
+            if !is_hop_by_hop_header(k)
+                && !k.eq_ignore_ascii_case("host")
+                && !k.eq_ignore_ascii_case("content-length")
+            {
+                request = request.header(k.as_str(), v.as_str());
+            }
         }
     }
 
@@ -1022,7 +1046,21 @@ async fn forward_chat_bridge_upstream(
                         }
                         (output, false)
                     }
-                    Some(Err(_)) => (converter.finish_done(), true),
+                    Some(Err(_)) => {
+                        if let Some(id) = stream_log_id.as_deref() {
+                            let _ = db.with_conn(|conn| {
+                                crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                    conn,
+                                    id,
+                                    "midstream_error",
+                                    None,
+                                    Some("midstream_error"),
+                                    Some("Codex 上游流式响应中途中断"),
+                                )
+                            });
+                        }
+                        (converter.finish_done(), true)
+                    }
                     None => {
                         let mut rest = Vec::new();
                         if !buffer.is_empty() {
@@ -1038,6 +1076,18 @@ async fn forward_chat_bridge_upstream(
                             buffer.clear();
                         }
                         rest.extend(converter.finish_done());
+                        if let Some(id) = stream_log_id.as_deref() {
+                            let _ = db.with_conn(|conn| {
+                                crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                    conn,
+                                    id,
+                                    "complete",
+                                    None,
+                                    None,
+                                    None,
+                                )
+                            });
+                        }
                         (rest, true)
                     }
                 };

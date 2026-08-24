@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   Col,
   Drawer,
   Empty,
@@ -114,6 +115,7 @@ export default function UsagePage() {
   const [form] = Form.useForm<ModelPricingInput>();
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const [trendExpanded, setTrendExpanded] = useState(false);
+  const [onlyFailures, setOnlyFailures] = useState(false);
 
   const logRefreshTimerRef = useRef<number | null>(null);
   const lastLogRefreshAtRef = useRef(0);
@@ -124,7 +126,7 @@ export default function UsagePage() {
     placeholderData: keepPreviousData,
   });
   const logsQuery = useQuery({
-    ...usageLogsOptions(period, logPage, logTargetApp),
+    ...usageLogsOptions(period, logPage, logTargetApp, onlyFailures),
     placeholderData: keepPreviousData,
   });
   const metaQuery = useQuery(usageMetaOptions);
@@ -577,6 +579,17 @@ export default function UsagePage() {
         size="small"
         className="page-surface"
         title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
+        extra={
+          <Checkbox
+            checked={onlyFailures}
+            onChange={(e) => {
+              setOnlyFailures(e.target.checked);
+              setLogPage(0);
+            }}
+          >
+            {t("usage.onlyFailures")}
+          </Checkbox>
+        }
       >
         {isCodexOnly && (
           <Alert
@@ -671,9 +684,20 @@ export default function UsagePage() {
             },
             {
               title: t("usage.logStream"),
-              dataIndex: "isStream",
-              width: 70,
-              render: (v: boolean) => (v ? t("common.enabled") : "—"),
+              width: 95,
+              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => {
+                if (!row.isStream) return "—";
+                if (row.streamOutcome === "midstream_error") {
+                  return <Tag color="error">{t("usage.streamMidstreamError")}</Tag>;
+                }
+                if (row.streamOutcome === "cancelled") {
+                  return <Tag color="warning">{t("usage.streamCancelled")}</Tag>;
+                }
+                if (row.streamOutcome === "complete") {
+                  return <Tag color="success">{t("usage.streamComplete")}</Tag>;
+                }
+                return <Tag>{t("common.enabled")}</Tag>;
+              },
             },
           ]}
         />

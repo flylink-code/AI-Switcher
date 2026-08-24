@@ -20,6 +20,7 @@ interface AccountCardProps {
   onSetActive: (id: string) => void;
   onRemove: (id: string) => void;
   isPending?: boolean;
+  quotaViewMode?: "all" | "5h" | "7d";
 }
 
 export function AccountCard({
@@ -27,6 +28,7 @@ export function AccountCard({
   onSetActive,
   onRemove,
   isPending = false,
+  quotaViewMode = "all",
 }: AccountCardProps) {
   const { t } = useTranslation();
 
@@ -109,27 +111,41 @@ export function AccountCard({
             {t("antigravity.quotaNeedsProject")}
           </Text>
         )}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <QuotaMiniBar
-            label={t("antigravity.quotaGemini5h")}
-            percent={geminiFiveHour}
-            resetTime={geminiFiveHourReset}
-          />
-          <QuotaMiniBar
-            label={t("antigravity.quotaGemini7d")}
-            percent={geminiWeekly}
-            resetTime={geminiWeeklyReset}
-          />
-          <QuotaMiniBar
-            label={t("antigravity.quotaClaude5h")}
-            percent={claudeFiveHour}
-            resetTime={claudeFiveHourReset}
-          />
-          <QuotaMiniBar
-            label={t("antigravity.quotaClaude7d")}
-            percent={claudeWeekly}
-            resetTime={claudeWeeklyReset}
-          />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: quotaViewMode === "all" ? "1fr 1fr" : "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          {(quotaViewMode === "all" || quotaViewMode === "5h") && (
+            <QuotaMiniBar
+              label={t("antigravity.quotaGemini5h")}
+              percent={geminiFiveHour}
+              resetTime={geminiFiveHourReset}
+            />
+          )}
+          {(quotaViewMode === "all" || quotaViewMode === "7d") && (
+            <QuotaMiniBar
+              label={t("antigravity.quotaGemini7d")}
+              percent={geminiWeekly}
+              resetTime={geminiWeeklyReset}
+            />
+          )}
+          {(quotaViewMode === "all" || quotaViewMode === "5h") && (
+            <QuotaMiniBar
+              label={t("antigravity.quotaClaude5h")}
+              percent={claudeFiveHour}
+              resetTime={claudeFiveHourReset}
+            />
+          )}
+          {(quotaViewMode === "all" || quotaViewMode === "7d") && (
+            <QuotaMiniBar
+              label={t("antigravity.quotaClaude7d")}
+              percent={claudeWeekly}
+              resetTime={claudeWeeklyReset}
+            />
+          )}
         </div>
 
         {/* Footer: meta row + actions row — same structure whether active or not */}

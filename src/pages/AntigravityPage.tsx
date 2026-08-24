@@ -47,6 +47,7 @@ import type {
   ProviderTarget,
 } from "@/types/backend";
 import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
+import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import {
   AccountPoolOverview,
   AccountCard,
@@ -431,6 +432,9 @@ function AntigravityContent({
   handleSetActive,
   handleRemoveAccount,
 }: AntigravityContentProps) {
+  const agQuotaViewMode = usePagePreferencesStore((state) => state.agQuotaViewMode);
+  const setAgQuotaViewMode = usePagePreferencesStore((state) => state.setAgQuotaViewMode);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Compact runtime summary + page actions */}
@@ -491,13 +495,34 @@ function AntigravityContent({
 
       {/* Account Pool */}
       <section>
-        <Space align="center" style={{ marginBottom: 12 }}>
-          <UserOutlined />
-          <Text strong>{t("antigravity.accounts")}</Text>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            ({accounts.length})
-          </Text>
-        </Space>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <Space align="center">
+            <UserOutlined />
+            <Text strong>{t("antigravity.accounts")}</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              ({accounts.length})
+            </Text>
+          </Space>
+          <Segmented<"all" | "5h" | "7d">
+            size="small"
+            value={agQuotaViewMode}
+            onChange={setAgQuotaViewMode}
+            options={[
+              { value: "all", label: t("antigravity.quotaViewAll") },
+              { value: "5h", label: t("antigravity.quotaView5h") },
+              { value: "7d", label: t("antigravity.quotaView7d") },
+            ]}
+          />
+        </div>
 
         {accountsQuery.isLoading ? (
           <Skeleton active paragraph={{ rows: 3 }} />
@@ -530,6 +555,7 @@ function AntigravityContent({
                 onSetActive={handleSetActive}
                 onRemove={handleRemoveAccount}
                 isPending={actionAccountId === account.id}
+                quotaViewMode={agQuotaViewMode}
               />
             ))}
           </div>

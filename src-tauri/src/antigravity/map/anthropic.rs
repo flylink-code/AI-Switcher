@@ -202,7 +202,14 @@ pub fn anthropic_to_gemini_request(
             .iter()
             .filter(|tool| !is_google_search_tool(tool))
             .filter_map(|tool| {
-                let name = tool.get("name").and_then(Value::as_str)?;
+                let name = tool
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .or_else(|| {
+                        tool.get("type")
+                            .and_then(Value::as_str)
+                            .filter(|t| crate::proxy::convert::is_claude_server_tool_type(t))
+                    })?;
                 let description = tool.get("description").cloned().unwrap_or(json!(""));
                 let parameters = tool
                     .get("input_schema")
@@ -608,7 +615,7 @@ fn content_to_parts(
                         }
                         parts.push(part);
                     }
-                    "tool_result" => {
+                    "tool_result" | "tool_search_tool_result" => {
                         let tool_use_id = block
                             .get("tool_use_id")
                             .and_then(Value::as_str)

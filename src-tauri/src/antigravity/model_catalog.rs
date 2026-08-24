@@ -707,6 +707,10 @@ mod tests {
             chain.first().map(String::as_str),
             Some("gemini-3.7-flash-high")
         );
+        assert!(
+            chain.iter().all(|id| !id.to_ascii_lowercase().contains("claude")),
+            "gemini fallback must not rewrite to Claude: {chain:?}"
+        );
         assert_eq!(
             gemini_level_fallback_chain("claude-sonnet-4-6"),
             vec!["claude-sonnet-4-6".to_string()]

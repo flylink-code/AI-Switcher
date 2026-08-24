@@ -20,6 +20,7 @@ interface PersistedPagePreferences {
   sessionsProvider?: SessionProvider;
   workbenchView?: "providers" | "usage";
   visibleAgents?: ProviderTarget[];
+  agQuotaViewMode?: "all" | "5h" | "7d";
 }
 
 interface PagePreferencesState {
@@ -34,6 +35,7 @@ interface PagePreferencesState {
   heatmapSource: UsageSourceFilter;
   sessionsProvider: SessionProvider;
   workbenchView: "providers" | "usage";
+  agQuotaViewMode: "all" | "5h" | "7d";
   setVisibleAgents: (agents: ProviderTarget[]) => void;
   setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
@@ -45,6 +47,7 @@ interface PagePreferencesState {
   setHeatmapSource: (target: UsageSourceFilter) => void;
   setSessionsProvider: (provider: SessionProvider) => void;
   setWorkbenchView: (view: "providers" | "usage") => void;
+  setAgQuotaViewMode: (mode: "all" | "5h" | "7d") => void;
 }
 
 const DEFAULTS: Pick<
@@ -59,6 +62,7 @@ const DEFAULTS: Pick<
   | "heatmapSource"
   | "sessionsProvider"
   | "workbenchView"
+  | "agQuotaViewMode"
 > = {
   visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"],
   workspaceTarget: "claude_code",
@@ -70,6 +74,7 @@ const DEFAULTS: Pick<
   heatmapSource: "all",
   sessionsProvider: "claude_code",
   workbenchView: "providers",
+  agQuotaViewMode: "all",
 };
 
 function isProviderTarget(value: unknown): value is ProviderTarget {
@@ -168,6 +173,11 @@ function initialState() {
     sessionsProvider = (visibleAgents.find(isSessionProvider) ?? visibleAgents[0]) as SessionProvider;
   }
 
+  const agQuotaViewMode =
+    stored.agQuotaViewMode === "5h" || stored.agQuotaViewMode === "7d" || stored.agQuotaViewMode === "all"
+      ? stored.agQuotaViewMode
+      : DEFAULTS.agQuotaViewMode;
+
   return {
     visibleAgents,
     workspaceTarget,
@@ -179,6 +189,7 @@ function initialState() {
     heatmapSource: isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
     sessionsProvider,
     workbenchView: (stored.workbenchView === "usage" ? "usage" : "providers") as "providers" | "usage",
+    agQuotaViewMode,
   };
 }
 
@@ -195,6 +206,7 @@ function persistSlice(
     | "heatmapSource"
     | "sessionsProvider"
     | "workbenchView"
+    | "agQuotaViewMode"
   >,
 ) {
   writePersisted({
@@ -208,6 +220,7 @@ function persistSlice(
     heatmapSource: state.heatmapSource,
     sessionsProvider: state.sessionsProvider,
     workbenchView: state.workbenchView,
+    agQuotaViewMode: state.agQuotaViewMode,
   });
 }
 
@@ -277,6 +290,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setWorkbenchView: (workbenchView) => {
     set({ workbenchView });
+    persistSlice(get());
+  },
+  setAgQuotaViewMode: (agQuotaViewMode) => {
+    set({ agQuotaViewMode });
     persistSlice(get());
   },
 }));

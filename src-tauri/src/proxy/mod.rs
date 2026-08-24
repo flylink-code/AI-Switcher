@@ -5,7 +5,7 @@
 //! injecting the real API key. Request summaries are written to the SQLite log
 //! table for the usage dashboard (P4).
 
-mod convert;
+pub(crate) mod convert;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;
@@ -36,7 +36,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
-    update_proxy_log_usage_idempotent, extract_usage_envelope_id,
+    update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
 use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
@@ -627,6 +627,16 @@ fn prepare_upstream_request(
             .header("Chatgpt-Account-Id", provider.auth_binding.trim());
     } else {
         builder = builder.header("x-api-key", key);
+    }
+    if let Some(ref custom_headers) = provider.custom_headers {
+        for (k, v) in custom_headers {
+            if !is_hop_by_hop_header(k)
+                && !k.eq_ignore_ascii_case("host")
+                && !k.eq_ignore_ascii_case("content-length")
+            {
+                builder = builder.header(k.as_str(), v.as_str());
+            }
+        }
     }
     Ok(PreparedUpstreamRequest { builder, outgoing_body, translated })
 }
@@ -1345,13 +1355,51 @@ async fn proxy_handler(
                                 (output, false)
                             }
                             Ok(Some(Err(_))) => {
+                                if let Some(id) = stream_log_id.as_deref() {
+                                    let _ = db.with_conn(|conn| {
+                                        update_proxy_log_stream_outcome(
+                                            conn,
+                                            id,
+                                            "midstream_error",
+                                            None,
+                                            Some("midstream_error"),
+                                            Some("上游流式响应中途中断"),
+                                        )
+                                    });
+                                }
                                 (converter.error_event("上游流式响应中断"), true)
                             }
                             Ok(None) => {
                                 let output = converter.finish_stream();
+                                if let Some(id) = stream_log_id.as_deref() {
+                                    let _ = db.with_conn(|conn| {
+                                        update_proxy_log_stream_outcome(
+                                            conn,
+                                            id,
+                                            "complete",
+                                            None,
+                                            None,
+                                            None,
+                                        )
+                                    });
+                                }
                                 (output, true)
                             }
-                            Err(_) => (converter.error_event("流式响应空闲超时"), true),
+                            Err(_) => {
+                                if let Some(id) = stream_log_id.as_deref() {
+                                    let _ = db.with_conn(|conn| {
+                                        update_proxy_log_stream_outcome(
+                                            conn,
+                                            id,
+                                            "midstream_error",
+                                            None,
+                                            Some("timeout"),
+                                            Some("流式响应空闲超时"),
+                                        )
+                                    });
+                                }
+                                (converter.error_event("流式响应空闲超时"), true)
+                            }
                         };
                         if let (Some(id), Some(usage)) =
                             (stream_log_id.as_deref(), converter.usage())
@@ -2193,6 +2241,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
             is_current: true,
             created_at: 0,
             health_status: None,
@@ -2283,6 +2332,7 @@ mod tests {
                     failover_models: Vec::new(),
                     hidden_models: Vec::new(),
                     thinking_config: None,
+                    custom_headers: None,
                 },
             )?;
             set_current_provider(conn, &current.id)?;
@@ -2309,6 +2359,7 @@ mod tests {
                     failover_models: vec!["gpt-4o".into()],
                     hidden_models: Vec::new(),
                     thinking_config: None,
+                    custom_headers: None,
                 },
             )?;
             let group0 = upsert_provider(
@@ -2333,6 +2384,7 @@ mod tests {
                     failover_models: Vec::new(),
                     hidden_models: Vec::new(),
                     thinking_config: None,
+                    custom_headers: None,
                 },
             )?;
             Ok((current.id, group0.id))

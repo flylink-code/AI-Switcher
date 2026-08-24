@@ -250,6 +250,7 @@ pub async fn ensure_antigravity_provider(
             .map(|provider| provider.hidden_models.clone())
             .unwrap_or_default(),
         thinking_config: None,
+        custom_headers: None,
     };
 
     state.db.with_conn(|conn| dao::upsert_provider(conn, &input))

@@ -192,6 +192,46 @@ impl QuotaSnapshot {
         }
     }
 
+    fn family_window_percent(&self, family: QuotaFamily, window: &str) -> Option<i32> {
+        match family {
+            QuotaFamily::Gemini => self.gemini_window_percent(window),
+            QuotaFamily::ClaudeGpt => self.claude_window_percent(window),
+        }
+    }
+
+    /// Prefer the 5h bar for this family; fall back to weekly/7d.
+    pub fn remaining_hint_for_family(&self, family: QuotaFamily) -> Option<i32> {
+        if self.is_forbidden {
+            return Some(0);
+        }
+        self.family_window_percent(family, "5h")
+            .or_else(|| self.family_window_percent(family, "weekly"))
+    }
+
+    pub fn remaining_fraction_for_family(&self, family: QuotaFamily) -> Option<f64> {
+        if self.is_forbidden {
+            return Some(0.0);
+        }
+        self.remaining_hint_for_family(family)
+            .map(|pct| (pct as f64) / 100.0)
+    }
+
+    /// Unknown family bars still allow the account until a 429. Both 5h and 7d
+    /// at 0% means this family is exhausted even if the other family has quota.
+    pub fn has_usable_quota_for_family(&self, family: QuotaFamily) -> bool {
+        if self.is_forbidden {
+            return false;
+        }
+        let five = self.family_window_percent(family, "5h");
+        let week = self.family_window_percent(family, "weekly");
+        match (five, week) {
+            (None, None) => true,
+            (Some(a), Some(b)) => a > 0 || b > 0,
+            (Some(a), None) => a > 0,
+            (None, Some(b)) => b > 0,
+        }
+    }
+
     /// `fetchAvailableModels` has no 5h/weekly groups. If summary is empty or
     /// timed out, keep the previous bars instead of wiping them to `—`.
     pub fn retain_groups_if_empty(&mut self, previous: Option<&QuotaSnapshot>) {
@@ -478,10 +518,19 @@ async fn onboard_user_project(
     None
 }
 
-#[derive(Clone, Copy)]
-enum QuotaFamily {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum QuotaFamily {
     Gemini,
     ClaudeGpt,
+}
+
+pub(crate) fn quota_family_from_model(model: &str) -> QuotaFamily {
+    let id = model.trim().to_ascii_lowercase();
+    if id.contains("gemini") {
+        QuotaFamily::Gemini
+    } else {
+        QuotaFamily::ClaudeGpt
+    }
 }
 
 fn group_looks_gemini(display_name: &str) -> bool {
@@ -1251,5 +1300,99 @@ mod tests {
         let snap = QuotaSnapshot::empty_forbidden("denied");
         assert_eq!(snap.remaining_hint_percent(), Some(0));
         assert!(!snap.has_usable_quota());
+    }
+
+    fn family_bars(
+        gemini_5h: f64,
+        gemini_week: f64,
+        claude_5h: f64,
+        claude_week: f64,
+    ) -> QuotaSnapshot {
+        QuotaSnapshot {
+            last_updated: 1,
+            groups: vec![
+                QuotaGroup {
+                    display_name: "Gemini Models".into(),
+                    buckets: vec![
+                        QuotaBucket {
+                            bucket_id: "gemini-5h".into(),
+                            window: "5h".into(),
+                            remaining_fraction: gemini_5h,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                        QuotaBucket {
+                            bucket_id: "gemini-weekly".into(),
+                            window: "weekly".into(),
+                            remaining_fraction: gemini_week,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                    ],
+                },
+                QuotaGroup {
+                    display_name: "Claude + GPT".into(),
+                    buckets: vec![
+                        QuotaBucket {
+                            bucket_id: "3p-claude-5h".into(),
+                            window: "5h".into(),
+                            remaining_fraction: claude_5h,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                        QuotaBucket {
+                            bucket_id: "3p-claude-weekly".into(),
+                            window: "weekly".into(),
+                            remaining_fraction: claude_week,
+                            reset_time: "t".into(),
+                            display_name: None,
+                        },
+                    ],
+                },
+            ],
+            ..QuotaSnapshot::default()
+        }
+    }
+
+    #[test]
+    fn quota_family_from_model_splits_gemini_and_claude() {
+        assert_eq!(
+            quota_family_from_model("gemini-3.7-flash-high"),
+            QuotaFamily::Gemini
+        );
+        assert_eq!(
+            quota_family_from_model("claude-opus-4-6"),
+            QuotaFamily::ClaudeGpt
+        );
+        assert_eq!(
+            quota_family_from_model("gpt-5.4"),
+            QuotaFamily::ClaudeGpt
+        );
+    }
+
+    #[test]
+    fn family_quota_ignores_the_other_bucket() {
+        let gemini_empty = family_bars(0.0, 0.0, 0.8, 0.8);
+        assert!(!gemini_empty.has_usable_quota_for_family(QuotaFamily::Gemini));
+        assert!(gemini_empty.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
+        assert_eq!(
+            gemini_empty.remaining_hint_for_family(QuotaFamily::ClaudeGpt),
+            Some(80)
+        );
+
+        let claude_empty = family_bars(0.8, 0.8, 0.0, 0.0);
+        assert!(claude_empty.has_usable_quota_for_family(QuotaFamily::Gemini));
+        assert!(!claude_empty.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
+        assert_eq!(
+            claude_empty.remaining_hint_for_family(QuotaFamily::Gemini),
+            Some(80)
+        );
+    }
+
+    #[test]
+    fn unknown_family_bars_remain_usable() {
+        let empty = QuotaSnapshot::default();
+        assert!(empty.has_usable_quota_for_family(QuotaFamily::Gemini));
+        assert!(empty.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
     }
 }

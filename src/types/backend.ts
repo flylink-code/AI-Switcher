@@ -50,6 +50,7 @@ export interface Provider {
   /** Models omitted from /model and live catalogs. Default model is never hidden. */
   hiddenModels?: string[];
   thinkingConfig?: ThinkingConfig | null;
+  customHeaders?: Record<string, string> | null;
   isCurrent: boolean;
   createdAt: number;
   healthStatus?: string | null;
@@ -81,6 +82,7 @@ export interface ProviderInput {
   failoverModels?: string[];
   hiddenModels?: string[];
   thinkingConfig?: ThinkingConfig | null;
+  customHeaders?: Record<string, string> | null;
 }
 
 export interface ConnectionTestResult {
@@ -908,6 +910,7 @@ export interface ProxyRequestLog {
   isStream: boolean;
   errorCategory: string | null;
   diagnostic: string | null;
+  streamOutcome: string | null;
   dataSource: string;
   sessionId: string | null;
 }
@@ -925,6 +928,7 @@ export interface ProxyLogListInput {
   today?: boolean;
   targetApp?: string;
   statusCode?: number;
+  onlyFailures?: boolean;
   page?: number;
   pageSize?: number;
 }

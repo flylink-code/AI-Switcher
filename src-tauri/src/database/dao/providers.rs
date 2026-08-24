@@ -38,7 +38,7 @@ pub fn list_providers(conn: &Connection, target: ProviderTarget) -> AppResult<Ve
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json, hidden_models_json
+                thinking_config_json, hidden_models_json, custom_headers_json
          FROM providers WHERE target_app = ? ORDER BY sort_index ASC, created_at ASC;",
     )?;
     let rows = stmt.query_map(params![target.as_str()], row_to_provider)?;
@@ -55,7 +55,7 @@ pub fn get_provider(conn: &Connection, id: &str) -> AppResult<Option<Provider>> 
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json, hidden_models_json
+                thinking_config_json, hidden_models_json, custom_headers_json
          FROM providers WHERE id = ?;",
     )?;
     let mut rows = stmt.query(params![id])?;
@@ -75,7 +75,7 @@ pub fn get_current_provider(conn: &Connection, target: ProviderTarget) -> AppRes
                 model_mapping_json, model_context_window, auto_review_model_override,
                 provider_kind, auth_binding, web_search_enabled, failover_group, failover_models,
                 (SELECT detail FROM provider_health WHERE provider_id = providers.id),
-                thinking_config_json, hidden_models_json
+                thinking_config_json, hidden_models_json, custom_headers_json
          FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
     )?;
     let mut rows = stmt.query(params![target.as_str()])?;
@@ -130,6 +130,13 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             .filter(|cfg| !cfg.is_empty())
             .unwrap_or(&crate::provider::ThinkingConfig::default()),
     )?;
+    let custom_headers_json = serde_json::to_string(
+        input
+            .custom_headers
+            .as_ref()
+            .filter(|headers| !headers.is_empty())
+            .unwrap_or(&std::collections::HashMap::new()),
+    )?;
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
@@ -158,7 +165,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 protocol_type = ?, notes = ?, model_mapping_json = ?, model_context_window = ?,
                 auto_review_model_override = ?, provider_kind = ?, auth_binding = ?,
                 web_search_enabled = ?, failover_group = ?, failover_models = ?,
-                thinking_config_json = ?, hidden_models_json = ? WHERE id = ?;",
+                thinking_config_json = ?, hidden_models_json = ?, custom_headers_json = ? WHERE id = ?;",
             params![
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
@@ -169,6 +176,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
                 thinking_config_json,
                 serde_json::to_string(&normalize_failover_models(&input.hidden_models))?,
+                custom_headers_json,
                 id,
             ],
         )?;
@@ -194,8 +202,8 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     };
     if let Err(error) = conn.execute(
         "INSERT INTO providers
-            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models, thinking_config_json, hidden_models_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+            (id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding, target_app, notes, sort_index, is_current, created_at, model_mapping_json, model_context_window, auto_review_model_override, web_search_enabled, failover_group, failover_models, thinking_config_json, hidden_models_json, custom_headers_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
             protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
@@ -206,6 +214,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
             thinking_config_json,
             serde_json::to_string(&normalize_failover_models(&input.hidden_models))?,
+            custom_headers_json,
         ],
     ) {
         if !api_key_col.is_empty() {
@@ -390,6 +399,11 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .collect();
+    let custom_headers_json: Option<String> = row.get(24).ok();
+    let custom_headers = custom_headers_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<std::collections::HashMap<String, String>>(raw).ok())
+        .filter(|headers| !headers.is_empty());
     Ok(Provider {
         api_key_set: !api_key.is_empty()
             || (provider_kind == ProviderKind::CodexOauth && !auth_binding.is_empty()),
@@ -417,6 +431,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         failover_models,
         hidden_models,
         thinking_config,
+        custom_headers,
     })
 }
 
@@ -489,6 +504,7 @@ mod tests {
             failover_models: Vec::new(),
             hidden_models: Vec::new(),
             thinking_config: None,
+            custom_headers: None,
         }
     }
 
