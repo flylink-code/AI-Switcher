@@ -17,20 +17,33 @@ jobs:
     name: Ensure GitHub Release
     runs-on: ubuntu-latest
     steps:
-      - name: Create release if missing
+      - uses: actions/checkout@v4
+
+      - name: Render bilingual release notes
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: node scripts/render-release-notes.mjs /tmp/ai-switcher-release-notes.md
+
+      - name: Create or update GitHub Release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
+          title="AI-Switcher ${tag#v}"
+          notes="/tmp/ai-switcher-release-notes.md"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $tag already exists"
+            gh release edit "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --notes-file "$notes"
+            echo "Updated release notes for $tag"
             exit 0
           fi
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "AI-Switcher ${tag#v}" \
-            --notes "CI is uploading signed installers for ${tag}." \
+            --title "$title" \
+            --notes-file "$notes" \
             --verify-tag
 
   release:
@@ -91,45 +104,45 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: AI-Switcher v__VERSION__
-          releaseBody: |-
-            ## AI-Switcher v__VERSION__
-
-            ## What's new
-
-            - Cline parity: local proxy :15827, usage from proxy logs, sessions from ~/.cline, workspace MCP / Prompts / Skills
-            - Antigravity gateway Wave 1: local short-circuit, thinkingBudget, RetryInfo, history media
-            - Local Anthropic web_search / web_fetch; WSL Direct sync; WebDAV library backup
-            - About-page release notes follow the UI language; local proxy uses a single-column settings layout
-
-            ## 更新内容
-
-            - Cline 齐能力：本机代理 :15827、用量筛代理日志、会话扫 ~/.cline、工作区 MCP / Prompts / Skills
-            - AG 网关 Wave 1：后台请求本地短路、thinkingBudget、RetryInfo、历史媒体
-            - 本地执行 Anthropic web_search / web_fetch；WSL Direct；WebDAV 资料库备份
-            - 关于页本版本说明随界面语言；本地代理改为单列设置卡片
-
-            ### Windows
-            Prefer the NSIS `.exe` for per-user installs without admin. MSI still requires elevation.
-            In-app updates are signed and delivered from this release.
-            建议使用 NSIS `.exe`（当前用户安装，通常无需管理员）；MSI 仍会请求提升权限。
-            应用内更新会从本 Release 获取已签名更新。
-
-            ### Linux (preview)
-            Prefer the `.AppImage` (`chmod +x`, no sudo). `.deb` installs/updates need administrator privileges.
-            Requires Ubuntu 22.04 / Debian 12 or newer (`libwebkit2gtk-4.1`). Ubuntu 18.04 / 20.04 cannot run Tauri 2.
-            Linux builds are best-effort: Claude Desktop localization / some Windows-only tools are unavailable.
-            建议优先使用 `.AppImage`（先 `chmod +x`，无需 sudo）；`.deb` 需要管理员权限。
-            需要 Ubuntu 22.04 / Debian 12 或更新（`libwebkit2gtk-4.1`）。18.04 / 20.04 无法运行 Tauri 2。
-            Linux 为尽力支持：Claude Desktop 中文化等 Windows 专用能力不可用。
+          # Notes come from i18n about.changelog via scripts/render-release-notes.mjs.
+          # Do not hardcode a stale releaseBody here — tauri-action would overwrite it.
           releaseDraft: false
           prerelease: false
           args: --bundles ${{ matrix.bundles }}
           updaterJsonKeepUniversal: true
 
+  # Re-apply bilingual notes after installer upload (tauri-action may rewrite the body).
+  publish-release-notes:
+    name: Publish bilingual release notes
+    needs: release
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render and upload release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          node scripts/render-release-notes.mjs /tmp/ai-switcher-release-notes.md
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag is missing; skip notes"
+            exit 0
+          fi
+          gh release edit "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "AI-Switcher ${tag#v}" \
+            --notes-file /tmp/ai-switcher-release-notes.md
+
   # Run after both platform builds so latest.json includes every uploaded platform.
   mirror-updater:
     name: Publish mirrored updater manifest
-    needs: release
+    needs: publish-release-notes
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     env:

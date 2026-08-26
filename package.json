@@ -16,7 +16,8 @@
     "dev:hot": "scripts\\dev-hot.bat",
     "build:exe": "scripts\\build-exe.bat",
     "build:exe:debug": "scripts\\build-exe.bat debug",
-    "build:exe:bundle": "scripts\\build-exe.bat bundle"
+    "build:exe:bundle": "scripts\\build-exe.bat bundle",
+    "release:notes": "node scripts/render-release-notes.mjs -"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
