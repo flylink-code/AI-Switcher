@@ -244,7 +244,7 @@ export function SessionBackupModal({
       destroyOnHidden
     >
       {toastContext}
-      <Space orientation="vertical" size={16} orientationMargin={0} style={{ width: "100%", marginTop: 8 }}>
+      <Space direction="vertical" size={16} style={{ width: "100%", marginTop: 8 }}>
         <Alert
           type="info"
           showIcon
@@ -255,7 +255,7 @@ export function SessionBackupModal({
         {/* 备份目录设置卡片 */}
         <Card size="small" title={t("sessions.backup.dirConfigTitle")}>
           <Space direction="vertical" size={8} style={{ width: "100%" }}>
-            <Text orientation="vertical" type="secondary" orientationMargin={0} style={{ fontSize: 13 }}>
+            <Text type="secondary" style={{ fontSize: 13 }}>
               {t("sessions.backup.currentDirLabel")}
             </Text>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
