@@ -236,6 +236,38 @@
     "codexRepairSummary": "Repaired {{files}} session files and updated {{rows}} index rows",
     "codexRepairUpToDate": "History sessions already match the current provider",
     "codexRepairSkipped": "{{count}} session files were locked and skipped; close Codex and retry",
+    "backup": {
+      "manageBtn": "Backups",
+      "restoreFromBackupBtn": "Restore from Local Backup",
+      "modalTitle": "Session Backup & Recovery",
+      "tipTitle": "Session Local Backup & Reinstall Protection",
+      "tipDesc": "When Codex / Claude Code is reinstalled, updated, or reset, local conversation history may be wiped. You can configure a custom backup directory (e.g. on D: drive or external storage) to make full backups and restore with one click.",
+      "dirConfigTitle": "Backup Directory Configuration",
+      "currentDirLabel": "Current session backup storage directory:",
+      "dirPlaceholder": "Select a local backup folder path",
+      "browseBtn": "Choose Folder",
+      "openFolderBtn": "Open in Folder",
+      "resetBtn": "Reset to Default",
+      "resetDirTooltip": "Reset to default app data session-backups directory",
+      "selectDirTitle": "Select Session Backup Directory",
+      "dirUpdated": "Backup directory updated",
+      "dirReset": "Reset to default backup directory",
+      "actionTitle": "Backup Actions",
+      "backupAllTitle": "Full Backup of {{provider}} Sessions",
+      "backupAllDesc": "Scan all local conversation records of this Agent and package them into a timestamped archive in the backup directory",
+      "backupAllBtn": "Back Up All Now",
+      "backupAllSuccess": "Successfully backed up {{count}} sessions to {{path}}",
+      "restoreExternalBtn": "Restore from External ZIP",
+      "selectExternalArchive": "Select session backup ZIP to restore",
+      "historyTitle": "Backup History & One-Click Restore",
+      "noBackups": "No backup archives found in the current backup directory",
+      "sessionCount": "{{count}} sessions",
+      "restoreConfirmTitle": "Confirm Restore",
+      "restoreConfirmDesc": "Restore {{count}} sessions from this backup to the local session directory. Identical existing files will be skipped.",
+      "confirmRestore": "Restore",
+      "restoreBtn": "Restore",
+      "restoreSuccess": "Restore finished: restored {{restored}} sessions, skipped {{skipped}} existing sessions"
+    },
     "roles": {
       "user": "User",
       "assistant": "Assistant",
@@ -1269,6 +1301,9 @@
         "Usage: persist stream_outcome (complete / cancelled / mid-stream); filter logs to failures only.",
         "Accounts: switch 5-hour vs 7-day quota views; custom HTTP headers on providers.",
         "Antigravity: rotate accounts by Gemini vs Claude family; background short-circuit toggles now have descriptions. Windows Codex CLI probe uses the anchored Node first."
+      ],
+      "1_3_26": [
+        "Sessions: configurable local backup directory, with full ZIP backup and one-click restore for Claude Code / Codex / Pi / DSH (OpenCode / Cline still have no file-archive backup)."
       ]
     },
     "appName": "App name",

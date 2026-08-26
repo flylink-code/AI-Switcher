@@ -1087,6 +1087,23 @@ export interface SessionBatchExportInfo {
   createdAt: number;
 }
 
+export interface SessionBackupArchiveInfo {
+  archivePath: string;
+  filename: string;
+  provider: SessionProvider;
+  sessionCount: number;
+  createdAt: number;
+  fileSize: number;
+  isBatch: boolean;
+}
+
+export interface SessionBatchRestoreResult {
+  restoredCount: number;
+  skippedCount: number;
+  totalCount: number;
+  message: string;
+}
+
 export interface ProfileScopePayload {
   providerId?: string | null;
   mcpIds: string[];

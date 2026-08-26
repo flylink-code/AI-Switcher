@@ -139,6 +139,27 @@ pub struct SessionBatchExportInfo {
     pub created_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBackupArchiveInfo {
+    pub archive_path: String,
+    pub filename: String,
+    pub provider: SessionProvider,
+    pub session_count: usize,
+    pub created_at: i64,
+    pub file_size: u64,
+    pub is_batch: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBatchRestoreResult {
+    pub restored_count: usize,
+    pub skipped_count: usize,
+    pub total_count: usize,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SessionBatchArchiveManifest {
@@ -1134,9 +1155,292 @@ fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> Ap
     }
 }
 
+pub const SESSION_BACKUP_DIRECTORY_KEY: &str = "session_backup_directory";
+
+pub fn default_session_backup_dir() -> PathBuf {
+    config::get_app_config_dir().join("session-backups")
+}
+
+pub fn get_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResult<PathBuf> {
+    use crate::database::dao::settings::get_setting;
+    if let Some(custom) = get_setting(conn, SESSION_BACKUP_DIRECTORY_KEY)? {
+        let trimmed = custom.trim();
+        if !trimmed.is_empty() {
+            let path = PathBuf::from(trimmed);
+            if !path.exists() {
+                let _ = fs::create_dir_all(&path);
+            }
+            if path.is_dir() {
+                return Ok(path);
+            }
+        }
+    }
+    let default_dir = default_session_backup_dir();
+    if !default_dir.exists() {
+        let _ = fs::create_dir_all(&default_dir);
+    }
+    Ok(default_dir)
+}
+
+pub fn set_configured_session_backup_dir(conn: &rusqlite::Connection, path: &str) -> AppResult<String> {
+    use crate::database::dao::settings::set_setting;
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return reset_configured_session_backup_dir(conn);
+    }
+    let target = PathBuf::from(trimmed);
+    if !target.exists() {
+        fs::create_dir_all(&target).map_err(|error| {
+            AppError::Path(format!("创建备份目录失败 {}: {error}", target.display()))
+        })?;
+    }
+    let canonical = target.canonicalize().map_err(|error| {
+        AppError::Path(format!("无法解析备份目录 {}: {error}", target.display()))
+    })?;
+    if !canonical.is_dir() {
+        return Err(AppError::Path(format!("指定路径不是有效目录: {}", canonical.display())));
+    }
+    let string_path = canonical.to_string_lossy().into_owned();
+    set_setting(conn, SESSION_BACKUP_DIRECTORY_KEY, &string_path)?;
+    Ok(string_path)
+}
+
+pub fn reset_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResult<String> {
+    use crate::database::dao::settings::set_setting;
+    let default_dir = default_session_backup_dir();
+    if !default_dir.exists() {
+        let _ = fs::create_dir_all(&default_dir);
+    }
+    set_setting(conn, SESSION_BACKUP_DIRECTORY_KEY, "")?;
+    Ok(default_dir.to_string_lossy().into_owned())
+}
+
+pub fn collect_all_session_paths_for_provider(provider: SessionProvider) -> AppResult<Vec<String>> {
+    match provider {
+        SessionProvider::ClaudeCode => {
+            let (paths, _, _, _) = collect_claude_code_session_paths()?;
+            Ok(paths.into_iter().map(|(p, _)| p.to_string_lossy().into_owned()).collect())
+        }
+        SessionProvider::Codex => {
+            let (paths, _, _, _) = collect_codex_session_paths()?;
+            Ok(paths.into_iter().map(|(p, _)| p.to_string_lossy().into_owned()).collect())
+        }
+        SessionProvider::Pi => {
+            let root = crate::coding::pi::config::get_pi_dir().join("sessions");
+            let mut paths = Vec::new();
+            if root.is_dir() {
+                collect_jsonl_files(&root, &mut paths)?;
+            }
+            Ok(paths.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+        }
+        SessionProvider::Dsh => {
+            let root = crate::config::get_dsh_config_dir().join("sessions");
+            let mut paths = Vec::new();
+            if root.is_dir() {
+                collect_dsh_session_paths(&root, &mut paths);
+            }
+            Ok(paths.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+        }
+        SessionProvider::OpenCode => {
+            Err(AppError::Config("OpenCode 会话暂不支持批量文件归档备份".to_string()))
+        }
+        SessionProvider::Cline => {
+            Err(AppError::Config("Cline 会话暂不支持批量文件归档备份".to_string()))
+        }
+    }
+}
+
+pub fn backup_all_sessions(
+    provider: SessionProvider,
+    destination_dir: Option<&str>,
+) -> AppResult<SessionBatchExportInfo> {
+    let source_paths = collect_all_session_paths_for_provider(provider)?;
+    if source_paths.is_empty() {
+        return Err(AppError::Config(format!(
+            "未发现 {:?} 的本地会话文件，无法执行备份",
+            provider
+        )));
+    }
+    let mut sessions = Vec::with_capacity(source_paths.len());
+    for source_path in &source_paths {
+        let (source, relative) = validated_session(provider, source_path)?;
+        let content = fs::read(&source)?;
+        let meta = parse_session(provider, &source)?
+            .ok_or_else(|| AppError::Config("无法读取会话元数据".to_string()))?;
+        sessions.push((session_manifest(provider, &meta, relative, &content), content));
+    }
+    let created_at = chrono::Utc::now().timestamp_millis();
+    let dir = resolve_export_dir(destination_dir, "session-backups")?;
+    let name = match provider {
+        SessionProvider::Codex => "codex",
+        SessionProvider::ClaudeCode => "claude-code",
+        SessionProvider::Pi => "pi",
+        SessionProvider::Dsh => "dsh",
+        _ => "sessions",
+    };
+    let archive_path = dir.join(format!("{name}-all-backup-{created_at}.zip"));
+    write_batch_session_archive(&archive_path, created_at, &sessions)?;
+    Ok(SessionBatchExportInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_count: sessions.len(),
+        created_at,
+    })
+}
+
+pub fn list_session_backups(
+    provider: Option<SessionProvider>,
+    backup_dir: Option<&str>,
+) -> AppResult<Vec<SessionBackupArchiveInfo>> {
+    let dir = resolve_export_dir(backup_dir, "session-backups")?;
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut archives = Vec::new();
+    let entries = match fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(Vec::new()),
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("zip") {
+            continue;
+        }
+        let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+        let filename = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        if let Ok((batch, _)) = read_batch_session_archive(&path) {
+            let archive_provider = batch
+                .sessions
+                .first()
+                .map(|s| s.provider)
+                .unwrap_or(SessionProvider::ClaudeCode);
+            if provider.is_none() || provider == Some(archive_provider) {
+                archives.push(SessionBackupArchiveInfo {
+                    archive_path: path.to_string_lossy().into_owned(),
+                    filename,
+                    provider: archive_provider,
+                    session_count: batch.sessions.len(),
+                    created_at: batch.created_at,
+                    file_size,
+                    is_batch: true,
+                });
+            }
+        } else if let Ok((manifest, _)) = read_session_archive(&path) {
+            if provider.is_none() || provider == Some(manifest.provider) {
+                archives.push(SessionBackupArchiveInfo {
+                    archive_path: path.to_string_lossy().into_owned(),
+                    filename,
+                    provider: manifest.provider,
+                    session_count: 1,
+                    created_at: manifest.created_at,
+                    file_size,
+                    is_batch: false,
+                });
+            }
+        }
+    }
+    archives.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(archives)
+}
+
+pub fn restore_session_backup(
+    provider: SessionProvider,
+    archive_path: &str,
+    overwrite: bool,
+) -> AppResult<SessionBatchRestoreResult> {
+    let path = Path::new(archive_path);
+    if !path.is_file() {
+        return Err(AppError::Config(format!("备份文件不存在: {archive_path}")));
+    }
+
+    let mut restored_count = 0;
+    let mut skipped_count = 0;
+
+    if is_batch_session_archive(path)? {
+        let (batch, contents) = read_batch_session_archive(path)?;
+        for (manifest, content) in batch.sessions.iter().zip(contents.iter()) {
+            validate_manifest_provider(provider, manifest)?;
+            let target = import_target(provider, &manifest.relative_path)?;
+            if target.exists() {
+                let existing_sha = hex::encode(Sha256::digest(fs::read(&target)?));
+                if existing_sha == manifest.content_sha256 {
+                    skipped_count += 1;
+                    continue;
+                }
+                if !overwrite {
+                    skipped_count += 1;
+                    continue;
+                }
+            }
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            crate::config::atomic_write(&target, content)?;
+            restored_count += 1;
+        }
+    } else {
+        let (manifest, content) = read_session_archive(path)?;
+        validate_manifest_provider(provider, &manifest)?;
+        let target = import_target(provider, &manifest.relative_path)?;
+        if target.exists() {
+            let existing_sha = hex::encode(Sha256::digest(fs::read(&target)?));
+            if existing_sha == manifest.content_sha256 {
+                skipped_count += 1;
+            } else if !overwrite {
+                skipped_count += 1;
+            } else {
+                if let Some(parent) = target.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                crate::config::atomic_write(&target, &content)?;
+                restored_count += 1;
+            }
+        } else {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            crate::config::atomic_write(&target, &content)?;
+            restored_count += 1;
+        }
+    }
+
+    if provider == SessionProvider::Codex && restored_count > 0 {
+        let _ = crate::config::codex_provider_sync::sync_to_managed_provider();
+    }
+
+    Ok(SessionBatchRestoreResult {
+        restored_count,
+        skipped_count,
+        total_count: restored_count + skipped_count,
+        message: format!(
+            "已恢复 {} 个会话，跳过 {} 个会话",
+            restored_count, skipped_count
+        ),
+    })
+}
+
 fn safe_archive_relative_path(value: &str) -> AppResult<PathBuf> {
     let path = Path::new(value);
-    if path.is_absolute() || path.components().any(|component| matches!(component, std::path::Component::ParentDir | std::path::Component::Prefix(_) | std::path::Component::RootDir)) || path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
+    let valid_ext = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|ext| ext == "jsonl" || ext == "zstd" || ext == "json")
+        .unwrap_or(false);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::Prefix(_)
+                    | std::path::Component::RootDir
+            )
+        })
+        || !valid_ext
+    {
         return Err(AppError::Config("会话归档中的路径不安全".to_string()));
     }
     Ok(path.to_path_buf())
@@ -3853,5 +4157,22 @@ mod tests {
         ];
         assert_eq!(truncate_incomplete_tool_rounds(&mut values), 0);
         assert_eq!(values.len(), 2);
+    }
+
+    #[test]
+    fn file_archive_backup_is_unsupported_for_opencode_and_cline() {
+        let open = collect_all_session_paths_for_provider(SessionProvider::OpenCode).unwrap_err();
+        assert!(open.to_string().contains("OpenCode"));
+        let cline = collect_all_session_paths_for_provider(SessionProvider::Cline).unwrap_err();
+        assert!(cline.to_string().contains("Cline"));
+    }
+
+    #[test]
+    fn list_session_backups_ignores_non_archive_files() {
+        let dir = tempfile::tempdir().unwrap();
+        File::create(dir.path().join("readme.txt")).unwrap();
+        File::create(dir.path().join("not-a-session.zip")).unwrap();
+        let archives = list_session_backups(None, Some(dir.path().to_str().unwrap())).unwrap();
+        assert!(archives.is_empty());
     }
 }

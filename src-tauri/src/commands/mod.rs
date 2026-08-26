@@ -108,12 +108,13 @@ pub use prompts::{
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use runtime_status::get_managed_apps_runtime_status;
 pub use sessions::{
-    backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
-    import_claude_code_session, load_session_messages,
-    list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
-    trash_claude_code_session,
-    backup_sessions, export_session, export_session_markdown, export_sessions, import_session, list_trashed_sessions,
-    restore_trashed_session, trash_session,
+    backup_all_sessions, backup_claude_code_sessions, backup_sessions, export_claude_code_session,
+    export_claude_code_sessions, export_session, export_session_markdown, export_sessions,
+    get_session_backup_dir, import_claude_code_session, import_session, list_session_backups,
+    list_trashed_claude_code_sessions, list_trashed_sessions, load_session_messages,
+    reset_session_backup_dir, restore_session_backup, restore_trashed_claude_code_session,
+    restore_trashed_session, scan_sessions, search_session_contents, set_session_backup_dir,
+    trash_claude_code_session, trash_session,
 };
 pub use providers::{
     batch_diagnose_providers, copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,

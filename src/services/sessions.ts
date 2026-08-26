@@ -2,8 +2,10 @@ import { call } from "./ipc";
 import type {
   CodexProviderSyncResult,
   SessionArchiveInfo,
+  SessionBackupArchiveInfo,
   SessionBatchBackupInfo,
   SessionBatchExportInfo,
+  SessionBatchRestoreResult,
   SessionMessage,
   SessionMeta,
   SessionProvider,
@@ -62,6 +64,50 @@ export async function exportSessionMarkdown(provider: SessionProvider, sourcePat
 
 export async function backupSessions(provider: SessionProvider, sourcePaths: string[]): Promise<SessionBatchBackupInfo> {
   return call<SessionBatchBackupInfo>("backup_sessions", { provider, sourcePaths });
+}
+
+export async function backupAllSessions(
+  provider: SessionProvider,
+  destinationDir?: string,
+): Promise<SessionBatchExportInfo> {
+  return call<SessionBatchExportInfo>("backup_all_sessions", {
+    provider,
+    destinationDir: destinationDir ?? null,
+  });
+}
+
+export async function getSessionBackupDir(): Promise<string> {
+  return call<string>("get_session_backup_dir");
+}
+
+export async function setSessionBackupDir(path: string): Promise<string> {
+  return call<string>("set_session_backup_dir", { path });
+}
+
+export async function resetSessionBackupDir(): Promise<string> {
+  return call<string>("reset_session_backup_dir");
+}
+
+export async function listSessionBackups(
+  provider?: SessionProvider,
+  backupDir?: string,
+): Promise<SessionBackupArchiveInfo[]> {
+  return call<SessionBackupArchiveInfo[]>("list_session_backups", {
+    provider: provider ?? null,
+    backupDir: backupDir ?? null,
+  });
+}
+
+export async function restoreSessionBackup(
+  provider: SessionProvider,
+  archivePath: string,
+  overwrite?: boolean,
+): Promise<SessionBatchRestoreResult> {
+  return call<SessionBatchRestoreResult>("restore_session_backup", {
+    provider,
+    archivePath,
+    overwrite: overwrite ?? null,
+  });
 }
 
 export async function exportSessions(provider: SessionProvider, sourcePaths: string[], destinationDir?: string): Promise<SessionBatchExportInfo> {

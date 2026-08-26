@@ -2,9 +2,91 @@
 
 use crate::error::{AppError, AppResult};
 use crate::session_manager::{
-    self, SessionArchiveInfo, SessionBatchBackupInfo, SessionBatchExportInfo, SessionMessage,
-    SessionMeta, SessionProvider, SessionScanResult,
+    self, SessionArchiveInfo, SessionBackupArchiveInfo, SessionBatchBackupInfo,
+    SessionBatchExportInfo, SessionBatchRestoreResult, SessionMessage, SessionMeta, SessionProvider,
+    SessionScanResult,
 };
+use crate::store::AppState;
+
+#[tauri::command]
+pub fn get_session_backup_dir(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    let dir = state
+        .db
+        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn set_session_backup_dir(path: String, state: tauri::State<'_, AppState>) -> AppResult<String> {
+    state
+        .db
+        .with_conn(|conn| session_manager::set_configured_session_backup_dir(conn, &path))
+}
+
+#[tauri::command]
+pub fn reset_session_backup_dir(state: tauri::State<'_, AppState>) -> AppResult<String> {
+    state
+        .db
+        .with_conn(|conn| session_manager::reset_configured_session_backup_dir(conn))
+}
+
+#[tauri::command]
+pub async fn backup_all_sessions(
+    provider: SessionProvider,
+    destination_dir: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<SessionBatchExportInfo> {
+    let target_dir = match destination_dir {
+        Some(dir) if !dir.trim().is_empty() => Some(dir),
+        _ => {
+            let configured = state
+                .db
+                .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+            Some(configured.to_string_lossy().into_owned())
+        }
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::backup_all_sessions(provider, target_dir.as_deref())
+    })
+    .await
+    .map_err(|error| AppError::Tauri(format!("全量会话备份任务失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn list_session_backups(
+    provider: Option<SessionProvider>,
+    backup_dir: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<SessionBackupArchiveInfo>> {
+    let target_dir = match backup_dir {
+        Some(dir) if !dir.trim().is_empty() => Some(dir),
+        _ => {
+            let configured = state
+                .db
+                .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+            Some(configured.to_string_lossy().into_owned())
+        }
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::list_session_backups(provider, target_dir.as_deref())
+    })
+    .await
+    .map_err(|error| AppError::Tauri(format!("读取会话备份列表失败: {error}")))?
+}
+
+#[tauri::command]
+pub async fn restore_session_backup(
+    provider: SessionProvider,
+    archive_path: String,
+    overwrite: Option<bool>,
+) -> AppResult<SessionBatchRestoreResult> {
+    let overwrite = overwrite.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        session_manager::restore_session_backup(provider, &archive_path, overwrite)
+    })
+    .await
+    .map_err(|error| AppError::Tauri(format!("恢复会话备份任务失败: {error}")))?
+}
 
 #[tauri::command]
 pub async fn scan_sessions(

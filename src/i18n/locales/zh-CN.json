@@ -236,6 +236,38 @@
     "codexRepairSummary": "已修复 {{files}} 个会话文件，更新 {{rows}} 条索引",
     "codexRepairUpToDate": "历史会话已与当前供应商一致",
     "codexRepairSkipped": "有 {{count}} 个会话文件被占用，已跳过；请关闭 Codex 后重试",
+    "backup": {
+      "manageBtn": "备份管理",
+      "restoreFromBackupBtn": "从本地备份恢复",
+      "modalTitle": "会话本地备份与恢复",
+      "tipTitle": "会话本地备份与重装保护",
+      "tipDesc": "Codex / Claude Code 等客户端重装、更新或重置后，本地对话记录可能会丢失。您可以配置自定义备份目录（如 D 盘或移动硬盘），定期全量备份并在需要时一键恢复。",
+      "dirConfigTitle": "备份目录设置",
+      "currentDirLabel": "当前会话备份存储目录：",
+      "dirPlaceholder": "请选择本地备份文件夹路径",
+      "browseBtn": "选择目录",
+      "openFolderBtn": "在文件夹中打开",
+      "resetBtn": "重置为默认",
+      "resetDirTooltip": "恢复为默认应用数据目录下的 session-backups",
+      "selectDirTitle": "选择会话本地备份目录",
+      "dirUpdated": "备份目录已更新",
+      "dirReset": "已重置为默认备份目录",
+      "actionTitle": "会话备份操作",
+      "backupAllTitle": "全量备份 {{provider}} 本地会话",
+      "backupAllDesc": "扫描当前 Agent 的全部历史对话并完整打包成带时间戳的归档文件保存在备份目录中",
+      "backupAllBtn": "立即全量备份",
+      "backupAllSuccess": "已成功全量备份 {{count}} 个会话到 {{path}}",
+      "restoreExternalBtn": "从外部 ZIP 恢复",
+      "selectExternalArchive": "选择要恢复的会话归档 ZIP",
+      "historyTitle": "历史备份与一键恢复",
+      "noBackups": "当前备份目录下未发现历史备份文件",
+      "sessionCount": "{{count}} 个会话",
+      "restoreConfirmTitle": "确认恢复该备份包？",
+      "restoreConfirmDesc": "将恢复该备份包中的 {{count}} 个会话到本地会话存储目录，同名且内容相同的文件会自动跳过。",
+      "confirmRestore": "确认恢复",
+      "restoreBtn": "一键恢复",
+      "restoreSuccess": "恢复完成：已还原 {{restored}} 个会话，跳过 {{skipped}} 个已有会话"
+    },
     "roles": {
       "user": "用户",
       "assistant": "助手",
@@ -1269,6 +1301,9 @@
         "用量：记录 stream_outcome（完整 / 取消 / 中途断开）；日志可仅看失败与异常。",
         "账号：5 小时 / 7 天额度视图切换；供应商可配自定义 HTTP 请求头。",
         "AG：按 Gemini / Claude 家族选号与轮换；后台短路每项带说明。Windows 上 Codex CLI 探测与锚定 Node 对齐。"
+      ],
+      "1_3_26": [
+        "会话：可配置本地备份目录，对 Claude Code / Codex / Pi / DSH 全量 ZIP 备份与一键恢复（OpenCode / Cline 仍不支持文件归档）。"
       ]
     },
     "appName": "应用名称",

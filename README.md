@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.3.25**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.3.26**
 
-**本版**：千帆 Token Plan / Kimi 思考档位 / 聚合思考方言；网关原生工具与 compact 错误隔离；流中断标记与「仅看失败」；5h/7d 额度与自定义请求头；AG 按模型家族轮换账号；Codex Windows 锚定 Node；后台短路开关带说明。
+**本版**：会话可配置本地备份目录，对 Claude Code / Codex / Pi / DSH 全量 ZIP 备份与一键恢复（OpenCode / Cline 仍不支持文件归档）。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -174,7 +174,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 会话
 
-浏览、筛选、搜索 Claude Code、Codex、OpenCode、Pi、DSH 与 Cline 本地会话；支持导出 / 导入 / 备份 / 回收站（OpenCode / Cline 暂不支持归档/导出/回收站）。不解析 Claude Desktop 私有历史格式。
+浏览、筛选、搜索 Claude Code、Codex、OpenCode、Pi、DSH 与 Cline 本地会话；支持导出 / 导入 / **自定义目录全量备份与一键恢复** / 回收站（OpenCode / Cline 暂不支持归档/导出/回收站）。不解析 Claude Desktop 私有历史格式。
 
 ### 中文化
 

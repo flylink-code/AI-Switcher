@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.3.25**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.3.26**
 
-**This release:** Qianfan Token Plan / Kimi reasoning effort / aggregator thinking dialects; native server-tool and compact-error isolation; stream-outcome logging and failures-only filter; 5h/7d quota views and custom request headers; Antigravity rotates accounts by model family; Windows Codex CLI uses the anchored Node; background short-circuit toggles now have descriptions.
+**This release:** Configurable local session backup directory, with full ZIP backup and one-click restore for Claude Code, Codex, Pi, and DSH (OpenCode / Cline still do not support file-archive backup).
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -41,7 +41,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google 
 
 ### 4. Extensions & Ecosystem Integration
 - **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization. Check-all Skill/plugin updates run off the UI thread (per-repo GitHub zips, 90s plugin CLI timeout) so the window stays responsive.
-- **Local Session Manager**: Browse, search, backup, and export local session histories across all supported AI coding agents.
+- **Local Session Manager**: Browse, search, backup, and export local session histories across all supported AI coding agents. Claude Code / Codex / Pi / DSH can full-ZIP backup to a custom folder and restore in one click.
 - **Localization**: Built-in Claude Code Chinese plugins, desktop language packs, and editor patch tools.
 
 ---

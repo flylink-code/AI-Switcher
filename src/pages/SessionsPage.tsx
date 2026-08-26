@@ -22,6 +22,7 @@ import {
   theme,
 } from "antd";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
+import HistoryOutlined from "@ant-design/icons/es/icons/HistoryOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SearchOutlined from "@ant-design/icons/es/icons/SearchOutlined";
 import { listen } from "@tauri-apps/api/event";
@@ -49,6 +50,7 @@ import type {
   SessionScanResult,
 } from "@/types/backend";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
+import { SessionBackupModal } from "@/components/sessions/SessionBackupModal";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 type DirectoryFilter = "all" | "yes" | "no";
@@ -132,6 +134,7 @@ export default function SessionsPage() {
   const [messageQuery, setMessageQuery] = useState("");
   const [importPath, setImportPath] = useState("");
   const [importOpen, setImportOpen] = useState(false);
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [trashedArchives, setTrashedArchives] = useState<SessionArchiveInfo[]>([]);
   const [sessionAction, setSessionAction] = useState(false);
@@ -532,11 +535,16 @@ export default function SessionsPage() {
                   {t("sessions.clearFilters")}
                 </Button>
               )}
-              <Tooltip title={t("sessions.codexRepairHint")}>
-                <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
-                  {t("sessions.codexRepair")}
+              <Space wrap size={8}>
+                <Tooltip title={t("sessions.codexRepairHint")}>
+                  <Button loading={repairingCodex} onClick={() => void repairCodexSessions()}>
+                    {t("sessions.codexRepair")}
+                  </Button>
+                </Tooltip>
+                <Button icon={<HistoryOutlined />} onClick={() => setBackupModalOpen(true)}>
+                  {t("sessions.backup.restoreFromBackupBtn", { defaultValue: "从本地备份恢复" })}
                 </Button>
-              </Tooltip>
+              </Space>
             </Space>
           }
         />
@@ -618,6 +626,9 @@ export default function SessionsPage() {
             </Button>
             {provider !== "opencode" && (
               <>
+                <Button icon={<HistoryOutlined />} onClick={() => setBackupModalOpen(true)}>
+                  {t("sessions.backup.manageBtn", { defaultValue: "备份管理" })}
+                </Button>
                 <Button onClick={() => setImportOpen(true)}>{t("sessions.import")}</Button>
                 <Button loading={sessionAction} onClick={() => void openTrash()}>{t("sessions.trashBin")}</Button>
               </>
@@ -751,6 +762,12 @@ export default function SessionsPage() {
           )}
         />
       </Modal>
+      <SessionBackupModal
+        open={backupModalOpen}
+        provider={provider}
+        onClose={() => setBackupModalOpen(false)}
+        onRestored={() => void refresh()}
+      />
     </Space>
   );
 }
