@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.0**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.1**
 
-**This release:** Claude Code can set a default work mode for new chats; sessions support scheduled full ZIP and change-mirror backups; GitHub Releases list per-platform downloads.
+**This release:** Fix Windows session backup failing when canonicalize stores `\\?\` paths (open folder / full ZIP).
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

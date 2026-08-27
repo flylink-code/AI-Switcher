@@ -1341,6 +1341,9 @@
         "Claude Code providers: set a default work mode for new chats (Manual / Plan / Accept edits / Auto), written to permissions.defaultMode in settings.json.",
         "Sessions: scheduled full ZIP and change-mirror backups are independent switches, with an active window and 8 auto packs per Agent; restore missing files from the mirror or overwrite the Agent.",
         "GitHub Releases now list per-platform download links (Chinese notes first)."
+      ],
+      "1_4_1": [
+        "Fix Windows session backup: the \\\\?\\ prefix from canonicalize made opening the backup folder fail and full ZIP report an invalid relative path."
       ]
     },
     "appName": "App name",

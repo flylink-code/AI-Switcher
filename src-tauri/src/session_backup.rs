@@ -18,7 +18,8 @@ use crate::error::{AppError, AppResult};
 use crate::session_manager::{
     archive_provider_slug, backup_all_sessions_auto, collect_all_session_paths_for_provider,
     file_mtime_secs, get_configured_session_backup_dir, import_target, is_within_active_window,
-    prune_auto_session_backups, validated_session, SessionBatchRestoreResult, SessionProvider,
+    prune_auto_session_backups, relative_to_root, simplified_path, validated_session,
+    SessionBatchRestoreResult, SessionProvider,
 };
 
 pub const SCHEDULE_ENABLED_KEY: &str = "session_backup_schedule_enabled";
@@ -153,13 +154,15 @@ pub fn mirror_provider_dir(backup_dir: &Path, provider: SessionProvider) -> Path
 }
 
 pub fn path_is_under(child: &Path, parent: &Path) -> bool {
-    let Ok(child) = child.canonicalize() else {
-        return child.starts_with(parent);
-    };
-    let Ok(parent) = parent.canonicalize() else {
-        return child.starts_with(parent);
-    };
-    child.starts_with(parent)
+    let child = child
+        .canonicalize()
+        .map(|path| simplified_path(&path))
+        .unwrap_or_else(|_| simplified_path(child));
+    let parent = parent
+        .canonicalize()
+        .map(|path| simplified_path(&path))
+        .unwrap_or_else(|_| simplified_path(parent));
+    child == parent || child.starts_with(&parent) || relative_to_root(&child, &parent).is_ok()
 }
 
 /// Blocking tick used by the background loop and tests.
@@ -296,17 +299,16 @@ fn prune_mirror_provider(
     active_days: u32,
     live_relatives: &HashMap<PathBuf, PathBuf>,
 ) -> AppResult<()> {
-    let dest_root = mirror_provider_dir(backup_dir, provider);
+    let dest_root = simplified_path(&mirror_provider_dir(backup_dir, provider));
     if !dest_root.is_dir() {
         return Ok(());
     }
     let mut mirrored = Vec::new();
     collect_files(&dest_root, &mut mirrored, 0)?;
     for dest in mirrored {
-        let Ok(relative) = dest.strip_prefix(&dest_root) else {
+        let Ok(relative) = relative_to_root(&dest, &dest_root) else {
             continue;
         };
-        let relative = relative.to_path_buf();
         let source = live_relatives.get(&relative);
         let dest_mtime = file_mtime_secs(&dest).unwrap_or(0);
         let should_remove = match source {
@@ -350,7 +352,7 @@ pub fn restore_session_mirror(
     if matches!(provider, SessionProvider::OpenCode | SessionProvider::Cline) {
         return Err(AppError::Config("此 Agent 不支持从文件镜像恢复".to_string()));
     }
-    let dest_root = mirror_provider_dir(backup_dir, provider);
+    let dest_root = simplified_path(&mirror_provider_dir(backup_dir, provider));
     if !dest_root.is_dir() {
         return Err(AppError::Config("当前备份目录下没有该 Agent 的会话镜像".to_string()));
     }
@@ -359,7 +361,7 @@ pub fn restore_session_mirror(
     let mut restored_count = 0;
     let mut skipped_count = 0;
     for source in mirrored {
-        let Ok(relative) = source.strip_prefix(&dest_root) else {
+        let Ok(relative) = relative_to_root(&source, &dest_root) else {
             skipped_count += 1;
             continue;
         };
@@ -533,6 +535,15 @@ mod tests {
         let live = outside.path().join("live.jsonl");
         write_file(&live, "live");
         assert!(!path_is_under(&live, dir.path()));
+    }
+
+    #[test]
+    fn path_is_under_ignores_windows_verbatim_prefix() {
+        let parent = Path::new(r"J:\Temp\aiswitcher");
+        let child = Path::new(r"\\?\J:\Temp\aiswitcher\mirror\claude-code\a.jsonl");
+        assert!(path_is_under(child, parent));
+        let outside = Path::new(r"\\?\C:\Users\admin\.claude\projects\a.jsonl");
+        assert!(!path_is_under(outside, parent));
     }
 
     #[test]

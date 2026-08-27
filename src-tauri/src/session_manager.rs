@@ -982,8 +982,7 @@ pub(crate) fn parse_session(provider: SessionProvider, path: &Path) -> AppResult
 pub(crate) fn validated_session(provider: SessionProvider, source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
     let root = session_root(provider)?;
     let source = validate_session_path_in_root(&root, Path::new(source_path))?;
-    let root = root.canonicalize()?;
-    let relative = source.strip_prefix(root).map_err(|_| AppError::Path("会话相对路径无效".to_string()))?.to_path_buf();
+    let relative = relative_to_root(&source, &root)?;
     Ok((source, relative))
 }
 
@@ -1009,7 +1008,7 @@ pub(crate) fn import_target(provider: SessionProvider, relative_path: &str) -> A
     let relative = safe_archive_relative_path(relative_path)?;
     let root = session_root(provider)?;
     fs::create_dir_all(&root)?;
-    let root = root.canonicalize()?;
+    let root = simplified_path(&root.canonicalize()?);
     let mut current = root.clone();
     for component in relative.components() {
         current.push(component.as_os_str());
@@ -1035,8 +1034,7 @@ fn session_trash_dir(provider: SessionProvider) -> PathBuf {
 fn validated_code_session(source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
     let root = claude_code_session_root();
     let source = validate_session_path_in_root(&root, Path::new(source_path))?;
-    let root = root.canonicalize()?;
-    let relative = source.strip_prefix(root).map_err(|_| AppError::Path("会话相对路径无效".to_string()))?.to_path_buf();
+    let relative = relative_to_root(&source, &root)?;
     Ok((source, relative))
 }
 
@@ -1138,21 +1136,22 @@ fn unique_session_paths(source_paths: &[String]) -> AppResult<Vec<String>> {
 pub(crate) fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> AppResult<PathBuf> {
     match destination_dir.map(str::trim).filter(|path| !path.is_empty()) {
         Some(path) => {
-            let path = PathBuf::from(path);
+            let path = simplified_path(Path::new(path));
             let metadata = fs::metadata(&path).map_err(|error| {
                 AppError::Path(format!("无法访问导出目录 {}: {error}", path.display()))
             })?;
             if !metadata.is_dir() {
                 return Err(AppError::Path(format!("导出位置不是目录: {}", path.display())));
             }
-            path.canonicalize().map_err(|error| {
+            let canonical = path.canonicalize().map_err(|error| {
                 AppError::Path(format!("无法解析导出目录 {}: {error}", path.display()))
-            })
+            })?;
+            Ok(simplified_path(&canonical))
         }
         None => {
             let dir = config::get_app_config_dir().join(default_subdir);
             fs::create_dir_all(&dir)?;
-            Ok(dir)
+            Ok(simplified_path(&dir))
         }
     }
 }
@@ -1201,7 +1200,7 @@ pub fn get_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResu
     if let Some(custom) = get_setting(conn, SESSION_BACKUP_DIRECTORY_KEY)? {
         let trimmed = custom.trim();
         if !trimmed.is_empty() {
-            let path = PathBuf::from(trimmed);
+            let path = simplified_path(Path::new(trimmed));
             if !path.exists() {
                 let _ = fs::create_dir_all(&path);
             }
@@ -1210,7 +1209,7 @@ pub fn get_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResu
             }
         }
     }
-    let default_dir = default_session_backup_dir();
+    let default_dir = simplified_path(&default_session_backup_dir());
     if !default_dir.exists() {
         let _ = fs::create_dir_all(&default_dir);
     }
@@ -1223,7 +1222,7 @@ pub fn set_configured_session_backup_dir(conn: &rusqlite::Connection, path: &str
     if trimmed.is_empty() {
         return reset_configured_session_backup_dir(conn);
     }
-    let target = PathBuf::from(trimmed);
+    let target = simplified_path(Path::new(trimmed));
     if !target.exists() {
         fs::create_dir_all(&target).map_err(|error| {
             AppError::Path(format!("创建备份目录失败 {}: {error}", target.display()))
@@ -1235,14 +1234,15 @@ pub fn set_configured_session_backup_dir(conn: &rusqlite::Connection, path: &str
     if !canonical.is_dir() {
         return Err(AppError::Path(format!("指定路径不是有效目录: {}", canonical.display())));
     }
-    let string_path = canonical.to_string_lossy().into_owned();
+    let stored = simplified_path(&canonical);
+    let string_path = stored.to_string_lossy().into_owned();
     set_setting(conn, SESSION_BACKUP_DIRECTORY_KEY, &string_path)?;
     Ok(string_path)
 }
 
 pub fn reset_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResult<String> {
     use crate::database::dao::settings::set_setting;
-    let default_dir = default_session_backup_dir();
+    let default_dir = simplified_path(&default_session_backup_dir());
     if !default_dir.exists() {
         let _ = fs::create_dir_all(&default_dir);
     }
@@ -2291,7 +2291,9 @@ fn validate_session_path_in_root(root: &Path, source: &Path) -> AppResult<PathBu
     let source = candidate.canonicalize().map_err(|error| {
         AppError::Path(format!("无法解析会话文件 {}: {error}", candidate.display()))
     })?;
-    if !source.starts_with(&root) {
+    let root = simplified_path(&root);
+    let source = simplified_path(&source);
+    if relative_to_root(&source, &root).is_err() && !source.starts_with(&root) {
         return Err(AppError::Path(format!(
             "会话文件不在允许的目录内: {}",
             source.display()
@@ -2315,6 +2317,60 @@ fn strip_windows_path_prefix(path: &str) -> &str {
         .strip_prefix(r"\\?\")
         .or_else(|| trimmed.strip_prefix(r"//?/"))
         .unwrap_or(trimmed)
+}
+
+/// Strip Windows extended-length prefixes so stored and compared paths stay
+/// usable by ShellExecute / Path::strip_prefix.
+pub(crate) fn simplified_path(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy();
+    let stripped = strip_windows_path_prefix(&raw);
+    #[cfg(windows)]
+    {
+        PathBuf::from(stripped.replace('/', "\\"))
+    }
+    #[cfg(not(windows))]
+    {
+        PathBuf::from(stripped)
+    }
+}
+
+fn relative_under_simplified(source: &Path, root: &Path) -> Option<PathBuf> {
+    let source = simplified_path(source);
+    let root = simplified_path(root);
+    if let Ok(relative) = source.strip_prefix(&root) {
+        if !relative.as_os_str().is_empty() {
+            return Some(relative.to_path_buf());
+        }
+    }
+    let source_key = normalize_path_key(&source);
+    let root_key = normalize_path_key(&root);
+    let rest = source_key.strip_prefix(&root_key)?;
+    if rest.is_empty() {
+        return None;
+    }
+    if !rest.starts_with('\\') && !rest.starts_with('/') {
+        return None;
+    }
+    Some(PathBuf::from(
+        rest.trim_start_matches(['\\', '/'])
+            .replace('\\', std::path::MAIN_SEPARATOR_STR),
+    ))
+}
+
+pub(crate) fn relative_to_root(source: &Path, root: &Path) -> AppResult<PathBuf> {
+    if let Some(relative) = relative_under_simplified(source, root) {
+        return Ok(relative);
+    }
+    let source = source
+        .canonicalize()
+        .map(|path| simplified_path(&path))
+        .unwrap_or_else(|_| simplified_path(source));
+    let root = root
+        .canonicalize()
+        .map(|path| simplified_path(&path))
+        .unwrap_or_else(|_| simplified_path(root));
+    relative_under_simplified(&source, &root)
+        .ok_or_else(|| AppError::Path("会话相对路径无效".to_string()))
 }
 
 fn normalize_cwd_display(cwd: &str) -> String {
@@ -4087,6 +4143,65 @@ mod tests {
             r"\\?\C:\Users\admin\.codex\sessions\2026\08\03\rollout.jsonl",
         ));
         assert_eq!(plain, extended);
+    }
+
+    #[test]
+    fn simplified_path_strips_windows_extended_prefix() {
+        assert_eq!(
+            simplified_path(Path::new(r"\\?\J:\Temp\aiswitcher")),
+            PathBuf::from(r"J:\Temp\aiswitcher")
+        );
+        assert_eq!(
+            simplified_path(Path::new(r"//?/J:\Temp\aiswitcher")),
+            PathBuf::from(r"J:\Temp\aiswitcher")
+        );
+        assert_eq!(
+            simplified_path(Path::new(r"J:\Temp\aiswitcher")),
+            PathBuf::from(r"J:\Temp\aiswitcher")
+        );
+    }
+
+    #[test]
+    fn relative_to_root_accepts_mixed_windows_verbatim_prefix() {
+        let relative = relative_to_root(
+            Path::new(r"C:\Users\admin\.claude\projects\acme\foo.jsonl"),
+            Path::new(r"\\?\C:\Users\admin\.claude\projects"),
+        )
+        .expect("relative path");
+        assert_eq!(relative.file_name().unwrap(), "foo.jsonl");
+        let display = relative.to_string_lossy();
+        assert!(
+            display.contains("acme"),
+            "expected project folder in relative path, got {display}"
+        );
+    }
+
+    fn settings_conn() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn backup_dir_round_trip_strips_windows_extended_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = settings_conn();
+        let prefixed = format!(r"\\?\{}", simplified_path(dir.path()).display());
+        let stored = set_configured_session_backup_dir(&conn, &prefixed).unwrap();
+        assert!(
+            !stored.contains(r"\\?\"),
+            "stored backup dir still has verbatim prefix: {stored}"
+        );
+        let loaded = get_configured_session_backup_dir(&conn).unwrap();
+        assert!(
+            !loaded.to_string_lossy().contains(r"\\?\"),
+            "loaded backup dir still has verbatim prefix: {}",
+            loaded.display()
+        );
+        assert_eq!(Path::new(&stored), loaded.as_path());
     }
 
     #[test]
