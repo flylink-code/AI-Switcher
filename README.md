@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.3.26**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.0**
 
-**本版**：会话可配置本地备份目录，对 Claude Code / Codex / Pi / DSH 全量 ZIP 备份与一键恢复（OpenCode / Cline 仍不支持文件归档）。
+**本版**：Claude Code 可设新对话默认工作模式；会话支持定时全量 ZIP 与变更镜像；GitHub Release 提供分平台下载入口。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

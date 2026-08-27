@@ -9,8 +9,10 @@ import {
   List,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Spin,
+  Switch,
   Tag,
   Tooltip,
   Typography,
@@ -26,13 +28,17 @@ import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import {
   backupAllSessions,
+  getSessionAutoBackupSettings,
   getSessionBackupDir,
+  getSessionMirrorDir,
   listSessionBackups,
   resetSessionBackupDir,
   restoreSessionBackup,
+  restoreSessionMirror,
+  setSessionAutoBackupSettings,
   setSessionBackupDir,
 } from "@/services/api";
-import type { SessionBackupArchiveInfo, SessionProvider } from "@/types/backend";
+import type { SessionAutoBackupSettings, SessionBackupArchiveInfo, SessionProvider } from "@/types/backend";
 
 const { Text } = Typography;
 
@@ -42,6 +48,14 @@ interface SessionBackupModalProps {
   onClose: () => void;
   onRestored?: () => void;
 }
+
+const DEFAULT_AUTO_SETTINGS: SessionAutoBackupSettings = {
+  scheduleEnabled: false,
+  intervalMinutes: 60,
+  keepAuto: 8,
+  mirrorEnabled: false,
+  activeDays: 30,
+};
 
 function formatFileSize(bytes: number): string {
   if (bytes <= 0) return "0 B";
@@ -103,14 +117,21 @@ export function SessionBackupModal({
   const [loading, setLoading] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
   const [restoringPath, setRestoringPath] = useState<string | null>(null);
+  const [autoSettings, setAutoSettings] = useState<SessionAutoBackupSettings>(DEFAULT_AUTO_SETTINGS);
+  const [savingAuto, setSavingAuto] = useState(false);
+  const [restoringMirror, setRestoringMirror] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const dir = await getSessionBackupDir();
       setBackupDir(dir);
-      const list = await listSessionBackups(provider, dir);
+      const [list, auto] = await Promise.all([
+        listSessionBackups(provider, dir),
+        getSessionAutoBackupSettings(),
+      ]);
       setBackups(list);
+      setAutoSettings(auto);
     } catch (reason) {
       void toast.error(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -166,6 +187,50 @@ export function SessionBackupModal({
       } catch (reason) {
         void toast.error(reason instanceof Error ? reason.message : String(reason));
       }
+    }
+  };
+
+  const persistAutoSettings = async (next: SessionAutoBackupSettings) => {
+    setSavingAuto(true);
+    try {
+      const saved = await setSessionAutoBackupSettings(next);
+      setAutoSettings(saved);
+      void toast.success(t("sessions.backup.autoSaved"));
+    } catch (reason) {
+      void toast.error(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSavingAuto(false);
+    }
+  };
+
+  const handleOpenMirrorFolder = async () => {
+    try {
+      const dir = await getSessionMirrorDir(provider);
+      try {
+        await openPath(dir);
+      } catch {
+        await revealItemInDir(dir);
+      }
+    } catch (reason) {
+      void toast.error(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handleRestoreMirror = async (overwrite: boolean) => {
+    setRestoringMirror(true);
+    try {
+      const result = await restoreSessionMirror(provider, overwrite);
+      void toast.success(
+        t("sessions.backup.restoreSuccess", {
+          restored: result.restoredCount,
+          skipped: result.skippedCount,
+        }),
+      );
+      onRestored?.();
+    } catch (reason) {
+      void toast.error(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRestoringMirror(false);
     }
   };
 
@@ -280,6 +345,125 @@ export function SessionBackupModal({
           </Space>
         </Card>
 
+        <Card size="small" title={t("sessions.backup.autoTitle")}>
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("sessions.backup.autoHint")}
+            </Text>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <Text strong>{t("sessions.backup.scheduleLabel")}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("sessions.backup.scheduleHint")}
+                </Text>
+              </Space>
+              <Space>
+                <Select
+                  size="small"
+                  disabled={!autoSettings.scheduleEnabled || savingAuto}
+                  value={autoSettings.intervalMinutes}
+                  style={{ minWidth: 120 }}
+                  onChange={(value) =>
+                    void persistAutoSettings({ ...autoSettings, intervalMinutes: Number(value) })
+                  }
+                  options={[
+                    { value: 15, label: t("sessions.backup.interval15") },
+                    { value: 60, label: t("sessions.backup.interval60") },
+                    { value: 360, label: t("sessions.backup.interval360") },
+                    { value: 1440, label: t("sessions.backup.interval1440") },
+                  ]}
+                />
+                <Switch
+                  checked={autoSettings.scheduleEnabled}
+                  disabled={savingAuto || !isSupportedProvider}
+                  onChange={(checked) =>
+                    void persistAutoSettings({ ...autoSettings, scheduleEnabled: checked })
+                  }
+                />
+              </Space>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <Text strong>{t("sessions.backup.mirrorLabel")}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("sessions.backup.mirrorHint")}
+                </Text>
+              </Space>
+              <Space>
+                <Select
+                  size="small"
+                  disabled={!autoSettings.mirrorEnabled || savingAuto}
+                  value={autoSettings.activeDays}
+                  style={{ minWidth: 140 }}
+                  onChange={(value) =>
+                    void persistAutoSettings({ ...autoSettings, activeDays: Number(value) })
+                  }
+                  options={[
+                    { value: 7, label: t("sessions.backup.active7") },
+                    { value: 30, label: t("sessions.backup.active30") },
+                    { value: 90, label: t("sessions.backup.active90") },
+                    { value: 0, label: t("sessions.backup.activeAll") },
+                  ]}
+                />
+                <Switch
+                  checked={autoSettings.mirrorEnabled}
+                  disabled={savingAuto || !isSupportedProvider}
+                  onChange={(checked) =>
+                    void persistAutoSettings({ ...autoSettings, mirrorEnabled: checked })
+                  }
+                />
+              </Space>
+            </div>
+            <Space wrap>
+              <Button
+                icon={<FolderOpenOutlined />}
+                disabled={!isSupportedProvider}
+                onClick={() => void handleOpenMirrorFolder()}
+              >
+                {t("sessions.backup.openMirrorBtn")}
+              </Button>
+              <Popconfirm
+                title={t("sessions.backup.restoreMirrorTitle")}
+                description={t("sessions.backup.restoreMirrorMissingDesc")}
+                okText={t("sessions.backup.restoreMirrorMissing")}
+                cancelText={t("common.cancel")}
+                disabled={!isSupportedProvider}
+                onConfirm={() => void handleRestoreMirror(false)}
+              >
+                <Button loading={restoringMirror} disabled={!isSupportedProvider}>
+                  {t("sessions.backup.restoreMirrorBtn")}
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title={t("sessions.backup.restoreMirrorOverwriteTitle")}
+                description={t("sessions.backup.restoreMirrorOverwriteDesc")}
+                okText={t("sessions.backup.restoreMirrorOverwrite")}
+                cancelText={t("common.cancel")}
+                disabled={!isSupportedProvider}
+                onConfirm={() => void handleRestoreMirror(true)}
+              >
+                <Button disabled={!isSupportedProvider}>{t("sessions.backup.restoreMirrorOverwriteBtn")}</Button>
+              </Popconfirm>
+            </Space>
+          </Space>
+        </Card>
+
         {/* 全量备份操作 */}
         <Card size="small" title={t("sessions.backup.actionTitle")}>
           <div
@@ -387,6 +571,7 @@ export function SessionBackupModal({
                     title={
                       <Space>
                         <Tag color={providerColor(item.provider)}>{item.provider}</Tag>
+                        {item.isAuto ? <Tag>{t("sessions.backup.autoTag")}</Tag> : null}
                         <Text strong style={{ fontSize: 13 }}>
                           {item.filename}
                         </Text>

@@ -149,6 +149,8 @@ pub struct SessionBackupArchiveInfo {
     pub created_at: i64,
     pub file_size: u64,
     pub is_batch: bool,
+    #[serde(default)]
+    pub is_auto: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -952,7 +954,7 @@ fn session_root(provider: SessionProvider) -> AppResult<PathBuf> {
     }
 }
 
-fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<SessionMeta>> {
+pub(crate) fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<SessionMeta>> {
     match provider {
         SessionProvider::ClaudeCode => parse_claude_code_session(path),
         SessionProvider::Codex => parse_codex_session(path),
@@ -977,7 +979,7 @@ fn parse_session(provider: SessionProvider, path: &Path) -> AppResult<Option<Ses
     }
 }
 
-fn validated_session(provider: SessionProvider, source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
+pub(crate) fn validated_session(provider: SessionProvider, source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
     let root = session_root(provider)?;
     let source = validate_session_path_in_root(&root, Path::new(source_path))?;
     let root = root.canonicalize()?;
@@ -985,7 +987,7 @@ fn validated_session(provider: SessionProvider, source_path: &str) -> AppResult<
     Ok((source, relative))
 }
 
-fn session_manifest(provider: SessionProvider, meta: &SessionMeta, relative: PathBuf, content: &[u8]) -> SessionArchiveManifest {
+pub(crate) fn session_manifest(provider: SessionProvider, meta: &SessionMeta, relative: PathBuf, content: &[u8]) -> SessionArchiveManifest {
     SessionArchiveManifest {
         version: SESSION_ARCHIVE_VERSION,
         provider,
@@ -1003,7 +1005,7 @@ fn validate_manifest_provider(provider: SessionProvider, manifest: &SessionArchi
     Ok(())
 }
 
-fn import_target(provider: SessionProvider, relative_path: &str) -> AppResult<PathBuf> {
+pub(crate) fn import_target(provider: SessionProvider, relative_path: &str) -> AppResult<PathBuf> {
     let relative = safe_archive_relative_path(relative_path)?;
     let root = session_root(provider)?;
     fs::create_dir_all(&root)?;
@@ -1050,7 +1052,7 @@ fn write_session_archive(path: &Path, manifest: &SessionArchiveManifest, content
     Ok(())
 }
 
-fn write_batch_session_archive(
+pub(crate) fn write_batch_session_archive(
     path: &Path,
     created_at: i64,
     sessions: &[(SessionArchiveManifest, Vec<u8>)],
@@ -1133,7 +1135,7 @@ fn unique_session_paths(source_paths: &[String]) -> AppResult<Vec<String>> {
 /// Resolve a user-selected directory for portable exports. The default keeps
 /// backwards compatibility with previous releases, while explicit paths must
 /// already be directories so an arbitrary file path can never be overwritten.
-fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> AppResult<PathBuf> {
+pub(crate) fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> AppResult<PathBuf> {
     match destination_dir.map(str::trim).filter(|path| !path.is_empty()) {
         Some(path) => {
             let path = PathBuf::from(path);
@@ -1156,6 +1158,39 @@ fn resolve_export_dir(destination_dir: Option<&str>, default_subdir: &str) -> Ap
 }
 
 pub const SESSION_BACKUP_DIRECTORY_KEY: &str = "session_backup_directory";
+
+pub fn archive_provider_slug(provider: SessionProvider) -> &'static str {
+    match provider {
+        SessionProvider::Codex => "codex",
+        SessionProvider::ClaudeCode => "claude-code",
+        SessionProvider::Pi => "pi",
+        SessionProvider::Dsh => "dsh",
+        SessionProvider::OpenCode => "opencode",
+        SessionProvider::Cline => "cline",
+    }
+}
+
+pub fn is_auto_backup_filename(name: &str) -> bool {
+    name.contains("-auto-backup-")
+}
+
+pub fn file_mtime_secs(path: &Path) -> Option<i64> {
+    fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs() as i64)
+}
+
+pub fn is_within_active_window(mtime_secs: i64, active_days: u32) -> bool {
+    if active_days == 0 {
+        return true;
+    }
+    let now = chrono::Utc::now().timestamp();
+    now.saturating_sub(mtime_secs) <= i64::from(active_days).saturating_mul(86_400)
+}
 
 pub fn default_session_backup_dir() -> PathBuf {
     config::get_app_config_dir().join("session-backups")
@@ -1271,13 +1306,7 @@ pub fn backup_all_sessions(
     }
     let created_at = chrono::Utc::now().timestamp_millis();
     let dir = resolve_export_dir(destination_dir, "session-backups")?;
-    let name = match provider {
-        SessionProvider::Codex => "codex",
-        SessionProvider::ClaudeCode => "claude-code",
-        SessionProvider::Pi => "pi",
-        SessionProvider::Dsh => "dsh",
-        _ => "sessions",
-    };
+    let name = archive_provider_slug(provider);
     let archive_path = dir.join(format!("{name}-all-backup-{created_at}.zip"));
     write_batch_session_archive(&archive_path, created_at, &sessions)?;
     Ok(SessionBatchExportInfo {
@@ -1285,6 +1314,93 @@ pub fn backup_all_sessions(
         session_count: sessions.len(),
         created_at,
     })
+}
+
+/// Timed auto backup: only sessions inside the active window, skip unreadable files.
+/// Returns `None` when there is nothing to archive.
+pub fn backup_all_sessions_auto(
+    provider: SessionProvider,
+    destination_dir: Option<&str>,
+    active_days: u32,
+) -> AppResult<Option<SessionBatchExportInfo>> {
+    let source_paths = match collect_all_session_paths_for_provider(provider) {
+        Ok(paths) => paths,
+        Err(error) => {
+            log::warn!("自动会话备份跳过 {provider:?}: {error}");
+            return Ok(None);
+        }
+    };
+    let mut sessions = Vec::new();
+    for source_path in &source_paths {
+        let Ok((source, relative)) = validated_session(provider, source_path) else {
+            continue;
+        };
+        if let Some(mtime) = file_mtime_secs(&source) {
+            if !is_within_active_window(mtime, active_days) {
+                continue;
+            }
+        }
+        let Ok(content) = fs::read(&source) else {
+            continue;
+        };
+        let Ok(Some(meta)) = parse_session(provider, &source) else {
+            continue;
+        };
+        sessions.push((session_manifest(provider, &meta, relative, &content), content));
+    }
+    if sessions.is_empty() {
+        return Ok(None);
+    }
+    let created_at = chrono::Utc::now().timestamp_millis();
+    let dir = resolve_export_dir(destination_dir, "session-backups")?;
+    let name = archive_provider_slug(provider);
+    let archive_path = dir.join(format!("{name}-auto-backup-{created_at}.zip"));
+    write_batch_session_archive(&archive_path, created_at, &sessions)?;
+    Ok(Some(SessionBatchExportInfo {
+        archive_path: archive_path.to_string_lossy().into_owned(),
+        session_count: sessions.len(),
+        created_at,
+    }))
+}
+
+pub fn prune_auto_session_backups(
+    dir: &Path,
+    provider: SessionProvider,
+    keep: usize,
+) -> AppResult<usize> {
+    if keep == 0 || !dir.is_dir() {
+        return Ok(0);
+    }
+    let slug = archive_provider_slug(provider);
+    let prefix = format!("{slug}-auto-backup-");
+    let mut archives: Vec<(i64, PathBuf)> = Vec::new();
+    for entry in fs::read_dir(dir)?.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("zip") {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+        if !name.starts_with(&prefix) {
+            continue;
+        }
+        let stamp = name
+            .trim_start_matches(&prefix)
+            .trim_end_matches(".zip")
+            .parse::<i64>()
+            .unwrap_or_else(|_| file_mtime_secs(&path).unwrap_or(0));
+        archives.push((stamp, path));
+    }
+    archives.sort_by(|left, right| right.0.cmp(&left.0));
+    let mut removed = 0;
+    for (_, path) in archives.into_iter().skip(keep) {
+        if fs::remove_file(&path).is_ok() {
+            removed += 1;
+        }
+    }
+    Ok(removed)
 }
 
 pub fn list_session_backups(
@@ -1321,24 +1437,26 @@ pub fn list_session_backups(
             if provider.is_none() || provider == Some(archive_provider) {
                 archives.push(SessionBackupArchiveInfo {
                     archive_path: path.to_string_lossy().into_owned(),
-                    filename,
+                    filename: filename.clone(),
                     provider: archive_provider,
                     session_count: batch.sessions.len(),
                     created_at: batch.created_at,
                     file_size,
                     is_batch: true,
+                    is_auto: is_auto_backup_filename(&filename),
                 });
             }
         } else if let Ok((manifest, _)) = read_session_archive(&path) {
             if provider.is_none() || provider == Some(manifest.provider) {
                 archives.push(SessionBackupArchiveInfo {
                     archive_path: path.to_string_lossy().into_owned(),
-                    filename,
+                    filename: filename.clone(),
                     provider: manifest.provider,
                     session_count: 1,
                     created_at: manifest.created_at,
                     file_size,
                     is_batch: false,
+                    is_auto: is_auto_backup_filename(&filename),
                 });
             }
         }
@@ -4174,5 +4292,21 @@ mod tests {
         File::create(dir.path().join("not-a-session.zip")).unwrap();
         let archives = list_session_backups(None, Some(dir.path().to_str().unwrap())).unwrap();
         assert!(archives.is_empty());
+    }
+
+    #[test]
+    fn prune_auto_backups_keeps_manual_zip() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("pi-all-backup-1.zip"), b"manual").unwrap();
+        fs::write(dir.path().join("pi-auto-backup-1.zip"), b"a").unwrap();
+        fs::write(dir.path().join("pi-auto-backup-2.zip"), b"b").unwrap();
+        fs::write(dir.path().join("pi-auto-backup-3.zip"), b"c").unwrap();
+        let removed = prune_auto_session_backups(dir.path(), SessionProvider::Pi, 2).unwrap();
+        assert_eq!(removed, 1);
+        assert!(dir.path().join("pi-all-backup-1.zip").is_file());
+        assert!(dir.path().join("pi-auto-backup-3.zip").is_file());
+        assert!(!dir.path().join("pi-auto-backup-1.zip").is_file());
+        assert!(is_auto_backup_filename("claude-code-auto-backup-9.zip"));
+        assert!(!is_auto_backup_filename("claude-code-all-backup-9.zip"));
     }
 }

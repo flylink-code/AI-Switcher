@@ -14,7 +14,7 @@ use serde_json::{Map, Value};
 
 use crate::backup::backup_file_named;
 use crate::config::{atomic_write, get_claude_settings_path, sort_json_keys};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::provider::{
     ClaudeModelMapping, LiveProviderInfo, Provider, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID,
     CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
@@ -258,6 +258,61 @@ pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     }))
 }
 
+/// Claude Code `permissions.defaultMode` values this app will write.
+/// Matches the Shift+Tab cycle (Manual / Plan / Accept edits / Auto).
+pub const PERMISSION_DEFAULT_MODES: [&str; 4] = ["default", "plan", "acceptEdits", "auto"];
+
+/// Reject unknown modes so we never persist `bypassPermissions` from the UI.
+pub fn parse_permission_default_mode(mode: &str) -> AppResult<&str> {
+    let trimmed = mode.trim();
+    PERMISSION_DEFAULT_MODES
+        .iter()
+        .copied()
+        .find(|allowed| *allowed == trimmed)
+        .ok_or_else(|| AppError::Config(format!("不支持的默认工作模式: {trimmed}")))
+}
+
+/// Read `permissions.defaultMode` from live Claude Code settings.
+/// Missing or unrecognized values fall back to `"default"` (Manual).
+pub fn read_permission_default_mode() -> AppResult<String> {
+    read_permission_default_mode_at(&get_claude_settings_path())
+}
+
+pub fn read_permission_default_mode_at(path: &Path) -> AppResult<String> {
+    let settings = read_or_init_settings_at(path)?;
+    let Some(value) = settings
+        .get("permissions")
+        .and_then(Value::as_object)
+        .and_then(|obj| obj.get("defaultMode"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|mode| !mode.is_empty())
+    else {
+        return Ok("default".to_string());
+    };
+    if PERMISSION_DEFAULT_MODES.contains(&value) {
+        Ok(value.to_string())
+    } else {
+        Ok("default".to_string())
+    }
+}
+
+/// Merge `permissions.defaultMode` into live settings, preserving other
+/// `permissions` keys (`allow` / `deny`) and unrelated top-level fields.
+pub fn apply_permission_default_mode(mode: &str) -> AppResult<String> {
+    apply_permission_default_mode_at(&get_claude_settings_path(), mode)
+}
+
+pub fn apply_permission_default_mode_at(path: &Path, mode: &str) -> AppResult<String> {
+    let normalized = parse_permission_default_mode(mode)?.to_string();
+    let mut settings = read_or_init_settings_at(path)?;
+    backup_settings(path)?;
+    ensure_permissions_object(&mut settings)
+        .insert("defaultMode".to_string(), Value::String(normalized.clone()));
+    write_settings(path, &settings)?;
+    Ok(normalized)
+}
+
 // ---- internals -------------------------------------------------------------
 
 /// Path-injected reader. Returns an empty object when the file does not exist.
@@ -272,6 +327,17 @@ fn read_or_init_settings_at(path: &Path) -> AppResult<Value> {
         value = Value::Object(Map::new());
     }
     Ok(value)
+}
+
+/// Ensure `settings.permissions` is an object and return a mutable reference.
+fn ensure_permissions_object(settings: &mut Value) -> &mut Map<String, Value> {
+    if settings.get("permissions").is_none() || !settings["permissions"].is_object() {
+        settings["permissions"] = Value::Object(Map::new());
+    }
+    settings
+        .get_mut("permissions")
+        .and_then(Value::as_object_mut)
+        .expect("permissions is an object (just ensured)")
 }
 
 /// Ensure `settings.env` is an object and return a mutable reference to it.
@@ -594,5 +660,80 @@ mod tests {
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
+    }
+
+    #[test]
+    fn apply_permission_default_mode_preserves_other_permissions() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({
+                "model": "default",
+                "permissions": {
+                    "allow": ["Bash(git *)"],
+                    "deny": ["Read(.env)"]
+                },
+                "env": { "ENABLE_TOOL_SEARCH": "true" }
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let written_mode = apply_permission_default_mode_at(&path, "plan").unwrap();
+        assert_eq!(written_mode, "plan");
+
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written["permissions"]["defaultMode"], "plan");
+        assert_eq!(written["permissions"]["allow"][0], "Bash(git *)");
+        assert_eq!(written["permissions"]["deny"][0], "Read(.env)");
+        assert_eq!(written["model"], "default");
+        assert_eq!(written["env"]["ENABLE_TOOL_SEARCH"], "true");
+        assert_eq!(read_permission_default_mode_at(&path).unwrap(), "plan");
+    }
+
+    #[test]
+    fn apply_provider_preserves_permission_default_mode() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({
+                "permissions": { "defaultMode": "acceptEdits", "allow": ["Edit"] },
+                "env": {}
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written["permissions"]["defaultMode"], "acceptEdits");
+        assert_eq!(written["permissions"]["allow"][0], "Edit");
+        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+    }
+
+    #[test]
+    fn parse_permission_default_mode_rejects_unknown() {
+        assert!(parse_permission_default_mode("bypassPermissions").is_err());
+        assert!(parse_permission_default_mode("dontAsk").is_err());
+        assert!(parse_permission_default_mode("").is_err());
+        assert_eq!(parse_permission_default_mode("  plan  ").unwrap(), "plan");
+        assert_eq!(parse_permission_default_mode("auto").unwrap(), "auto");
+    }
+
+    #[test]
+    fn read_permission_default_mode_falls_back_for_missing_or_unknown() {
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("absent.json");
+        assert_eq!(read_permission_default_mode_at(&missing).unwrap(), "default");
+
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({ "permissions": { "defaultMode": "bypassPermissions" } }).to_string(),
+        )
+        .unwrap();
+        assert_eq!(read_permission_default_mode_at(&path).unwrap(), "default");
     }
 }

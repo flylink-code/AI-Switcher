@@ -28,6 +28,7 @@ mod runtime_status;
 mod provider;
 mod proxy;
 mod secrets;
+mod session_backup;
 mod session_manager;
 mod skills;
 mod store;
@@ -71,7 +72,8 @@ use crate::commands::{
     stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled,
-    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_db_info, get_paths,
+    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_claude_code_default_permission_mode,
+    get_db_info, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
     get_managed_apps_runtime_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
@@ -83,7 +85,7 @@ use crate::commands::{
     get_skill_repository, get_skill_repository_snapshot, list_skill_repositories, add_skill_repository, remove_skill_repository, ignore_unmanaged_skill, list_github_repository_skills, refresh_github_repository_skills, register_unmanaged_skill, scan_unmanaged_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
     list_providers, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
     search_mcp_registry,
-    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official, list_gateway_catalog_models, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
+    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official, set_claude_code_default_permission_mode, list_gateway_catalog_models, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, speedtest_provider_endpoint, test_provider_connection, test_provider_input, batch_diagnose_providers, quarantine_failed_providers,
     toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard,
     export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
@@ -104,8 +106,8 @@ use crate::commands::{
     list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
     trash_claude_code_session,
     backup_all_sessions, backup_sessions, export_session, export_session_markdown, export_sessions,
-    get_session_backup_dir, import_session, list_session_backups, list_trashed_sessions,
-    reset_session_backup_dir, restore_session_backup, restore_trashed_session, set_session_backup_dir, trash_session,
+    get_session_backup_dir, get_session_auto_backup_settings, get_session_mirror_dir, import_session, list_session_backups, list_trashed_sessions,
+    reset_session_backup_dir, restore_session_backup, restore_session_mirror, restore_trashed_session, set_session_backup_dir, set_session_auto_backup_settings, trash_session,
     delete_sync_target, discover_wsl_distributions, get_wsl_runtime_status, list_sync_targets, preview_sync, push_sync_archive, save_sync_target, sync_wsl_direct,
     set_app_language, get_update_mirror_settings, set_update_mirror_settings,
     restart_app,
@@ -246,6 +248,8 @@ pub fn run() {
             set_gateway_catalog_subagent,
             get_gateway_catalog_hide_official,
             set_gateway_catalog_hide_official,
+            get_claude_code_default_permission_mode,
+            set_claude_code_default_permission_mode,
             list_gateway_catalog_models,
             copy_provider_to_target,
             create_provider,
@@ -421,6 +425,10 @@ pub fn run() {
             get_session_backup_dir,
             set_session_backup_dir,
             reset_session_backup_dir,
+            get_session_auto_backup_settings,
+            set_session_auto_backup_settings,
+            get_session_mirror_dir,
+            restore_session_mirror,
             list_session_backups,
             restore_session_backup,
             import_session,
@@ -593,6 +601,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_pi_session_usage_sync(Arc::clone(&db));
     spawn_dsh_session_usage_sync(Arc::clone(&db));
     spawn_antigravity_quota_refresh(app.handle().clone());
+    crate::session_backup::spawn_session_auto_backup_loop(Arc::clone(&db));
 
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {

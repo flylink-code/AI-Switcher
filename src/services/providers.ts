@@ -90,6 +90,14 @@ export async function listGatewayCatalogModels(target: ProviderTarget): Promise<
   return call<string[]>("list_gateway_catalog_models", { target });
 }
 
+export async function getClaudeCodeDefaultPermissionMode(): Promise<string> {
+  return call<string>("get_claude_code_default_permission_mode");
+}
+
+export async function setClaudeCodeDefaultPermissionMode(mode: string): Promise<string> {
+  return call<string>("set_claude_code_default_permission_mode", { mode });
+}
+
 export async function createProvider(input: ProviderInput): Promise<Provider> {
   return call<Provider>("create_provider", { input });
 }

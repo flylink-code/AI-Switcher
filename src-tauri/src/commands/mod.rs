@@ -112,16 +112,19 @@ pub use sessions::{
     export_claude_code_sessions, export_session, export_session_markdown, export_sessions,
     get_session_backup_dir, import_claude_code_session, import_session, list_session_backups,
     list_trashed_claude_code_sessions, list_trashed_sessions, load_session_messages,
-    reset_session_backup_dir, restore_session_backup, restore_trashed_claude_code_session,
+    reset_session_backup_dir, restore_session_backup, restore_session_mirror, restore_trashed_claude_code_session,
     restore_trashed_session, scan_sessions, search_session_contents, set_session_backup_dir,
+    get_session_auto_backup_settings, set_session_auto_backup_settings, get_session_mirror_dir,
     trash_claude_code_session, trash_session,
 };
 pub use providers::{
     batch_diagnose_providers, copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
     get_cached_provider_models, get_current_provider, get_gateway_catalog_enabled,
-    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, import_live_config, import_providers_json,
+    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_claude_code_default_permission_mode,
+    import_live_config, import_providers_json,
     list_gateway_catalog_models, list_providers, quarantine_failed_providers, reorder_providers,
-    set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official, speedtest_provider_endpoint,
+    set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official,
+    set_claude_code_default_permission_mode, speedtest_provider_endpoint,
     switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
 };

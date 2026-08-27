@@ -2,6 +2,7 @@ import { call } from "./ipc";
 import type {
   CodexProviderSyncResult,
   SessionArchiveInfo,
+  SessionAutoBackupSettings,
   SessionBackupArchiveInfo,
   SessionBatchBackupInfo,
   SessionBatchExportInfo,
@@ -107,6 +108,30 @@ export async function restoreSessionBackup(
     provider,
     archivePath,
     overwrite: overwrite ?? null,
+  });
+}
+
+export async function getSessionAutoBackupSettings(): Promise<SessionAutoBackupSettings> {
+  return call<SessionAutoBackupSettings>("get_session_auto_backup_settings");
+}
+
+export async function setSessionAutoBackupSettings(
+  settings: SessionAutoBackupSettings,
+): Promise<SessionAutoBackupSettings> {
+  return call<SessionAutoBackupSettings>("set_session_auto_backup_settings", { settings });
+}
+
+export async function getSessionMirrorDir(provider: SessionProvider): Promise<string> {
+  return call<string>("get_session_mirror_dir", { provider });
+}
+
+export async function restoreSessionMirror(
+  provider: SessionProvider,
+  overwrite?: boolean,
+): Promise<SessionBatchRestoreResult> {
+  return call<SessionBatchRestoreResult>("restore_session_mirror", {
+    provider,
+    overwrite: overwrite ?? false,
   });
 }
 

@@ -1095,6 +1095,15 @@ export interface SessionBackupArchiveInfo {
   createdAt: number;
   fileSize: number;
   isBatch: boolean;
+  isAuto?: boolean;
+}
+
+export interface SessionAutoBackupSettings {
+  scheduleEnabled: boolean;
+  intervalMinutes: number;
+  keepAuto: number;
+  mirrorEnabled: boolean;
+  activeDays: number;
 }
 
 export interface SessionBatchRestoreResult {

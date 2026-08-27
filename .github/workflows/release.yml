@@ -22,6 +22,7 @@ jobs:
       - name: Render bilingual release notes
         env:
           RELEASE_VERSION: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/render-release-notes.mjs /tmp/ai-switcher-release-notes.md
 
       - name: Create or update GitHub Release notes
@@ -126,14 +127,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          node scripts/render-release-notes.mjs /tmp/ai-switcher-release-notes.md
           if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag is missing; skip notes"
             exit 0
           fi
+          assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          RELEASE_ASSETS="$assets" node scripts/render-release-notes.mjs /tmp/ai-switcher-release-notes.md
           gh release edit "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --title "AI-Switcher ${tag#v}" \

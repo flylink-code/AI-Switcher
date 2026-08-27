@@ -150,6 +150,18 @@ pub async fn set_gateway_catalog_hide_official(
 }
 
 #[tauri::command]
+pub fn get_claude_code_default_permission_mode() -> AppResult<String> {
+    claude_code::read_permission_default_mode()
+}
+
+#[tauri::command]
+pub fn set_claude_code_default_permission_mode(mode: String) -> AppResult<String> {
+    let written = claude_code::apply_permission_default_mode(&mode)?;
+    let _ = crate::wsl_direct::sync_claude_codex_files();
+    Ok(written)
+}
+
+#[tauri::command]
 pub fn list_gateway_catalog_models(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,

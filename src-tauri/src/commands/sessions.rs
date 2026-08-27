@@ -31,6 +31,57 @@ pub fn reset_session_backup_dir(state: tauri::State<'_, AppState>) -> AppResult<
 }
 
 #[tauri::command]
+pub fn get_session_auto_backup_settings(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::session_backup::SessionAutoBackupSettings> {
+    state
+        .db
+        .with_conn(crate::session_backup::load_auto_backup_settings)
+}
+
+#[tauri::command]
+pub fn set_session_auto_backup_settings(
+    settings: crate::session_backup::SessionAutoBackupSettings,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::session_backup::SessionAutoBackupSettings> {
+    state
+        .db
+        .with_conn(|conn| crate::session_backup::save_auto_backup_settings(conn, &settings))
+}
+
+#[tauri::command]
+pub fn get_session_mirror_dir(
+    provider: SessionProvider,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    let backup_dir = state
+        .db
+        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+    Ok(
+        crate::session_backup::mirror_provider_dir(&backup_dir, provider)
+            .to_string_lossy()
+            .into_owned(),
+    )
+}
+
+#[tauri::command]
+pub async fn restore_session_mirror(
+    provider: SessionProvider,
+    overwrite: Option<bool>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<SessionBatchRestoreResult> {
+    let backup_dir = state
+        .db
+        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+    let overwrite = overwrite.unwrap_or(false);
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::session_backup::restore_session_mirror(provider, &backup_dir, overwrite)
+    })
+    .await
+    .map_err(|error| AppError::Tauri(format!("从镜像恢复会话失败: {error}")))?
+}
+
+#[tauri::command]
 pub async fn backup_all_sessions(
     provider: SessionProvider,
     destination_dir: Option<String>,

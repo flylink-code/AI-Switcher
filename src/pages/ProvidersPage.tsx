@@ -10,6 +10,7 @@ import {
   Modal,
   Popconfirm,
   Segmented,
+  Select,
   Space,
   Switch,
   Tag,
@@ -58,12 +59,14 @@ import {
   getGatewayCatalogHideOfficial,
   getPaths,
   getPiSettings,
+  getClaudeCodeDefaultPermissionMode,
   listGatewayCatalogModels,
   pollCodexOauthLogin,
   quarantineFailedProviders,
   setGatewayCatalogEnabled,
   setGatewayCatalogSubagent,
   setGatewayCatalogHideOfficial,
+  setClaudeCodeDefaultPermissionMode,
   startCodexOauthLogin,
   updatePiSettings,
 } from "@/services/api";
@@ -142,6 +145,11 @@ export default function ProvidersPage() {
     queryKey: ["gateway-catalog-hide-official", target],
     queryFn: () => getGatewayCatalogHideOfficial(target),
     enabled: gatewayCatalog,
+  });
+  const defaultPermissionModeQuery = useQuery({
+    queryKey: ["claude-code-default-permission-mode"],
+    queryFn: getClaudeCodeDefaultPermissionMode,
+    enabled: target === "claude_code",
   });
 
   const handleRunDoctor = async () => {
@@ -282,6 +290,16 @@ export default function ProvidersPage() {
       void message.error(errMsg(error));
     } finally {
       setCatalogBusy(false);
+    }
+  };
+
+  const handleDefaultPermissionModeChange = async (mode: string) => {
+    try {
+      await setClaudeCodeDefaultPermissionMode(mode);
+      await defaultPermissionModeQuery.refetch();
+      void message.success(t("providers.defaultPermissionModeSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
     }
   };
 
@@ -597,6 +615,31 @@ export default function ProvidersPage() {
                 {t("providers.catalogModeDescription")}
               </Text>
             )}
+          </Space>
+        </Card>
+      )}
+      {target === "claude_code" && (
+        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
+          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+            <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+              <strong>{t("providers.defaultPermissionModeTitle")}</strong>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("providers.defaultPermissionModeHint")}
+              </Text>
+            </Space>
+            <Select
+              value={defaultPermissionModeQuery.data ?? "default"}
+              loading={defaultPermissionModeQuery.isLoading}
+              disabled={defaultPermissionModeQuery.isFetching}
+              style={{ minWidth: 200 }}
+              onChange={(value) => void handleDefaultPermissionModeChange(String(value))}
+              options={[
+                { value: "default", label: t("providers.defaultPermissionModeDefault") },
+                { value: "plan", label: t("providers.defaultPermissionModePlan") },
+                { value: "acceptEdits", label: t("providers.defaultPermissionModeAcceptEdits") },
+                { value: "auto", label: t("providers.defaultPermissionModeAuto") },
+              ]}
+            />
           </Space>
         </Card>
       )}
