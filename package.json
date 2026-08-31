@@ -14,6 +14,7 @@
     "tauri:dev": "pnpm exec tauri dev",
     "tauri:build": "pnpm exec tauri build",
     "dev:hot": "scripts\\dev-hot.bat",
+    "stop:dev": "scripts\\stop-dev.bat",
     "build:exe": "scripts\\build-exe.bat",
     "build:exe:debug": "scripts\\build-exe.bat debug",
     "build:exe:bundle": "scripts\\build-exe.bat bundle",

@@ -1413,6 +1413,17 @@
     "commandCopyFailed": "Failed to copy command",
     "runClaudeUpdate": "Update Claude Code",
     "runClaudeInstall": "Install Claude Code",
+    "claudeDesktopSection": "Claude Desktop",
+    "claudeDesktopCurrentVersion": "Current version",
+    "claudeDesktopLatestVersion": "Repo candidate",
+    "claudeDesktopStatus": "Status",
+    "claudeDesktopEnvironment": "Environment",
+    "claudeDesktopInstallSource": "Install source",
+    "claudeDesktopExecutablePath": "Executable",
+    "claudeDesktopCommandHint": "On Ubuntu / Debian you can install or update with the command below (sudo). In-app install prompts for pkexec. If the button spins forever, paste the command into a terminal.",
+    "claudeDesktopDownload": "Download from website",
+    "runClaudeDesktopInstall": "Install Claude Desktop",
+    "runClaudeDesktopUpdate": "Update Claude Desktop",
     "codexCliSection": "Codex CLI",
     "codexCurrentVersion": "Current version",
     "codexLatestVersion": "Latest version",
@@ -1475,6 +1486,7 @@
     "cliInstallNodeMissing": "npm was not found. Install the Node.js ≥22 environment first.",
     "cliInstallNodeTooOld": "Node.js is too old. Upgrade to ≥22 and try again.",
     "cliInstallNetworkOrRegistry": "npm/Node download failed (network or registry). Install already tried npmmirror — check your network and retry.",
+    "cliInstallTimedOut": "Install or detection timed out (the process was stopped). Copy the command below into a terminal — its PATH is usually complete.",
     "details": "Details"
   },
   "deeplink": {
@@ -1671,7 +1683,7 @@
     "proxyHint": "Change port, force restart, or tune failover; provider switches keep the proxy in sync automatically",
     "sessionsHint": "Manage local AI sessions and archives",
     "environmentHint": "Local paths and environment diagnostics",
-    "agentToolsHint": "Detect, install, and update Node.js, Claude Code, Codex, OpenCode, Pi CLI, and other agent tools",
+    "agentToolsHint": "Detect, install, and update Node.js, Claude Code, Claude Desktop, Codex, OpenCode, Pi CLI, and other agent tools",
     "localizationHint": "Client localization and translation",
     "aboutHint": "This app's version and updates"
   }

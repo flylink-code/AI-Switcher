@@ -11,6 +11,9 @@ use crate::error::{AppError, AppResult};
 
 const NPM_PACKAGE: &str = "@anthropic-ai/claude-code";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+const CLI_PROBE_TIMEOUT: Duration = Duration::from_secs(12);
+#[cfg(not(windows))]
+const CLI_INSTALL_TIMEOUT: Duration = Duration::from_secs(180);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -396,7 +399,9 @@ fn unix_execution_path(tool_dir: &Path) -> std::ffi::OsString {
 }
 
 fn run_local_tool(path: &Path) -> io::Result<Output> {
-    run_tool_at_path(path, &["--version"])
+    let mut command = command_for_tool_at_path(path, &["--version"]);
+    crate::process_util::output_with_timeout(&mut command, CLI_PROBE_TIMEOUT)
+        .map_err(|error| io::Error::new(io::ErrorKind::TimedOut, error.to_string()))
 }
 
 #[cfg(windows)]
@@ -711,7 +716,11 @@ fn resolve_command_via_login_shell(name: &str) -> Option<PathBuf> {
     #[cfg(not(windows))]
     {
         let script = format!("command -v {}", shell_single_quote(name));
-        let output = Command::new("sh").args(["-lc", &script]).output().ok()?;
+        let output = {
+            let mut command = Command::new("sh");
+            command.args(["-c", &script]);
+            crate::process_util::output_with_timeout(&mut command, Duration::from_secs(5)).ok()?
+        };
         if !output.status.success() {
             return None;
         }
@@ -858,7 +867,10 @@ fn run_anchored_update(installation: &Installation) -> io::Result<Output> {
             }
             #[cfg(not(windows))]
             {
-                Command::new(&installation.path).arg("update").output()
+                let mut command = Command::new(&installation.path);
+                command.arg("update");
+                crate::process_util::output_with_timeout(&mut command, CLI_INSTALL_TIMEOUT)
+                    .map_err(|error| io::Error::new(io::ErrorKind::TimedOut, error.to_string()))
             }
         }
         source => {
@@ -921,7 +933,10 @@ fn run_unix_command_with_login_path(
         shell_single_quote(&path_value.to_string_lossy()),
         pieces.join(" ")
     );
-    Command::new("sh").args(["-lc", &script]).output()
+    let mut command = Command::new("sh");
+    command.args(["-c", &script]);
+    crate::process_util::output_with_timeout(&mut command, CLI_INSTALL_TIMEOUT)
+        .map_err(|error| io::Error::new(io::ErrorKind::TimedOut, error.to_string()))
 }
 
 pub(crate) fn run_claude_doctor_output() -> AppResult<Output> {
@@ -1885,6 +1900,351 @@ pub async fn get_opencode_desktop_status() -> AppResult<OpenCodeDesktopStatus> {
         .map_err(|error| AppError::Other(format!("OpenCode Desktop 检测任务失败: {error}")))?
 }
 
+// ---- Claude Desktop app (Ubuntu/Debian apt; other OS detect + download) ----
+
+const CLAUDE_DESKTOP_DOWNLOAD_URL: &str = "https://claude.ai/download";
+#[cfg(target_os = "linux")]
+const CLAUDE_DESKTOP_KEY_URL: &str = "https://downloads.claude.ai/claude-desktop/key.asc";
+#[cfg(target_os = "linux")]
+const CLAUDE_DESKTOP_APT_LINE: &str = "deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.asc] https://downloads.claude.ai/claude-desktop/apt/stable stable main";
+#[cfg(target_os = "linux")]
+const CLAUDE_DESKTOP_APT_TIMEOUT: Duration = Duration::from_secs(600);
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeDesktopAppInfo {
+    pub installed: bool,
+    pub current_version: Option<String>,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub install_command: String,
+    pub update_command: String,
+    pub error: Option<String>,
+    pub executable_path: Option<String>,
+    pub source: Option<String>,
+    pub environment: String,
+    pub installed_but_broken: bool,
+    pub can_install_in_app: bool,
+}
+
+fn claude_desktop_environment() -> String {
+    if cfg!(windows) {
+        "windows".into()
+    } else if cfg!(target_os = "macos") {
+        "macos".into()
+    } else {
+        "linux".into()
+    }
+}
+
+fn claude_desktop_manual_command() -> String {
+    #[cfg(target_os = "linux")]
+    {
+        format!(
+            "sudo curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc {CLAUDE_DESKTOP_KEY_URL} && echo '{CLAUDE_DESKTOP_APT_LINE}' | sudo tee /etc/apt/sources.list.d/claude-desktop.list && sudo apt update && sudo apt install -y claude-desktop"
+        )
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        CLAUDE_DESKTOP_DOWNLOAD_URL.to_string()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_has_apt() -> bool {
+    Path::new("/usr/bin/apt-get").is_file() || Path::new("/usr/bin/apt").is_file()
+}
+
+fn parse_apt_policy_field(text: &str, field: &str) -> Option<String> {
+    let prefix = format!("{field}:");
+    for line in text.lines() {
+        let line = line.trim();
+        let Some(rest) = line.strip_prefix(&prefix) else {
+            continue;
+        };
+        let value = rest.trim();
+        if value.is_empty() || value.eq_ignore_ascii_case("(none)") {
+            return None;
+        }
+        return Some(value.to_string());
+    }
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn run_quick_command(program: &str, args: &[&str]) -> Option<Output> {
+    let mut command = Command::new(program);
+    command.args(args);
+    crate::process_util::output_with_timeout(&mut command, CLI_PROBE_TIMEOUT).ok()
+}
+
+#[cfg(target_os = "linux")]
+fn probe_claude_desktop_linux() -> ClaudeDesktopAppInfo {
+    let command = claude_desktop_manual_command();
+    let can_install = linux_has_apt();
+    let mut info = ClaudeDesktopAppInfo {
+        installed: false,
+        current_version: None,
+        latest_version: None,
+        update_available: false,
+        install_command: command.clone(),
+        update_command: command,
+        error: None,
+        executable_path: None,
+        source: None,
+        environment: claude_desktop_environment(),
+        installed_but_broken: false,
+        can_install_in_app: can_install,
+    };
+    if !can_install {
+        info.error = Some(
+            "当前 Linux 未检测到 apt，Claude Desktop 官方包仅支持 Ubuntu 22.04+ / Debian 12+".into(),
+        );
+    }
+
+    if let Some(output) = run_quick_command("dpkg-query", &["-W", "-f=${Version}", "claude-desktop"])
+    {
+        if output.status.success() {
+            let version = decode_output(&output.stdout).trim().to_string();
+            if !version.is_empty() {
+                info.installed = true;
+                info.current_version = Some(version);
+                info.source = Some("apt".into());
+            }
+        }
+    }
+
+    let exe_candidates = [
+        PathBuf::from("/usr/bin/claude-desktop"),
+        PathBuf::from("/usr/local/bin/claude-desktop"),
+    ];
+    if let Some(path) = exe_candidates.into_iter().find(|path| path.is_file()) {
+        info.executable_path = Some(path.display().to_string());
+        if !info.installed {
+            info.installed = true;
+            info.source = Some("path".into());
+        }
+        if info.current_version.is_none() {
+            if let Ok(output) = run_local_tool(&path) {
+                let stdout = decode_output(&output.stdout);
+                let stderr = decode_output(&output.stderr);
+                let raw = if stdout.trim().is_empty() {
+                    stderr
+                } else {
+                    stdout
+                };
+                info.current_version = parse_version(&raw);
+            }
+        }
+    } else if let Some(login) = resolve_command_via_login_shell("claude-desktop") {
+        info.executable_path = Some(login.display().to_string());
+        if !info.installed {
+            info.installed = true;
+            info.source = Some("path".into());
+        }
+    }
+
+    if let Some(output) = run_quick_command("apt-cache", &["policy", "claude-desktop"]) {
+        if output.status.success() {
+            let text = format!(
+                "{}\n{}",
+                decode_output(&output.stdout),
+                decode_output(&output.stderr)
+            );
+            info.latest_version = parse_apt_policy_field(&text, "Candidate");
+            if info.current_version.is_none() {
+                info.current_version = parse_apt_policy_field(&text, "Installed");
+                if info.current_version.is_some() {
+                    info.installed = true;
+                    info.source = info.source.or(Some("apt".into()));
+                }
+            }
+        }
+    }
+
+    info.update_available = info
+        .current_version
+        .as_deref()
+        .zip(info.latest_version.as_deref())
+        .is_some_and(|(current, latest)| update_available(current, latest));
+    info
+}
+
+#[cfg(target_os = "linux")]
+fn probe_claude_desktop_app() -> ClaudeDesktopAppInfo {
+    probe_claude_desktop_linux()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn probe_claude_desktop_app() -> ClaudeDesktopAppInfo {
+    let command = claude_desktop_manual_command();
+    let mut info = ClaudeDesktopAppInfo {
+        installed: false,
+        current_version: None,
+        latest_version: None,
+        update_available: false,
+        install_command: command.clone(),
+        update_command: command,
+        error: None,
+        executable_path: None,
+        source: None,
+        environment: claude_desktop_environment(),
+        installed_but_broken: false,
+        can_install_in_app: false,
+    };
+
+    #[cfg(target_os = "macos")]
+    {
+        let app = PathBuf::from("/Applications/Claude.app");
+        if app.is_dir() {
+            info.installed = true;
+            info.executable_path = Some(app.display().to_string());
+            info.source = Some("applications_dir".into());
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            let candidates = [
+                PathBuf::from(&local).join("AnthropicClaude").join("claude.exe"),
+                PathBuf::from(&local)
+                    .join("Programs")
+                    .join("Claude")
+                    .join("Claude.exe"),
+            ];
+            if let Some(path) = candidates.into_iter().find(|path| path.is_file()) {
+                info.installed = true;
+                info.executable_path = Some(path.display().to_string());
+                info.source = Some("install_dir".into());
+            }
+        }
+        if !info.installed {
+            let paths = crate::config::claude_desktop::detect_claude_desktop();
+            if let Some(base) = paths.base.filter(|path| path.is_dir()) {
+                info.installed = true;
+                info.executable_path = Some(base.display().to_string());
+                info.source = Some("config_dir".into());
+            }
+        }
+    }
+
+    info
+}
+
+#[cfg(target_os = "linux")]
+fn claude_desktop_install_script() -> String {
+    format!(
+        r#"#!/bin/bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "apt-get not found; Claude Desktop official packages support Ubuntu 22.04+ / Debian 12+" >&2
+  exit 1
+fi
+apt-get install -y curl gnupg
+install -d /usr/share/keyrings
+curl -fsSLo /usr/share/keyrings/claude-desktop-archive-keyring.asc {CLAUDE_DESKTOP_KEY_URL}
+cat > /etc/apt/sources.list.d/claude-desktop.list <<'EOF'
+{CLAUDE_DESKTOP_APT_LINE}
+EOF
+apt-get update -y
+apt-get install -y claude-desktop
+"#
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn run_claude_desktop_apt_install() -> AppResult<String> {
+    if !linux_has_apt() {
+        return Err(AppError::Config(format!(
+            "当前系统没有 apt，无法在应用内安装 Claude Desktop。请按官方文档在终端执行：\n{}",
+            claude_desktop_manual_command()
+        )));
+    }
+
+    let pkexec = ["/usr/bin/pkexec", "/usr/local/bin/pkexec"]
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            AppError::Config(format!(
+                "未找到 pkexec，无法弹出图形授权。请复制命令到终端执行：\n{}",
+                claude_desktop_manual_command()
+            ))
+        })?;
+
+    let script_path = std::env::temp_dir().join(format!(
+        "ai-switcher-claude-desktop-{}.sh",
+        std::process::id()
+    ));
+    std::fs::write(&script_path, claude_desktop_install_script()).map_err(|error| {
+        AppError::Other(format!("无法写入安装脚本: {error}"))
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut permissions = std::fs::metadata(&script_path)
+            .map_err(|error| AppError::Other(format!("无法读取安装脚本权限: {error}")))?
+            .permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&script_path, permissions).map_err(|error| {
+            AppError::Other(format!("无法设置安装脚本可执行: {error}"))
+        })?;
+    }
+
+    let mut command = Command::new(pkexec);
+    command.args(["/bin/bash", &script_path.display().to_string()]);
+    let result = crate::process_util::output_with_timeout(&mut command, CLAUDE_DESKTOP_APT_TIMEOUT);
+    let _ = std::fs::remove_file(&script_path);
+    let output = result?;
+    if output.status.success() {
+        Ok("Claude Desktop 安装或更新完成".into())
+    } else {
+        let detail = output_detail(&output);
+        let lower = detail.to_ascii_lowercase();
+        if lower.contains("dismissed")
+            || lower.contains("cancelled")
+            || lower.contains("canceled")
+            || output.status.code() == Some(126)
+            || output.status.code() == Some(127)
+        {
+            Err(AppError::Config(format!(
+                "已取消授权。可复制命令到终端安装：\n{}",
+                claude_desktop_manual_command()
+            )))
+        } else {
+            Err(AppError::Config(format!(
+                "Claude Desktop 安装失败：{detail}\n可复制命令到终端重试：\n{}",
+                claude_desktop_manual_command()
+            )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn get_claude_desktop_app_status() -> AppResult<ClaudeDesktopAppInfo> {
+    tokio::task::spawn_blocking(probe_claude_desktop_app)
+        .await
+        .map_err(|error| AppError::Other(format!("Claude Desktop 检测任务失败: {error}")))
+}
+
+#[tauri::command]
+pub async fn run_claude_desktop_app_update() -> AppResult<String> {
+    tokio::task::spawn_blocking(|| {
+        #[cfg(target_os = "linux")]
+        {
+            return run_claude_desktop_apt_install();
+        }
+        #[cfg(not(target_os = "linux"))]
+        Err(AppError::Config(format!(
+            "请从官网安装或更新 Claude Desktop：{CLAUDE_DESKTOP_DOWNLOAD_URL}"
+        )))
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("Claude Desktop 安装任务异常结束: {error}")))?
+}
+
 // ---- DeepSeek Harness (dsh) CLI ---------------------------------------------
 
 const DSH_NPM_PACKAGE: &str = "@deepseek-ai/dsh";
@@ -2222,6 +2582,20 @@ mod tests {
             infer_source(Path::new("/home/me/.local/bin/codex")),
             "native"
         );
+    }
+
+    #[test]
+    fn parses_apt_cache_policy_fields() {
+        let text = "claude-desktop:\n  Installed: 1.32885.1\n  Candidate: 1.32885.2\n";
+        assert_eq!(
+            parse_apt_policy_field(text, "Installed"),
+            Some("1.32885.1".into())
+        );
+        assert_eq!(
+            parse_apt_policy_field(text, "Candidate"),
+            Some("1.32885.2".into())
+        );
+        assert_eq!(parse_apt_policy_field("Installed: (none)", "Installed"), None);
     }
 
     #[test]

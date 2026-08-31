@@ -160,6 +160,8 @@ export default function EnvironmentPage() {
   const [webdavUser, setWebdavUser] = useState("");
   const [webdavPassword, setWebdavPassword] = useState("");
   const [webdavPath, setWebdavPath] = useState("/library.zip");
+  const [restartPrompt, setRestartPrompt] = useState<string | null>(null);
+  const [restarting, setRestarting] = useState(false);
 
   const wslStatusQuery = useQuery({ queryKey: ["wsl-runtime"], queryFn: getWslRuntimeStatus });
   const webdavQuery = useQuery({
@@ -343,22 +345,26 @@ export default function EnvironmentPage() {
       );
       setLibraryArchivePreview(null);
       if (result.restartRequired) {
-        Modal.confirm({
-          title: t("env.dataRootRestartTitle"),
-          content: result.credentialsImported
+        setRestartPrompt(
+          result.credentialsImported
             ? t("env.confirmImportLibraryRestartWithKeys")
-            : t("env.confirmImportLibraryDescription"),
-          okText: t("env.restartNow"),
-          cancelText: t("common.cancel"),
-          onOk: async () => {
-            await restartApp();
-          },
-        });
+            : t("env.libraryImported"),
+        );
       }
       await environmentQuery.refetch();
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
   }, [environmentQuery, libraryArchivePath, t]);
+
+  const onRestartNow = useCallback(async () => {
+    setRestarting(true);
+    try {
+      await restartApp();
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+      setRestarting(false);
+    }
+  }, []);
 
   const onAutostartChange = useCallback(async (mode: AutostartMode) => {
     setAutostartChanging(true);
@@ -440,7 +446,7 @@ export default function EnvironmentPage() {
       const result = await migrateDataRoot(dataRootPath);
       void message.success(t("env.dataRootMigrated"));
       if (result.restartRequired) {
-        Modal.info({ title: t("env.dataRootRestartTitle"), content: t("env.dataRootRestartDescription") });
+        setRestartPrompt(t("env.dataRootRestartDescription"));
       }
       await environmentQuery.refetch();
     } catch (e) {
@@ -913,8 +919,20 @@ export default function EnvironmentPage() {
               <Popconfirm title={t("env.webdavRestore")} onConfirm={() => {
                 void (async () => {
                   try {
-                    await restoreLibraryFromWebDav();
-                    void message.success(t("env.webdavRestore"));
+                    const result = await restoreLibraryFromWebDav();
+                    void message.success(
+                      result.credentialsImported
+                        ? t("env.libraryImportedWithKeys")
+                        : t("env.webdavRestore"),
+                    );
+                    if (result.restartRequired) {
+                      setRestartPrompt(
+                        result.credentialsImported
+                          ? t("env.confirmImportLibraryRestartWithKeys")
+                          : t("env.libraryImported"),
+                      );
+                    }
+                    await environmentQuery.refetch();
                   } catch (error) {
                     void message.error(error instanceof Error ? error.message : String(error));
                   }
@@ -1177,6 +1195,22 @@ export default function EnvironmentPage() {
             </Card>
           </Space>
         )}
+      </Modal>
+      <Modal
+        open={restartPrompt !== null}
+        title={t("env.dataRootRestartTitle")}
+        okText={t("env.restartNow")}
+        cancelText={t("common.cancel")}
+        confirmLoading={restarting}
+        maskClosable={false}
+        keyboard={!restarting}
+        onOk={() => void onRestartNow()}
+        onCancel={() => {
+          if (restarting) return;
+          setRestartPrompt(null);
+        }}
+      >
+        {restartPrompt}
       </Modal>
       <Modal
         open={syncPasswordOpen}

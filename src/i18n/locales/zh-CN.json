@@ -1413,6 +1413,17 @@
     "commandCopyFailed": "复制失败",
     "runClaudeUpdate": "更新 Claude Code",
     "runClaudeInstall": "安装 Claude Code",
+    "claudeDesktopSection": "Claude Desktop",
+    "claudeDesktopCurrentVersion": "当前版本",
+    "claudeDesktopLatestVersion": "仓库候选版本",
+    "claudeDesktopStatus": "状态",
+    "claudeDesktopEnvironment": "运行环境",
+    "claudeDesktopInstallSource": "安装来源",
+    "claudeDesktopExecutablePath": "可执行文件",
+    "claudeDesktopCommandHint": "Ubuntu / Debian 可用下方命令安装或更新（需要 sudo）。应用内安装会弹出 pkexec 授权；若一直转圈，请复制命令到终端执行。",
+    "claudeDesktopDownload": "前往官网下载",
+    "runClaudeDesktopInstall": "安装 Claude Desktop",
+    "runClaudeDesktopUpdate": "更新 Claude Desktop",
     "codexCliSection": "Codex CLI",
     "codexCurrentVersion": "当前版本",
     "codexLatestVersion": "最新版本",
@@ -1475,6 +1486,7 @@
     "cliInstallNodeMissing": "未找到 npm。请先安装 Node.js ≥22 环境。",
     "cliInstallNodeTooOld": "Node.js 版本过低。请升级到 ≥22 后再试。",
     "cliInstallNetworkOrRegistry": "npm/Node 下载失败（网络或源站）。安装已尝试 npmmirror；请检查网络后重试。",
+    "cliInstallTimedOut": "安装或检测超时（已终止进程）。可复制下方命令到已打开的终端执行，终端里 PATH 更完整。",
     "details": "详情"
   },
   "deeplink": {
@@ -1671,7 +1683,7 @@
     "proxyHint": "改端口、强制重启或调整故障切换；日常切换供应商会自动配套",
     "sessionsHint": "管理本地 AI 会话与归档",
     "environmentHint": "本机路径与环境诊断",
-    "agentToolsHint": "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode、Pi CLI 等 Agent 工具",
+    "agentToolsHint": "检测并安装 / 更新 Node.js、Claude Code、Claude Desktop、Codex、OpenCode、Pi CLI 等 Agent 工具",
     "localizationHint": "客户端汉化与翻译配置",
     "aboutHint": "本应用版本与更新信息"
   }

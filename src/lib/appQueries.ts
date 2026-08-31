@@ -6,6 +6,7 @@ import {
   getDshCliVersion,
   getOpenCodeCliVersion,
   getOpenCodeDesktopStatus,
+  getClaudeDesktopAppStatus,
   getPiCliVersion,
   getNodeRuntimeStatus,
   getCloseBehavior,
@@ -280,6 +281,12 @@ export const claudeVersionOptions = queryOptions({
   queryKey: ["claude-code-version", "latest"] as const,
   queryFn: () => getClaudeCodeVersion(true),
   staleTime: 5 * 60_000,
+});
+
+export const claudeDesktopAppOptions = queryOptions({
+  queryKey: ["claude-desktop-app"] as const,
+  queryFn: getClaudeDesktopAppStatus,
+  staleTime: 60_000,
 });
 
 export const localCodexCliVersionOptions = queryOptions({

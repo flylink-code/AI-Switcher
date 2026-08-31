@@ -19,12 +19,14 @@ import { useTranslation } from "react-i18next";
 import {
   ensureNodeRuntimeViaFnm,
   runClaudeCodeUpdate,
+  runClaudeDesktopAppUpdate,
   runCodexCliUpdate,
   runDshCliUpdate,
   runOpenCodeCliUpdate,
   runPiCliUpdate,
 } from "@/services/api";
 import {
+  claudeDesktopAppOptions,
   claudeVersionOptions,
   codexCliVersionOptions,
   dshCliVersionOptions,
@@ -39,6 +41,7 @@ import {
 } from "@/lib/appQueries";
 import type {
   ClaudeCodeVersionInfo,
+  ClaudeDesktopAppInfo,
   CodexCliVersionInfo,
   DshCliVersionInfo,
   NodeRuntimeStatus,
@@ -47,6 +50,7 @@ import type {
 } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 const { Text, Paragraph } = Typography;
 
@@ -61,6 +65,13 @@ function formatCliInstallError(raw: string, t: (key: string) => string): string 
     return t("about.cliInstallNetworkOrRegistry");
   }
   const lower = raw.toLowerCase();
+  if (
+    raw.includes("超时")
+    || lower.includes("timed out")
+    || lower.includes("timeout")
+  ) {
+    return t("about.cliInstallTimedOut");
+  }
   if (
     lower.includes("econnrefused")
     || lower.includes("etimedout")
@@ -101,6 +112,7 @@ export default function AgentToolsPage() {
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
   const [updatingPi, setUpdatingPi] = useState(false);
   const [updatingDsh, setUpdatingDsh] = useState(false);
+  const [updatingDesktop, setUpdatingDesktop] = useState(false);
   const [installingNode, setInstallingNode] = useState(false);
 
   const nodeRuntimeQuery = useQuery(nodeRuntimeStatusOptions);
@@ -135,6 +147,11 @@ export default function AgentToolsPage() {
     placeholderData: () => localDshQuery.data,
   });
   const dshInfo = dshQuery.data ?? localDshQuery.data ?? null;
+  const desktopQuery = useQuery({
+    ...claudeDesktopAppOptions,
+    enabled: visibleAgents.includes("claude_desktop"),
+  });
+  const desktopInfo = desktopQuery.data ?? null;
 
   const refreshNodeRuntime = async () => {
     await queryClient.invalidateQueries({ queryKey: ["node-runtime-status"] });
@@ -314,6 +331,27 @@ export default function AgentToolsPage() {
     await runInstall();
   };
 
+  const updateClaudeDesktop = async () => {
+    if (!desktopInfo?.canInstallInApp) {
+      try {
+        await openUrl("https://claude.ai/download");
+      } catch (error) {
+        void message.error(errMsg(error));
+      }
+      return;
+    }
+    setUpdatingDesktop(true);
+    try {
+      const result = await runClaudeDesktopAppUpdate();
+      void message.success(result);
+      await queryClient.invalidateQueries({ queryKey: ["claude-desktop-app"] });
+    } catch (e) {
+      void message.error(formatCliInstallError(errMsg(e), t));
+    } finally {
+      setUpdatingDesktop(false);
+    }
+  };
+
   const nodeStatusLabel = () => {
     if (!nodeRuntime) return t("about.unknown");
     if (nodeRuntime.meetsMinimum) return t("about.nodeRuntimeReady");
@@ -425,6 +463,42 @@ export default function AgentToolsPage() {
             copy: t("about.copyCommand"),
             install: t("about.runClaudeInstall"),
             update: t("about.runClaudeUpdate"),
+            notInstalled: t("about.notInstalled"),
+            broken: t("about.installedButBroken"),
+            unknown: t("about.unknown"),
+            updateAvailable: t("about.updateAvailable"),
+            upToDate: t("about.upToDate"),
+            refresh: t("common.refresh"),
+            details: t("about.details"),
+          }}
+        />
+      )}
+
+      {visibleAgents.includes("claude_desktop") && (
+        <CliToolCard
+          title={t("about.claudeDesktopSection")}
+          info={desktopInfo}
+          fetching={desktopQuery.isFetching}
+          updating={updatingDesktop}
+          onRefresh={() => void desktopQuery.refetch()}
+          onCopy={(command) => void copyCommand(command)}
+          onInstallOrUpdate={() => void updateClaudeDesktop()}
+          primaryLabel={
+            desktopInfo?.canInstallInApp
+              ? undefined
+              : t("about.claudeDesktopDownload")
+          }
+          labels={{
+            current: t("about.claudeDesktopCurrentVersion"),
+            latest: t("about.claudeDesktopLatestVersion"),
+            status: t("about.claudeDesktopStatus"),
+            environment: t("about.claudeDesktopEnvironment"),
+            source: t("about.claudeDesktopInstallSource"),
+            executable: t("about.claudeDesktopExecutablePath"),
+            hint: t("about.claudeDesktopCommandHint"),
+            copy: t("about.copyCommand"),
+            install: t("about.runClaudeDesktopInstall"),
+            update: t("about.runClaudeDesktopUpdate"),
             notInstalled: t("about.notInstalled"),
             broken: t("about.installedButBroken"),
             unknown: t("about.unknown"),
@@ -583,7 +657,7 @@ export default function AgentToolsPage() {
   );
 }
 
-type CliInfo = ClaudeCodeVersionInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo | PiCliVersionInfo | DshCliVersionInfo;
+type CliInfo = ClaudeCodeVersionInfo | ClaudeDesktopAppInfo | CodexCliVersionInfo | OpenCodeCliVersionInfo | PiCliVersionInfo | DshCliVersionInfo;
 
 function CliToolCard({
   title,

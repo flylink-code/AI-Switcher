@@ -67,100 +67,6 @@ function Stop-PidTree([int]$ProcessId) {
     & taskkill.exe /F /T /PID $ProcessId 2>$null | Out-Null
 }
 
-function Get-ProcessCommandLine([int]$ProcessId) {
-    try {
-        $row = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
-        return [string]$row.CommandLine
-    } catch {
-        return ""
-    }
-}
-
-function Get-ListenPids([int]$ListenPort) {
-    $pids = @()
-    foreach ($addr in @("127.0.0.1", "0.0.0.0", "::1", "::")) {
-        try {
-            $pids += @(
-                Get-NetTCPConnection -LocalAddress $addr -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue |
-                    ForEach-Object { $_.OwningProcess }
-            )
-        } catch { }
-    }
-    $pids | Where-Object { $_ -and $_ -gt 0 } | Select-Object -Unique
-}
-
-function Test-IsDevHotOccupant([int]$ProcessId, [switch]$AllowViteListener) {
-    $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-    if (-not $proc) { return $false }
-    $name = $proc.ProcessName
-    if ($name -in @("claude-switcher", "AISwitcher")) { return $true }
-    if ($name -notin @("node", "nodejs", "pnpm", "corepack")) { return $false }
-    $cmd = Get-ProcessCommandLine $ProcessId
-    $rootFwd = $root.Replace("\", "/")
-    $cmdFwd = $cmd.Replace("\", "/")
-    $inRepo = ($rootFwd.Length -gt 0) -and ($cmdFwd.IndexOf($rootFwd, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
-    if ($inRepo) { return $true }
-    return [bool]($AllowViteListener -and ($cmd -match '(?i)vite'))
-}
-
-function Stop-PreviousDevHot {
-    Write-Host "[dev-hot] Stopping previous debug app / Vite"
-
-    $script:devHotKilled = @{}
-    $stopOnce = {
-        param([int]$ProcessId, [string]$Why)
-        if ($ProcessId -le 4 -or $script:devHotKilled.ContainsKey($ProcessId)) { return }
-        $script:devHotKilled[$ProcessId] = $true
-        $name = "unknown"
-        $existing = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-        if ($existing) { $name = $existing.ProcessName }
-        Write-Host "[dev-hot]   stop PID $ProcessId ($name) $Why"
-        Stop-PidTree $ProcessId
-    }
-
-    foreach ($procName in @("claude-switcher", "AISwitcher")) {
-        Get-Process -Name $procName -ErrorAction SilentlyContinue | ForEach-Object {
-            & $stopOnce $_.Id "app"
-        }
-    }
-
-    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.Name -match '^(node|nodejs|pnpm|corepack)(\.exe)?$' -and
-            (Test-IsDevHotOccupant $_.ProcessId)
-        } |
-        ForEach-Object { & $stopOnce $_.ProcessId "vite/node" }
-
-    foreach ($listenPort in 5250..5270) {
-        foreach ($pid in (Get-ListenPids $listenPort)) {
-            if (Test-IsDevHotOccupant $pid -AllowViteListener) {
-                & $stopOnce $pid "listen :$listenPort"
-            }
-        }
-    }
-
-    $waited = 0
-    while ($waited -lt 8000) {
-        $stillHeld = $false
-        foreach ($listenPort in 5250..5270) {
-            foreach ($pid in (Get-ListenPids $listenPort)) {
-                if (Test-IsDevHotOccupant $pid -AllowViteListener) {
-                    $stillHeld = $true
-                    break
-                }
-            }
-            if ($stillHeld) { break }
-        }
-        if (-not $stillHeld) { break }
-        Start-Sleep -Milliseconds 250
-        $waited += 250
-    }
-
-    if ($script:devHotKilled.Count -eq 0) {
-        Write-Host "[dev-hot]   no leftover app/Vite from this repo"
-    }
-}
-
 function Get-DevUrlPortFromConf([string]$ConfPath) {
     $raw = Get-Content $ConfPath -Raw -Encoding UTF8
     if ($raw -match '"devUrl"\s*:\s*"https?://(?:localhost|127\.0\.0\.1):(\d+)"') {
@@ -208,7 +114,7 @@ Write-Host ("[dev-hot] src-tauri\target size: {0:N1} GB (auto-clean >= {1} GB)" 
 
 # Stop last session before cargo clean / port pick so the debug exe is not locked
 # and leftover Vite does not occupy 5250.
-Stop-PreviousDevHot
+& (Join-Path $PSScriptRoot "stop-dev.ps1")
 
 $needClean = [bool]$Clean
 if (-not $needClean -and $MaxTargetGB -gt 0 -and $targetGb -ge $MaxTargetGB) {

@@ -1,6 +1,7 @@
 import { call } from "./ipc";
 import type {
   ClaudeCodeVersionInfo,
+  ClaudeDesktopAppInfo,
   CodexCliVersionInfo,
   DshCliVersionInfo,
   NodeRuntimeStatus,
@@ -15,6 +16,14 @@ export async function getClaudeCodeVersion(includeLatest = true): Promise<Claude
 
 export async function runClaudeCodeUpdate(): Promise<string> {
   return call<string>("run_claude_code_update", {});
+}
+
+export async function getClaudeDesktopAppStatus(): Promise<ClaudeDesktopAppInfo> {
+  return call<ClaudeDesktopAppInfo>("get_claude_desktop_app_status", {});
+}
+
+export async function runClaudeDesktopAppUpdate(): Promise<string> {
+  return call<string>("run_claude_desktop_app_update", {});
 }
 
 export async function getCodexCliVersion(includeLatest = true): Promise<CodexCliVersionInfo> {

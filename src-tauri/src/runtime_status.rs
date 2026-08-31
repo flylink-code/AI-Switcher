@@ -35,10 +35,10 @@ enum AppKind {
 
 fn classify_process(image_path: &str) -> Option<AppKind> {
     let normalized = image_path.replace('\\', "/").to_ascii_lowercase();
-    let file_name = normalized
-        .rsplit('/')
-        .next()
-        .unwrap_or(normalized.as_str());
+    // Drop argv after " --" so Linux `claude-desktop --type=gpu` still matches,
+    // without splitting Windows paths that contain spaces (`Program Files`).
+    let without_args = normalized.split_once(" --").map(|(path, _)| path).unwrap_or(&normalized);
+    let file_name = without_args.rsplit('/').next().unwrap_or(without_args);
 
     if file_name == "codex.exe" || file_name == "codex" {
         return Some(AppKind::Codex);
@@ -46,6 +46,10 @@ fn classify_process(image_path: &str) -> Option<AppKind> {
 
     if file_name == "opencode.exe" || file_name == "opencode" {
         return Some(AppKind::OpenCode);
+    }
+
+    if file_name == "claude-desktop" || file_name == "claude-desktop.exe" {
+        return Some(AppKind::ClaudeDesktop);
     }
 
     if file_name != "claude.exe" && file_name != "claude" {
@@ -224,6 +228,10 @@ mod tests {
         );
         assert_eq!(
             classify_process(r"C:\Program Files\Something\Claude.exe"),
+            Some(AppKind::ClaudeDesktop)
+        );
+        assert_eq!(
+            classify_process("/usr/bin/claude-desktop --type=gpu-process"),
             Some(AppKind::ClaudeDesktop)
         );
     }

@@ -163,9 +163,19 @@ fn configure_hidden(command: &mut Command) {
     let _ = command;
 }
 
-fn run_output(mut command: Command) -> io::Result<Output> {
+const QUICK_COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
+const NPM_INSTALL_TIMEOUT: Duration = Duration::from_secs(180);
+const FNM_INSTALL_TIMEOUT: Duration = Duration::from_secs(240);
+
+fn run_output(command: Command) -> io::Result<Output> {
+    run_output_timeout(command, QUICK_COMMAND_TIMEOUT)
+}
+
+fn run_output_timeout(mut command: Command, timeout: Duration) -> io::Result<Output> {
     configure_hidden(&mut command);
-    command.output()
+    crate::process_util::output_with_timeout(&mut command, timeout).map_err(|error| {
+        io::Error::new(io::ErrorKind::TimedOut, error.to_string())
+    })
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -313,9 +323,8 @@ fn resolve_command_on_path(name: &str) -> Option<PathBuf> {
     }
     #[cfg(not(windows))]
     {
-        if let Some(path) = resolve_via_login_shell(name) {
-            return Some(path);
-        }
+        // Never `sh -lc` from a GUI: login shells source ~/.profile and can hang
+        // without a TTY (Ubuntu Agent tools then spin forever).
         let output = run_output({
             let mut command = Command::new("sh");
             command.args(["-c", &format!("command -v {}", shell_single_quote(name))]);
@@ -331,26 +340,6 @@ fn resolve_command_on_path(name: &str) -> Option<PathBuf> {
         } else {
             Some(PathBuf::from(path))
         }
-    }
-}
-
-#[cfg(not(windows))]
-fn resolve_via_login_shell(name: &str) -> Option<PathBuf> {
-    let script = format!("command -v {}", shell_single_quote(name));
-    let output = run_output({
-        let mut command = Command::new("sh");
-        command.args(["-lc", &script]);
-        command
-    })
-    .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let path = decode_output(&output.stdout).trim().to_string();
-    if path.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(path))
     }
 }
 
@@ -458,7 +447,7 @@ fn probe_fnm_default_node(fnm: &Path) -> Option<(PathBuf, PathBuf, String, Strin
         let script = format!("{env_script}\ncommand -v node");
         let path_output = run_output({
             let mut command = Command::new("sh");
-            command.args(["-lc", &script]);
+            command.args(["-c", &script]);
             command
         })
         .ok()?;
@@ -617,6 +606,15 @@ fn scrub_npm_env(command: &mut Command) {
 
 /// Run `npm` with the Node binary directory prepended to PATH (GUI-safe).
 pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Output> {
+    run_anchored_npm_with_timeout(npm, node, args, QUICK_COMMAND_TIMEOUT)
+}
+
+fn run_anchored_npm_with_timeout(
+    npm: &Path,
+    node: &Path,
+    args: &[&str],
+    timeout: Duration,
+) -> io::Result<Output> {
     let node_dir = node
         .parent()
         .unwrap_or_else(|| Path::new("."))
@@ -641,25 +639,23 @@ pub fn run_anchored_npm(npm: &Path, node: &Path, args: &[&str]) -> io::Result<Ou
             .raw_arg(command_line)
             .creation_flags(CREATE_NO_WINDOW);
         scrub_npm_env(&mut command);
-        return command.output();
+        return run_output_timeout(command, timeout);
     }
 
     #[cfg(not(windows))]
     {
-        let mut pieces = Vec::with_capacity(args.len() + 1);
-        pieces.push(shell_single_quote(&npm.display().to_string()));
-        for arg in args {
-            pieces.push(shell_single_quote(arg));
+        let mut path_dirs = vec![PathBuf::from(&node_dir)];
+        if let Some(existing) = std::env::var_os("PATH") {
+            path_dirs.extend(std::env::split_paths(&existing));
         }
-        let script = format!(
-            "export PATH={}:\"$PATH\"; {}",
-            shell_single_quote(&node_dir),
-            pieces.join(" ")
-        );
-        let mut command = Command::new("sh");
-        command.args(["-lc", &script]);
+        let joined = std::env::join_paths(path_dirs).unwrap_or_else(|_| node_dir.into());
+        let mut command = Command::new(npm);
+        command.args(args);
+        command.env("PATH", joined);
+        command.env("npm_config_yes", "true");
+        command.env("NPM_CONFIG_YES", "true");
         scrub_npm_env(&mut command);
-        command.output()
+        run_output_timeout(command, timeout)
     }
 }
 
@@ -711,7 +707,7 @@ pub fn npm_global_bin_dirs(npm: &Path, node: &Path) -> Vec<PathBuf> {
 
 /// Global package install via PATH-anchored npm, using the npmmirror registry.
 pub fn run_anchored_npm_global_install(npm: &Path, node: &Path, package: &str) -> io::Result<Output> {
-    run_anchored_npm(
+    run_anchored_npm_with_timeout(
         npm,
         node,
         &[
@@ -721,7 +717,9 @@ pub fn run_anchored_npm_global_install(npm: &Path, node: &Path, package: &str) -
             "--registry",
             NPM_REGISTRY_MIRROR,
             "--force",
+            "--yes",
         ],
+        NPM_INSTALL_TIMEOUT,
     )
 }
 
@@ -733,7 +731,7 @@ pub fn run_anchored_npm_global_install_official(
     node: &Path,
     package: &str,
 ) -> io::Result<Output> {
-    run_anchored_npm(
+    run_anchored_npm_with_timeout(
         npm,
         node,
         &[
@@ -742,7 +740,9 @@ pub fn run_anchored_npm_global_install_official(
             package,
             "--registry",
             NPM_REGISTRY_OFFICIAL,
+            "--yes",
         ],
+        NPM_INSTALL_TIMEOUT,
     )
 }
 
@@ -947,14 +947,17 @@ fn install_fnm_binary(github_mirror_base: Option<&str>) -> AppResult<PathBuf> {
 }
 
 fn run_fnm_with_env(fnm: &Path, args: &[&str], env: &[(&str, &str)]) -> AppResult<Output> {
-    let output = run_output({
-        let mut command = Command::new(fnm);
-        command.args(args);
-        for (key, value) in env {
-            command.env(key, value);
-        }
-        command
-    })
+    let output = run_output_timeout(
+        {
+            let mut command = Command::new(fnm);
+            command.args(args);
+            for (key, value) in env {
+                command.env(key, value);
+            }
+            command
+        },
+        FNM_INSTALL_TIMEOUT,
+    )
     .map_err(|error| AppError::Other(format!("Failed to run fnm: {error}")))?;
     if !output.status.success() {
         let detail = {

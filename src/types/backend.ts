@@ -1006,6 +1006,21 @@ export interface DshCliVersionInfo {
   installedButBroken: boolean;
 }
 
+export interface ClaudeDesktopAppInfo {
+  installed: boolean;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  installCommand: string;
+  updateCommand: string;
+  error: string | null;
+  executablePath: string | null;
+  source: string | null;
+  environment: string;
+  installedButBroken: boolean;
+  canInstallInApp: boolean;
+}
+
 export interface OpenCodeDesktopStatus {
   installed: boolean;
   version: string | null;

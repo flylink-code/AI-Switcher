@@ -163,6 +163,7 @@ pub use pi::{
 pub use tools::{
     get_claude_code_version, get_codex_cli_version, run_claude_code_update, run_codex_cli_update,
     get_opencode_cli_version, run_opencode_cli_update, get_opencode_desktop_status,
+    get_claude_desktop_app_status, run_claude_desktop_app_update,
     get_dsh_cli_version, run_dsh_cli_update, start_dsh_web, DshCliVersionInfo,
 };
 pub use usage::{
