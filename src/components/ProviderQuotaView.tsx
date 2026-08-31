@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { ReloadOutlined } from "@ant-design/icons";
-import { Space, Spin, Tag, Tooltip, Typography } from "antd";
+import { Space, Spin, Tag, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import { useInvalidateQuota, useOfficialQuota, useProviderQuota } from "@/lib/quotaQueries";
-import type { ProviderQuotaResult, ProviderTarget, QuotaTier } from "@/types/backend";
-
-const { Text } = Typography;
+import type { ProviderTarget, QuotaTier } from "@/types/backend";
 
 function formatResetCountdown(resetsAt?: string | null): string | null {
   if (!resetsAt) return null;
