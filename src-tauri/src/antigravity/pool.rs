@@ -21,6 +21,9 @@ const MAX_RATE_LIMIT_COOLDOWN_SECS: i64 = 120;
 /// SKU/RPM 429 while 5h/7d bars still have remaining. Short so another account
 /// can pick up the same request without parking the first number for 45s+.
 const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
+/// A missing response is transient and must not pin the preferred account for
+/// the normal 20-second server-error cooldown.
+const UPSTREAM_TIMEOUT_COOLDOWN_SECS: i64 = 5;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -160,6 +163,17 @@ impl AccountPool {
         }
     }
 
+    /// Remove one session's preferred account after a transient timeout so the
+    /// next retry can select another healthy account.
+    pub fn clear_session(&self, session_key: Option<&str>) {
+        let Some(session) = session_key.filter(|value| !value.is_empty()) else {
+            return;
+        };
+        if let Ok(mut guard) = self.sticky.lock() {
+            guard.remove(session);
+        }
+    }
+
     pub fn rotate_after_failure(
         &self,
         failed_account_id: &str,
@@ -176,6 +190,8 @@ impl AccountPool {
                 AUTH_COOLDOWN_SECS
             } else if status == 429 {
                 RATE_LIMIT_COOLDOWN_SECS
+            } else if status == 504 {
+                timeout_cooldown_secs()
             } else {
                 DEFAULT_COOLDOWN_SECS
             };
@@ -185,11 +201,7 @@ impl AccountPool {
                 &format!("upstream status {status}"),
             );
         }
-        if let Some(session) = session_key {
-            if let Ok(mut guard) = self.sticky.lock() {
-                guard.remove(session);
-            }
-        }
+        self.clear_session(session_key);
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
         let remaining: Vec<_> = accounts
@@ -629,6 +641,10 @@ pub(crate) fn sku_rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
     }
 }
 
+pub(crate) fn timeout_cooldown_secs() -> i64 {
+    UPSTREAM_TIMEOUT_COOLDOWN_SECS
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -674,6 +690,25 @@ mod tests {
         ];
         let soft = soft_select_cooled_account(&accounts, now, None).expect("soft");
         assert_eq!(soft.id, "a2");
+    }
+
+    #[test]
+    fn clearing_one_session_keeps_other_sticky_bindings() {
+        let pool = AccountPool::new();
+        pool.bind_session(Some("session-a"), "a1");
+        pool.bind_session(Some("session-b"), "a2");
+
+        pool.clear_session(Some("session-a"));
+
+        let sticky = pool.sticky.lock().unwrap();
+        assert!(!sticky.contains_key("session-a"));
+        assert_eq!(sticky.get("session-b").map(String::as_str), Some("a2"));
+    }
+
+    #[test]
+    fn timeout_cooldown_is_shorter_than_generic_failure_cooldown() {
+        assert_eq!(timeout_cooldown_secs(), UPSTREAM_TIMEOUT_COOLDOWN_SECS);
+        assert!(timeout_cooldown_secs() < DEFAULT_COOLDOWN_SECS);
     }
 
     #[test]

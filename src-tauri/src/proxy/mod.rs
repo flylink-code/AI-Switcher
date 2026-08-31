@@ -662,7 +662,8 @@ pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCod
     codes.contains(&status.as_u16())
 }
 
-/// Antigravity already rotated its account pool on 429. Failing over to
+/// Antigravity already rotates its account pool on rate limits and timeouts.
+/// Failing over to
 /// unrelated Desktop providers (Kimi / DeepSeek / …) with a Gemini model id
 /// produces extra 4xx/502 rows, and Claude Desktop then retries 502 immediately.
 pub(crate) fn should_failover_upstream_status(provider: &Provider, status: StatusCode) -> bool {
@@ -676,6 +677,9 @@ pub(crate) fn should_failover_upstream_status_ex(
     status: StatusCode,
     catalog_cross_provider_429: bool,
 ) -> bool {
+    if provider.is_antigravity() && status == StatusCode::GATEWAY_TIMEOUT {
+        return false;
+    }
     if catalog_cross_provider_429 {
         return true;
     }
@@ -2284,6 +2288,10 @@ mod tests {
             &ag,
             StatusCode::TOO_MANY_REQUESTS
         ));
+        assert!(!should_failover_upstream_status(
+            &ag,
+            StatusCode::GATEWAY_TIMEOUT
+        ));
         assert!(should_failover_upstream_status(&ag, StatusCode::BAD_GATEWAY));
         assert!(should_failover_upstream_status(
             &standard,
@@ -2298,6 +2306,11 @@ mod tests {
             &ag,
             StatusCode::TOO_MANY_REQUESTS,
             false
+        ));
+        assert!(!should_failover_upstream_status_ex(
+            &ag,
+            StatusCode::GATEWAY_TIMEOUT,
+            true
         ));
     }
 

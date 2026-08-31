@@ -43,12 +43,21 @@ const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
 const MAX_LOCAL_LIMITER_HOPS: usize = 2;
 const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 const MAX_MODEL_LEVEL_ATTEMPTS: usize = 3;
-const SUBAGENT_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(8);
+/// Classifier / subagent calls need enough budget to move off a slow account.
+/// A single request never consumes the full budget; see
+/// [`upstream_attempt_timeout_for`].
+const SUBAGENT_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(16);
+const SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(7);
 const SUBAGENT_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(15);
 const MAIN_NON_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(25);
 const MAIN_STREAM_RETRY_DEADLINE: Duration = Duration::from_secs(45);
 const SHORT_PAYLOAD_MAX_BYTES: usize = 12_000;
 const UPSTREAM_500_RETRY_BACKOFF: Duration = Duration::from_millis(250);
+
+enum GenerateAttemptError {
+    Timeout(Duration),
+    Upstream(AppError),
+}
 
 pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
@@ -380,14 +389,11 @@ async fn dispatch_generation(
     let mut upstream_calls: u32 = 0;
     let mut models_tried: Vec<String> = Vec::new();
     let mut limiter_hops: usize = 0;
+    let mut last_upstream_retry_after: Option<u64> = None;
 
     for hop in 0..MAX_FAILOVER_HOPS {
         if past_retry_deadline(retry_deadline) {
-            last_error = format!(
-                "retry deadline exceeded after {} upstream calls",
-                upstream_calls
-            );
-            last_fail_status = 429;
+            mark_retry_budget_exhausted(&mut last_error, &mut last_fail_status, upstream_calls);
             break;
         }
         let selected = if hop == 0 {
@@ -496,11 +502,7 @@ async fn dispatch_generation(
         let mut in_place_retries = 0u32;
         let upstream = 'levels: loop {
             if past_retry_deadline(retry_deadline) {
-                last_error = format!(
-                    "retry deadline exceeded after {} upstream calls",
-                    upstream_calls
-                );
-                last_fail_status = 429;
+                mark_retry_budget_exhausted(&mut last_error, &mut last_fail_status, upstream_calls);
                 break 'levels Err(());
             }
             current_model = model_chain
@@ -518,14 +520,25 @@ async fn dispatch_generation(
             let mut server_error_retry = 0u32;
             let attempt = loop {
                 if past_retry_deadline(retry_deadline) {
-                    break Err(AppError::Other("retry deadline exceeded".into()));
+                    mark_retry_budget_exhausted(
+                        &mut last_error,
+                        &mut last_fail_status,
+                        upstream_calls,
+                    );
+                    break 'levels Err(());
                 }
                 let Some(budget) = remaining_until(retry_deadline) else {
-                    break Err(AppError::Other("retry deadline exceeded".into()));
+                    mark_retry_budget_exhausted(
+                        &mut last_error,
+                        &mut last_fail_status,
+                        upstream_calls,
+                    );
+                    break 'levels Err(());
                 };
+                let attempt_timeout = upstream_attempt_timeout_for(budget, is_subagent, stream);
                 upstream_calls += 1;
                 match tokio::time::timeout(
-                    budget,
+                    attempt_timeout,
                     state.upstream.generate(&access_token, &wrapped, stream),
                 )
                 .await
@@ -542,17 +555,29 @@ async fn dispatch_generation(
                         }
                         break Ok(response);
                     }
-                    Ok(Err(error)) => break Err(error),
-                    Err(_) => break Err(AppError::Other("retry deadline exceeded".into())),
+                    Ok(Err(error)) => break Err(GenerateAttemptError::Upstream(error)),
+                    Err(_) => break Err(GenerateAttemptError::Timeout(attempt_timeout)),
                 }
             };
             let response = match attempt {
                 Ok(response) => response,
-                Err(error) => {
+                Err(GenerateAttemptError::Timeout(timeout)) => {
+                    last_error = format!("upstream attempt timeout after {}ms", timeout.as_millis());
+                    last_fail_status = 504;
+                    state.pool.clear_session(session_key.as_deref());
+                    let _ = account_store().mark_cooldown(
+                        &account.id,
+                        crate::antigravity::pool::timeout_cooldown_secs(),
+                        &last_error,
+                    );
+                    log::warn!(
+                        "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model}; rotating account"
+                    );
+                    break 'levels Err(());
+                }
+                Err(GenerateAttemptError::Upstream(error)) => {
                     last_error = error.to_string();
-                    last_fail_status = if last_error.contains("deadline") {
-                        429
-                    } else if last_error.starts_with("network/") {
+                    last_fail_status = if last_error.starts_with("network/") {
                         504
                     } else {
                         502
@@ -605,6 +630,7 @@ async fn dispatch_generation(
             }
             if response.status().as_u16() == 429 {
                 let retry_after = crate::antigravity::upstream::retry_after_secs(&response);
+                last_upstream_retry_after = retry_after;
                 let text = response.text().await.unwrap_or_default();
                 let smart = crate::antigravity::retry_info::classify_retry(&text, retry_after);
                 match smart {
@@ -643,24 +669,24 @@ async fn dispatch_generation(
                             Some("upstream"),
                             Some(&last_error),
                         );
-                        return error_json(StatusCode::TOO_MANY_REQUESTS, &last_error);
+                        return error_json_with_retry_after(
+                            StatusCode::TOO_MANY_REQUESTS,
+                            &last_error,
+                            retry_after,
+                        );
                     }
                     _ => {}
                 }
                 if model_idx + 1 < model_chain.len() {
-                    if remaining_until(retry_deadline).is_none() {
-                        last_error = format!(
-                            "retry deadline exceeded after {} upstream calls",
-                            upstream_calls
-                        );
-                        last_fail_status = 429;
-                        break 'levels Err(());
-                    }
-                    let next = &model_chain[model_idx + 1];
                     last_error = format!(
                         "upstream 429: {}",
                         text.trim().chars().take(240).collect::<String>()
                     );
+                    last_fail_status = 429;
+                    if remaining_until(retry_deadline).is_none() {
+                        break 'levels Err(());
+                    }
+                    let next = &model_chain[model_idx + 1];
                     log::warn!(
                         "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
                     );
@@ -727,6 +753,9 @@ async fn dispatch_generation(
         }
         if matches!(status.as_u16(), 401 | 403 | 429) {
             let retry_after = crate::antigravity::upstream::retry_after_secs(&upstream);
+            if status.as_u16() == 429 {
+                last_upstream_retry_after = retry_after;
+            }
             let text = upstream.text().await.unwrap_or_default();
             let detail = text.trim();
             last_error = if detail.is_empty() {
@@ -889,10 +918,17 @@ async fn dispatch_generation(
 
     let clipped_error: String = last_error.chars().take(400).collect();
     let status = client_status_from_dispatch(last_fail_status, &clipped_error);
-    let error_category = dispatch_error_category(&clipped_error);
+    let error_category = dispatch_error_category(last_fail_status, &clipped_error);
     if status == StatusCode::TOO_MANY_REQUESTS {
         log::warn!(
             "Antigravity dispatch failed 429 after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]",
+            started.elapsed().as_millis(),
+            exclude_labels.join(","),
+            models_tried.join(",")
+        );
+    } else if error_category == "upstream_timeout" {
+        log::warn!(
+            "Antigravity dispatch timed out after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]: {clipped_error}",
             started.elapsed().as_millis(),
             exclude_labels.join(","),
             models_tried.join(",")
@@ -916,7 +952,7 @@ async fn dispatch_generation(
         Some(error_category),
         Some(&clipped_error),
     );
-    error_json(status, &clipped_error)
+    error_json_with_retry_after(status, &clipped_error, last_upstream_retry_after)
 }
 
 async fn ensure_project_id(
@@ -1283,6 +1319,28 @@ fn remaining_until(deadline: Instant) -> Option<Duration> {
         .filter(|duration| *duration > Duration::from_millis(50))
 }
 
+fn upstream_attempt_timeout_for(remaining: Duration, is_subagent: bool, stream: bool) -> Duration {
+    if is_subagent && !stream {
+        remaining.min(SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT)
+    } else {
+        remaining
+    }
+}
+
+fn mark_retry_budget_exhausted(
+    last_error: &mut String,
+    last_fail_status: &mut u16,
+    upstream_calls: u32,
+) {
+    // Do not erase an actual 429 that arrived before the budget ran out.
+    if *last_fail_status != 429 {
+        *last_error = format!(
+            "upstream retry budget exhausted after {upstream_calls} upstream calls"
+        );
+        *last_fail_status = 504;
+    }
+}
+
 fn should_treat_as_subagent(
     headers: &HeaderMap,
     model: &str,
@@ -1352,9 +1410,15 @@ fn should_cool_account_on_generate_error(error: &AppError) -> bool {
     !matches!(error, AppError::Network(_))
 }
 
-fn dispatch_error_category(last_error: &str) -> &'static str {
-    if last_error.starts_with("network/") {
+fn dispatch_error_category(last_fail_status: u16, last_error: &str) -> &'static str {
+    if last_fail_status == 504 && last_error.starts_with("network/") {
         "network"
+    } else if last_fail_status == 504 {
+        "upstream_timeout"
+    } else if last_fail_status == 429 && last_error.contains("local rate limit") {
+        "local_rate_limit"
+    } else if last_fail_status == 429 {
+        "upstream_429"
     } else {
         "upstream"
     }
@@ -1399,8 +1463,7 @@ fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
 }
 
 fn looks_like_rate_limit(lower: &str) -> bool {
-    lower.contains("retry deadline")
-        || lower.contains("local rate limit")
+    lower.contains("local rate limit")
         || lower.contains("resource_exhausted")
         || lower.contains("resource has been exhausted")
         || lower.contains("too many requests")
@@ -1437,9 +1500,7 @@ fn error_type_for_status(status: StatusCode) -> &'static str {
 
 fn retry_after_header(status: StatusCode, message: &str) -> Option<&'static str> {
     match status.as_u16() {
-        429 if looks_like_rate_limit(&message.to_ascii_lowercase())
-            && (message.contains("local rate") || message.contains("deadline")) =>
-        {
+        429 if message.contains("local rate") => {
             Some("8")
         }
         429 => Some("45"),
@@ -1449,6 +1510,14 @@ fn retry_after_header(status: StatusCode, message: &str) -> Option<&'static str>
 }
 
 fn error_json(status: StatusCode, message: &str) -> Response {
+    error_json_with_retry_after(status, message, None)
+}
+
+fn error_json_with_retry_after(
+    status: StatusCode,
+    message: &str,
+    upstream_retry_after: Option<u64>,
+) -> Response {
     let mut response = (
         status,
         Json(json!({
@@ -1460,8 +1529,16 @@ fn error_json(status: StatusCode, message: &str) -> Response {
         })),
     )
         .into_response();
-    if let Some(secs) = retry_after_header(status, message) {
-        if let Ok(value) = HeaderValue::from_str(secs) {
+    let retry_after = if status == StatusCode::TOO_MANY_REQUESTS {
+        upstream_retry_after
+            .filter(|secs| *secs > 0)
+            .map(|secs| secs.to_string())
+            .or_else(|| retry_after_header(status, message).map(str::to_string))
+    } else {
+        retry_after_header(status, message).map(str::to_string)
+    };
+    if let Some(secs) = retry_after {
+        if let Ok(value) = HeaderValue::from_str(&secs) {
             response.headers_mut().insert(header::RETRY_AFTER, value);
         }
     }
@@ -1500,7 +1577,7 @@ mod tests {
         );
         assert_eq!(
             client_status_from_upstream_error("retry deadline exceeded after 1 upstream calls"),
-            StatusCode::TOO_MANY_REQUESTS
+            StatusCode::BAD_GATEWAY
         );
         assert_eq!(
             client_status_from_upstream_error("local rate limit: account hot"),
@@ -1532,10 +1609,10 @@ mod tests {
         );
         assert_eq!(
             client_status_from_dispatch(
-                429,
-                "retry deadline exceeded after 4 upstream calls"
+                504,
+                "upstream retry budget exhausted after 4 upstream calls"
             ),
-            StatusCode::TOO_MANY_REQUESTS
+            StatusCode::GATEWAY_TIMEOUT
         );
         assert_eq!(
             client_status_from_dispatch(504, "network/connect: 3 hosts unreachable in 15005ms"),
@@ -1554,6 +1631,94 @@ mod tests {
     }
 
     #[test]
+    fn classifier_attempt_timeout_leaves_budget_for_account_rotation() {
+        let started = Instant::now();
+        let deadline = retry_deadline_for(false, true, started);
+        assert_eq!(
+            deadline.duration_since(started),
+            SUBAGENT_NON_STREAM_RETRY_DEADLINE
+        );
+        assert_eq!(
+            upstream_attempt_timeout_for(Duration::from_secs(16), true, false),
+            SUBAGENT_NON_STREAM_ATTEMPT_TIMEOUT
+        );
+        assert_eq!(
+            upstream_attempt_timeout_for(Duration::from_secs(4), true, false),
+            Duration::from_secs(4)
+        );
+        assert_eq!(
+            upstream_attempt_timeout_for(Duration::from_secs(16), false, false),
+            Duration::from_secs(16)
+        );
+    }
+
+    #[test]
+    fn timeout_is_not_reported_as_rate_limit() {
+        assert!(!looks_like_rate_limit(
+            "upstream retry budget exhausted after 1 upstream calls"
+        ));
+        assert_eq!(
+            client_status_from_dispatch(504, "upstream attempt timeout after 7000ms"),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(
+            dispatch_error_category(504, "upstream attempt timeout after 7000ms"),
+            "upstream_timeout"
+        );
+        assert_eq!(
+            dispatch_error_category(429, "local rate limit: account busy"),
+            "local_rate_limit"
+        );
+        assert_eq!(
+            dispatch_error_category(429, "upstream 429: RESOURCE_EXHAUSTED"),
+            "upstream_429"
+        );
+        assert_eq!(
+            retry_after_header(StatusCode::GATEWAY_TIMEOUT, "upstream attempt timeout"),
+            Some("5")
+        );
+        assert_eq!(
+            retry_after_header(StatusCode::TOO_MANY_REQUESTS, "local rate limit: account busy"),
+            Some("8")
+        );
+        assert_eq!(
+            retry_after_header(StatusCode::TOO_MANY_REQUESTS, "upstream 429: RESOURCE_EXHAUSTED"),
+            Some("45")
+        );
+    }
+
+    #[tokio::test]
+    async fn timeout_response_uses_timeout_error_and_short_retry_after() {
+        let response = error_json(
+            StatusCode::GATEWAY_TIMEOUT,
+            "upstream retry budget exhausted after 2 upstream calls",
+        );
+        assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(
+            response.headers().get(header::RETRY_AFTER).and_then(|value| value.to_str().ok()),
+            Some("5")
+        );
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        let payload: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload.pointer("/error/type").and_then(Value::as_str), Some("timeout_error"));
+    }
+
+    #[test]
+    fn upstream_429_retry_after_is_preserved() {
+        let response = error_json_with_retry_after(
+            StatusCode::TOO_MANY_REQUESTS,
+            "upstream 429: RESOURCE_EXHAUSTED",
+            Some(12),
+        );
+        assert_eq!(
+            response.headers().get(header::RETRY_AFTER).and_then(|value| value.to_str().ok()),
+            Some("12")
+        );
+    }
+
+    #[test]
     fn network_errors_are_not_account_faults() {
         assert!(!should_cool_account_on_generate_error(&AppError::Network(
             "network/connect: 3 hosts unreachable".into()
@@ -1562,11 +1727,11 @@ mod tests {
             "upstream 502: backend unavailable".into()
         )));
         assert_eq!(
-            dispatch_error_category("network/timeout: 3 hosts unreachable in 800ms"),
+            dispatch_error_category(504, "network/timeout: 3 hosts unreachable in 800ms"),
             "network"
         );
         assert_eq!(
-            dispatch_error_category("upstream 502: backend unavailable"),
+            dispatch_error_category(502, "upstream 502: backend unavailable"),
             "upstream"
         );
         assert!(is_request_body_status(400));
