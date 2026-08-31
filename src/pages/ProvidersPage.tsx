@@ -42,6 +42,7 @@ import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { ImportFromAgentDialog, canCopyProviderTo } from "@/components/ImportFromAgentDialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
+import { ProviderQuotaView } from "@/components/ProviderQuotaView";
 import { AgentTargetSwitcher, LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
@@ -772,6 +773,7 @@ export default function ProvidersPage() {
                 <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
                   native
                 </Tag>
+                <ProviderQuotaView target={target} />
               </div>
 
               <div className="cc-provider-card-footer">
@@ -850,6 +852,7 @@ export default function ProvidersPage() {
                     </Tag>
                   )}
                   <Tag className="cc-provider-meta-tag">{provider.protocolType}</Tag>
+                  <ProviderQuotaView providerId={provider.id} />
                 </div>
 
                 <div className="cc-provider-card-footer">

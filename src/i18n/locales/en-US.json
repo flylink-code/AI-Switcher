@@ -514,6 +514,28 @@
     "emptyHint": "Add the first provider for the current agent.",
     "selectProvider": "Select a provider on the left to view details"
   },
+  "quota": {
+    "title": "Quota & Balance",
+    "refreshQuota": "Refresh Quota",
+    "querying": "Checking quota...",
+    "balance": "Total Balance",
+    "grantedBalance": "Granted Balance",
+    "toppedUpBalance": "Topped Up Balance",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "fiveHourWindow": "5-Hour Window",
+    "sevenDayWindow": "7-Day Window",
+    "thirtyDayWindow": "30-Day Window",
+    "weeklyWindow": "Weekly Quota",
+    "monthlyWindow": "Monthly Quota",
+    "resetsIn": "Resets in {{time}}",
+    "extraUsage": "Extra Usage",
+    "authFailed": "Invalid API Key",
+    "networkError": "Network Error",
+    "queryFailed": "Query Failed",
+    "unsupported": "Not Supported",
+    "queriedAt": "Queried at: {{time}}"
+  },
   "proxy": {
     "title": "Local proxy",
     "description": "Day-to-day upstream changes happen on Providers; the local proxy starts and stops automatically when needed. Use this page only to change the port, force a restart, or tune failover.",

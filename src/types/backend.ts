@@ -3,6 +3,8 @@
  * Keep these in sync with the corresponding serde structs in src-tauri/src/.
  */
 
+export * from "./quota";
+
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";

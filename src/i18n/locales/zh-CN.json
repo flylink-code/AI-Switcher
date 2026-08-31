@@ -514,6 +514,28 @@
     "emptyHint": "为当前 Agent 添加第一个 Provider。",
     "selectProvider": "选择左侧供应商查看详情"
   },
+  "quota": {
+    "title": "额度与余额",
+    "refreshQuota": "刷新额度",
+    "querying": "查询额度中...",
+    "balance": "总余额",
+    "grantedBalance": "赠送金额",
+    "toppedUpBalance": "充值金额",
+    "available": "可用",
+    "unavailable": "不可用",
+    "fiveHourWindow": "5小时窗口",
+    "sevenDayWindow": "7天窗口",
+    "thirtyDayWindow": "30天窗口",
+    "weeklyWindow": "周额度",
+    "monthlyWindow": "月度额度",
+    "resetsIn": "{{time}} 后重置",
+    "extraUsage": "超额用量",
+    "authFailed": "Key 鉴权失效",
+    "networkError": "网络连接错误",
+    "queryFailed": "查询失败",
+    "unsupported": "未支持自动查询",
+    "queriedAt": "查询时间: {{time}}"
+  },
   "proxy": {
     "title": "本地代理",
     "description": "日常在供应商页切换上游即可，需要本地代理时会自动启停。此页仅用于改端口、强制重启或调整故障切换。",

@@ -24,6 +24,7 @@ mod mcp_oauth;
 mod mcp_registry;
 mod process_util;
 mod prompts;
+mod quota;
 mod runtime_status;
 mod provider;
 mod proxy;
@@ -83,7 +84,7 @@ use crate::commands::{
     install_mcp_registry_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status, clear_mcp_oauth,
     get_localization_hub_status, install_claude_code_localization, install_editor_localization_helper,
     get_skill_repository, get_skill_repository_snapshot, list_skill_repositories, add_skill_repository, remove_skill_repository, ignore_unmanaged_skill, list_github_repository_skills, refresh_github_repository_skills, register_unmanaged_skill, scan_unmanaged_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
-    list_providers, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
+    list_providers, get_official_quota, get_provider_quota, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
     search_mcp_registry,
     report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official, set_claude_code_default_permission_mode, list_gateway_catalog_models, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
     set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, speedtest_provider_endpoint, test_provider_connection, test_provider_input, batch_diagnose_providers, quarantine_failed_providers,
@@ -241,6 +242,8 @@ pub fn run() {
             install_claude_code_localization,
             install_editor_localization_helper,
             list_providers,
+            get_provider_quota,
+            get_official_quota,
             get_current_provider,
             get_gateway_catalog_enabled,
             set_gateway_catalog_enabled,

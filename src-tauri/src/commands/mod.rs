@@ -24,6 +24,7 @@ pub mod runtime_status;
 pub mod sessions;
 pub mod providers;
 pub mod proxy;
+pub mod quota;
 pub mod skills;
 pub mod system;
 pub mod sync;
@@ -133,6 +134,7 @@ pub use proxy::{
     get_proxy_status, set_proxy_failover_enabled, set_proxy_retryable_status_codes,
     set_proxy_streaming_idle_timeout_secs, set_proxy_port, start_proxy, stop_proxy,
 };
+pub use quota::{get_official_quota, get_provider_quota};
 pub use skills::{
     add_skill_repository, check_skill_update, check_skill_updates, delete_skill, get_skill_repository,
     get_skill_repository_snapshot, ignore_unmanaged_skill, install_github_repository_skills,
