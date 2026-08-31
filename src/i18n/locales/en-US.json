@@ -1156,7 +1156,7 @@
     "backupFailed": "Backup failed",
     "addSyncTarget": "Add sync target",
     "syncSaved": "Sync target saved",
-    "syncDescription": "This machine is the source of truth. Inspect the diff before a push; API keys are excluded by default and can be enabled as an optional push setting.",
+    "syncDescription": "This machine is the source of truth. Inspect the diff before a push; choose which agents' providers to include. API keys are excluded by default.",
     "wslDirectHint": "Saving Claude/Codex configs copies settings.json / config.toml into the WSL distro (skipped when already running inside WSL). Paths in JSON must be absolute Linux paths.",
     "wslDirectSync": "Sync to WSL now",
     "wslDirectSkip": "Already running inside WSL; extra copy is skipped.",
@@ -1170,6 +1170,12 @@
     "webdavRestore": "Restore from WebDAV",
     "syncIncludeApiKeys": "Sync API keys (plaintext in the archive — use only on trusted links)",
     "syncIncludeApiKeysWarning": "API key sync is enabled: the archive will contain provider secrets in plaintext.",
+    "syncProviderTargets": "Sync providers for these agents",
+    "syncProviderTargetsHint": "Applies to this push only; it is not saved on the sync target.",
+    "syncProviderTargetsRequired": "Select at least one agent",
+    "syncProviderTargetsSummary": "Providers: {{agents}}",
+    "syncProviderTargetsJoin": ", ",
+    "libraryArchiveProviderTargets": "Providers only for these agents",
     "viewPaths": "View path details",
     "pathsModalTitle": "Environment paths",
     "noSyncTargets": "No sync targets yet",
@@ -1374,6 +1380,12 @@
         "Provider cards show official subscription usage and vendor balances / coding-plan windows (Kimi, Zhipu, MiniMax, DeepSeek, SiliconFlow, OpenRouter, and others), with a manual refresh.",
         "Self-hosted sub2api gateways are probed via GET /v1/usage for wallet balance or daily/weekly/monthly limits (not NewAPI /api/user/self).",
         "Antigravity account pool: short cooldown and clear sticky session accounts on upstream timeouts, instead of treating a blip as a full-pool failure."
+      ],
+      "1_4_3": [
+        "Cross-environment push can select which agents' providers to sync; import merges only those agents. Older ZIPs still replace the whole library.",
+        "Importing a Windows library onto Linux discards drive-letter paths (such as J:\\Temp\\aiswitcher) and resets session backups to the local data directory.",
+        "Agent tools can detect and install the official Claude Desktop package on Linux. In-app CLI installs use a timeout and no longer run a login shell, so the button does not spin forever.",
+        "The environment page restart prompt after a library import uses the in-page dialog so WebView CSP does not strip its styles."
       ]
     },
     "appName": "App name",

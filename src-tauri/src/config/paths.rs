@@ -72,8 +72,56 @@ pub fn configured_data_root() -> Option<PathBuf> {
     let path = data_root_config_path();
     let text = fs::read_to_string(path).ok()?;
     let config = serde_json::from_str::<DataRootConfig>(&text).ok()?;
-    let root = PathBuf::from(config.data_root);
-    root.is_absolute().then_some(root)
+    usable_local_absolute_path(&config.data_root)
+}
+
+/// True for Windows drive / UNC / `\\?\` paths (including mixed `/` separators).
+pub fn looks_like_windows_abspath(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let stripped = strip_windows_verbatim_prefix(trimmed);
+    if stripped.starts_with(r"\\") || stripped.starts_with("//") {
+        return true;
+    }
+    let bytes = stripped.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
+}
+
+fn looks_like_unix_abspath(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.starts_with('/') && !looks_like_windows_abspath(trimmed)
+}
+
+fn strip_windows_verbatim_prefix(value: &str) -> &str {
+    value
+        .strip_prefix(r"\\?\")
+        .or_else(|| value.strip_prefix(r"\\.\"))
+        .or_else(|| value.strip_prefix("//?/"))
+        .or_else(|| value.strip_prefix("//./"))
+        .unwrap_or(value)
+}
+
+/// Absolute path that belongs on this OS. Drive-letter / UNC strings are
+/// rejected on Unix; Unix-root strings are rejected on Windows. Relative
+/// paths are never usable as a library or backup directory.
+pub fn usable_local_absolute_path(value: &str) -> Option<PathBuf> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if cfg!(unix) && looks_like_windows_abspath(trimmed) {
+        return None;
+    }
+    if cfg!(windows) && looks_like_unix_abspath(trimmed) {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    path.is_absolute().then_some(path)
 }
 
 pub fn write_data_root_config(root: &Path) -> AppResult<()> {
@@ -325,5 +373,35 @@ mod tests {
         .expect("write jsonc");
         assert!(opencode_file_has_user_providers(&jsonc));
         assert!(!opencode_file_has_user_providers(&json));
+    }
+
+    #[test]
+    fn windows_drive_and_unc_paths_are_detected() {
+        assert!(looks_like_windows_abspath(r"J:\Temp\aiswitcher"));
+        assert!(looks_like_windows_abspath(r"J:/Temp/aiswitcher"));
+        assert!(looks_like_windows_abspath(r"\\?\J:\Temp\aiswitcher"));
+        assert!(looks_like_windows_abspath(r"//?/J:\Temp\aiswitcher"));
+        assert!(looks_like_windows_abspath(r"\\server\share\lib"));
+        assert!(!looks_like_windows_abspath("/home/user/.claude-switcher"));
+        assert!(!looks_like_windows_abspath("relative/path"));
+        assert!(!looks_like_windows_abspath(""));
+    }
+
+    #[test]
+    fn usable_local_path_rejects_foreign_os_and_relative() {
+        assert!(usable_local_absolute_path("relative").is_none());
+        assert!(usable_local_absolute_path("").is_none());
+        #[cfg(unix)]
+        {
+            assert!(usable_local_absolute_path(r"J:\Temp\aiswitcher").is_none());
+            assert!(usable_local_absolute_path(r"J:\Temp\aiswitcher\session-backups").is_none());
+            assert!(usable_local_absolute_path(r"\\?\J:\Temp\aiswitcher").is_none());
+            assert!(usable_local_absolute_path("/tmp/backups").is_some());
+        }
+        #[cfg(windows)]
+        {
+            assert!(usable_local_absolute_path(r"C:\Users\admin\.claude-switcher").is_some());
+            assert!(usable_local_absolute_path("/home/user/.claude-switcher").is_none());
+        }
     }
 }

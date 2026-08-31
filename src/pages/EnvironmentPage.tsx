@@ -26,6 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { StatusBadge } from "@/components/ui";
 import type {
@@ -109,6 +110,21 @@ function PathValue({ value }: { value: string | null }) {
   return <Text copyable code style={{ wordBreak: "break-all" }}>{value}</Text>;
 }
 
+function formatAgentLabels(
+  t: (key: string) => string,
+  agents: readonly string[],
+  join: string,
+): string {
+  return agents
+    .map((agent) => {
+      if (Object.prototype.hasOwnProperty.call(LABEL_KEYS, agent)) {
+        return t(LABEL_KEYS[agent as ProviderTarget]);
+      }
+      return agent;
+    })
+    .join(join);
+}
+
 export default function EnvironmentPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -153,6 +169,7 @@ export default function EnvironmentPage() {
   const [wslDistributions, setWslDistributions] = useState<string[]>([]);
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [syncIncludeApiKeys, setSyncIncludeApiKeys] = useState(false);
+  const [syncProviderTargets, setSyncProviderTargets] = useState<ProviderTarget[]>([]);
   const [pathsModalOpen, setPathsModalOpen] = useState(false);
   const [syncPassword, setSyncPassword] = useState("");
   const [syncPasswordOpen, setSyncPasswordOpen] = useState(false);
@@ -490,11 +507,13 @@ export default function EnvironmentPage() {
     setRunning(true);
     try {
       setSyncIncludeApiKeys(false);
+      const agents = visibleAgents.length > 0 ? visibleAgents : PROVIDER_TARGET_OPTIONS;
+      setSyncProviderTargets([...agents]);
       setSyncPreview(await previewSync(target.id));
     }
     catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, []);
+  }, [visibleAgents]);
 
   const removeSync = useCallback(async (target: SyncTarget) => {
     setRunning(true);
@@ -504,10 +523,15 @@ export default function EnvironmentPage() {
   }, [syncTargetsQuery]);
 
   const pushSync = useCallback(async (password: string | null) => {
-    if (!syncPreview) return;
+    if (!syncPreview || syncProviderTargets.length === 0) return;
     setRunning(true);
     try {
-      const result = await pushSyncArchive(syncPreview.target.id, password, syncIncludeApiKeys);
+      const result = await pushSyncArchive(
+        syncPreview.target.id,
+        password,
+        syncIncludeApiKeys,
+        syncProviderTargets,
+      );
       void message.success(t("env.syncPushed", { path: result.remotePath }));
       setSyncPreview(null);
       setSyncPassword("");
@@ -515,17 +539,17 @@ export default function EnvironmentPage() {
       await syncTargetsQuery.refetch();
     } catch (e) { void message.error(e instanceof Error ? e.message : String(e)); }
     finally { setRunning(false); }
-  }, [syncIncludeApiKeys, syncPreview, syncTargetsQuery, t]);
+  }, [syncIncludeApiKeys, syncPreview, syncProviderTargets, syncTargetsQuery, t]);
 
   const requestPushSync = useCallback(() => {
-    if (!syncPreview) return;
+    if (!syncPreview || syncProviderTargets.length === 0) return;
     if (syncPreview.target.kind === "ssh") {
       setSyncPassword("");
       setSyncPasswordOpen(true);
       return;
     }
     void pushSync(null);
-  }, [pushSync, syncPreview]);
+  }, [pushSync, syncPreview, syncProviderTargets.length]);
 
   const onSyncUserChange = useCallback((value: string) => {
     setSyncUser((previous) => {
@@ -1064,6 +1088,15 @@ export default function EnvironmentPage() {
           <Descriptions.Item label={t("env.libraryArchiveEntries")}>{libraryArchivePreview.entries}</Descriptions.Item>
           <Descriptions.Item label={t("env.libraryArchiveBytes")}>{libraryArchivePreview.totalBytes.toLocaleString()}</Descriptions.Item>
           <Descriptions.Item label={t("env.libraryArchiveSchema")}>v{libraryArchivePreview.schemaVersion}</Descriptions.Item>
+          {libraryArchivePreview.providerTargets && libraryArchivePreview.providerTargets.length > 0 ? (
+            <Descriptions.Item label={t("env.libraryArchiveProviderTargets")}>
+              {formatAgentLabels(
+                t,
+                libraryArchivePreview.providerTargets,
+                t("env.syncProviderTargetsJoin"),
+              )}
+            </Descriptions.Item>
+          ) : null}
         </Descriptions>}
       </Modal>
       <Modal open={syncModalOpen} title={t("env.addSyncTarget")} confirmLoading={running} onOk={() => void saveSync()} onCancel={() => setSyncModalOpen(false)}>
@@ -1087,7 +1120,7 @@ export default function EnvironmentPage() {
           <Space>
             <Button onClick={() => setSyncPreview(null)}>{t("common.cancel")}</Button>
             <Popconfirm title={t("env.confirmPushSync")} description={t("env.confirmPushSyncDescription")} onConfirm={() => requestPushSync()}>
-              <Button type="primary" loading={running}>{t("env.pushSync")}</Button>
+              <Button type="primary" loading={running} disabled={syncProviderTargets.length === 0}>{t("env.pushSync")}</Button>
             </Popconfirm>
           </Space>
         ) : null}
@@ -1102,6 +1135,32 @@ export default function EnvironmentPage() {
           </Checkbox>
           {syncIncludeApiKeys && (
             <Alert type="error" showIcon message={t("env.syncIncludeApiKeysWarning")} />
+          )}
+          <div>
+            <Text>{t("env.syncProviderTargets")}</Text>
+            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>{t("env.syncProviderTargetsHint")}</Text>
+            <Checkbox.Group
+              value={syncProviderTargets}
+              onChange={(values) => setSyncProviderTargets(values as ProviderTarget[])}
+              style={{ display: "flex", flexWrap: "wrap", gap: 8 }}
+            >
+              {(visibleAgents.length > 0 ? visibleAgents : PROVIDER_TARGET_OPTIONS).map((agent) => (
+                <Checkbox key={agent} value={agent}>{t(LABEL_KEYS[agent])}</Checkbox>
+              ))}
+            </Checkbox.Group>
+          </div>
+          {syncProviderTargets.length === 0 ? (
+            <Alert type="warning" showIcon message={t("env.syncProviderTargetsRequired")} />
+          ) : (
+            <Text type="secondary">
+              {t("env.syncProviderTargetsSummary", {
+                agents: formatAgentLabels(
+                  t,
+                  syncProviderTargets,
+                  t("env.syncProviderTargetsJoin"),
+                ),
+              })}
+            </Text>
           )}
           <List dataSource={syncPreview.changes} locale={{ emptyText: t("env.noSyncChanges") }} renderItem={(change) => <List.Item><Text>{change.sourcePath} → {change.remotePath}</Text></List.Item>} />
         </Space>}

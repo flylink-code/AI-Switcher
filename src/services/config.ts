@@ -62,11 +62,13 @@ export async function pushSyncArchive(
   targetId: string,
   password?: string | null,
   includeApiKeys = false,
+  providerTargets: ProviderTarget[] = [],
 ): Promise<SyncPushResult> {
   return call<SyncPushResult>("push_sync_archive", {
     targetId,
     password: password?.trim() ? password : null,
     includeApiKeys,
+    providerTargets: providerTargets.length > 0 ? providerTargets : null,
   });
 }
 

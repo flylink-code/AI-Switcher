@@ -1156,7 +1156,7 @@
     "backupFailed": "备份失败",
     "addSyncTarget": "添加同步目标",
     "syncSaved": "同步目标已保存",
-    "syncDescription": "同步以本机资料库为源。先查看差异预览，再执行推送；默认不传输 API Key，可在推送时勾选可选同步。",
+    "syncDescription": "同步以本机资料库为源。先查看差异预览，再执行推送；可勾选要同步的 Agent 供应商。默认不传输 API Key。",
     "wslDirectHint": "保存 Claude/Codex 配置后，会把 settings.json / config.toml 同步到 WSL 发行版（已在 WSL 内运行则跳过拷贝）。路径必须是绝对 Linux 路径。",
     "wslDirectSync": "立即同步到 WSL",
     "wslDirectSkip": "当前在 WSL 内运行，无需再拷一份。",
@@ -1170,6 +1170,12 @@
     "webdavRestore": "从 WebDAV 恢复",
     "syncIncludeApiKeys": "同步 API Key（明文写入归档，请确认传输环境可信）",
     "syncIncludeApiKeysWarning": "已勾选 API Key 同步：归档将包含供应商密钥明文。",
+    "syncProviderTargets": "同步这些 Agent 的供应商",
+    "syncProviderTargetsHint": "仅影响本次推送，不会改同步目标设置。",
+    "syncProviderTargetsRequired": "请至少选择一个 Agent",
+    "syncProviderTargetsSummary": "供应商：{{agents}}",
+    "syncProviderTargetsJoin": "、",
+    "libraryArchiveProviderTargets": "仅含这些 Agent 的供应商",
     "viewPaths": "查看路径信息",
     "pathsModalTitle": "环境路径信息",
     "noSyncTargets": "暂无同步目标",
@@ -1374,6 +1380,12 @@
         "供应商卡片展示官方订阅额度与主流厂商余额/编程套餐（Kimi、智谱、MiniMax、DeepSeek、硅基流动、OpenRouter 等），可手动刷新。",
         "自建 sub2api 网关自动探测 GET /v1/usage，显示钱包余额或日/周/月限额（不是 NewAPI 的 /api/user/self）。",
         "AG 账号池：上游超时时短冷却并清会话粘性账号，减少把瞬时超时打成整池失败。"
+      ],
+      "1_4_3": [
+        "跨环境推送可勾选要同步的 Agent 供应商；导入只合并这些 Agent，旧 ZIP 仍整库替换。",
+        "从 Windows 导入到 Linux：丢弃盘符路径（如 J:\\Temp\\aiswitcher），会话备份改回本机资料库目录。",
+        "Agent 工具支持检测与安装 Linux 官方 Claude Desktop；应用内 CLI 安装加超时且不再走 login shell，避免一直转圈。",
+        "环境页导入资料库后的重启提示改用页面内弹窗，避免 WebView 挡住样式。"
       ]
     },
     "appName": "应用名称",

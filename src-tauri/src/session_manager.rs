@@ -1200,12 +1200,16 @@ pub fn get_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResu
     if let Some(custom) = get_setting(conn, SESSION_BACKUP_DIRECTORY_KEY)? {
         let trimmed = custom.trim();
         if !trimmed.is_empty() {
-            let path = simplified_path(Path::new(trimmed));
-            if !path.exists() {
-                let _ = fs::create_dir_all(&path);
-            }
-            if path.is_dir() {
-                return Ok(path);
+            if let Some(usable) = config::paths::usable_local_absolute_path(trimmed) {
+                let path = simplified_path(&usable);
+                if !path.exists() {
+                    let _ = fs::create_dir_all(&path);
+                }
+                if path.is_dir() {
+                    return Ok(path);
+                }
+            } else {
+                rewrite_foreign_session_backup_directory(conn)?;
             }
         }
     }
@@ -1222,7 +1226,12 @@ pub fn set_configured_session_backup_dir(conn: &rusqlite::Connection, path: &str
     if trimmed.is_empty() {
         return reset_configured_session_backup_dir(conn);
     }
-    let target = simplified_path(Path::new(trimmed));
+    let usable = config::paths::usable_local_absolute_path(trimmed).ok_or_else(|| {
+        AppError::Path(format!(
+            "备份目录必须是本机绝对路径，不能使用另一操作系统的路径: {trimmed}"
+        ))
+    })?;
+    let target = simplified_path(&usable);
     if !target.exists() {
         fs::create_dir_all(&target).map_err(|error| {
             AppError::Path(format!("创建备份目录失败 {}: {error}", target.display()))
@@ -1238,6 +1247,24 @@ pub fn set_configured_session_backup_dir(conn: &rusqlite::Connection, path: &str
     let string_path = stored.to_string_lossy().into_owned();
     set_setting(conn, SESSION_BACKUP_DIRECTORY_KEY, &string_path)?;
     Ok(string_path)
+}
+
+/// Drop a session-backup directory that cannot be used on this OS (for example a
+/// Windows `J:\...` path imported onto Linux) so the local default applies.
+pub fn rewrite_foreign_session_backup_directory(conn: &rusqlite::Connection) -> AppResult<()> {
+    use crate::database::dao::settings::{get_setting, set_setting};
+    let Some(custom) = get_setting(conn, SESSION_BACKUP_DIRECTORY_KEY)? else {
+        return Ok(());
+    };
+    let trimmed = custom.trim();
+    if trimmed.is_empty() {
+        return Ok(());
+    }
+    if config::paths::usable_local_absolute_path(trimmed).is_some() {
+        return Ok(());
+    }
+    set_setting(conn, SESSION_BACKUP_DIRECTORY_KEY, "")?;
+    Ok(())
 }
 
 pub fn reset_configured_session_backup_dir(conn: &rusqlite::Connection) -> AppResult<String> {
@@ -4202,6 +4229,85 @@ mod tests {
             loaded.display()
         );
         assert_eq!(Path::new(&stored), loaded.as_path());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn foreign_windows_backup_dir_is_ignored_and_cleared() {
+        let conn = settings_conn();
+        crate::database::dao::settings::set_setting(
+            &conn,
+            SESSION_BACKUP_DIRECTORY_KEY,
+            r"J:\Temp\aiswitcher\session-backups",
+        )
+        .unwrap();
+        let ghost = PathBuf::from(r"J:\Temp\aiswitcher\session-backups");
+        let existed_before = ghost.exists();
+        let loaded = get_configured_session_backup_dir(&conn).unwrap();
+        assert_eq!(loaded, simplified_path(&default_session_backup_dir()));
+        if !existed_before {
+            assert!(
+                !ghost.exists(),
+                "must not mkdir a Windows path as a literal folder on Unix"
+            );
+        }
+        let stored = crate::database::dao::settings::get_setting(&conn, SESSION_BACKUP_DIRECTORY_KEY)
+            .unwrap()
+            .unwrap_or_default();
+        assert!(stored.is_empty(), "stale Windows backup dir should be cleared, got {stored}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rewrite_foreign_session_backup_directory_clears_windows_path() {
+        let conn = settings_conn();
+        crate::database::dao::settings::set_setting(
+            &conn,
+            SESSION_BACKUP_DIRECTORY_KEY,
+            r"\\?\J:\Temp\aiswitcher",
+        )
+        .unwrap();
+        rewrite_foreign_session_backup_directory(&conn).unwrap();
+        let stored = crate::database::dao::settings::get_setting(&conn, SESSION_BACKUP_DIRECTORY_KEY)
+            .unwrap()
+            .unwrap_or_default();
+        assert!(stored.is_empty());
+    }
+
+    #[test]
+    fn rewrite_keeps_native_session_backup_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let native = simplified_path(dir.path());
+        let native_str = native.to_string_lossy().into_owned();
+        let conn = settings_conn();
+        crate::database::dao::settings::set_setting(
+            &conn,
+            SESSION_BACKUP_DIRECTORY_KEY,
+            &native_str,
+        )
+        .unwrap();
+        rewrite_foreign_session_backup_directory(&conn).unwrap();
+        let stored = crate::database::dao::settings::get_setting(&conn, SESSION_BACKUP_DIRECTORY_KEY)
+            .unwrap()
+            .unwrap_or_default();
+        assert_eq!(stored, native_str);
+        let loaded = get_configured_session_backup_dir(&conn).unwrap();
+        assert_eq!(loaded, native);
+    }
+
+    #[test]
+    fn set_session_backup_dir_rejects_foreign_os_path() {
+        let conn = settings_conn();
+        #[cfg(unix)]
+        {
+            let error = set_configured_session_backup_dir(&conn, r"J:\Temp\aiswitcher").unwrap_err();
+            assert!(error.to_string().contains("本机绝对路径"));
+        }
+        #[cfg(windows)]
+        {
+            let error = set_configured_session_backup_dir(&conn, "/home/user/.claude-switcher").unwrap_err();
+            assert!(error.to_string().contains("本机绝对路径"));
+        }
     }
 
     #[test]

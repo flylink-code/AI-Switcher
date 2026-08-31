@@ -42,7 +42,7 @@ pub fn export_library_backup(
         .as_deref()
         .map(std::path::Path::new)
         .filter(|path| !path.as_os_str().is_empty());
-    export_library(destination, include_credentials.unwrap_or(false))
+    export_library(destination, include_credentials.unwrap_or(false), None)
 }
 
 /// Verify a portable library ZIP before any restore workflow is allowed to
@@ -156,7 +156,7 @@ pub fn upload_library_to_webdav(
     if settings.url.trim().is_empty() {
         return Err(AppError::Config("WebDAV 地址为空".into()));
     }
-    let info = export_library(None, include_credentials.unwrap_or(false))?;
+    let info = export_library(None, include_credentials.unwrap_or(false), None)?;
     let bytes = std::fs::read(&info.archive_path)
         .map_err(|error| AppError::Io(error.to_string()))?;
     let url = join_webdav_url(&settings.url, &settings.remote_path);

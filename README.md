@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.2**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.3**
 
-**本版**：供应商卡片展示官方订阅与主流厂商额度/余额，自建 sub2api 可探测 `/v1/usage`；AG 账号池对上游超时做短冷却并清会话粘性。
+**本版**：跨环境推送可按 Agent 勾选供应商；Windows 资料库导入 Linux 不再创建盘符路径；Agent 工具支持 Linux 官方 Claude Desktop。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

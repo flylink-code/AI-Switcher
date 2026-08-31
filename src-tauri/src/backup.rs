@@ -49,6 +49,11 @@ pub struct LibraryArchiveManifest {
     pub schema_version: u32,
     #[serde(default)]
     pub credentials_included: bool,
+    /// When set, the archive only carries `providers` rows for these `target_app`
+    /// values. Restore merges those agents instead of replacing the whole DB.
+    /// Missing on older ZIPs (`None` → full-library replace).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_targets: Option<Vec<String>>,
     pub entries: Vec<LibraryArchiveEntry>,
 }
 
@@ -80,6 +85,8 @@ pub struct LibraryArchivePreview {
     pub entries: usize,
     pub total_bytes: u64,
     pub credentials_included: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_targets: Option<Vec<String>>,
 }
 
 const LIBRARY_ARCHIVE_VERSION: u8 = 1;
@@ -98,9 +105,14 @@ const MAX_LIBRARY_ARCHIVE_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 /// When `include_credentials` is true, provider API keys are resolved from the
 /// OS keyring into the snapshot as plaintext so a remote import can rematerialize
 /// them. Prefer leaving this off unless the user explicitly opts in.
+///
+/// `provider_targets`: `None` or empty keeps every provider (local export / WebDAV).
+/// A non-empty list drops other `target_app` rows from the snapshot and records
+/// the selection on the manifest so restore can merge instead of replacing `app.db`.
 pub fn export_library_backup(
     destination_dir: Option<&Path>,
     include_credentials: bool,
+    provider_targets: Option<&[crate::provider::ProviderTarget]>,
 ) -> AppResult<LibraryBackupInfo> {
     let created_at = Utc::now().timestamp_millis();
     let backup_dir = match destination_dir {
@@ -122,7 +134,8 @@ pub fn export_library_backup(
     let archive_path = backup_dir.join(format!("library-{created_at}.zip"));
     let staging = StagingDirectory::create()?;
     let snapshot = staging.0.join("app.db");
-    create_db_snapshot(&snapshot, include_credentials)?;
+    let provider_targets = normalize_provider_target_apps(provider_targets);
+    create_db_snapshot(&snapshot, include_credentials, provider_targets.as_deref())?;
 
     let mut files = vec![("database/app.db".to_string(), snapshot)];
     collect_managed_files(
@@ -156,6 +169,7 @@ pub fn export_library_backup(
         created_at,
         schema_version: crate::database::schema::SCHEMA_VERSION,
         credentials_included: include_credentials,
+        provider_targets,
         entries,
     };
     archive.start_file(LIBRARY_ARCHIVE_MANIFEST, options).map_err(|error| AppError::Other(format!("写入资料库清单失败: {error}")))?;
@@ -292,6 +306,7 @@ pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePr
         entries: manifest.entries.len(),
         total_bytes,
         credentials_included: manifest.credentials_included,
+        provider_targets: sanitize_manifest_provider_targets(manifest.provider_targets),
     })
 }
 
@@ -306,11 +321,14 @@ pub struct LibraryRestoreResult {
     pub credentials_imported: bool,
 }
 
-/// Validate, stage, and replace local managed library files from `archive_path`.
+/// Validate, stage, and apply local managed library files from `archive_path`.
 ///
-/// The live SQLite connection is closed before the on-disk file is replaced, then
-/// reopened. Plaintext API keys from credential-inclusive archives are rematerialized
-/// into the OS keyring. Callers should still restart for proxy/UI consistency.
+/// Archives without `providerTargets` replace the live `app.db` (legacy / full export).
+/// Archives that list targets merge only those agents' `providers` rows so other
+/// agents on the destination stay intact. Skills / session-archives still replace
+/// a directory when the ZIP contains one. Host-specific paths such as
+/// `session_backup_directory` are dropped when they are not valid on this OS.
+/// Callers should still restart for proxy/UI consistency.
 pub fn restore_library_backup(
     archive_path: &Path,
     db: &crate::database::Database,
@@ -342,7 +360,10 @@ pub fn restore_library_backup(
 
     let staged_db = staging.0.join("database").join("app.db");
     if staged_db.is_file() {
-        db.replace_on_disk_and_reopen(&staged_db)?;
+        match preview.provider_targets.as_deref().filter(|targets| !targets.is_empty()) {
+            Some(targets) => merge_providers_from_archive(db, &staged_db, targets)?,
+            None => db.replace_on_disk_and_reopen(&staged_db)?,
+        }
     }
 
     let staged_skills = staging.0.join("skills");
@@ -367,6 +388,8 @@ pub fn restore_library_backup(
         fs::copy(&staged_skill_sources, &dest)
             .map_err(|error| io_context("写入 skill-sources.json 失败", error))?;
     }
+
+    db.with_conn(crate::session_manager::rewrite_foreign_session_backup_directory)?;
 
     Ok(LibraryRestoreResult {
         archive_path: preview.archive_path,
@@ -448,7 +471,11 @@ fn validate_library_archive_path(path: &str) -> AppResult<()> {
     Ok(())
 }
 
-fn create_db_snapshot(snapshot: &Path, include_credentials: bool) -> AppResult<()> {
+fn create_db_snapshot(
+    snapshot: &Path,
+    include_credentials: bool,
+    provider_targets: Option<&[String]>,
+) -> AppResult<()> {
     let source_path = get_app_db_path();
     if !source_path.is_file() {
         return Err(AppError::Config(format!("数据库文件不存在，无法归档: {}", source_path.display())));
@@ -458,12 +485,203 @@ fn create_db_snapshot(snapshot: &Path, include_credentials: bool) -> AppResult<(
     let backup = rusqlite::backup::Backup::new(&source, &mut destination)?;
     backup.run_to_completion(100, std::time::Duration::from_millis(5), None)?;
     drop(backup);
+    if let Some(targets) = provider_targets.filter(|targets| !targets.is_empty()) {
+        filter_snapshot_providers(&destination, targets)?;
+    }
     if include_credentials {
         materialize_credentials_into_snapshot(&destination)?;
     } else {
         // Both legacy plaintext keys and current OS-keyring references are excluded.
         destination.execute("UPDATE providers SET api_key = ''", [])?;
     }
+    Ok(())
+}
+
+fn known_target_app(value: &str) -> bool {
+    matches!(
+        value,
+        "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline"
+    )
+}
+
+fn normalize_provider_target_apps(
+    targets: Option<&[crate::provider::ProviderTarget]>,
+) -> Option<Vec<String>> {
+    let list = targets?;
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for target in list {
+        let value = target.as_str().to_string();
+        if seen.insert(value.clone()) {
+            out.push(value);
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn sanitize_manifest_provider_targets(raw: Option<Vec<String>>) -> Option<Vec<String>> {
+    let list = raw?;
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for value in list {
+        if !known_target_app(&value) {
+            continue;
+        }
+        if seen.insert(value.clone()) {
+            out.push(value);
+        }
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn filter_snapshot_providers(conn: &rusqlite::Connection, targets: &[String]) -> AppResult<()> {
+    if targets.is_empty() {
+        return Ok(());
+    }
+    let placeholders = targets.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+    conn.execute(
+        &format!("DELETE FROM providers WHERE target_app NOT IN ({placeholders})"),
+        rusqlite::params_from_iter(targets.iter()),
+    )?;
+    conn.execute(
+        "DELETE FROM provider_health WHERE provider_id NOT IN (SELECT id FROM providers)",
+        [],
+    )?;
+    conn.execute(
+        "DELETE FROM provider_models WHERE provider_id NOT IN (SELECT id FROM providers)",
+        [],
+    )?;
+    Ok(())
+}
+
+fn table_column_names(
+    conn: &rusqlite::Connection,
+    schema: Option<&str>,
+    table: &str,
+) -> AppResult<Vec<String>> {
+    let sql = match schema {
+        Some(schema) => format!("PRAGMA {schema}.table_info({table})"),
+        None => format!("PRAGMA table_info({table})"),
+    };
+    let mut stmt = conn.prepare(&sql)?;
+    let names = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(names)
+}
+
+fn merge_providers_from_archive(
+    db: &crate::database::Database,
+    staged_db: &Path,
+    targets: &[String],
+) -> AppResult<()> {
+    db.with_conn(|live| {
+        merge_provider_rows(live, staged_db, targets)?;
+        crate::database::dao::migrate_plaintext_api_keys(live)?;
+        Ok(())
+    })
+}
+
+fn merge_provider_rows(
+    live: &rusqlite::Connection,
+    staged_db: &Path,
+    targets: &[String],
+) -> AppResult<()> {
+    if targets.is_empty() {
+        return Ok(());
+    }
+    {
+        let staged = rusqlite::Connection::open(staged_db)?;
+        crate::database::schema::create_tables(&staged)?;
+        crate::database::schema::migrate(&staged)?;
+        let integrity: String = staged
+            .query_row("PRAGMA integrity_check;", [], |row| row.get(0))
+            .unwrap_or_else(|_| "failed".to_string());
+        if integrity != "ok" {
+            return Err(AppError::Database(format!(
+                "归档内数据库损坏（integrity_check={integrity}），已取消导入"
+            )));
+        }
+        let _ = staged.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    }
+
+    let staged_sql_path = staged_db.to_string_lossy().replace('\\', "/");
+    live.execute(
+        "ATTACH DATABASE ? AS incoming",
+        rusqlite::params![staged_sql_path],
+    )?;
+    let merge_result = (|| -> AppResult<()> {
+        let placeholders = targets.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let in_clause = format!("target_app IN ({placeholders})");
+
+        let live_cols = table_column_names(live, None, "providers")?;
+        let incoming_cols: HashSet<String> = table_column_names(live, Some("incoming"), "providers")?
+            .into_iter()
+            .collect();
+        let shared: Vec<String> = live_cols
+            .into_iter()
+            .filter(|col| incoming_cols.contains(col))
+            .collect();
+        if shared.is_empty() {
+            return Err(AppError::Config("归档 providers 表无法与本机对齐".to_string()));
+        }
+        let col_sql = shared.join(", ");
+        let tx = live.unchecked_transaction()?;
+
+        tx.execute(
+            &format!(
+                "DELETE FROM provider_health WHERE provider_id IN (SELECT id FROM providers WHERE {in_clause})"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!(
+                "DELETE FROM provider_models WHERE provider_id IN (SELECT id FROM providers WHERE {in_clause})"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!("DELETE FROM providers WHERE {in_clause}"),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!(
+                "DELETE FROM provider_health WHERE provider_id IN (SELECT id FROM incoming.providers WHERE {in_clause})"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!(
+                "DELETE FROM provider_models WHERE provider_id IN (SELECT id FROM incoming.providers WHERE {in_clause})"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!(
+                "DELETE FROM providers WHERE id IN (SELECT id FROM incoming.providers WHERE {in_clause})"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.execute(
+            &format!(
+                "INSERT INTO providers ({col_sql}) SELECT {col_sql} FROM incoming.providers WHERE {in_clause}"
+            ),
+            rusqlite::params_from_iter(targets.iter()),
+        )?;
+        tx.commit()?;
+        Ok(())
+    })();
+    let detach = live.execute("DETACH DATABASE incoming", []);
+    merge_result?;
+    detach.map_err(AppError::from)?;
     Ok(())
 }
 
@@ -791,7 +1009,139 @@ mod tests {
         assert_eq!(restored, "restored skill");
     }
 
+    #[test]
+    fn library_archive_preview_omits_provider_targets_on_legacy_zip() {
+        let dir = tempdir().unwrap();
+        let archive_path = dir.path().join("library.zip");
+        write_test_library_archive(&archive_path, "skills/demo/SKILL.md", b"safe content", None);
+        let preview = preview_library_backup(&archive_path).unwrap();
+        assert!(preview.provider_targets.is_none());
+        assert!(sanitize_manifest_provider_targets(None).is_none());
+        assert!(sanitize_manifest_provider_targets(Some(vec![])).is_none());
+    }
+
+    #[test]
+    fn library_archive_preview_reads_provider_targets() {
+        let dir = tempdir().unwrap();
+        let archive_path = dir.path().join("library.zip");
+        write_test_library_archive_with_targets(
+            &archive_path,
+            "skills/demo/SKILL.md",
+            b"safe content",
+            None,
+            Some(vec!["claude_code".into(), "codex".into(), "unknown".into()]),
+        );
+        let preview = preview_library_backup(&archive_path).unwrap();
+        assert_eq!(
+            preview.provider_targets.as_deref(),
+            Some(["claude_code".to_string(), "codex".to_string()].as_slice())
+        );
+    }
+
+    #[test]
+    fn snapshot_filter_drops_unselected_provider_rows() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let conn = open_schema_db(&db_path);
+        insert_test_provider(&conn, "cc-1", "Code", "claude_code");
+        insert_test_provider(&conn, "cd-1", "Desktop", "claude_desktop");
+        conn.execute(
+            "INSERT INTO provider_health (provider_id, status, detail, checked_at) VALUES ('cd-1', 'ok', '', 1)",
+            [],
+        )
+        .unwrap();
+        filter_snapshot_providers(&conn, &["claude_code".to_string()]).unwrap();
+        let remaining: Vec<String> = conn
+            .prepare("SELECT id FROM providers ORDER BY id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(remaining, vec!["cc-1".to_string()]);
+        let health: i64 = conn
+            .query_row("SELECT COUNT(*) FROM provider_health", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(health, 0);
+    }
+
+    #[test]
+    fn merge_providers_replaces_selected_agents_only() {
+        let dir = tempdir().unwrap();
+        let live_path = dir.path().join("live.db");
+        let archive_path = dir.path().join("archive.db");
+        let live = open_schema_db(&live_path);
+        insert_test_provider(&live, "cc-old", "Live Code", "claude_code");
+        insert_test_provider(&live, "cd-keep", "Live Desktop", "claude_desktop");
+        live.execute("UPDATE providers SET is_current = 1 WHERE id = 'cc-old'", [])
+            .unwrap();
+
+        let archive = open_schema_db(&archive_path);
+        insert_test_provider(&archive, "cc-new", "Archive Code", "claude_code");
+        insert_test_provider(&archive, "cd-other", "Archive Desktop", "claude_desktop");
+        archive
+            .execute("UPDATE providers SET is_current = 1 WHERE id = 'cc-new'", [])
+            .unwrap();
+        drop(archive);
+
+        merge_provider_rows(&live, &archive_path, &["claude_code".to_string()]).unwrap();
+        let rows: Vec<(String, String, String, i64)> = live
+            .prepare("SELECT id, name, target_app, is_current FROM providers ORDER BY id")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "cc-new".to_string(),
+                    "Archive Code".to_string(),
+                    "claude_code".to_string(),
+                    1
+                ),
+                (
+                    "cd-keep".to_string(),
+                    "Live Desktop".to_string(),
+                    "claude_desktop".to_string(),
+                    0
+                ),
+            ]
+        );
+    }
+
+    fn open_schema_db(path: &Path) -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open(path).unwrap();
+        crate::database::schema::create_tables(&conn).unwrap();
+        // Stamp current schema so merge/filter tests skip historical ALTER/split migrations.
+        conn.pragma_update(None, "user_version", crate::database::schema::SCHEMA_VERSION)
+            .unwrap();
+        conn
+    }
+
+    fn insert_test_provider(conn: &rusqlite::Connection, id: &str, name: &str, target_app: &str) {
+        conn.execute(
+            "INSERT INTO providers (id, name, base_url, api_key, target_app, is_current, created_at)
+             VALUES (?1, ?2, 'https://example.test', '', ?3, 0, 1)",
+            rusqlite::params![id, name, target_app],
+        )
+        .unwrap();
+    }
+
     fn write_test_library_archive(path: &Path, entry_path: &str, content: &[u8], hash_override: Option<&str>) {
+        write_test_library_archive_with_targets(path, entry_path, content, hash_override, None);
+    }
+
+    fn write_test_library_archive_with_targets(
+        path: &Path,
+        entry_path: &str,
+        content: &[u8],
+        hash_override: Option<&str>,
+        provider_targets: Option<Vec<String>>,
+    ) {
         let entry = LibraryArchiveEntry {
             path: entry_path.to_string(),
             bytes: content.len() as u64,
@@ -802,6 +1152,7 @@ mod tests {
             created_at: 1,
             schema_version: 1,
             credentials_included: false,
+            provider_targets,
             entries: vec![entry],
         };
         let file = fs::File::create(path).unwrap();

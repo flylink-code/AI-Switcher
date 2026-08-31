@@ -194,6 +194,8 @@ export interface LibraryArchivePreview {
   entries: number;
   totalBytes: number;
   credentialsIncluded: boolean;
+  /** Present on filtered sync archives; missing on full-library ZIPs. */
+  providerTargets?: string[] | null;
 }
 
 export interface LibraryRestoreResult {

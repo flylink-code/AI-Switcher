@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.2**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.3**
 
-**This release:** Provider cards show official subscription usage and vendor balances; self-hosted sub2api is probed via `/v1/usage`. The Antigravity pool applies a short cooldown and clears sticky accounts on upstream timeouts.
+**This release:** Choose which agents' providers to sync across machines. Windows library imports on Linux no longer create drive-letter folders. Agent tools can install the official Claude Desktop package on Linux.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

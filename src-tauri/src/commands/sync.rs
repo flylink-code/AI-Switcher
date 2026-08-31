@@ -190,11 +190,14 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
 ///
 /// Optional `password` is used only for this SSH session and is never persisted.
 /// Optional `include_api_keys` embeds provider API keys in the archive (default false).
+/// Optional `provider_targets` limits which Agent `providers` rows are packed;
+/// it is not written to `sync-targets.json`.
 #[tauri::command]
 pub fn push_sync_archive(
     target_id: String,
     password: Option<String>,
     include_api_keys: Option<bool>,
+    provider_targets: Option<Vec<crate::provider::ProviderTarget>>,
 ) -> AppResult<SyncPushResult> {
     let mut config = load_targets()?;
     let index = config.targets.iter().position(|target| target.id == target_id)
@@ -202,7 +205,11 @@ pub fn push_sync_archive(
     let target = config.targets[index].clone();
     validate_target(&target)?;
     let include_api_keys = include_api_keys.unwrap_or(false);
-    let archive = crate::backup::export_library_backup(None, include_api_keys)?;
+    let archive = crate::backup::export_library_backup(
+        None,
+        include_api_keys,
+        provider_targets.as_deref(),
+    )?;
     let archive_path = PathBuf::from(&archive.archive_path);
     let filename = archive_path.file_name().and_then(|name| name.to_str())
         .ok_or_else(|| AppError::Path("同步归档文件名无效".to_string()))?;
