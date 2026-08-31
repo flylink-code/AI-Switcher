@@ -9,6 +9,7 @@ pub const TIER_SEVEN_DAY_OPUS: &str = "seven_day_opus";
 pub const TIER_SEVEN_DAY_SONNET: &str = "seven_day_sonnet";
 pub const TIER_WEEKLY_LIMIT: &str = "weekly_limit";
 pub const TIER_THIRTY_DAY: &str = "30_day";
+pub const TIER_DAILY: &str = "daily";
 pub const TIER_MONTHLY: &str = "monthly";
 pub const TIER_CREDITS: &str = "credits";
 

@@ -29,7 +29,10 @@ function formatResetCountdown(resetsAt?: string | null): string | null {
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
 }
 
-function tierDisplayName(name: string): string {
+function tierDisplayName(
+  name: string,
+  t: (key: string, options?: { defaultValue: string }) => string,
+): string {
   switch (name.toLowerCase()) {
     case "five_hour":
       return "5h";
@@ -41,13 +44,16 @@ function tierDisplayName(name: string): string {
       return "7d Sonnet";
     case "30_day":
       return "30d";
+    case "1d":
+    case "daily":
+      return t("quota.dailyWindow", { defaultValue: "日额度" });
     case "weekly_limit":
     case "weekly":
-      return "周额度";
+      return t("quota.weeklyWindow", { defaultValue: "周额度" });
     case "monthly":
-      return "月额度";
+      return t("quota.monthlyWindow", { defaultValue: "月额度" });
     case "credits":
-      return "积分";
+      return t("quota.creditsWindow", { defaultValue: "额度" });
     default:
       return name;
   }
@@ -155,21 +161,31 @@ export function ProviderQuotaView({
   }
 
   if (data.kind === "balance") {
-    const color = data.is_available && data.total_balance > 0 ? "blue" : data.total_balance <= 0 ? "error" : "default";
+    const unlimited = data.total_balance < 0;
+    const color = unlimited
+      ? "blue"
+      : data.is_available && data.total_balance > 0
+        ? "blue"
+        : data.total_balance <= 0
+          ? "error"
+          : "default";
+    const amountLabel = unlimited
+      ? t("quota.unlimited", { defaultValue: "不限" })
+      : formatCurrency(data.total_balance, data.currency);
     return (
       <Tooltip
         title={
           <Space orientation="vertical" size={2}>
             <div>
               <strong>{t("quota.balance", { defaultValue: "总余额" })}: </strong>
-              {formatCurrency(data.total_balance, data.currency)}
+              {amountLabel}
             </div>
-            {data.topped_up_balance != null && (
+            {!unlimited && data.topped_up_balance != null && (
               <div>
                 {t("quota.toppedUpBalance", { defaultValue: "充值金额" })}: {formatCurrency(data.topped_up_balance, data.currency)}
               </div>
             )}
-            {data.granted_balance != null && (
+            {!unlimited && data.granted_balance != null && (
               <div>
                 {t("quota.grantedBalance", { defaultValue: "赠送金额" })}: {formatCurrency(data.granted_balance, data.currency)}
               </div>
@@ -194,7 +210,7 @@ export function ProviderQuotaView({
           }}
           onClick={handleRefresh}
         >
-          <span>💰 {formatCurrency(data.total_balance, data.currency)}</span>
+          <span>💰 {amountLabel}</span>
           <ReloadOutlined spin={isRefreshing || isFetching} style={{ fontSize: 10, opacity: 0.8 }} />
         </Tag>
       </Tooltip>
@@ -212,7 +228,7 @@ export function ProviderQuotaView({
           const util = Math.round(tier.utilization);
           const tagColor = getTierTagColor(util);
           const cd = formatResetCountdown(tier.resets_at);
-          const label = tierDisplayName(tier.name);
+          const label = tierDisplayName(tier.name, t);
 
           return (
             <Tooltip

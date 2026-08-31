@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.1**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.2**
 
-**This release:** Fix Windows session backup failing when canonicalize stores `\\?\` paths (open folder / full ZIP).
+**This release:** Provider cards show official subscription usage and vendor balances; self-hosted sub2api is probed via `/v1/usage`. The Antigravity pool applies a short cooldown and clears sticky accounts on upstream timeouts.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -29,7 +29,7 @@ Runs locally by default: API keys are stored in the OS credential store, configu
 - **Unified Catalog Mode**: Merge multi-provider models through a local proxy so any visible model can be switched seamlessly in the CLI via `/model`.
 - **Subagent Smart Routing**: Claude Code (Explore/Haiku) and Codex subagents follow the current default model when left empty; an explicit catalog subagent id is still honored.
 - **Thinking / Reasoning Translation**: Seamlessly bridges token budgets and reasoning effort across Anthropic, OpenAI, Gemini, and DeepSeek.
-- **Health Diagnostics & Failover**: One-click quarantine for 401/403 errors with transparent failover support on 429/5xx errors.
+- **Health Diagnostics & Failover**: One-click quarantine for 401/403 errors with transparent failover support on 429/5xx errors. Provider cards can show official subscription usage and vendor balances / coding-plan windows (including self-hosted sub2api `GET /v1/usage`).
 - **Copy across Agents**: Protocol, Base URL, and Claude role mappings are rewritten for the destination (e.g. Kimi Anthropic → Codex Chat `/v1`). Copies onto Code / Desktop / Codex become current and update live config.
 
 ### 3. Antigravity Gateway (Smart Cloud Code Proxy)

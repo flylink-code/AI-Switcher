@@ -7,6 +7,7 @@ use crate::provider::{Provider, ProviderTarget};
 use crate::quota::balance::*;
 use crate::quota::coding_plan::*;
 use crate::quota::official::*;
+use crate::quota::sub2api;
 use crate::quota::types::*;
 
 /// Detect and query quota or balance for a custom Provider.
@@ -42,9 +43,7 @@ pub async fn query_provider_quota(provider: &Provider) -> ProviderQuotaResult {
     } else if base_url.contains("api.novita.ai") {
         query_novita_balance(api_key).await
     } else {
-        ProviderQuotaResult::Unsupported {
-            reason: Some("当前供应商未内置额度/余额查询接口".to_string()),
-        }
+        sub2api::query_sub2api_usage(&provider.base_url, api_key).await
     }
 }
 

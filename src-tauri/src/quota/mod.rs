@@ -4,6 +4,7 @@ pub mod balance;
 pub mod coding_plan;
 pub mod detector;
 pub mod official;
+pub mod sub2api;
 pub mod types;
 
 use chrono::Utc;

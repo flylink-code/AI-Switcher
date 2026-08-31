@@ -526,8 +526,11 @@
     "fiveHourWindow": "5-Hour Window",
     "sevenDayWindow": "7-Day Window",
     "thirtyDayWindow": "30-Day Window",
+    "dailyWindow": "Daily Quota",
     "weeklyWindow": "Weekly Quota",
     "monthlyWindow": "Monthly Quota",
+    "creditsWindow": "Quota",
+    "unlimited": "Unlimited",
     "resetsIn": "Resets in {{time}}",
     "extraUsage": "Extra Usage",
     "authFailed": "Invalid API Key",
@@ -1366,6 +1369,11 @@
       ],
       "1_4_1": [
         "Fix Windows session backup: the \\\\?\\ prefix from canonicalize made opening the backup folder fail and full ZIP report an invalid relative path."
+      ],
+      "1_4_2": [
+        "Provider cards show official subscription usage and vendor balances / coding-plan windows (Kimi, Zhipu, MiniMax, DeepSeek, SiliconFlow, OpenRouter, and others), with a manual refresh.",
+        "Self-hosted sub2api gateways are probed via GET /v1/usage for wallet balance or daily/weekly/monthly limits (not NewAPI /api/user/self).",
+        "Antigravity account pool: short cooldown and clear sticky session accounts on upstream timeouts, instead of treating a blip as a full-pool failure."
       ]
     },
     "appName": "App name",

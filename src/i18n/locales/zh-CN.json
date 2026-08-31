@@ -526,8 +526,11 @@
     "fiveHourWindow": "5小时窗口",
     "sevenDayWindow": "7天窗口",
     "thirtyDayWindow": "30天窗口",
+    "dailyWindow": "日额度",
     "weeklyWindow": "周额度",
     "monthlyWindow": "月度额度",
+    "creditsWindow": "额度",
+    "unlimited": "不限",
     "resetsIn": "{{time}} 后重置",
     "extraUsage": "超额用量",
     "authFailed": "Key 鉴权失效",
@@ -1366,6 +1369,11 @@
       ],
       "1_4_1": [
         "修复 Windows 会话备份：canonicalize 产生的 \\\\?\\ 前缀会导致打开备份目录失败，全量 ZIP 报「会话相对路径无效」。"
+      ],
+      "1_4_2": [
+        "供应商卡片展示官方订阅额度与主流厂商余额/编程套餐（Kimi、智谱、MiniMax、DeepSeek、硅基流动、OpenRouter 等），可手动刷新。",
+        "自建 sub2api 网关自动探测 GET /v1/usage，显示钱包余额或日/周/月限额（不是 NewAPI 的 /api/user/self）。",
+        "AG 账号池：上游超时时短冷却并清会话粘性账号，减少把瞬时超时打成整池失败。"
       ]
     },
     "appName": "应用名称",

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.1**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.2**
 
-**本版**：修复 Windows 会话备份把目录写成 `\\?\` 后无法打开、全量 ZIP 失败的问题。
+**本版**：供应商卡片展示官方订阅与主流厂商额度/余额，自建 sub2api 可探测 `/v1/usage`；AG 账号池对上游超时做短冷却并清会话粘性。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -69,7 +69,7 @@
 
 - 分别管理 Claude Code / Desktop / Codex / OpenCode / Pi / DSH / Cline 的第三方 API、模型映射、导入导出、连接测试、Base URL 测速与模型发现。刷新模型时若 `/v1/models` 返回 404（例如 DeepSeek Anthropic 兼容地址），会回退到宿主根 `GET /models`
 - **Claude Code / Codex 路由模式**（默认独立供应商）：开关在对应 Agent 下一级。可切 **统一模型目录**，保存后全部可见模型经本地代理合并，CLI `/model` 选用；目录模式不写 Custom `*_NAME`，角色 id 保持稳定。Code / Codex 可分别指定目录级子代理（Code 写入 `CLAUDE_CODE_SUBAGENT_MODEL`，Codex 代理改写 `x-openai-subagent`），并可 **隐藏官方内置模型**（luna/sol/terra、gpt-5.4* 等建议不进目录；客户端仍请求时改写成子代理或当前默认）。Codex 目录下 AG/上游 429 会切到下一供应商并改写模型，不再拿 Gemini id 去问 OpenAI 中转。供应商可隐藏不进 `/model` 的型号（默认模型不可藏）。Codex 目录下 Chat 中转会把 `/v1/responses` 转成 `/v1/chat/completions`（若 Responses 遇到 400 `Unsupported content type` 亦自动回退为 Chat 格式重试）。OpenCode / Pi / DeepSeek Harness 仍为原生多供应商并存
-- 供应商卡片只显示**默认模型**，其余进入目录的型号以 `+N` 展示
+- 供应商卡片只显示**默认模型**，其余进入目录的型号以 `+N` 展示；卡片可显示官方订阅额度与主流厂商余额/编程套餐（含自建 sub2api `GET /v1/usage`），支持手动刷新
 - **Thinking / Reasoning 统一参数转译**：供应商可视化配置思考模式、Token 预算（`budget_tokens` / `thinking_budget`）与推理强度（`reasoning_effort`），自动抹平 Anthropic、OpenAI、Gemini 与 DeepSeek（`reasoning_content` 转思考块）协议差异
 - 供应商卡片可 **复制到其他 Agent**；供应商页支持 **从其他 Agent 导入**。复制时按目标改编协议与 Base URL（例如 Kimi：Claude 系用 `/anthropic`，Codex / OpenCode 用 Chat `/v1`；DeepSeek：Claude 系用 `/anthropic`，Codex 用 Responses 宿主根），并把 Claude 角色 id 抬成真实模型。复制到 Code / Desktop / Codex 会设为当前并写入 live 配置
 - 供应商页可 **诊断测速** 各节点，并 **一键隔离** 401/403 失效节点（隔离后不再作为故障切换备选）

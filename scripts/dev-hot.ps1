@@ -10,8 +10,8 @@
 #   .\scripts\dev-hot.ps1 -MaxTargetGB 30 # auto-clean when target exceeds N GB (default 20)
 #   .\scripts\dev-hot.ps1 -Port 5251      # pin Vite / baked-in devUrl port
 #
-# Stops existing claude-switcher.exe, starts Vite, cargo-builds cfg(dev), launches
-# src-tauri\target\debug\claude-switcher.exe (CDP :9222). Ctrl+C stops Vite.
+# Stops leftover debug exe + this-repo Vite (ports 5250-5270) first, then starts
+# Vite, cargo-builds cfg(dev), launches debug exe (CDP :9222). Ctrl+C stops Vite.
 
 param(
     [switch]$Clean,
@@ -62,6 +62,105 @@ function Test-TcpPortAvailable([int]$ListenPort) {
     }
 }
 
+function Stop-PidTree([int]$ProcessId) {
+    if ($ProcessId -le 4) { return }
+    & taskkill.exe /F /T /PID $ProcessId 2>$null | Out-Null
+}
+
+function Get-ProcessCommandLine([int]$ProcessId) {
+    try {
+        $row = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+        return [string]$row.CommandLine
+    } catch {
+        return ""
+    }
+}
+
+function Get-ListenPids([int]$ListenPort) {
+    $pids = @()
+    foreach ($addr in @("127.0.0.1", "0.0.0.0", "::1", "::")) {
+        try {
+            $pids += @(
+                Get-NetTCPConnection -LocalAddress $addr -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue |
+                    ForEach-Object { $_.OwningProcess }
+            )
+        } catch { }
+    }
+    $pids | Where-Object { $_ -and $_ -gt 0 } | Select-Object -Unique
+}
+
+function Test-IsDevHotOccupant([int]$ProcessId, [switch]$AllowViteListener) {
+    $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $proc) { return $false }
+    $name = $proc.ProcessName
+    if ($name -in @("claude-switcher", "AISwitcher")) { return $true }
+    if ($name -notin @("node", "nodejs", "pnpm", "corepack")) { return $false }
+    $cmd = Get-ProcessCommandLine $ProcessId
+    $rootFwd = $root.Replace("\", "/")
+    $cmdFwd = $cmd.Replace("\", "/")
+    $inRepo = ($rootFwd.Length -gt 0) -and ($cmdFwd.IndexOf($rootFwd, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+    if ($inRepo) { return $true }
+    return [bool]($AllowViteListener -and ($cmd -match '(?i)vite'))
+}
+
+function Stop-PreviousDevHot {
+    Write-Host "[dev-hot] Stopping previous debug app / Vite"
+
+    $script:devHotKilled = @{}
+    $stopOnce = {
+        param([int]$ProcessId, [string]$Why)
+        if ($ProcessId -le 4 -or $script:devHotKilled.ContainsKey($ProcessId)) { return }
+        $script:devHotKilled[$ProcessId] = $true
+        $name = "unknown"
+        $existing = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($existing) { $name = $existing.ProcessName }
+        Write-Host "[dev-hot]   stop PID $ProcessId ($name) $Why"
+        Stop-PidTree $ProcessId
+    }
+
+    foreach ($procName in @("claude-switcher", "AISwitcher")) {
+        Get-Process -Name $procName -ErrorAction SilentlyContinue | ForEach-Object {
+            & $stopOnce $_.Id "app"
+        }
+    }
+
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -match '^(node|nodejs|pnpm|corepack)(\.exe)?$' -and
+            (Test-IsDevHotOccupant $_.ProcessId)
+        } |
+        ForEach-Object { & $stopOnce $_.ProcessId "vite/node" }
+
+    foreach ($listenPort in 5250..5270) {
+        foreach ($pid in (Get-ListenPids $listenPort)) {
+            if (Test-IsDevHotOccupant $pid -AllowViteListener) {
+                & $stopOnce $pid "listen :$listenPort"
+            }
+        }
+    }
+
+    $waited = 0
+    while ($waited -lt 8000) {
+        $stillHeld = $false
+        foreach ($listenPort in 5250..5270) {
+            foreach ($pid in (Get-ListenPids $listenPort)) {
+                if (Test-IsDevHotOccupant $pid -AllowViteListener) {
+                    $stillHeld = $true
+                    break
+                }
+            }
+            if ($stillHeld) { break }
+        }
+        if (-not $stillHeld) { break }
+        Start-Sleep -Milliseconds 250
+        $waited += 250
+    }
+
+    if ($script:devHotKilled.Count -eq 0) {
+        Write-Host "[dev-hot]   no leftover app/Vite from this repo"
+    }
+}
+
 function Get-DevUrlPortFromConf([string]$ConfPath) {
     $raw = Get-Content $ConfPath -Raw -Encoding UTF8
     if ($raw -match '"devUrl"\s*:\s*"https?://(?:localhost|127\.0\.0\.1):(\d+)"') {
@@ -106,6 +205,10 @@ if (Test-Path $nestedTarget) {
 
 $targetGb = Get-DirSizeGB $targetDir
 Write-Host ("[dev-hot] src-tauri\target size: {0:N1} GB (auto-clean >= {1} GB)" -f $targetGb, $MaxTargetGB)
+
+# Stop last session before cargo clean / port pick so the debug exe is not locked
+# and leftover Vite does not occupy 5250.
+Stop-PreviousDevHot
 
 $needClean = [bool]$Clean
 if (-not $needClean -and $MaxTargetGB -gt 0 -and $targetGb -ge $MaxTargetGB) {
@@ -173,10 +276,6 @@ $script:originalConf = $originalConf
 
 $viteProc = $null
 try {
-    Get-Process -Name "claude-switcher", "AISwitcher" -ErrorAction SilentlyContinue |
-        Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 800
-
     Write-Host "[dev-hot] Starting Vite on 127.0.0.1:$vitePort"
     $viteArgs = if ($vitePort -eq $confPort -and $Port -eq 0) {
         @("dev")
@@ -192,7 +291,7 @@ try {
     }
 
     $ready = $false
-    foreach ($i in 1..40) {
+    foreach ($i in 1..60) {
         if ($viteProc.HasExited) {
             throw "Vite exited early (code $($viteProc.ExitCode)). Is port $vitePort blocked?"
         }
@@ -203,7 +302,7 @@ try {
                 break
             }
         } catch { }
-        Start-Sleep -Milliseconds 250
+        Start-Sleep -Milliseconds 500
     }
     if (-not $ready) {
         throw "Vite did not become ready on http://127.0.0.1:$vitePort"
@@ -245,6 +344,6 @@ try {
 } finally {
     Restore-TauriConf
     if ($viteProc -and -not $viteProc.HasExited) {
-        Stop-Process -Id $viteProc.Id -Force -ErrorAction SilentlyContinue
+        Stop-PidTree $viteProc.Id
     }
 }

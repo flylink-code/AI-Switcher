@@ -563,7 +563,7 @@ fn adapt_copied_model_mapping(
     mapping
 }
 
-fn strip_trailing_v1_path(base_url: &str) -> String {
+pub(crate) fn strip_trailing_v1_path(base_url: &str) -> String {
     let trimmed = base_url.trim().trim_end_matches('/');
     trimmed
         .strip_suffix("/v1")
