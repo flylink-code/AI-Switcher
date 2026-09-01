@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.3**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.4**
 
-**本版**：跨环境推送可按 Agent 勾选供应商；Windows 资料库导入 Linux 不再创建盘符路径；Agent 工具支持 Linux 官方 Claude Desktop。
+**本版**：Claude Desktop 切换供应商时保持「允许自动模式」；开机自启与关闭行为改到设置页。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -349,5 +349,4 @@ scripts/                  Windows 开发 / 构建脚本
 | Claude Desktop 中文补丁     | 安装发现与语言包                               | [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)    |
 | Code Switch             | 本地代理、故障切换、Codex 配置                     | [daodao97/code-swtich](https://github.com/daodao97/code-swtich) Apache-2.0       |
 | Codex++                 | Codex API 写入与历史会话同步                    | [BigPizzaV3/CodexPlusPlus](https://github.com/BigPizzaV3/CodexPlusPlus) AGPL-3.0 |
-
 

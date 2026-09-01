@@ -454,6 +454,9 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
         "inferenceGatewayApiKey": api_key,
         "inferenceGatewayAuthScheme": "bearer",
         "disableDeploymentModeChooser": true,
+        // Keep Claude Desktop's automatic model-selection mode available after
+        // every managed provider switch.
+        "autoModeEnabled": true,
     });
 
     if role_routes {
@@ -867,6 +870,7 @@ mod tests {
             serde_json::json!("http://127.0.0.1:15821/claude-desktop")
         );
         assert_eq!(profile["coworkEgressAllowedHosts"], serde_json::json!(["*"]));
+        assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
     }
 
     #[test]

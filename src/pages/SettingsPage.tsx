@@ -1,4 +1,6 @@
-import { Checkbox, Select } from "antd";
+import { useCallback, useState } from "react";
+import { Checkbox, Select, message } from "antd";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
@@ -6,8 +8,10 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
+import { autostartOptions, closeBehaviorOptions } from "@/lib/appQueries";
+import { setAutostartConfig, setCloseBehavior } from "@/services/api";
 import { SettingsSection, SettingsRow } from "@/components/settings";
-import type { ProviderTarget } from "@/types/backend";
+import type { AutostartMode, CloseBehavior, ProviderTarget } from "@/types/backend";
 
 /**
  * System settings only. Workspace resources (Projects / MCP / Prompts /
@@ -22,6 +26,47 @@ export default function SettingsPage() {
   const setThemeMode = useThemeStore((s) => s.setMode);
   const visibleAgents = usePagePreferencesStore((s) => s.visibleAgents);
   const setVisibleAgents = usePagePreferencesStore((s) => s.setVisibleAgents);
+  const queryClient = useQueryClient();
+  const autostartQuery = useQuery(autostartOptions);
+  const closeBehaviorQuery = useQuery(closeBehaviorOptions);
+  const [autostartChanging, setAutostartChanging] = useState(false);
+  const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
+
+  const onAutostartChange = useCallback(async (mode: AutostartMode) => {
+    setAutostartChanging(true);
+    try {
+      await setAutostartConfig(mode);
+      await queryClient.invalidateQueries({ queryKey: autostartOptions.queryKey });
+      const next = await queryClient.fetchQuery(autostartOptions);
+      if (mode !== "off" && !next.enabled) {
+        void message.error(
+          next.taskManagerDisabled
+            ? t("env.autostartTaskManagerDisabled")
+            : t("env.autostartNotRegistered"),
+        );
+        return;
+      }
+      void message.success(t("env.autostartUpdated"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+      await queryClient.invalidateQueries({ queryKey: autostartOptions.queryKey });
+    } finally {
+      setAutostartChanging(false);
+    }
+  }, [queryClient, t]);
+
+  const onCloseBehaviorChange = useCallback(async (behavior: CloseBehavior) => {
+    setCloseBehaviorChanging(true);
+    try {
+      await setCloseBehavior(behavior);
+      queryClient.setQueryData(closeBehaviorOptions.queryKey, behavior);
+      void message.success(t("env.closeBehaviorUpdated"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCloseBehaviorChanging(false);
+    }
+  }, [queryClient, t]);
 
   return (
     <div
@@ -63,6 +108,46 @@ export default function SettingsPage() {
                 { value: "system", label: t("common.themeSystem") },
               ]}
               onChange={setThemeMode}
+            />
+          }
+        />
+        <SettingsRow
+          title={t("env.fields.autostart")}
+          description={
+            autostartQuery.data?.taskManagerDisabled
+              ? t("env.autostartTaskManagerDisabled")
+              : t("settings.autostartHint")
+          }
+          control={
+            <Select<AutostartMode>
+              value={autostartQuery.data?.mode ?? "off"}
+              loading={autostartQuery.isPending || autostartChanging}
+              disabled={autostartChanging}
+              style={{ width: 190 }}
+              options={[
+                { value: "off", label: t("env.autostartModes.off") },
+                { value: "silent", label: t("env.autostartModes.silent") },
+                { value: "window", label: t("env.autostartModes.window") },
+              ]}
+              onChange={(mode) => void onAutostartChange(mode)}
+            />
+          }
+        />
+        <SettingsRow
+          title={t("env.fields.closeBehavior")}
+          description={t("settings.closeBehaviorHint")}
+          control={
+            <Select<CloseBehavior>
+              value={closeBehaviorQuery.data ?? "ask"}
+              loading={closeBehaviorQuery.isPending || closeBehaviorChanging}
+              disabled={closeBehaviorChanging}
+              style={{ width: 190 }}
+              options={[
+                { value: "ask", label: t("env.closeBehaviors.ask") },
+                { value: "tray", label: t("env.closeBehaviors.tray") },
+                { value: "quit", label: t("env.closeBehaviors.quit") },
+              ]}
+              onChange={(behavior) => void onCloseBehaviorChange(behavior)}
             />
           }
         />

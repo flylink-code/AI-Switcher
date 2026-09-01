@@ -40,7 +40,7 @@
     "closeDialogDescription": "Quit the app, or hide it in the system tray and keep it running.",
     "closeToTray": "Minimize to system tray",
     "quitDirectly": "Quit",
-    "rememberCloseChoice": "Remember this choice; change it later on the Environment page"
+    "rememberCloseChoice": "Remember this choice; change it later on the Settings page"
   },
   "startup": {
     "preparing": "Preparing application data…",
@@ -1386,6 +1386,10 @@
         "Importing a Windows library onto Linux discards drive-letter paths (such as J:\\Temp\\aiswitcher) and resets session backups to the local data directory.",
         "Agent tools can detect and install the official Claude Desktop package on Linux. In-app CLI installs use a timeout and no longer run a login shell, so the button does not spin forever.",
         "The environment page restart prompt after a library import uses the in-page dialog so WebView CSP does not strip its styles."
+      ],
+      "1_4_4": [
+        "Claude Desktop: provider switching now keeps Allow Auto mode enabled, without requiring manual re-enablement.",
+        "Autostart and close-window behavior moved from Environment to Settings."
       ]
     },
     "appName": "App name",
@@ -1690,6 +1694,8 @@
     "sectionAbout": "About",
     "languageHint": "Interface language",
     "themeHint": "Appearance and color mode",
+    "autostartHint": "Choose whether AI-Switcher starts automatically when you sign in",
+    "closeBehaviorHint": "Choose the default behavior for the window close button",
     "visibleAgents": "Visible Agents",
     "visibleAgentsHint": "Select agent tools to show in application pickers and switchers",
     "proxyHint": "Change port, force restart, or tune failover; provider switches keep the proxy in sync automatically",

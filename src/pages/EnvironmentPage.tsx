@@ -22,7 +22,7 @@ import DatabaseOutlined from "@ant-design/icons/es/icons/DatabaseOutlined";
 import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import SafetyCertificateOutlined from "@ant-design/icons/es/icons/SafetyCertificateOutlined";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { OnboardingTip } from "@/components/OnboardingTip";
@@ -30,8 +30,6 @@ import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwi
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { StatusBadge } from "@/components/ui";
 import type {
-  AutostartMode,
-  CloseBehavior,
   ConfigBackup,
   DoctorReport,
   VisibilityRepairResult,
@@ -71,8 +69,6 @@ import {
   previewSync,
   pushSyncArchive,
   saveSyncTarget,
-  setAutostartConfig,
-  setCloseBehavior,
   restartApp,
 } from "@/services/api";
 import {
@@ -82,8 +78,6 @@ import {
   splitSshEndpoint,
 } from "@/utils/syncRemoteRoot";
 import {
-  autostartOptions,
-  closeBehaviorOptions,
   environmentOptions,
 } from "@/lib/appQueries";
 
@@ -127,11 +121,8 @@ function formatAgentLabels(
 
 export default function EnvironmentPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const environmentQuery = useQuery(environmentOptions);
-  const autostartQuery = useQuery(autostartOptions);
-  const closeBehaviorQuery = useQuery(closeBehaviorOptions);
   const syncTargetsQuery = useQuery({ queryKey: ["sync-targets"], queryFn: listSyncTargets });
   const paths = environmentQuery.data?.paths ?? null;
   const db = environmentQuery.data?.db ?? null;
@@ -149,8 +140,6 @@ export default function EnvironmentPage() {
   const [visibilityRepairing, setVisibilityRepairing] = useState(false);
   const [webSearch, setWebSearch] = useState<CodexWebSearchSnapshot | null>(null);
   const [webSearchSaving, setWebSearchSaving] = useState(false);
-  const [autostartChanging, setAutostartChanging] = useState(false);
-  const [closeBehaviorChanging, setCloseBehaviorChanging] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [configBackupDirectory, setConfigBackupDirectory] = useState<string | null>(null);
@@ -382,41 +371,6 @@ export default function EnvironmentPage() {
       setRestarting(false);
     }
   }, []);
-
-  const onAutostartChange = useCallback(async (mode: AutostartMode) => {
-    setAutostartChanging(true);
-    try {
-      await setAutostartConfig(mode);
-      const next = await queryClient.fetchQuery(autostartOptions);
-      if (mode !== "off" && !next.enabled) {
-        void message.error(
-          next.taskManagerDisabled
-            ? t("env.autostartTaskManagerDisabled")
-            : t("env.autostartNotRegistered"),
-        );
-        return;
-      }
-      void message.success(t("env.autostartUpdated"));
-    } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
-      await queryClient.invalidateQueries({ queryKey: autostartOptions.queryKey });
-    } finally {
-      setAutostartChanging(false);
-    }
-  }, [queryClient, t]);
-
-  const onCloseBehaviorChange = useCallback(async (behavior: CloseBehavior) => {
-    setCloseBehaviorChanging(true);
-    try {
-      await setCloseBehavior(behavior);
-      queryClient.setQueryData(closeBehaviorOptions.queryKey, behavior);
-      void message.success(t("env.closeBehaviorUpdated"));
-    } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
-    } finally {
-      setCloseBehaviorChanging(false);
-    }
-  }, [queryClient, t]);
 
   const loadConfigBackups = useCallback(async (target = backupTarget, directory = configBackupDirectory) => {
     setRunning(true);
@@ -988,58 +942,6 @@ export default function EnvironmentPage() {
               label: t("env.tabs.system"),
               children: (
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        <Card size="small" className="page-surface" title={t("env.sections.system")}>
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label={t("env.fields.autostart")}>
-              <Select<AutostartMode>
-                value={autostartQuery.data?.mode ?? "off"}
-                loading={autostartQuery.isPending || autostartChanging}
-                disabled={autostartChanging}
-                style={{ width: 220 }}
-                options={[
-                  { value: "off", label: t("env.autostartModes.off") },
-                  { value: "silent", label: t("env.autostartModes.silent") },
-                  { value: "window", label: t("env.autostartModes.window") },
-                ]}
-                onChange={(mode) => void onAutostartChange(mode)}
-              />
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.fields.closeBehavior")}>
-              <Select<CloseBehavior>
-                value={closeBehaviorQuery.data ?? "ask"}
-                loading={closeBehaviorQuery.isPending || closeBehaviorChanging}
-                disabled={closeBehaviorChanging}
-                style={{ width: 220 }}
-                options={[
-                  { value: "ask", label: t("env.closeBehaviors.ask") },
-                  { value: "tray", label: t("env.closeBehaviors.tray") },
-                  { value: "quit", label: t("env.closeBehaviors.quit") },
-                ]}
-                onChange={(behavior) => void onCloseBehaviorChange(behavior)}
-              />
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.autostartRegistryCommand")}>
-              {autostartQuery.data?.command ? (
-                <Typography.Text copyable code style={{ whiteSpace: "pre-wrap" }}>
-                  {autostartQuery.data.command}
-                </Typography.Text>
-              ) : autostartQuery.data?.enabled ? (
-                <Text type="secondary">{t("env.autostartEnabledNoCommand")}</Text>
-              ) : (
-                <Text type="secondary">{t("env.autostartNotInRegistry")}</Text>
-              )}
-            </Descriptions.Item>
-          </Descriptions>
-          {autostartQuery.data?.taskManagerDisabled ? (
-            <Alert
-              style={{ marginTop: 12 }}
-              type="warning"
-              showIcon
-              message={t("env.autostartTaskManagerDisabled")}
-            />
-          ) : null}
-        </Card>
-
         {paths && (
           <Card size="small" className="page-surface" title={t("env.sections.app")}>
             <Space direction="vertical" style={{ width: "100%" }}>

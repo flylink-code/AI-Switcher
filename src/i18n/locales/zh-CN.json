@@ -40,7 +40,7 @@
     "closeDialogDescription": "请选择直接退出应用，或隐藏到系统托盘继续运行。",
     "closeToTray": "最小化到系统托盘",
     "quitDirectly": "直接退出",
-    "rememberCloseChoice": "记住本次选择，可在“环境信息”页面修改"
+    "rememberCloseChoice": "记住本次选择，可在“设置”页面修改"
   },
   "startup": {
     "preparing": "正在准备应用数据…",
@@ -1386,6 +1386,10 @@
         "从 Windows 导入到 Linux：丢弃盘符路径（如 J:\\Temp\\aiswitcher），会话备份改回本机资料库目录。",
         "Agent 工具支持检测与安装 Linux 官方 Claude Desktop；应用内 CLI 安装加超时且不再走 login shell，避免一直转圈。",
         "环境页导入资料库后的重启提示改用页面内弹窗，避免 WebView 挡住样式。"
+      ],
+      "1_4_4": [
+        "Claude Desktop：切换供应商时保持启用“允许自动模式”，无需再手动打开。",
+        "开机自启与关闭窗口行为从环境页移到设置页。"
       ]
     },
     "appName": "应用名称",
@@ -1690,6 +1694,8 @@
     "sectionAbout": "关于",
     "languageHint": "界面显示语言",
     "themeHint": "外观与明暗模式",
+    "autostartHint": "设置登录系统后是否自动启动 AI-Switcher",
+    "closeBehaviorHint": "设置点击窗口右上角 X 时的默认行为",
     "visibleAgents": "显示 Agent",
     "visibleAgentsHint": "勾选在全局和各页面切换器中显示的 Agent 工具",
     "proxyHint": "改端口、强制重启或调整故障切换；日常切换供应商会自动配套",
