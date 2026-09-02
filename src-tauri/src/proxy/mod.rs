@@ -1271,12 +1271,12 @@ async fn proxy_handler(
                     started.elapsed().as_millis() as i64,
                     uri.path(),
                     incoming_stream,
-                    Some("upstream"),
+                    Some(upstream_error_category(rejected_status)),
                 );
                 update_log_diagnostic(
                     &state,
                     log_id.as_deref(),
-                    "upstream",
+                    upstream_error_category(rejected_status),
                     &sanitized_upstream_diagnostic(rejected_status, &rejected_body),
                 );
                 return anthropic_error(
@@ -1292,7 +1292,7 @@ async fn proxy_handler(
         record_provider_success(&state, &provider.id);
     }
     let duration_ms = started.elapsed().as_millis() as i64;
-    let error_category = (!status.is_success()).then(|| "upstream");
+    let error_category = (!status.is_success()).then(|| upstream_error_category(status));
     let failover_diag = if !failover_trace.is_empty() {
         Some(format!("故障降级: {}", failover_trace.join(" → ")))
     } else {
@@ -1460,7 +1460,7 @@ async fn proxy_handler(
             update_log_diagnostic(
                 &state,
                 log_id.as_deref(),
-                "upstream",
+                upstream_error_category(status),
                 &sanitized_upstream_diagnostic(status, &response_bytes),
             );
             return anthropic_error(status, convert::openai_error_to_anthropic(status.as_u16()));
@@ -1670,7 +1670,7 @@ async fn proxy_handler(
             update_log_diagnostic(
                 &state,
                 log_id.as_deref(),
-                "upstream",
+                upstream_error_category(status),
                 &sanitized_upstream_diagnostic(status, &response_bytes),
             );
         }
@@ -2025,9 +2025,18 @@ fn error_diagnostic(category: &str) -> &'static str {
         "request" => "request could not be parsed",
         "network" => "upstream connection failed",
         "upstream" => "upstream returned an error status",
+        "upstream_429" => "upstream rate limited the request",
         "conversion" => "upstream response conversion failed",
         "provider" => "no active provider",
         _ => "proxy request failed",
+    }
+}
+
+fn upstream_error_category(status: StatusCode) -> &'static str {
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        "upstream_429"
+    } else {
+        "upstream"
     }
 }
 
@@ -2528,6 +2537,18 @@ mod tests {
         assert!(diagnostic.contains("req_1"));
         assert!(!diagnostic.contains("secret-token"));
         assert!(diagnostic.contains("[redacted]"));
+    }
+
+    #[test]
+    fn upstream_429_has_a_specific_log_category() {
+        assert_eq!(
+            upstream_error_category(StatusCode::TOO_MANY_REQUESTS),
+            "upstream_429"
+        );
+        assert_eq!(
+            upstream_error_category(StatusCode::BAD_GATEWAY),
+            "upstream"
+        );
     }
 
     #[test]

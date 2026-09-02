@@ -162,7 +162,9 @@ pub fn collect_provider_slugs_with(
     }
     if hide_official {
         ids.retain(|id| {
-            !is_injected_official_model_slug(id) || is_explicit_saved_model(provider, id)
+            !is_injected_official_model_slug(id)
+                || is_explicit_saved_model(provider, id)
+                || is_explicit_visible_cached_model(provider, cached, id)
         });
     }
     provider.filter_hidden_models(ids)
@@ -406,6 +408,28 @@ fn is_explicit_saved_model(provider: &Provider, id: &str) -> bool {
     }
     provider
         .failover_models
+        .iter()
+        .any(|model| model.trim().eq_ignore_ascii_case(needle))
+}
+
+/// `hide official` removes synthetic GPT picker suggestions, but the provider
+/// visibility editor stores a user's selection as a hidden-model blacklist.
+/// Once that blacklist is non-empty, an unhidden cached GPT model is therefore
+/// explicitly selected and must remain available in the unified catalog.
+fn is_explicit_visible_cached_model(provider: &Provider, cached: &[String], id: &str) -> bool {
+    if provider.hidden_models.is_empty() {
+        return false;
+    }
+    let needle = id.trim();
+    if needle.is_empty()
+        || provider
+            .hidden_models
+            .iter()
+            .any(|hidden| hidden.trim().eq_ignore_ascii_case(needle))
+    {
+        return false;
+    }
+    cached
         .iter()
         .any(|model| model.trim().eq_ignore_ascii_case(needle))
 }
@@ -664,6 +688,28 @@ mod tests {
         assert!(!visible.iter().any(|id| id == "gpt-5.6-luna"));
         let injected = collect_provider_slugs_with(&relay, &cached, false);
         assert!(injected.iter().any(|id| id == "gpt-5.6-luna"));
+    }
+
+    #[test]
+    fn hide_official_keeps_user_selected_cached_models() {
+        let mut relay = provider("p1", "sub2api", "gpt-5.6-terra");
+        relay.hidden_models = vec!["gpt-5.4".into(), "gpt-5.5".into()];
+        let cached = vec![
+            "gpt-5.4".into(),
+            "gpt-5.5".into(),
+            "gpt-5.6-luna".into(),
+            "gpt-5.6-sol".into(),
+            "gpt-5.6-terra".into(),
+        ];
+        let visible = collect_provider_slugs_with(&relay, &cached, true);
+        assert_eq!(
+            visible,
+            vec![
+                "gpt-5.6-terra".to_string(),
+                "gpt-5.6-luna".to_string(),
+                "gpt-5.6-sol".to_string(),
+            ]
+        );
     }
 
     #[test]

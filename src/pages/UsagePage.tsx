@@ -667,7 +667,11 @@ export default function UsagePage() {
               dataIndex: "errorCategory",
               width: 105,
               render: (value: string | null) =>
-                value ? <Tag color={value === "upstream" ? "orange" : "red"}>{value}</Tag> : "—",
+                value ? (
+                  <Tag color={value === "upstream" || value === "upstream_429" ? "orange" : "red"}>
+                    {value}
+                  </Tag>
+                ) : "—",
             },
             {
               title: t("usage.logTokens"),

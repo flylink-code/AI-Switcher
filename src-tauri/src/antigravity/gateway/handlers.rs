@@ -30,14 +30,16 @@ use crate::antigravity::map::responses::{
 use crate::antigravity::map::list_public_models;
 use crate::antigravity::model_catalog;
 use crate::antigravity::limiter::{AcquireOutcome, LimiterPermit};
-use crate::antigravity::upstream::{classify_rate_limit_body, unwrap_v1internal, wrap_v1internal};
+use crate::antigravity::upstream::{
+    classify_rate_limit_body, unwrap_v1internal, wrap_v1internal, RateLimitKind,
+};
 use crate::antigravity::usage_log::{self, WireProtocol};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 
 const MAX_FAILOVER_HOPS: usize = 3;
-/// Remaining-quota 429 is usually a Cloud Code SKU/RPM limit. Try this account
-/// plus one other; do not walk the rest of the pool (that cools every number).
+/// Account/project RPM or remaining-quota SKU 429: try this account plus one
+/// other, then return 429 instead of cooling every account in the pool.
 const MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS: usize = 2;
 /// Local token-bucket / concurrency busy: try one other account, then 429.
 const MAX_LOCAL_LIMITER_HOPS: usize = 2;
@@ -390,6 +392,7 @@ async fn dispatch_generation(
     let mut models_tried: Vec<String> = Vec::new();
     let mut limiter_hops: usize = 0;
     let mut last_upstream_retry_after: Option<u64> = None;
+    let mut stop_pool_walk = false;
 
     for hop in 0..MAX_FAILOVER_HOPS {
         if past_retry_deadline(retry_deadline) {
@@ -633,6 +636,7 @@ async fn dispatch_generation(
                 last_upstream_retry_after = retry_after;
                 let text = response.text().await.unwrap_or_default();
                 let smart = crate::antigravity::retry_info::classify_retry(&text, retry_after);
+                let kind = classify_rate_limit_body(&text);
                 match smart {
                     crate::antigravity::retry_info::SmartRetry::InPlaceWait(delay)
                         if in_place_retries < 1 =>
@@ -677,12 +681,35 @@ async fn dispatch_generation(
                     }
                     _ => {}
                 }
+                last_error = format!(
+                    "upstream 429: {}",
+                    text.trim().chars().take(240).collect::<String>()
+                );
+                last_fail_status = 429;
+
+                if !should_try_model_fallback_on_429(kind) {
+                    state.limiter.note_upstream_rate_limited(&account.id);
+                    state.pool.clear_session(session_key.as_deref());
+                    let cooldown =
+                        crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
+                    let _ =
+                        account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                    stop_pool_walk = should_stop_pool_walk_after_429(hop, false);
+                    if stop_pool_walk {
+                        log::warn!(
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; account/project RPM persisted on two accounts, stopping pool walk",
+                            kind.label()
+                        );
+                    } else {
+                        log::warn!(
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; skipping same-account model fallback and rotating once",
+                            kind.label()
+                        );
+                    }
+                    break 'levels Err(());
+                }
+
                 if model_idx + 1 < model_chain.len() {
-                    last_error = format!(
-                        "upstream 429: {}",
-                        text.trim().chars().take(240).collect::<String>()
-                    );
-                    last_fail_status = 429;
                     if remaining_until(retry_deadline).is_none() {
                         break 'levels Err(());
                     }
@@ -694,11 +721,6 @@ async fn dispatch_generation(
                     model_idx += 1;
                     continue 'levels;
                 }
-                last_error = format!(
-                    "upstream 429: {}",
-                    text.trim().chars().take(240).collect::<String>()
-                );
-                last_fail_status = 429;
                 state.limiter.note_upstream_rate_limited(&account.id);
                 let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
                     &account,
@@ -710,6 +732,7 @@ async fn dispatch_generation(
                     crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
                 };
                 let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                stop_pool_walk = should_stop_pool_walk_after_429(hop, rotate_pool);
                 break 'levels Err(());
             }
             break 'levels Ok(response);
@@ -719,6 +742,9 @@ async fn dispatch_generation(
             Err(()) => {
                 if last_error.starts_with("network/") {
                     last_fail_status = 504;
+                    break;
+                }
+                if stop_pool_walk {
                     break;
                 }
                 continue;
@@ -783,7 +809,7 @@ async fn dispatch_generation(
                         "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with empty quota snapshot; rotating",
                         kind.label()
                     );
-                } else if hop + 1 >= MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS {
+                } else if should_stop_pool_walk_after_429(hop, rotate_pool) {
                     // Same-account model fallback already ran. One extra account
                     // covers SKU capacity on another number; more hops cool the pool.
                     log::warn!(
@@ -1424,6 +1450,14 @@ fn dispatch_error_category(last_fail_status: u16, last_error: &str) -> &'static 
     }
 }
 
+fn should_try_model_fallback_on_429(kind: RateLimitKind) -> bool {
+    matches!(kind, RateLimitKind::ModelQuotaExhausted)
+}
+
+fn should_stop_pool_walk_after_429(hop: usize, quota_exhausted: bool) -> bool {
+    !quota_exhausted && hop + 1 >= MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS
+}
+
 fn client_status_from_dispatch(last_fail_status: u16, last_error: &str) -> StatusCode {
     let from_error = client_status_from_upstream_error(last_error);
     if last_fail_status == 429 || from_error == StatusCode::TOO_MANY_REQUESTS {
@@ -1716,6 +1750,20 @@ mod tests {
             response.headers().get(header::RETRY_AFTER).and_then(|value| value.to_str().ok()),
             Some("12")
         );
+    }
+
+    #[test]
+    fn account_rpm_skips_same_account_model_fallback() {
+        assert!(!should_try_model_fallback_on_429(
+            RateLimitKind::AccountRateLimit
+        ));
+        assert!(!should_try_model_fallback_on_429(RateLimitKind::UrlLevel));
+        assert!(should_try_model_fallback_on_429(
+            RateLimitKind::ModelQuotaExhausted
+        ));
+        assert!(!should_stop_pool_walk_after_429(0, false));
+        assert!(should_stop_pool_walk_after_429(1, false));
+        assert!(!should_stop_pool_walk_after_429(2, true));
     }
 
     #[test]

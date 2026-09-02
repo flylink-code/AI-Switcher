@@ -1390,6 +1390,11 @@
       "1_4_4": [
         "Claude Desktop: provider switching now keeps Allow Auto mode enabled, without requiring manual re-enablement.",
         "Autostart and close-window behavior moved from Environment to Settings."
+      ],
+      "1_4_5": [
+        "Antigravity gateway: account/project RPM and URL-level 429s no longer downgrade the model on the same account; at most one other account is tried before returning 429, so the whole pool is not cooled.",
+        "Unified catalog Hide official: GPT models left visible in the provider editor stay in the catalog.",
+        "Usage logs record upstream 429s as upstream_429 instead of a generic upstream error."
       ]
     },
     "appName": "App name",

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.4**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.5**
 
-**本版**：Claude Desktop 切换供应商时保持「允许自动模式」；开机自启与关闭行为改到设置页。
+**本版**：AG 账号 RPM 限流不再拖垮整池；隐藏官方模型时仍保留你勾选的 GPT；用量日志单独标记上游 429。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

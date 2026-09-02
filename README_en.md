@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.4**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.5**
 
-**This release:** Claude Desktop keeps Allow Auto enabled when switching providers. Autostart and close-window behavior now live on the Settings page.
+**This release:** Antigravity account RPM 429s no longer cool the whole pool. Hide-official keeps GPT models you left visible. Usage logs tag upstream 429s separately.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
