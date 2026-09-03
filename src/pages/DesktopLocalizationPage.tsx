@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -12,25 +12,38 @@ import {
   message,
 } from "antd";
 import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
-import DownloadOutlined from "@ant-design/icons/es/icons/DownloadOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
-  checkLocalizationUpstream,
   downloadDesktopLocalizationPack,
   installClaudeCodeLocalization,
   installDesktopLocalization,
   installEditorLocalizationHelper,
   restoreDesktopLocalization,
   selectDesktopLocalizationPack,
+  uninstallClaudeCodeLocalization,
+  uninstallEditorLocalizationHelper,
+  updateClaudeCodeLocalization,
+  updateDesktopLocalization,
+  updateEditorLocalizationHelper,
   validateDesktopLocalizationPack,
 } from "@/services/api";
-import { localizationHubOptions, localizationOptions } from "@/lib/appQueries";
+import {
+  localizationHubOptions,
+  localizationOptions,
+  localizationUpstreamOptions,
+} from "@/lib/appQueries";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import type {
+  EditorLocalizationStatus,
+  LocalizationUpstreamRelease,
+} from "@/types/backend";
 
 const { Text } = Typography;
+
+type VersionRelation = "newer" | "same" | "unknown";
 
 function PathValue({ value }: { value?: string | null }) {
   const { t } = useTranslation();
@@ -38,15 +51,87 @@ function PathValue({ value }: { value?: string | null }) {
   return <Text copyable code style={{ wordBreak: "break-all" }}>{value}</Text>;
 }
 
+function normalizeResourceVersion(value?: string | null): string | null {
+  const trimmed = value?.trim().replace(/^v/i, "");
+  return trimmed ? trimmed : null;
+}
+
+function compareResourceVersion(
+  local?: string | null,
+  remote?: string | null,
+): VersionRelation {
+  const from = normalizeResourceVersion(local);
+  const to = normalizeResourceVersion(remote);
+  if (!to) return "unknown";
+  if (!from) return "newer";
+  if (from === to) return "same";
+  const fromParts = from.split(/[.-]/).map((part) => Number.parseInt(part, 10));
+  const toParts = to.split(/[.-]/).map((part) => Number.parseInt(part, 10));
+  if (fromParts.some(Number.isNaN) || toParts.some(Number.isNaN)) {
+    return "unknown";
+  }
+  const length = Math.max(fromParts.length, toParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = fromParts[index] ?? 0;
+    const b = toParts[index] ?? 0;
+    if (b > a) return "newer";
+    if (b < a) return "same";
+  }
+  return "same";
+}
+
+function updateButtonLabel(
+  t: (key: string, options?: Record<string, string>) => string,
+  local?: string | null,
+  remote?: string | null,
+): string {
+  const from = normalizeResourceVersion(local);
+  const to = normalizeResourceVersion(remote);
+  if (from && to && from !== to) {
+    return t("env.localization.updateResourceVersions", { from, to });
+  }
+  return t("env.localization.updateResource");
+}
+
+function upstreamDisplay(
+  release: LocalizationUpstreamRelease | undefined,
+  checking: boolean,
+  failed: boolean,
+  t: (key: string) => string,
+): string {
+  if (checking && !release) return t("env.localization.onlineChecking");
+  if (failed && !release) return t("env.localization.onlineUnavailable");
+  if (!release) return t("env.localization.onlineUnavailable");
+  if (release.available && release.version) return release.version;
+  return t("env.localization.onlineUnavailable");
+}
+
+function ResourceActions({ children }: { children: ReactNode }) {
+  return <Space wrap>{children}</Space>;
+}
+
 export default function DesktopLocalizationPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const statusQuery = useQuery(localizationOptions);
   const hubQuery = useQuery(localizationHubOptions);
+  const upstreamQuery = useQuery(localizationUpstreamOptions);
   const localization = statusQuery.data;
+  const hub = hubQuery.data;
+  const upstream = upstreamQuery.data;
 
-  const refreshStatus = async () => {
-    await queryClient.invalidateQueries({ queryKey: localizationOptions.queryKey });
+  const refreshHub = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: localizationHubOptions.queryKey }),
+      queryClient.invalidateQueries({ queryKey: localizationUpstreamOptions.queryKey }),
+    ]);
+  };
+
+  const refreshDesktop = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: localizationOptions.queryKey }),
+      queryClient.invalidateQueries({ queryKey: localizationUpstreamOptions.queryKey }),
+    ]);
   };
 
   const selectPack = useMutation({
@@ -57,36 +142,40 @@ export default function DesktopLocalizationPage() {
     onSuccess: async (result) => {
       if (!result) return;
       void message.success(result.message);
-      await refreshStatus();
+      await refreshDesktop();
     },
     onError: (error) => void message.error(errorMessage(error)),
   });
 
-  const downloadPack = useMutation({
-    mutationFn: downloadDesktopLocalizationPack,
-    onSuccess: async (result) => {
-      void message.success(
-        t("env.localization.downloadSuccess", {
-          version: result.version ?? result.revision?.slice(0, 12) ?? "latest",
-        }),
-      );
-      await refreshStatus();
-    },
-    onError: (error) => void message.error(errorMessage(error)),
-  });
-
-  const install = useMutation({
+  const installDesktop = useMutation({
     mutationFn: async () => {
-      if (!localization?.packPath) throw new Error(t("env.localization.selectPack"));
-      return installDesktopLocalization(localization.packPath);
+      let packPath = localization?.packPath;
+      if (!localization?.packValid || !packPath) {
+        const downloaded = await downloadDesktopLocalizationPack();
+        packPath = downloaded.packPath;
+      }
+      if (!packPath) throw new Error(t("env.localization.selectPack"));
+      return installDesktopLocalization(packPath);
     },
     onSuccess: async (result) => {
       void message.success(result.message);
-      await refreshStatus();
+      await refreshDesktop();
     },
     onError: async (error) => {
       void message.error(errorMessage(error));
-      await refreshStatus();
+      await refreshDesktop();
+    },
+  });
+
+  const updateDesktop = useMutation({
+    mutationFn: updateDesktopLocalization,
+    onSuccess: async (result) => {
+      void message.success(result.message);
+      await refreshDesktop();
+    },
+    onError: async (error) => {
+      void message.error(errorMessage(error));
+      await refreshDesktop();
     },
   });
 
@@ -94,11 +183,11 @@ export default function DesktopLocalizationPage() {
     mutationFn: restoreDesktopLocalization,
     onSuccess: async (result) => {
       void message.success(result.message);
-      await refreshStatus();
+      await refreshDesktop();
     },
     onError: async (error) => {
       void message.error(errorMessage(error));
-      await refreshStatus();
+      await refreshDesktop();
     },
   });
 
@@ -106,13 +195,26 @@ export default function DesktopLocalizationPage() {
     mutationFn: installClaudeCodeLocalization,
     onSuccess: async (result) => {
       void message.success(result);
-      await queryClient.invalidateQueries({ queryKey: localizationHubOptions.queryKey });
+      await refreshHub();
     },
     onError: (error) => void message.error(errorMessage(error)),
   });
 
-  const checkUpstream = useMutation({
-    mutationFn: checkLocalizationUpstream,
+  const updateClaudeCode = useMutation({
+    mutationFn: updateClaudeCodeLocalization,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await refreshHub();
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
+  const uninstallClaudeCode = useMutation({
+    mutationFn: uninstallClaudeCodeLocalization,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await refreshHub();
+    },
     onError: (error) => void message.error(errorMessage(error)),
   });
 
@@ -120,22 +222,56 @@ export default function DesktopLocalizationPage() {
     mutationFn: installEditorLocalizationHelper,
     onSuccess: async (result) => {
       void message.success(result);
-      await queryClient.invalidateQueries({ queryKey: localizationHubOptions.queryKey });
+      await refreshHub();
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
+  const updateEditorHelper = useMutation({
+    mutationFn: updateEditorLocalizationHelper,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await refreshHub();
+    },
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
+  const uninstallEditorHelper = useMutation({
+    mutationFn: uninstallEditorLocalizationHelper,
+    onSuccess: async (result) => {
+      void message.success(result);
+      await refreshHub();
     },
     onError: (error) => void message.error(errorMessage(error)),
   });
 
   const busy =
     selectPack.isPending ||
-    downloadPack.isPending ||
-    install.isPending ||
+    installDesktop.isPending ||
+    updateDesktop.isPending ||
     restore.isPending ||
-    checkUpstream.isPending ||
     installClaudeCode.isPending ||
-    installEditorHelper.isPending;
+    updateClaudeCode.isPending ||
+    uninstallClaudeCode.isPending ||
+    installEditorHelper.isPending ||
+    updateEditorHelper.isPending ||
+    uninstallEditorHelper.isPending;
   const diagnostics = useMemo(
     () => localization?.diagnostics.filter(Boolean).join("\n") ?? "",
     [localization?.diagnostics],
+  );
+
+  const codeResourceInstalled = Boolean(
+    hub?.claudeCode.pluginEnabled || hub?.claudeCode.pluginVersion,
+  );
+  const codeRelation = compareResourceVersion(
+    hub?.claudeCode.pluginVersion,
+    upstream?.claudeCode.version,
+  );
+  const desktopInstalled = localization?.state === "installed";
+  const desktopRelation = compareResourceVersion(
+    localization?.packVersion,
+    upstream?.desktop.version,
   );
 
   return (
@@ -145,123 +281,6 @@ export default function DesktopLocalizationPage() {
         message={t("env.localization.hubTitle")}
         description={t("env.localization.hubDescription")}
       />
-      <Card
-        size="small"
-        className="page-surface"
-        title={t("env.localization.claudeCodeTitle")}
-        extra={<Button size="small" icon={<ReloadOutlined spin={hubQuery.isFetching} />} disabled={busy} onClick={() => void hubQuery.refetch()}>{t("common.refresh")}</Button>}
-      >
-        {hubQuery.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : hubQuery.error ? (
-          <Alert type="error" showIcon message={errorMessage(hubQuery.error)} />
-        ) : (
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label={t("env.localization.status")}>
-              <Tag color={hubQuery.data?.claudeCode.pluginEnabled ? "green" : "default"}>
-                {hubQuery.data?.claudeCode.pluginEnabled ? t("env.localization.configured") : t("env.localization.notConfigured")}
-              </Tag>
-              <Text type="secondary"> {hubQuery.data?.claudeCode.message}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.localization.version")}>{hubQuery.data?.claudeCode.version ?? "—"}</Descriptions.Item>
-            <Descriptions.Item label={t("env.localization.installPath")}><PathValue value={hubQuery.data?.claudeCode.executablePath} /></Descriptions.Item>
-            <Descriptions.Item label={t("env.localization.actions")}>
-              <Popconfirm
-                title={t("env.localization.confirmCodeInstall")}
-                description={t("env.localization.confirmCodeInstallDescription")}
-                onConfirm={() => installClaudeCode.mutate()}
-              >
-                <Button type="primary" loading={installClaudeCode.isPending} disabled={busy || !hubQuery.data?.claudeCode.installed}>
-                  {t("env.localization.installCode")}
-                </Button>
-              </Popconfirm>
-            </Descriptions.Item>
-          </Descriptions>
-        )}
-      </Card>
-      <Card size="small" className="page-surface" title={t("env.localization.editorTitle")}>
-        {hubQuery.isPending ? <Skeleton active paragraph={{ rows: 3 }} /> : (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            {hubQuery.data?.editors.map((editor) => (
-              <Card
-                key={editor.id}
-                type="inner"
-                size="small"
-                title={editor.label}
-                extra={
-                  <Popconfirm
-                    title={t("env.localization.confirmEditorInstall", { editor: editor.label })}
-                    description={t("env.localization.confirmEditorInstallDescription")}
-                    onConfirm={() => installEditorHelper.mutate(editor.id)}
-                  >
-                    <Button
-                      loading={installEditorHelper.isPending && installEditorHelper.variables === editor.id}
-                      disabled={busy || !editor.claudeExtensionPath || !editor.editorCliPath}
-                    >
-                      {editor.helperInstalled ? t("env.localization.reinstallHelper") : t("env.localization.installHelper")}
-                    </Button>
-                  </Popconfirm>
-                }
-              >
-                <Descriptions column={1} size="small">
-                  <Descriptions.Item label={t("env.localization.status")}>
-                    <Tag color={editor.claudeExtensionPath ? "green" : "default"}>{editor.claudeExtensionPath ? t("env.localization.detected") : t("env.localization.notDetected")}</Tag>
-                    <Text type="secondary"> {editor.message}</Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label={t("env.localization.extensionPath")}><PathValue value={editor.claudeExtensionPath} /></Descriptions.Item>
-                  <Descriptions.Item label={t("env.localization.editorCliPath")}><PathValue value={editor.editorCliPath} /></Descriptions.Item>
-                </Descriptions>
-              </Card>
-            ))}
-          </Space>
-        )}
-      </Card>
-      <Card
-        size="small"
-        className="page-surface"
-        title={t("env.localization.upstreamTitle")}
-        extra={
-          <Button
-            size="small"
-            icon={<ReloadOutlined spin={checkUpstream.isPending} />}
-            disabled={busy}
-            onClick={() => checkUpstream.mutate()}
-          >
-            {t("env.localization.checkOnline")}
-          </Button>
-        }
-      >
-        {!checkUpstream.data ? (
-          <Text type="secondary">{t("env.localization.upstreamNotChecked")}</Text>
-        ) : (
-          <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label={t("env.localization.claudeCodeTitle")}>
-              <Tag color={checkUpstream.data.claudeCode.available ? "green" : "orange"}>
-                {checkUpstream.data.claudeCode.available
-                  ? t("env.localization.onlineAvailable")
-                  : t("env.localization.onlineUnavailable")}
-              </Tag>
-              <Text> {checkUpstream.data.claudeCode.version ?? "—"}</Text>
-              <Text type="secondary"> {checkUpstream.data.claudeCode.message}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.localization.title")}>
-              <Tag color={checkUpstream.data.desktop.available ? "green" : "orange"}>
-                {checkUpstream.data.desktop.available
-                  ? t("env.localization.onlineAvailable")
-                  : t("env.localization.onlineUnavailable")}
-              </Tag>
-              <Text> {checkUpstream.data.desktop.version ?? "—"}</Text>
-              <Text type="secondary"> {checkUpstream.data.desktop.message}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label={t("env.localization.checkedAt")}>
-              {new Date(checkUpstream.data.checkedAt).toLocaleString()}
-            </Descriptions.Item>
-          </Descriptions>
-        )}
-      </Card>
-      <OnboardingTip
-        tipKey="localization_safe_mode"
-        message={t("env.localization.safeMode")}
-        description={t("env.localization.safeModeDescription")}
-      />
       <OnboardingTip
         tipKey="localization_third_party"
         type="warning"
@@ -269,18 +288,171 @@ export default function DesktopLocalizationPage() {
         description={
           <Space direction="vertical" size={0}>
             <Text>{t("env.localization.thirdPartyDescription")}</Text>
-            <Button
-              type="link"
-              size="small"
-              style={{ paddingInline: 0, alignSelf: "flex-start" }}
-              onClick={() =>
-                void openUrl("https://github.com/javaht/claude-desktop-zh-cn")
-              }
-            >
-              {t("env.localization.openRepository")}
-            </Button>
+            <Space wrap>
+              <Button
+                type="link"
+                size="small"
+                style={{ paddingInline: 0 }}
+                onClick={() => void openUrl("https://github.com/taekchef/claude-code-zh-cn")}
+              >
+                Claude Code
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                style={{ paddingInline: 0 }}
+                onClick={() => void openUrl("https://github.com/shanjiancaofu/claude-code-vscode-zh-cn")}
+              >
+                VS Code / Cursor
+              </Button>
+              <Button
+                type="link"
+                size="small"
+                style={{ paddingInline: 0 }}
+                onClick={() => void openUrl("https://github.com/javaht/claude-desktop-zh-cn")}
+              >
+                Claude Desktop
+              </Button>
+            </Space>
           </Space>
         }
+      />
+
+      <Card
+        size="small"
+        className="page-surface"
+        title={t("env.localization.claudeCodeTitle")}
+        extra={
+          <Button
+            size="small"
+            icon={<ReloadOutlined spin={hubQuery.isFetching || upstreamQuery.isFetching} />}
+            disabled={busy}
+            onClick={() => void refreshHub()}
+          >
+            {t("common.refresh")}
+          </Button>
+        }
+      >
+        {hubQuery.isPending ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : hubQuery.error ? (
+          <Alert type="error" showIcon message={errorMessage(hubQuery.error)} />
+        ) : (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label={t("env.localization.status")}>
+              <Tag color={codeResourceInstalled ? "green" : "default"}>
+                {codeResourceInstalled
+                  ? t("env.localization.configured")
+                  : t("env.localization.notConfigured")}
+              </Tag>
+              <Text type="secondary"> {hub?.claudeCode.message}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.hostVersion")}>
+              {hub?.claudeCode.version ?? "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.installPath")}>
+              <PathValue value={hub?.claudeCode.executablePath} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.localResourceVersion")}>
+              {hub?.claudeCode.pluginVersion ?? t("env.localization.notInstalledResource")}
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.upstreamVersion")}>
+              {upstreamDisplay(
+                upstream?.claudeCode,
+                upstreamQuery.isFetching,
+                Boolean(upstreamQuery.error),
+                t,
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.actions")}>
+              <ResourceActions>
+                <Popconfirm
+                  title={t("env.localization.confirmCodeInstall")}
+                  description={t("env.localization.confirmCodeInstallDescription")}
+                  onConfirm={() => installClaudeCode.mutate()}
+                >
+                  <Button
+                    type="primary"
+                    loading={installClaudeCode.isPending}
+                    disabled={busy || !hub?.claudeCode.installed || codeResourceInstalled}
+                  >
+                    {t("env.localization.installChinese")}
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title={t("env.localization.confirmCodeUpdate")}
+                  description={t("env.localization.confirmCodeUpdateDescription")}
+                  onConfirm={() => updateClaudeCode.mutate()}
+                >
+                  <Button
+                    loading={updateClaudeCode.isPending}
+                    disabled={
+                      busy ||
+                      !hub?.claudeCode.installed ||
+                      !codeResourceInstalled ||
+                      codeRelation === "same"
+                    }
+                  >
+                    {codeRelation === "same"
+                      ? t("env.localization.alreadyLatest")
+                      : updateButtonLabel(
+                          t,
+                          hub?.claudeCode.pluginVersion,
+                          upstream?.claudeCode.version,
+                        )}
+                  </Button>
+                </Popconfirm>
+                <Popconfirm
+                  title={t("env.localization.confirmCodeUninstall")}
+                  description={t("env.localization.confirmCodeUninstallDescription")}
+                  onConfirm={() => uninstallClaudeCode.mutate()}
+                >
+                  <Button
+                    danger
+                    loading={uninstallClaudeCode.isPending}
+                    disabled={busy || !hub?.claudeCode.installed || !codeResourceInstalled}
+                  >
+                    {t("env.localization.uninstallChinese")}
+                  </Button>
+                </Popconfirm>
+              </ResourceActions>
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Card>
+
+      <Card size="small" className="page-surface" title={t("env.localization.editorTitle")}>
+        {hubQuery.isPending ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Text type="secondary">{t("env.localization.applyPatchHint")}</Text>
+            {hub?.editors.map((editor) => (
+              <EditorLocalizationCard
+                key={editor.id}
+                editor={editor}
+                remote={upstream?.editor}
+                checking={upstreamQuery.isFetching}
+                failed={Boolean(upstreamQuery.error)}
+                busy={busy}
+                installing={installEditorHelper.isPending && installEditorHelper.variables === editor.id}
+                updating={updateEditorHelper.isPending && updateEditorHelper.variables === editor.id}
+                uninstalling={
+                  uninstallEditorHelper.isPending && uninstallEditorHelper.variables === editor.id
+                }
+                onInstall={() => installEditorHelper.mutate(editor.id)}
+                onUpdate={() => updateEditorHelper.mutate(editor.id)}
+                onUninstall={() => uninstallEditorHelper.mutate(editor.id)}
+              />
+            ))}
+          </Space>
+        )}
+      </Card>
+
+      <OnboardingTip
+        tipKey="localization_safe_mode"
+        message={t("env.localization.safeMode")}
+        description={t("env.localization.safeModeDescription")}
       />
       <Card
         size="small"
@@ -289,9 +461,9 @@ export default function DesktopLocalizationPage() {
         extra={
           <Button
             size="small"
-            icon={<ReloadOutlined spin={statusQuery.isFetching} />}
+            icon={<ReloadOutlined spin={statusQuery.isFetching || upstreamQuery.isFetching} />}
             disabled={busy}
-            onClick={() => void statusQuery.refetch()}
+            onClick={() => void refreshDesktop()}
           >
             {t("common.refresh")}
           </Button>
@@ -323,7 +495,7 @@ export default function DesktopLocalizationPage() {
                 </Tag>
                 {localization?.message && <Text type="secondary"> {localization.message}</Text>}
               </Descriptions.Item>
-              <Descriptions.Item label={t("env.localization.version")}>
+              <Descriptions.Item label={t("env.localization.hostVersion")}>
                 {localization?.claudeVersion ?? "—"}
               </Descriptions.Item>
               <Descriptions.Item label={t("env.localization.installPath")}>
@@ -332,8 +504,16 @@ export default function DesktopLocalizationPage() {
               <Descriptions.Item label={t("env.localization.locale")}>
                 {localization?.configuredLocale ?? "—"}
               </Descriptions.Item>
-              <Descriptions.Item label={t("env.localization.packPath")}>
-                <PathValue value={localization?.packPath} />
+              <Descriptions.Item label={t("env.localization.localResourceVersion")}>
+                {localization?.packVersion ?? t("env.localization.notInstalledResource")}
+              </Descriptions.Item>
+              <Descriptions.Item label={t("env.localization.upstreamVersion")}>
+                {upstreamDisplay(
+                  upstream?.desktop,
+                  upstreamQuery.isFetching,
+                  Boolean(upstreamQuery.error),
+                  t,
+                )}
               </Descriptions.Item>
               <Descriptions.Item label={t("env.localization.packSource")}>
                 {localization?.packSource ? (
@@ -344,22 +524,8 @@ export default function DesktopLocalizationPage() {
                   "—"
                 )}
               </Descriptions.Item>
-              <Descriptions.Item label={t("env.localization.packVersion")}>
-                {localization?.packVersion ?? "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("env.localization.packRevision")}>
-                {localization?.packRevision ? (
-                  <Text copyable={{ text: localization.packRevision }} code>
-                    {localization.packRevision.slice(0, 12)}
-                  </Text>
-                ) : (
-                  "—"
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label={t("env.localization.packFetchedAt")}>
-                {localization?.packFetchedAt
-                  ? new Date(localization.packFetchedAt).toLocaleString()
-                  : "—"}
+              <Descriptions.Item label={t("env.localization.packPath")}>
+                <PathValue value={localization?.packPath} />
               </Descriptions.Item>
             </Descriptions>
             {!localization?.installDetected && diagnostics && (
@@ -370,46 +536,45 @@ export default function DesktopLocalizationPage() {
                 description={<pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>{diagnostics}</pre>}
               />
             )}
-            <Space wrap>
+            <ResourceActions>
               <Popconfirm
-                title={t("env.localization.confirmDownload")}
-                description={t("env.localization.confirmDownloadDescription")}
-                onConfirm={() => downloadPack.mutate()}
-              >
-                <Button
-                  icon={<DownloadOutlined />}
-                  loading={downloadPack.isPending}
-                  disabled={busy && !downloadPack.isPending}
-                >
-                  {localization?.packSource === "github"
-                    ? t("env.localization.updatePack")
-                    : t("env.localization.downloadPack")}
-                </Button>
-              </Popconfirm>
-              <Button
-                icon={<FolderOpenOutlined />}
-                loading={selectPack.isPending}
-                disabled={busy && !selectPack.isPending}
-                onClick={() => selectPack.mutate()}
-              >
-                {t("env.localization.selectPack")}
-              </Button>
-              <Popconfirm
-                title={t("env.localization.confirmInstall")}
-                description={t("env.localization.confirmInstallDescription")}
-                onConfirm={() => install.mutate()}
+                title={t("env.localization.confirmDesktopInstall")}
+                description={t("env.localization.confirmDesktopInstallDescription")}
+                onConfirm={() => installDesktop.mutate()}
               >
                 <Button
                   type="primary"
-                  loading={install.isPending}
+                  loading={installDesktop.isPending}
                   disabled={
                     busy ||
                     !localization?.platformSupported ||
                     !localization.installDetected ||
-                    !localization.packValid
+                    desktopInstalled
                   }
                 >
-                  {t("env.localization.install")}
+                  {t("env.localization.installChinese")}
+                </Button>
+              </Popconfirm>
+              <Popconfirm
+                title={t("env.localization.confirmDesktopUpdate")}
+                description={t("env.localization.confirmDesktopUpdateDescription")}
+                onConfirm={() => updateDesktop.mutate()}
+              >
+                <Button
+                  loading={updateDesktop.isPending}
+                  disabled={
+                    busy ||
+                    !localization?.platformSupported ||
+                    (desktopInstalled && desktopRelation === "same")
+                  }
+                >
+                  {desktopInstalled && desktopRelation === "same"
+                    ? t("env.localization.alreadyLatest")
+                    : updateButtonLabel(
+                        t,
+                        localization?.packVersion,
+                        upstream?.desktop.version,
+                      )}
                 </Button>
               </Popconfirm>
               <Popconfirm
@@ -421,14 +586,124 @@ export default function DesktopLocalizationPage() {
                   loading={restore.isPending}
                   disabled={busy || !localization?.backupAvailable}
                 >
-                  {t("env.localization.restore")}
+                  {t("env.localization.uninstallChinese")}
                 </Button>
               </Popconfirm>
-            </Space>
+              <Button
+                icon={<FolderOpenOutlined />}
+                loading={selectPack.isPending}
+                disabled={busy && !selectPack.isPending}
+                onClick={() => selectPack.mutate()}
+              >
+                {t("env.localization.selectPack")}
+              </Button>
+            </ResourceActions>
           </Space>
         )}
       </Card>
     </Space>
+  );
+}
+
+function EditorLocalizationCard({
+  editor,
+  remote,
+  checking,
+  failed,
+  busy,
+  installing,
+  updating,
+  uninstalling,
+  onInstall,
+  onUpdate,
+  onUninstall,
+}: {
+  editor: EditorLocalizationStatus;
+  remote?: LocalizationUpstreamRelease;
+  checking: boolean;
+  failed: boolean;
+  busy: boolean;
+  installing: boolean;
+  updating: boolean;
+  uninstalling: boolean;
+  onInstall: () => void;
+  onUpdate: () => void;
+  onUninstall: () => void;
+}) {
+  const { t } = useTranslation();
+  const relation = compareResourceVersion(editor.helperVersion, remote?.version);
+  const canManage = Boolean(editor.editorCliPath);
+  const canInstall = Boolean(editor.claudeExtensionPath && editor.editorCliPath);
+
+  return (
+    <Card type="inner" size="small" title={editor.label}>
+      <Descriptions column={1} size="small">
+        <Descriptions.Item label={t("env.localization.status")}>
+          <Tag color={editor.helperInstalled ? "green" : "default"}>
+            {editor.helperInstalled
+              ? t("env.localization.configured")
+              : t("env.localization.notConfigured")}
+          </Tag>
+          <Text type="secondary"> {editor.message}</Text>
+        </Descriptions.Item>
+        <Descriptions.Item label={t("env.localization.extensionPath")}>
+          <PathValue value={editor.claudeExtensionPath} />
+        </Descriptions.Item>
+        <Descriptions.Item label={t("env.localization.editorCliPath")}>
+          <PathValue value={editor.editorCliPath} />
+        </Descriptions.Item>
+        <Descriptions.Item label={t("env.localization.localResourceVersion")}>
+          {editor.helperVersion ?? t("env.localization.notInstalledResource")}
+        </Descriptions.Item>
+        <Descriptions.Item label={t("env.localization.upstreamVersion")}>
+          {upstreamDisplay(remote, checking, failed, t)}
+        </Descriptions.Item>
+        <Descriptions.Item label={t("env.localization.actions")}>
+          <ResourceActions>
+            <Popconfirm
+              title={t("env.localization.confirmEditorInstall", { editor: editor.label })}
+              description={t("env.localization.confirmEditorInstallDescription")}
+              onConfirm={onInstall}
+            >
+              <Button
+                type="primary"
+                loading={installing}
+                disabled={busy || !canInstall || editor.helperInstalled}
+              >
+                {t("env.localization.installChinese")}
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title={t("env.localization.confirmEditorUpdate", { editor: editor.label })}
+              description={t("env.localization.confirmEditorUpdateDescription")}
+              onConfirm={onUpdate}
+            >
+              <Button
+                loading={updating}
+                disabled={busy || !canManage || !editor.helperInstalled || relation === "same"}
+              >
+                {relation === "same"
+                  ? t("env.localization.alreadyLatest")
+                  : updateButtonLabel(t, editor.helperVersion, remote?.version)}
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title={t("env.localization.confirmEditorUninstall", { editor: editor.label })}
+              description={t("env.localization.confirmEditorUninstallDescription")}
+              onConfirm={onUninstall}
+            >
+              <Button
+                danger
+                loading={uninstalling}
+                disabled={busy || !canManage || !editor.helperInstalled}
+              >
+                {t("env.localization.uninstallChinese")}
+              </Button>
+            </Popconfirm>
+          </ResourceActions>
+        </Descriptions.Item>
+      </Descriptions>
+    </Card>
   );
 }
 

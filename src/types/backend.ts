@@ -255,6 +255,7 @@ export interface ClaudeCodeLocalizationStatus {
   installed: boolean;
   version?: string | null;
   executablePath?: string | null;
+  pluginVersion?: string | null;
   pluginEnabled: boolean;
   settingsConfigured: boolean;
   message: string;
@@ -267,6 +268,7 @@ export interface EditorLocalizationStatus {
   editorCliPath?: string | null;
   claudeExtensionPath?: string | null;
   helperInstalled: boolean;
+  helperVersion?: string | null;
   message: string;
 }
 
@@ -286,6 +288,7 @@ export interface LocalizationUpstreamRelease {
 export interface LocalizationUpstreamStatus {
   checkedAt: number;
   claudeCode: LocalizationUpstreamRelease;
+  editor: LocalizationUpstreamRelease;
   desktop: LocalizationUpstreamRelease;
 }
 

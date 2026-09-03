@@ -126,8 +126,24 @@ export async function installClaudeCodeLocalization(): Promise<string> {
   return call<string>("install_claude_code_localization", {});
 }
 
+export async function updateClaudeCodeLocalization(): Promise<string> {
+  return call<string>("update_claude_code_localization", {});
+}
+
+export async function uninstallClaudeCodeLocalization(): Promise<string> {
+  return call<string>("uninstall_claude_code_localization", {});
+}
+
 export async function installEditorLocalizationHelper(editor: "vscode" | "cursor"): Promise<string> {
   return call<string>("install_editor_localization_helper", { editor });
+}
+
+export async function updateEditorLocalizationHelper(editor: "vscode" | "cursor"): Promise<string> {
+  return call<string>("update_editor_localization_helper", { editor });
+}
+
+export async function uninstallEditorLocalizationHelper(editor: "vscode" | "cursor"): Promise<string> {
+  return call<string>("uninstall_editor_localization_helper", { editor });
 }
 
 export async function downloadDesktopLocalizationPack(): Promise<DesktopLocalizationPackInfo> {
@@ -157,6 +173,10 @@ export async function installDesktopLocalization(
 
 export async function restoreDesktopLocalization(): Promise<DesktopLocalizationActionResult> {
   return call<DesktopLocalizationActionResult>("restore_desktop_localization", {});
+}
+
+export async function updateDesktopLocalization(): Promise<DesktopLocalizationActionResult> {
+  return call<DesktopLocalizationActionResult>("update_desktop_localization", {});
 }
 
 // ---- Usage ------------------------------------------------------------------

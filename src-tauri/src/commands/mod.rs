@@ -86,11 +86,13 @@ pub use desktop_localization::{
     download_desktop_localization_pack, get_desktop_localization_status,
     install_desktop_localization,
     restore_desktop_localization, select_desktop_localization_pack,
-    validate_desktop_localization_pack,
+    update_desktop_localization, validate_desktop_localization_pack,
 };
 pub use localization::{
     check_localization_upstream, get_localization_hub_status, install_claude_code_localization,
-    install_editor_localization_helper,
+    install_editor_localization_helper, uninstall_claude_code_localization,
+    uninstall_editor_localization_helper, update_claude_code_localization,
+    update_editor_localization_helper,
 };
 pub use mcp::{
     clear_mcp_oauth, delete_mcp_server, get_mcp_desktop_conflict_status, get_mcp_oauth_status,

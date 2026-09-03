@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.6**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.7**
 
-**This release:** Antigravity gateway adds Gemini 3.8 Flash. Unconstrained tool-schema arrays get `items` to avoid Cloud Code 400s. OpenAI Chat forwards thinking as `reasoning_content`. Codex resumed-session usage is no longer dropped. Localization can check upstream releases.
+**This release:** Localization cards for Claude Code, VS Code/Cursor, and Desktop compare local vs GitHub latest and can install, update, or uninstall. Cursor installs the helper from a GitHub `.vsix`. With the update mirror on, localization metadata and assets try the mirror first.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -42,7 +42,7 @@ Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google 
 ### 4. Extensions & Ecosystem Integration
 - **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization. Check-all Skill/plugin updates run off the UI thread (per-repo GitHub zips, 90s plugin CLI timeout) so the window stays responsive.
 - **Local Session Manager**: Browse, search, backup, and export local session histories across all supported AI coding agents. Claude Code / Codex / Pi / DSH can full-ZIP backup to a custom folder and restore in one click.
-- **Localization**: Built-in Claude Code Chinese plugins, desktop language packs, and editor patch tools.
+- **Localization**: Claude Code, VS Code/Cursor, and Claude Desktop each show local vs GitHub latest and can install, update, or uninstall. Cursor installs the helper from a GitHub `.vsix`. With the About-page GitHub mirror on, `releases/latest` metadata and the `.vsix` try the mirror first. Editor Apply Patch still requires in-editor confirmation.
 
 ---
 

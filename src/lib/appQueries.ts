@@ -14,6 +14,7 @@ import {
   getDataRoot,
   getDesktopLocalizationStatus,
   getLocalizationHubStatus,
+  checkLocalizationUpstream,
   getLogMaintenancePolicy,
   getPaths,
   getProxyStatus,
@@ -269,6 +270,13 @@ export const localizationHubOptions = queryOptions({
   queryKey: ["localization-hub-status"] as const,
   queryFn: getLocalizationHubStatus,
   staleTime: 60_000,
+});
+
+export const localizationUpstreamOptions = queryOptions({
+  queryKey: ["localization-upstream-status"] as const,
+  queryFn: checkLocalizationUpstream,
+  staleTime: 60_000,
+  retry: false,
 });
 
 export const localClaudeVersionOptions = queryOptions({

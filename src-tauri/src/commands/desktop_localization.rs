@@ -284,6 +284,31 @@ pub async fn restore_desktop_localization() -> AppResult<DesktopLocalizationActi
     run_localization_action("restore", None).await
 }
 
+#[tauri::command]
+pub async fn update_desktop_localization(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<DesktopLocalizationActionResult> {
+    let was_installed = {
+        let pack_path = state
+            .db
+            .with_conn(|conn| get_setting(conn, PACK_SETTING_KEY))?;
+        localization_status(pack_path.as_deref())?.state == "installed"
+    };
+    let info = download_desktop_localization_pack(state.clone()).await?;
+    if was_installed {
+        return install_desktop_localization(info.pack_path, state).await;
+    }
+    Ok(DesktopLocalizationActionResult {
+        ok: true,
+        changed_files: 0,
+        message: format!(
+            "已下载最新中文资源 {}（尚未写入 Desktop）",
+            info.version.unwrap_or_else(|| "latest".to_string())
+        ),
+        log_path: None,
+    })
+}
+
 async fn run_localization_action(
     action: &str,
     pack_path: Option<PathBuf>,

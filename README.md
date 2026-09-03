@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.6**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.7**
 
-**本版**：AG 网关接入 Gemini 3.8 Flash；工具 Schema 补 items 防 400；OpenAI Chat 透传思考过程；Codex 恢复会话用量不再丢失；汉化可查上游版本。
+**本版**：汉化页按 Claude Code / VS Code·Cursor / Desktop 三卡对照本机与 GitHub latest，并可安装、更新、卸载；Cursor 从 GitHub 下载补丁助手 `.vsix`；开启更新镜像时汉化 API 与资源都先走镜像。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -178,7 +178,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 中文化
 
-Claude Code 插件（[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) **v2.14.0**，适配 CLI 2.1.241）、编辑器补丁助手（[shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) **v0.1.2**）、Claude Desktop 语言包（[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) **1.4.7**）。编辑器补丁始终需在编辑器内确认。安装中文时会规范化错误的 `spinnerVerbs` 数组格式。语言包下载跟踪 GitHub 最新 Release，汉化页可检查上游在线版本，不捆绑第三方脚本。
+Claude Code 插件（[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn)）、编辑器补丁助手（[shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn)）、Claude Desktop 语言包（[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)）。汉化页按产品对照本机资源与 GitHub latest，并可安装、更新、卸载；不捆绑第三方脚本。Cursor 市场没有补丁助手时从 GitHub Release 下载 `.vsix`。关于页开启 GitHub 镜像后，`releases/latest` 元数据与 `.vsix` 都先走镜像。编辑器补丁始终需在编辑器内确认 Apply Patch。安装 Claude Code 中文时会规范化错误的 `spinnerVerbs` 数组格式。
 
 ### 用量、环境与系统
 

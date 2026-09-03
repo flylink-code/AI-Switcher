@@ -14,14 +14,17 @@ use serde_json::{Map, Value};
 
 use crate::backup::{backup_file_named, DEFAULT_BACKUP_KEEP};
 use crate::commands::tools::get_claude_code_version;
-use crate::config::{get_claude_settings_path, read_json_file, write_json_file};
+use crate::config::{get_app_config_dir, get_claude_settings_path, read_json_file, write_json_file};
 use crate::error::{AppError, AppResult};
+use crate::store::AppState;
 
 const CLAUDE_PLUGIN_ID: &str = "claude-code-zh-cn@claude-code-zh-cn";
 const CLAUDE_MARKETPLACE_REPOSITORY: &str = "https://github.com/taekchef/claude-code-zh-cn";
 const CLAUDE_CODE_LOCALIZATION_REPOSITORY: &str = "taekchef/claude-code-zh-cn";
+const EDITOR_LOCALIZATION_REPOSITORY: &str = "shanjiancaofu/claude-code-vscode-zh-cn";
 const DESKTOP_LOCALIZATION_REPOSITORY: &str = "javaht/claude-desktop-zh-cn";
 const MAX_GITHUB_RELEASE_METADATA_BYTES: u64 = 1024 * 1024;
+const MAX_HELPER_VSIX_BYTES: u64 = 20 * 1024 * 1024;
 const PATCH_HELPER_EXTENSION: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper";
 const CLAUDE_EXTENSION_PREFIX: &str = "anthropic.claude-code-";
 const PATCH_HELPER_PREFIX: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper-";
@@ -40,6 +43,7 @@ pub struct LocalizationHubStatus {
 pub struct LocalizationUpstreamStatus {
     pub checked_at: i64,
     pub claude_code: LocalizationUpstreamRelease,
+    pub editor: LocalizationUpstreamRelease,
     pub desktop: LocalizationUpstreamRelease,
 }
 
@@ -57,6 +61,15 @@ pub struct LocalizationUpstreamRelease {
 struct GitHubReleaseResponse {
     tag_name: String,
     published_at: Option<String>,
+    #[serde(default)]
+    assets: Vec<GitHubReleaseAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubReleaseAsset {
+    name: String,
+    browser_download_url: String,
+    size: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,6 +78,7 @@ pub struct ClaudeCodeLocalizationStatus {
     pub installed: bool,
     pub version: Option<String>,
     pub executable_path: Option<String>,
+    pub plugin_version: Option<String>,
     pub plugin_enabled: bool,
     pub settings_configured: bool,
     pub message: String,
@@ -79,6 +93,7 @@ pub struct EditorLocalizationStatus {
     pub editor_cli_path: Option<String>,
     pub claude_extension_path: Option<String>,
     pub helper_installed: bool,
+    pub helper_version: Option<String>,
     pub message: String,
 }
 
@@ -104,18 +119,25 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
     let settings_configured = settings.get("language").and_then(Value::as_str) == Some("Chinese")
         && settings.get("spinnerTipsEnabled").and_then(Value::as_bool) == Some(true);
     let spinner_verbs_invalid = settings.get("spinnerVerbs").is_some_and(Value::is_array);
+    let plugin_version = installed_zh_cn_plugin_version();
     let claude_code = ClaudeCodeLocalizationStatus {
         installed: code_info.installed,
         version: code_info.current_version,
         executable_path: code_info.executable_path,
+        plugin_version: plugin_version.clone(),
         plugin_enabled,
         settings_configured,
         message: if !code_info.installed {
             "未检测到 Claude Code".to_string()
         } else if spinner_verbs_invalid {
             "settings.json 中 spinnerVerbs 格式无效（写成了数组），会导致 Claude Code 整份设置失效；请重新执行「安装中文」以自动修复".to_string()
-        } else if plugin_enabled && settings_configured {
-            "中文插件与基础设置已启用".to_string()
+        } else if plugin_enabled && plugin_version.is_some() && settings_configured {
+            format!(
+                "中文插件 {} 与基础设置已启用",
+                plugin_version.as_deref().unwrap_or("")
+            )
+        } else if plugin_enabled || plugin_version.is_some() {
+            "中文插件已安装，可更新或补全基础设置".to_string()
         } else {
             "可安装中文插件并启用基础中文设置".to_string()
         },
@@ -130,21 +152,38 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
 /// changes local installation state; an unavailable upstream is returned as a
 /// visible status so the localization page keeps working offline.
 #[tauri::command]
-pub async fn check_localization_upstream() -> AppResult<LocalizationUpstreamStatus> {
+pub async fn check_localization_upstream(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<LocalizationUpstreamStatus> {
+    let extra_hosts = helper_mirror_hosts(&state);
+    let extra_hosts_for_redirect = extra_hosts.clone();
+    let settings = crate::commands::system::get_update_mirror_settings(state.clone())?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .user_agent("AI-Switcher localization-upstream-check")
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+            if attempt.previous().len() >= 8 {
+                attempt.error("中文化上游检查重定向次数过多")
+            } else if helper_download_url_allowed(attempt.url(), &extra_hosts_for_redirect) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
         .build()
         .map_err(|error| AppError::Other(format!("创建中文化上游检查客户端失败: {error}")))?;
-    let (claude_code, desktop) = tokio::join!(
-        fetch_latest_release(&client, CLAUDE_CODE_LOCALIZATION_REPOSITORY),
-        fetch_latest_release(&client, DESKTOP_LOCALIZATION_REPOSITORY),
+    let (claude_code, editor, desktop) = tokio::join!(
+        fetch_latest_release(&client, CLAUDE_CODE_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
+        fetch_latest_release(&client, EDITOR_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
+        fetch_latest_release(&client, DESKTOP_LOCALIZATION_REPOSITORY, &settings, &extra_hosts),
     );
     Ok(LocalizationUpstreamStatus {
         checked_at: chrono::Utc::now().timestamp_millis(),
         claude_code: claude_code.unwrap_or_else(|error| {
             upstream_release_unavailable(CLAUDE_CODE_LOCALIZATION_REPOSITORY, error)
+        }),
+        editor: editor.unwrap_or_else(|error| {
+            upstream_release_unavailable(EDITOR_LOCALIZATION_REPOSITORY, error)
         }),
         desktop: desktop.unwrap_or_else(|error| {
             upstream_release_unavailable(DESKTOP_LOCALIZATION_REPOSITORY, error)
@@ -155,14 +194,72 @@ pub async fn check_localization_upstream() -> AppResult<LocalizationUpstreamStat
 async fn fetch_latest_release(
     client: &reqwest::Client,
     repository: &str,
+    settings: &crate::commands::system::UpdateMirrorSettings,
+    extra_hosts: &[String],
 ) -> AppResult<LocalizationUpstreamRelease> {
-    let url = format!("https://api.github.com/repos/{repository}/releases/latest");
+    let release = fetch_github_release_json(client, repository, settings, extra_hosts).await?;
+    let version = normalize_release_tag(&release.tag_name)
+        .ok_or_else(|| AppError::Config(format!("{repository} 返回了无效的 Release 标签")))?;
+    Ok(LocalizationUpstreamRelease {
+        repository: repository.to_string(),
+        available: true,
+        version: Some(version.clone()),
+        published_at: release.published_at,
+        message: format!("已检测到线上最新版 {version}"),
+    })
+}
+
+fn github_latest_release_url(repository: &str) -> String {
+    format!("https://api.github.com/repos/{repository}/releases/latest")
+}
+
+async fn fetch_github_release_json(
+    client: &reqwest::Client,
+    repository: &str,
+    settings: &crate::commands::system::UpdateMirrorSettings,
+    extra_hosts: &[String],
+) -> AppResult<GitHubReleaseResponse> {
+    let urls = github_asset_download_urls(&github_latest_release_url(repository), settings);
+    let mut last_error = None;
+    for url in urls {
+        match fetch_github_release_json_from_url(client, repository, &url, extra_hosts).await {
+            Ok(release) => return Ok(release),
+            Err(error) => {
+                log::warn!("github latest release failed for {url}: {error}");
+                last_error = Some(error);
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| {
+        AppError::Other(format!("连接 {repository} 失败"))
+    }))
+}
+
+async fn fetch_github_release_json_from_url(
+    client: &reqwest::Client,
+    repository: &str,
+    url: &str,
+    extra_hosts: &[String],
+) -> AppResult<GitHubReleaseResponse> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|error| AppError::Config(format!("{repository} 上游地址无效: {error}")))?;
+    if !helper_download_url_allowed(&parsed, extra_hosts) {
+        return Err(AppError::Config(format!(
+            "{repository} 上游地址不受信任: {parsed}"
+        )));
+    }
     let response = client
-        .get(url)
+        .get(parsed)
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
         .map_err(|error| AppError::Other(format!("连接 {repository} 失败: {error}")))?;
+    if !helper_download_url_allowed(response.url(), extra_hosts) {
+        return Err(AppError::Config(format!(
+            "{repository} 被重定向到不受信任的地址: {}",
+            response.url()
+        )));
+    }
     if !response.status().is_success() {
         return Err(AppError::Other(format!(
             "{repository} 返回 HTTP {}",
@@ -177,26 +274,11 @@ async fn fetch_latest_release(
             "{repository} Release 元数据超过 1 MB 限制"
         )));
     }
-    let body = response
-        .bytes()
+    let body = read_limited_body(response, MAX_GITHUB_RELEASE_METADATA_BYTES)
         .await
         .map_err(|error| AppError::Other(format!("读取 {repository} Release 元数据失败: {error}")))?;
-    if body.len() as u64 > MAX_GITHUB_RELEASE_METADATA_BYTES {
-        return Err(AppError::Config(format!(
-            "{repository} Release 元数据超过 1 MB 限制"
-        )));
-    }
-    let release: GitHubReleaseResponse = serde_json::from_slice(&body)
-        .map_err(|error| AppError::Config(format!("{repository} Release 元数据无效: {error}")))?;
-    let version = normalize_release_tag(&release.tag_name)
-        .ok_or_else(|| AppError::Config(format!("{repository} 返回了无效的 Release 标签")))?;
-    Ok(LocalizationUpstreamRelease {
-        repository: repository.to_string(),
-        available: true,
-        version: Some(version.clone()),
-        published_at: release.published_at,
-        message: format!("已检测到线上最新版 {version}"),
-    })
+    serde_json::from_slice(&body)
+        .map_err(|error| AppError::Config(format!("{repository} Release 元数据无效: {error}")))
 }
 
 fn normalize_release_tag(tag: &str) -> Option<String> {
@@ -222,12 +304,7 @@ fn upstream_release_unavailable(repository: &str, error: AppError) -> Localizati
 
 #[tauri::command]
 pub async fn install_claude_code_localization() -> AppResult<String> {
-    let info = get_claude_code_version(Some(false)).await?;
-    let executable = info.executable_path
-        .ok_or_else(|| AppError::Config("未检测到 Claude Code，无法安装中文插件".to_string()))?;
-    if info.environment == "wsl" {
-        return Err(AppError::Config("请在 WSL 终端中安装 Claude Code 中文插件".to_string()));
-    }
+    let executable = require_native_claude_executable().await?;
     run_claude_plugin_command(&executable, ["plugin", "marketplace", "add", "--scope", "user", CLAUDE_MARKETPLACE_REPOSITORY])?;
     run_claude_plugin_command(&executable, ["plugin", "install", CLAUDE_PLUGIN_ID, "--scope", "user"])?;
     merge_claude_code_chinese_settings()?;
@@ -235,18 +312,82 @@ pub async fn install_claude_code_localization() -> AppResult<String> {
 }
 
 #[tauri::command]
-pub fn install_editor_localization_helper(editor: String) -> AppResult<String> {
-    let definition = editor_definitions().into_iter()
-        .find(|definition| definition.id == editor)
-        .ok_or_else(|| AppError::Config("不支持的编辑器".to_string()))?;
-    let status = editor_status(definition.clone());
-    if status.claude_extension_path.is_none() {
-        return Err(AppError::Config(format!("{} 未检测到 Claude Code for VS Code 扩展", status.label)));
+pub async fn update_claude_code_localization() -> AppResult<String> {
+    let executable = require_native_claude_executable().await?;
+    if installed_zh_cn_plugin_version().is_some() || zh_cn_plugin_enabled() {
+        crate::claude_plugins::update_plugin(Path::new(&executable), CLAUDE_PLUGIN_ID)?;
+        merge_claude_code_chinese_settings()?;
+        let version = installed_zh_cn_plugin_version().unwrap_or_else(|| "latest".to_string());
+        return Ok(format!("Claude Code 中文插件已更新到 {version}"));
     }
-    let cli = status.editor_cli_path
-        .ok_or_else(|| AppError::Config(format!("未找到 {} 命令行工具，无法安装补丁助手", status.label)))?;
-    run_editor_extension_install(Path::new(&cli))?;
-    Ok(format!("{} 中文补丁助手已安装；请在编辑器命令面板运行 Apply Patch 并重载窗口", status.label))
+    install_claude_code_localization().await
+}
+
+#[tauri::command]
+pub async fn uninstall_claude_code_localization() -> AppResult<String> {
+    let executable = require_native_claude_executable().await?;
+    crate::claude_plugins::uninstall_plugin(Path::new(&executable), CLAUDE_PLUGIN_ID)?;
+    remove_chinese_language_if_set()?;
+    Ok("Claude Code 中文插件已卸载".to_string())
+}
+
+#[tauri::command]
+pub async fn install_editor_localization_helper(
+    editor: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    install_or_update_editor_helper(editor, true, state).await
+}
+
+#[tauri::command]
+pub async fn update_editor_localization_helper(
+    editor: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    install_or_update_editor_helper(editor, false, state).await
+}
+
+#[tauri::command]
+pub fn uninstall_editor_localization_helper(editor: String) -> AppResult<String> {
+    let status = editor_status(require_editor_definition(&editor)?);
+    let cli = require_editor_cli(&status)?;
+    let output = run_command(Path::new(&cli), &["--uninstall-extension", PATCH_HELPER_EXTENSION])?;
+    if output.status.success() {
+        return Ok(format!("{} 中文补丁助手已卸载；请重载编辑器窗口", status.label));
+    }
+    Err(AppError::Other(format!(
+        "卸载中文补丁助手失败: {}",
+        command_detail(&output)
+    )))
+}
+
+async fn install_or_update_editor_helper(
+    editor: String,
+    require_official: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    let status = editor_status(require_editor_definition(&editor)?);
+    if require_official && status.claude_extension_path.is_none() {
+        return Err(AppError::Config(format!(
+            "{} 未检测到 Claude Code for VS Code 扩展",
+            status.label
+        )));
+    }
+    let cli = PathBuf::from(require_editor_cli(&status)?);
+    // Cursor (and Open VSX) does not list this helper; VS Code Marketplace often does.
+    // Try the gallery first for VS Code, then always fall back to the GitHub .vsix.
+    if editor == "vscode" && install_helper_from_gallery(&cli).is_ok() {
+        return Ok(format!(
+            "{} 中文补丁助手已安装；请在编辑器命令面板运行 Apply Patch 并重载窗口",
+            status.label
+        ));
+    }
+    let vsix = download_helper_vsix(&state).await?;
+    install_helper_from_vsix(&cli, &vsix)?;
+    Ok(format!(
+        "{} 中文补丁助手已从 GitHub 安装；请在编辑器命令面板运行 Apply Patch 并重载窗口",
+        status.label
+    ))
 }
 
 fn merge_claude_code_chinese_settings() -> AppResult<()> {
@@ -261,6 +402,77 @@ fn merge_claude_code_chinese_settings() -> AppResult<()> {
     object.insert("spinnerTipsEnabled".to_string(), Value::Bool(true));
     normalize_spinner_verbs(object);
     write_json_file(&path, &settings)
+}
+
+fn remove_chinese_language_if_set() -> AppResult<()> {
+    let path = get_claude_settings_path();
+    if !path.is_file() {
+        return Ok(());
+    }
+    backup_file_named(&path, "claude-code-zh-cn-settings", DEFAULT_BACKUP_KEEP)?;
+    let mut settings = read_json_file::<Value>(&path)?.unwrap_or(Value::Object(Map::new()));
+    let Some(object) = settings.as_object_mut() else {
+        return Ok(());
+    };
+    if remove_chinese_language_key(object) {
+        write_json_file(&path, &settings)?;
+    }
+    Ok(())
+}
+
+fn remove_chinese_language_key(settings: &mut Map<String, Value>) -> bool {
+    if settings.get("language").and_then(Value::as_str) == Some("Chinese") {
+        settings.remove("language");
+        true
+    } else {
+        false
+    }
+}
+
+fn zh_cn_plugin_enabled() -> bool {
+    read_json_file::<Value>(&get_claude_settings_path())
+        .ok()
+        .flatten()
+        .and_then(|settings| {
+            settings
+                .get("enabledPlugins")
+                .and_then(Value::as_object)
+                .and_then(|plugins| plugins.get(CLAUDE_PLUGIN_ID))
+                .and_then(Value::as_bool)
+        })
+        .unwrap_or(false)
+}
+
+fn installed_zh_cn_plugin_version() -> Option<String> {
+    crate::claude_plugins::list_plugins_snapshot()
+        .ok()?
+        .plugins
+        .into_iter()
+        .find(|plugin| plugin.plugin_id == CLAUDE_PLUGIN_ID && plugin.installed)
+        .and_then(|plugin| plugin.version)
+}
+
+async fn require_native_claude_executable() -> AppResult<String> {
+    let info = get_claude_code_version(Some(false)).await?;
+    let executable = info.executable_path
+        .ok_or_else(|| AppError::Config("未检测到 Claude Code，无法管理中文插件".to_string()))?;
+    if info.environment == "wsl" {
+        return Err(AppError::Config("请在 WSL 终端中管理 Claude Code 中文插件".to_string()));
+    }
+    Ok(executable)
+}
+
+fn require_editor_definition(editor: &str) -> AppResult<EditorDefinition> {
+    editor_definitions()
+        .into_iter()
+        .find(|definition| definition.id == editor)
+        .ok_or_else(|| AppError::Config("不支持的编辑器".to_string()))
+}
+
+fn require_editor_cli(status: &EditorLocalizationStatus) -> AppResult<String> {
+    status.editor_cli_path.clone().ok_or_else(|| {
+        AppError::Config(format!("未找到 {} 命令行工具，无法管理补丁助手", status.label))
+    })
 }
 
 /// Claude Code expects `spinnerVerbs` as `{ mode, verbs }`. Some Chinese tip packs
@@ -288,12 +500,240 @@ fn run_claude_plugin_command<const N: usize>(executable: &str, args: [&str; N]) 
     Err(AppError::Other(format!("Claude Code 插件命令失败: {}", command_detail(&output))))
 }
 
-fn run_editor_extension_install(cli: &Path) -> AppResult<()> {
-    let output = run_command(cli, &["--install-extension", PATCH_HELPER_EXTENSION])?;
+fn install_helper_from_gallery(cli: &Path) -> AppResult<()> {
+    let output = run_command(cli, &["--install-extension", PATCH_HELPER_EXTENSION, "--force"])?;
+    if output.status.success() && !gallery_extension_missing(&output) {
+        return Ok(());
+    }
+    Err(AppError::Other(format!(
+        "从编辑器市场安装中文补丁助手失败: {}",
+        command_detail(&output)
+    )))
+}
+
+fn install_helper_from_vsix(cli: &Path, vsix: &Path) -> AppResult<()> {
+    let vsix = vsix.to_string_lossy();
+    let output = run_command(cli, &["--install-extension", vsix.as_ref(), "--force"])?;
     if output.status.success() {
         return Ok(());
     }
-    Err(AppError::Other(format!("安装中文补丁助手失败: {}", command_detail(&output))))
+    Err(AppError::Other(format!(
+        "安装中文补丁助手失败: {}",
+        command_detail(&output)
+    )))
+}
+
+fn gallery_extension_missing(output: &std::process::Output) -> bool {
+    let detail = command_detail(output).to_ascii_lowercase();
+    detail.contains("not found") || detail.contains("failed installing")
+}
+
+async fn download_helper_vsix(state: &tauri::State<'_, AppState>) -> AppResult<PathBuf> {
+    let extra_hosts = helper_mirror_hosts(state);
+    let extra_hosts_for_redirect = extra_hosts.clone();
+    let settings = crate::commands::system::get_update_mirror_settings(state.clone())?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(90))
+        .user_agent("AI-Switcher localization-helper-vsix")
+        .redirect(reqwest::redirect::Policy::custom(move |attempt| {
+            if attempt.previous().len() >= 8 {
+                attempt.error("中文补丁助手下载重定向次数过多")
+            } else if helper_download_url_allowed(attempt.url(), &extra_hosts_for_redirect) {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
+        .build()
+        .map_err(|error| AppError::Other(format!("创建中文补丁助手下载客户端失败: {error}")))?;
+    let release = fetch_github_release_json(
+        &client,
+        EDITOR_LOCALIZATION_REPOSITORY,
+        &settings,
+        &extra_hosts,
+    )
+    .await?;
+    let version = normalize_release_tag(&release.tag_name)
+        .ok_or_else(|| AppError::Config("补丁助手仓库返回了无效的 Release 标签".to_string()))?;
+    let asset = pick_helper_vsix_asset(&release.assets).ok_or_else(|| {
+        AppError::Config(format!(
+            "{EDITOR_LOCALIZATION_REPOSITORY} latest 没有可用的 .vsix 资源"
+        ))
+    })?;
+    let download_url = reqwest::Url::parse(&asset.browser_download_url)
+        .map_err(|error| AppError::Config(format!("补丁助手下载地址无效: {error}")))?;
+    if !helper_download_url_allowed(&download_url, &extra_hosts) {
+        return Err(AppError::Config(format!(
+            "补丁助手下载地址不受信任: {download_url}"
+        )));
+    }
+    let settings = crate::commands::system::get_update_mirror_settings(state.clone())?;
+    let urls = github_asset_download_urls(&asset.browser_download_url, &settings);
+    let bytes = download_vsix_with_fallbacks(&client, &urls, &extra_hosts).await?;
+    let dir = get_app_config_dir().join("localization").join("editor-helper");
+    fs::create_dir_all(&dir)?;
+    let target = dir.join(format!("claude-code-zh-cn-patch-helper-{version}.vsix"));
+    let stage = dir.join(format!(".download-{}.vsix", uuid::Uuid::new_v4().simple()));
+    if let Err(error) = fs::write(&stage, &bytes) {
+        let _ = fs::remove_file(&stage);
+        return Err(error.into());
+    }
+    if target.exists() {
+        fs::remove_file(&target)?;
+    }
+    if let Err(error) = fs::rename(&stage, &target) {
+        let _ = fs::remove_file(&stage);
+        return Err(error.into());
+    }
+    Ok(target)
+}
+
+async fn download_vsix_with_fallbacks(
+    client: &reqwest::Client,
+    urls: &[String],
+    extra_hosts: &[String],
+) -> AppResult<Vec<u8>> {
+    let mut last_error = None;
+    for url in urls {
+        match download_one_vsix(client, url, extra_hosts).await {
+            Ok(bytes) => return Ok(bytes),
+            Err(error) => {
+                log::warn!("helper vsix download failed for {url}: {error}");
+                last_error = Some(error);
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| {
+        AppError::Other("下载中文补丁助手失败：没有可用的下载地址".into())
+    }))
+}
+
+async fn download_one_vsix(
+    client: &reqwest::Client,
+    url: &str,
+    extra_hosts: &[String],
+) -> AppResult<Vec<u8>> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|error| AppError::Config(format!("补丁助手下载地址无效: {error}")))?;
+    if !helper_download_url_allowed(&parsed, extra_hosts) {
+        return Err(AppError::Config(format!("补丁助手下载地址不受信任: {parsed}")));
+    }
+    let response = client
+        .get(parsed)
+        .header("Accept", "application/octet-stream")
+        .send()
+        .await
+        .map_err(|error| AppError::Other(format!("下载中文补丁助手失败: {error}")))?;
+    if !helper_download_url_allowed(response.url(), extra_hosts) {
+        return Err(AppError::Config(format!(
+            "中文补丁助手下载被重定向到不受信任的地址: {}",
+            response.url()
+        )));
+    }
+    if !response.status().is_success() {
+        return Err(AppError::Other(format!(
+            "下载中文补丁助手失败（HTTP {}）",
+            response.status()
+        )));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_HELPER_VSIX_BYTES)
+    {
+        return Err(AppError::Config("中文补丁助手超过 20 MB 限制".to_string()));
+    }
+    let bytes = read_limited_body(response, MAX_HELPER_VSIX_BYTES).await?;
+    if !looks_like_vsix(&bytes) {
+        return Err(AppError::Config("下载的补丁助手不是有效的 .vsix 文件".to_string()));
+    }
+    Ok(bytes)
+}
+
+async fn read_limited_body(
+    mut response: reqwest::Response,
+    max_bytes: u64,
+) -> AppResult<Vec<u8>> {
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::Other(error.to_string()))?
+    {
+        if bytes.len() as u64 + chunk.len() as u64 > max_bytes {
+            return Err(AppError::Config(format!("下载内容超过 {max_bytes} 字节限制")));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+fn github_asset_download_urls(
+    direct_url: &str,
+    settings: &crate::commands::system::UpdateMirrorSettings,
+) -> Vec<String> {
+    let mut urls = Vec::new();
+    if settings.use_mirror {
+        let base = settings.mirror_base.trim();
+        if !base.is_empty() {
+            let mirrored = format!("{}{direct_url}", if base.ends_with('/') { base.to_string() } else { format!("{base}/") });
+            urls.push(mirrored);
+        }
+    }
+    urls.push(direct_url.to_string());
+    urls.dedup();
+    urls
+}
+
+fn helper_mirror_hosts(state: &tauri::State<'_, AppState>) -> Vec<String> {
+    let mut hosts = vec!["gh-proxy.com".to_string()];
+    if let Ok(settings) = crate::commands::system::get_update_mirror_settings(state.clone()) {
+        if let Ok(parsed) = reqwest::Url::parse(&settings.mirror_base) {
+            if parsed.scheme() == "https" {
+                if let Some(host) = parsed.host_str() {
+                    if !hosts.iter().any(|existing| existing == host) {
+                        hosts.push(host.to_string());
+                    }
+                }
+            }
+        }
+    }
+    hosts
+}
+
+fn pick_helper_vsix_asset(assets: &[GitHubReleaseAsset]) -> Option<&GitHubReleaseAsset> {
+    assets.iter().find(|asset| {
+        is_safe_vsix_name(&asset.name)
+            && asset.size > 0
+            && asset.size <= MAX_HELPER_VSIX_BYTES
+    })
+}
+
+fn is_safe_vsix_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("claude-code-zh-cn-patch-helper-")
+        && lower.ends_with(".vsix")
+        && !name.contains("..")
+        && name.len() <= 128
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+}
+
+fn looks_like_vsix(bytes: &[u8]) -> bool {
+    bytes.len() > 4 && bytes[0] == b'P' && bytes[1] == b'K'
+}
+
+fn helper_download_url_allowed(url: &reqwest::Url, extra_hosts: &[String]) -> bool {
+    if url.scheme() != "https" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    matches!(host, "github.com" | "api.github.com" | "codeload.github.com")
+        || host == "githubusercontent.com"
+        || host.ends_with(".githubusercontent.com")
+        || extra_hosts.iter().any(|allowed| allowed == host)
 }
 
 fn run_command(program: &Path, args: &[&str]) -> AppResult<std::process::Output> {
@@ -349,8 +789,22 @@ fn requires_command_shell(program: &Path) -> bool {
 
 fn command_detail(output: &std::process::Output) -> String {
     let text = if output.stderr.is_empty() { &output.stdout } else { &output.stderr };
-    let decoded = String::from_utf8_lossy(text).trim().to_string();
-    if decoded.is_empty() { format!("退出码 {}", output.status) } else { decoded }
+    let decoded = String::from_utf8_lossy(text);
+    let cleaned = strip_cli_noise(&decoded);
+    if cleaned.is_empty() { format!("退出码 {}", output.status) } else { cleaned }
+}
+
+fn strip_cli_noise(text: &str) -> String {
+    text.lines()
+        .map(str::trim)
+        .filter(|line| {
+            !line.is_empty()
+                && !line.contains("DeprecationWarning")
+                && !line.contains("[DEP0169]")
+                && !line.contains("--trace-deprecation")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn editor_definitions() -> Vec<EditorDefinition> {
@@ -387,7 +841,9 @@ fn editor_definitions() -> Vec<EditorDefinition> {
 
 fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
     let claude_extension = find_extension(&definition.extension_dir, CLAUDE_EXTENSION_PREFIX);
-    let helper_installed = find_extension(&definition.extension_dir, PATCH_HELPER_PREFIX).is_some();
+    let helper = find_extension(&definition.extension_dir, PATCH_HELPER_PREFIX);
+    let helper_version = helper.as_deref().and_then(helper_version_from_path);
+    let helper_installed = helper.is_some();
     let cli = resolve_editor_cli(&definition);
     let editor_detected = cli.is_some() || definition.extension_dir.is_dir();
     let message = if claude_extension.is_none() {
@@ -395,7 +851,10 @@ fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
     } else if cli.is_none() {
         format!("已检测到 Claude Code for VS Code 扩展，但未找到 {} 命令行工具；请在编辑器命令面板安装 Shell Command，或将命令加入 PATH", definition.label)
     } else if helper_installed {
-        "中文补丁助手已安装；请在编辑器命令面板确认应用补丁".to_string()
+        match helper_version.as_deref() {
+            Some(version) => format!("中文补丁助手 {version} 已安装；请在编辑器命令面板确认应用补丁"),
+            None => "中文补丁助手已安装；请在编辑器命令面板确认应用补丁".to_string(),
+        }
     } else {
         "已检测到官方扩展，可安装中文补丁助手".to_string()
     };
@@ -406,6 +865,7 @@ fn editor_status(definition: EditorDefinition) -> EditorLocalizationStatus {
         editor_cli_path: cli.map(|path| path.to_string_lossy().to_string()),
         claude_extension_path: claude_extension.map(|path| path.to_string_lossy().to_string()),
         helper_installed,
+        helper_version,
         message,
     }
 }
@@ -602,10 +1062,36 @@ fn find_extension(root: &Path, prefix: &str) -> Option<PathBuf> {
         .flatten()
         .map(|entry| entry.path())
         .filter(|path| path.is_dir())
-        .filter(|path| path.file_name().is_some_and(|name| name.to_string_lossy().starts_with(prefix)))
+        .filter(|path| {
+            path.file_name().is_some_and(|name| {
+                let name = name.to_string_lossy();
+                name.starts_with(prefix) && !name.contains(".obsolete")
+            })
+        })
         .collect::<Vec<_>>();
     candidates.sort();
     candidates.pop()
+}
+
+fn helper_version_from_path(path: &Path) -> Option<String> {
+    if let Some(version) = read_package_json_version(path) {
+        return Some(version);
+    }
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_prefix(PATCH_HELPER_PREFIX))
+        .map(|suffix| suffix.trim_end_matches("-universal").trim().to_string())
+        .filter(|version| !version.is_empty())
+}
+
+fn read_package_json_version(dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(dir.join("package.json")).ok()?;
+    let json: Value = serde_json::from_str(&text).ok()?;
+    json.get("version")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|version| !version.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 #[cfg(test)]
@@ -713,5 +1199,180 @@ mod tests {
         assert_eq!(normalize_release_tag("1.4.7").as_deref(), Some("1.4.7"));
         assert!(normalize_release_tag("../main").is_none());
         assert!(normalize_release_tag("").is_none());
+    }
+
+    #[test]
+    fn picks_safe_helper_vsix_and_rejects_paths() {
+        let assets = vec![
+            GitHubReleaseAsset {
+                name: "../evil.vsix".to_string(),
+                browser_download_url: "https://example.com/evil.vsix".to_string(),
+                size: 12,
+            },
+            GitHubReleaseAsset {
+                name: "SHA256SUMS".to_string(),
+                browser_download_url: "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/SHA256SUMS".to_string(),
+                size: 108,
+            },
+            GitHubReleaseAsset {
+                name: "claude-code-zh-cn-patch-helper-0.1.2.vsix".to_string(),
+                browser_download_url: "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/claude-code-zh-cn-patch-helper-0.1.2.vsix".to_string(),
+                size: 3_653_342,
+            },
+        ];
+        let picked = pick_helper_vsix_asset(&assets).expect("vsix");
+        assert_eq!(picked.name, "claude-code-zh-cn-patch-helper-0.1.2.vsix");
+        assert!(is_safe_vsix_name(&picked.name));
+        assert!(!is_safe_vsix_name("../claude-code-zh-cn-patch-helper-0.1.2.vsix"));
+        assert!(!looks_like_vsix(b"not-a-zip"));
+        assert!(looks_like_vsix(b"PK\x03\x04payload"));
+    }
+
+    #[test]
+    fn helper_download_allows_github_cdn_and_configured_mirrors() {
+        let extra = vec!["gh-proxy.com".to_string()];
+        let github = reqwest::Url::parse(
+            "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix",
+        )
+        .unwrap();
+        let api = reqwest::Url::parse(
+            "https://api.github.com/repos/shanjiancaofu/claude-code-vscode-zh-cn/releases/latest",
+        )
+        .unwrap();
+        let cdn = reqwest::Url::parse("https://release-assets.githubusercontent.com/file").unwrap();
+        let mirror = reqwest::Url::parse(
+            "https://gh-proxy.com/https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix",
+        )
+        .unwrap();
+        let blocked = reqwest::Url::parse("https://example.com/a.vsix").unwrap();
+        assert!(helper_download_url_allowed(&github, &extra));
+        assert!(helper_download_url_allowed(&api, &extra));
+        assert!(helper_download_url_allowed(&cdn, &extra));
+        assert!(helper_download_url_allowed(&mirror, &extra));
+        assert!(!helper_download_url_allowed(&blocked, &extra));
+    }
+
+    #[test]
+    fn github_asset_urls_use_configured_mirror_first() {
+        let settings = crate::commands::system::UpdateMirrorSettings {
+            use_mirror: true,
+            mirror_base: "https://gh-proxy.com/".to_string(),
+        };
+        let urls = github_asset_download_urls(
+            "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix",
+            &settings,
+        );
+        assert_eq!(
+            urls[0],
+            "https://gh-proxy.com/https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix"
+        );
+        assert_eq!(
+            urls[1],
+            "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix"
+        );
+
+        let direct_only = crate::commands::system::UpdateMirrorSettings {
+            use_mirror: false,
+            mirror_base: "https://gh-proxy.com/".to_string(),
+        };
+        let urls = github_asset_download_urls(
+            "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix",
+            &direct_only,
+        );
+        assert_eq!(urls, vec![
+            "https://github.com/shanjiancaofu/claude-code-vscode-zh-cn/releases/download/v0.1.2/a.vsix".to_string()
+        ]);
+    }
+
+    #[test]
+    fn github_latest_api_urls_use_configured_mirror_first() {
+        let settings = crate::commands::system::UpdateMirrorSettings {
+            use_mirror: true,
+            mirror_base: "https://gh-proxy.com/".to_string(),
+        };
+        let direct = github_latest_release_url("shanjiancaofu/claude-code-vscode-zh-cn");
+        let urls = github_asset_download_urls(&direct, &settings);
+        assert_eq!(
+            urls[0],
+            "https://gh-proxy.com/https://api.github.com/repos/shanjiancaofu/claude-code-vscode-zh-cn/releases/latest"
+        );
+        assert_eq!(
+            urls[1],
+            "https://api.github.com/repos/shanjiancaofu/claude-code-vscode-zh-cn/releases/latest"
+        );
+
+        let direct_only = crate::commands::system::UpdateMirrorSettings {
+            use_mirror: false,
+            mirror_base: "https://gh-proxy.com/".to_string(),
+        };
+        assert_eq!(
+            github_asset_download_urls(&direct, &direct_only),
+            vec![direct]
+        );
+    }
+
+    #[test]
+    fn strips_node_deprecation_noise_from_cli_output() {
+        let cleaned = strip_cli_noise(
+            "(node:12852) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized\n(Use `Cursor --trace-deprecation ...` to show where the warning was created)\nExtension 'shanjiancaofu.claude-code-zh-cn-patch-helper' not found.\nFailed Installing Extensions: shanjiancaofu.claude-code-zh-cn-patch-helper\n",
+        );
+        assert_eq!(
+            cleaned,
+            "Extension 'shanjiancaofu.claude-code-zh-cn-patch-helper' not found.\nFailed Installing Extensions: shanjiancaofu.claude-code-zh-cn-patch-helper"
+        );
+    }
+
+    #[test]
+    fn helper_version_prefers_package_json_then_directory_suffix() {
+        let dir = tempfile::tempdir().unwrap();
+        let helper = dir.path().join("shanjiancaofu.claude-code-zh-cn-patch-helper-0.1.1");
+        fs::create_dir(&helper).unwrap();
+        assert_eq!(
+            helper_version_from_path(&helper).as_deref(),
+            Some("0.1.1")
+        );
+        fs::write(
+            helper.join("package.json"),
+            r#"{"name":"helper","version":"0.1.2"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            helper_version_from_path(&helper).as_deref(),
+            Some("0.1.2")
+        );
+    }
+
+    #[test]
+    fn strips_universal_suffix_from_helper_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let helper = dir
+            .path()
+            .join("shanjiancaofu.claude-code-zh-cn-patch-helper-0.1.2-universal");
+        fs::create_dir(&helper).unwrap();
+        assert_eq!(
+            helper_version_from_path(&helper).as_deref(),
+            Some("0.1.2")
+        );
+    }
+
+    #[test]
+    fn removes_only_chinese_language_key() {
+        let mut settings = Map::new();
+        settings.insert("language".to_string(), Value::String("Chinese".to_string()));
+        settings.insert("spinnerTipsEnabled".to_string(), Value::Bool(true));
+        assert!(remove_chinese_language_key(&mut settings));
+        assert!(settings.get("language").is_none());
+        assert_eq!(
+            settings.get("spinnerTipsEnabled").and_then(Value::as_bool),
+            Some(true)
+        );
+
+        let mut english = Map::new();
+        english.insert("language".to_string(), Value::String("English".to_string()));
+        assert!(!remove_chinese_language_key(&mut english));
+        assert_eq!(
+            english.get("language").and_then(Value::as_str),
+            Some("English")
+        );
     }
 }
