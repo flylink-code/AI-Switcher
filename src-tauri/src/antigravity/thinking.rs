@@ -57,7 +57,9 @@ pub fn apply_thinking_budget(generation: &mut Value, budget: u32, include_though
 
 pub fn is_budget_constraint_error(body: &str) -> bool {
     let lower = body.to_ascii_lowercase();
-    (lower.contains("budget") || lower.contains("thinkingbudget") || lower.contains("thinking_budget"))
+    (lower.contains("budget")
+        || lower.contains("thinkingbudget")
+        || lower.contains("thinking_budget"))
         && (lower.contains("invalid")
             || lower.contains("constraint")
             || lower.contains("must be")
@@ -107,7 +109,7 @@ mod tests {
     fn adaptive_defaults_to_high_budget() {
         let body = json!({ "thinking": { "type": "adaptive" } });
         assert_eq!(
-            resolve_thinking_budget(&body, "gemini-3.7-flash-high"),
+            resolve_thinking_budget(&body, "gemini-3.8-flash-high"),
             Some(FLASH_BUDGET_CAP)
         );
     }

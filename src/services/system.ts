@@ -13,6 +13,7 @@ import type {
   DoctorRepairResult,
   DoctorReport,
   LocalizationHubStatus,
+  LocalizationUpstreamStatus,
   PathsInfo,
   UpdateMirrorSettings,
   VisibilityRepairResult,
@@ -115,6 +116,10 @@ export async function getDesktopLocalizationStatus(): Promise<DesktopLocalizatio
 
 export async function getLocalizationHubStatus(): Promise<LocalizationHubStatus> {
   return call<LocalizationHubStatus>("get_localization_hub_status", {});
+}
+
+export async function checkLocalizationUpstream(): Promise<LocalizationUpstreamStatus> {
+  return call<LocalizationUpstreamStatus>("check_localization_upstream", {});
 }
 
 export async function installClaudeCodeLocalization(): Promise<string> {

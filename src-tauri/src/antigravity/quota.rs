@@ -255,10 +255,8 @@ struct ProjectMeta {
 /// Resolve Cloud Code `cloudaicompanionProject`, onboarding when loadCodeAssist
 /// returns a tier but no project yet (new / never-opened Antigravity accounts).
 pub async fn resolve_project_id(access_token: &str) -> AppResult<String> {
-    let client = crate::antigravity::outbound::build_async_client(
-        QUOTA_CONNECT_SECS,
-        QUOTA_TIMEOUT_SECS,
-    );
+    let client =
+        crate::antigravity::outbound::build_async_client(QUOTA_CONNECT_SECS, QUOTA_TIMEOUT_SECS);
     fetch_project_meta(&client, access_token)
         .await
         .project_id
@@ -271,10 +269,8 @@ pub async fn fetch_quota(
     access_token: &str,
     cached_project_id: Option<&str>,
 ) -> AppResult<(QuotaSnapshot, Option<String>)> {
-    let client = crate::antigravity::outbound::build_async_client(
-        QUOTA_CONNECT_SECS,
-        QUOTA_TIMEOUT_SECS,
-    );
+    let client =
+        crate::antigravity::outbound::build_async_client(QUOTA_CONNECT_SECS, QUOTA_TIMEOUT_SECS);
 
     let cached_pid = cached_project_id
         .map(str::trim)
@@ -363,9 +359,7 @@ async fn fetch_project_meta(client: &reqwest::Client, access_token: &str) -> Pro
         }
         // loadCodeAssist often returns paidTier (PRO) with no project until the
         // account has been onboarded. Do not treat this as a finished lookup.
-        log::info!(
-            "Antigravity loadCodeAssist {url} has no project; trying onboardUser"
-        );
+        log::info!("Antigravity loadCodeAssist {url} has no project; trying onboardUser");
         let project_id = onboard_user_project(client, access_token, &value).await;
         return ProjectMeta {
             project_id,
@@ -383,7 +377,11 @@ fn extract_cloudaicompanion_project(value: &Value) -> Option<String> {
         let Some(field) = value.get(key) else {
             continue;
         };
-        if let Some(text) = field.as_str().map(str::trim).filter(|text| !text.is_empty()) {
+        if let Some(text) = field
+            .as_str()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+        {
             return Some(normalize_project_id(text));
         }
         if let Some(obj) = field.as_object() {
@@ -503,10 +501,7 @@ async fn onboard_user_project(
                 log::info!("Antigravity onboardUser {url} assigned project");
                 return Some(project_id);
             }
-            let done = value
-                .get("done")
-                .and_then(Value::as_bool)
-                .unwrap_or(false);
+            let done = value.get("done").and_then(Value::as_bool).unwrap_or(false);
             if done {
                 log::warn!("Antigravity onboardUser {url} completed without project");
                 break;
@@ -544,10 +539,7 @@ fn bucket_looks_gemini(bucket_id: &str) -> bool {
 
 fn bucket_looks_claude_gpt(bucket_id: &str) -> bool {
     let id = bucket_id.to_ascii_lowercase();
-    id.starts_with("3p-")
-        || id.contains("claude")
-        || id.contains("gpt")
-        || id.contains("openai")
+    id.starts_with("3p-") || id.contains("claude") || id.contains("gpt") || id.contains("openai")
 }
 
 /// Cloud Code window labels vary: `weekly` / `7d` / `week` / `168h`, and
@@ -564,8 +556,7 @@ pub fn normalize_quota_window(window: &str, bucket_id: &str) -> String {
 }
 
 fn bucket_window_matches(bucket: &QuotaBucket, wanted: &str) -> bool {
-    normalize_quota_window(&bucket.window, &bucket.bucket_id)
-        == normalize_quota_window(wanted, "")
+    normalize_quota_window(&bucket.window, &bucket.bucket_id) == normalize_quota_window(wanted, "")
 }
 
 fn window_haystack_is_weekly(haystack: &str) -> bool {
@@ -574,7 +565,9 @@ fn window_haystack_is_weekly(haystack: &str) -> bool {
         || haystack.contains("7-day")
         || haystack.contains("7day")
         || haystack.contains("168h")
-        || haystack.split(|ch: char| !ch.is_ascii_alphanumeric()).any(|part| part == "week")
+        || haystack
+            .split(|ch: char| !ch.is_ascii_alphanumeric())
+            .any(|part| part == "week")
 }
 
 fn window_haystack_is_five_hour(haystack: &str) -> bool {
@@ -722,9 +715,8 @@ async fn fetch_models_quota(
                         // 5xx/429: try the next host instead of failing the refresh.
                         break;
                     }
-                    let value: Value = serde_json::from_str(&body).map_err(|error| {
-                        AppError::Other(format!("解析模型额度失败: {error}"))
-                    })?;
+                    let value: Value = serde_json::from_str(&body)
+                        .map_err(|error| AppError::Other(format!("解析模型额度失败: {error}")))?;
                     let mut snapshot = parse_models_response(&value);
                     snapshot.subscription_tier = subscription_tier;
                     return Ok(snapshot);
@@ -742,29 +734,29 @@ async fn fetch_models_quota(
 fn parse_models_response(value: &Value) -> QuotaSnapshot {
     let mut models = Vec::new();
     let mut seen = std::collections::BTreeSet::<String>::new();
-    let mut push_model = |name: String, percentage: i32, reset_time: String, display_name: Option<String>| {
-        let trimmed = name.trim().to_string();
-        if trimmed.is_empty() || !seen.insert(trimmed.clone()) {
-            return;
-        }
-        models.push(ModelQuota {
-            name: trimmed,
-            percentage,
-            reset_time,
-            display_name,
-        });
-    };
+    let mut push_model =
+        |name: String, percentage: i32, reset_time: String, display_name: Option<String>| {
+            let trimmed = name.trim().to_string();
+            if trimmed.is_empty() || !seen.insert(trimmed.clone()) {
+                return;
+            }
+            models.push(ModelQuota {
+                name: trimmed,
+                percentage,
+                reset_time,
+                display_name,
+            });
+        };
 
     if let Some(map) = value.get("models").and_then(Value::as_object) {
         for (name, info) in map {
             let quota_info = info.get("quotaInfo");
-            let fraction = quota_info
-                .and_then(parse_remaining_fraction)
-                .unwrap_or(0.0);
+            let fraction = quota_info.and_then(parse_remaining_fraction).unwrap_or(0.0);
             let reset_time = quota_info
                 .and_then(|q| json_string(q.get("resetTime").or_else(|| q.get("reset_time"))))
                 .unwrap_or_default();
-            let display_name = json_string(info.get("displayName").or_else(|| info.get("display_name")));
+            let display_name =
+                json_string(info.get("displayName").or_else(|| info.get("display_name")));
             push_model(
                 name.clone(),
                 (fraction * 100.0).round() as i32,
@@ -781,13 +773,12 @@ fn parse_models_response(value: &Value) -> QuotaSnapshot {
             )
             .unwrap_or_default();
             let quota_info = info.get("quotaInfo");
-            let fraction = quota_info
-                .and_then(parse_remaining_fraction)
-                .unwrap_or(0.0);
+            let fraction = quota_info.and_then(parse_remaining_fraction).unwrap_or(0.0);
             let reset_time = quota_info
                 .and_then(|q| json_string(q.get("resetTime").or_else(|| q.get("reset_time"))))
                 .unwrap_or_default();
-            let display_name = json_string(info.get("displayName").or_else(|| info.get("display_name")));
+            let display_name =
+                json_string(info.get("displayName").or_else(|| info.get("display_name")));
             push_model(
                 name,
                 (fraction * 100.0).round() as i32,
@@ -1003,12 +994,8 @@ fn parse_summary_bucket(bucket: &Value) -> Option<QuotaBucket> {
     .unwrap_or_default();
     let raw_window = json_window_str(bucket.get("window").or_else(|| bucket.get("resetWindow")));
     let window = normalize_quota_window(&raw_window, &bucket_id);
-    let reset_time = json_string(
-        bucket
-            .get("resetTime")
-            .or_else(|| bucket.get("reset_time")),
-    )
-    .unwrap_or_default();
+    let reset_time = json_string(bucket.get("resetTime").or_else(|| bucket.get("reset_time")))
+        .unwrap_or_default();
     let display_name = json_string(
         bucket
             .get("displayName")
@@ -1187,7 +1174,11 @@ mod tests {
             ]
         });
         let snapshot = parse_models_response(&value);
-        let names: Vec<_> = snapshot.models.iter().map(|model| model.name.as_str()).collect();
+        let names: Vec<_> = snapshot
+            .models
+            .iter()
+            .map(|model| model.name.as_str())
+            .collect();
         assert!(names.contains(&"claude-sonnet-4-6"));
         assert!(names.contains(&"gemini-3.7-flash"));
     }
@@ -1357,17 +1348,14 @@ mod tests {
     #[test]
     fn quota_family_from_model_splits_gemini_and_claude() {
         assert_eq!(
-            quota_family_from_model("gemini-3.7-flash-high"),
+            quota_family_from_model("gemini-3.8-flash-high"),
             QuotaFamily::Gemini
         );
         assert_eq!(
             quota_family_from_model("claude-opus-4-6"),
             QuotaFamily::ClaudeGpt
         );
-        assert_eq!(
-            quota_family_from_model("gpt-5.4"),
-            QuotaFamily::ClaudeGpt
-        );
+        assert_eq!(quota_family_from_model("gpt-5.4"), QuotaFamily::ClaudeGpt);
     }
 
     #[test]

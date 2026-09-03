@@ -1259,6 +1259,12 @@
       "hubDescription": "Manage localization for Claude Code, the Claude Code extension in VS Code/Cursor, and Claude Desktop in one place. Third-party patches require a second confirmation in their target client.",
       "claudeCodeTitle": "Claude Code Simplified Chinese",
       "editorTitle": "VS Code / Cursor extension Simplified Chinese",
+      "upstreamTitle": "Localization upstream check",
+      "checkOnline": "Check online versions",
+      "upstreamNotChecked": "No online version check yet. This only reads public Release metadata; it does not download or modify local files.",
+      "onlineAvailable": "Online",
+      "onlineUnavailable": "Unavailable",
+      "checkedAt": "Checked at",
       "configured": "Configured",
       "notConfigured": "Not configured",
       "detected": "Official extension detected",
@@ -1296,7 +1302,7 @@
       "confirmDownload": "Download Chinese resources from the third-party upstream repository?",
       "confirmDownloadDescription": "Only validated Simplified Chinese JSON files are extracted. Repository scripts are neither saved nor executed, and a failed download keeps the current pack.",
       "thirdPartyTitle": "Unofficial third-party Chinese resources",
-      "thirdPartyDescription": "Resources come from javaht/claude-desktop-zh-cn GitHub Releases (tracks the latest pack, e.g. 1.4.6 for Claude Desktop 1.32885.1) and are not maintained by this app. Verify the source before downloading.",
+      "thirdPartyDescription": "Resources come from javaht/claude-desktop-zh-cn GitHub Releases (local reference: 1.4.7); the Claude Code plugin reference is taekchef/claude-code-zh-cn v2.14.0. Use Check online versions to read the latest upstream Releases. These projects are not maintained by this app; verify the source before downloading.",
       "openRepository": "Open upstream repository",
       "install": "Install Simplified Chinese",
       "restore": "Restore original",
@@ -1395,6 +1401,11 @@
         "Antigravity gateway: account/project RPM and URL-level 429s no longer downgrade the model on the same account; at most one other account is tried before returning 429, so the whole pool is not cooled.",
         "Unified catalog Hide official: GPT models left visible in the provider editor stay in the catalog.",
         "Usage logs record upstream 429s as upstream_429 instead of a generic upstream error."
+      ],
+      "1_4_6": [
+        "Antigravity gateway adds Gemini 3.8 Flash (high/medium/low), falling back 3.8 → 3.7 → 3.6 on 429. Unconstrained array tool schemas get items so Cloud Code does not return 400.",
+        "OpenAI Chat forwards thinking as reasoning_content. Codex resumed/reverted rollout usage is no longer dropped because of request_id collisions.",
+        "Localization can check upstream GitHub Releases (Desktop pack 1.4.7, Claude Code plugin v2.14.0). Provider presets add 9527CODE / AICodeWith; pricing includes Claude Fable 5.1."
       ]
     },
     "appName": "App name",
@@ -1590,7 +1601,7 @@
     "outboundNone": "Direct (no proxy)",
     "models": "Available models (from Cloud Code)",
     "modelsEmpty": "No model catalog yet. Sign in and click Refresh quota.",
-    "modelsHint": "Refreshing quota syncs live Antigravity models; /v1/models and provider binding use this list. Gemini Flash ids are gemini-3.7-flash and gemini-3.6-flash (both stay listed; neither is rewritten onto the other). In Claude Desktop, use role routing (name=claude-sonnet-5 + labelOverride=gemini-3.7-flash) to select 3.7. For Codex, re-run Ensure Provider — protocol is openai_responses (/v1/responses).",
+    "modelsHint": "Refreshing quota syncs live Antigravity models; /v1/models and provider binding use this list. Gemini Flash prefers gemini-3.8-flash and retains 3.7/3.6 as its fallback chain, descending through high/medium/low tiers. Use Claude Desktop role routing to select the target model. For Codex, re-run Ensure Provider — protocol is openai_responses (/v1/responses).",
     "accounts": "Accounts",
     "running": "Running",
     "stoppedState": "Stopped",

@@ -88,7 +88,10 @@ pub fn load_settings(db: &Database) -> AppResult<OutboundProxySettings> {
     })?;
     // Port 17891 on this machine is Clash SOCKS5; old installs stored http:// and
     // every Cloud Code call failed → account cooldown → Desktop 502.
-    if proxy_url.trim().eq_ignore_ascii_case(LEGACY_HTTP_CLASH_PROXY_URL) {
+    if proxy_url
+        .trim()
+        .eq_ignore_ascii_case(LEGACY_HTTP_CLASH_PROXY_URL)
+    {
         proxy_url = DEFAULT_CLASH_PROXY_URL.to_string();
         let _ = db.with_conn(|conn| set_setting(conn, URL_SETTING, &proxy_url));
         info!("Antigravity outbound proxy migrated {LEGACY_HTTP_CLASH_PROXY_URL} → {proxy_url}");
@@ -306,8 +309,14 @@ mod tests {
 
     #[test]
     fn parses_modes() {
-        assert_eq!(OutboundProxyMode::parse("direct"), OutboundProxyMode::Direct);
-        assert_eq!(OutboundProxyMode::parse("SYSTEM"), OutboundProxyMode::System);
+        assert_eq!(
+            OutboundProxyMode::parse("direct"),
+            OutboundProxyMode::Direct
+        );
+        assert_eq!(
+            OutboundProxyMode::parse("SYSTEM"),
+            OutboundProxyMode::System
+        );
         assert_eq!(OutboundProxyMode::parse(""), OutboundProxyMode::Custom);
     }
 

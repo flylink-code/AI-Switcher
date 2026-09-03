@@ -171,12 +171,19 @@ pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
     set_plugin_enabled_at(&get_claude_settings_path(), plugin_id, enabled)
 }
 
-pub fn set_plugin_enabled_at(settings_path: &Path, plugin_id: &str, enabled: bool) -> AppResult<()> {
+pub fn set_plugin_enabled_at(
+    settings_path: &Path,
+    plugin_id: &str,
+    enabled: bool,
+) -> AppResult<()> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Claude 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Claude 插件 ID: {plugin_id}"
+        )));
     }
-    let mut settings = read_json_file::<Value>(settings_path)?.unwrap_or_else(|| Value::Object(Map::new()));
+    let mut settings =
+        read_json_file::<Value>(settings_path)?.unwrap_or_else(|| Value::Object(Map::new()));
     let object = settings
         .as_object_mut()
         .ok_or_else(|| AppError::Config("Claude Code settings.json 必须是 JSON 对象".into()))?;
@@ -206,28 +213,25 @@ pub fn list_marketplaces_at(path: &Path) -> AppResult<ClaudeMarketplaceListResul
             used_json: true,
         });
     }
-    let raw = fs::read_to_string(path).map_err(|e| AppError::Other(format!("读取 marketplace 失败: {e}")))?;
+    let raw = fs::read_to_string(path)
+        .map_err(|e| AppError::Other(format!("读取 marketplace 失败: {e}")))?;
     let value: Value = serde_json::from_str(&raw)
         .map_err(|e| AppError::Config(format!("known_marketplaces.json 无效: {e}")))?;
     let mut marketplaces = Vec::new();
     if let Some(map) = value.as_object() {
         for (name, entry) in map {
             let obj = entry.as_object();
-            let source = obj
-                .and_then(|o| o.get("source"))
-                .and_then(|s| {
-                    s.as_str()
-                        .map(str::to_string)
-                        .or_else(|| {
-                            s.as_object().and_then(|src| {
-                                src.get("url")
-                                    .or_else(|| src.get("path"))
-                                    .or_else(|| src.get("repo"))
-                                    .and_then(Value::as_str)
-                                    .map(str::to_string)
-                            })
-                        })
-                });
+            let source = obj.and_then(|o| o.get("source")).and_then(|s| {
+                s.as_str().map(str::to_string).or_else(|| {
+                    s.as_object().and_then(|src| {
+                        src.get("url")
+                            .or_else(|| src.get("path"))
+                            .or_else(|| src.get("repo"))
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
+                })
+            });
             let root = obj
                 .and_then(|o| o.get("installLocation").or_else(|| o.get("path")))
                 .and_then(Value::as_str)
@@ -283,7 +287,9 @@ pub fn list_plugin_catalog_at(marketplaces_dir: &Path) -> AppResult<ClaudePlugin
             continue;
         };
         for item in items {
-            let Some(obj) = item.as_object() else { continue };
+            let Some(obj) = item.as_object() else {
+                continue;
+            };
             let Some(name) = obj.get("name").and_then(Value::as_str).map(str::trim) else {
                 continue;
             };
@@ -351,10 +357,15 @@ pub fn remove_marketplace(executable: &Path, name: &str) -> AppResult<ClaudePlug
     command_result(fallback, "已移除 marketplace")
 }
 
-pub fn uninstall_plugin(executable: &Path, plugin_id: &str) -> AppResult<ClaudePluginCommandResult> {
+pub fn uninstall_plugin(
+    executable: &Path,
+    plugin_id: &str,
+) -> AppResult<ClaudePluginCommandResult> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Claude 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Claude 插件 ID: {plugin_id}"
+        )));
     }
     let output = run_claude_plugin_args(
         executable,
@@ -421,7 +432,9 @@ pub fn update_marketplace(
 pub fn update_plugin(executable: &Path, plugin_id: &str) -> AppResult<ClaudePluginCommandResult> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Claude 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Claude 插件 ID: {plugin_id}"
+        )));
     }
     // Refresh that marketplace first so update sees latest catalog.
     let (_, marketplace) = split_plugin_id(plugin_id);
@@ -448,7 +461,9 @@ pub fn check_plugin_update(
 ) -> AppResult<ClaudePluginUpdateStatus> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Claude 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Claude 插件 ID: {plugin_id}"
+        )));
     }
     let (_, marketplace) = split_plugin_id(plugin_id);
     if !marketplace.is_empty() {
@@ -619,7 +634,12 @@ fn normalize_marketplace_source(source: &str) -> String {
     ] {
         if let Some(rest) = without_git.strip_prefix(prefix) {
             let owner_repo = rest.trim_matches('/');
-            if owner_repo.split('/').filter(|part| !part.is_empty()).count() >= 2 {
+            if owner_repo
+                .split('/')
+                .filter(|part| !part.is_empty())
+                .count()
+                >= 2
+            {
                 let mut parts = owner_repo.split('/');
                 let owner = parts.next().unwrap_or("");
                 let repo = parts.next().unwrap_or("");
@@ -796,9 +816,18 @@ fn windows_user_path_dirs_for_plugins() -> Vec<PathBuf> {
 fn expand_windows_env_for_plugins(value: &str) -> String {
     let mut result = value.to_string();
     for (key, replacement) in [
-        ("%USERPROFILE%", dirs::home_dir().map(|p| p.to_string_lossy().into_owned())),
-        ("%LOCALAPPDATA%", dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned())),
-        ("%APPDATA%", dirs::config_dir().map(|p| p.to_string_lossy().into_owned())),
+        (
+            "%USERPROFILE%",
+            dirs::home_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
+        (
+            "%LOCALAPPDATA%",
+            dirs::data_local_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
+        (
+            "%APPDATA%",
+            dirs::config_dir().map(|p| p.to_string_lossy().into_owned()),
+        ),
     ] {
         if let Some(replacement) = replacement {
             result = result.replace(key, &replacement);
@@ -831,7 +860,9 @@ fn read_enabled_map_tolerant(path: &Path) -> (Vec<(String, bool)>, bool, Option<
                 .map(|plugins| {
                     plugins
                         .iter()
-                        .filter_map(|(id, value)| value.as_bool().map(|enabled| (id.clone(), enabled)))
+                        .filter_map(|(id, value)| {
+                            value.as_bool().map(|enabled| (id.clone(), enabled))
+                        })
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
@@ -857,15 +888,17 @@ struct DiscoveredPlugin {
 }
 
 fn merge_discovered(by_id: &mut BTreeMap<String, ClaudePlugin>, item: DiscoveredPlugin) {
-    let entry = by_id.entry(item.plugin_id.clone()).or_insert_with(|| ClaudePlugin {
-        plugin_id: item.plugin_id.clone(),
-        name: item.name.clone(),
-        marketplace: item.marketplace.clone(),
-        version: None,
-        enabled: false,
-        installed: false,
-        path: None,
-    });
+    let entry = by_id
+        .entry(item.plugin_id.clone())
+        .or_insert_with(|| ClaudePlugin {
+            plugin_id: item.plugin_id.clone(),
+            name: item.name.clone(),
+            marketplace: item.marketplace.clone(),
+            version: None,
+            enabled: false,
+            installed: false,
+            path: None,
+        });
     entry.installed = true;
     entry.version = item.version.or(entry.version.clone());
     entry.path = item.path.or(entry.path.clone());
@@ -984,8 +1017,18 @@ pub fn resolve_claude_executable() -> AppResult<PathBuf> {
         if let Some(roaming) = std::env::var_os("APPDATA") {
             candidates.push(PathBuf::from(roaming).join("npm").join("claude.cmd"));
         }
-        candidates.push(home.join("AppData").join("Roaming").join("npm").join("claude.cmd"));
-        candidates.push(home.join("AppData").join("Local").join("pnpm").join("claude.cmd"));
+        candidates.push(
+            home.join("AppData")
+                .join("Roaming")
+                .join("npm")
+                .join("claude.cmd"),
+        );
+        candidates.push(
+            home.join("AppData")
+                .join("Local")
+                .join("pnpm")
+                .join("claude.cmd"),
+        );
     }
     candidates.push(home.join(".local").join("bin").join("claude"));
     if let Some(path) = std::env::var_os("PATH") {
@@ -1070,7 +1113,11 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let settings = root.path().join("settings.json");
         let plugins_dir = root.path().join("plugins");
-        let cache = plugins_dir.join("cache").join("official").join("figma").join("1.2.3");
+        let cache = plugins_dir
+            .join("cache")
+            .join("official")
+            .join("figma")
+            .join("1.2.3");
         fs::create_dir_all(&cache).unwrap();
         let installed = plugins_dir.join("installed_plugins.json");
         fs::write(
@@ -1091,7 +1138,8 @@ mod tests {
         )
         .unwrap();
 
-        let snap = list_plugins_snapshot_at(&settings, &installed, &plugins_dir.join("cache")).unwrap();
+        let snap =
+            list_plugins_snapshot_at(&settings, &installed, &plugins_dir.join("cache")).unwrap();
         assert!(snap.parse_ok);
         assert_eq!(snap.plugins.len(), 1);
         assert_eq!(snap.plugins[0].plugin_id, "figma@official");
@@ -1100,7 +1148,8 @@ mod tests {
         assert_eq!(snap.plugins[0].version.as_deref(), Some("1.2.3"));
 
         set_plugin_enabled_at(&settings, "figma@official", false).unwrap();
-        let snap = list_plugins_snapshot_at(&settings, &installed, &plugins_dir.join("cache")).unwrap();
+        let snap =
+            list_plugins_snapshot_at(&settings, &installed, &plugins_dir.join("cache")).unwrap();
         assert!(!snap.plugins[0].enabled);
     }
 

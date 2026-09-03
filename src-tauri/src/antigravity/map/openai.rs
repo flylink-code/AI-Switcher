@@ -59,7 +59,8 @@ pub fn openai_to_gemini_request(
         .unwrap_or_default();
     // tool_call_id → function name, so tool messages can reference the real
     // function name (tool messages only carry tool_call_id).
-    let mut tool_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut tool_names: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for message in &messages {
         if message.get("role").and_then(Value::as_str) != Some("assistant") {
             continue;
@@ -84,7 +85,10 @@ pub fn openai_to_gemini_request(
             .unwrap_or("user");
         match role {
             "system" | "developer" => {
-                push_text_content(message.get("content").unwrap_or(&Value::Null), &mut system_parts);
+                push_text_content(
+                    message.get("content").unwrap_or(&Value::Null),
+                    &mut system_parts,
+                );
             }
             "assistant" => {
                 let mut parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
@@ -332,11 +336,15 @@ pub fn gemini_to_openai_response(
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
 ) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini, session_key, tool_params);
+    let (text, reasoning_content, tool_calls, finish_reason) =
+        extract_assistant(gemini, session_key, tool_params);
     let mut message = json!({
         "role": "assistant",
         "content": text,
     });
+    if !reasoning_content.is_empty() {
+        message["reasoning_content"] = json!(reasoning_content);
+    }
     if !tool_calls.is_empty() {
         message["tool_calls"] = json!(tool_calls);
         message["content"] = Value::Null;
@@ -362,8 +370,12 @@ pub fn gemini_to_openai_sse_chunk(
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
 ) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini_chunk, session_key, tool_params);
+    let (text, reasoning_content, tool_calls, finish_reason) =
+        extract_assistant(gemini_chunk, session_key, tool_params);
     let mut delta = json!({ "role": "assistant" });
+    if !reasoning_content.is_empty() {
+        delta["reasoning_content"] = json!(reasoning_content);
+    }
     if !text.is_empty() {
         delta["content"] = json!(text);
     }
@@ -413,8 +425,9 @@ pub(crate) fn extract_assistant(
     gemini: &Value,
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
-) -> (String, Vec<Value>, String) {
+) -> (String, String, Vec<Value>, String) {
     let mut text = String::new();
+    let mut reasoning_content = String::new();
     let mut tool_calls = Vec::new();
     let mut finish_reason = "stop".to_string();
     let candidates = gemini
@@ -433,9 +446,16 @@ pub(crate) fn extract_assistant(
                     .get("thoughtSignature")
                     .or_else(|| part.get("thought_signature"))
                     .and_then(Value::as_str);
-                if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                if part
+                    .get("thought")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
                     if let (Some(sig), Some(session)) = (signature, session_key) {
                         thought_sig::cache_session_signature(session, sig);
+                    }
+                    if let Some(chunk) = part.get("text").and_then(Value::as_str) {
+                        reasoning_content.push_str(chunk);
                     }
                     continue;
                 }
@@ -489,6 +509,7 @@ pub(crate) fn extract_assistant(
     }
     (
         super::latex::unwrap_gemini_latex(&text),
+        super::latex::unwrap_gemini_latex(&reasoning_content),
         tool_calls,
         finish_reason,
     )
@@ -546,20 +567,32 @@ mod tests {
 
     #[test]
     fn reasoning_effort_maps_gemini_suffix_and_claude_thinking_level() {
-        let gemini = openai_to_gemini_request(&json!({
-            "model": "gemini-3.6-flash",
-            "reasoning_effort": "high",
-            "messages": [{"role": "user", "content": "hi"}]
-        }), None)
-        .unwrap();
-        assert!(gemini.model.starts_with("gemini-"));
-        assert!(gemini.request.get("reasoning_effort").is_none());
+        for (effort, expected_model) in [
+            ("minimal", "gemini-3.8-flash-low"),
+            ("medium", "gemini-3.8-flash-medium"),
+            ("high", "gemini-3.8-flash-high"),
+        ] {
+            let gemini = openai_to_gemini_request(
+                &json!({
+                    "model": "gemini-3.8-flash",
+                    "reasoning_effort": effort,
+                    "messages": [{"role": "user", "content": "hi"}]
+                }),
+                None,
+            )
+            .unwrap();
+            assert_eq!(gemini.model, expected_model);
+            assert!(gemini.request.get("reasoning_effort").is_none());
+        }
 
-        let claude = openai_to_gemini_request(&json!({
-            "model": "claude-sonnet-4-6",
-            "reasoning_effort": "low",
-            "messages": [{"role": "user", "content": "hi"}]
-        }), None)
+        let claude = openai_to_gemini_request(
+            &json!({
+                "model": "claude-sonnet-4-6",
+                "reasoning_effort": "low",
+                "messages": [{"role": "user", "content": "hi"}]
+            }),
+            None,
+        )
         .unwrap();
         assert_eq!(
             claude.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
@@ -617,7 +650,12 @@ mod tests {
                 "thoughtsTokenCount": 80
             }
         });
-        let chunk = gemini_to_openai_sse_chunk("gemini-3.7-flash-high", &gemini, None, &ToolParamKeys::new());
+        let chunk = gemini_to_openai_sse_chunk(
+            "gemini-3.7-flash-high",
+            &gemini,
+            None,
+            &ToolParamKeys::new(),
+        );
         assert_eq!(chunk["usage"]["prompt_tokens"], 1500);
         assert_eq!(chunk["usage"]["completion_tokens"], 20);
         assert_eq!(chunk["usage"]["total_tokens"], 1520);
@@ -629,7 +667,7 @@ mod tests {
     }
 
     #[test]
-    fn skips_thought_parts_and_unwraps_visible_latex() {
+    fn emits_thought_parts_as_reasoning_content_and_keeps_visible_content_separate() {
         let gemini = json!({
             "candidates": [{
                 "content": { "parts": [
@@ -641,6 +679,30 @@ mod tests {
         });
         let response = gemini_to_openai_response("gpt-4o", &gemini, None, &ToolParamKeys::new());
         assert_eq!(response["choices"][0]["message"]["content"], "延时 10 μs");
+        assert_eq!(
+            response["choices"][0]["message"]["reasoning_content"],
+            "内部 t_WB"
+        );
+    }
+
+    #[test]
+    fn streaming_thought_parts_emit_reasoning_content_delta() {
+        let gemini = json!({
+            "candidates": [{
+                "content": { "parts": [
+                    { "thought": true, "text": "先分析" },
+                    { "text": "答案" }
+                ] }
+            }]
+        });
+        let chunk = gemini_to_openai_sse_chunk(
+            "gemini-3.8-flash-high",
+            &gemini,
+            None,
+            &ToolParamKeys::new(),
+        );
+        assert_eq!(chunk["choices"][0]["delta"]["reasoning_content"], "先分析");
+        assert_eq!(chunk["choices"][0]["delta"]["content"], "答案");
     }
 
     #[test]
@@ -683,7 +745,12 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let _ = gemini_to_openai_response("gpt-4o", &gemini, Some("sess_chat_sig"), &ToolParamKeys::new());
+        let _ = gemini_to_openai_response(
+            "gpt-4o",
+            &gemini,
+            Some("sess_chat_sig"),
+            &ToolParamKeys::new(),
+        );
         assert_eq!(
             crate::antigravity::thought_sig::get_tool_signature("call_cache_chat").as_deref(),
             Some("tool-sig-chat")

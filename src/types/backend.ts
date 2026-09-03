@@ -275,6 +275,20 @@ export interface LocalizationHubStatus {
   editors: EditorLocalizationStatus[];
 }
 
+export interface LocalizationUpstreamRelease {
+  repository: string;
+  available: boolean;
+  version?: string | null;
+  publishedAt?: string | null;
+  message: string;
+}
+
+export interface LocalizationUpstreamStatus {
+  checkedAt: number;
+  claudeCode: LocalizationUpstreamRelease;
+  desktop: LocalizationUpstreamRelease;
+}
+
 /** Result of the `get_paths` command — surfaced on the Environment page to verify P0 detection. */
 export interface PathsInfo {
   /** Resolved user home directory. */

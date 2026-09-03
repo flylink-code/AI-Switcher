@@ -316,7 +316,11 @@ fn parse_frontmatter(content: &str) -> Frontmatter {
             continue;
         };
         let key = key.trim();
-        let value = value.trim().trim_matches('"').trim_matches('\'').to_string();
+        let value = value
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_string();
         match key {
             "name" => meta.name = Some(value),
             "description" => meta.description = Some(value),

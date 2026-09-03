@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.5**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.6**
 
-**本版**：AG 账号 RPM 限流不再拖垮整池；隐藏官方模型时仍保留你勾选的 GPT；用量日志单独标记上游 429。
+**本版**：AG 网关接入 Gemini 3.8 Flash；工具 Schema 补 items 防 400；OpenAI Chat 透传思考过程；Codex 恢复会话用量不再丢失；汉化可查上游版本。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -178,7 +178,7 @@ Anthropic Messages 兼容转发、模型映射、密钥注入、流式请求、�
 
 ### 中文化
 
-Claude Code 插件（[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) **v2.13.0**，适配 CLI 2.1.233/2.1.237）、编辑器补丁助手（[shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) **v0.1.2**）、Claude Desktop 语言包（[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) **1.4.6**，适配 Desktop 1.32885.1）。编辑器补丁始终需在编辑器内确认。安装中文时会规范化错误的 `spinnerVerbs` 数组格式。语言包下载跟踪 GitHub 最新 Release，不捆绑第三方脚本。
+Claude Code 插件（[taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) **v2.14.0**，适配 CLI 2.1.241）、编辑器补丁助手（[shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) **v0.1.2**）、Claude Desktop 语言包（[javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) **1.4.7**）。编辑器补丁始终需在编辑器内确认。安装中文时会规范化错误的 `spinnerVerbs` 数组格式。语言包下载跟踪 GitHub 最新 Release，汉化页可检查上游在线版本，不捆绑第三方脚本。
 
 ### 用量、环境与系统
 
@@ -266,7 +266,7 @@ pnpm tauri dev
 scripts\tauri-msvc.bat dev
 ```
 
-开发服务器端口为 **5250**（与 `tauri.conf.json` `devUrl` 一致）。更稳的热加载：`.\scripts\dev-hot.ps1`（或 `pnpm dev:hot`）。若 5250 被占用，脚本会临时改用 5251+ 并在编完还原配置。
+开发服务器端口为 **5250**（与 `tauri.conf.json` `devUrl` 一致）。更稳的热加载：`.\scripts\dev-hot.ps1`（或 `pnpm dev:hot`）。若 5250 被占用，脚本会临时改用 5251+ 并在编完还原配置。本地测试结束、避免 debug 抢占已安装版本：`.\scripts\clean-dev.ps1`（或 `pnpm clean:dev`；加 `launch` 会随后打开正式安装包）。
 
 ### 构建（Windows）
 

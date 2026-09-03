@@ -199,8 +199,10 @@ mod tests {
 
     #[test]
     fn quotes_paths_with_spaces() {
-        let command =
-            format_quoted_command(r"C:\Program Files\AI-Switcher\AISwitcher.exe", &["--autostart"]);
+        let command = format_quoted_command(
+            r"C:\Program Files\AI-Switcher\AISwitcher.exe",
+            &["--autostart"],
+        );
         assert_eq!(
             command,
             r#""C:\Program Files\AI-Switcher\AISwitcher.exe" --autostart"#
@@ -219,7 +221,9 @@ mod tests {
 
     #[test]
     fn approved_disabled_blob_is_detected() {
-        let disabled = [0x03, 0, 0, 0, 0x5b, 0x01, 0x5d, 0x32, 0x3a, 0x1f, 0xdd, 0x01];
+        let disabled = [
+            0x03, 0, 0, 0, 0x5b, 0x01, 0x5d, 0x32, 0x3a, 0x1f, 0xdd, 0x01,
+        ];
         assert!(!approved_means_enabled(&disabled));
         assert!(approved_means_enabled(&APPROVED_ENABLED));
     }

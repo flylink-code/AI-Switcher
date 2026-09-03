@@ -191,7 +191,8 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                             "system" | "developer" => "system",
                             _ => "user",
                         };
-                        let content = convert_responses_content(item.get("content").unwrap_or(&Value::Null));
+                        let content =
+                            convert_responses_content(item.get("content").unwrap_or(&Value::Null));
                         if !content_is_empty(&content) {
                             messages.push(json!({ "role": chat_role, "content": content }));
                         }
@@ -272,11 +273,15 @@ fn convert_responses_content(content: &Value) -> Value {
                         if let Some(url) = part
                             .get("image_url")
                             .and_then(|v| {
-                                v.as_str()
-                                    .map(str::to_string)
-                                    .or_else(|| v.get("url").and_then(Value::as_str).map(str::to_string))
+                                v.as_str().map(str::to_string).or_else(|| {
+                                    v.get("url").and_then(Value::as_str).map(str::to_string)
+                                })
                             })
-                            .or_else(|| part.pointer("/image_url/url").and_then(Value::as_str).map(str::to_string))
+                            .or_else(|| {
+                                part.pointer("/image_url/url")
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
+                            })
                         {
                             out.push(json!({
                                 "type": "image_url",
@@ -361,7 +366,8 @@ pub fn gemini_to_responses_response(
     session_key: Option<&str>,
     tool_params: &ToolParamKeys,
 ) -> Value {
-    let (text, tool_calls, finish_reason) = extract_assistant(gemini, session_key, tool_params);
+    let (text, _reasoning_content, tool_calls, finish_reason) =
+        extract_assistant(gemini, session_key, tool_params);
     let mut output = Vec::new();
     if !text.is_empty() {
         output.push(json!({
@@ -457,7 +463,7 @@ impl ResponsesStreamEncoder {
         let mut out = String::new();
         self.ensure_started(&mut out);
         self.note_usage(gemini);
-        let (text, tool_calls, finish_reason) =
+        let (text, _reasoning_content, tool_calls, finish_reason) =
             extract_assistant(gemini, self.session_key.as_deref(), &self.tool_params);
         if finish_reason == "length" {
             self.status = "incomplete".into();
@@ -757,10 +763,7 @@ pub fn responses_compact_stub(body: &Value) -> Value {
         .get("model")
         .and_then(Value::as_str)
         .unwrap_or("antigravity");
-    let text = body
-        .get("input")
-        .map(summarize_input)
-        .unwrap_or_default();
+    let text = body.get("input").map(summarize_input).unwrap_or_default();
     let clipped: String = text.chars().take(4000).collect();
     json!({
         "id": format!("resp_{}", Uuid::new_v4().simple()),
@@ -823,9 +826,30 @@ mod tests {
         });
         let parts = responses_to_gemini_request(&body, None).unwrap();
         assert!(parts.model.contains("flash"));
-        assert!(parts.model.contains("high") || parts.model.ends_with("-high") || parts.model.contains("flash"));
+        assert!(
+            parts.model.contains("high")
+                || parts.model.ends_with("-high")
+                || parts.model.contains("flash")
+        );
         assert!(parts.request.get("systemInstruction").is_some());
         assert!(!parts.stream);
+    }
+
+    #[test]
+    fn responses_reasoning_effort_controls_gemini_38_flash_tier() {
+        for (effort, expected_model) in [
+            ("low", "gemini-3.8-flash-low"),
+            ("medium", "gemini-3.8-flash-medium"),
+            ("high", "gemini-3.8-flash-high"),
+        ] {
+            let body = json!({
+                "model": "gemini-3.8-flash",
+                "input": "hi",
+                "reasoning": { "effort": effort },
+            });
+            let parts = responses_to_gemini_request(&body, None).unwrap();
+            assert_eq!(parts.model, expected_model);
+        }
     }
 
     #[test]
@@ -867,7 +891,8 @@ mod tests {
 
     #[test]
     fn stream_encoder_emits_created_and_completed() {
-        let mut enc = ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new(), None);
+        let mut enc =
+            ResponsesStreamEncoder::new("gemini-3.6-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "hello" }] },
@@ -895,7 +920,8 @@ mod tests {
 
     #[test]
     fn stream_encoder_counts_thoughts_in_output_and_reasoning_details() {
-        let mut enc = ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new(), None);
+        let mut enc =
+            ResponsesStreamEncoder::new("gemini-3.7-flash-high", ToolParamKeys::new(), None);
         let chunk = json!({
             "candidates": [{
                 "content": { "parts": [{ "text": "ok" }] },

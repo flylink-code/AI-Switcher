@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  checkLocalizationUpstream,
   downloadDesktopLocalizationPack,
   installClaudeCodeLocalization,
   installDesktopLocalization,
@@ -110,6 +111,11 @@ export default function DesktopLocalizationPage() {
     onError: (error) => void message.error(errorMessage(error)),
   });
 
+  const checkUpstream = useMutation({
+    mutationFn: checkLocalizationUpstream,
+    onError: (error) => void message.error(errorMessage(error)),
+  });
+
   const installEditorHelper = useMutation({
     mutationFn: installEditorLocalizationHelper,
     onSuccess: async (result) => {
@@ -124,6 +130,7 @@ export default function DesktopLocalizationPage() {
     downloadPack.isPending ||
     install.isPending ||
     restore.isPending ||
+    checkUpstream.isPending ||
     installClaudeCode.isPending ||
     installEditorHelper.isPending;
   const diagnostics = useMemo(
@@ -205,6 +212,49 @@ export default function DesktopLocalizationPage() {
               </Card>
             ))}
           </Space>
+        )}
+      </Card>
+      <Card
+        size="small"
+        className="page-surface"
+        title={t("env.localization.upstreamTitle")}
+        extra={
+          <Button
+            size="small"
+            icon={<ReloadOutlined spin={checkUpstream.isPending} />}
+            disabled={busy}
+            onClick={() => checkUpstream.mutate()}
+          >
+            {t("env.localization.checkOnline")}
+          </Button>
+        }
+      >
+        {!checkUpstream.data ? (
+          <Text type="secondary">{t("env.localization.upstreamNotChecked")}</Text>
+        ) : (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label={t("env.localization.claudeCodeTitle")}>
+              <Tag color={checkUpstream.data.claudeCode.available ? "green" : "orange"}>
+                {checkUpstream.data.claudeCode.available
+                  ? t("env.localization.onlineAvailable")
+                  : t("env.localization.onlineUnavailable")}
+              </Tag>
+              <Text> {checkUpstream.data.claudeCode.version ?? "—"}</Text>
+              <Text type="secondary"> {checkUpstream.data.claudeCode.message}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.title")}>
+              <Tag color={checkUpstream.data.desktop.available ? "green" : "orange"}>
+                {checkUpstream.data.desktop.available
+                  ? t("env.localization.onlineAvailable")
+                  : t("env.localization.onlineUnavailable")}
+              </Tag>
+              <Text> {checkUpstream.data.desktop.version ?? "—"}</Text>
+              <Text type="secondary"> {checkUpstream.data.desktop.message}</Text>
+            </Descriptions.Item>
+            <Descriptions.Item label={t("env.localization.checkedAt")}>
+              {new Date(checkUpstream.data.checkedAt).toLocaleString()}
+            </Descriptions.Item>
+          </Descriptions>
         )}
       </Card>
       <OnboardingTip

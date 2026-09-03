@@ -93,11 +93,7 @@ mod tests {
     fn sync_writes_enabled_and_preserves_other_keys() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("cline_mcp_settings.json");
-        fs::write(
-            &path,
-            r#"{"keep":1,"mcpServers":{"old":{"command":"x"}}}"#,
-        )
-        .unwrap();
+        fs::write(&path, r#"{"keep":1,"mcpServers":{"old":{"command":"x"}}}"#).unwrap();
 
         sync_mcp_servers_at(&path, &[server("alpha", true), server("beta", false)]).unwrap();
 

@@ -81,9 +81,7 @@ fn lock_manager() -> std::sync::MutexGuard<'static, Option<GatewayManager>> {
     match manager_slot().lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
-            log::error!(
-                "Antigravity gateway manager mutex was poisoned; recovering inner state"
-            );
+            log::error!("Antigravity gateway manager mutex was poisoned; recovering inner state");
             poisoned.into_inner()
         }
     }
@@ -190,13 +188,11 @@ pub fn set_limiter_settings(settings: LimiterSettings) -> AppResult<LimiterSetti
     settings.validate()?;
     with_manager(|manager| {
         manager.limiter.apply_settings(&settings)?;
-        manager
-            .db
-            .with_conn(|conn| {
-                let raw = serde_json::to_string(&settings)
-                    .map_err(|error| AppError::Other(format!("序列化限速配置失败: {error}")))?;
-                set_setting(conn, LIMITER_SETTING, &raw)
-            })?;
+        manager.db.with_conn(|conn| {
+            let raw = serde_json::to_string(&settings)
+                .map_err(|error| AppError::Other(format!("序列化限速配置失败: {error}")))?;
+            set_setting(conn, LIMITER_SETTING, &raw)
+        })?;
         Ok(())
     })?;
     get_limiter_settings()
@@ -253,7 +249,9 @@ pub fn set_gateway_port(port: u16) -> AppResult<()> {
         return Err(AppError::Config("端口无效".into()));
     }
     with_manager(|manager| {
-        manager.db.with_conn(|conn| set_setting(conn, PORT_SETTING, &port.to_string()))?;
+        manager
+            .db
+            .with_conn(|conn| set_setting(conn, PORT_SETTING, &port.to_string()))?;
         Ok(())
     })
 }
@@ -295,7 +293,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
             .is_some_and(|runtime| !runtime.handle.is_finished())
         {
             // Idempotent start — UI / Desktop switch often re-enter.
-            let _ = manager.db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
+            let _ = manager
+                .db
+                .with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"));
             drop(slot);
             return gateway_status();
         }
@@ -347,14 +347,29 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .route("/healthz", get(handlers::health))
         .route("/v1/models", get(handlers::list_models))
         .route("/v1/messages", any(handlers::anthropic_messages))
-        .route("/v1/chat/completions", any(handlers::openai_chat_completions))
+        .route(
+            "/v1/chat/completions",
+            any(handlers::openai_chat_completions),
+        )
         .route("/chat/completions", any(handlers::openai_chat_completions))
         .route("/v1/responses", any(handlers::openai_responses))
         .route("/responses", any(handlers::openai_responses))
-        .route("/v1/responses/compact", any(handlers::openai_responses_compact))
-        .route("/responses/compact", any(handlers::openai_responses_compact))
-        .route("/v1/images/generations", any(handlers::openai_images_generations))
-        .route("/images/generations", any(handlers::openai_images_generations))
+        .route(
+            "/v1/responses/compact",
+            any(handlers::openai_responses_compact),
+        )
+        .route(
+            "/responses/compact",
+            any(handlers::openai_responses_compact),
+        )
+        .route(
+            "/v1/images/generations",
+            any(handlers::openai_images_generations),
+        )
+        .route(
+            "/images/generations",
+            any(handlers::openai_images_generations),
+        )
         .with_state(state)
         .layer(CorsLayer::permissive());
 
@@ -413,9 +428,7 @@ pub async fn restore_gateway_if_enabled() {
             .with_conn(|conn| get_setting(conn, ENABLED_SETTING))
             .ok()
             .flatten()
-            .is_some_and(|value| {
-                matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on")
-            });
+            .is_some_and(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"));
         if flagged {
             return Ok(true);
         }

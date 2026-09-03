@@ -101,7 +101,8 @@ pub fn cache_session_index_signature(session_key: &str, index: usize, signature:
     }
     let mut guard = lock();
     let map_key = (key.to_string(), index);
-    if guard.session_index.len() >= MAX_SESSION_INDEX_SIGS && !guard.session_index.contains_key(&map_key)
+    if guard.session_index.len() >= MAX_SESSION_INDEX_SIGS
+        && !guard.session_index.contains_key(&map_key)
     {
         if let Some(evict) = guard.session_index.keys().next().cloned() {
             guard.session_index.remove(&evict);
@@ -151,7 +152,10 @@ mod tests {
     fn tool_and_session_cache_roundtrip() {
         assert_eq!(get_tool_signature("toolu_mod_rt"), None);
         cache_tool_signature("toolu_mod_rt", "sig-abc");
-        assert_eq!(get_tool_signature("toolu_mod_rt").as_deref(), Some("sig-abc"));
+        assert_eq!(
+            get_tool_signature("toolu_mod_rt").as_deref(),
+            Some("sig-abc")
+        );
 
         assert_eq!(get_session_signature("sess_mod_rt"), None);
         cache_session_signature("sess_mod_rt", "short");

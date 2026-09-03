@@ -78,10 +78,7 @@ pub fn classify_rate_limit_body(body: &str) -> RateLimitKind {
 /// Helper to detect URL/node-level rate limits (e.g. "Resource has been exhausted" on daily cluster)
 /// where failing over to production cloudcode-pa endpoint can succeed (mirrors sub2api).
 pub fn is_url_level_rate_limit(body: &str) -> bool {
-    matches!(
-        classify_rate_limit_429(body, 0),
-        RateLimitKind::UrlLevel
-    )
+    matches!(classify_rate_limit_429(body, 0), RateLimitKind::UrlLevel)
 }
 
 /// Parse the `Retry-After` header as whole seconds (integer form only).
@@ -110,10 +107,7 @@ fn rpm_backoff_delay(attempt: u32) -> Duration {
     }
 }
 
-fn rebuild_rate_limited_response(
-    text: String,
-    retry_after: Option<u64>,
-) -> reqwest::Response {
+fn rebuild_rate_limited_response(text: String, retry_after: Option<u64>) -> reqwest::Response {
     let mut builder = http::Response::builder().status(429);
     if let Some(secs) = retry_after {
         builder = builder.header("retry-after", secs.to_string());
@@ -303,9 +297,7 @@ impl UpstreamClient {
                             let kind = classify_rate_limit_429(&text, idx);
                             last_error = format!("upstream 429: {text}");
                             match kind {
-                                RateLimitKind::UrlLevel
-                                    if idx == 0 && !url_fallback_used =>
-                                {
+                                RateLimitKind::UrlLevel if idx == 0 && !url_fallback_used => {
                                     url_fallback_used = true;
                                     self.mark_daily_limited();
                                     let next_base = UPSTREAM_FALLBACKS[1];
@@ -316,14 +308,13 @@ impl UpstreamClient {
                                     tokio::time::sleep(Duration::from_millis(150)).await;
                                     break;
                                 }
-                                RateLimitKind::ModelQuotaExhausted
-                                    if rpm_backoff_attempt < 1 =>
-                                {
+                                RateLimitKind::ModelQuotaExhausted if rpm_backoff_attempt < 1 => {
                                     rpm_backoff_attempt += 1;
                                     log::debug!(
                                         "Antigravity 429 model quota on {url}; same-host retry {rpm_backoff_attempt}/1"
                                     );
-                                    tokio::time::sleep(rpm_backoff_delay(rpm_backoff_attempt)).await;
+                                    tokio::time::sleep(rpm_backoff_delay(rpm_backoff_attempt))
+                                        .await;
                                     continue;
                                 }
                                 RateLimitKind::ModelQuotaExhausted => {

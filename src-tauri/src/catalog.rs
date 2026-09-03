@@ -11,16 +11,16 @@ use serde_json::{json, Value};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::provider::{
-    catalog_models_from_provider, resolve_upstream_model,
-    ProtocolType, Provider, ProviderTarget, CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID,
-    CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
+    catalog_models_from_provider, resolve_upstream_model, ProtocolType, Provider, ProviderTarget,
+    CLAUDE_FABLE_ROLE_ID, CLAUDE_HAIKU_ROLE_ID, CLAUDE_OPUS_ROLE_ID, CLAUDE_SONNET_ROLE_ID,
 };
 
 pub const GATEWAY_CATALOG_CODE_KEY: &str = "gateway_catalog_claude_code";
 pub const GATEWAY_CATALOG_CODEX_KEY: &str = "gateway_catalog_codex";
 pub const GATEWAY_CATALOG_CODE_SUBAGENT_KEY: &str = "gateway_catalog_claude_code_subagent";
 pub const GATEWAY_CATALOG_CODEX_SUBAGENT_KEY: &str = "gateway_catalog_codex_subagent";
-pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY: &str = "gateway_catalog_hide_official_claude_code";
+pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY: &str =
+    "gateway_catalog_hide_official_claude_code";
 pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY: &str = "gateway_catalog_hide_official_codex";
 
 pub fn setting_key(target: ProviderTarget) -> Option<&'static str> {
@@ -119,7 +119,11 @@ pub fn provider_slug(name: &str, id: &str) -> String {
         .collect();
     let slug = slug.trim_matches('-').to_string();
     if slug.is_empty() {
-        let short = id.chars().filter(|c| c.is_ascii_alphanumeric()).take(8).collect::<String>();
+        let short = id
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .take(8)
+            .collect::<String>();
         if short.is_empty() {
             "provider".to_string()
         } else {
@@ -170,7 +174,10 @@ pub fn collect_provider_slugs_with(
     provider.filter_hidden_models(ids)
 }
 
-pub fn build_catalog(style: CatalogStyle, providers: &[(Provider, Vec<String>)]) -> Vec<CatalogEntry> {
+pub fn build_catalog(
+    style: CatalogStyle,
+    providers: &[(Provider, Vec<String>)],
+) -> Vec<CatalogEntry> {
     build_catalog_with(style, providers, false)
 }
 
@@ -614,10 +621,7 @@ mod tests {
         let kimi = provider("p1", "Kimi", "kimi-k2");
         let ds = provider("p2", "DeepSeek", "deepseek-v3");
         let providers = vec![kimi.clone(), ds.clone()];
-        let catalog = build_catalog(
-            CatalogStyle::Claude,
-            &[(kimi, vec![]), (ds, vec![])],
-        );
+        let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![]), (ds, vec![])]);
         assert_eq!(
             resolve_request(&catalog, &providers, "claude.kimi.kimi-k2"),
             Some(("p1".into(), "kimi-k2".into()))
@@ -681,7 +685,11 @@ mod tests {
     fn hide_official_keeps_explicit_default_and_drops_suggested_slugs() {
         let mut relay = provider("p1", "sub2api", "gpt-5.4-mini");
         relay.failover_models = vec!["kimi-k2".into()];
-        let cached = vec!["gpt-5.6-luna".into(), "gpt-5.4-mini".into(), "kimi-k2".into()];
+        let cached = vec![
+            "gpt-5.6-luna".into(),
+            "gpt-5.4-mini".into(),
+            "kimi-k2".into(),
+        ];
         let visible = collect_provider_slugs_with(&relay, &cached, true);
         assert!(visible.iter().any(|id| id == "gpt-5.4-mini"));
         assert!(visible.iter().any(|id| id == "kimi-k2"));
@@ -718,11 +726,8 @@ mod tests {
         ag.is_current = true;
         let relay = provider("p2", "sub2api", "gpt-5.4-mini");
         let providers = vec![ag.clone(), relay.clone()];
-        let catalog = build_catalog_with(
-            CatalogStyle::Codex,
-            &[(ag, vec![]), (relay, vec![])],
-            true,
-        );
+        let catalog =
+            build_catalog_with(CatalogStyle::Codex, &[(ag, vec![]), (relay, vec![])], true);
         assert_eq!(
             normalize_client_request(
                 CatalogStyle::Codex,
@@ -827,8 +832,7 @@ mod tests {
             false,
         );
         assert_eq!(
-            routed,
-            "claude.antigravity--built-in.gemini-3.6-flash-low",
+            routed, "claude.antigravity--built-in.gemini-3.6-flash-low",
             "Haiku/Explore must use the catalog subagent, not the current default high"
         );
     }

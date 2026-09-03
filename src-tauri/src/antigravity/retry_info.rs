@@ -15,8 +15,7 @@ pub enum SmartRetry {
 
 pub fn classify_retry(body: &str, retry_after_header: Option<u64>) -> SmartRetry {
     let lower = body.to_ascii_lowercase();
-    if lower.contains("model_capacity_exhausted") || lower.contains("model capacity exhausted")
-    {
+    if lower.contains("model_capacity_exhausted") || lower.contains("model capacity exhausted") {
         return SmartRetry::CapacityNoPoolWalk;
     }
     let delay = parse_retry_delay(body)
@@ -85,7 +84,10 @@ mod tests {
     #[test]
     fn capacity_exhausted_does_not_walk_pool() {
         let body = "MODEL_CAPACITY_EXHAUSTED: no capacity";
-        assert_eq!(classify_retry(body, Some(30)), SmartRetry::CapacityNoPoolWalk);
+        assert_eq!(
+            classify_retry(body, Some(30)),
+            SmartRetry::CapacityNoPoolWalk
+        );
     }
 
     #[test]

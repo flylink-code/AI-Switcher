@@ -55,8 +55,8 @@ pub fn anthropic_to_gemini_request(
     // （对照 Antigravity-Manager claude/gemini mapper），否则客户端永远
     // 看不到思考过程。但仅当客户端自己开了 thinking 时才请求——分类器等
     // thinking=disabled 的内部调用收到 thinking 块会解析失败。
-    let thoughts_allowed = matches!(thinking_kind.as_deref(), Some("enabled") | Some("adaptive"))
-        || effort.is_some();
+    let thoughts_allowed =
+        matches!(thinking_kind.as_deref(), Some("enabled") | Some("adaptive")) || effort.is_some();
     let gemini_target = lower_model.starts_with("gemini-");
     if gemini_target {
         if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
@@ -110,7 +110,8 @@ pub fn anthropic_to_gemini_request(
         .unwrap_or_default();
     // tool_use.id → tool name, so tool_result can reference the real function
     // name (Anthropic tool_result blocks only carry tool_use_id).
-    let mut tool_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut tool_names: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for message in &messages {
         if let Some(blocks) = message.get("content").and_then(Value::as_array) {
             for block in blocks {
@@ -131,7 +132,10 @@ pub fn anthropic_to_gemini_request(
             .and_then(Value::as_str)
             .unwrap_or("user");
         if role == "system" {
-            push_system_parts(message.get("content").unwrap_or(&Value::Null), &mut system_parts);
+            push_system_parts(
+                message.get("content").unwrap_or(&Value::Null),
+                &mut system_parts,
+            );
             continue;
         }
         let gemini_role = if role == "assistant" { "model" } else { "user" };
@@ -202,14 +206,11 @@ pub fn anthropic_to_gemini_request(
             .iter()
             .filter(|tool| !is_google_search_tool(tool))
             .filter_map(|tool| {
-                let name = tool
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .or_else(|| {
-                        tool.get("type")
-                            .and_then(Value::as_str)
-                            .filter(|t| crate::proxy::convert::is_claude_server_tool_type(t))
-                    })?;
+                let name = tool.get("name").and_then(Value::as_str).or_else(|| {
+                    tool.get("type")
+                        .and_then(Value::as_str)
+                        .filter(|t| crate::proxy::convert::is_claude_server_tool_type(t))
+                })?;
                 let description = tool.get("description").cloned().unwrap_or(json!(""));
                 let parameters = tool
                     .get("input_schema")
@@ -273,10 +274,7 @@ fn collect_schema_defs(schema: &Value) -> std::collections::HashMap<String, Valu
     defs
 }
 
-fn resolve_schema_ref(
-    schema: &Value,
-    defs: &std::collections::HashMap<String, Value>,
-) -> Value {
+fn resolve_schema_ref(schema: &Value, defs: &std::collections::HashMap<String, Value>) -> Value {
     let Some(pointer) = schema.get("$ref").and_then(Value::as_str) else {
         return schema.clone();
     };
@@ -346,7 +344,10 @@ fn sanitize_schema_inner(
                     if branch.get("type").and_then(Value::as_str) == Some("null") {
                         continue;
                     }
-                    if best.as_ref().map_or(true, |current| branch.len() > current.len()) {
+                    if best
+                        .as_ref()
+                        .map_or(true, |current| branch.len() > current.len())
+                    {
                         best = Some(branch);
                     }
                 }
@@ -401,6 +402,20 @@ fn sanitize_schema_inner(
         None => {}
     }
 
+    // Gemini's Schema proto requires every ARRAY node to declare `items`.
+    // JSON Schema permits unconstrained arrays (`{ "type": "array" }`), which
+    // Claude Code and MCP tools legitimately emit, but Cloud Code rejects them
+    // with a 400. Use a scalar fallback that remains valid at every nesting
+    // depth after sanitization.
+    if map
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|kind| kind.eq_ignore_ascii_case("array"))
+        && !map.contains_key("items")
+    {
+        map.insert("items".into(), json!({ "type": "string" }));
+    }
+
     map.retain(|key, _| ALLOWED_KEYS.contains(&key.as_str()));
 
     let kept_required: Option<Vec<Value>> = match (map.get("required"), map.get("properties")) {
@@ -434,7 +449,11 @@ fn sanitize_schema_inner(
     {
         map.insert("properties".into(), json!({}));
     }
-    if map.get("description").map(|d| !d.is_string()).unwrap_or(false) {
+    if map
+        .get("description")
+        .map(|d| !d.is_string())
+        .unwrap_or(false)
+    {
         map.remove("description");
     }
 
@@ -577,10 +596,9 @@ fn content_to_parts(
                 let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
                 match block_type {
                     "thinking" | "redacted_thinking" => {
-                        if let (Some(session), Some(sig)) = (
-                            session_key,
-                            block.get("signature").and_then(Value::as_str),
-                        ) {
+                        if let (Some(session), Some(sig)) =
+                            (session_key, block.get("signature").and_then(Value::as_str))
+                        {
                             thought_sig::cache_session_signature(session, sig);
                             if let Some(index) = message_index {
                                 thought_sig::cache_session_index_signature(session, index, sig);
@@ -620,16 +638,13 @@ fn content_to_parts(
                             .get("tool_use_id")
                             .and_then(Value::as_str)
                             .unwrap_or("");
-                        let name = tool_names
-                            .get(tool_use_id)
-                            .cloned()
-                            .unwrap_or_else(|| {
-                                if tool_use_id.is_empty() {
-                                    "tool".to_string()
-                                } else {
-                                    tool_use_id.to_string()
-                                }
-                            });
+                        let name = tool_names.get(tool_use_id).cloned().unwrap_or_else(|| {
+                            if tool_use_id.is_empty() {
+                                "tool".to_string()
+                            } else {
+                                tool_use_id.to_string()
+                            }
+                        });
                         let result = tool_result_text(block.get("content").unwrap_or(&Value::Null));
                         let mut function_response =
                             json!({ "name": name, "response": { "result": result } });
@@ -693,7 +708,9 @@ pub fn gemini_to_anthropic_response(
     }
     let usage = GeminiUsage::parse(gemini).anthropic_usage();
     let stop_reason = assistant.stop_reason.unwrap_or_else(|| {
-        if content.iter().any(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
+        if content
+            .iter()
+            .any(|block| block.get("type").and_then(Value::as_str) == Some("tool_use"))
         {
             "tool_use".into()
         } else {
@@ -892,7 +909,10 @@ pub fn gemini_to_anthropic_sse_chunk(
     for tool in &assistant.tools {
         let index = state.next_index;
         state.next_index += 1;
-        let id = tool.get("id").cloned().unwrap_or(json!(format!("toolu_{index}")));
+        let id = tool
+            .get("id")
+            .cloned()
+            .unwrap_or(json!(format!("toolu_{index}")));
         let name = tool.get("name").cloned().unwrap_or(json!("tool"));
         let input = tool.get("input").cloned().unwrap_or(json!({}));
         events.push(json!({
@@ -991,7 +1011,11 @@ fn extract_assistant(
                 // thought parts：签名照常进缓存（供下轮回注），但思考文本
                 // 只在客户端开了 thinking 时才透传为 thinking 块——分类器等
                 // thinking=disabled 的调用解析不了 thinking 块。
-                if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
+                if part
+                    .get("thought")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
                     if let Some(sig) = signature {
                         if let Some(session) = session_key {
                             thought_sig::cache_session_signature(session, sig);
@@ -1213,10 +1237,14 @@ mod tests {
         });
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(!parts.thoughts_allowed);
-        assert!(parts.request["generationConfig"].get("thinkingConfig").is_none()
-            || parts.request["generationConfig"]["thinkingConfig"]
-                .get("includeThoughts")
-                .is_none());
+        assert!(
+            parts.request["generationConfig"]
+                .get("thinkingConfig")
+                .is_none()
+                || parts.request["generationConfig"]["thinkingConfig"]
+                    .get("includeThoughts")
+                    .is_none()
+        );
 
         let gemini = json!({
             "candidates": [{
@@ -1258,7 +1286,9 @@ mod tests {
             false,
             &no_params(),
         );
-        assert!(events.iter().all(|e| e["delta"]["type"] != "thinking_delta"));
+        assert!(events
+            .iter()
+            .all(|e| e["delta"]["type"] != "thinking_delta"));
     }
 
     #[test]
@@ -1320,13 +1350,8 @@ mod tests {
                 "finishReason": "STOP"
             }]
         });
-        let response = gemini_to_anthropic_response(
-            "gemini-3.6-flash",
-            &gemini,
-            None,
-            false,
-            &no_params(),
-        );
+        let response =
+            gemini_to_anthropic_response("gemini-3.6-flash", &gemini, None, false, &no_params());
         assert_eq!(response["content"][0]["input"]["contents"], "重量 ≤ 50g");
         assert_eq!(
             response["content"][1]["input"]["old_string"],
@@ -1355,7 +1380,14 @@ mod tests {
             }]
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
+        let events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk,
+            None,
+            true,
+            &no_params(),
+        );
         assert!(events.iter().any(|event| event["type"] == "message_start"));
         assert!(events
             .iter()
@@ -1374,17 +1406,33 @@ mod tests {
             "usageMetadata": { "candidatesTokenCount": 1 }
         });
         let mut state = AnthropicStreamState::default();
-        let events = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
+        let events = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk,
+            None,
+            true,
+            &no_params(),
+        );
         let stops = events
             .iter()
             .filter(|event| event["type"] == "message_stop")
             .count();
         assert_eq!(stops, 1);
-        assert!(events.iter().any(|event| event["type"] == "content_block_stop"));
+        assert!(events
+            .iter()
+            .any(|event| event["type"] == "content_block_stop"));
         assert!(state.is_closed());
         // closed 之后不再产出事件；finish_events 幂等。
-        assert!(gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params())
-            .is_empty());
+        assert!(gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk,
+            None,
+            true,
+            &no_params()
+        )
+        .is_empty());
         assert!(state.finish_events("gemini-3.6-flash-high").is_empty());
     }
 
@@ -1538,7 +1586,14 @@ mod tests {
                 { "thought": true, "text": "打算先读配置" }
             ] } }]
         });
-        let e1 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk1, None, true, &no_params());
+        let e1 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk1,
+            None,
+            true,
+            &no_params(),
+        );
         let start = e1
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1553,7 +1608,14 @@ mod tests {
                 { "thought": true, "thoughtSignature": "sig-stream-2" }
             ] } }]
         });
-        let e2 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk2, None, true, &no_params());
+        let e2 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk2,
+            None,
+            true,
+            &no_params(),
+        );
         assert!(e2.iter().any(|e| e["delta"]["type"] == "signature_delta"
             && e["delta"]["signature"] == "sig-stream-2"));
         assert!(e2
@@ -1568,7 +1630,14 @@ mod tests {
             }],
             "usageMetadata": { "candidatesTokenCount": 2 }
         });
-        let e3 = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk3, None, true, &no_params());
+        let e3 = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk3,
+            None,
+            true,
+            &no_params(),
+        );
         let text_start = e3
             .iter()
             .find(|e| e["type"] == "content_block_start")
@@ -1578,10 +1647,7 @@ mod tests {
         assert!(e3
             .iter()
             .any(|e| e["type"] == "content_block_stop" && e["index"] == 1));
-        assert_eq!(
-            e3.iter().filter(|e| e["type"] == "message_stop").count(),
-            1
-        );
+        assert_eq!(e3.iter().filter(|e| e["type"] == "message_stop").count(), 1);
     }
 
     #[test]
@@ -1592,13 +1658,23 @@ mod tests {
                 { "thought": true, "text": "半截思考" }
             ] } }]
         });
-        let _ = gemini_to_anthropic_sse_chunk(&mut state, "gemini-3.6-flash-high", &chunk, None, true, &no_params());
+        let _ = gemini_to_anthropic_sse_chunk(
+            &mut state,
+            "gemini-3.6-flash-high",
+            &chunk,
+            None,
+            true,
+            &no_params(),
+        );
         let events = state.finish_events("gemini-3.6-flash-high");
         assert!(events
             .iter()
             .any(|e| e["type"] == "content_block_stop" && e["index"] == 0));
         assert_eq!(
-            events.iter().filter(|e| e["type"] == "message_stop").count(),
+            events
+                .iter()
+                .filter(|e| e["type"] == "message_stop")
+                .count(),
             1
         );
         assert!(state.is_closed());
@@ -1702,24 +1778,25 @@ mod tests {
 
     #[test]
     fn effort_drives_gemini_suffix() {
-        let body = json!({
-            "model": "gemini-3.6-flash",
-            "max_tokens": 128,
-            "output_config": { "effort": "high" },
-            "messages": [{"role": "user", "content": "hi"}]
-        });
-        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
-        assert!(parts.model.starts_with("gemini-"));
-        assert!(
-            parts.model.ends_with("-high") || parts.model.contains("-high"),
-            "expected high suffix, got {}",
-            parts.model
-        );
-        assert_eq!(parts.remember_effort, Some("high"));
-        // Anthropic-only fields never leak into the Gemini request body.
-        assert!(parts.request.get("output_config").is_none());
-        assert!(parts.request.get("thinking").is_none());
-        assert!(parts.request.get("effort").is_none());
+        for (effort, expected_model) in [
+            ("low", "gemini-3.8-flash-low"),
+            ("medium", "gemini-3.8-flash-medium"),
+            ("high", "gemini-3.8-flash-high"),
+        ] {
+            let body = json!({
+                "model": "gemini-3.8-flash",
+                "max_tokens": 128,
+                "output_config": { "effort": effort },
+                "messages": [{"role": "user", "content": "hi"}]
+            });
+            let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+            assert_eq!(parts.model, expected_model);
+            assert_eq!(parts.remember_effort, Some(effort));
+            // Anthropic-only fields never leak into the Gemini request body.
+            assert!(parts.request.get("output_config").is_none());
+            assert!(parts.request.get("thinking").is_none());
+            assert!(parts.request.get("effort").is_none());
+        }
     }
 
     #[test]
@@ -1861,7 +1938,10 @@ mod tests {
             parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
             json!(8192)
         );
-        assert_eq!(parts.request["generationConfig"]["maxOutputTokens"], json!(8193));
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(8193)
+        );
     }
 
     #[test]
@@ -1892,6 +1972,31 @@ mod tests {
         assert_eq!(
             parts.request["toolConfig"]["includeServerSideToolInvocations"],
             json!(true)
+        );
+    }
+
+    #[test]
+    fn sanitize_schema_supplies_items_for_nested_unconstrained_arrays() {
+        let schema = json!({
+            "type": "object",
+            "properties": {
+                "outer": {
+                    "type": "array",
+                    "items": {
+                        "type": "array"
+                    }
+                },
+                "plain": {
+                    "type": "array"
+                }
+            }
+        });
+
+        let sanitized = sanitize_schema(&schema, 0);
+        assert_eq!(sanitized["properties"]["plain"]["items"]["type"], "string");
+        assert_eq!(
+            sanitized["properties"]["outer"]["items"]["items"]["type"],
+            "string"
         );
     }
 }

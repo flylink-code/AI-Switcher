@@ -183,9 +183,7 @@ impl AccountStore {
         match self.inner.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
-                log::error!(
-                    "Antigravity account store mutex was poisoned; recovering inner state"
-                );
+                log::error!("Antigravity account store mutex was poisoned; recovering inner state");
                 poisoned.into_inner()
             }
         }
@@ -195,9 +193,7 @@ impl AccountStore {
         match self.client.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
-                log::error!(
-                    "Antigravity account HTTP client mutex was poisoned; recovering"
-                );
+                log::error!("Antigravity account HTTP client mutex was poisoned; recovering");
                 poisoned.into_inner()
             }
         }
@@ -216,7 +212,11 @@ impl AccountStore {
                 .filter_map(|account| account.quota.as_ref())
                 .flat_map(|quota| quota.models.clone()),
         );
-        Ok(guard.accounts.iter().map(AntigravityAccountPublic::from).collect())
+        Ok(guard
+            .accounts
+            .iter()
+            .map(AntigravityAccountPublic::from)
+            .collect())
     }
 
     pub fn list_accounts(&self) -> AppResult<Vec<AntigravityAccount>> {
@@ -242,7 +242,11 @@ impl AccountStore {
 
     pub fn set_active_account(&self, account_id: &str) -> AppResult<()> {
         let mut guard = self.lock_accounts();
-        if !guard.accounts.iter().any(|account| account.id == account_id) {
+        if !guard
+            .accounts
+            .iter()
+            .any(|account| account.id == account_id)
+        {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
         }
         for account in &mut guard.accounts {
@@ -276,7 +280,10 @@ impl AccountStore {
         Ok(added.max(1))
     }
 
-    pub fn upsert_account(&self, mut account: AntigravityAccount) -> AppResult<AntigravityAccountPublic> {
+    pub fn upsert_account(
+        &self,
+        mut account: AntigravityAccount,
+    ) -> AppResult<AntigravityAccountPublic> {
         let mut guard = self.lock_accounts();
         let existing_index = guard
             .accounts
@@ -474,7 +481,10 @@ impl AccountStore {
     /// Force a token renewal after Cloud Code rejects an access token before its
     /// locally recorded expiry. Google can invalidate a token early after a
     /// session/policy change, so timestamp checks alone are insufficient.
-    pub fn force_refresh_access_token(&self, account_id: &str) -> AppResult<(String, AntigravityAccount)> {
+    pub fn force_refresh_access_token(
+        &self,
+        account_id: &str,
+    ) -> AppResult<(String, AntigravityAccount)> {
         let refresh_token = {
             let guard = self.lock_accounts();
             guard
@@ -512,7 +522,9 @@ impl AccountStore {
             .timeout(std::time::Duration::from_secs(20))
             .no_proxy()
             .build()
-            .map_err(|error| AppError::Other(format!("创建直连 Google Token 客户端失败: {error}")))?;
+            .map_err(|error| {
+                AppError::Other(format!("创建直连 Google Token 客户端失败: {error}"))
+            })?;
         match refresh_token_with_client(&direct, refresh_token) {
             Ok(response) => Ok(response),
             Err(direct_error) => {
@@ -526,56 +538,63 @@ impl AccountStore {
     }
 }
 
-fn refresh_token_with_client(client: &Client, refresh_token: &str) -> AppResult<TokenRefreshResponse> {
+fn refresh_token_with_client(
+    client: &Client,
+    refresh_token: &str,
+) -> AppResult<TokenRefreshResponse> {
     let response = client
-            .post(TOKEN_URL)
-            .form(&[
-                ("client_id", OAUTH_CLIENT_ID),
-                ("client_secret", OAUTH_CLIENT_SECRET),
-                ("refresh_token", refresh_token),
-                ("grant_type", "refresh_token"),
-            ])
-            .send()
-            .map_err(|error| {
-                let kind = if error.is_timeout() {
-                    "timeout"
-                } else if error.is_connect() {
-                    "connect"
-                } else {
-                    "transport"
-                };
-                let proxy = crate::system_proxy::outbound_proxy_url()
-                    .map(|url| format!(" via {url}"))
-                    .unwrap_or_default();
-                AppError::Network(format!("network/{kind}: google token refresh failed{proxy}: {error}"))
-            })?;
-        let status = response.status();
-        let body_text = response
-            .text()
-            .map_err(|error| AppError::Other(format!("读取 Token 响应失败: {error}")))?;
-        let body: Value = serde_json::from_str(&body_text)
-            .map_err(|error| AppError::Other(format!("解析 Token 响应失败: {error}")))?;
-        if !status.is_success() {
-            let message = body
-                .get("error_description")
-                .or_else(|| body.get("error"))
-                .and_then(Value::as_str)
-                .unwrap_or("token refresh failed");
-            return Err(AppError::Other(format!("刷新 Google Token 失败: {message}")));
-        }
-        let access_token = body
-            .get("access_token")
+        .post(TOKEN_URL)
+        .form(&[
+            ("client_id", OAUTH_CLIENT_ID),
+            ("client_secret", OAUTH_CLIENT_SECRET),
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+        ])
+        .send()
+        .map_err(|error| {
+            let kind = if error.is_timeout() {
+                "timeout"
+            } else if error.is_connect() {
+                "connect"
+            } else {
+                "transport"
+            };
+            let proxy = crate::system_proxy::outbound_proxy_url()
+                .map(|url| format!(" via {url}"))
+                .unwrap_or_default();
+            AppError::Network(format!(
+                "network/{kind}: google token refresh failed{proxy}: {error}"
+            ))
+        })?;
+    let status = response.status();
+    let body_text = response
+        .text()
+        .map_err(|error| AppError::Other(format!("读取 Token 响应失败: {error}")))?;
+    let body: Value = serde_json::from_str(&body_text)
+        .map_err(|error| AppError::Other(format!("解析 Token 响应失败: {error}")))?;
+    if !status.is_success() {
+        let message = body
+            .get("error_description")
+            .or_else(|| body.get("error"))
             .and_then(Value::as_str)
-            .ok_or_else(|| AppError::Other("Token 响应缺少 access_token".into()))?
-            .to_string();
-        let expires_in = body
-            .get("expires_in")
-            .and_then(Value::as_i64)
-            .unwrap_or(3600);
-        let refresh_token = body
-            .get("refresh_token")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+            .unwrap_or("token refresh failed");
+        return Err(AppError::Other(format!(
+            "刷新 Google Token 失败: {message}"
+        )));
+    }
+    let access_token = body
+        .get("access_token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| AppError::Other("Token 响应缺少 access_token".into()))?
+        .to_string();
+    let expires_in = body
+        .get("expires_in")
+        .and_then(Value::as_i64)
+        .unwrap_or(3600);
+    let refresh_token = body
+        .get("refresh_token")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     Ok(TokenRefreshResponse {
         access_token,
         expires_in,
@@ -683,10 +702,7 @@ fn parse_one_account(item: &Value, now: i64) -> Option<AntigravityAccount> {
         .or_else(|| item.get("projectId"))
         .and_then(Value::as_str)
         .map(str::to_string);
-    let name = item
-        .get("name")
-        .and_then(Value::as_str)
-        .map(str::to_string);
+    let name = item.get("name").and_then(Value::as_str).map(str::to_string);
     let id = item
         .get("id")
         .and_then(Value::as_str)

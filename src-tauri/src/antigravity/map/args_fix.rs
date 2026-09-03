@@ -35,9 +35,7 @@ pub fn param_keys_from_declarations(declarations: &[Value]) -> ToolParamKeys {
 /// Normalized comparison form: strip leading dashes, lowercase, `_` → `-`.
 /// `-n` / `n` / `N` all normalize to `n`; `output_mode` / `output-mode` match.
 fn normalize_key(key: &str) -> String {
-    key.trim_start_matches('-')
-        .to_lowercase()
-        .replace('_', "-")
+    key.trim_start_matches('-').to_lowercase().replace('_', "-")
 }
 
 /// Rename args keys that are not declared but uniquely match a declared key
@@ -112,10 +110,8 @@ mod tests {
 
     #[test]
     fn ambiguous_match_is_not_renamed() {
-        let params = ToolParamKeys::from([(
-            "Tool".to_string(),
-            vec!["-a".to_string(), "a".to_string()],
-        )]);
+        let params =
+            ToolParamKeys::from([("Tool".to_string(), vec!["-a".to_string(), "a".to_string()])]);
         // "A" 归一后同时命中 "-a" 和 "a" → 不改。
         let args = json!({ "A": 1 });
         let fixed = correct_tool_args("Tool", args, &params);
@@ -134,7 +130,10 @@ mod tests {
     fn unknown_tool_and_non_object_args_pass_through() {
         let params = grep_params();
         let args = json!({ "n": true });
-        assert_eq!(correct_tool_args("UnknownTool", args.clone(), &params), args);
+        assert_eq!(
+            correct_tool_args("UnknownTool", args.clone(), &params),
+            args
+        );
         let scalar = json!("not-an-object");
         assert_eq!(correct_tool_args("Grep", scalar.clone(), &params), scalar);
     }

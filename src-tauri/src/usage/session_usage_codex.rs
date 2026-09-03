@@ -249,6 +249,12 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
     let mut model = "unknown".to_string();
     let mut service_tier: Option<String> = None;
     let mut thread_id = "unknown".to_string();
+    // A reverted/resumed rollout uses `<thread_id>_<segment_id>.jsonl`. Its
+    // meta id stays on the logical thread, while event indexes restart in the
+    // physical segment. Use the segment for the unique request id and retain
+    // the logical thread as the stored session id.
+    let mut segment_id =
+        rollout_segment_id_from_filename(path).unwrap_or_else(|| thread_id.clone());
     let mut prev_total: Option<TokenTotals> = None;
     let mut fork_baseline_pending = false;
     let mut event_index = 0_i64;
@@ -269,6 +275,9 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
                 .and_then(Value::as_str)
             {
                 thread_id = id.to_string();
+                if segment_id == "unknown" {
+                    segment_id = thread_id.clone();
+                }
             }
             if session_meta_is_fork(&value) {
                 // Fork/subagent rollouts replay parent token history first.
@@ -296,11 +305,14 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         if let Some(next) = extract_model_name(info) {
             model = next;
         }
-        if let Some(tier) = extract_service_tier(info).or_else(|| extract_service_tier(value.pointer("/payload"))) {
+        if let Some(tier) =
+            extract_service_tier(info).or_else(|| extract_service_tier(value.pointer("/payload")))
+        {
             service_tier = Some(tier);
         }
         let billable_model = normalize_usage_model(&model, service_tier.as_deref());
-        let Some(delta) = compute_token_delta(info, &mut prev_total, &mut fork_baseline_pending) else {
+        let Some(delta) = compute_token_delta(info, &mut prev_total, &mut fork_baseline_pending)
+        else {
             continue;
         };
         let cached = delta.cached.min(delta.input);
@@ -323,7 +335,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
             skipped += 1;
             continue;
         }
-        let request_id = format!("{REQUEST_ID_PREFIX}:{thread_id}:{event_index}");
+        let request_id = format!("{REQUEST_ID_PREFIX}:{segment_id}:{event_index}");
         insert_proxy_log_with_source(
             conn,
             Some(&request_id),
@@ -352,6 +364,14 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
 
     update_session_sync_state(conn, &path_key, modified, line_offset)?;
     Ok((inserted, skipped))
+}
+
+fn rollout_segment_id_from_filename(path: &Path) -> Option<String> {
+    let stem = path.file_stem()?.to_str()?;
+    let candidate = stem.get(stem.len().checked_sub(36)?..)?;
+    uuid::Uuid::parse_str(candidate)
+        .ok()
+        .map(|value| value.hyphenated().to_string())
 }
 
 fn session_meta_is_fork(value: &Value) -> bool {
@@ -573,8 +593,51 @@ mod tests {
 
     #[test]
     fn normalize_usage_model_appends_fast_suffix() {
-        assert_eq!(normalize_usage_model("claude-opus-5", Some("fast")), "claude-opus-5-fast");
-        assert_eq!(normalize_usage_model("claude-opus-5-fast", Some("fast")), "claude-opus-5-fast");
+        assert_eq!(
+            normalize_usage_model("claude-opus-5", Some("fast")),
+            "claude-opus-5-fast"
+        );
+        assert_eq!(
+            normalize_usage_model("claude-opus-5-fast", Some("fast")),
+            "claude-opus-5-fast"
+        );
         assert_eq!(normalize_usage_model("gpt-5.6-sol", None), "gpt-5.6-sol");
+    }
+
+    #[test]
+    fn resumed_rollout_uses_physical_segment_for_request_ids() {
+        const THREAD_ID: &str = "11111111-1111-4111-8111-111111111111";
+        const SEGMENT_ID: &str = "22222222-2222-4222-8222-222222222222";
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("sessions").join(format!(
+            "rollout-2026-09-03T08-00-00-{THREAD_ID}_{SEGMENT_ID}.jsonl"
+        ));
+        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
+        std::fs::write(
+            &session,
+            format!(
+                concat!(
+                    "{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{}\"}}}}\n",
+                    "{{\"type\":\"turn_context\",\"payload\":{{\"model\":\"gpt-5.6-sol\"}}}}\n",
+                    "{{\"timestamp\":\"2026-09-03T08:00:00Z\",\"type\":\"event_msg\",\"payload\":{{\"type\":\"token_count\",\"info\":{{\"last_token_usage\":{{\"input_tokens\":10,\"cached_input_tokens\":0,\"output_tokens\":2}}}}}}}}\n"
+                ),
+                THREAD_ID,
+            ),
+        )
+        .unwrap();
+
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            assert_eq!(sync_one_file(conn, &session)?.0, 1);
+            let (request_id, session_id): (String, String) = conn.query_row(
+                "SELECT id, session_id FROM proxy_request_logs WHERE data_source = 'codex_session'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            assert_eq!(request_id, format!("{REQUEST_ID_PREFIX}:{SEGMENT_ID}:1"));
+            assert_eq!(session_id, THREAD_ID);
+            Ok(())
+        })
+        .unwrap();
     }
 }

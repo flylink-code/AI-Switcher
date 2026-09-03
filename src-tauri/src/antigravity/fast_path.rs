@@ -115,7 +115,11 @@ pub fn try_short_circuit(body: &Value, settings: &FastPathSettings) -> Option<Lo
 }
 
 pub fn detect_background_task(body: &Value) -> Option<BackgroundTask> {
-    if body.get("tools").and_then(Value::as_array).is_some_and(|t| !t.is_empty()) {
+    if body
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_some_and(|t| !t.is_empty())
+    {
         return None;
     }
     let last = last_user_text(body)?;
@@ -124,7 +128,10 @@ pub fn detect_background_task(body: &Value) -> Option<BackgroundTask> {
     }
     let preview: String = last.chars().take(500).collect();
     let lower = preview.to_ascii_lowercase();
-    if TITLE_KEYWORDS.iter().any(|kw| preview.contains(kw) || lower.contains(&kw.to_ascii_lowercase())) {
+    if TITLE_KEYWORDS
+        .iter()
+        .any(|kw| preview.contains(kw) || lower.contains(&kw.to_ascii_lowercase()))
+    {
         return Some(BackgroundTask::Title);
     }
     if SUMMARY_KEYWORDS.iter().any(|kw| preview.contains(*kw)) {
@@ -133,7 +140,10 @@ pub fn detect_background_task(body: &Value) -> Option<BackgroundTask> {
         }
         return Some(BackgroundTask::Compression);
     }
-    if SUGGESTION_KEYWORDS.iter().any(|kw| lower.contains(&kw.to_ascii_lowercase())) {
+    if SUGGESTION_KEYWORDS
+        .iter()
+        .any(|kw| lower.contains(&kw.to_ascii_lowercase()))
+    {
         return Some(BackgroundTask::Suggestion);
     }
     if PROBE_KEYWORDS.iter().any(|kw| lower.contains(*kw)) {
@@ -205,7 +215,10 @@ pub fn anthropic_message_sse(model: &str, reply: &LocalReply) -> String {
 }
 
 fn sse_event(value: &Value) -> String {
-    let event = value.get("type").and_then(Value::as_str).unwrap_or("message");
+    let event = value
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("message");
     format!("event: {event}\ndata: {value}\n\n")
 }
 
@@ -220,7 +233,11 @@ fn is_quota_check(body: &Value) -> bool {
 }
 
 fn is_title_generation(body: &Value) -> bool {
-    if body.get("tools").and_then(Value::as_array).is_some_and(|t| !t.is_empty()) {
+    if body
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_some_and(|t| !t.is_empty())
+    {
         return false;
     }
     let system = system_text(body).to_ascii_lowercase();
@@ -247,7 +264,11 @@ fn prefix_command(body: &Value) -> Option<String> {
 }
 
 fn filepath_extract(body: &Value) -> Option<(String, String)> {
-    if body.get("tools").and_then(Value::as_array).is_some_and(|t| !t.is_empty()) {
+    if body
+        .get("tools")
+        .and_then(Value::as_array)
+        .is_some_and(|t| !t.is_empty())
+    {
         return None;
     }
     let text = single_user_text(body)?;
@@ -288,7 +309,9 @@ fn extract_command_prefix(command: &str) -> String {
     let Some(first) = parts.first().cloned() else {
         return "none".into();
     };
-    const TWO_WORD: &[&str] = &["git", "npm", "docker", "kubectl", "cargo", "go", "pip", "yarn"];
+    const TWO_WORD: &[&str] = &[
+        "git", "npm", "docker", "kubectl", "cargo", "go", "pip", "yarn",
+    ];
     if TWO_WORD.contains(&first.as_str()) {
         if let Some(second) = parts.get(1) {
             if !second.starts_with('-') {
@@ -304,8 +327,14 @@ fn extract_filepaths(command: &str, _output: &str) -> String {
     let Some(base) = parts.first() else {
         return "<filepaths>\n</filepaths>".into();
     };
-    let base = base.rsplit(['/', '\\']).next().unwrap_or(base).to_ascii_lowercase();
-    const LISTING: &[&str] = &["ls", "dir", "find", "tree", "pwd", "cd", "mkdir", "rmdir", "rm"];
+    let base = base
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(base)
+        .to_ascii_lowercase();
+    const LISTING: &[&str] = &[
+        "ls", "dir", "find", "tree", "pwd", "cd", "mkdir", "rmdir", "rm",
+    ];
     const READING: &[&str] = &["cat", "head", "tail", "less", "more", "bat", "type"];
     if LISTING.contains(&base.as_str()) {
         return "<filepaths>\n</filepaths>".into();

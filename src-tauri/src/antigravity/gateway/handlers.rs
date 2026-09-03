@@ -15,11 +15,13 @@ use serde_json::{json, Value};
 
 use super::GatewayState;
 use crate::antigravity::account::store as account_store;
+use crate::antigravity::limiter::{AcquireOutcome, LimiterPermit};
 use crate::antigravity::map::anthropic::{
     anthropic_to_gemini_request, effort_mapping_diagnostic, gemini_to_anthropic_response,
     gemini_to_anthropic_sse_chunk, AnthropicStreamState,
 };
 use crate::antigravity::map::args_fix::ToolParamKeys;
+use crate::antigravity::map::list_public_models;
 use crate::antigravity::map::openai::{
     gemini_to_openai_response, gemini_to_openai_sse_chunk, openai_to_gemini_request,
 };
@@ -27,9 +29,7 @@ use crate::antigravity::map::responses::{
     gemini_to_responses_response, responses_compact_stub, responses_to_gemini_request,
     ResponsesStreamEncoder,
 };
-use crate::antigravity::map::list_public_models;
 use crate::antigravity::model_catalog;
-use crate::antigravity::limiter::{AcquireOutcome, LimiterPermit};
 use crate::antigravity::upstream::{
     classify_rate_limit_body, unwrap_v1internal, wrap_v1internal, RateLimitKind,
 };
@@ -65,10 +65,7 @@ pub async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok", "service": "ai-switcher-antigravity" }))
 }
 
-pub async fn list_models(
-    State(state): State<GatewayState>,
-    headers: HeaderMap,
-) -> Response {
+pub async fn list_models(State(state): State<GatewayState>, headers: HeaderMap) -> Response {
     if let Err(response) = authorize(&state, &headers) {
         return response;
     }
@@ -89,7 +86,9 @@ pub async fn anthropic_messages(
     }
     let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+        Err(error) => {
+            return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
+        }
     };
     let fast_path = crate::antigravity::fast_path::current_settings();
     if let Some(reply) = crate::antigravity::fast_path::try_short_circuit(&payload, &fast_path) {
@@ -104,23 +103,35 @@ pub async fn anthropic_messages(
             Some(StatusCode::OK.as_u16() as i64),
             Instant::now(),
             WireProtocol::Anthropic,
-            payload.get("stream").and_then(Value::as_bool).unwrap_or(false),
+            payload
+                .get("stream")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
             None,
             Some("fast_path"),
         );
-        if payload.get("stream").and_then(Value::as_bool).unwrap_or(false) {
+        if payload
+            .get("stream")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
             let sse = crate::antigravity::fast_path::anthropic_message_sse(model, &reply);
             return (
                 [
-                    (header::CONTENT_TYPE, HeaderValue::from_static("text/event-stream")),
+                    (
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static("text/event-stream"),
+                    ),
                     (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
                 ],
                 sse,
             )
                 .into_response();
         }
-        return Json(crate::antigravity::fast_path::anthropic_message_json(model, &reply))
-            .into_response();
+        return Json(crate::antigravity::fast_path::anthropic_message_json(
+            model, &reply,
+        ))
+        .into_response();
     }
     let session_key = session_key_from_headers(&headers);
     let sticky = session_key
@@ -139,10 +150,7 @@ pub async fn anthropic_messages(
                 object.remove("thinkingConfig");
             }
         }
-        log::info!(
-            "Antigravity background task degraded to {}",
-            mapped.model
-        );
+        log::info!("Antigravity background task degraded to {}", mapped.model);
     }
     if let (Some(session), Some(level)) = (session_key.as_deref(), mapped.remember_effort) {
         crate::antigravity::session_effort::set(session, level);
@@ -172,7 +180,9 @@ pub async fn openai_chat_completions(
     }
     let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+        Err(error) => {
+            return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
+        }
     };
     let session_key = session_key_from_headers(&headers);
     let mapped = match openai_to_gemini_request(&payload, session_key.as_deref()) {
@@ -203,7 +213,9 @@ pub async fn openai_responses(
     }
     let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+        Err(error) => {
+            return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
+        }
     };
     let session_key = session_key_from_headers(&headers);
     let mapped = match responses_to_gemini_request(&payload, session_key.as_deref()) {
@@ -235,9 +247,15 @@ pub async fn openai_responses_compact(
     }
     let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+        Err(error) => {
+            return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
+        }
     };
-    if payload.get("stream").and_then(Value::as_bool).unwrap_or(false) {
+    if payload
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
         return error_json(
             StatusCode::BAD_REQUEST,
             "Codex /responses/compact 不支持显式 stream=true",
@@ -276,7 +294,9 @@ pub async fn openai_images_generations(
     }
     let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
-        Err(error) => return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}")),
+        Err(error) => {
+            return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
+        }
     };
     let prompt = payload
         .get("prompt")
@@ -287,8 +307,14 @@ pub async fn openai_images_generations(
     if prompt.is_empty() {
         return error_json(StatusCode::BAD_REQUEST, "prompt 不能为空");
     }
-    let size = payload.get("size").and_then(Value::as_str).unwrap_or("1024x1024");
-    let quality = payload.get("quality").and_then(Value::as_str).unwrap_or("1k");
+    let size = payload
+        .get("size")
+        .and_then(Value::as_str)
+        .unwrap_or("1024x1024");
+    let quality = payload
+        .get("quality")
+        .and_then(Value::as_str)
+        .unwrap_or("1k");
     let aspect = match size {
         "512x512" | "256x256" => "1:1",
         "1792x1024" => "16:9",
@@ -300,8 +326,8 @@ pub async fn openai_images_generations(
         "4k" => "4K",
         _ => "1K",
     };
-    let model = model_catalog::preferred_gemini_flash()
-        .unwrap_or_else(|| "gemini-3.7-flash-high".into());
+    let model =
+        model_catalog::preferred_gemini_flash().unwrap_or_else(|| "gemini-3.7-flash-high".into());
     let request = json!({
         "contents": [{ "role": "user", "parts": [{ "text": prompt }] }],
         "generationConfig": {
@@ -326,7 +352,11 @@ pub async fn openai_images_generations(
         Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
     };
     let wrapped = wrap_v1internal(&project_id, &model, request);
-    let upstream = match state.upstream.generate(&access_token, &wrapped, false).await {
+    let upstream = match state
+        .upstream
+        .generate(&access_token, &wrapped, false)
+        .await
+    {
         Ok(response) => response,
         Err(error) => return error_json(StatusCode::BAD_GATEWAY, &error.to_string()),
     };
@@ -400,7 +430,10 @@ async fn dispatch_generation(
             break;
         }
         let selected = if hop == 0 {
-            state.pool.select_async(None, session_key.as_deref(), Some(&model)).await
+            state
+                .pool
+                .select_async(None, session_key.as_deref(), Some(&model))
+                .await
         } else {
             let failed = exclude.last().cloned().unwrap_or_default();
             if failed.is_empty() {
@@ -565,7 +598,8 @@ async fn dispatch_generation(
             let response = match attempt {
                 Ok(response) => response,
                 Err(GenerateAttemptError::Timeout(timeout)) => {
-                    last_error = format!("upstream attempt timeout after {}ms", timeout.as_millis());
+                    last_error =
+                        format!("upstream attempt timeout after {}ms", timeout.as_millis());
                     last_fail_status = 504;
                     state.pool.clear_session(session_key.as_deref());
                     let _ = account_store().mark_cooldown(
@@ -690,10 +724,8 @@ async fn dispatch_generation(
                 if !should_try_model_fallback_on_429(kind) {
                     state.limiter.note_upstream_rate_limited(&account.id);
                     state.pool.clear_session(session_key.as_deref());
-                    let cooldown =
-                        crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
-                    let _ =
-                        account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                    let cooldown = crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
+                    let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
                     stop_pool_walk = should_stop_pool_walk_after_429(hop, false);
                     if stop_pool_walk {
                         log::warn!(
@@ -902,37 +934,36 @@ async fn dispatch_generation(
             Ok(value) => {
                 let gemini = unwrap_v1internal(&value);
                 if let Some(id) = log_id.as_deref() {
-                    usage_log::update_usage_from_gemini(&state.db, id, Some(account_label), &gemini);
+                    usage_log::update_usage_from_gemini(
+                        &state.db,
+                        id,
+                        Some(account_label),
+                        &gemini,
+                    );
                 }
                 match protocol {
-                    WireProtocol::Anthropic => {
-                        Json(gemini_to_anthropic_response(
-                            &current_model,
-                            &gemini,
-                            session_key.as_deref(),
-                            thoughts_allowed,
-                            &tool_params,
-                        ))
-                        .into_response()
-                    }
-                    WireProtocol::OpenAiChat => {
-                        Json(gemini_to_openai_response(
-                            &current_model,
-                            &gemini,
-                            session_key.as_deref(),
-                            &tool_params,
-                        ))
-                            .into_response()
-                    }
-                    WireProtocol::OpenAiResponses => {
-                        Json(gemini_to_responses_response(
-                            &current_model,
-                            &gemini,
-                            session_key.as_deref(),
-                            &tool_params,
-                        ))
-                            .into_response()
-                    }
+                    WireProtocol::Anthropic => Json(gemini_to_anthropic_response(
+                        &current_model,
+                        &gemini,
+                        session_key.as_deref(),
+                        thoughts_allowed,
+                        &tool_params,
+                    ))
+                    .into_response(),
+                    WireProtocol::OpenAiChat => Json(gemini_to_openai_response(
+                        &current_model,
+                        &gemini,
+                        session_key.as_deref(),
+                        &tool_params,
+                    ))
+                    .into_response(),
+                    WireProtocol::OpenAiResponses => Json(gemini_to_responses_response(
+                        &current_model,
+                        &gemini,
+                        session_key.as_deref(),
+                        &tool_params,
+                    ))
+                    .into_response(),
                 }
             }
             Err(error) => error_json(
@@ -1360,9 +1391,8 @@ fn mark_retry_budget_exhausted(
 ) {
     // Do not erase an actual 429 that arrived before the budget ran out.
     if *last_fail_status != 429 {
-        *last_error = format!(
-            "upstream retry budget exhausted after {upstream_calls} upstream calls"
-        );
+        *last_error =
+            format!("upstream retry budget exhausted after {upstream_calls} upstream calls");
         *last_fail_status = 504;
     }
 }
@@ -1517,8 +1547,10 @@ fn looks_like_http_status(lower: &str, code: u16) -> bool {
     };
     let after = index + padded.len();
     let next = lower.as_bytes().get(after).copied();
-    matches!(next, None | Some(b' ') | Some(b':') | Some(b',') | Some(b'}') | Some(b'"'))
-        && lower.contains("upstream")
+    matches!(
+        next,
+        None | Some(b' ') | Some(b':') | Some(b',') | Some(b'}') | Some(b'"')
+    ) && lower.contains("upstream")
 }
 
 fn error_type_for_status(status: StatusCode) -> &'static str {
@@ -1534,9 +1566,7 @@ fn error_type_for_status(status: StatusCode) -> &'static str {
 
 fn retry_after_header(status: StatusCode, message: &str) -> Option<&'static str> {
     match status.as_u16() {
-        429 if message.contains("local rate") => {
-            Some("8")
-        }
+        429 if message.contains("local rate") => Some("8"),
         429 => Some("45"),
         504 => Some("5"),
         _ => None,
@@ -1712,11 +1742,17 @@ mod tests {
             Some("5")
         );
         assert_eq!(
-            retry_after_header(StatusCode::TOO_MANY_REQUESTS, "local rate limit: account busy"),
+            retry_after_header(
+                StatusCode::TOO_MANY_REQUESTS,
+                "local rate limit: account busy"
+            ),
             Some("8")
         );
         assert_eq!(
-            retry_after_header(StatusCode::TOO_MANY_REQUESTS, "upstream 429: RESOURCE_EXHAUSTED"),
+            retry_after_header(
+                StatusCode::TOO_MANY_REQUESTS,
+                "upstream 429: RESOURCE_EXHAUSTED"
+            ),
             Some("45")
         );
     }
@@ -1729,14 +1765,20 @@ mod tests {
         );
         assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
         assert_eq!(
-            response.headers().get(header::RETRY_AFTER).and_then(|value| value.to_str().ok()),
+            response
+                .headers()
+                .get(header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok()),
             Some("5")
         );
         let body = axum::body::to_bytes(response.into_body(), 1024)
             .await
             .unwrap();
         let payload: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(payload.pointer("/error/type").and_then(Value::as_str), Some("timeout_error"));
+        assert_eq!(
+            payload.pointer("/error/type").and_then(Value::as_str),
+            Some("timeout_error")
+        );
     }
 
     #[test]
@@ -1747,7 +1789,10 @@ mod tests {
             Some(12),
         );
         assert_eq!(
-            response.headers().get(header::RETRY_AFTER).and_then(|value| value.to_str().ok()),
+            response
+                .headers()
+                .get(header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok()),
             Some("12")
         );
     }

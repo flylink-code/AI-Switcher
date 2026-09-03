@@ -4,24 +4,34 @@
 
 use serde_json::Value;
 
+// Keep inline math conservative so shell variables and currency are not mistaken
+// for LaTeX. Display blocks are explicit (`$$...$$` / `\[...\]`) and can safely
+// contain a substantially longer Chinese business flow.
+const INLINE_MATH_MAX_CHARS: usize = 160;
+const DISPLAY_MATH_MAX_CHARS: usize = 4096;
+
 /// Convert Gemini-visible LaTeX into text Claude Code can display.
 pub fn unwrap_gemini_latex(input: &str) -> String {
     if input.is_empty() {
         return String::new();
     }
-    let display = replace_delimited(input, "$$", "$$");
-    let paren = replace_delimited(&display, "\\(", "\\)");
-    let bracket = replace_delimited(&paren, "\\[", "\\]");
-    replace_dollar_math(&bracket)
+    let display = replace_delimited(input, "$$", "$$", DISPLAY_MATH_MAX_CHARS);
+    let paren = replace_delimited(&display, "\\(", "\\)", INLINE_MATH_MAX_CHARS);
+    let bracket = replace_delimited(&paren, "\\[", "\\]", DISPLAY_MATH_MAX_CHARS);
+    replace_dollar_math(&bracket, INLINE_MATH_MAX_CHARS)
 }
 
 /// Split so an incomplete `$...` / `\(` / `\[` span stays in `hold`.
 pub fn split_safe_latex_prefix(input: &str) -> (String, String) {
-    const MAX_HOLD: usize = 160;
     let Some(idx) = incomplete_math_start(input) else {
         return (input.to_string(), String::new());
     };
-    if input.len().saturating_sub(idx) > MAX_HOLD {
+    let max_hold_chars = if input[idx..].starts_with("$$") || input[idx..].starts_with("\\[") {
+        DISPLAY_MATH_MAX_CHARS
+    } else {
+        INLINE_MATH_MAX_CHARS
+    };
+    if input[idx..].chars().count() > max_hold_chars {
         return (input.to_string(), String::new());
     }
     (input[..idx].to_string(), input[idx..].to_string())
@@ -85,7 +95,7 @@ fn incomplete_math_start(input: &str) -> Option<usize> {
     [dollar, paren, bracket].into_iter().flatten().min()
 }
 
-fn replace_delimited(input: &str, open: &str, close: &str) -> String {
+fn replace_delimited(input: &str, open: &str, close: &str, max_chars: usize) -> String {
     let mut out = String::with_capacity(input.len());
     let mut rest = input;
     while let Some(start) = rest.find(open) {
@@ -93,7 +103,7 @@ fn replace_delimited(input: &str, open: &str, close: &str) -> String {
         let after_open = &rest[start + open.len()..];
         if let Some(end) = after_open.find(close) {
             let inner = &after_open[..end];
-            if looks_like_latex(inner) {
+            if looks_like_latex(inner, max_chars) {
                 out.push_str(&decode_latex_inner(inner));
             } else {
                 out.push_str(open);
@@ -110,7 +120,7 @@ fn replace_delimited(input: &str, open: &str, close: &str) -> String {
     out
 }
 
-fn replace_dollar_math(input: &str) -> String {
+fn replace_dollar_math(input: &str, max_chars: usize) -> String {
     let mut out = String::with_capacity(input.len());
     let bytes = input.as_bytes();
     let mut i = 0;
@@ -118,7 +128,7 @@ fn replace_dollar_math(input: &str) -> String {
         if bytes[i] == b'$' && (i + 1 >= bytes.len() || bytes[i + 1] != b'$') {
             if let Some(end) = find_closing_dollar(bytes, i + 1) {
                 let inner = &input[i + 1..end];
-                if looks_like_latex(inner) {
+                if looks_like_latex(inner, max_chars) {
                     out.push_str(&decode_latex_inner(inner));
                     i = end + 1;
                     continue;
@@ -143,9 +153,9 @@ fn find_closing_dollar(bytes: &[u8], from: usize) -> Option<usize> {
     None
 }
 
-fn looks_like_latex(inner: &str) -> bool {
+fn looks_like_latex(inner: &str, max_chars: usize) -> bool {
     let trimmed = inner.trim();
-    if trimmed.is_empty() || trimmed.len() > 160 {
+    if trimmed.is_empty() || trimmed.chars().count() > max_chars {
         return false;
     }
     trimmed.contains('\\')
@@ -179,6 +189,9 @@ fn decode_latex_inner(inner: &str) -> String {
 }
 
 const LATEX_SYMBOLS: &[(&str, &str)] = &[
+    ("\\longrightarrow", "→"),
+    ("\\Longrightarrow", "⇒"),
+    ("\\longleftarrow", "←"),
     ("\\leqslant", "≤"),
     ("\\geqslant", "≥"),
     ("\\rightarrow", "→"),
@@ -337,10 +350,13 @@ mod tests {
         );
         assert_eq!(
             unwrap_gemini_latex("$3.5\\text{ ms} \\sim 10\\text{ ms}$"),
-            "3.5 ms ~ 10 ms"
+            "3.5 ms~10 ms"
         );
         assert_eq!(unwrap_gemini_latex("$0\\text{xE0}$"), "0xE0");
-        assert_eq!(unwrap_gemini_latex("标准 $0x05 \\rightarrow$ 地址"), "标准 0x05 → 地址");
+        assert_eq!(
+            unwrap_gemini_latex("标准 $0x05 \\rightarrow$ 地址"),
+            "标准 0x05 → 地址"
+        );
     }
 
     #[test]
@@ -358,7 +374,10 @@ mod tests {
     #[test]
     fn unwraps_watch_spec_units_and_comparisons() {
         assert_eq!(unwrap_gemini_latex("$\\le 50\\text{g}$"), "≤ 50g");
-        assert_eq!(unwrap_gemini_latex("延迟 $\\le 30\\text{ms}$"), "延迟 ≤ 30ms");
+        assert_eq!(
+            unwrap_gemini_latex("延迟 $\\le 30\\text{ms}$"),
+            "延迟 ≤ 30ms"
+        );
         assert_eq!(
             unwrap_gemini_latex("分辨率 $\\ge 240\\times280$ 或 $320\\times385$"),
             "分辨率 ≥ 240×280 或 320×385"
@@ -372,6 +391,19 @@ mod tests {
             "ESD 接触 ≥ ±4kV、空气 ≥ ±8kV"
         );
         assert_eq!(unwrap_gemini_latex("$\\leq 10$"), "≤ 10");
+    }
+
+    #[test]
+    fn unwraps_long_chinese_display_math() {
+        let raw = "$$\\text{无感动态感知 (双摄协同)} \\longrightarrow \\text{端侧智能抽帧打分 (NPU)} \\longrightarrow \\text{星闪/5G 低时延推送} \\longrightarrow \\text{手持警务通/后台比对} \\longrightarrow \\text{私密耳机语音预警}$$";
+        assert_eq!(
+            unwrap_gemini_latex(raw),
+            "无感动态感知 (双摄协同) → 端侧智能抽帧打分 (NPU) → 星闪/5G 低时延推送 → 手持警务通/后台比对 → 私密耳机语音预警"
+        );
+
+        let (emit, hold) = split_safe_latex_prefix(&raw[..raw.len() - 2]);
+        assert!(emit.is_empty());
+        assert_eq!(hold, &raw[..raw.len() - 2]);
     }
 
     #[test]

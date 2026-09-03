@@ -6,7 +6,9 @@
 //! will be layered on top in a later phase; for P0 we copy the file directly,
 //! which is sufficient when the DB is quiescent or WAL is checkpointed first.
 
-use crate::config::paths::{get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_skills_dir};
+use crate::config::paths::{
+    get_app_config_dir, get_app_db_path, get_backup_dir, get_claude_skills_dir,
+};
 use crate::error::{io_context, AppError, AppResult};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -151,12 +153,16 @@ pub fn export_library_backup(
     collect_managed_files(&get_claude_skills_dir(), "skills", &mut files)?;
 
     let mut entries = Vec::with_capacity(files.len());
-    let file = fs::File::create(&archive_path).map_err(|error| io_context("创建资料库备份失败", error))?;
+    let file =
+        fs::File::create(&archive_path).map_err(|error| io_context("创建资料库备份失败", error))?;
     let mut archive = ZipWriter::new(file);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     for (name, path) in &files {
-        let content = fs::read(path).map_err(|error| io_context("读取资料库备份内容失败", error))?;
-        archive.start_file(name, options).map_err(|error| AppError::Other(format!("写入资料库归档失败: {error}")))?;
+        let content =
+            fs::read(path).map_err(|error| io_context("读取资料库备份内容失败", error))?;
+        archive
+            .start_file(name, options)
+            .map_err(|error| AppError::Other(format!("写入资料库归档失败: {error}")))?;
         archive.write_all(&content)?;
         entries.push(LibraryArchiveEntry {
             path: name.clone(),
@@ -172,9 +178,13 @@ pub fn export_library_backup(
         provider_targets,
         entries,
     };
-    archive.start_file(LIBRARY_ARCHIVE_MANIFEST, options).map_err(|error| AppError::Other(format!("写入资料库清单失败: {error}")))?;
+    archive
+        .start_file(LIBRARY_ARCHIVE_MANIFEST, options)
+        .map_err(|error| AppError::Other(format!("写入资料库清单失败: {error}")))?;
     archive.write_all(&serde_json::to_vec_pretty(&manifest)?)?;
-    archive.finish().map_err(|error| AppError::Other(format!("完成资料库归档失败: {error}")))?;
+    archive
+        .finish()
+        .map_err(|error| AppError::Other(format!("完成资料库归档失败: {error}")))?;
     Ok(LibraryBackupInfo {
         archive_path: archive_path.to_string_lossy().into_owned(),
         created_at,
@@ -191,7 +201,8 @@ pub fn find_latest_library_archive(directory: &Path) -> AppResult<PathBuf> {
         )));
     }
     let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
-    for entry in fs::read_dir(directory).map_err(|error| io_context("读取归档目录失败", error))? {
+    for entry in fs::read_dir(directory).map_err(|error| io_context("读取归档目录失败", error))?
+    {
         let entry = entry.map_err(|error| io_context("读取归档目录项失败", error))?;
         let path = entry.path();
         if !path.is_file() {
@@ -224,8 +235,8 @@ pub fn find_latest_library_archive(directory: &Path) -> AppResult<PathBuf> {
 
 /// Validate a portable library ZIP and return a summary without extracting it.
 pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePreview> {
-    let metadata = fs::metadata(archive_path)
-        .map_err(|error| io_context("读取资料库归档失败", error))?;
+    let metadata =
+        fs::metadata(archive_path).map_err(|error| io_context("读取资料库归档失败", error))?;
     if !metadata.is_file() {
         return Err(AppError::Path("资料库归档路径不是文件".to_string()));
     }
@@ -233,21 +244,34 @@ pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePr
         return Err(AppError::Config("资料库归档超过 1 GB 安全限制".to_string()));
     }
 
-    let file = fs::File::open(archive_path).map_err(|error| io_context("打开资料库归档失败", error))?;
+    let file =
+        fs::File::open(archive_path).map_err(|error| io_context("打开资料库归档失败", error))?;
     let mut archive = ZipArchive::new(file)
         .map_err(|error| AppError::Config(format!("资料库归档不是有效的 ZIP 文件: {error}")))?;
     let manifest_index = (0..archive.len())
-        .find(|index| archive.by_index(*index).map(|entry| entry.name() == LIBRARY_ARCHIVE_MANIFEST).unwrap_or(false))
+        .find(|index| {
+            archive
+                .by_index(*index)
+                .map(|entry| entry.name() == LIBRARY_ARCHIVE_MANIFEST)
+                .unwrap_or(false)
+        })
         .ok_or_else(|| AppError::Config("资料库归档缺少清单文件".to_string()))?;
     let manifest: LibraryArchiveManifest = {
-        let mut entry = archive.by_index(manifest_index)
+        let mut entry = archive
+            .by_index(manifest_index)
             .map_err(|error| AppError::Config(format!("读取资料库清单失败: {error}")))?;
         let mut content = Vec::new();
-        entry.read_to_end(&mut content).map_err(|error| io_context("读取资料库清单失败", error))?;
-        serde_json::from_slice(&content).map_err(|_| AppError::Config("资料库归档清单格式无效".to_string()))?
+        entry
+            .read_to_end(&mut content)
+            .map_err(|error| io_context("读取资料库清单失败", error))?;
+        serde_json::from_slice(&content)
+            .map_err(|_| AppError::Config("资料库归档清单格式无效".to_string()))?
     };
     if manifest.version != LIBRARY_ARCHIVE_VERSION {
-        return Err(AppError::Config(format!("不支持的资料库归档版本: {}", manifest.version)));
+        return Err(AppError::Config(format!(
+            "不支持的资料库归档版本: {}",
+            manifest.version
+        )));
     }
 
     let mut expected_paths = HashSet::with_capacity(manifest.entries.len());
@@ -255,44 +279,72 @@ pub fn preview_library_backup(archive_path: &Path) -> AppResult<LibraryArchivePr
     for expected in &manifest.entries {
         validate_library_archive_path(&expected.path)?;
         if !expected_paths.insert(expected.path.as_str()) {
-            return Err(AppError::Config(format!("资料库归档清单包含重复文件: {}", expected.path)));
+            return Err(AppError::Config(format!(
+                "资料库归档清单包含重复文件: {}",
+                expected.path
+            )));
         }
         if expected.bytes > MAX_LIBRARY_ARCHIVE_ENTRY_BYTES {
-            return Err(AppError::Config(format!("资料库归档条目超过 256 MB 限制: {}", expected.path)));
+            return Err(AppError::Config(format!(
+                "资料库归档条目超过 256 MB 限制: {}",
+                expected.path
+            )));
         }
-        total_bytes = total_bytes.checked_add(expected.bytes)
+        total_bytes = total_bytes
+            .checked_add(expected.bytes)
             .ok_or_else(|| AppError::Config("资料库归档内容大小溢出".to_string()))?;
         if total_bytes > MAX_LIBRARY_ARCHIVE_BYTES {
-            return Err(AppError::Config("资料库归档解压后超过 1 GB 安全限制".to_string()));
+            return Err(AppError::Config(
+                "资料库归档解压后超过 1 GB 安全限制".to_string(),
+            ));
         }
-        let mut entry = archive.by_name(&expected.path)
+        let mut entry = archive
+            .by_name(&expected.path)
             .map_err(|_| AppError::Config(format!("资料库归档缺少内容文件: {}", expected.path)))?;
         if entry.is_dir() || entry.size() != expected.bytes {
-            return Err(AppError::Config(format!("资料库归档条目大小不匹配: {}", expected.path)));
+            return Err(AppError::Config(format!(
+                "资料库归档条目大小不匹配: {}",
+                expected.path
+            )));
         }
         let mut hasher = Sha256::new();
         let mut bytes = 0_u64;
         let mut buffer = [0_u8; 16 * 1024];
         loop {
-            let read = entry.read(&mut buffer).map_err(|error| io_context("校验资料库归档失败", error))?;
-            if read == 0 { break; }
+            let read = entry
+                .read(&mut buffer)
+                .map_err(|error| io_context("校验资料库归档失败", error))?;
+            if read == 0 {
+                break;
+            }
             hasher.update(&buffer[..read]);
             bytes += read as u64;
         }
         if bytes != expected.bytes || hex::encode(hasher.finalize()) != expected.sha256 {
-            return Err(AppError::Config(format!("资料库归档校验失败: {}", expected.path)));
+            return Err(AppError::Config(format!(
+                "资料库归档校验失败: {}",
+                expected.path
+            )));
         }
     }
 
     let mut actual_paths = HashSet::new();
     for index in 0..archive.len() {
-        let entry = archive.by_index(index)
+        let entry = archive
+            .by_index(index)
             .map_err(|error| AppError::Config(format!("读取资料库归档目录失败: {error}")))?;
         let name = entry.name();
-        if name == LIBRARY_ARCHIVE_MANIFEST { continue; }
+        if name == LIBRARY_ARCHIVE_MANIFEST {
+            continue;
+        }
         validate_library_archive_path(name)?;
-        if entry.is_dir() || !actual_paths.insert(name.to_string()) || !expected_paths.contains(name) {
-            return Err(AppError::Config(format!("资料库归档包含未清单化或重复条目: {name}")));
+        if entry.is_dir()
+            || !actual_paths.insert(name.to_string())
+            || !expected_paths.contains(name)
+        {
+            return Err(AppError::Config(format!(
+                "资料库归档包含未清单化或重复条目: {name}"
+            )));
         }
     }
     if actual_paths.len() != expected_paths.len() {
@@ -352,15 +404,18 @@ pub fn restore_library_backup(
         if let Ok(conn) = rusqlite::Connection::open(&db_path) {
             let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         }
-        backup_file(&db_path, DEFAULT_BACKUP_KEEP)?
-            .map(|path| path.to_string_lossy().into_owned())
+        backup_file(&db_path, DEFAULT_BACKUP_KEEP)?.map(|path| path.to_string_lossy().into_owned())
     } else {
         None
     };
 
     let staged_db = staging.0.join("database").join("app.db");
     if staged_db.is_file() {
-        match preview.provider_targets.as_deref().filter(|targets| !targets.is_empty()) {
+        match preview
+            .provider_targets
+            .as_deref()
+            .filter(|targets| !targets.is_empty())
+        {
             Some(targets) => merge_providers_from_archive(db, &staged_db, targets)?,
             None => db.replace_on_disk_and_reopen(&staged_db)?,
         }
@@ -401,7 +456,8 @@ pub fn restore_library_backup(
 }
 
 fn extract_library_archive(archive_path: &Path, staging_root: &Path) -> AppResult<usize> {
-    let file = fs::File::open(archive_path).map_err(|error| io_context("打开资料库归档失败", error))?;
+    let file =
+        fs::File::open(archive_path).map_err(|error| io_context("打开资料库归档失败", error))?;
     let mut archive = ZipArchive::new(file)
         .map_err(|error| AppError::Config(format!("资料库归档不是有效的 ZIP 文件: {error}")))?;
     let mut count = 0_usize;
@@ -418,8 +474,10 @@ fn extract_library_archive(archive_path: &Path, staging_root: &Path) -> AppResul
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent).map_err(|error| io_context("创建解压目录失败", error))?;
         }
-        let mut out = fs::File::create(&dest).map_err(|error| io_context("写入解压文件失败", error))?;
-        std::io::copy(&mut entry, &mut out).map_err(|error| io_context("解压资料库归档失败", error))?;
+        let mut out =
+            fs::File::create(&dest).map_err(|error| io_context("写入解压文件失败", error))?;
+        std::io::copy(&mut entry, &mut out)
+            .map_err(|error| io_context("解压资料库归档失败", error))?;
         count += 1;
     }
     Ok(count)
@@ -443,9 +501,12 @@ fn replace_directory_contents(dest: &Path, source: &Path) -> AppResult<()> {
 
 fn copy_directory_recursive(source: &Path, dest: &Path) -> AppResult<()> {
     fs::create_dir_all(dest).map_err(|error| io_context("创建目标目录失败", error))?;
-    for entry in fs::read_dir(source).map_err(|error| io_context("读取恢复目录失败", error))? {
+    for entry in fs::read_dir(source).map_err(|error| io_context("读取恢复目录失败", error))?
+    {
         let entry = entry.map_err(|error| io_context("读取恢复目录项失败", error))?;
-        let file_type = entry.file_type().map_err(|error| io_context("读取恢复目录项类型失败", error))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| io_context("读取恢复目录项类型失败", error))?;
         if file_type.is_symlink() {
             continue;
         }
@@ -461,11 +522,18 @@ fn copy_directory_recursive(source: &Path, dest: &Path) -> AppResult<()> {
 }
 
 fn validate_library_archive_path(path: &str) -> AppResult<()> {
-    if path.is_empty() || path == LIBRARY_ARCHIVE_MANIFEST || path.contains('\\') || path.starts_with('/') {
+    if path.is_empty()
+        || path == LIBRARY_ARCHIVE_MANIFEST
+        || path.contains('\\')
+        || path.starts_with('/')
+    {
         return Err(AppError::Path(format!("资料库归档包含不安全路径: {path}")));
     }
     let parsed = Path::new(path);
-    if parsed.components().any(|component| !matches!(component, std::path::Component::Normal(_))) {
+    if parsed
+        .components()
+        .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
         return Err(AppError::Path(format!("资料库归档包含不安全路径: {path}")));
     }
     Ok(())
@@ -478,7 +546,10 @@ fn create_db_snapshot(
 ) -> AppResult<()> {
     let source_path = get_app_db_path();
     if !source_path.is_file() {
-        return Err(AppError::Config(format!("数据库文件不存在，无法归档: {}", source_path.display())));
+        return Err(AppError::Config(format!(
+            "数据库文件不存在，无法归档: {}",
+            source_path.display()
+        )));
     }
     let source = rusqlite::Connection::open(source_path)?;
     let mut destination = rusqlite::Connection::open(snapshot)?;
@@ -623,15 +694,18 @@ fn merge_provider_rows(
         let in_clause = format!("target_app IN ({placeholders})");
 
         let live_cols = table_column_names(live, None, "providers")?;
-        let incoming_cols: HashSet<String> = table_column_names(live, Some("incoming"), "providers")?
-            .into_iter()
-            .collect();
+        let incoming_cols: HashSet<String> =
+            table_column_names(live, Some("incoming"), "providers")?
+                .into_iter()
+                .collect();
         let shared: Vec<String> = live_cols
             .into_iter()
             .filter(|col| incoming_cols.contains(col))
             .collect();
         if shared.is_empty() {
-            return Err(AppError::Config("归档 providers 表无法与本机对齐".to_string()));
+            return Err(AppError::Config(
+                "归档 providers 表无法与本机对齐".to_string(),
+            ));
         }
         let col_sql = shared.join(", ");
         let tx = live.unchecked_transaction()?;
@@ -688,7 +762,9 @@ fn merge_provider_rows(
 fn materialize_credentials_into_snapshot(destination: &rusqlite::Connection) -> AppResult<()> {
     let mut stmt = destination.prepare("SELECT id, api_key FROM providers")?;
     let rows = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
     drop(stmt);
     for (id, value) in rows {
@@ -718,27 +794,46 @@ fn materialize_credentials_into_snapshot(destination: &rusqlite::Connection) -> 
     Ok(())
 }
 
-fn collect_managed_files(source: &Path, archive_root: &str, output: &mut Vec<(String, PathBuf)>) -> AppResult<()> {
-    if !source.exists() { return Ok(()); }
-    if fs::symlink_metadata(source)?.file_type().is_symlink() { return Ok(()); }
+fn collect_managed_files(
+    source: &Path,
+    archive_root: &str,
+    output: &mut Vec<(String, PathBuf)>,
+) -> AppResult<()> {
+    if !source.exists() {
+        return Ok(());
+    }
+    if fs::symlink_metadata(source)?.file_type().is_symlink() {
+        return Ok(());
+    }
     if source.is_file() {
         output.push((archive_root.to_string(), source.to_path_buf()));
         return Ok(());
     }
-    let source_root = source.canonicalize().map_err(|error| io_context("解析资料库目录失败", error))?;
+    let source_root = source
+        .canonicalize()
+        .map_err(|error| io_context("解析资料库目录失败", error))?;
     collect_directory_files(&source_root, &source_root, archive_root, output)
 }
 
-fn collect_directory_files(root: &Path, current: &Path, archive_root: &str, output: &mut Vec<(String, PathBuf)>) -> AppResult<()> {
+fn collect_directory_files(
+    root: &Path,
+    current: &Path,
+    archive_root: &str,
+    output: &mut Vec<(String, PathBuf)>,
+) -> AppResult<()> {
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let file_type = entry.file_type()?;
-        if file_type.is_symlink() { continue; }
+        if file_type.is_symlink() {
+            continue;
+        }
         let path = entry.path();
         if file_type.is_dir() {
             collect_directory_files(root, &path, archive_root, output)?;
         } else if file_type.is_file() {
-            let relative = path.strip_prefix(root).map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|_| AppError::Path("资料库路径超出根目录".to_string()))?;
             let safe = relative.to_string_lossy().replace('\\', "/");
             output.push((format!("{archive_root}/{safe}"), path));
         }
@@ -838,9 +933,13 @@ pub fn verify_backup(path: &Path) -> AppResult<Option<BackupManifest>> {
     let Some(manifest) = load_manifest(path)? else {
         return Ok(None);
     };
-    let actual_size = fs::metadata(path).map_err(|error| io_context("读取备份文件失败", error))?.len();
+    let actual_size = fs::metadata(path)
+        .map_err(|error| io_context("读取备份文件失败", error))?
+        .len();
     if actual_size != manifest.bytes || sha256_file(path)? != manifest.sha256 {
-        return Err(AppError::Config("备份校验失败，文件可能已损坏或被修改".to_string()));
+        return Err(AppError::Config(
+            "备份校验失败，文件可能已损坏或被修改".to_string(),
+        ));
     }
     Ok(Some(manifest))
 }
@@ -848,16 +947,27 @@ pub fn verify_backup(path: &Path) -> AppResult<Option<BackupManifest>> {
 fn write_manifest(dest: &Path, src: &Path, category: &str) -> AppResult<()> {
     let manifest = BackupManifest {
         version: 1,
-        backup_file: dest.file_name().and_then(|name| name.to_str()).unwrap_or_default().to_string(),
-        source_name: src.file_name().and_then(|name| name.to_str()).unwrap_or_default().to_string(),
+        backup_file: dest
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string(),
+        source_name: src
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string(),
         category: category.to_string(),
         created_at: Utc::now().timestamp_millis(),
-        bytes: fs::metadata(dest).map_err(|error| io_context("读取备份文件失败", error))?.len(),
+        bytes: fs::metadata(dest)
+            .map_err(|error| io_context("读取备份文件失败", error))?
+            .len(),
         sha256: sha256_file(dest)?,
         schema_version: crate::database::schema::SCHEMA_VERSION,
     };
     let content = serde_json::to_vec_pretty(&manifest)?;
-    fs::write(manifest_for_backup(dest), content).map_err(|error| io_context("写入备份清单失败", error))
+    fs::write(manifest_for_backup(dest), content)
+        .map_err(|error| io_context("写入备份清单失败", error))
 }
 
 fn sha256_file(path: &Path) -> AppResult<String> {
@@ -865,8 +975,12 @@ fn sha256_file(path: &Path) -> AppResult<String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 16 * 1024];
     loop {
-        let read = file.read(&mut buffer).map_err(|error| io_context("读取备份文件失败", error))?;
-        if read == 0 { break; }
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| io_context("读取备份文件失败", error))?;
+        if read == 0 {
+            break;
+        }
         hasher.update(&buffer[..read]);
     }
     Ok(hex::encode(hasher.finalize()))
@@ -875,7 +989,9 @@ fn sha256_file(path: &Path) -> AppResult<String> {
 /// Rotate one backup category without allowing a busy source (for example,
 /// database migration backups) to evict unrelated configuration backups.
 pub fn prune_backups_for_category(dir: &Path, category: &str, keep: usize) -> AppResult<()> {
-    if !dir.exists() { return Ok(()); }
+    if !dir.exists() {
+        return Ok(());
+    }
     let prefix = format!("{category}_");
     let mut entries: Vec<_> = fs::read_dir(dir)?
         .filter_map(|entry| entry.ok())
@@ -932,8 +1048,8 @@ mod tests {
             let p = dir.path().join(format!("app_{i:02}.bak"));
             fs::write(&p, b"x").unwrap();
             // Set mtime explicitly so ordering is deterministic regardless of FS.
-            let time = std::time::SystemTime::UNIX_EPOCH
-                + Duration::from_secs(1_700_000_000 + i as u64);
+            let time =
+                std::time::SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000 + i as u64);
             let _ = filetime::set_file_mtime(&p, filetime::FileTime::from_system_time(time));
             sleep(Duration::from_millis(5));
         }
@@ -976,7 +1092,12 @@ mod tests {
     fn library_archive_preview_rejects_tampered_content() {
         let dir = tempdir().unwrap();
         let archive_path = dir.path().join("modified.zip");
-        write_test_library_archive(&archive_path, "skills/demo/SKILL.md", b"safe content", Some("00"));
+        write_test_library_archive(
+            &archive_path,
+            "skills/demo/SKILL.md",
+            b"safe content",
+            Some("00"),
+        );
 
         assert!(preview_library_backup(&archive_path).is_err());
     }
@@ -994,7 +1115,12 @@ mod tests {
     fn library_archive_restore_extracts_to_destination_dirs() {
         let root = tempdir().unwrap();
         let archive_path = root.path().join("library.zip");
-        write_test_library_archive(&archive_path, "skills/demo/SKILL.md", b"restored skill", None);
+        write_test_library_archive(
+            &archive_path,
+            "skills/demo/SKILL.md",
+            b"restored skill",
+            None,
+        );
 
         let config = root.path().join("config");
         let skills = root.path().join("skills");
@@ -1073,14 +1199,20 @@ mod tests {
         let live = open_schema_db(&live_path);
         insert_test_provider(&live, "cc-old", "Live Code", "claude_code");
         insert_test_provider(&live, "cd-keep", "Live Desktop", "claude_desktop");
-        live.execute("UPDATE providers SET is_current = 1 WHERE id = 'cc-old'", [])
-            .unwrap();
+        live.execute(
+            "UPDATE providers SET is_current = 1 WHERE id = 'cc-old'",
+            [],
+        )
+        .unwrap();
 
         let archive = open_schema_db(&archive_path);
         insert_test_provider(&archive, "cc-new", "Archive Code", "claude_code");
         insert_test_provider(&archive, "cd-other", "Archive Desktop", "claude_desktop");
         archive
-            .execute("UPDATE providers SET is_current = 1 WHERE id = 'cc-new'", [])
+            .execute(
+                "UPDATE providers SET is_current = 1 WHERE id = 'cc-new'",
+                [],
+            )
             .unwrap();
         drop(archive);
 
@@ -1117,8 +1249,12 @@ mod tests {
         let conn = rusqlite::Connection::open(path).unwrap();
         crate::database::schema::create_tables(&conn).unwrap();
         // Stamp current schema so merge/filter tests skip historical ALTER/split migrations.
-        conn.pragma_update(None, "user_version", crate::database::schema::SCHEMA_VERSION)
-            .unwrap();
+        conn.pragma_update(
+            None,
+            "user_version",
+            crate::database::schema::SCHEMA_VERSION,
+        )
+        .unwrap();
         conn
     }
 
@@ -1131,7 +1267,12 @@ mod tests {
         .unwrap();
     }
 
-    fn write_test_library_archive(path: &Path, entry_path: &str, content: &[u8], hash_override: Option<&str>) {
+    fn write_test_library_archive(
+        path: &Path,
+        entry_path: &str,
+        content: &[u8],
+        hash_override: Option<&str>,
+    ) {
         write_test_library_archive_with_targets(path, entry_path, content, hash_override, None);
     }
 
@@ -1145,7 +1286,9 @@ mod tests {
         let entry = LibraryArchiveEntry {
             path: entry_path.to_string(),
             bytes: content.len() as u64,
-            sha256: hash_override.map(str::to_string).unwrap_or_else(|| hex::encode(Sha256::digest(content))),
+            sha256: hash_override
+                .map(str::to_string)
+                .unwrap_or_else(|| hex::encode(Sha256::digest(content))),
         };
         let manifest = LibraryArchiveManifest {
             version: LIBRARY_ARCHIVE_VERSION,
@@ -1160,8 +1303,12 @@ mod tests {
         let options = SimpleFileOptions::default();
         archive.start_file(entry_path, options).unwrap();
         archive.write_all(content).unwrap();
-        archive.start_file(LIBRARY_ARCHIVE_MANIFEST, options).unwrap();
-        archive.write_all(&serde_json::to_vec(&manifest).unwrap()).unwrap();
+        archive
+            .start_file(LIBRARY_ARCHIVE_MANIFEST, options)
+            .unwrap();
+        archive
+            .write_all(&serde_json::to_vec(&manifest).unwrap())
+            .unwrap();
         archive.finish().unwrap();
     }
 

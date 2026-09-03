@@ -7,8 +7,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::backup::{backup_file_named, DEFAULT_BACKUP_KEEP};
@@ -18,6 +19,9 @@ use crate::error::{AppError, AppResult};
 
 const CLAUDE_PLUGIN_ID: &str = "claude-code-zh-cn@claude-code-zh-cn";
 const CLAUDE_MARKETPLACE_REPOSITORY: &str = "https://github.com/taekchef/claude-code-zh-cn";
+const CLAUDE_CODE_LOCALIZATION_REPOSITORY: &str = "taekchef/claude-code-zh-cn";
+const DESKTOP_LOCALIZATION_REPOSITORY: &str = "javaht/claude-desktop-zh-cn";
+const MAX_GITHUB_RELEASE_METADATA_BYTES: u64 = 1024 * 1024;
 const PATCH_HELPER_EXTENSION: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper";
 const CLAUDE_EXTENSION_PREFIX: &str = "anthropic.claude-code-";
 const PATCH_HELPER_PREFIX: &str = "shanjiancaofu.claude-code-zh-cn-patch-helper-";
@@ -29,6 +33,30 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 pub struct LocalizationHubStatus {
     pub claude_code: ClaudeCodeLocalizationStatus,
     pub editors: Vec<EditorLocalizationStatus>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizationUpstreamStatus {
+    pub checked_at: i64,
+    pub claude_code: LocalizationUpstreamRelease,
+    pub desktop: LocalizationUpstreamRelease,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalizationUpstreamRelease {
+    pub repository: String,
+    pub available: bool,
+    pub version: Option<String>,
+    pub published_at: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubReleaseResponse {
+    tag_name: String,
+    published_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -96,6 +124,100 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
         claude_code,
         editors: editor_definitions().into_iter().map(editor_status).collect(),
     })
+}
+
+/// Check public upstream releases on demand. This never downloads a pack or
+/// changes local installation state; an unavailable upstream is returned as a
+/// visible status so the localization page keeps working offline.
+#[tauri::command]
+pub async fn check_localization_upstream() -> AppResult<LocalizationUpstreamStatus> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .user_agent("AI-Switcher localization-upstream-check")
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| AppError::Other(format!("创建中文化上游检查客户端失败: {error}")))?;
+    let (claude_code, desktop) = tokio::join!(
+        fetch_latest_release(&client, CLAUDE_CODE_LOCALIZATION_REPOSITORY),
+        fetch_latest_release(&client, DESKTOP_LOCALIZATION_REPOSITORY),
+    );
+    Ok(LocalizationUpstreamStatus {
+        checked_at: chrono::Utc::now().timestamp_millis(),
+        claude_code: claude_code.unwrap_or_else(|error| {
+            upstream_release_unavailable(CLAUDE_CODE_LOCALIZATION_REPOSITORY, error)
+        }),
+        desktop: desktop.unwrap_or_else(|error| {
+            upstream_release_unavailable(DESKTOP_LOCALIZATION_REPOSITORY, error)
+        }),
+    })
+}
+
+async fn fetch_latest_release(
+    client: &reqwest::Client,
+    repository: &str,
+) -> AppResult<LocalizationUpstreamRelease> {
+    let url = format!("https://api.github.com/repos/{repository}/releases/latest");
+    let response = client
+        .get(url)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|error| AppError::Other(format!("连接 {repository} 失败: {error}")))?;
+    if !response.status().is_success() {
+        return Err(AppError::Other(format!(
+            "{repository} 返回 HTTP {}",
+            response.status()
+        )));
+    }
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_GITHUB_RELEASE_METADATA_BYTES)
+    {
+        return Err(AppError::Config(format!(
+            "{repository} Release 元数据超过 1 MB 限制"
+        )));
+    }
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| AppError::Other(format!("读取 {repository} Release 元数据失败: {error}")))?;
+    if body.len() as u64 > MAX_GITHUB_RELEASE_METADATA_BYTES {
+        return Err(AppError::Config(format!(
+            "{repository} Release 元数据超过 1 MB 限制"
+        )));
+    }
+    let release: GitHubReleaseResponse = serde_json::from_slice(&body)
+        .map_err(|error| AppError::Config(format!("{repository} Release 元数据无效: {error}")))?;
+    let version = normalize_release_tag(&release.tag_name)
+        .ok_or_else(|| AppError::Config(format!("{repository} 返回了无效的 Release 标签")))?;
+    Ok(LocalizationUpstreamRelease {
+        repository: repository.to_string(),
+        available: true,
+        version: Some(version.clone()),
+        published_at: release.published_at,
+        message: format!("已检测到线上最新版 {version}"),
+    })
+}
+
+fn normalize_release_tag(tag: &str) -> Option<String> {
+    let version = tag.trim().trim_start_matches('v');
+    (!version.is_empty()
+        && version.len() <= 64
+        && version
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
+        && !version.contains(".."))
+    .then(|| version.to_string())
+}
+
+fn upstream_release_unavailable(repository: &str, error: AppError) -> LocalizationUpstreamRelease {
+    LocalizationUpstreamRelease {
+        repository: repository.to_string(),
+        available: false,
+        version: None,
+        published_at: None,
+        message: format!("线上检查失败：{error}"),
+    }
 }
 
 #[tauri::command]
@@ -583,5 +705,13 @@ mod tests {
             settings.get("spinnerVerbs").and_then(|value| value.get("mode")).and_then(Value::as_str),
             Some("append")
         );
+    }
+
+    #[test]
+    fn normalize_release_tag_removes_v_prefix_and_rejects_paths() {
+        assert_eq!(normalize_release_tag("v2.14.0").as_deref(), Some("2.14.0"));
+        assert_eq!(normalize_release_tag("1.4.7").as_deref(), Some("1.4.7"));
+        assert!(normalize_release_tag("../main").is_none());
+        assert!(normalize_release_tag("").is_none());
     }
 }

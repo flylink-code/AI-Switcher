@@ -98,8 +98,8 @@ impl GeminiUsage {
         let thoughts = meta_count(meta, "thoughtsTokenCount");
         let cached = meta_count(meta, "cachedContentTokenCount");
         let total = meta_count(meta, "totalTokenCount");
-        let total_output = meta_count(meta, "totalOutputTokenCount")
-            .max(meta_count(meta, "total_output_tokens"));
+        let total_output =
+            meta_count(meta, "totalOutputTokenCount").max(meta_count(meta, "total_output_tokens"));
         // Classic Gemini usageMetadata: candidatesTokenCount already includes
         // thought tokens. Newer Interactions-style payloads expose a separate
         // total_output that does not, so thoughts must be added there only.
@@ -176,7 +176,11 @@ impl GeminiUsage {
 fn meta_count(meta: &Value, key: &str) -> i64 {
     meta.get(key)
         .and_then(Value::as_i64)
-        .or_else(|| meta.get(key).and_then(Value::as_u64).map(|value| value as i64))
+        .or_else(|| {
+            meta.get(key)
+                .and_then(Value::as_u64)
+                .map(|value| value as i64)
+        })
         .unwrap_or(0)
 }
 
@@ -186,7 +190,12 @@ pub fn tokens_from_gemini(gemini: &Value) -> (i64, i64) {
 }
 
 /// Best-effort token update from a Gemini (or unwrapped v1internal) body.
-pub fn update_usage_from_gemini(db: &Arc<Database>, log_id: &str, account_id: Option<&str>, gemini: &Value) {
+pub fn update_usage_from_gemini(
+    db: &Arc<Database>,
+    log_id: &str,
+    account_id: Option<&str>,
+    gemini: &Value,
+) {
     let usage = GeminiUsage::parse(gemini);
     if usage.is_empty() {
         return;

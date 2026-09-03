@@ -68,11 +68,7 @@ impl AccountPool {
         let session = session_key.map(str::to_owned);
         let model = requested_model.map(str::to_owned);
         tokio::task::spawn_blocking(move || {
-            pool.select(
-                preferred.as_deref(),
-                session.as_deref(),
-                model.as_deref(),
-            )
+            pool.select(preferred.as_deref(), session.as_deref(), model.as_deref())
         })
         .await
         .map_err(|error| AppError::Other(format!("Antigravity 账号选择任务失败: {error}")))?
@@ -352,10 +348,7 @@ fn quota_usable(account: &AntigravityAccount, family: Option<QuotaFamily>) -> bo
     }
 }
 
-fn account_has_family_remaining(
-    account: &AntigravityAccount,
-    family: Option<QuotaFamily>,
-) -> bool {
+fn account_has_family_remaining(account: &AntigravityAccount, family: Option<QuotaFamily>) -> bool {
     match family {
         None => true,
         Some(family) => account
@@ -402,10 +395,7 @@ fn account_is_schedulable(
     if account.disabled {
         return false;
     }
-    if account
-        .cooldown_until
-        .is_some_and(|until| until > now)
-    {
+    if account.cooldown_until.is_some_and(|until| until > now) {
         return false;
     }
     quota_usable(account, family)
@@ -418,14 +408,15 @@ fn soft_select_cooled_account(
     now: i64,
     family: Option<QuotaFamily>,
 ) -> Option<AntigravityAccount> {
-    let non_disabled: Vec<&AntigravityAccount> =
-        accounts.iter().filter(|account| !account.disabled).collect();
+    let non_disabled: Vec<&AntigravityAccount> = accounts
+        .iter()
+        .filter(|account| !account.disabled)
+        .collect();
     if non_disabled.is_empty() {
         return None;
     }
     let all_cooling = non_disabled.iter().all(|account| {
-        account.cooldown_until.is_some_and(|until| until > now)
-            && quota_usable(account, family)
+        account.cooldown_until.is_some_and(|until| until > now) && quota_usable(account, family)
     });
     if !all_cooling {
         return None;
@@ -512,7 +503,8 @@ fn choose_candidate<'a>(
             }) {
                 log::info!(
                     "Antigravity pool: active {} is hot; soft-selecting {}",
-                    active.email, alternate.email
+                    active.email,
+                    alternate.email
                 );
                 return Some(*alternate);
             }
@@ -520,7 +512,8 @@ fn choose_candidate<'a>(
         }
         log::info!(
             "Antigravity pool: active {} has no remaining {:?} quota; skipping",
-            active.email, family
+            active.email,
+            family
         );
     }
     if let Some(sticky) = sticky_account_id.filter(|value| !value.is_empty()) {
@@ -603,10 +596,7 @@ fn compare_candidates(
         })
 }
 
-fn sort_candidates_best_first(
-    candidates: &mut [AntigravityAccount],
-    family: Option<QuotaFamily>,
-) {
+fn sort_candidates_best_first(candidates: &mut [AntigravityAccount], family: Option<QuotaFamily>) {
     candidates.sort_by(|left, right| compare_candidates(left, right, family));
 }
 
@@ -618,13 +608,10 @@ pub(crate) fn should_rotate_pool_on_429(
     account: &AntigravityAccount,
     family: Option<QuotaFamily>,
 ) -> bool {
-    account
-        .quota
-        .as_ref()
-        .is_some_and(|quota| match family {
-            Some(family) => !quota.has_usable_quota_for_family(family),
-            None => !quota.has_usable_quota(),
-        })
+    account.quota.as_ref().is_some_and(|quota| match family {
+        Some(family) => !quota.has_usable_quota_for_family(family),
+        None => !quota.has_usable_quota(),
+    })
 }
 
 pub(crate) fn rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
@@ -684,10 +671,7 @@ mod tests {
     #[test]
     fn soft_selects_when_all_accounts_cooling() {
         let now = Utc::now().timestamp();
-        let accounts = vec![
-            sample("a1", Some(now + 30)),
-            sample("a2", Some(now + 10)),
-        ];
+        let accounts = vec![sample("a1", Some(now + 30)), sample("a2", Some(now + 10))];
         let soft = soft_select_cooled_account(&accounts, now, None).expect("soft");
         assert_eq!(soft.id, "a2");
     }
@@ -727,10 +711,7 @@ mod tests {
         let candidates = vec![a1, a2];
         let chosen = choose_candidate(&candidates, None, Some("a2"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a1");
-        assert_eq!(
-            selection_reason(chosen, None, Some("a2")),
-            "active"
-        );
+        assert_eq!(selection_reason(chosen, None, Some("a2")), "active");
     }
 
     #[test]
@@ -759,10 +740,7 @@ mod tests {
         let candidates = vec![a1, a2];
         let chosen = choose_candidate(&candidates, None, Some("a2"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a2");
-        assert_eq!(
-            selection_reason(chosen, None, Some("a2")),
-            "sticky"
-        );
+        assert_eq!(selection_reason(chosen, None, Some("a2")), "sticky");
     }
 
     #[test]
@@ -787,7 +765,10 @@ mod tests {
         low_quota.health_score = 1.0;
         low_quota.remaining_quota = Some(10);
 
-        assert!(candidate_scheduling_score(&healthy_high_quota) > candidate_scheduling_score(&low_quota));
+        assert!(
+            candidate_scheduling_score(&healthy_high_quota)
+                > candidate_scheduling_score(&low_quota)
+        );
     }
 
     #[test]
@@ -883,10 +864,7 @@ mod tests {
         a2.is_active = false;
         a1.quota = Some(family_quota(0.0, 0.0, 0.8, 0.8));
         a2.quota = Some(family_quota(0.6, 0.6, 0.0, 0.0));
-        assert_eq!(
-            pick_for_model(&[a1, a2], "gemini-3.7-flash-high"),
-            "a2"
-        );
+        assert_eq!(pick_for_model(&[a1, a2], "gemini-3.7-flash-high"), "a2");
     }
 
     #[test]
@@ -910,8 +888,7 @@ mod tests {
         a2.quota = Some(family_quota(0.4, 0.4, 0.1, 0.1));
         let family = Some(QuotaFamily::Gemini);
         let candidates = vec![a1, a2];
-        let chosen =
-            choose_candidate(&candidates, None, Some("a1"), None, family).expect("chosen");
+        let chosen = choose_candidate(&candidates, None, Some("a1"), None, family).expect("chosen");
         assert_eq!(chosen.id, "a2");
         assert_eq!(selection_reason(chosen, None, Some("a1")), "best");
     }

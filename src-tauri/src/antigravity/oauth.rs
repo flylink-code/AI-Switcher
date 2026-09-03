@@ -176,10 +176,7 @@ fn parse_query(query: &str) -> HashMap<String, String> {
         if key.is_empty() {
             continue;
         }
-        map.insert(
-            urlencoding_decode(key),
-            urlencoding_decode(value),
-        );
+        map.insert(urlencoding_decode(key), urlencoding_decode(value));
     }
     map
 }

@@ -162,7 +162,10 @@ fn collect_json_files(dir: &Path, items: &mut Vec<ClineSessionItem>, depth: u8) 
             collect_json_files(&path, items, depth + 1);
             continue;
         }
-        let name = path.file_name().and_then(|value| value.to_str()).unwrap_or("");
+        let name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("");
         if !name.ends_with(".json") || name.contains("compaction") || name == "sessions.db" {
             continue;
         }
@@ -175,10 +178,7 @@ fn collect_json_files(dir: &Path, items: &mut Vec<ClineSessionItem>, depth: u8) 
 fn parse_session_json_file(path: &Path) -> Option<ClineSessionItem> {
     let raw = fs::read_to_string(path).ok()?;
     let value: Value = serde_json::from_str(&raw).ok()?;
-    if value.get("messages").is_none()
-        && value.get("session_id").is_none()
-        && !value.is_array()
-    {
+    if value.get("messages").is_none() && value.get("session_id").is_none() && !value.is_array() {
         return None;
     }
     let session_id = value
@@ -215,7 +215,10 @@ fn parse_session_json_file(path: &Path) -> Option<ClineSessionItem> {
         id: session_id,
         file_path: path.to_string_lossy().into_owned(),
         title,
-        model: value.get("model").and_then(Value::as_str).map(str::to_string),
+        model: value
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         project_dir: value
             .get("workspace_root")
             .or_else(|| value.get("cwd"))
@@ -232,7 +235,10 @@ fn parse_session_json_file(path: &Path) -> Option<ClineSessionItem> {
 }
 
 fn resolve_messages_path(session_id: &str, messages_path: Option<&str>) -> String {
-    if let Some(path) = messages_path.map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(path) = messages_path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         return path.to_string();
     }
     cline_sessions_dir()
@@ -244,7 +250,10 @@ fn resolve_messages_path(session_id: &str, messages_path: Option<&str>) -> Strin
 fn title_from_metadata(raw: Option<&str>) -> Option<String> {
     let raw = raw?;
     let value: Value = serde_json::from_str(raw).ok()?;
-    value.get("title").and_then(Value::as_str).map(str::to_string)
+    value
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 fn first_line(value: &str) -> Option<String> {
@@ -283,11 +292,8 @@ fn extract_messages(value: &Value) -> Vec<ClineMessage> {
             .and_then(Value::as_str)
             .unwrap_or("user")
             .to_string();
-        let content = message_text(item.get("content")).or_else(|| {
-            item.get("text")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
+        let content = message_text(item.get("content"))
+            .or_else(|| item.get("text").and_then(Value::as_str).map(str::to_string));
         let Some(content) = content.filter(|text| !text.trim().is_empty()) else {
             continue;
         };

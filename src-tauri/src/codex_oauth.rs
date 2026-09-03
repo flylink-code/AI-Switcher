@@ -21,8 +21,7 @@ use crate::error::{AppError, AppResult};
 pub const CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 pub const DEVICE_AUTH_USERCODE_URL: &str =
     "https://auth.openai.com/api/accounts/deviceauth/usercode";
-pub const DEVICE_AUTH_TOKEN_URL: &str =
-    "https://auth.openai.com/api/accounts/deviceauth/token";
+pub const DEVICE_AUTH_TOKEN_URL: &str = "https://auth.openai.com/api/accounts/deviceauth/token";
 pub const OAUTH_TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
 pub const DEVICE_VERIFICATION_URL: &str = "https://auth.openai.com/codex/device";
 pub const DEVICE_REDIRECT_URI: &str = "https://auth.openai.com/deviceauth/callback";
@@ -128,11 +127,17 @@ impl CodexOauthManager {
         let status = response.status();
         let value = response_json(response)?;
         if !status.is_success() {
-            return Err(AppError::Other(oauth_message(&value, "无法启动 ChatGPT 登录")));
+            return Err(AppError::Other(oauth_message(
+                &value,
+                "无法启动 ChatGPT 登录",
+            )));
         }
         let device_code = string_field(&value, &["device_auth_id", "device_code"])?;
         let user_code = string_field(&value, &["user_code"])?;
-        let expires_in = value.get("expires_in").and_then(Value::as_u64).unwrap_or(900);
+        let expires_in = value
+            .get("expires_in")
+            .and_then(Value::as_u64)
+            .unwrap_or(900);
         let now = Utc::now().timestamp_millis();
         {
             let mut pending = self.pending.lock().map_err(lock_error)?;
@@ -179,9 +184,9 @@ impl CodexOauthManager {
             .post(DEVICE_AUTH_TOKEN_URL)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(serde_json::to_vec(&json!({
-                    "device_auth_id": device_code,
-                    "user_code": user_code,
-                }))?)
+                "device_auth_id": device_code,
+                "user_code": user_code,
+            }))?)
             .send()
             .map_err(http_error)?;
         let status = response.status();
@@ -195,12 +200,15 @@ impl CodexOauthManager {
         let value = response_json(response)?;
         if !status.is_success() {
             let code = oauth_code(&value);
-            return Ok(poll_status(match code.as_str() {
-                "authorization_pending" | "slow_down" => "pending",
-                "expired_token" => "expired",
-                "access_denied" | "authorization_declined" => "denied",
-                _ => "error",
-            }, Some(oauth_message(&value, "设备登录失败"))));
+            return Ok(poll_status(
+                match code.as_str() {
+                    "authorization_pending" | "slow_down" => "pending",
+                    "expired_token" => "expired",
+                    "access_denied" | "authorization_declined" => "denied",
+                    _ => "error",
+                },
+                Some(oauth_message(&value, "设备登录失败")),
+            ));
         }
 
         if value.get("access_token").is_some() {
@@ -223,7 +231,10 @@ impl CodexOauthManager {
         let status = response.status();
         let token = response_json(response)?;
         if !status.is_success() {
-            return Ok(poll_status("error", Some(oauth_message(&token, "换取令牌失败"))));
+            return Ok(poll_status(
+                "error",
+                Some(oauth_message(&token, "换取令牌失败")),
+            ));
         }
         self.complete_login(token)
     }
@@ -250,18 +261,23 @@ impl CodexOauthManager {
             email,
             authenticated_at: Utc::now().timestamp_millis(),
         };
-        let expires_in = token.get("expires_in").and_then(Value::as_i64).unwrap_or(3600);
-        self.access_tokens
-            .lock()
-            .map_err(lock_error)?
-            .insert(account_id.clone(), CachedToken {
+        let expires_in = token
+            .get("expires_in")
+            .and_then(Value::as_i64)
+            .unwrap_or(3600);
+        self.access_tokens.lock().map_err(lock_error)?.insert(
+            account_id.clone(),
+            CachedToken {
                 access_token,
                 expires_at: Utc::now().timestamp_millis() + expires_in * 1000,
-            });
+            },
+        );
         self.pending.lock().map_err(lock_error)?.clear();
         {
             let mut stored = self.stored.write().map_err(lock_error)?;
-            stored.accounts.retain(|item| item.account.account_id != account_id);
+            stored
+                .accounts
+                .retain(|item| item.account.account_id != account_id);
             stored.accounts.push(StoredAccount {
                 account: account.clone(),
                 refresh_token,
@@ -279,21 +295,35 @@ impl CodexOauthManager {
     pub fn list_accounts(&self) -> Vec<CodexOauthAccount> {
         self.stored
             .read()
-            .map(|stored| stored.accounts.iter().map(|item| item.account.clone()).collect())
+            .map(|stored| {
+                stored
+                    .accounts
+                    .iter()
+                    .map(|item| item.account.clone())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     pub fn remove_account(&self, account_id: &str) -> AppResult<()> {
         let mut stored = self.stored.write().map_err(lock_error)?;
         let before = stored.accounts.len();
-        stored.accounts.retain(|item| item.account.account_id != account_id);
+        stored
+            .accounts
+            .retain(|item| item.account.account_id != account_id);
         if before == stored.accounts.len() {
             return Err(AppError::Config("ChatGPT 账户不存在".to_string()));
         }
         if stored.default_account_id.as_deref() == Some(account_id) {
-            stored.default_account_id = stored.accounts.first().map(|item| item.account.account_id.clone());
+            stored.default_account_id = stored
+                .accounts
+                .first()
+                .map(|item| item.account.account_id.clone());
         }
-        self.access_tokens.lock().map_err(lock_error)?.remove(account_id);
+        self.access_tokens
+            .lock()
+            .map_err(lock_error)?
+            .remove(account_id);
         save_auth(&stored)
     }
 
@@ -303,7 +333,11 @@ impl CodexOauthManager {
 
     pub fn set_default_account(&self, account_id: &str) -> AppResult<()> {
         let mut stored = self.stored.write().map_err(lock_error)?;
-        if !stored.accounts.iter().any(|item| item.account.account_id == account_id) {
+        if !stored
+            .accounts
+            .iter()
+            .any(|item| item.account.account_id == account_id)
+        {
             return Err(AppError::Config("ChatGPT 账户不存在".to_string()));
         }
         stored.default_account_id = Some(account_id.to_string());
@@ -344,21 +378,34 @@ impl CodexOauthManager {
         let status = response.status();
         let value = response_json(response)?;
         if !status.is_success() {
-            return Err(AppError::Other(oauth_message(&value, "刷新 ChatGPT 登录失败")));
+            return Err(AppError::Other(oauth_message(
+                &value,
+                "刷新 ChatGPT 登录失败",
+            )));
         }
         let access_token = string_field(&value, &["access_token"])?;
-        let expires_in = value.get("expires_in").and_then(Value::as_i64).unwrap_or(3600);
+        let expires_in = value
+            .get("expires_in")
+            .and_then(Value::as_i64)
+            .unwrap_or(3600);
         if let Some(new_refresh) = value.get("refresh_token").and_then(Value::as_str) {
             let mut stored = self.stored.write().map_err(lock_error)?;
-            if let Some(item) = stored.accounts.iter_mut().find(|item| item.account.account_id == id) {
+            if let Some(item) = stored
+                .accounts
+                .iter_mut()
+                .find(|item| item.account.account_id == id)
+            {
                 item.refresh_token = new_refresh.to_string();
                 save_auth(&stored)?;
             }
         }
-        self.access_tokens.lock().map_err(lock_error)?.insert(id.clone(), CachedToken {
-            access_token: access_token.clone(),
-            expires_at: now + expires_in * 1000,
-        });
+        self.access_tokens.lock().map_err(lock_error)?.insert(
+            id.clone(),
+            CachedToken {
+                access_token: access_token.clone(),
+                expires_at: now + expires_in * 1000,
+            },
+        );
         Ok((access_token, id))
     }
 }
@@ -402,7 +449,11 @@ fn string_field(value: &Value, names: &[&str]) -> AppResult<String> {
 fn oauth_code(value: &Value) -> String {
     value
         .get("error")
-        .and_then(|error| error.as_str().or_else(|| error.get("code").and_then(Value::as_str)))
+        .and_then(|error| {
+            error
+                .as_str()
+                .or_else(|| error.get("code").and_then(Value::as_str))
+        })
         .unwrap_or_default()
         .to_string()
 }
@@ -418,7 +469,11 @@ fn oauth_message(value: &Value, fallback: &str) -> String {
 }
 
 fn poll_status(status: &str, message: Option<String>) -> CodexOauthPollResult {
-    CodexOauthPollResult { status: status.to_string(), account: None, message }
+    CodexOauthPollResult {
+        status: status.to_string(),
+        account: None,
+        message,
+    }
 }
 
 fn http_error(error: reqwest::Error) -> AppError {

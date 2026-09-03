@@ -75,15 +75,17 @@ pub fn list_plugins_snapshot() -> AppResult<CodexPluginsSnapshot> {
     let cached = scan_cache(&cache_path)?;
     let cache_plugin_count = cached.len();
     for item in cached {
-        let entry = by_id.entry(item.plugin_id.clone()).or_insert_with(|| CodexPlugin {
-            plugin_id: item.plugin_id.clone(),
-            name: item.name.clone(),
-            marketplace: item.marketplace.clone(),
-            version: None,
-            enabled: false,
-            installed: false,
-            path: None,
-        });
+        let entry = by_id
+            .entry(item.plugin_id.clone())
+            .or_insert_with(|| CodexPlugin {
+                plugin_id: item.plugin_id.clone(),
+                name: item.name.clone(),
+                marketplace: item.marketplace.clone(),
+                version: None,
+                enabled: false,
+                installed: false,
+                path: None,
+            });
         entry.installed = true;
         entry.version = item.version.or(entry.version.clone());
         entry.path = item.path.or(entry.path.clone());
@@ -111,13 +113,17 @@ pub fn list_plugins_snapshot() -> AppResult<CodexPluginsSnapshot> {
 pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Codex 插件 ID: {plugin_id}"
+        )));
     }
     let path = get_codex_config_path();
     let mut doc = load_config_document()?;
     let plugins = ensure_table(&mut doc, "plugins");
     let key = plugin_id.to_string();
-    let entry = plugins.entry(&key).or_insert_with(|| Item::Table(Table::new()));
+    let entry = plugins
+        .entry(&key)
+        .or_insert_with(|| Item::Table(Table::new()));
     if !entry.is_table() {
         *entry = Item::Table(Table::new());
     }
@@ -161,7 +167,10 @@ pub fn list_marketplaces() -> AppResult<CodexMarketplaceListResult> {
         Ok(output) if output.status.success() => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let marketplaces = parse_marketplace_json(&stdout);
-            if !marketplaces.is_empty() || stdout.trim().starts_with('[') || stdout.trim().starts_with('{') {
+            if !marketplaces.is_empty()
+                || stdout.trim().starts_with('[')
+                || stdout.trim().starts_with('{')
+            {
                 return Ok(CodexMarketplaceListResult {
                     marketplaces,
                     raw_output: stdout,
@@ -210,7 +219,9 @@ pub fn remove_marketplace(name: &str) -> AppResult<CodexPluginCommandResult> {
 pub fn uninstall_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Codex 插件 ID: {plugin_id}"
+        )));
     }
     let output = run_codex_plugin_args(&["plugin", "remove", plugin_id])?;
     let result = command_result(output, "已卸载插件")?;
@@ -316,7 +327,12 @@ pub fn list_plugin_catalog_from_marketplaces(
 }
 
 fn resolve_marketplace_root(market: &CodexMarketplace) -> Option<PathBuf> {
-    if let Some(root) = market.root.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(root) = market
+        .root
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         let path = normalize_fs_path(root);
         if path.is_dir() {
             return Some(path);
@@ -356,10 +372,7 @@ fn discover_local_marketplace_roots() -> Vec<CodexMarketplace> {
         .map(PathBuf::from)
         .unwrap_or_else(|| codex_home.clone());
     let candidates = [
-        (
-            "openai-curated",
-            codex_home.join(".tmp").join("plugins"),
-        ),
+        ("openai-curated", codex_home.join(".tmp").join("plugins")),
         (
             "openai-primary-runtime",
             user_home
@@ -403,7 +416,9 @@ fn discover_local_marketplace_roots() -> Vec<CodexMarketplace> {
 
 fn find_marketplace_manifest(root: &Path) -> Option<PathBuf> {
     let candidates = [
-        root.join(".agents").join("plugins").join("marketplace.json"),
+        root.join(".agents")
+            .join("plugins")
+            .join("marketplace.json"),
         root.join(".claude-plugin").join("marketplace.json"),
         root.join("marketplace.json"),
         root.join("plugins").join("marketplace.json"),
@@ -434,7 +449,9 @@ fn append_catalog_from_manifest(
         return;
     };
     for item in items {
-        let Some(obj) = item.as_object() else { continue };
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
         let Some(name) = obj.get("name").and_then(Value::as_str).map(str::trim) else {
             continue;
         };
@@ -448,24 +465,23 @@ fn append_catalog_from_manifest(
             .or_else(|| {
                 obj.get("interface")
                     .and_then(Value::as_object)
-                    .and_then(|iface| iface.get("displayName").or_else(|| iface.get("description")))
+                    .and_then(|iface| {
+                        iface
+                            .get("displayName")
+                            .or_else(|| iface.get("description"))
+                    })
                     .and_then(Value::as_str)
                     .map(str::to_string)
             });
-        let source_path = obj
-            .get("source")
-            .and_then(|source| {
+        let source_path = obj.get("source").and_then(|source| {
+            source.as_str().map(str::to_string).or_else(|| {
                 source
-                    .as_str()
+                    .as_object()
+                    .and_then(|o| o.get("path"))
+                    .and_then(Value::as_str)
                     .map(str::to_string)
-                    .or_else(|| {
-                        source
-                            .as_object()
-                            .and_then(|o| o.get("path"))
-                            .and_then(Value::as_str)
-                            .map(str::to_string)
-                    })
-            });
+            })
+        });
         plugins.push(CodexCatalogPlugin {
             plugin_id: format!("{name}@{marketplace_name}"),
             name: name.to_string(),
@@ -546,7 +562,9 @@ pub fn upgrade_marketplace(name: Option<&str>) -> AppResult<CodexPluginCommandRe
 pub fn update_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Codex 插件 ID: {plugin_id}"
+        )));
     }
     let (_, marketplace) = split_plugin_id(plugin_id);
     if !marketplace.is_empty() {
@@ -558,7 +576,9 @@ pub fn update_plugin(plugin_id: &str) -> AppResult<CodexPluginCommandResult> {
 pub fn check_plugin_update(plugin_id: &str) -> AppResult<CodexPluginUpdateStatus> {
     let plugin_id = plugin_id.trim();
     if plugin_id.is_empty() || !plugin_id.contains('@') {
-        return Err(AppError::Config(format!("无效的 Codex 插件 ID: {plugin_id}")));
+        return Err(AppError::Config(format!(
+            "无效的 Codex 插件 ID: {plugin_id}"
+        )));
     }
     let (_, marketplace) = split_plugin_id(plugin_id);
     if !marketplace.is_empty() {
@@ -638,7 +658,10 @@ fn normalize_version(raw: &str) -> String {
         .to_ascii_lowercase()
 }
 
-fn command_result(output: std::process::Output, success_message: &str) -> AppResult<CodexPluginCommandResult> {
+fn command_result(
+    output: std::process::Output,
+    success_message: &str,
+) -> AppResult<CodexPluginCommandResult> {
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     if output.status.success() {
@@ -726,9 +749,7 @@ fn parse_marketplace_json(stdout: &str) -> Vec<CodexMarketplace> {
                             .and_then(Value::as_str)
                             .map(str::to_string)
                     })
-                    .or_else(|| {
-                        obj.get("url").and_then(Value::as_str).map(str::to_string)
-                    }),
+                    .or_else(|| obj.get("url").and_then(Value::as_str).map(str::to_string)),
                 raw: Some(item.to_string()),
             })
         })
@@ -756,7 +777,11 @@ fn parse_marketplace_text(stdout: &str) -> Vec<CodexMarketplace> {
         }
         out.push(CodexMarketplace {
             name: name.trim_matches(|ch| ch == '"' || ch == '\'').to_string(),
-            root: if rest.is_empty() { None } else { Some(rest.to_string()) },
+            root: if rest.is_empty() {
+                None
+            } else {
+                Some(rest.to_string())
+            },
             source: None,
             raw: Some(line.to_string()),
         });
@@ -920,7 +945,11 @@ mod tests {
             .join("slack")
             .join("1.0.0");
         fs::create_dir_all(&cache).unwrap();
-        fs::write(root.path().join("config.toml"), "[plugins.\"slack@openai-curated\"]\nenabled = true\n").unwrap();
+        fs::write(
+            root.path().join("config.toml"),
+            "[plugins.\"slack@openai-curated\"]\nenabled = true\n",
+        )
+        .unwrap();
 
         let listed = list_plugins().unwrap();
         assert_eq!(listed.len(), 1);
@@ -1015,9 +1044,15 @@ enabled = false
         .unwrap();
 
         assert_eq!(catalog.plugins.len(), 2);
-        assert_eq!(catalog.plugins[0].plugin_id, "google-calendar@openai-curated");
+        assert_eq!(
+            catalog.plugins[0].plugin_id,
+            "google-calendar@openai-curated"
+        );
         assert_eq!(catalog.plugins[1].plugin_id, "slack@openai-curated");
-        assert_eq!(catalog.plugins[1].description.as_deref(), Some("Slack helpers"));
+        assert_eq!(
+            catalog.plugins[1].description.as_deref(),
+            Some("Slack helpers")
+        );
     }
 
     #[test]

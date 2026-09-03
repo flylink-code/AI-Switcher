@@ -1,11 +1,12 @@
 //! Tauri commands for the built-in Antigravity gateway.
 
 use crate::antigravity::{
-    clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings, import_accounts_json, list_accounts, login_with_browser,
-    refresh_all_account_quotas, refresh_one_account_quota, remove_account, set_active_account,
-    set_fast_path_settings, set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
-    AntigravityAccountPublic, AntigravityGatewayStatus, DEFAULT_CLASH_PROXY_URL,
-    DEFAULT_GATEWAY_PORT, FastPathSettings,
+    clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings,
+    import_accounts_json, list_accounts, login_with_browser, refresh_all_account_quotas,
+    refresh_one_account_quota, remove_account, set_active_account, set_fast_path_settings,
+    set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway,
+    stop_gateway, AntigravityAccountPublic, AntigravityGatewayStatus, FastPathSettings,
+    DEFAULT_CLASH_PROXY_URL, DEFAULT_GATEWAY_PORT,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -26,9 +27,7 @@ pub fn import_antigravity_accounts(json: String) -> AppResult<usize> {
 }
 
 #[tauri::command]
-pub async fn start_antigravity_oauth_login(
-    app: AppHandle,
-) -> AppResult<AntigravityAccountPublic> {
+pub async fn start_antigravity_oauth_login(app: AppHandle) -> AppResult<AntigravityAccountPublic> {
     login_with_browser(&app).await
 }
 
@@ -66,9 +65,7 @@ pub fn set_antigravity_outbound_proxy(
 ) -> AppResult<AntigravityGatewayStatus> {
     set_outbound_proxy(
         &mode,
-        proxy_url
-            .as_deref()
-            .unwrap_or(DEFAULT_CLASH_PROXY_URL),
+        proxy_url.as_deref().unwrap_or(DEFAULT_CLASH_PROXY_URL),
     )
 }
 
@@ -253,13 +250,15 @@ pub async fn ensure_antigravity_provider(
         custom_headers: None,
     };
 
-    state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
+    state
+        .db
+        .with_conn(|conn| dao::upsert_provider(conn, &input))
 }
 
 #[tauri::command]
 pub fn list_antigravity_models() -> AppResult<Vec<crate::antigravity::CatalogModel>> {
     let _ = list_accounts();
-    Ok(crate::antigravity::list_catalog_models())
+    Ok(crate::antigravity::model_catalog::list_exposed_catalog_models())
 }
 
 #[tauri::command]
@@ -271,7 +270,8 @@ pub fn get_antigravity_pool_warning() -> AppResult<crate::antigravity::pool::Poo
 }
 
 #[tauri::command]
-pub fn get_antigravity_recommended_account() -> AppResult<Option<crate::antigravity::AntigravityAccountPublic>> {
+pub fn get_antigravity_recommended_account(
+) -> AppResult<Option<crate::antigravity::AntigravityAccountPublic>> {
     let pool = match crate::antigravity::pool_instance() {
         Ok(p) => p,
         Err(_) => std::sync::Arc::new(crate::antigravity::AccountPool::new()),
@@ -292,7 +292,7 @@ pub fn get_antigravity_defaults() -> AppResult<serde_json::Value> {
         "baseUrl": status.base_url,
         "apiKey": status.api_key,
         "running": status.running,
-        "models": crate::antigravity::list_catalog_models(),
+        "models": crate::antigravity::model_catalog::list_exposed_catalog_models(),
         "defaultModel": crate::antigravity::model_catalog::preferred_default_model(),
         "geminiFlash": crate::antigravity::model_catalog::preferred_gemini_flash(),
         "geminiFlashLow": crate::antigravity::model_catalog::preferred_gemini_flash_low(),

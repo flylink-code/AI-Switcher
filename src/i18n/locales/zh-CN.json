@@ -1259,6 +1259,12 @@
       "hubDescription": "在同一页面管理 Claude Code、VS Code/Cursor 中的 Claude Code 扩展，以及 Claude Desktop 中文化。第三方补丁均需在目标客户端中再次确认。",
       "claudeCodeTitle": "Claude Code 简体中文",
       "editorTitle": "VS Code / Cursor 扩展简体中文",
+      "upstreamTitle": "中文化上游在线检测",
+      "checkOnline": "检查在线版本",
+      "upstreamNotChecked": "尚未检查线上版本；此操作只读取公开 Release 信息，不下载或修改本机文件。",
+      "onlineAvailable": "线上可用",
+      "onlineUnavailable": "线上不可用",
+      "checkedAt": "检查时间",
       "configured": "已配置",
       "notConfigured": "未配置",
       "detected": "已检测到官方扩展",
@@ -1296,7 +1302,7 @@
       "confirmDownload": "从第三方上游仓库下载中文资源？",
       "confirmDownloadDescription": "仅提取并校验简体中文 JSON，不会保存或执行仓库中的脚本；下载失败时继续使用当前资源。",
       "thirdPartyTitle": "第三方非官方中文资源",
-      "thirdPartyDescription": "资源来自 javaht/claude-desktop-zh-cn 的 GitHub Releases（当前跟踪最新版，如 1.4.6 / Claude Desktop 1.32885.1），不由本软件维护。请在下载前核对来源。",
+      "thirdPartyDescription": "资源来自 javaht/claude-desktop-zh-cn 的 GitHub Releases（本地参考版本 1.4.7）；Claude Code 中文插件参考 taekchef/claude-code-zh-cn v2.14.0。可使用「检查在线版本」读取上游最新 Release，不由本软件维护。请在下载前核对来源。",
       "openRepository": "打开上游仓库",
       "install": "安装简体中文",
       "restore": "恢复原版",
@@ -1395,6 +1401,11 @@
         "AG 网关：账号/项目 RPM 与 URL 级 429 不再同账号降模型，最多再试 1 个账号后回 429，避免把整池打进冷却。",
         "统一目录「隐藏官方内置模型」：供应商可见性里保留的 GPT 型号仍会出现在目录中。",
         "用量日志将上游 429 单独记为 upstream_429。"
+      ],
+      "1_4_6": [
+        "AG 网关接入 Gemini 3.8 Flash（high/medium/low），429 时沿 3.8 → 3.7 → 3.6 档位降级；无 items 的 array Schema 自动补全，避免 Cloud Code 400。",
+        "OpenAI Chat 回传 reasoning_content；Codex 恢复/回退分段会话的用量不再因 request_id 碰撞丢失。",
+        "汉化页可检查上游在线版本（Desktop 包参考 1.4.7，Claude Code 插件参考 v2.14.0）；预设增加 9527CODE / AICodeWith，定价加入 Claude Fable 5.1。"
       ]
     },
     "appName": "应用名称",
@@ -1590,7 +1601,7 @@
     "outboundNone": "直连（无代理）",
     "models": "可用模型（来自 Cloud Code）",
     "modelsEmpty": "暂无模型目录。请先登录账号并点击「刷新额度」。",
-    "modelsHint": "刷新额度后会同步 Antigravity 当前可用模型；网关 /v1/models 与绑定供应商都会使用这份列表。当前 Gemini Flash 为 gemini-3.7-flash 与 gemini-3.6-flash（两者并存，不会互相改写）。Claude Desktop 用角色路由（name=claude-sonnet-5 + labelOverride=gemini-3.7-flash）选择 3.7。Codex 请重新「确保供应商」，协议为 openai_responses（/v1/responses）。",
+    "modelsHint": "刷新额度后会同步 Antigravity 当前可用模型；网关 /v1/models 与绑定供应商都会使用这份列表。Gemini Flash 优先 gemini-3.8-flash，并保留 3.7/3.6 作为降级链；高/中/低档位依次回退。Claude Desktop 用角色路由选择目标模型。Codex 请重新「确保供应商」，协议为 openai_responses（/v1/responses）。",
     "accounts": "账号",
     "running": "运行中",
     "stoppedState": "已停止",

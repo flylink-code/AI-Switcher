@@ -38,7 +38,10 @@ fn environment_label() -> String {
 }
 
 fn infer_pi_source(path: &Path) -> String {
-    let normalized = path.to_string_lossy().replace('\\', "/").to_ascii_lowercase();
+    let normalized = path
+        .to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase();
     if normalized.contains("/.bun/") || normalized.contains("/bun/") {
         "bun".to_string()
     } else if normalized.contains("/pnpm/") {
@@ -63,9 +66,8 @@ fn infer_pi_source(path: &Path) -> String {
 /// 解析 CLI 版本号（寻找像 x.y.z 的数字版本串）
 fn parse_version(text: &str) -> Option<String> {
     text.split_whitespace().find_map(|token| {
-        let clean = token.trim_matches(|c: char| {
-            !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+'
-        });
+        let clean = token
+            .trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+');
         if clean.chars().next().is_some_and(|c| c.is_ascii_digit()) && clean.contains('.') {
             Some(clean.to_string())
         } else {
@@ -120,7 +122,12 @@ fn get_pi_candidates() -> Vec<PathBuf> {
             candidates.push(npm.join("pi.cmd"));
             candidates.push(npm.join("pi"));
         }
-        candidates.push(base.join("AppData").join("Roaming").join("npm").join("pi.cmd"));
+        candidates.push(
+            base.join("AppData")
+                .join("Roaming")
+                .join("npm")
+                .join("pi.cmd"),
+        );
     }
 
     if let Ok(home) = env::var("HOME") {

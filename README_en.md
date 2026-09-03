@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.5**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.6**
 
-**This release:** Antigravity account RPM 429s no longer cool the whole pool. Hide-official keeps GPT models you left visible. Usage logs tag upstream 429s separately.
+**This release:** Antigravity gateway adds Gemini 3.8 Flash. Unconstrained tool-schema arrays get `items` to avoid Cloud Code 400s. OpenAI Chat forwards thinking as `reasoning_content`. Codex resumed-session usage is no longer dropped. Localization can check upstream releases.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -80,7 +80,10 @@ pnpm install
 # 2. Start dev server with hot reload
 .\scripts\dev-hot.ps1
 
-# 3. Build release executable
+# 3. After testing, stop this-repo debug/Vite and restore installed autostart
+.\scripts\clean-dev.ps1
+
+# 4. Build release executable
 pnpm build:exe
 ```
 
@@ -97,4 +100,4 @@ AI-Switcher is an independent community project and is not affiliated with Anthr
 - [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) - Background request short-circuit, stream lifetime, local web_search
 - [sub2api](https://github.com/sub2api) - URL-level rate limiting & upstream fallback
 - [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich)
-- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.13.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) v0.1.2 · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.6
+- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.14.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) v0.1.2 · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.7

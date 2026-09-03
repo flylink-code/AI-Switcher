@@ -41,11 +41,10 @@ fn try_acquire_refresh_lock() -> Option<RefreshGuard> {
 
 pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<AntigravityAccountPublic> {
     let id = account_id.to_string();
-    let (access_token, account) = tokio::task::spawn_blocking(move || {
-        account_store().ensure_access_token(&id)
-    })
-    .await
-    .map_err(|error| AppError::Other(format!("额度刷新任务失败: {error}")))??;
+    let (access_token, account) =
+        tokio::task::spawn_blocking(move || account_store().ensure_access_token(&id))
+            .await
+            .map_err(|error| AppError::Other(format!("额度刷新任务失败: {error}")))??;
 
     let quota_result = tokio::time::timeout(
         ACCOUNT_QUOTA_BUDGET,
@@ -68,29 +67,28 @@ pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<Antigravit
                 account.email
             );
             let retry_id = account_id.to_string();
-            let (access_token, refreshed_account) =
-                match tokio::task::spawn_blocking(move || {
-                    account_store().force_refresh_access_token(&retry_id)
-                })
-                .await
-                .map_err(|error| AppError::Other(format!("Token 刷新任务失败: {error}")))?
-                {
-                    Ok(result) => result,
-                    Err(refresh_error) => {
-                        let detail = refresh_error.to_string();
-                        if detail.contains("invalid_grant") || detail.contains("revoked") {
-                            account_store().mark_reauthorization_required(
-                                account_id,
-                                "Google 授权已失效，请重新用浏览器登录此账号",
-                            )?;
-                            return Err(AppError::Config(format!(
-                                "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",
-                                account.email
-                            )));
-                        }
-                        return Err(refresh_error);
+            let (access_token, refreshed_account) = match tokio::task::spawn_blocking(move || {
+                account_store().force_refresh_access_token(&retry_id)
+            })
+            .await
+            .map_err(|error| AppError::Other(format!("Token 刷新任务失败: {error}")))?
+            {
+                Ok(result) => result,
+                Err(refresh_error) => {
+                    let detail = refresh_error.to_string();
+                    if detail.contains("invalid_grant") || detail.contains("revoked") {
+                        account_store().mark_reauthorization_required(
+                            account_id,
+                            "Google 授权已失效，请重新用浏览器登录此账号",
+                        )?;
+                        return Err(AppError::Config(format!(
+                            "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",
+                            account.email
+                        )));
                     }
-                };
+                    return Err(refresh_error);
+                }
+            };
             tokio::time::timeout(
                 ACCOUNT_QUOTA_BUDGET,
                 fetch_quota(&access_token, refreshed_account.token.project_id.as_deref()),

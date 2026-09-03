@@ -100,11 +100,18 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
             } else if let Some(prompt) = val.get("prompt").and_then(Value::as_str) {
                 title = Some(prompt.chars().take(60).collect());
             }
-            model = val.get("model").and_then(Value::as_str).map(|s| s.to_string());
-            provider = val.get("provider").and_then(Value::as_str).map(|s| s.to_string());
-            token_count = val.get("tokenCount").and_then(Value::as_u64).or_else(|| {
-                val.get("tokens").and_then(Value::as_u64)
-            });
+            model = val
+                .get("model")
+                .and_then(Value::as_str)
+                .map(|s| s.to_string());
+            provider = val
+                .get("provider")
+                .and_then(Value::as_str)
+                .map(|s| s.to_string());
+            token_count = val
+                .get("tokenCount")
+                .and_then(Value::as_u64)
+                .or_else(|| val.get("tokens").and_then(Value::as_u64));
         }
     } else if path.extension().is_some_and(|e| e == "jsonl") {
         // jsonl: 首行通常为 session 元数据，次行为消息
@@ -123,10 +130,16 @@ fn parse_session_file(path: &Path) -> Option<PiSessionItem> {
                     }
                 }
                 if model.is_none() {
-                    model = val.get("model").and_then(Value::as_str).map(|s| s.to_string());
+                    model = val
+                        .get("model")
+                        .and_then(Value::as_str)
+                        .map(|s| s.to_string());
                 }
                 if provider.is_none() {
-                    provider = val.get("provider").and_then(Value::as_str).map(|s| s.to_string());
+                    provider = val
+                        .get("provider")
+                        .and_then(Value::as_str)
+                        .map(|s| s.to_string());
                 }
             }
         }

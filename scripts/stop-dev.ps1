@@ -1,5 +1,10 @@
 # Stop the running AI-Switcher debug/installed app and this-repo Vite leftover.
 #
+# Kills both claude-switcher (debug) and AISwitcher (installed) so hot-reload
+# can bind the same ports / single-instance mutex. After a test session, use
+# scripts\clean-dev.ps1 instead — that keeps the installed app and restores
+# autostart away from the debug exe.
+#
 # Does not kill Cadence cdslmd or unrelated Node. Does not kill cargo/rustc.
 #
 # Usage:
@@ -86,9 +91,9 @@ if (-not $AppOnly) {
         ForEach-Object { Invoke-StopOnce $_.ProcessId "vite/node" }
 
     foreach ($listenPort in $vitePorts) {
-        foreach ($pid in (Get-ListenPids $listenPort)) {
-            if (Test-IsOurProcess $pid -AllowViteListener) {
-                Invoke-StopOnce $pid "listen :$listenPort"
+        foreach ($listenPid in (Get-ListenPids $listenPort)) {
+            if (Test-IsOurProcess $listenPid -AllowViteListener) {
+                Invoke-StopOnce $listenPid "listen :$listenPort"
             }
         }
     }
@@ -97,8 +102,8 @@ if (-not $AppOnly) {
     while ($waited -lt 8000) {
         $stillHeld = $false
         foreach ($listenPort in $vitePorts) {
-            foreach ($pid in (Get-ListenPids $listenPort)) {
-                if (Test-IsOurProcess $pid -AllowViteListener) {
+            foreach ($listenPid in (Get-ListenPids $listenPort)) {
+                if (Test-IsOurProcess $listenPid -AllowViteListener) {
                     $stillHeld = $true
                     break
                 }

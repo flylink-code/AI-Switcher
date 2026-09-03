@@ -326,10 +326,17 @@ impl AccountLimiter {
             .clone()
     }
 
-    fn with_rate_state<R>(&self, account_id: &str, f: impl FnOnce(&mut RateState, &LimiterConfig) -> R) -> R {
+    fn with_rate_state<R>(
+        &self,
+        account_id: &str,
+        f: impl FnOnce(&mut RateState, &LimiterConfig) -> R,
+    ) -> R {
         let config = self.config();
         let slots = self.slots_for(&config, account_id);
-        let mut state = slots.rate.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut state = slots
+            .rate
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         f(&mut state, &config)
     }
 
@@ -485,12 +492,12 @@ mod tests {
         let _main = granted(limiter.acquire("acct-a", false).await);
         let _sub1 = granted(limiter.acquire("acct-a", true).await);
         let _sub2 = granted(limiter.acquire("acct-a", true).await);
-        let late = tokio::time::timeout(
-            Duration::from_millis(200),
-            limiter.acquire("acct-a", true),
-        )
-        .await;
-        assert!(late.is_err(), "third subagent should wait past short timeout");
+        let late =
+            tokio::time::timeout(Duration::from_millis(200), limiter.acquire("acct-a", true)).await;
+        assert!(
+            late.is_err(),
+            "third subagent should wait past short timeout"
+        );
     }
 
     #[tokio::test]
@@ -519,11 +526,7 @@ mod tests {
         let limiter = AccountLimiter::new();
         limiter.note_upstream_rate_limited("acct-b");
         let denied = limiter
-            .acquire_until(
-                "acct-b",
-                false,
-                Instant::now() + Duration::from_millis(50),
-            )
+            .acquire_until("acct-b", false, Instant::now() + Duration::from_millis(50))
             .await;
         assert!(
             matches!(denied, AcquireOutcome::RateLimited),

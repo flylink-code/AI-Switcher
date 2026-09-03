@@ -89,7 +89,7 @@ pub use desktop_localization::{
     validate_desktop_localization_pack,
 };
 pub use localization::{
-    get_localization_hub_status, install_claude_code_localization,
+    check_localization_upstream, get_localization_hub_status, install_claude_code_localization,
     install_editor_localization_helper,
 };
 pub use mcp::{
