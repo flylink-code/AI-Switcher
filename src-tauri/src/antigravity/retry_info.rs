@@ -8,16 +8,11 @@ pub enum SmartRetry {
     InPlaceWait(Duration),
     /// SKU RPM — rotate account after existing short cooldown.
     RateLimitRotate,
-    /// Model capacity exhausted — do not walk the rest of the pool.
-    CapacityNoPoolWalk,
     None,
 }
 
 pub fn classify_retry(body: &str, retry_after_header: Option<u64>) -> SmartRetry {
     let lower = body.to_ascii_lowercase();
-    if lower.contains("model_capacity_exhausted") || lower.contains("model capacity exhausted") {
-        return SmartRetry::CapacityNoPoolWalk;
-    }
     let delay = parse_retry_delay(body)
         .or_else(|| retry_after_header.map(Duration::from_secs))
         .unwrap_or_else(|| Duration::from_secs(1));
@@ -82,12 +77,9 @@ mod tests {
     }
 
     #[test]
-    fn capacity_exhausted_does_not_walk_pool() {
+    fn capacity_exhausted_does_not_block_retry_classification() {
         let body = "MODEL_CAPACITY_EXHAUSTED: no capacity";
-        assert_eq!(
-            classify_retry(body, Some(30)),
-            SmartRetry::CapacityNoPoolWalk
-        );
+        assert_eq!(classify_retry(body, Some(30)), SmartRetry::None);
     }
 
     #[test]

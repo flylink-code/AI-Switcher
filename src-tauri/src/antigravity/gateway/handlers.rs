@@ -683,36 +683,6 @@ async fn dispatch_generation(
                         tokio::time::sleep(delay).await;
                         continue 'levels;
                     }
-                    crate::antigravity::retry_info::SmartRetry::CapacityNoPoolWalk => {
-                        last_error = format!(
-                            "upstream 429: {}",
-                            text.trim().chars().take(240).collect::<String>()
-                        );
-                        last_fail_status = 429;
-                        state.limiter.note_upstream_rate_limited(&account.id);
-                        let cooldown =
-                            crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after);
-                        let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
-                        log::warn!(
-                            "Antigravity MODEL_CAPACITY_EXHAUSTED on {account_email}; not walking the pool"
-                        );
-                        let _ = usage_log::insert_request(
-                            &state.db,
-                            exclude_labels.last().map(String::as_str),
-                            &last_attempted_model,
-                            Some(429),
-                            started,
-                            protocol,
-                            stream,
-                            Some("upstream"),
-                            Some(&last_error),
-                        );
-                        return error_json_with_retry_after(
-                            StatusCode::TOO_MANY_REQUESTS,
-                            &last_error,
-                            retry_after,
-                        );
-                    }
                     _ => {}
                 }
                 last_error = format!(
@@ -754,6 +724,7 @@ async fn dispatch_generation(
                     continue 'levels;
                 }
                 state.limiter.note_upstream_rate_limited(&account.id);
+                state.pool.clear_session(session_key.as_deref());
                 let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
                     &account,
                     Some(crate::antigravity::quota::quota_family_from_model(&model)),
@@ -825,6 +796,7 @@ async fn dispatch_generation(
             last_fail_status = status.as_u16();
             if status.as_u16() == 429 {
                 state.limiter.note_upstream_rate_limited(&account.id);
+                state.pool.clear_session(session_key.as_deref());
                 let kind = classify_rate_limit_body(&text);
                 let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
                     &account,
@@ -1809,6 +1781,15 @@ mod tests {
         assert!(!should_stop_pool_walk_after_429(0, false));
         assert!(should_stop_pool_walk_after_429(1, false));
         assert!(!should_stop_pool_walk_after_429(2, true));
+    }
+
+    #[test]
+    fn model_capacity_exhausted_walks_pool_when_family_quota_empty() {
+        assert!(should_try_model_fallback_on_429(
+            RateLimitKind::ModelQuotaExhausted
+        ));
+        assert!(!should_stop_pool_walk_after_429(0, true));
+        assert!(!should_stop_pool_walk_after_429(1, true));
     }
 
     #[test]

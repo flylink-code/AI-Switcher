@@ -52,7 +52,10 @@ impl RateLimitKind {
 /// [`UPSTREAM_FALLBACKS`] (0 = daily, 1 = prod, 2 = sandbox).
 pub fn classify_rate_limit_429(body: &str, host_index: usize) -> RateLimitKind {
     let lower = body.to_ascii_lowercase();
-    if lower.contains("capacity on this model") {
+    if lower.contains("capacity on this model")
+        || lower.contains("model_capacity_exhausted")
+        || lower.contains("model capacity exhausted")
+    {
         return RateLimitKind::ModelQuotaExhausted;
     }
     let generic = lower.contains("resource has been exhausted")
@@ -463,6 +466,14 @@ mod tests {
         assert!(is_url_level_rate_limit(
             r#"{"error":{"message":"Resource has been exhausted"}}"#
         ));
+        assert_eq!(
+            classify_rate_limit_429("MODEL_CAPACITY_EXHAUSTED: no capacity", 1),
+            RateLimitKind::ModelQuotaExhausted
+        );
+        assert_eq!(
+            classify_rate_limit_body("model capacity exhausted on this SKU"),
+            RateLimitKind::ModelQuotaExhausted
+        );
     }
 
     #[test]

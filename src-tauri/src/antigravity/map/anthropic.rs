@@ -663,7 +663,8 @@ fn content_to_parts(
                                 .get("media_type")
                                 .and_then(Value::as_str)
                                 .unwrap_or("image/png");
-                            if !data.is_empty() {
+                            if !data.is_empty() && super::history_media::is_plausible_image_base64(data)
+                            {
                                 parts.push(json!({
                                     "inlineData": { "mimeType": mime, "data": data }
                                 }));

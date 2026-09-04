@@ -216,8 +216,9 @@ impl QuotaSnapshot {
             .map(|pct| (pct as f64) / 100.0)
     }
 
-    /// Unknown family bars still allow the account until a 429. Both 5h and 7d
-    /// at 0% means this family is exhausted even if the other family has quota.
+    /// 7d first, then 5h. Weekly empty waits for the weekly reset; weekly
+    /// remaining with 5h empty skips this family until 5h recovers. Unknown
+    /// bars still allow the account until a 429. The other family is ignored.
     pub fn has_usable_quota_for_family(&self, family: QuotaFamily) -> bool {
         if self.is_forbidden {
             return false;
@@ -226,7 +227,7 @@ impl QuotaSnapshot {
         let week = self.family_window_percent(family, "weekly");
         match (five, week) {
             (None, None) => true,
-            (Some(a), Some(b)) => a > 0 || b > 0,
+            (Some(a), Some(b)) => a > 0 && b > 0,
             (Some(a), None) => a > 0,
             (None, Some(b)) => b > 0,
         }
@@ -1382,5 +1383,67 @@ mod tests {
         let empty = QuotaSnapshot::default();
         assert!(empty.has_usable_quota_for_family(QuotaFamily::Gemini));
         assert!(empty.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
+    }
+
+    #[test]
+    fn gemini_five_hour_empty_is_unusable_while_weekly_remains() {
+        let snap = family_bars(0.0, 0.82, 1.0, 0.94);
+        assert!(!snap.has_usable_quota_for_family(QuotaFamily::Gemini));
+        assert!(snap.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
+    }
+
+    #[test]
+    fn gemini_weekly_empty_is_unusable_even_if_five_hour_remains() {
+        let snap = family_bars(0.5, 0.0, 1.0, 1.0);
+        assert!(!snap.has_usable_quota_for_family(QuotaFamily::Gemini));
+        assert!(snap.has_usable_quota_for_family(QuotaFamily::ClaudeGpt));
+    }
+
+    #[test]
+    fn family_becomes_usable_again_after_bars_recover() {
+        let empty_5h = family_bars(0.0, 0.82, 1.0, 0.94);
+        assert!(!empty_5h.has_usable_quota_for_family(QuotaFamily::Gemini));
+        let recovered = family_bars(0.4, 0.82, 1.0, 0.94);
+        assert!(recovered.has_usable_quota_for_family(QuotaFamily::Gemini));
+
+        let empty_week = family_bars(0.5, 0.0, 1.0, 1.0);
+        assert!(!empty_week.has_usable_quota_for_family(QuotaFamily::Gemini));
+        let week_recovered = family_bars(0.5, 0.1, 1.0, 1.0);
+        assert!(week_recovered.has_usable_quota_for_family(QuotaFamily::Gemini));
+    }
+
+    #[test]
+    fn single_known_window_must_be_positive() {
+        let five_only = QuotaSnapshot {
+            last_updated: 1,
+            groups: vec![QuotaGroup {
+                display_name: "Gemini Models".into(),
+                buckets: vec![QuotaBucket {
+                    bucket_id: "gemini-5h".into(),
+                    window: "5h".into(),
+                    remaining_fraction: 0.0,
+                    reset_time: "t".into(),
+                    display_name: None,
+                }],
+            }],
+            ..QuotaSnapshot::default()
+        };
+        assert!(!five_only.has_usable_quota_for_family(QuotaFamily::Gemini));
+
+        let week_only = QuotaSnapshot {
+            last_updated: 1,
+            groups: vec![QuotaGroup {
+                display_name: "Gemini Models".into(),
+                buckets: vec![QuotaBucket {
+                    bucket_id: "gemini-weekly".into(),
+                    window: "weekly".into(),
+                    remaining_fraction: 0.0,
+                    reset_time: "t".into(),
+                    display_name: None,
+                }],
+            }],
+            ..QuotaSnapshot::default()
+        };
+        assert!(!week_only.has_usable_quota_for_family(QuotaFamily::Gemini));
     }
 }

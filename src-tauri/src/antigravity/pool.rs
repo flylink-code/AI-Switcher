@@ -600,10 +600,10 @@ fn sort_candidates_best_first(candidates: &mut [AntigravityAccount], family: Opt
     candidates.sort_by(|left, right| compare_candidates(left, right, family));
 }
 
-/// 429 with remaining quota for the requested family is a Cloud Code SKU/RPM
-/// limit — do not walk the rest of the pool. Rotate freely only when this
-/// family's 5h/7d bars are empty (the other family must not keep the account
-/// "schedulable").
+/// 429 with remaining 5h and 7d for the requested family is a Cloud Code
+/// SKU/RPM limit — do not walk the rest of the pool. Rotate freely when this
+/// family's 7d is empty or 5h is empty (the other family must not keep the
+/// account "schedulable").
 pub(crate) fn should_rotate_pool_on_429(
     account: &AntigravityAccount,
     family: Option<QuotaFamily>,
@@ -903,6 +903,73 @@ mod tests {
         ));
         assert!(!should_rotate_pool_on_429(
             &gemini_empty,
+            Some(QuotaFamily::ClaudeGpt)
+        ));
+    }
+
+    #[test]
+    fn gemini_five_hour_empty_skips_active_while_weekly_remains() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.0, 0.82, 1.0, 0.94));
+        a2.quota = Some(family_quota(0.96, 0.99, 1.0, 1.0));
+        assert_eq!(pick_for_model(&[a1, a2], "gemini-3.8-flash-high"), "a2");
+    }
+
+    #[test]
+    fn gemini_weekly_empty_skips_even_if_five_hour_remains() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.5, 0.0, 1.0, 1.0));
+        a2.quota = Some(family_quota(0.4, 0.4, 0.1, 0.1));
+        assert_eq!(pick_for_model(&[a1, a2], "gemini-3.8-flash-high"), "a2");
+    }
+
+    #[test]
+    fn recovered_five_hour_makes_active_schedulable_again() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.0, 0.82, 1.0, 0.94));
+        a2.quota = Some(family_quota(0.96, 0.99, 1.0, 1.0));
+        assert_eq!(
+            pick_for_model(&[a1.clone(), a2.clone()], "gemini-3.8-flash-high"),
+            "a2"
+        );
+        a1.quota = Some(family_quota(0.4, 0.82, 1.0, 0.94));
+        assert_eq!(pick_for_model(&[a1, a2], "gemini-3.8-flash-high"), "a1");
+    }
+
+    #[test]
+    fn claude_request_still_uses_account_with_empty_gemini_five_hour() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.is_active = true;
+        a2.is_active = false;
+        a1.quota = Some(family_quota(0.0, 0.82, 1.0, 0.94));
+        a2.quota = Some(family_quota(0.96, 0.99, 0.1, 0.1));
+        assert_eq!(
+            pick_for_model(&[a1.clone(), a2.clone()], "claude-opus-4-6"),
+            "a1"
+        );
+        assert_eq!(pick_for_model(&[a1, a2], "gemini-3.8-flash-high"), "a2");
+    }
+
+    #[test]
+    fn rotate_on_429_when_five_hour_empty_weekly_remains() {
+        let mut gemini_5h_empty = sample("a1", None);
+        gemini_5h_empty.quota = Some(family_quota(0.0, 0.82, 1.0, 0.94));
+        assert!(should_rotate_pool_on_429(
+            &gemini_5h_empty,
+            Some(QuotaFamily::Gemini)
+        ));
+        assert!(!should_rotate_pool_on_429(
+            &gemini_5h_empty,
             Some(QuotaFamily::ClaudeGpt)
         ));
     }

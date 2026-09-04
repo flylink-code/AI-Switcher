@@ -1437,6 +1437,10 @@
         "Usage pricing catalog refreshed to 2026-09-04 with GPT-6 Astra, Claude Mythos 5.1, Gemini 3.8 Flash, and related entries.",
         "OpenAI / Anthropic / Google public rates and batch prices are updated; the catalog version is shared with the pricing UI.",
         "User-edited prices are not overwritten; only new models and untouched defaults are filled in."
+      ],
+      "1_4_9": [
+        "The Antigravity gateway schedules by family weekly quota then 5-hour quota: skip an account when 5h is empty and re-enable it after refresh; capacity 429s no longer pin the same account.",
+        "Incomplete or Chinese data:image snippets in history stay as text so Cloud Code does not return 400."
       ]
     },
     "appName": "App name",

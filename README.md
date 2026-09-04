@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.8**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.9**
 
-**本版**：用量定价目录刷新至 2026-09-04：新增 GPT-6 Astra、Claude Mythos 5.1、Gemini 3.8 Flash 等条目，并同步 OpenAI / Anthropic / Google 等公开标价与 batch 价。
+**本版**：AG 网关按家族 7 天→5 小时额度选号，5h 用尽则换其他账号、额度恢复后自动解禁；历史里残缺或中文 `data:image` 不再误当成图片导致 Cloud Code 400。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

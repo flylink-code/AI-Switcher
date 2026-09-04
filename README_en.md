@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.8**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.9**
 
-**This release:** Usage pricing catalog refreshed to 2026-09-04: adds GPT-6 Astra, Claude Mythos 5.1, Gemini 3.8 Flash, and updates public OpenAI / Anthropic / Google rates including batch pricing.
+**This release:** The Antigravity gateway picks accounts by family weekly then 5-hour quota, skipping empty 5h bars until they recover; broken or Chinese `data:image` snippets in history stay as text so Cloud Code does not return 400.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
