@@ -1432,6 +1432,11 @@
         "The localization page shows Claude Code, VS Code/Cursor, and Claude Desktop as cards with local vs GitHub latest, plus install, update, and uninstall.",
         "When Cursor Marketplace does not have the helper, it is installed from the GitHub Release .vsix; VS Code still tries Marketplace first.",
         "With the About-page GitHub mirror on, localization fetches releases/latest metadata and the .vsix via the mirror first, then falls back to GitHub."
+      ],
+      "1_4_8": [
+        "Usage pricing catalog refreshed to 2026-09-04 with GPT-6 Astra, Claude Mythos 5.1, Gemini 3.8 Flash, and related entries.",
+        "OpenAI / Anthropic / Google public rates and batch prices are updated; the catalog version is shared with the pricing UI.",
+        "User-edited prices are not overwritten; only new models and untouched defaults are filled in."
       ]
     },
     "appName": "App name",

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.7**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.8**
 
-**本版**：汉化页按 Claude Code / VS Code·Cursor / Desktop 三卡对照本机与 GitHub latest，并可安装、更新、卸载；Cursor 从 GitHub 下载补丁助手 `.vsix`；开启更新镜像时汉化 API 与资源都先走镜像。
+**本版**：用量定价目录刷新至 2026-09-04：新增 GPT-6 Astra、Claude Mythos 5.1、Gemini 3.8 Flash 等条目，并同步 OpenAI / Anthropic / Google 等公开标价与 batch 价。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

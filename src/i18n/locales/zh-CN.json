@@ -1432,6 +1432,11 @@
         "汉化页按 Claude Code、VS Code/Cursor、Claude Desktop 三张卡对照本机资源与 GitHub latest，并可安装、更新、卸载。",
         "Cursor 市场没有补丁助手时，从 GitHub Release 下载 .vsix 再安装；VS Code 仍先试 Marketplace。",
         "关于页开启 GitHub 镜像后，汉化上游 releases/latest 元数据与 .vsix 都先走镜像、失败再直连。"
+      ],
+      "1_4_8": [
+        "用量定价目录刷新至 2026-09-04：新增 GPT-6 Astra、Claude Mythos 5.1、Gemini 3.8 Flash 等模型条目。",
+        "同步 OpenAI / Anthropic / Google 等公开标价与 batch 价；目录版本号与定价页展示共用同一常量。",
+        "已有自定义单价不会被覆盖；仅补全新模型与未改过的默认项。"
       ]
     },
     "appName": "应用名称",

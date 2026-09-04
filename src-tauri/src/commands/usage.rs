@@ -1048,7 +1048,7 @@ pub fn list_model_pricing(state: tauri::State<'_, AppState>) -> AppResult<Vec<Mo
 #[tauri::command]
 pub fn get_pricing_catalog(state: tauri::State<'_, AppState>) -> AppResult<PricingCatalog> {
     state.db.with_conn(|conn| Ok(PricingCatalog {
-        version: "2026-07-28".to_string(),
+        version: crate::database::seed::CATALOG_VERSION.to_string(),
         entries: list_pricing(conn)?,
     }))
 }

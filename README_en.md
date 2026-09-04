@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.7**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.8**
 
-**This release:** Localization cards for Claude Code, VS Code/Cursor, and Desktop compare local vs GitHub latest and can install, update, or uninstall. Cursor installs the helper from a GitHub `.vsix`. With the update mirror on, localization metadata and assets try the mirror first.
+**This release:** Usage pricing catalog refreshed to 2026-09-04: adds GPT-6 Astra, Claude Mythos 5.1, Gemini 3.8 Flash, and updates public OpenAI / Anthropic / Google rates including batch pricing.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
