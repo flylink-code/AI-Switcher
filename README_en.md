@@ -1,103 +1,75 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.10**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.10**
 
-**This release:** Codex suggestions and ChatGPT OAuth default to GPT-6 Astra (client identity 0.153.4). Codex session usage on Windows no longer skips growing JSONL files whose LastWriteTime is frozen.
+**This release:** Codex picks up GPT-6 Astra (OAuth 0.153.4). Session usage on Windows no longer skips growing JSONL files whose LastWriteTime is frozen.
 
-[中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
+[中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
-Built with **Tauri 2 + Rust + React**. Consolidates scattered configuration files, system credentials, and local tooling into a unified interface, supporting independent provider profiles, unified model catalogs, and local reverse proxy scheduling.
+Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and local agent directories. Runs on this machine by default: keys go in the OS credential store, writes are backed up first, sessions are read from local files.
 
-Runs locally by default: API keys are stored in the OS credential store, configuration writes are backed up automatically, and sessions are read directly from local JSONL.
+| Platform | Installer | Notes |
+| --- | --- | --- |
+| Windows 10/11 | NSIS `.exe` (recommended) / MSI | Full features |
+| Linux (preview) | AppImage / `.deb` | Ubuntu 22.04 / Debian 12+ (WebKitGTK 4.1) |
 
-| Platform | Installer | Requirements |
-|---|---|---|
-| Windows 10/11 | NSIS `.exe` (Recommended) / MSI | Full feature support |
-| Linux (Preview) | AppImage / `.deb` | **Ubuntu 22.04 / Debian 12+** (WebKitGTK 4.1) |
+## Get started
 
----
+1. Download from [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest). Prefer NSIS on Windows (per-user, usually no admin). On Linux use the AppImage (`chmod +x` first).
+2. **Settings → Tools & environment → Agent tools** to detect and install CLIs (**Node.js ≥22** required).
+3. Add API keys under **Providers**, or sign in to Google / Antigravity under **Accounts & quotas**.
 
-## Key Features
+## Features
 
-### 1. Unified Navigation & Workspace
-- **Dual Layout Modes**: Toggle between top navigation tabs and a classic vertical sidebar (`cs.layoutMode`).
-- **Seven Core Modules**: Overview · Providers · Usage · Accounts & Quotas · Workspace · Sessions · Settings.
-- **Agent Toolbox**: Detect and install/update Claude Code, Codex, OpenCode, Pi, and DeepSeek Harness CLI tools (requires local Node.js ≥ 22).
+- **Providers:** Independent per agent. Claude Code / Codex can use a unified model catalog so CLI `/model` lists every visible model. Cards copy across agents (protocol and URL rewritten). OpenCode / Pi / DSH keep multiple providers and sync on save.
+- **Local proxy:** Anthropic-compatible forwarding, key injection, failover on 429/5xx. Entry: Settings → Tools & environment → Local proxy.
+- **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
+- **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
+- **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events. Claude Desktop’s private history is not parsed.
+- **Tools & localization:** Install/update each agent CLI. Claude Code, VS Code/Cursor, and Desktop Chinese packs (compare against GitHub latest; install or remove).
 
-### 2. Provider Management & Unified Model Catalog
-- **Multi-Agent Configurations**: Independently manage API endpoints, credentials, model mappings, and Base URL latency diagnostics for Claude Code, Desktop, Codex, OpenCode, Pi, DSH, and Cline. Cline uses the local proxy on port **15827** (`~/.cline/ai-switcher.json`); usage is filtered from proxy logs; sessions scan `~/.cline/data`.
-- **Unified Catalog Mode**: Merge multi-provider models through a local proxy so any visible model can be switched seamlessly in the CLI via `/model`.
-- **Subagent Smart Routing**: Claude Code (Explore/Haiku) and Codex subagents follow the current default model when left empty; an explicit catalog subagent id is still honored.
-- **Thinking / Reasoning Translation**: Seamlessly bridges token budgets and reasoning effort across Anthropic, OpenAI, Gemini, and DeepSeek.
-- **Health Diagnostics & Failover**: One-click quarantine for 401/403 errors with transparent failover support on 429/5xx errors. Provider cards can show official subscription usage and vendor balances / coding-plan windows (including self-hosted sub2api `GET /v1/usage`).
-- **Copy across Agents**: Protocol, Base URL, and Claude role mappings are rewritten for the destination (e.g. Kimi Anthropic → Codex Chat `/v1`). Copies onto Code / Desktop / Codex become current and update live config.
+## Paths
 
-### 3. Antigravity Gateway (Smart Cloud Code Proxy)
-Built-in local reverse proxy (default `http://127.0.0.1:15830`) bridging Google Cloud Code to Anthropic Messages and OpenAI Chat/Responses protocols:
-- **Smart Account Pool Scheduling**: Browser OAuth import, real-time quota probes, dynamic weighted round-robin, and best account recommendation. Active account is a soft preference—under RPM pressure it yields to healthier accounts.
-- **URL-Level 429 Intelligent Fallback**: Accurately recognizes node-level rate limits (`Resource has been exhausted`) and automatically falls back to production endpoints with micro-backoff; remembers daily-host throttling with TTL and skips daily when hot.
-- **Graceful Tier Degradation**: Downgrades across Gemini 3.6/3.7 tiers (`3.7-flash-low` → `3.6-flash-low`, then same-base `medium`/`high` as a last resort; at most three tiers per request); per-account token bucket (~30 RPM, burst 8), min-interval backoff, AIMD on 429. Main-session stream retry budget is ~45s (subagent ~15s); a full concurrency slot or deadline returns **429** instead of bypassing the gate. Local network failures are logged as `network` and returned as **504 + Retry-After** (not 502), without cooling accounts. `generate` is bound to the remaining deadline and skips sandbox after earlier host network failures. **Accounts & Quotas** exposes manual concurrency and rate-limit settings; subagent bursts use a separate pool via `x-cs-subagent`.
-- **Protocol Adaptations**: OpenAI Chat / Responses replay Gemini 3 `thought_signature` on historical `functionCall` parts (tool-id cache, sentinel fallback) so Codex tool rounds are not rejected with 400; request-body 400/422 is returned as-is instead of being laundered into 429/502. Complete-line UTF-8 decoding to prevent character corruption, LaTeX KaTeX text unwrap, and real token usage passthrough.
+| | |
+| --- | --- |
+| Claude Code | `~/.claude/` |
+| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\` (Windows) |
+| Codex | `$CODEX_HOME` or `~/.codex/` |
+| OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
+| Pi | `~/.pi/agent/` |
+| DSH | `~/.dsh/` |
+| Cline | `~/.cline/` (sidecar `ai-switcher.json`, proxy `:15827`) |
+| This app | `~/.claude-switcher/` (relocatable; path kept for older installs) |
 
-### 4. Extensions & Ecosystem Integration
-- **MCP / Prompts / Skills**: Centrally manage MCP servers, prompt templates (`CLAUDE.md` / `AGENTS.md`), and Skill repositories with cross-agent synchronization. Check-all Skill/plugin updates run off the UI thread (per-repo GitHub zips, 90s plugin CLI timeout) so the window stays responsive.
-- **Local Session Manager**: Browse, search, backup, and export local session histories across all supported AI coding agents. Claude Code / Codex / Pi / DSH can full-ZIP backup to a custom folder and restore in one click.
-- **Localization**: Claude Code, VS Code/Cursor, and Claude Desktop each show local vs GitHub latest and can install, update, or uninstall. Cursor installs the helper from a GitHub `.vsix`. With the About-page GitHub mirror on, `releases/latest` metadata and the `.vsix` try the mirror first. Editor Apply Patch still requires in-editor confirmation.
+Exports and sync omit API keys by default.
 
----
+## Privacy
 
-## Installation & Getting Started
-
-1. Download the latest installer from [GitHub Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) (NSIS `.exe` recommended for Windows).
-2. Go to **Settings → Tools & environment → Agent tools** to verify and install the required agent CLI environments.
-3. Configure your API keys in **Providers** or log in with your Google account in **Accounts & Quotas** to get started.
-
----
-
-## Configuration & Storage Paths
-
-| Client / Component | Configuration & Storage Path |
-|---|---|
-| Claude Code | `~/.claude/settings.json` · `~/.claude.json` · `~/.claude/projects/` |
-| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\configLibrary\` (Windows) |
-| Codex CLI | `$CODEX_HOME/` or `~/.codex/` (`config.toml`, `sessions/`) |
-| OpenCode | `~/.config/opencode/opencode.json` · `~/.local/share/opencode/` |
-| Pi CLI | `~/.pi/agent/models.json` · `auth.json` · `sessions/` |
-| DeepSeek Harness | `~/.dsh/settings.yaml` · `.credentials.yaml` · `sessions/` |
-| Cline | `~/.cline/ai-switcher.json` · `data/settings/cline_mcp_settings.json` · `data/sessions/` |
-| Application Library | `~/.claude-switcher/` (relocatable; stores DB, backups, and logs) |
-
----
+API keys live in Windows Credential Manager / macOS Keychain / Linux Secret Service. Config writes are atomic with rotating backups. Nothing local is uploaded except connection tests, model discovery, update checks, and remote sync you explicitly confirm.
 
 ## Development
 
-**Prerequisites**: Node.js 22+, pnpm 9+, Rust stable, VS 2022 C++ desktop workload (Windows).
+Node.js 22+, pnpm 9+ (Corepack), Rust stable; Windows also needs the VS 2022 C++ desktop workload. Dev port **5250**.
 
 ```powershell
-# 1. Install frontend dependencies
 pnpm install
-
-# 2. Start dev server with hot reload
-.\scripts\dev-hot.ps1
-
-# 3. After testing, stop this-repo debug/Vite and restore installed autostart
-.\scripts\clean-dev.ps1
-
-# 4. Build release executable
-pnpm build:exe
+.\scripts\dev-hot.ps1       # hot reload; uses 5251+ if 5250 is taken
+.\scripts\clean-dev.ps1     # stop debug, restore the installed app
+pnpm build:exe              # release exe → release\AISwitcher.exe
 ```
 
----
+## Limits
 
-## License & Acknowledgements
+- The seven agents above are the product surface; the AG gateway attaches Gemini / Cloud Code to them.
+- Pi / DSH / Cline have no plugins, agents, profiles, or tray switching.
+- Pi / DSH OpenAI-compatible upstreams go direct; Cline always uses local proxy `:15827`.
+- No remote conflict merge, no team sharing.
+- Linux is Ubuntu 22.04 / Debian 12+ only.
 
-Released under the **[MIT License](LICENSE)**.
+## License & thanks
 
-AI-Switcher is an independent community project and is not affiliated with Anthropic, OpenAI, or Google.
+[MIT](LICENSE). Independent community project — not affiliated with Anthropic, OpenAI, or Google. Claude, Codex, ChatGPT, and related names are trademarks of their owners. Issues and PRs welcome.
 
-**Special Thanks & Upstream Inspiration**:
-- [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) - Reverse proxy scheduling & protocol mapping
-- [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) - Background request short-circuit, stream lifetime, local web_search
-- [sub2api](https://github.com/sub2api) - URL-level rate limiting & upstream fallback
-- [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich)
-- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.14.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) (GitHub latest; upstream 0.2.1) · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.7
+Inspiration: [Antigravity-Manager](https://github.com/lbjlaq/Antigravity-Manager) · [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) · [sub2api](https://github.com/sub2api) · [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich) · [Codex++](https://github.com/BigPizzaV3/CodexPlusPlus)
+
+Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn)
