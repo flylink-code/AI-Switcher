@@ -453,7 +453,9 @@ fn catalog_model_stem(id: &str) -> &str {
 
 fn is_official_openai_builtin(id: &str) -> bool {
     let m = id.trim().to_ascii_lowercase();
-    m == "gpt-5.6-luna"
+    m == "gpt-6-astra"
+        || m.starts_with("gpt-6-astra-")
+        || m == "gpt-5.6-luna"
         || m.starts_with("gpt-5.6-luna-")
         || m == "gpt-5.6-sol"
         || m.starts_with("gpt-5.6-sol-")
@@ -696,6 +698,17 @@ mod tests {
         assert!(!visible.iter().any(|id| id == "gpt-5.6-luna"));
         let injected = collect_provider_slugs_with(&relay, &cached, false);
         assert!(injected.iter().any(|id| id == "gpt-5.6-luna"));
+    }
+
+    #[test]
+    fn hide_official_drops_gpt6_astra_suggestions() {
+        let mut relay = provider("p1", "sub2api", "gpt-5.4-mini");
+        let cached = vec!["gpt-6-astra".into(), "gpt-5.4-mini".into()];
+        let visible = collect_provider_slugs_with(&relay, &cached, true);
+        assert!(visible.iter().any(|id| id == "gpt-5.4-mini"));
+        assert!(!visible.iter().any(|id| id == "gpt-6-astra"));
+        let injected = collect_provider_slugs_with(&relay, &cached, false);
+        assert!(injected.iter().any(|id| id == "gpt-6-astra"));
     }
 
     #[test]

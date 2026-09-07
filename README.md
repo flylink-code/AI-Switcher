@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.9**
+> 面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi CLI**、**DSH** 与 **Cline** 的本地配置与供应商管理器。**v1.4.10**
 
-**本版**：AG 网关按家族 7 天→5 小时额度选号，5h 用尽则换其他账号、额度恢复后自动解禁；历史里残缺或中文 `data:image` 不再误当成图片导致 Cloud Code 400。
+**本版**：Codex 建议与 ChatGPT OAuth 默认接上 GPT-6 Astra（客户端身份 0.153.4）；Windows 上 Codex 长会话用量不再因冻结的修改时间漏扫。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 

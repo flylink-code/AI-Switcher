@@ -426,6 +426,8 @@ fn write_managed_provider(
 /// single default after apply (matches frontend `codexModelSuggestions`).
 /// Only injected when the active default model looks OpenAI-family.
 const CODEX_MODEL_SUGGESTIONS: &[&str] = &[
+    "gpt-6-astra",
+    "gpt-6-astra-fast",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.6-luna",
@@ -438,6 +440,9 @@ const CODEX_MODEL_SUGGESTIONS: &[&str] = &[
 /// Models that Codex / ChatGPT Fast mode currently supports (catalog-driven).
 fn model_supports_codex_fast(model: &str) -> bool {
     let m = model.trim().to_ascii_lowercase();
+    if m == "gpt-6-astra" || m.starts_with("gpt-6-astra-") {
+        return true;
+    }
     if m == "gpt-5.6" || m == "gpt-5.6-sol" || m.starts_with("gpt-5.5") {
         return true;
     }
@@ -458,6 +463,8 @@ fn codex_model_display_name(slug: &str) -> String {
     match slug.trim().to_ascii_lowercase().as_str() {
         "deepseek-v4-flash" => "DeepSeek V4 Flash".into(),
         "deepseek-v4-pro" => "DeepSeek V4 Pro".into(),
+        "gpt-6-astra" => "GPT-6 Astra".into(),
+        "gpt-6-astra-fast" => "GPT-6 Astra Fast".into(),
         "kimi-k3" | "k3" => "Kimi K3".into(),
         "k3-256k" => "Kimi K3 256K".into(),
         "kimi-k2.6" | "k2.6" => "Kimi K2.6".into(),
@@ -511,6 +518,7 @@ fn codex_model_catalog_entry(
     priority: i64,
 ) -> Value {
     let display_name = codex_model_display_name(model);
+    let (verbosity, summary) = output_profile_catalog_defaults();
     let mut entry = serde_json::json!({
         "slug": model,
         "display_name": display_name.clone(),
@@ -536,9 +544,9 @@ fn codex_model_catalog_entry(
             }
         },
         "supports_reasoning_summaries": true,
-        "default_reasoning_summary": "none",
+        "default_reasoning_summary": summary,
         "support_verbosity": true,
-        "default_verbosity": "low",
+        "default_verbosity": verbosity,
         "apply_patch_tool_type": if anthropic_upstream { "structured" } else { "freeform" },
         "web_search_tool_type": if web_search_enabled { "text_and_image" } else { "disabled" },
         "truncation_policy": {
@@ -727,6 +735,169 @@ pub fn set_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearch
     })
 }
 
+/// How much Codex TUI / exec should surface reasoning and answer verbosity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexOutputProfile {
+    Default,
+    Concise,
+    Full,
+}
+
+impl CodexOutputProfile {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::Concise => "concise",
+            Self::Full => "full",
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "default" | "standard" => Some(Self::Default),
+            "concise" | "minimal" | "quiet" => Some(Self::Concise),
+            "full" | "verbose" | "detailed" => Some(Self::Full),
+            _ => None,
+        }
+    }
+
+    fn catalog_defaults(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Default => ("medium", "auto"),
+            Self::Concise => ("low", "none"),
+            Self::Full => ("high", "detailed"),
+        }
+    }
+
+    fn config_keys(self, show_raw_reasoning: bool) -> (bool, bool, &'static str, &'static str) {
+        let (verbosity, summary) = self.catalog_defaults();
+        match self {
+            Self::Default => (false, show_raw_reasoning, summary, verbosity),
+            Self::Concise => (true, false, summary, verbosity),
+            Self::Full => (false, show_raw_reasoning, summary, verbosity),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexOutputProfileSnapshot {
+    pub profile: CodexOutputProfile,
+    pub show_raw_reasoning: bool,
+    pub config_path: String,
+    pub set_in_config: bool,
+}
+
+fn toml_bool(doc: &DocumentMut, key: &str) -> Option<bool> {
+    doc.get(key).and_then(Item::as_bool)
+}
+
+fn toml_str_owned(doc: &DocumentMut, key: &str) -> Option<String> {
+    doc.get(key)
+        .and_then(Item::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn infer_output_profile(
+    hide: Option<bool>,
+    summary: Option<&str>,
+    verbosity: Option<&str>,
+) -> Option<CodexOutputProfile> {
+    let summary = summary.map(str::to_ascii_lowercase);
+    let verbosity = verbosity.map(str::to_ascii_lowercase);
+    if hide == Some(true)
+        || (summary.as_deref() == Some("none") && verbosity.as_deref() == Some("low"))
+    {
+        return Some(CodexOutputProfile::Concise);
+    }
+    if summary.as_deref() == Some("detailed") || verbosity.as_deref() == Some("high") {
+        return Some(CodexOutputProfile::Full);
+    }
+    if hide.is_some() || summary.is_some() || verbosity.is_some() {
+        return Some(CodexOutputProfile::Default);
+    }
+    None
+}
+
+fn output_profile_catalog_defaults() -> (&'static str, &'static str) {
+    get_output_profile()
+        .map(|snap| snap.profile.catalog_defaults())
+        .unwrap_or(("medium", "auto"))
+}
+
+fn apply_output_defaults_to_catalog(verbosity: &str, summary: &str) -> AppResult<()> {
+    let path = get_codex_config_dir().join(MODEL_CATALOG_FILENAME);
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&path)?)?;
+    let Some(models) = catalog.get_mut("models").and_then(Value::as_array_mut) else {
+        return Ok(());
+    };
+    for model in models {
+        let Some(object) = model.as_object_mut() else {
+            continue;
+        };
+        object.insert(
+            "default_verbosity".to_string(),
+            Value::String(verbosity.to_string()),
+        );
+        object.insert(
+            "default_reasoning_summary".to_string(),
+            Value::String(summary.to_string()),
+        );
+    }
+    atomic_write(&path, serde_json::to_string_pretty(&catalog)?.as_bytes())
+}
+
+pub fn get_output_profile() -> AppResult<CodexOutputProfileSnapshot> {
+    let path = get_codex_config_path();
+    let doc = load_document(&path)?;
+    let hide = toml_bool(&doc, "hide_agent_reasoning");
+    let show_raw = toml_bool(&doc, "show_raw_agent_reasoning").unwrap_or(false);
+    let summary = toml_str_owned(&doc, "model_reasoning_summary");
+    let verbosity = toml_str_owned(&doc, "model_verbosity");
+    let inferred = infer_output_profile(hide, summary.as_deref(), verbosity.as_deref());
+    let (profile, set_in_config) = match inferred {
+        Some(profile) => (profile, true),
+        None => (CodexOutputProfile::Default, false),
+    };
+    Ok(CodexOutputProfileSnapshot {
+        profile,
+        show_raw_reasoning: show_raw && profile != CodexOutputProfile::Concise,
+        config_path: path.to_string_lossy().into_owned(),
+        set_in_config,
+    })
+}
+
+pub fn set_output_profile(
+    profile: CodexOutputProfile,
+    show_raw_reasoning: bool,
+) -> AppResult<CodexOutputProfileSnapshot> {
+    let path = get_codex_config_path();
+    backup_once(&path, CONFIG_BACKUP)?;
+    let mut doc = load_document(&path)?;
+    let (hide, show_raw, summary, verbosity) = profile.config_keys(show_raw_reasoning);
+    doc["hide_agent_reasoning"] = value(hide);
+    doc["show_raw_agent_reasoning"] = value(show_raw);
+    doc["model_reasoning_summary"] = value(summary);
+    doc["model_verbosity"] = value(verbosity);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    atomic_write(&path, doc.to_string().as_bytes())?;
+    apply_output_defaults_to_catalog(verbosity, summary)?;
+    Ok(CodexOutputProfileSnapshot {
+        profile,
+        show_raw_reasoning: show_raw,
+        config_path: path.to_string_lossy().into_owned(),
+        set_in_config: true,
+    })
+}
+
 /// Rewrite `ai-switcher-model-catalog.json` from a merged gateway catalog.
 pub fn repair_model_catalog_file(catalog: &[CatalogEntry]) -> AppResult<String> {
     write_catalog_entries(catalog)?;
@@ -792,6 +963,23 @@ mod tests {
     use crate::provider::{
         ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget,
     };
+
+    static CODEX_HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn with_isolated_codex_home<R>(home: &std::path::Path, body: impl FnOnce() -> R) -> R {
+        let _guard = CODEX_HOME_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        std::env::set_var("CODEX_HOME", home);
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                std::env::remove_var("CODEX_HOME");
+            }
+        }
+        let _reset = Reset;
+        body()
+    }
 
     fn sample_codex_provider() -> Provider {
         Provider {
@@ -896,6 +1084,7 @@ mod tests {
         assert_eq!(models[0]["supports_reasoning_summaries"], true);
         assert_eq!(models[0]["context_window"], 272_000);
         assert_eq!(models[0]["priority"], 1);
+        assert!(models.iter().any(|entry| entry["slug"] == "gpt-6-astra"));
         assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
         std::env::remove_var("CODEX_HOME");
     }
@@ -1042,6 +1231,8 @@ mod tests {
         let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true, 1);
         assert_eq!(entry["service_tiers"][0]["id"], "fast");
         assert_eq!(entry["additional_speed_tiers"][0], "fast");
+        assert!(model_supports_codex_fast("gpt-6-astra"));
+        assert!(model_supports_codex_fast("gpt-6-astra-fast"));
         assert!(model_supports_codex_fast("gpt-5.6-sol"));
         assert!(model_supports_codex_fast("gpt-5.5"));
         assert!(model_supports_codex_fast("gpt-5.4"));
@@ -1052,7 +1243,7 @@ mod tests {
     #[test]
     fn top_level_web_search_mode_round_trips_and_strips_legacy_features() {
         let root = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", root.path());
+        with_isolated_codex_home(root.path(), || {
         fs::write(
             root.path().join("config.toml"),
             "[features]\nweb_search = true\nweb_search_live = true\n",
@@ -1066,7 +1257,65 @@ mod tests {
         assert!(!text.contains("web_search_live"));
         let loaded = get_web_search_mode().unwrap();
         assert_eq!(loaded.mode, CodexWebSearchMode::Live);
-        std::env::remove_var("CODEX_HOME");
+        });
+    }
+
+    #[test]
+    fn output_profile_writes_official_keys_and_catalog_defaults() {
+        let root = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(root.path(), || {
+        fs::write(root.path().join("config.toml"), "model = \"gpt-6-astra\"\n").unwrap();
+        fs::write(
+            root.path().join(MODEL_CATALOG_FILENAME),
+            r#"{"models":[{"slug":"gpt-6-astra","default_verbosity":"low","default_reasoning_summary":"none"}]}"#,
+        )
+        .unwrap();
+
+        let unset = get_output_profile().unwrap();
+        assert_eq!(unset.profile, CodexOutputProfile::Default);
+        assert_eq!(unset.profile.as_str(), "default");
+        assert!(!unset.set_in_config);
+        assert_eq!(
+            CodexOutputProfile::parse("verbose"),
+            Some(CodexOutputProfile::Full)
+        );
+
+        let concise = set_output_profile(CodexOutputProfile::Concise, true).unwrap();
+        assert_eq!(concise.profile, CodexOutputProfile::Concise);
+        assert!(!concise.show_raw_reasoning);
+        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+        assert!(text.contains("hide_agent_reasoning = true"));
+        assert!(text.contains("model_verbosity = \"low\""));
+        assert!(text.contains("model_reasoning_summary = \"none\""));
+        let catalog: Value =
+            serde_json::from_str(&fs::read_to_string(root.path().join(MODEL_CATALOG_FILENAME)).unwrap())
+                .unwrap();
+        assert_eq!(catalog["models"][0]["default_verbosity"], "low");
+        assert_eq!(catalog["models"][0]["default_reasoning_summary"], "none");
+
+        let full = set_output_profile(CodexOutputProfile::Full, true).unwrap();
+        assert!(full.show_raw_reasoning);
+        let text = fs::read_to_string(root.path().join("config.toml")).unwrap();
+        assert!(text.contains("hide_agent_reasoning = false"));
+        assert!(text.contains("show_raw_agent_reasoning = true"));
+        assert!(text.contains("model_verbosity = \"high\""));
+        assert!(text.contains("model_reasoning_summary = \"detailed\""));
+        let loaded = get_output_profile().unwrap();
+        assert_eq!(loaded.profile, CodexOutputProfile::Full);
+        assert!(loaded.show_raw_reasoning);
+        });
+    }
+
+    #[test]
+    fn catalog_entry_follows_output_profile_verbosity() {
+        let root = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(root.path(), || {
+        fs::write(root.path().join("config.toml"), "").unwrap();
+        set_output_profile(CodexOutputProfile::Full, false).unwrap();
+        let entry = codex_model_catalog_entry("gpt-6-astra", 272_000, false, true, 1);
+        assert_eq!(entry["default_verbosity"], "high");
+        assert_eq!(entry["default_reasoning_summary"], "detailed");
+        });
     }
 
     #[test]

@@ -213,7 +213,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         })
         .unwrap_or(0);
     let path_key = normalize_sync_path(path);
-    if let Some((last_modified, _)) = get_session_sync_state(conn, &path_key)? {
+    if let Some((last_modified, _, _)) = get_session_sync_state(conn, &path_key)? {
         if last_modified == modified {
             return Ok((0, 0));
         }
@@ -337,7 +337,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         inserted += 1;
     }
 
-    update_session_sync_state(conn, &path_key, modified, line_offset)?;
+    update_session_sync_state(conn, &path_key, modified, line_offset, 0)?;
     Ok((inserted, skipped))
 }
 

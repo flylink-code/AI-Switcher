@@ -210,7 +210,7 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
     let file_modified = file_modified_ms(&db_path)
         .max(file_modified_ms(&db_path.with_extension("db-wal")));
     let db_key = normalize_sync_path(&db_path);
-    if let Some((last_modified, _)) = get_session_sync_state(conn, &db_key)? {
+    if let Some((last_modified, _, _)) = get_session_sync_state(conn, &db_key)? {
         if last_modified == file_modified {
             return Ok(empty("OpenCode database unchanged".to_string()));
         }
@@ -229,7 +229,7 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
 
     for (session_id, watermark) in &sessions {
         let session_key = format!("{db_key}:{session_id}");
-        if let Some((last_modified, _)) = get_session_sync_state(conn, &session_key)? {
+        if let Some((last_modified, _, _)) = get_session_sync_state(conn, &session_key)? {
             if *watermark <= last_modified {
                 continue;
             }
@@ -295,12 +295,12 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
             had_error |= session_had_error;
             continue;
         }
-        update_session_sync_state(conn, &session_key, *watermark, 0)?;
+        update_session_sync_state(conn, &session_key, *watermark, 0, 0)?;
     }
 
     // 仅本轮无错误时推进文件级游标，保留下次重试入口。
     if !had_error {
-        update_session_sync_state(conn, &db_key, file_modified, 0)?;
+        update_session_sync_state(conn, &db_key, file_modified, 0, 0)?;
     }
 
     if inserted > 0 {

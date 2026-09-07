@@ -35,6 +35,8 @@ import type {
   VisibilityRepairResult,
   CodexWebSearchMode,
   CodexWebSearchSnapshot,
+  CodexOutputProfile,
+  CodexOutputProfileSnapshot,
   LibraryArchivePreview,
   ProviderTarget,
   SyncPreview,
@@ -52,6 +54,8 @@ import {
   repairEnvironmentVisibility,
   getCodexWebSearchMode,
   setCodexWebSearchMode,
+  getCodexOutputProfile,
+  setCodexOutputProfile,
   deleteSyncTarget,
   discoverWslDistributions,
   getWslRuntimeStatus,
@@ -140,6 +144,8 @@ export default function EnvironmentPage() {
   const [visibilityRepairing, setVisibilityRepairing] = useState(false);
   const [webSearch, setWebSearch] = useState<CodexWebSearchSnapshot | null>(null);
   const [webSearchSaving, setWebSearchSaving] = useState(false);
+  const [outputProfile, setOutputProfile] = useState<CodexOutputProfileSnapshot | null>(null);
+  const [outputProfileSaving, setOutputProfileSaving] = useState(false);
   const [backupTarget, setBackupTarget] = useState<ProviderTarget>("claude_code");
   const [configBackups, setConfigBackups] = useState<ConfigBackup[]>([]);
   const [configBackupDirectory, setConfigBackupDirectory] = useState<string | null>(null);
@@ -243,6 +249,32 @@ export default function EnvironmentPage() {
       void message.error(e instanceof Error ? e.message : String(e));
     } finally {
       setWebSearchSaving(false);
+    }
+  }, [t]);
+
+  const loadOutputProfile = useCallback(async () => {
+    try {
+      setOutputProfile(await getCodexOutputProfile());
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const onChangeOutputProfile = useCallback(async (
+    profile: CodexOutputProfile,
+    showRawReasoning: boolean,
+  ) => {
+    setOutputProfileSaving(true);
+    try {
+      setOutputProfile(await setCodexOutputProfile(
+        profile,
+        profile === "concise" ? false : showRawReasoning,
+      ));
+      void message.success(t("env.outputProfileSaved"));
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOutputProfileSaving(false);
     }
   }, [t]);
 
@@ -711,6 +743,58 @@ export default function EnvironmentPage() {
                   : t("env.webSearchUnset")}
               </Text>
             ) : null}
+          </Space>
+        </Card>
+
+        <Card
+          size="small"
+          className="page-surface"
+          title={t("env.outputProfileTitle")}
+          extra={
+            <Button size="small" onClick={() => void loadOutputProfile()}>
+              {t("env.refresh")}
+            </Button>
+          }
+        >
+          <Text type="secondary">{t("env.outputProfileDescription")}</Text>
+          <Space style={{ marginTop: 12 }} direction="vertical" size="small">
+            <Space wrap>
+              <Select<CodexOutputProfile>
+                style={{ minWidth: 180 }}
+                loading={outputProfileSaving}
+                placeholder={t("env.outputProfilePlaceholder")}
+                value={outputProfile?.profile}
+                onFocus={() => {
+                  if (!outputProfile) void loadOutputProfile();
+                }}
+                onChange={(profile) => void onChangeOutputProfile(
+                  profile,
+                  outputProfile?.showRawReasoning ?? false,
+                )}
+                options={[
+                  { value: "default", label: t("env.outputProfileDefault") },
+                  { value: "concise", label: t("env.outputProfileConcise") },
+                  { value: "full", label: t("env.outputProfileFull") },
+                ]}
+              />
+              {outputProfile ? (
+                <Text type="secondary">
+                  {outputProfile.setInConfig
+                    ? t("env.outputProfileConfigPath", { path: outputProfile.configPath })
+                    : t("env.outputProfileUnset")}
+                </Text>
+              ) : null}
+            </Space>
+            <Checkbox
+              disabled={outputProfileSaving || !outputProfile || outputProfile.profile === "concise"}
+              checked={outputProfile?.profile !== "concise" && Boolean(outputProfile?.showRawReasoning)}
+              onChange={(event) => {
+                if (!outputProfile) return;
+                void onChangeOutputProfile(outputProfile.profile, event.target.checked);
+              }}
+            >
+              {t("env.outputProfileShowRaw")}
+            </Checkbox>
           </Space>
         </Card>
 

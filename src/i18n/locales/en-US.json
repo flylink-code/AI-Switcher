@@ -316,7 +316,7 @@
     "catalogSubagentPlaceholder": "Pick from the catalog or leave empty",
     "catalogSubagentSaved": "Subagent model saved",
     "catalogHideOfficialLabel": "Hide official built-in models",
-    "catalogHideOfficialHint": "Do not inject luna/sol/terra, gpt-5.4, gpt-5.5, or similar picker suggestions into the catalog. Client requests for those ids are rewritten to the subagent or current default. A provider’s own saved default is kept.",
+    "catalogHideOfficialHint": "Do not inject luna/sol/terra, gpt-6-astra, gpt-5.4, gpt-5.5, or similar picker suggestions into the catalog. Client requests for those ids are rewritten to the subagent or current default. A provider’s own saved default is kept.",
     "catalogHideOfficialOn": "Official built-in models hidden",
     "catalogHideOfficialOff": "Official built-in models shown",
     "visibleModels": "Visible models",
@@ -1131,6 +1131,16 @@
     "webSearchSaved": "Updated global web_search",
     "webSearchConfigPath": "Written to {{path}}",
     "webSearchUnset": "Not set in config.toml (shown as disabled)",
+    "outputProfileTitle": "Codex execution detail",
+    "outputProfileDescription": "Writes hide_agent_reasoning, model_reasoning_summary, and model_verbosity in ~/.codex/config.toml. This only changes how Codex CLI/Desktop shows the turn; it cannot become a Cursor or Claude Code tool timeline. /verbosity in a session still wins.",
+    "outputProfilePlaceholder": "Choose a preset",
+    "outputProfileDefault": "Default",
+    "outputProfileConcise": "Concise",
+    "outputProfileFull": "Full",
+    "outputProfileSaved": "Updated Codex execution detail",
+    "outputProfileConfigPath": "Written to {{path}}",
+    "outputProfileUnset": "Not set in config.toml (shown as default)",
+    "outputProfileShowRaw": "Show raw reasoning (most useful on Full; many relay models emit none)",
     "refresh": "Refresh",
     "runBackup": "Back up now",
     "exportLibrary": "Export portable library",
@@ -1441,6 +1451,12 @@
       "1_4_9": [
         "The Antigravity gateway schedules by family weekly quota then 5-hour quota: skip an account when 5h is empty and re-enable it after refresh; capacity 429s no longer pin the same account.",
         "Incomplete or Chinese data:image snippets in history stay as text so Cloud Code does not return 400."
+      ],
+      "1_4_10": [
+        "Codex suggestions, the ChatGPT subscription default, and hide-official now include GPT-6 Astra. OAuth client identity is 0.153.4 and Refresh models uses the official Codex catalog.",
+        "Moonshot/Kimi Chat rewrites Codex tool schemas that mix $ref with sibling keywords into allOf so the upstream does not return 400.",
+        "Codex session usage sync compares file size as well as mtime, so Windows JSONL files with a frozen LastWriteTime are scanned again. last_token_usage is preferred so compact sessions do not bill a parent thread's cumulative total as one turn.",
+        "The environment page can set Codex execution detail to default, concise, or full (reasoning visibility and verbosity in config.toml)."
       ]
     },
     "appName": "App name",

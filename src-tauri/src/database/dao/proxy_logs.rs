@@ -417,26 +417,28 @@ pub fn normalize_sync_path(path: &Path) -> String {
 pub fn get_session_sync_state(
     conn: &Connection,
     file_path: &str,
-) -> AppResult<Option<(i64, i64)>> {
+) -> AppResult<Option<(i64, i64, i64)>> {
     let normalized = file_path.replace('\\', "/");
     let candidates = [file_path, normalized.as_str()];
     for candidate in candidates {
         let mut stmt = conn.prepare(
-            "SELECT last_modified, last_line_offset FROM session_log_sync WHERE file_path = ?;",
+            "SELECT last_modified, last_line_offset, COALESCE(last_file_size, 0)
+             FROM session_log_sync WHERE file_path = ?;",
         )?;
         let mut rows = stmt.query(params![candidate])?;
         if let Some(row) = rows.next()? {
-            return Ok(Some((row.get(0)?, row.get(1)?)));
+            return Ok(Some((row.get(0)?, row.get(1)?, row.get(2)?)));
         }
     }
     // Windows may have stored the opposite slash style.
     let mut stmt = conn.prepare(
-        "SELECT last_modified, last_line_offset FROM session_log_sync
+        "SELECT last_modified, last_line_offset, COALESCE(last_file_size, 0)
+         FROM session_log_sync
          WHERE replace(file_path, '\\', '/') = ?;",
     )?;
     let mut rows = stmt.query(params![normalized])?;
     if let Some(row) = rows.next()? {
-        Ok(Some((row.get(0)?, row.get(1)?)))
+        Ok(Some((row.get(0)?, row.get(1)?, row.get(2)?)))
     } else {
         Ok(None)
     }
@@ -447,6 +449,7 @@ pub fn update_session_sync_state(
     file_path: &str,
     last_modified: i64,
     last_line_offset: i64,
+    last_file_size: i64,
 ) -> AppResult<()> {
     let normalized = file_path.replace('\\', "/");
     // Drop legacy slash-variant rows so one canonical key remains.
@@ -457,16 +460,18 @@ pub fn update_session_sync_state(
         params![normalized, normalized],
     )?;
     conn.execute(
-        "INSERT INTO session_log_sync (file_path, last_modified, last_line_offset, last_synced_at)
-         VALUES (?, ?, ?, ?)
+        "INSERT INTO session_log_sync (file_path, last_modified, last_line_offset, last_file_size, last_synced_at)
+         VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(file_path) DO UPDATE SET
            last_modified = excluded.last_modified,
            last_line_offset = excluded.last_line_offset,
+           last_file_size = excluded.last_file_size,
            last_synced_at = excluded.last_synced_at;",
         params![
             normalized,
             last_modified,
             last_line_offset,
+            last_file_size,
             Utc::now().timestamp_millis()
         ],
     )?;

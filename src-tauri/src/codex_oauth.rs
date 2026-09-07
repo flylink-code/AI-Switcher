@@ -27,8 +27,15 @@ pub const DEVICE_VERIFICATION_URL: &str = "https://auth.openai.com/codex/device"
 pub const DEVICE_REDIRECT_URI: &str = "https://auth.openai.com/deviceauth/callback";
 pub const USER_AGENT: &str = "ai-switcher-codex-oauth";
 pub const CODEX_OAUTH_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
+pub const CODEX_OAUTH_MODELS_URL: &str = "https://chatgpt.com/backend-api/codex/models";
 pub const ORIGINATOR: &str = "codex_cli_rs";
-pub const CLIENT_VERSION: &str = "0.144.1";
+/// Official rust catalog: gpt-6-astra requires >= 0.153.0. Bump with cc-switch.
+pub const CLIENT_VERSION: &str = "0.153.4";
+
+/// `GET /backend-api/codex/models` with the identity ChatGPT uses to gate Astra.
+pub fn build_codex_oauth_models_url() -> String {
+    format!("{CODEX_OAUTH_MODELS_URL}?client_version={CLIENT_VERSION}")
+}
 pub const TOKEN_REFRESH_BUFFER_MS: i64 = 60_000;
 
 #[derive(Debug, Clone, Serialize)]
@@ -487,4 +494,94 @@ fn response_json(response: reqwest::blocking::Response) -> AppResult<Value> {
 
 fn lock_error<T>(_: std::sync::PoisonError<T>) -> AppError {
     AppError::Other("ChatGPT OAuth 状态锁已损坏".to_string())
+}
+
+/// ChatGPT Codex model ids from `GET /backend-api/codex/models` (not `/v1/models`).
+pub fn parse_codex_oauth_model_ids(value: &Value) -> Vec<String> {
+    let mut models = Vec::new();
+    let entries = value
+        .get("data")
+        .and_then(Value::as_array)
+        .or_else(|| value.get("models").and_then(Value::as_array))
+        .or_else(|| value.get("items").and_then(Value::as_array))
+        .or_else(|| value.as_array());
+    if let Some(entries) = entries {
+        for entry in entries {
+            push_codex_oauth_model_id(&mut models, entry, None);
+        }
+    }
+    if let Some(model_map) = value.get("models").and_then(Value::as_object) {
+        for (key, entry) in model_map {
+            push_codex_oauth_model_id(&mut models, entry, Some(key));
+        }
+    }
+    models.sort();
+    models.dedup();
+    models
+}
+
+fn push_codex_oauth_model_id(models: &mut Vec<String>, entry: &Value, fallback_id: Option<&str>) {
+    if let Some(id) = entry.as_str().map(str::trim).filter(|id| !id.is_empty()) {
+        models.push(id.to_string());
+        return;
+    }
+    let Some(obj) = entry.as_object() else {
+        if let Some(id) = fallback_id.map(str::trim).filter(|id| !id.is_empty()) {
+            models.push(id.to_string());
+        }
+        return;
+    };
+    let Some(id) = ["slug", "id", "model", "name"]
+        .iter()
+        .find_map(|key| obj.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            fallback_id
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(str::to_string)
+        })
+    else {
+        return;
+    };
+    models.push(id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn client_version_meets_gpt6_astra_minimum() {
+        assert_eq!(CLIENT_VERSION, "0.153.4");
+        let parts: Vec<u32> = CLIENT_VERSION
+            .split('.')
+            .map(|part| part.parse().unwrap())
+            .collect();
+        assert!(parts.as_slice() >= [0, 153, 0].as_slice());
+        assert_eq!(
+            build_codex_oauth_models_url(),
+            "https://chatgpt.com/backend-api/codex/models?client_version=0.153.4"
+        );
+    }
+
+    #[test]
+    fn parse_codex_oauth_models_reads_slug_and_openai_data() {
+        let models = parse_codex_oauth_model_ids(&json!({
+            "models": [{ "slug": "gpt-6-astra", "minimal_client_version": "0.153.0" }]
+        }));
+        assert_eq!(models, vec!["gpt-6-astra".to_string()]);
+
+        let models = parse_codex_oauth_model_ids(&json!({
+            "data": [
+                { "id": "gpt-5.4", "owned_by": "openai" },
+                { "model": "gpt-5.4" },
+                "gpt-5.5"
+            ]
+        }));
+        assert_eq!(models, vec!["gpt-5.4".to_string(), "gpt-5.5".to_string()]);
+    }
 }

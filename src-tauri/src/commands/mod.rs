@@ -56,6 +56,7 @@ pub use claude_plugins::{
 };
 pub use codex::{
     get_codex_auth_status, get_codex_web_search_mode, set_codex_web_search_mode,
+    get_codex_output_profile, set_codex_output_profile,
     sync_codex_session_providers,
 };
 pub use codex_plugins::{

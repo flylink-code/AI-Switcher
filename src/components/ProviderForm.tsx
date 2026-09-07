@@ -62,6 +62,8 @@ const protocolEndpoints: Record<ProtocolType, string> = {
 };
 
 const codexModelSuggestions = [
+  "gpt-6-astra",
+  "gpt-6-astra-fast",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-5.6-luna",

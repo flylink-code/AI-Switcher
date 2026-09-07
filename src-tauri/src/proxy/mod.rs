@@ -12,6 +12,7 @@ mod codex_auto_review;
 mod codex_chat;
 mod codex_compact;
 mod codex_history;
+mod codex_moonshot_schema;
 mod web_tools;
 
 use std::net::SocketAddr;

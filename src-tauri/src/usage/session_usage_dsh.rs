@@ -162,14 +162,14 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         .map(|duration| duration.as_millis() as i64)
         .unwrap_or(0);
     let path_key = normalize_sync_path(path);
-    if get_session_sync_state(conn, &path_key)?.is_some_and(|(last_modified, _)| last_modified == modified) {
+    if get_session_sync_state(conn, &path_key)?.is_some_and(|(last_modified, _, _)| last_modified == modified) {
         return Ok((0, 0));
     }
     let events = match read_dsh_events(path) {
         Ok(events) => events,
         Err(error) => {
             log::warn!("DeepSeek Harness session log ignored ({}): {error}", path.display());
-            update_session_sync_state(conn, &path_key, modified, 0)?;
+            update_session_sync_state(conn, &path_key, modified, 0, 0)?;
             return Ok((0, 0));
         }
     };
@@ -215,7 +215,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         )?;
         inserted += 1;
     }
-    update_session_sync_state(conn, &path_key, modified, events.len() as i64)?;
+    update_session_sync_state(conn, &path_key, modified, events.len() as i64, 0)?;
     Ok((inserted, skipped))
 }
 

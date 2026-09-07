@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 27;
+pub const SCHEMA_VERSION: u32 = 28;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -115,6 +115,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             file_path TEXT PRIMARY KEY,
             last_modified INTEGER NOT NULL,
             last_line_offset INTEGER NOT NULL DEFAULT 0,
+            last_file_size INTEGER NOT NULL DEFAULT 0,
             last_synced_at INTEGER NOT NULL
         );",
     )?;
@@ -243,6 +244,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 27 {
         migrate_v26_to_v27(conn)?;
+    }
+    if current < 28 {
+        migrate_v27_to_v28(conn)?;
     }
     Ok(())
 }
@@ -509,6 +513,7 @@ fn migrate_v11_to_v12(conn: &Connection) -> AppResult<()> {
             file_path TEXT PRIMARY KEY,
             last_modified INTEGER NOT NULL,
             last_line_offset INTEGER NOT NULL DEFAULT 0,
+            last_file_size INTEGER NOT NULL DEFAULT 0,
             last_synced_at INTEGER NOT NULL
          );",
     )?;
@@ -905,41 +910,83 @@ fn migrate_v24_to_v25(conn: &Connection) -> AppResult<()> {
 }
 
 fn migrate_v25_to_v26(conn: &Connection) -> AppResult<()> {
-    let exists: i64 = conn.query_row(
-        "SELECT count(*) FROM pragma_table_info('mcp_servers') WHERE name = 'enabled_cline';",
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='mcp_servers';",
         [],
         |row| row.get(0),
     )?;
-    if exists == 0 {
-        conn.execute_batch(
-            "ALTER TABLE mcp_servers ADD COLUMN enabled_cline BOOLEAN NOT NULL DEFAULT 0;",
+    if table_exists > 0 {
+        let exists: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('mcp_servers') WHERE name = 'enabled_cline';",
+            [],
+            |row| row.get(0),
         )?;
+        if exists == 0 {
+            conn.execute_batch(
+                "ALTER TABLE mcp_servers ADD COLUMN enabled_cline BOOLEAN NOT NULL DEFAULT 0;",
+            )?;
+        }
     }
     set_user_version(conn, 26)
 }
 
 fn migrate_v26_to_v27(conn: &Connection) -> AppResult<()> {
-    let has_stream_outcome: i64 = conn.query_row(
-        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'stream_outcome';",
+    let logs_exist: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
         [],
         |row| row.get(0),
     )?;
-    if has_stream_outcome == 0 {
-        conn.execute_batch(
-            "ALTER TABLE proxy_request_logs ADD COLUMN stream_outcome TEXT;",
+    if logs_exist > 0 {
+        let has_stream_outcome: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'stream_outcome';",
+            [],
+            |row| row.get(0),
         )?;
+        if has_stream_outcome == 0 {
+            conn.execute_batch(
+                "ALTER TABLE proxy_request_logs ADD COLUMN stream_outcome TEXT;",
+            )?;
+        }
     }
-    let has_custom_headers: i64 = conn.query_row(
-        "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'custom_headers_json';",
+    let providers_exist: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='providers';",
         [],
         |row| row.get(0),
     )?;
-    if has_custom_headers == 0 {
-        conn.execute_batch(
-            "ALTER TABLE providers ADD COLUMN custom_headers_json TEXT NOT NULL DEFAULT '{}';",
+    if providers_exist > 0 {
+        let has_custom_headers: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'custom_headers_json';",
+            [],
+            |row| row.get(0),
         )?;
+        if has_custom_headers == 0 {
+            conn.execute_batch(
+                "ALTER TABLE providers ADD COLUMN custom_headers_json TEXT NOT NULL DEFAULT '{}';",
+            )?;
+        }
     }
     set_user_version(conn, 27)
+}
+
+fn migrate_v27_to_v28(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='session_log_sync';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists > 0 {
+        let has_file_size: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('session_log_sync') WHERE name = 'last_file_size';",
+            [],
+            |row| row.get(0),
+        )?;
+        if has_file_size == 0 {
+            conn.execute_batch(
+                "ALTER TABLE session_log_sync ADD COLUMN last_file_size INTEGER NOT NULL DEFAULT 0;",
+            )?;
+        }
+    }
+    set_user_version(conn, 28)
 }
 
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
@@ -967,6 +1014,12 @@ mod tests {
                 )?;
                 assert_eq!(n, 1, "missing table {table}");
             }
+            let has_file_size: i64 = conn.query_row(
+                "SELECT count(*) FROM pragma_table_info('session_log_sync') WHERE name = 'last_file_size';",
+                [],
+                |r| r.get(0),
+            )?;
+            assert_eq!(has_file_size, 1);
             Ok(())
         })
         .unwrap();
@@ -1277,6 +1330,47 @@ mod tests {
         assert_eq!(custom_value["haiku"], "gemini-3.7-flash-medium");
         assert_eq!(custom_value["subagent"], "gemini-3.7-flash-medium");
 
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn v28_session_log_sync_gains_last_file_size() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE session_log_sync (
+                file_path TEXT PRIMARY KEY,
+                last_modified INTEGER NOT NULL,
+                last_line_offset INTEGER NOT NULL DEFAULT 0,
+                last_synced_at INTEGER NOT NULL
+            );
+            INSERT INTO session_log_sync (file_path, last_modified, last_line_offset, last_synced_at)
+            VALUES ('/tmp/frozen.jsonl', 1, 20, 2);
+            PRAGMA user_version = 27;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let has_file_size: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('session_log_sync') WHERE name = 'last_file_size';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_file_size, 1);
+        let size: i64 = conn
+            .query_row(
+                "SELECT last_file_size FROM session_log_sync WHERE file_path = '/tmp/frozen.jsonl';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(size, 0);
         let version: u32 = conn
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();

@@ -693,6 +693,15 @@ export interface CodexWebSearchSnapshot {
   setInConfig: boolean;
 }
 
+export type CodexOutputProfile = "default" | "concise" | "full";
+
+export interface CodexOutputProfileSnapshot {
+  profile: CodexOutputProfile;
+  showRawReasoning: boolean;
+  configPath: string;
+  setInConfig: boolean;
+}
+
 export interface EndpointSpeedtestResult {
   ok: boolean;
   latencyMs?: number | null;

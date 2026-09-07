@@ -14,6 +14,8 @@ import type {
   ClaudePluginUpdateStatus,
   CodexWebSearchMode,
   CodexWebSearchSnapshot,
+  CodexOutputProfile,
+  CodexOutputProfileSnapshot,
   RepositorySkill,
   Skill,
   SkillRepositorySnapshot,
@@ -170,6 +172,20 @@ export async function getCodexWebSearchMode(): Promise<CodexWebSearchSnapshot> {
 
 export async function setCodexWebSearchMode(mode: CodexWebSearchMode): Promise<CodexWebSearchSnapshot> {
   return call<CodexWebSearchSnapshot>("set_codex_web_search_mode", { mode });
+}
+
+export async function getCodexOutputProfile(): Promise<CodexOutputProfileSnapshot> {
+  return call<CodexOutputProfileSnapshot>("get_codex_output_profile", {});
+}
+
+export async function setCodexOutputProfile(
+  profile: CodexOutputProfile,
+  showRawReasoning: boolean,
+): Promise<CodexOutputProfileSnapshot> {
+  return call<CodexOutputProfileSnapshot>("set_codex_output_profile", {
+    profile,
+    showRawReasoning,
+  });
 }
 
 export async function listSkillRepositories(): Promise<SkillRepositorySnapshot[]> {

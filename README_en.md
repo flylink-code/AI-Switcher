@@ -1,8 +1,8 @@
 # AI-Switcher
 
-> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.9**
+> Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi CLI**, **DSH**, and **Cline**. **v1.4.10**
 
-**This release:** The Antigravity gateway picks accounts by family weekly then 5-hour quota, skipping empty 5h bars until they recover; broken or Chinese `data:image` snippets in history stay as text so Cloud Code does not return 400.
+**This release:** Codex suggestions and ChatGPT OAuth default to GPT-6 Astra (client identity 0.153.4). Codex session usage on Windows no longer skips growing JSONL files whose LastWriteTime is frozen.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [License: MIT](LICENSE)
 
@@ -100,4 +100,4 @@ AI-Switcher is an independent community project and is not affiliated with Anthr
 - [free-claude-code](https://github.com/Yeachan-Heo/free-claude-code) - Background request short-circuit, stream lifetime, local web_search
 - [sub2api](https://github.com/sub2api) - URL-level rate limiting & upstream fallback
 - [AI Toolbox](https://github.com/coulsontl/ai-toolbox) · [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) · [cc-switch](https://github.com/farion1231/cc-switch) · [code-switch](https://github.com/daodao97/code-swtich)
-- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.14.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) v0.1.2 · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.7
+- Localization: [taekchef/claude-code-zh-cn](https://github.com/taekchef/claude-code-zh-cn) v2.14.0 · [shanjiancaofu/claude-code-vscode-zh-cn](https://github.com/shanjiancaofu/claude-code-vscode-zh-cn) (GitHub latest; upstream 0.2.1) · [javaht/claude-desktop-zh-cn](https://github.com/javaht/claude-desktop-zh-cn) 1.4.7

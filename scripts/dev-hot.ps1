@@ -62,6 +62,37 @@ function Test-TcpPortAvailable([int]$ListenPort) {
     }
 }
 
+function Test-LoopbackListening([int]$ListenPort) {
+    try {
+        $rows = @(Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue)
+        if ($rows.Count -gt 0) { return $true }
+    } catch { }
+    return $false
+}
+
+# Bypass WinINET/HTTP_PROXY. Invoke-WebRequest otherwise hangs on 5250 until TimeoutSec.
+function Test-ViteHttpReady([int]$ListenPort) {
+    try {
+        $req = [System.Net.HttpWebRequest]::Create("http://127.0.0.1:$ListenPort/")
+        $req.Method = "GET"
+        $req.Timeout = 1500
+        $req.ReadWriteTimeout = 1500
+        $req.KeepAlive = $false
+        $req.Proxy = [System.Net.GlobalProxySelection]::GetEmptyWebProxy()
+        $resp = $req.GetResponse()
+        $resp.Close()
+        return $true
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) {
+            $_.Exception.Response.Close()
+            return $true
+        }
+        return $false
+    } catch {
+        return $false
+    }
+}
+
 function Stop-PidTree([int]$ProcessId) {
     if ($ProcessId -le 4) { return }
     & taskkill.exe /F /T /PID $ProcessId 2>$null | Out-Null
@@ -182,36 +213,39 @@ $script:originalConf = $originalConf
 
 $viteProc = $null
 try {
-    Write-Host "[dev-hot] Starting Vite on 127.0.0.1:$vitePort"
-    $viteArgs = if ($vitePort -eq $confPort -and $Port -eq 0) {
-        @("dev")
-    } else {
-        @("exec", "vite", "--port", "$vitePort", "--strictPort", "--host", "127.0.0.1")
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        throw "node not found. Install Node.js 22+."
     }
-    if ($corepack) {
-        $viteProc = Start-Process -FilePath $corepack.Path -ArgumentList (@("pnpm") + $viteArgs) `
-            -WorkingDirectory $root -PassThru -WindowStyle Hidden
-    } else {
-        $viteProc = Start-Process -FilePath $pnpm.Path -ArgumentList $viteArgs `
-            -WorkingDirectory $root -PassThru -WindowStyle Hidden
+    $viteJs = Join-Path $root "node_modules\vite\bin\vite.js"
+    if (-not (Test-Path $viteJs)) {
+        throw "Vite is missing ($viteJs). Run: corepack pnpm install"
+    }
+
+    Write-Host "[dev-hot] Starting Vite on 127.0.0.1:$vitePort (node.exe, not hidden corepack.cmd)"
+    $viteProc = Start-Process -FilePath $nodeCmd.Path -ArgumentList @(
+            $viteJs, "--port", "$vitePort", "--strictPort", "--host", "127.0.0.1"
+        ) -WorkingDirectory $root -PassThru -WindowStyle Hidden
+    if (-not $viteProc) {
+        throw "Failed to start node.exe Vite."
     }
 
     $ready = $false
     foreach ($i in 1..60) {
         if ($viteProc.HasExited) {
-            throw "Vite exited early (code $($viteProc.ExitCode)). Is port $vitePort blocked?"
+            throw "Vite exited early (code $($viteProc.ExitCode)). Is port $vitePort blocked (Cadence cdslmd)?"
         }
-        try {
-            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$vitePort" -UseBasicParsing -TimeoutSec 1
-            if ($resp.StatusCode -ge 200) {
-                $ready = $true
-                break
-            }
-        } catch { }
+        if ((Test-LoopbackListening $vitePort) -or (Test-ViteHttpReady $vitePort)) {
+            $ready = $true
+            break
+        }
+        if (($i % 10) -eq 0) {
+            Write-Host "[dev-hot] waiting for Vite on :$vitePort ... $($i / 2)s"
+        }
         Start-Sleep -Milliseconds 500
     }
     if (-not $ready) {
-        throw "Vite did not become ready on http://127.0.0.1:$vitePort"
+        throw "Vite did not become ready on http://127.0.0.1:$vitePort (PID $($viteProc.Id)). Try .\scripts\dev-hot.ps1 -Port 5251"
     }
     Write-Host "[dev-hot] Vite ready: http://127.0.0.1:$vitePort/"
 

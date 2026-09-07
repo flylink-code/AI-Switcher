@@ -226,6 +226,7 @@ fn collect_codex_jsonl_files(directory: &Path, files: &mut Vec<PathBuf>) {
 
 fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
     let meta = std::fs::metadata(path)?;
+    let file_size = meta.len() as i64;
     let modified = meta
         .modified()
         .ok()
@@ -237,8 +238,11 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         .unwrap_or(0);
     let path_key = normalize_sync_path(path);
     // Unchanged files that were previously synced: skip without opening.
-    if let Some((last_modified, _)) = get_session_sync_state(conn, &path_key)? {
-        if last_modified == modified {
+    // Windows Codex JSONL often freezes LastWriteTime at session start, so
+    // also require file size to match. Size 0 in session_log_sync means a
+    // pre-v28 cursor and must be rescanned.
+    if let Some((last_modified, _, last_file_size)) = get_session_sync_state(conn, &path_key)? {
+        if last_modified == modified && last_file_size == file_size && last_file_size > 0 {
             return Ok((0, 0));
         }
     }
@@ -362,7 +366,7 @@ fn sync_one_file(conn: &Connection, path: &Path) -> AppResult<(i64, i64)> {
         inserted += 1;
     }
 
-    update_session_sync_state(conn, &path_key, modified, line_offset)?;
+    update_session_sync_state(conn, &path_key, modified, line_offset, file_size)?;
     Ok((inserted, skipped))
 }
 
@@ -400,25 +404,34 @@ fn compute_token_delta(
     fork_baseline_pending: &mut bool,
 ) -> Option<TokenTotals> {
     let info = info?;
-    if let Some(total) = info.get("total_token_usage").and_then(read_token_totals) {
-        if *fork_baseline_pending && prev_total.is_none() {
-            // Establish the replayed parent cumulative baseline without billing it.
+    let last = info.get("last_token_usage").and_then(read_token_totals);
+    let total = info.get("total_token_usage").and_then(read_token_totals);
+    if *fork_baseline_pending && prev_total.is_none() {
+        if let Some(total) = total {
             *prev_total = Some(total);
             *fork_baseline_pending = false;
             return Some(TokenTotals::default());
         }
-        let previous = prev_total.unwrap_or_default();
-        let delta = TokenTotals {
-            input: total.input.saturating_sub(previous.input),
-            cached: total.cached.saturating_sub(previous.cached),
-            output: total.output.saturating_sub(previous.output),
-        };
-        *prev_total = Some(total);
-        *fork_baseline_pending = false;
-        return Some(delta);
     }
     *fork_baseline_pending = false;
-    info.get("last_token_usage").and_then(read_token_totals)
+    // Codex provides exact per-request usage. Prefer it over subtracting
+    // cumulative totals, which after compact can replay a parent thread's
+    // multi-million-token baseline as a single turn.
+    if let Some(last) = last {
+        if let Some(total) = total {
+            *prev_total = Some(total);
+        }
+        return Some(last);
+    }
+    let total = total?;
+    let previous = *prev_total;
+    *prev_total = Some(total);
+    let previous = previous.unwrap_or_default();
+    Some(TokenTotals {
+        input: total.input.saturating_sub(previous.input),
+        cached: total.cached.saturating_sub(previous.cached),
+        output: total.output.saturating_sub(previous.output),
+    })
 }
 
 fn extract_model_name(value: Option<&Value>) -> Option<String> {
@@ -492,6 +505,7 @@ fn token_number(value: &Value, names: &[&str]) -> Option<i64> {
 mod tests {
     use super::*;
     use crate::database::Database;
+    use std::io::Write;
 
     #[test]
     fn sync_inserts_last_token_usage_rows() {
@@ -544,7 +558,7 @@ mod tests {
         db.with_conn(|conn| {
             let (first_inserted, _) = sync_one_file(conn, &session)?;
             assert_eq!(first_inserted, 1);
-            // Second pass with same mtime must skip entirely.
+            // Second pass with same mtime and size must skip entirely.
             let (second_inserted, second_skipped) = sync_one_file(conn, &session)?;
             assert_eq!(second_inserted, 0);
             assert_eq!(second_skipped, 0);
@@ -554,6 +568,102 @@ mod tests {
                 |row| row.get(0),
             )?;
             assert_eq!(count, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn sync_resumes_when_mtime_frozen_but_file_grew() {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("sessions").join("frozen.jsonl");
+        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
+        std::fs::write(
+            &session,
+            concat!(
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\"thread-frozen\"}}\n",
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+                "{\"timestamp\":\"2026-09-04T11:27:03Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":50,\"cached_input_tokens\":0,\"output_tokens\":5}}}}\n",
+            ),
+        )
+        .unwrap();
+
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let (first_inserted, _) = sync_one_file(conn, &session)?;
+            assert_eq!(first_inserted, 1);
+            let path_key = normalize_sync_path(&session);
+            let (stored_mtime, stored_offset, stored_size) =
+                get_session_sync_state(conn, &path_key)?.expect("sync cursor");
+            assert!(stored_size > 0);
+
+            let mut file = std::fs::OpenOptions::new().append(true).open(&session)?;
+            writeln!(
+                file,
+                r#"{{"timestamp":"2026-09-04T12:00:00Z","type":"event_msg","payload":{{"type":"token_count","info":{{"last_token_usage":{{"input_tokens":80,"cached_input_tokens":0,"output_tokens":8}}}}}}}}"#
+            )?;
+            drop(file);
+
+            let new_mtime = std::fs::metadata(&session)
+                .ok()
+                .and_then(|meta| meta.modified().ok())
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as i64)
+                .unwrap_or(stored_mtime);
+            // Pretend Windows froze LastWriteTime: cursor mtime matches disk,
+            // but size still points at the pre-append length.
+            update_session_sync_state(conn, &path_key, new_mtime, stored_offset, stored_size)?;
+
+            let (second_inserted, second_skipped) = sync_one_file(conn, &session)?;
+            assert!(
+                second_inserted + second_skipped >= 1,
+                "frozen mtime with a larger file must reread the JSONL"
+            );
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM proxy_request_logs WHERE data_source = 'codex_session';",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 2);
+            let new_output: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM proxy_request_logs WHERE data_source = 'codex_session' AND output_tokens = 8;",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(new_output, 1);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn compact_session_does_not_bill_parent_cumulative_total() {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("sessions").join("compact.jsonl");
+        std::fs::create_dir_all(session.parent().unwrap()).unwrap();
+        std::fs::write(
+            &session,
+            concat!(
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\"thread-compact\"}}\n",
+                "{\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5\"}}\n",
+                "{\"timestamp\":\"2026-09-04T12:07:58Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":0,\"cached_input_tokens\":0,\"output_tokens\":0},\"total_token_usage\":{\"input_tokens\":2700000,\"cached_input_tokens\":100,\"output_tokens\":200000}}}}\n",
+                "{\"timestamp\":\"2026-09-04T12:08:10Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":100,\"cached_input_tokens\":10,\"output_tokens\":20},\"total_token_usage\":{\"input_tokens\":2700100,\"cached_input_tokens\":110,\"output_tokens\":200020}}}}\n",
+            ),
+        )
+        .unwrap();
+
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let (inserted, _) = sync_one_file(conn, &session)?;
+            assert_eq!(inserted, 1);
+            let (input, cached, output): (i64, i64, i64) = conn.query_row(
+                "SELECT input_tokens, cache_read_input_tokens, output_tokens FROM proxy_request_logs WHERE data_source = 'codex_session';",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+            assert_eq!(input, 90);
+            assert_eq!(cached, 10);
+            assert_eq!(output, 20);
             Ok(())
         })
         .unwrap();

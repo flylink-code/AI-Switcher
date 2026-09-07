@@ -768,13 +768,17 @@ fn prepare_codex_upstream(
                 None,
             ),
             ProtocolType::OpenAiChat | ProtocolType::Proxy => {
-                let chat = match codex_compact::compact_request_to_openai_chat(&parsed, requested_model)
+                let mut chat = match codex_compact::compact_request_to_openai_chat(&parsed, requested_model)
                 {
                     Ok(value) => value,
                     Err(error) => {
                         return Err(json_error(StatusCode::BAD_REQUEST, error.to_string()));
                     }
                 };
+                super::codex_moonshot_schema::rewrite_chat_tools_if_needed(
+                    &provider.base_url,
+                    &mut chat,
+                );
                 (
                     serde_json::to_vec(&chat).unwrap_or_default(),
                     false,
@@ -855,12 +859,13 @@ fn prepare_codex_upstream(
                 return Err(json_error(StatusCode::BAD_REQUEST, "请求体不是有效 JSON"));
             }
         };
-        let chat = match responses_to_chat_completions_body(&parsed) {
+        let mut chat = match responses_to_chat_completions_body(&parsed) {
             Ok(value) => value,
             Err(error) => {
                 return Err(json_error(StatusCode::BAD_REQUEST, error));
             }
         };
+        super::codex_moonshot_schema::rewrite_chat_tools_if_needed(&provider.base_url, &mut chat);
         let stream = chat
             .get("stream")
             .and_then(Value::as_bool)

@@ -1,7 +1,8 @@
 //! Safe, credential-free Codex status commands.
 
 use crate::config::codex::{
-    auth_status, get_web_search_mode, set_web_search_mode, CodexAuthStatus, CodexWebSearchMode,
+    auth_status, get_output_profile, get_web_search_mode, set_output_profile, set_web_search_mode,
+    CodexAuthStatus, CodexOutputProfile, CodexOutputProfileSnapshot, CodexWebSearchMode,
     CodexWebSearchSnapshot,
 };
 use crate::config::codex_provider_sync::{self, CodexProviderSyncResult};
@@ -33,4 +34,19 @@ pub fn get_codex_web_search_mode() -> AppResult<CodexWebSearchSnapshot> {
 #[tauri::command]
 pub fn set_codex_web_search_mode(mode: CodexWebSearchMode) -> AppResult<CodexWebSearchSnapshot> {
     set_web_search_mode(mode)
+}
+
+#[tauri::command]
+pub fn get_codex_output_profile() -> AppResult<CodexOutputProfileSnapshot> {
+    get_output_profile()
+}
+
+#[tauri::command]
+pub fn set_codex_output_profile(
+    profile: CodexOutputProfile,
+    show_raw_reasoning: bool,
+) -> AppResult<CodexOutputProfileSnapshot> {
+    let snapshot = set_output_profile(profile, show_raw_reasoning)?;
+    let _ = crate::wsl_direct::sync_claude_codex_files();
+    Ok(snapshot)
 }

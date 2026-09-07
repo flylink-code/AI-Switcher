@@ -742,6 +742,47 @@ async fn discover_provider_models_with_key(
         });
     }
 
+    if provider.is_codex_oauth() {
+        let account_id = provider.auth_binding.clone();
+        let token_account = tauri::async_runtime::spawn_blocking(move || {
+            crate::codex_oauth::manager().get_valid_token(Some(&account_id))
+        })
+        .await
+        .map_err(|error| AppError::Tauri(format!("ChatGPT 模型发现任务失败: {error}")))?;
+        let discovered = match token_account {
+            Ok((token, account_id)) => fetch_codex_oauth_models(&token, &account_id).await,
+            Err(error) => Err(error.to_string()),
+        };
+        return match discovered {
+            Ok(models) => {
+                if cache_result {
+                    state.db.with_conn(|conn| {
+                        dao::save_provider_model_cache(conn, &provider.id, &models, checked_at)
+                    })?;
+                }
+                Ok(ModelDiscoveryResult {
+                    models,
+                    message: "已从 ChatGPT Codex 目录加载模型".to_string(),
+                    checked_at,
+                    source: "codex_oauth".to_string(),
+                    stale: false,
+                    expires_at: cache_result.then_some(checked_at + MODEL_CACHE_TTL_MS),
+                    error: None,
+                })
+            }
+            Err(error) if cache_result => cached_or_empty_model_result(&provider.id, &error, state),
+            Err(error) => Ok(ModelDiscoveryResult {
+                models: Vec::new(),
+                message: error.clone(),
+                checked_at,
+                source: "none".to_string(),
+                stale: false,
+                expires_at: None,
+                error: Some(error),
+            }),
+        };
+    }
+
     let urls = model_discovery_urls(&provider.base_url)?;
     let client = discovery_http_client(urls.first().map(String::as_str).unwrap_or(""))?;
     let discovered = fetch_discovered_models(&client, &urls, &key, provider.custom_headers.as_ref()).await;
@@ -901,6 +942,40 @@ fn model_discovery_urls(base_url: &str) -> AppResult<Vec<String>> {
 
 fn should_try_next_discovery_status(status: u16) -> bool {
     matches!(status, 404 | 405 | 501)
+}
+
+async fn fetch_codex_oauth_models(token: &str, account_id: &str) -> Result<Vec<String>, String> {
+    let client = discovery_http_client(crate::codex_oauth::CODEX_OAUTH_MODELS_URL)
+        .map_err(|error| error.to_string())?;
+    let response = client
+        .get(crate::codex_oauth::build_codex_oauth_models_url())
+        .header(header::AUTHORIZATION, format!("Bearer {token}"))
+        .header("originator", crate::codex_oauth::ORIGINATOR)
+        .header("version", crate::codex_oauth::CLIENT_VERSION)
+        .header("chatgpt-account-id", account_id)
+        .send()
+        .await
+        .map_err(|error| format!("Request failed: {error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        let body = if body.chars().count() > 512 {
+            format!("{}...", body.chars().take(512).collect::<String>())
+        } else {
+            body
+        };
+        return Err(format!("HTTP {status}: {body}"));
+    }
+    let value: Value = response
+        .json()
+        .await
+        .map_err(|error| format!("Failed to parse response: {error}"))?;
+    let models = crate::codex_oauth::parse_codex_oauth_model_ids(&value);
+    if models.is_empty() {
+        Err("ChatGPT 没有返回可用的模型".to_string())
+    } else {
+        Ok(models)
+    }
 }
 
 async fn fetch_discovered_models(

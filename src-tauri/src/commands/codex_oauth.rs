@@ -74,7 +74,7 @@ pub fn ensure_codex_oauth_provider(
         clear_api_key: false,
         model: model
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "gpt-5.4".to_string()),
+            .unwrap_or_else(|| "gpt-6-astra".to_string()),
         model_context_window: None,
         auto_review_model_override: None,
         web_search_enabled: None,
