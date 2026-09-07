@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.10**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.11**
 
-**This release:** Codex picks up GPT-6 Astra (OAuth 0.153.4). Session usage on Windows no longer skips growing JSONL files whose LastWriteTime is frozen.
+**This release:** Claude Code via the Antigravity gateway no longer renders Gemini numeric ranges such as `500~540` as strikethrough.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

@@ -1457,6 +1457,9 @@
         "Moonshot/Kimi Chat 把 Codex 工具 Schema 里 $ref 与同级字段改成 allOf，避免上游 400。",
         "Codex 会话用量同步同时比较文件大小，补扫 Windows 上修改时间冻住的长会话；优先使用 last_token_usage，避免 compact 把父线程累计总量记成一轮。",
         "环境页可为 Codex 选择默认 / 简洁 / 完整执行过程（写入 config.toml 的 reasoning 可见性与 verbosity）。"
+      ],
+      "1_4_11": [
+        "Claude Code 走 Antigravity 网关时，Gemini 正文里的数值范围波浪号（如 500~540mA、1.9~2.05W）改为全角～，不再被画成删除线；流式切包不会把 500~ 和 540 拆开。"
       ]
     },
     "appName": "应用名称",

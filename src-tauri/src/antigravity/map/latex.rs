@@ -9,6 +9,9 @@ use serde_json::Value;
 // contain a substantially longer Chinese business flow.
 const INLINE_MATH_MAX_CHARS: usize = 160;
 const DISPLAY_MATH_MAX_CHARS: usize = 4096;
+/// Claude Code treats ASCII `~` as strikethrough; emit fullwidth `～` for ranges.
+const FULLWIDTH_TILDE: char = '～';
+const RANGE_TILDE_HOLD_MAX_CHARS: usize = 64;
 
 /// Convert Gemini-visible LaTeX into text Claude Code can display.
 pub fn unwrap_gemini_latex(input: &str) -> String {
@@ -18,18 +21,26 @@ pub fn unwrap_gemini_latex(input: &str) -> String {
     let display = replace_delimited(input, "$$", "$$", DISPLAY_MATH_MAX_CHARS);
     let paren = replace_delimited(&display, "\\(", "\\)", INLINE_MATH_MAX_CHARS);
     let bracket = replace_delimited(&paren, "\\[", "\\]", DISPLAY_MATH_MAX_CHARS);
-    replace_dollar_math(&bracket, INLINE_MATH_MAX_CHARS)
+    let dollars = replace_dollar_math(&bracket, INLINE_MATH_MAX_CHARS);
+    replace_ascii_range_tildes(&dollars)
 }
 
-/// Split so an incomplete `$...` / `\(` / `\[` span stays in `hold`.
+/// Split so an incomplete `$...` / `\(` / `\[` span, or an incomplete
+/// numeric range tilde (`500~`), stays in `hold`.
 pub fn split_safe_latex_prefix(input: &str) -> (String, String) {
-    let Some(idx) = incomplete_math_start(input) else {
+    let math_idx = incomplete_math_start(input);
+    let range_idx = incomplete_range_tilde_start(input);
+    let Some(idx) = [math_idx, range_idx].into_iter().flatten().min() else {
         return (input.to_string(), String::new());
     };
-    let max_hold_chars = if input[idx..].starts_with("$$") || input[idx..].starts_with("\\[") {
-        DISPLAY_MATH_MAX_CHARS
+    let max_hold_chars = if math_idx == Some(idx) {
+        if input[idx..].starts_with("$$") || input[idx..].starts_with("\\[") {
+            DISPLAY_MATH_MAX_CHARS
+        } else {
+            INLINE_MATH_MAX_CHARS
+        }
     } else {
-        INLINE_MATH_MAX_CHARS
+        RANGE_TILDE_HOLD_MAX_CHARS
     };
     if input[idx..].chars().count() > max_hold_chars {
         return (input.to_string(), String::new());
@@ -183,8 +194,11 @@ fn decode_latex_inner(inner: &str) -> String {
     s = s.replace("\\&", "&");
     s = s.replace("\\$", "$");
     s = collapse_spaces(&s);
-    // `$1\sim 2$` becomes `1~ 2` after `\sim` → `~`; tighten range tilde.
-    s = s.replace(" ~ ", "~").replace("~ ", "~").replace(" ~", "~");
+    // `$1\sim 2$` becomes `1 ～ 2` after `\sim` → `～`; tighten range tilde.
+    s = s
+        .replace(" ～ ", "～")
+        .replace("～ ", "～")
+        .replace(" ～", "～");
     s
 }
 
@@ -208,7 +222,7 @@ const LATEX_SYMBOLS: &[(&str, &str)] = &[
     ("\\degree", "°"),
     ("\\quad", " "),
     ("\\qquad", " "),
-    ("\\sim", "~"),
+    ("\\sim", "～"),
     ("\\to", "→"),
     ("\\pm", "±"),
     ("\\mp", "∓"),
@@ -291,6 +305,114 @@ fn collapse_spaces(input: &str) -> String {
     out.trim().to_string()
 }
 
+fn is_range_unit_char(c: char) -> bool {
+    c.is_ascii_alphabetic() || matches!(c, '%' | 'μ' | 'µ')
+}
+
+fn left_range_number_start(chars: &[char], tilde_i: usize) -> Option<usize> {
+    if tilde_i == 0 {
+        return None;
+    }
+    let mut i = tilde_i - 1;
+    while chars[i] == ' ' {
+        if i == 0 {
+            return None;
+        }
+        i -= 1;
+    }
+    while is_range_unit_char(chars[i]) {
+        if i == 0 {
+            return None;
+        }
+        i -= 1;
+    }
+    if !chars[i].is_ascii_digit() {
+        return None;
+    }
+    let mut saw_dot = false;
+    loop {
+        match chars[i] {
+            c if c.is_ascii_digit() => {
+                if i == 0 {
+                    return Some(0);
+                }
+                i -= 1;
+            }
+            '.' if !saw_dot => {
+                saw_dot = true;
+                if i == 0 {
+                    return None;
+                }
+                i -= 1;
+            }
+            _ => return Some(i + 1),
+        }
+    }
+}
+
+fn right_range_has_number(chars: &[char], tilde_i: usize) -> bool {
+    let mut j = tilde_i + 1;
+    while j < chars.len() && chars[j] == ' ' {
+        j += 1;
+    }
+    if j >= chars.len() {
+        return false;
+    }
+    if chars[j] == '.' {
+        j += 1;
+        return j < chars.len() && chars[j].is_ascii_digit();
+    }
+    chars[j].is_ascii_digit()
+}
+
+fn incomplete_range_after_ok(chars: &[char], tilde_i: usize) -> bool {
+    let mut j = tilde_i + 1;
+    while j < chars.len() && chars[j] == ' ' {
+        j += 1;
+    }
+    if j >= chars.len() {
+        return true;
+    }
+    chars[j] == '.' && j + 1 == chars.len()
+}
+
+fn incomplete_range_tilde_start(input: &str) -> Option<usize> {
+    let chars: Vec<char> = input.chars().collect();
+    let tilde_i = chars.iter().rposition(|&c| c == '~')?;
+    if tilde_i > 0 && chars[tilde_i - 1] == '~' {
+        return None;
+    }
+    if tilde_i + 1 < chars.len() && (chars[tilde_i + 1] == '~' || chars[tilde_i + 1] == '/') {
+        return None;
+    }
+    if !incomplete_range_after_ok(&chars, tilde_i) {
+        return None;
+    }
+    let start = left_range_number_start(&chars, tilde_i)?;
+    Some(chars[..start].iter().map(|c| c.len_utf8()).sum())
+}
+
+fn replace_ascii_range_tildes(input: &str) -> String {
+    let chars: Vec<char> = input.chars().collect();
+    let mut out = String::with_capacity(input.len());
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == '~'
+            && (i == 0 || chars[i - 1] != '~')
+            && (i + 1 >= chars.len() || (chars[i + 1] != '~' && chars[i + 1] != '/'))
+            && left_range_number_start(&chars, i).is_some()
+            && right_range_has_number(&chars, i)
+        {
+            out.push(FULLWIDTH_TILDE);
+            i += 1;
+            continue;
+        }
+        out.push(chars[i]);
+        i += 1;
+    }
+    out
+}
+
 /// Unwrap KaTeX in tool-call string arguments (Write `contents`, Edit `new_string`).
 /// Leave match/search fields alone so an Edit can still find raw `$...$` on disk.
 pub fn unwrap_latex_in_tool_args(args: Value) -> Value {
@@ -350,7 +472,7 @@ mod tests {
         );
         assert_eq!(
             unwrap_gemini_latex("$3.5\\text{ ms} \\sim 10\\text{ ms}$"),
-            "3.5 ms~10 ms"
+            "3.5 ms～10 ms"
         );
         assert_eq!(unwrap_gemini_latex("$0\\text{xE0}$"), "0xE0");
         assert_eq!(
@@ -384,7 +506,7 @@ mod tests {
         );
         assert_eq!(
             unwrap_gemini_latex("使用 $\\ge 1\\sim 2$ 天，待机 $\\ge 3\\sim 5$ 天"),
-            "使用 ≥ 1~2 天，待机 ≥ 3~5 天"
+            "使用 ≥ 1～2 天，待机 ≥ 3～5 天"
         );
         assert_eq!(
             unwrap_gemini_latex("ESD 接触 $\\ge \\pm4\\text{kV}$、空气 $\\ge \\pm8\\text{kV}$"),
@@ -428,6 +550,55 @@ mod tests {
         assert_eq!(hold, "$10\\ \\mu");
         let (emit, hold) = split_safe_latex_prefix("Hello");
         assert_eq!(emit, "Hello");
+        assert!(hold.is_empty());
+    }
+
+    #[test]
+    fn replaces_numeric_range_tildes_for_claude_code() {
+        assert_eq!(
+            unwrap_gemini_latex("LTE 数据发射约 500~540mA@3.8V，即 1.9~2.05W"),
+            "LTE 数据发射约 500～540mA@3.8V，即 1.9～2.05W"
+        );
+        assert_eq!(unwrap_gemini_latex("`3.44W ~ 5.80W`"), "`3.44W ～ 5.80W`");
+        assert_eq!(unwrap_gemini_latex("15%~30%"), "15%～30%");
+        assert_eq!(
+            unwrap_gemini_latex("屏端功耗预估仅 0.25W~0.35W"),
+            "屏端功耗预估仅 0.25W～0.35W"
+        );
+        assert_eq!(unwrap_gemini_latex("约 0.8W ~ 1.2W"), "约 0.8W ～ 1.2W");
+    }
+
+    #[test]
+    fn leaves_path_and_markdown_strikethrough_tildes() {
+        assert_eq!(unwrap_gemini_latex("~/"), "~/");
+        assert_eq!(unwrap_gemini_latex("~/.claude"), "~/.claude");
+        assert_eq!(unwrap_gemini_latex("~~deleted~~"), "~~deleted~~");
+        assert_eq!(unwrap_gemini_latex("export $HOME"), "export $HOME");
+        assert_eq!(unwrap_gemini_latex("see ~user"), "see ~user");
+    }
+
+    #[test]
+    fn split_holds_incomplete_range_tilde() {
+        let (emit, hold) = split_safe_latex_prefix("约 500~");
+        assert_eq!(emit, "约 ");
+        assert_eq!(hold, "500~");
+        let (emit, hold) = split_safe_latex_prefix("500~");
+        assert!(emit.is_empty());
+        assert_eq!(hold, "500~");
+        let (emit, hold) = split_safe_latex_prefix("3.44W ~");
+        assert!(emit.is_empty());
+        assert_eq!(hold, "3.44W ~");
+        let (emit, hold) = split_safe_latex_prefix("500~540mA");
+        assert_eq!(emit, "500~540mA");
+        assert!(hold.is_empty());
+        assert_eq!(unwrap_gemini_latex("500~540mA"), "500～540mA");
+        let (_, hold) = split_safe_latex_prefix("约 500~");
+        assert_eq!(unwrap_gemini_latex(&format!("{hold}540mA")), "500～540mA");
+        let (emit, hold) = split_safe_latex_prefix("~~deleted~~");
+        assert_eq!(emit, "~~deleted~~");
+        assert!(hold.is_empty());
+        let (emit, hold) = split_safe_latex_prefix("path ~/");
+        assert_eq!(emit, "path ~/");
         assert!(hold.is_empty());
     }
 }

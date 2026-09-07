@@ -1457,6 +1457,9 @@
         "Moonshot/Kimi Chat rewrites Codex tool schemas that mix $ref with sibling keywords into allOf so the upstream does not return 400.",
         "Codex session usage sync compares file size as well as mtime, so Windows JSONL files with a frozen LastWriteTime are scanned again. last_token_usage is preferred so compact sessions do not bill a parent thread's cumulative total as one turn.",
         "The environment page can set Codex execution detail to default, concise, or full (reasoning visibility and verbosity in config.toml)."
+      ],
+      "1_4_11": [
+        "When Claude Code uses the Antigravity gateway, Gemini numeric ranges such as 500~540mA or 1.9~2.05W are rewritten to a fullwidth tilde so they are no longer drawn as strikethrough. Streaming chunks that split 500~ from 540 are held until the range is complete."
       ]
     },
     "appName": "App name",

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.4.10**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.4.11**
 
-**本版**：Codex 接入 GPT-6 Astra（OAuth 0.153.4）；Windows 上长会话用量不再因冻结的修改时间漏扫。
+**本版**：经 Antigravity 的 Claude Code 不再把 Gemini 的 `500~540` 一类范围波浪号画成删除线。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
