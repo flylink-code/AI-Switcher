@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.11**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.12**
 
-**This release:** Claude Code via the Antigravity gateway no longer renders Gemini numeric ranges such as `500~540` as strikethrough.
+**This release:** Claude Code unified catalog can enable Opus Plan, with separate planning and execute models (even from different providers).
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

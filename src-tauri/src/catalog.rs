@@ -22,6 +22,9 @@ pub const GATEWAY_CATALOG_CODEX_SUBAGENT_KEY: &str = "gateway_catalog_codex_suba
 pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY: &str =
     "gateway_catalog_hide_official_claude_code";
 pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY: &str = "gateway_catalog_hide_official_codex";
+pub const GATEWAY_CATALOG_CODE_OPUSPLAN_KEY: &str = "gateway_catalog_claude_code_opusplan";
+pub const GATEWAY_CATALOG_CODE_PLAN_KEY: &str = "gateway_catalog_claude_code_plan";
+pub const GATEWAY_CATALOG_CODE_EXECUTE_KEY: &str = "gateway_catalog_claude_code_execute";
 
 pub fn setting_key(target: ProviderTarget) -> Option<&'static str> {
     match target {
@@ -43,6 +46,27 @@ pub fn hide_official_setting_key(target: ProviderTarget) -> Option<&'static str>
     match target {
         ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY),
         ProviderTarget::Codex => Some(GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY),
+        _ => None,
+    }
+}
+
+pub fn opusplan_setting_key(target: ProviderTarget) -> Option<&'static str> {
+    match target {
+        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_OPUSPLAN_KEY),
+        _ => None,
+    }
+}
+
+pub fn plan_setting_key(target: ProviderTarget) -> Option<&'static str> {
+    match target {
+        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_PLAN_KEY),
+        _ => None,
+    }
+}
+
+pub fn execute_setting_key(target: ProviderTarget) -> Option<&'static str> {
+    match target {
+        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_EXECUTE_KEY),
         _ => None,
     }
 }
@@ -84,6 +108,55 @@ pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
     db.with_conn(|conn| Ok(subagent_for_conn(conn, target)))
         .ok()
         .flatten()
+}
+
+fn setting_flag_for_conn(conn: &rusqlite::Connection, key: &str) -> bool {
+    get_setting(conn, key).ok().flatten().as_deref() == Some("true")
+}
+
+fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<String> {
+    get_setting(conn, key)
+        .ok()
+        .flatten()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub fn opusplan_enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
+    let Some(key) = opusplan_setting_key(target) else {
+        return false;
+    };
+    setting_flag_for_conn(conn, key)
+}
+
+pub fn opusplan_enabled(db: &Database, target: ProviderTarget) -> bool {
+    db.with_conn(|conn| Ok(opusplan_enabled_for_conn(conn, target)))
+        .unwrap_or(false)
+}
+
+pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    setting_model_for_conn(conn, plan_setting_key(target)?)
+}
+
+pub fn plan_model(db: &Database, target: ProviderTarget) -> Option<String> {
+    db.with_conn(|conn| Ok(plan_model_for_conn(conn, target)))
+        .ok()
+        .flatten()
+}
+
+pub fn execute_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    setting_model_for_conn(conn, execute_setting_key(target)?)
+}
+
+pub fn execute_model(db: &Database, target: ProviderTarget) -> Option<String> {
+    db.with_conn(|conn| Ok(execute_model_for_conn(conn, target)))
+        .ok()
+        .flatten()
+}
+
+/// Write top-level `model=opusplan` when the switch is on and at least one slot is set.
+pub fn opusplan_should_write_alias(enabled: bool, plan: Option<&str>, execute: Option<&str>) -> bool {
+    enabled && (nonempty_slot(plan).is_some() || nonempty_slot(execute).is_some())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -346,6 +419,8 @@ pub fn normalize_client_request(
     hide_official: bool,
     subagent: Option<&str>,
     force_subagent: bool,
+    plan: Option<&str>,
+    execute: Option<&str>,
 ) -> String {
     let fallback = catalog_fallback_id(entries, providers, subagent);
     if force_subagent {
@@ -364,6 +439,21 @@ pub fn normalize_client_request(
     // current /model default (same SKU as the main session).
     if style == CatalogStyle::Claude && haiku_or_subagent && !in_catalog {
         return catalog_subagent_target(entries, providers, subagent);
+    }
+    if style == CatalogStyle::Claude && !in_catalog {
+        if is_opusplan_alias(requested) {
+            if let Some(slot) = nonempty_slot(execute) {
+                return slot.to_string();
+            }
+        } else if is_catalog_opus_role(requested) {
+            if let Some(slot) = nonempty_slot(plan) {
+                return slot.to_string();
+            }
+        } else if is_catalog_sonnet_role(requested) {
+            if let Some(slot) = nonempty_slot(execute) {
+                return slot.to_string();
+            }
+        }
     }
     if hide_official && is_injected_official_model_slug(requested) && !in_catalog {
         return fallback;
@@ -517,6 +607,33 @@ fn is_claude_role_request(requested: &str) -> bool {
         || normalized.contains("haiku")
         || normalized.contains("fable")
         || normalized.contains("subagent")
+}
+
+fn nonempty_slot(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn catalog_role_stem(requested: &str) -> String {
+    let (stem, _) = crate::provider::split_model_window_label(requested.trim());
+    stem.trim().to_ascii_lowercase()
+}
+
+fn is_opusplan_alias(requested: &str) -> bool {
+    catalog_role_stem(requested) == "opusplan"
+}
+
+fn is_catalog_opus_role(requested: &str) -> bool {
+    matches!(
+        catalog_role_stem(requested).as_str(),
+        "opus" | "claude-opus-5"
+    )
+}
+
+fn is_catalog_sonnet_role(requested: &str) -> bool {
+    matches!(
+        catalog_role_stem(requested).as_str(),
+        "sonnet" | "claude-sonnet-5"
+    )
 }
 
 fn strip_claude_alias(requested: &str) -> Option<&str> {
@@ -750,6 +867,8 @@ mod tests {
                 true,
                 Some("gpt-5.4-mini"),
                 false,
+                None,
+                None,
             ),
             "gpt-5.4-mini"
         );
@@ -762,6 +881,8 @@ mod tests {
                 true,
                 Some("gpt-5.4-mini"),
                 false,
+                None,
+                None,
             ),
             "gemini-3.7-flash-high"
         );
@@ -774,6 +895,8 @@ mod tests {
                 true,
                 Some("gpt-5.4-mini"),
                 true,
+                None,
+                None,
             ),
             "gpt-5.4-mini"
         );
@@ -794,6 +917,8 @@ mod tests {
             false,
             None,
             true,
+            None,
+            None,
         );
         assert!(
             routed.to_ascii_lowercase().contains("flash-high"),
@@ -815,6 +940,8 @@ mod tests {
                 true,
                 Some("claude.kimi.kimi-k2"),
                 false,
+                None,
+                None,
             ),
             "claude.kimi.kimi-k2"
         );
@@ -843,6 +970,8 @@ mod tests {
             false,
             Some("claude.antigravity--built-in.gemini-3.6-flash-low"),
             false,
+            None,
+            None,
         );
         assert_eq!(
             routed, "claude.antigravity--built-in.gemini-3.6-flash-low",
@@ -866,5 +995,110 @@ mod tests {
             failover_upstream_for_provider(&relay, &catalog, Some("gpt-5.4-mini")),
             "gpt-5.4-mini"
         );
+    }
+
+    #[test]
+    fn opusplan_slots_split_opus_and_sonnet_across_providers() {
+        let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.8-flash-high");
+        ag.provider_kind = ProviderKind::Antigravity;
+        let kimi = provider("p1", "Kimi", "kimi-k2");
+        let providers = vec![ag.clone(), kimi.clone()];
+        let catalog = build_catalog(
+            CatalogStyle::Claude,
+            &[
+                (ag, vec!["gemini-3.8-flash-high".into()]),
+                (kimi, vec!["kimi-k2".into()]),
+            ],
+        );
+        let plan = "claude.antigravity--built-in.gemini-3.8-flash-high";
+        let execute = "claude.kimi.kimi-k2";
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                CLAUDE_OPUS_ROLE_ID,
+                true,
+                None,
+                false,
+                Some(plan),
+                Some(execute),
+            ),
+            plan
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                "claude-opus-5[1m]",
+                true,
+                None,
+                false,
+                Some(plan),
+                Some(execute),
+            ),
+            plan
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                CLAUDE_SONNET_ROLE_ID,
+                true,
+                None,
+                false,
+                Some(plan),
+                Some(execute),
+            ),
+            execute
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                "opusplan",
+                true,
+                None,
+                false,
+                Some(plan),
+                Some(execute),
+            ),
+            execute
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                CLAUDE_HAIKU_ROLE_ID,
+                true,
+                Some("claude.kimi.kimi-k2"),
+                false,
+                Some(plan),
+                Some("claude.antigravity--built-in.gemini-3.8-flash-high"),
+            ),
+            "claude.kimi.kimi-k2"
+        );
+        assert_eq!(
+            normalize_client_request(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                plan,
+                true,
+                None,
+                false,
+                Some("unused-plan"),
+                Some(execute),
+            ),
+            plan,
+            "catalog public ids must not be stolen by role rewriting"
+        );
+        assert!(opusplan_should_write_alias(true, Some(plan), None));
+        assert!(!opusplan_should_write_alias(true, None, None));
+        assert!(!opusplan_should_write_alias(false, Some(plan), Some(execute)));
     }
 }

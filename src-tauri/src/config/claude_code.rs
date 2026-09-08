@@ -94,13 +94,15 @@ pub fn apply_provider_to_settings_via_catalog_proxy(
     provider: &Provider,
     proxy_port: u16,
     subagent_model: Option<&str>,
+    opusplan_alias: bool,
 ) -> AppResult<()> {
-    apply_provider_to_settings_via_proxy_at(
+    apply_provider_to_settings_via_proxy_at_with_opusplan(
         provider,
         proxy_port,
         &get_claude_settings_path(),
         true,
         subagent_model,
+        opusplan_alias,
     )
 }
 
@@ -127,21 +129,82 @@ pub fn apply_provider_to_settings_via_proxy_at(
     catalog_discovery: bool,
     subagent_model: Option<&str>,
 ) -> AppResult<()> {
+    apply_provider_to_settings_via_proxy_at_with_opusplan(
+        provider,
+        proxy_port,
+        path,
+        catalog_discovery,
+        subagent_model,
+        false,
+    )
+}
+
+/// Path-injected proxy variant for tests.
+pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
+    provider: &Provider,
+    proxy_port: u16,
+    path: &Path,
+    catalog_discovery: bool,
+    subagent_model: Option<&str>,
+    opusplan_alias: bool,
+) -> AppResult<()> {
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
 
-    let env = ensure_env_object(&mut settings);
-    remove_managed_keys(env);
-    set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
-    set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
-    if catalog_discovery {
-        set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
-        inject_catalog_proxy_models(env, provider, subagent_model);
-    } else {
-        inject_proxy_models(env, provider);
+    {
+        let env = ensure_env_object(&mut settings);
+        remove_managed_keys(env);
+        set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
+        set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
+        if catalog_discovery {
+            set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
+            inject_catalog_proxy_models(env, provider, subagent_model);
+        } else {
+            inject_proxy_models(env, provider);
+        }
+    }
+    if catalog_discovery && opusplan_alias {
+        apply_opusplan_model_value(&mut settings, true);
     }
 
     write_settings(path, &settings)
+}
+
+const OPUSPLAN_MODEL_ALIAS: &str = "opusplan";
+
+/// Merge or clear the top-level `model` alias used by Claude Code opusplan.
+/// When disabling, only remove the key if it is exactly `opusplan`.
+pub fn apply_opusplan_model(enabled: bool) -> AppResult<bool> {
+    apply_opusplan_model_at(&get_claude_settings_path(), enabled)
+}
+
+pub fn apply_opusplan_model_at(path: &Path, enabled: bool) -> AppResult<bool> {
+    let mut settings = read_or_init_settings_at(path)?;
+    backup_settings(path)?;
+    apply_opusplan_model_value(&mut settings, enabled);
+    write_settings(path, &settings)?;
+    Ok(enabled)
+}
+
+fn apply_opusplan_model_value(settings: &mut Value, enabled: bool) {
+    let Some(object) = settings.as_object_mut() else {
+        return;
+    };
+    if enabled {
+        object.insert(
+            "model".to_string(),
+            Value::String(OPUSPLAN_MODEL_ALIAS.to_string()),
+        );
+        return;
+    }
+    let is_alias = object
+        .get("model")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|value| value.eq_ignore_ascii_case(OPUSPLAN_MODEL_ALIAS));
+    if is_alias {
+        object.remove("model");
+    }
 }
 
 /// Switch to "official login" mode: remove only fields previously owned by this
@@ -660,6 +723,57 @@ mod tests {
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
+    }
+
+    #[test]
+    fn catalog_proxy_writes_opusplan_alias_and_clears_only_that_model() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({ "model": "claude-sonnet-5", "env": {} }).to_string(),
+        )
+        .unwrap();
+
+        apply_provider_to_settings_via_proxy_at_with_opusplan(
+            &sample_provider(),
+            15_821,
+            &path,
+            true,
+            None,
+            true,
+        )
+        .unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written["model"], "opusplan");
+
+        apply_provider_to_settings_via_proxy_at_with_opusplan(
+            &sample_provider(),
+            15_821,
+            &path,
+            true,
+            None,
+            false,
+        )
+        .unwrap();
+        let preserved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            preserved["model"], "opusplan",
+            "catalog apply without the alias flag must not strip a user opusplan"
+        );
+
+        apply_opusplan_model_at(&path, false).unwrap();
+        let cleared: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(cleared.get("model").is_none());
+
+        fs::write(
+            &path,
+            json!({ "model": "claude.kimi.kimi-k2", "env": {} }).to_string(),
+        )
+        .unwrap();
+        apply_opusplan_model_at(&path, false).unwrap();
+        let kept: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(kept["model"], "claude.kimi.kimi-k2");
     }
 
     #[test]

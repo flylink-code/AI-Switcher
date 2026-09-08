@@ -315,6 +315,18 @@
     "catalogSubagentHintCodex": "Codex requests with an x-openai-subagent header are rewritten to this model. Leave empty to use the current default. Independent mode still uses the per-provider auto-review override only.",
     "catalogSubagentPlaceholder": "Pick from the catalog or leave empty",
     "catalogSubagentSaved": "Subagent model saved",
+    "catalogOpusplanLabel": "Opus Plan (plan vs execute models)",
+    "catalogOpusplanHint": "Writes model=opusplan in settings.json. Plan mode uses the planning model; after you approve the plan, execution uses the execute model. Slots can come from different providers. The VS Code picker still will not list opusplan; enter Plan (Shift+Tab). Bypass permissions stays on the execute slot; picking a catalog id in the UI overrides the alias.",
+    "catalogOpusplanOn": "Opus Plan enabled",
+    "catalogOpusplanOff": "Opus Plan disabled",
+    "catalogPlanLabel": "Planning model",
+    "catalogPlanHint": "Opus-role requests in Plan mode rewrite to this catalog model. Leave empty to use the current default.",
+    "catalogPlanPlaceholder": "Pick a planning model from any provider",
+    "catalogPlanSaved": "Planning model saved",
+    "catalogExecuteLabel": "Execute model",
+    "catalogExecuteHint": "After Plan mode, execution rewrites to this catalog model. Leave empty to use the current default.",
+    "catalogExecutePlaceholder": "Pick an execute model from any provider",
+    "catalogExecuteSaved": "Execute model saved",
     "catalogHideOfficialLabel": "Hide official built-in models",
     "catalogHideOfficialHint": "Do not inject luna/sol/terra, gpt-6-astra, gpt-5.4, gpt-5.5, or similar picker suggestions into the catalog. Client requests for those ids are rewritten to the subagent or current default. A provider’s own saved default is kept.",
     "catalogHideOfficialOn": "Official built-in models hidden",
@@ -1460,6 +1472,9 @@
       ],
       "1_4_11": [
         "When Claude Code uses the Antigravity gateway, Gemini numeric ranges such as 500~540mA or 1.9~2.05W are rewritten to a fullwidth tilde so they are no longer drawn as strikethrough. Streaming chunks that split 500~ from 540 are held until the range is complete."
+      ],
+      "1_4_12": [
+        "Claude Code unified catalog can enable Opus Plan: pick separate planning and execute models (even from different providers). Writes model=opusplan; the proxy rewrites opus to the plan slot and sonnet/opusplan to the execute slot. The VS Code picker still will not list the alias; enter Plan mode."
       ]
     },
     "appName": "App name",

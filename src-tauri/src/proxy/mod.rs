@@ -558,6 +558,16 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let subagent = crate::catalog::subagent_model(state.db.as_ref(), state.target);
     let subagent_slot =
         crate::catalog::catalog_subagent_target(&entries, &providers, subagent.as_deref());
+    let plan = if state.target == ProviderTarget::ClaudeCode {
+        crate::catalog::plan_model(state.db.as_ref(), state.target)
+    } else {
+        None
+    };
+    let execute = if state.target == ProviderTarget::ClaudeCode {
+        crate::catalog::execute_model(state.db.as_ref(), state.target)
+    } else {
+        None
+    };
     let requested = crate::catalog::normalize_client_request(
         style,
         &entries,
@@ -566,6 +576,8 @@ pub(crate) fn select_gateway_runtime_provider_with(
         hide_official,
         subagent.as_deref(),
         force_catalog_subagent,
+        plan.as_deref(),
+        execute.as_deref(),
     );
     let is_catalog_subagent =
         force_catalog_subagent || requested.eq_ignore_ascii_case(&subagent_slot);

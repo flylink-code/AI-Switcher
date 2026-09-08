@@ -9,6 +9,12 @@ export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_respo
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
+export interface GatewayCatalogModelOption {
+  publicId: string;
+  displayName: string;
+  providerName: string;
+}
+
 export interface ClaudeModelMapping {
   sonnet: string;
   opus: string;

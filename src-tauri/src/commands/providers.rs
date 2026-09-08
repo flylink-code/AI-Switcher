@@ -80,6 +80,12 @@ pub async fn set_gateway_catalog_enabled(
         .with_conn(|conn| dao::get_current_provider(conn, target))?
     {
         let _ = apply_target_provider(&provider, Some(&app), &state).await?;
+        if target == ProviderTarget::ClaudeCode
+            && catalog::opusplan_enabled(state.db.as_ref(), ProviderTarget::ClaudeCode)
+        {
+            let _ = claude_code::apply_opusplan_model(false);
+            let _ = crate::wsl_direct::sync_claude_codex_files();
+        }
     } else {
         restore_official_for_target(target, Some(&app), &state, true).await?;
     }
@@ -149,6 +155,120 @@ pub async fn set_gateway_catalog_hide_official(
     Ok(enabled)
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayCatalogModelOption {
+    pub public_id: String,
+    pub display_name: String,
+    pub provider_name: String,
+}
+
+fn require_claude_code_catalog(target: ProviderTarget) -> AppResult<()> {
+    if target != ProviderTarget::ClaudeCode {
+        return Err(AppError::Config("仅 Claude Code 统一目录支持 Opus Plan".to_string()));
+    }
+    Ok(())
+}
+
+async fn persist_claude_code_catalog_setting<R: tauri::Runtime>(
+    target: ProviderTarget,
+    key: &str,
+    value: &str,
+    app: &tauri::AppHandle<R>,
+    state: &AppState,
+) -> AppResult<()> {
+    require_claude_code_catalog(target)?;
+    state.db.with_conn(|conn| set_setting(conn, key, value))?;
+    if gateway_catalog_on(state, target) {
+        if let Some(provider) = state
+            .db
+            .with_conn(|conn| dao::get_current_provider(conn, target))?
+        {
+            let _ = apply_target_provider(&provider, Some(app), state).await?;
+        }
+    }
+    if key == catalog::GATEWAY_CATALOG_CODE_OPUSPLAN_KEY && value != "true" {
+        let _ = claude_code::apply_opusplan_model(false);
+        let _ = crate::wsl_direct::sync_claude_codex_files();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_opusplan(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    Ok(catalog::opusplan_enabled(state.db.as_ref(), target))
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_opusplan(
+    target: ProviderTarget,
+    enabled: bool,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    let Some(key) = catalog::opusplan_setting_key(target) else {
+        return Err(AppError::Config("仅 Claude Code 统一目录支持 Opus Plan".to_string()));
+    };
+    persist_claude_code_catalog_setting(
+        target,
+        key,
+        if enabled { "true" } else { "false" },
+        &app,
+        &state,
+    )
+    .await?;
+    Ok(enabled)
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_plan(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    Ok(catalog::plan_model(state.db.as_ref(), target).unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_plan(
+    target: ProviderTarget,
+    model: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    let Some(key) = catalog::plan_setting_key(target) else {
+        return Err(AppError::Config("仅 Claude Code 统一目录支持规划模型".to_string()));
+    };
+    let trimmed = model.trim().to_string();
+    persist_claude_code_catalog_setting(target, key, &trimmed, &app, &state).await?;
+    Ok(trimmed)
+}
+
+#[tauri::command]
+pub fn get_gateway_catalog_execute(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    Ok(catalog::execute_model(state.db.as_ref(), target).unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn set_gateway_catalog_execute(
+    target: ProviderTarget,
+    model: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<String> {
+    let Some(key) = catalog::execute_setting_key(target) else {
+        return Err(AppError::Config("仅 Claude Code 统一目录支持执行模型".to_string()));
+    };
+    let trimmed = model.trim().to_string();
+    persist_claude_code_catalog_setting(target, key, &trimmed, &app, &state).await?;
+    Ok(trimmed)
+}
+
 #[tauri::command]
 pub fn get_claude_code_default_permission_mode() -> AppResult<String> {
     claude_code::read_permission_default_mode()
@@ -176,6 +296,35 @@ pub fn list_gateway_catalog_models(
     Ok(build_catalog_with(style, &pairs, hide_official)
         .into_iter()
         .map(|entry| entry.public_id)
+        .collect())
+}
+
+#[tauri::command]
+pub fn list_gateway_catalog_entries(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<GatewayCatalogModelOption>> {
+    let style = match target {
+        ProviderTarget::ClaudeCode => CatalogStyle::Claude,
+        ProviderTarget::Codex => CatalogStyle::Codex,
+        _ => return Ok(Vec::new()),
+    };
+    let pairs = load_gateway_pairs(&state, target)?;
+    let hide_official = catalog::hide_official(state.db.as_ref(), target);
+    let names: BTreeMap<String, String> = pairs
+        .iter()
+        .map(|(provider, _)| (provider.id.clone(), provider.name.clone()))
+        .collect();
+    Ok(build_catalog_with(style, &pairs, hide_official)
+        .into_iter()
+        .map(|entry| GatewayCatalogModelOption {
+            provider_name: names
+                .get(&entry.provider_id)
+                .cloned()
+                .unwrap_or_else(|| entry.display_name.clone()),
+            public_id: entry.public_id,
+            display_name: entry.display_name,
+        })
         .collect())
 }
 
@@ -1912,6 +2061,13 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 } else {
                     None
                 };
+                let opusplan_alias = gateway_catalog
+                    && catalog::opusplan_should_write_alias(
+                        catalog::opusplan_enabled(state.db.as_ref(), ProviderTarget::ClaudeCode),
+                        catalog::plan_model(state.db.as_ref(), ProviderTarget::ClaudeCode).as_deref(),
+                        catalog::execute_model(state.db.as_ref(), ProviderTarget::ClaudeCode)
+                            .as_deref(),
+                    );
                 tauri::async_runtime::spawn_blocking(move || {
                     if uses_proxy {
                         if gateway_catalog {
@@ -1919,6 +2075,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                                 &provider,
                                 proxy_port,
                                 subagent.as_deref(),
+                                opusplan_alias,
                             )
                         } else {
                             claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
@@ -1933,6 +2090,9 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 // match Claude Code / JSON normalization instead of our preview.
                 ownership.written = code_managed_fields()?;
                 commit_code_ownership(state, ownership)?;
+                if gateway_catalog {
+                    let _ = crate::wsl_direct::sync_claude_codex_files();
+                }
                 Ok((None, None))
             }
             ProviderTarget::ClaudeDesktop => {

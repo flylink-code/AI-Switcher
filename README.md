@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.4.11**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.4.12**
 
-**本版**：经 Antigravity 的 Claude Code 不再把 Gemini 的 `500~540` 一类范围波浪号画成删除线。
+**本版**：Claude Code 统一目录可开启 Opus Plan，规划与执行分模型（可跨供应商）。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

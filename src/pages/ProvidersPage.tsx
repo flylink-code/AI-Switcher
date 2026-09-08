@@ -34,7 +34,7 @@ import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CodexOauthDeviceStart, Provider, ProviderDoctorReport, ProviderTarget } from "@/types/backend";
+import type { CodexOauthDeviceStart, GatewayCatalogModelOption, Provider, ProviderDoctorReport, ProviderTarget } from "@/types/backend";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
@@ -58,21 +58,39 @@ import {
   getGatewayCatalogEnabled,
   getGatewayCatalogSubagent,
   getGatewayCatalogHideOfficial,
+  getGatewayCatalogOpusplan,
+  getGatewayCatalogPlan,
+  getGatewayCatalogExecute,
   getPaths,
   getPiSettings,
   getClaudeCodeDefaultPermissionMode,
   listGatewayCatalogModels,
+  listGatewayCatalogEntries,
   pollCodexOauthLogin,
   quarantineFailedProviders,
   setGatewayCatalogEnabled,
   setGatewayCatalogSubagent,
   setGatewayCatalogHideOfficial,
+  setGatewayCatalogOpusplan,
+  setGatewayCatalogPlan,
+  setGatewayCatalogExecute,
   setClaudeCodeDefaultPermissionMode,
   startCodexOauthLogin,
   updatePiSettings,
 } from "@/services/api";
 
 const { Text } = Typography;
+
+function groupedCatalogOptions(entries: GatewayCatalogModelOption[]) {
+  const groups = new Map<string, { label: string; value: string }[]>();
+  for (const entry of entries) {
+    const name = entry.providerName.trim() || entry.displayName;
+    const list = groups.get(name) ?? [];
+    list.push({ label: entry.displayName, value: entry.publicId });
+    groups.set(name, list);
+  }
+  return [...groups.entries()].map(([label, options]) => ({ label, options }));
+}
 
 /**
  * Providers page — classic cc-switch card list layout: a header row with the
@@ -137,6 +155,11 @@ export default function ProvidersPage() {
     queryFn: () => listGatewayCatalogModels(target),
     enabled: gatewayCatalog,
   });
+  const catalogEntriesQuery = useQuery({
+    queryKey: ["gateway-catalog-entries", target],
+    queryFn: () => listGatewayCatalogEntries(target),
+    enabled: gatewayCatalog && target === "claude_code",
+  });
   const subagentQuery = useQuery({
     queryKey: ["gateway-catalog-subagent", target],
     queryFn: () => getGatewayCatalogSubagent(target),
@@ -146,6 +169,21 @@ export default function ProvidersPage() {
     queryKey: ["gateway-catalog-hide-official", target],
     queryFn: () => getGatewayCatalogHideOfficial(target),
     enabled: gatewayCatalog,
+  });
+  const opusplanQuery = useQuery({
+    queryKey: ["gateway-catalog-opusplan", target],
+    queryFn: () => getGatewayCatalogOpusplan(target),
+    enabled: gatewayCatalog && target === "claude_code",
+  });
+  const catalogPlanQuery = useQuery({
+    queryKey: ["gateway-catalog-plan", target],
+    queryFn: () => getGatewayCatalogPlan(target),
+    enabled: gatewayCatalog && target === "claude_code",
+  });
+  const catalogExecuteQuery = useQuery({
+    queryKey: ["gateway-catalog-execute", target],
+    queryFn: () => getGatewayCatalogExecute(target),
+    enabled: gatewayCatalog && target === "claude_code",
   });
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
@@ -253,8 +291,12 @@ export default function ProvidersPage() {
       await setGatewayCatalogEnabled(target, enabled);
       await catalogQuery.refetch();
       await catalogModelsQuery.refetch();
+      await catalogEntriesQuery.refetch();
       await subagentQuery.refetch();
       await hideOfficialQuery.refetch();
+      await opusplanQuery.refetch();
+      await catalogPlanQuery.refetch();
+      await catalogExecuteQuery.refetch();
       await store.load(target);
       await proxyQuery.refetch();
       void message.success(
@@ -284,6 +326,7 @@ export default function ProvidersPage() {
       await setGatewayCatalogHideOfficial(target, enabled);
       await hideOfficialQuery.refetch();
       await catalogModelsQuery.refetch();
+      await catalogEntriesQuery.refetch();
       void message.success(
         enabled ? t("providers.catalogHideOfficialOn") : t("providers.catalogHideOfficialOff"),
       );
@@ -291,6 +334,41 @@ export default function ProvidersPage() {
       void message.error(errMsg(error));
     } finally {
       setCatalogBusy(false);
+    }
+  };
+
+  const handleOpusplanChange = async (enabled: boolean) => {
+    setCatalogBusy(true);
+    try {
+      await setGatewayCatalogOpusplan(target, enabled);
+      await opusplanQuery.refetch();
+      void message.success(
+        enabled ? t("providers.catalogOpusplanOn") : t("providers.catalogOpusplanOff"),
+      );
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
+
+  const handleCatalogPlanChange = async (model: string) => {
+    try {
+      await setGatewayCatalogPlan(target, model);
+      await catalogPlanQuery.refetch();
+      void message.success(t("providers.catalogPlanSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const handleCatalogExecuteChange = async (model: string) => {
+    try {
+      await setGatewayCatalogExecute(target, model);
+      await catalogExecuteQuery.refetch();
+      void message.success(t("providers.catalogExecuteSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
     }
   };
 
@@ -593,6 +671,63 @@ export default function ProvidersPage() {
                       void handleSubagentChange(next);
                     }
                   }}
+                />
+              </Space>
+            )}
+            {gatewayCatalog && target === "claude_code" && (
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                  <strong>{t("providers.catalogOpusplanLabel")}</strong>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.catalogOpusplanHint")}
+                  </Text>
+                </Space>
+                <Switch
+                  checked={opusplanQuery.data === true}
+                  disabled={catalogBusy || opusplanQuery.isLoading}
+                  onChange={(checked) => void handleOpusplanChange(checked)}
+                />
+              </Space>
+            )}
+            {gatewayCatalog && target === "claude_code" && opusplanQuery.data === true && (
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                  <strong>{t("providers.catalogPlanLabel")}</strong>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.catalogPlanHint")}
+                  </Text>
+                </Space>
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  style={{ minWidth: 280 }}
+                  value={catalogPlanQuery.data || undefined}
+                  options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
+                  placeholder={t("providers.catalogPlanPlaceholder")}
+                  disabled={catalogBusy || catalogPlanQuery.isLoading}
+                  onChange={(value) => void handleCatalogPlanChange(String(value ?? ""))}
+                />
+              </Space>
+            )}
+            {gatewayCatalog && target === "claude_code" && opusplanQuery.data === true && (
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                  <strong>{t("providers.catalogExecuteLabel")}</strong>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.catalogExecuteHint")}
+                  </Text>
+                </Space>
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  style={{ minWidth: 280 }}
+                  value={catalogExecuteQuery.data || undefined}
+                  options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
+                  placeholder={t("providers.catalogExecutePlaceholder")}
+                  disabled={catalogBusy || catalogExecuteQuery.isLoading}
+                  onChange={(value) => void handleCatalogExecuteChange(String(value ?? ""))}
                 />
               </Space>
             )}

@@ -15,6 +15,7 @@ import type {
   ProviderInput,
   ProviderTarget,
   SwitchProviderResult,
+  GatewayCatalogModelOption,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -88,6 +89,45 @@ export async function setGatewayCatalogHideOfficial(
 
 export async function listGatewayCatalogModels(target: ProviderTarget): Promise<string[]> {
   return call<string[]>("list_gateway_catalog_models", { target });
+}
+
+export async function listGatewayCatalogEntries(
+  target: ProviderTarget,
+): Promise<GatewayCatalogModelOption[]> {
+  return call<GatewayCatalogModelOption[]>("list_gateway_catalog_entries", { target });
+}
+
+export async function getGatewayCatalogOpusplan(target: ProviderTarget): Promise<boolean> {
+  return call<boolean>("get_gateway_catalog_opusplan", { target });
+}
+
+export async function setGatewayCatalogOpusplan(
+  target: ProviderTarget,
+  enabled: boolean,
+): Promise<boolean> {
+  return call<boolean>("set_gateway_catalog_opusplan", { target, enabled });
+}
+
+export async function getGatewayCatalogPlan(target: ProviderTarget): Promise<string> {
+  return call<string>("get_gateway_catalog_plan", { target });
+}
+
+export async function setGatewayCatalogPlan(
+  target: ProviderTarget,
+  model: string,
+): Promise<string> {
+  return call<string>("set_gateway_catalog_plan", { target, model });
+}
+
+export async function getGatewayCatalogExecute(target: ProviderTarget): Promise<string> {
+  return call<string>("get_gateway_catalog_execute", { target });
+}
+
+export async function setGatewayCatalogExecute(
+  target: ProviderTarget,
+  model: string,
+): Promise<string> {
+  return call<string>("set_gateway_catalog_execute", { target, model });
 }
 
 export async function getClaudeCodeDefaultPermissionMode(): Promise<string> {

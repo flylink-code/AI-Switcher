@@ -315,6 +315,18 @@
     "catalogSubagentHintCodex": "Codex 带 x-openai-subagent 的后台请求会改写成此模型；留空则用当前默认模型。独立模式仍只用供应商的自动审查覆盖。",
     "catalogSubagentPlaceholder": "从目录选择或留空",
     "catalogSubagentSaved": "已保存子代理模型",
+    "catalogOpusplanLabel": "Opus Plan（规划/执行分模型）",
+    "catalogOpusplanHint": "写入 settings.json 的 model=opusplan。Plan 模式走规划模型，批准执行后走执行模型。两槽可跨供应商选。VS Code 下拉不会出现 opusplan；须进 Plan（Shift+Tab）。Bypass permissions 会全程走执行槽；会话里若用 UI 另选了目录 id 会盖掉别名。",
+    "catalogOpusplanOn": "已启用 Opus Plan",
+    "catalogOpusplanOff": "已关闭 Opus Plan",
+    "catalogPlanLabel": "规划模型",
+    "catalogPlanHint": "Plan 阶段请求 Opus 角色时改写到此目录模型；留空则用当前默认。",
+    "catalogPlanPlaceholder": "从任意供应商选择规划模型",
+    "catalogPlanSaved": "已保存规划模型",
+    "catalogExecuteLabel": "执行模型",
+    "catalogExecuteHint": "退出 Plan 后的执行阶段走此目录模型；留空则用当前默认。",
+    "catalogExecutePlaceholder": "从任意供应商选择执行模型",
+    "catalogExecuteSaved": "已保存执行模型",
     "catalogHideOfficialLabel": "隐藏官方内置模型",
     "catalogHideOfficialHint": "不把 luna/sol/terra、gpt-6-astra、gpt-5.4、gpt-5.5 等系统建议注入目录。客户端仍请求这些 id 时改写成子代理或当前默认。供应商自己保存的默认模型会保留。",
     "catalogHideOfficialOn": "已隐藏官方内置模型",
@@ -1460,6 +1472,9 @@
       ],
       "1_4_11": [
         "Claude Code 走 Antigravity 网关时，Gemini 正文里的数值范围波浪号（如 500~540mA、1.9~2.05W）改为全角～，不再被画成删除线；流式切包不会把 500~ 和 540 拆开。"
+      ],
+      "1_4_12": [
+        "Claude Code 统一目录可开启 Opus Plan：规划与执行可分别指定目录模型（可跨供应商）。写入 settings.json 的 model=opusplan；代理把 opus 改写到规划槽、sonnet/opusplan 改写到执行槽。VS Code 下拉不会出现该别名，须进 Plan。"
       ]
     },
     "appName": "应用名称",
