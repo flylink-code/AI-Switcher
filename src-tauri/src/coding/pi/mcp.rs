@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 use crate::backup::backup_file_named;
 use crate::coding::pi::config::get_pi_dir;
 use crate::config::atomic::{read_json_file, write_json_file};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::mcp::McpServer;
 
 const MCP_BACKUP_KEEP: usize = 10;
@@ -56,7 +56,9 @@ pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> 
         backup_file_named(path, "mcp.json", MCP_BACKUP_KEEP)?;
     }
 
-    let obj = value.as_object_mut().expect("normalized to object");
+    let obj = value.as_object_mut().ok_or_else(|| {
+        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
+    })?;
     if map.is_empty() {
         obj.remove("mcpServers");
     } else {

@@ -114,7 +114,10 @@ impl CodexOauthManager {
             .timeout(Duration::from_secs(30))
             .user_agent(USER_AGENT)
             .build()
-            .expect("valid OAuth HTTP client");
+            .unwrap_or_else(|error| {
+                log::error!("Codex OAuth HTTP client build failed ({error}); using reqwest defaults");
+                Client::new()
+            });
         Self {
             client,
             stored: RwLock::new(stored),

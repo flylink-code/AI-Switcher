@@ -560,51 +560,33 @@ pub(crate) fn load_gateway_catalog(
     state: &ProxyState,
     style: CatalogStyle,
 ) -> AppResult<(Vec<Provider>, Vec<crate::catalog::CatalogEntry>)> {
-    let providers = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::list_upstream_providers(conn, false))?;
-    let providers: Vec<Provider> = providers
-        .into_iter()
-        .filter(|provider| !provider.is_smart_gateway())
-        .collect();
-    let profile = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
-        .ok()
-        .flatten();
-    let providers: Vec<Provider> = if let Some(profile) = profile.as_ref() {
-        if profile.allowed_upstream_ids.is_empty() {
-            providers
-        } else {
-            providers
-                .into_iter()
-                .filter(|provider| {
+    state.db.with_conn(|conn| {
+        let mut providers = crate::database::dao::gateway::list_upstream_providers(conn, false)?;
+        providers.retain(|provider| !provider.is_smart_gateway());
+        let profile = crate::database::dao::gateway::current_profile(conn, state.target)
+            .ok()
+            .flatten();
+        if let Some(profile) = profile.as_ref() {
+            if !profile.allowed_upstream_ids.is_empty() {
+                providers.retain(|provider| {
                     crate::database::dao::gateway::profile_allows_upstream(profile, &provider.id)
-                })
-                .collect()
+                });
+            }
         }
-    } else {
-        providers
-    };
-    let mut pairs = Vec::with_capacity(providers.len());
-    for provider in &providers {
-        let cached = state
-            .db
-            .with_conn(|conn| {
+        let hide_official = crate::catalog::hide_official_for_conn(conn, state.target);
+        let mut pairs = Vec::with_capacity(providers.len());
+        for provider in &providers {
+            let cached =
                 crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &provider.id)
-            })
-            .unwrap_or_default();
-        pairs.push((provider.clone(), cached));
-    }
-    let entries = crate::catalog::with_auto_entry(
-        style,
-        crate::catalog::build_catalog_with(
+                    .unwrap_or_default();
+            pairs.push((provider.clone(), cached));
+        }
+        let entries = crate::catalog::with_auto_entry(
             style,
-            &pairs,
-            crate::catalog::hide_official(state.db.as_ref(), state.target),
-        ),
-    );
-    Ok((providers, entries))
+            crate::catalog::build_catalog_with(style, &pairs, hide_official),
+        );
+        Ok((providers, entries))
+    })
 }
 
 fn presented_listener_token(headers: &HeaderMap) -> String {

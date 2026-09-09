@@ -98,6 +98,7 @@ pub async fn set_gateway_catalog_enabled(
             },
         )
     })?;
+    crate::catalog::invalidate_view_cache();
     if enabled {
         sync_gateway_catalog_target(target, Some(&app), &state).await?;
     } else if let Some(provider) = state
@@ -173,6 +174,7 @@ pub async fn set_gateway_catalog_subagent(
     patch_default_profile_field(&state, target, |profile| {
         profile.subagent_model = Some(trimmed.clone());
     })?;
+    crate::catalog::invalidate_view_cache();
     if gateway_catalog_on(&state, target) {
         if let Some(provider) = state
             .db
@@ -211,6 +213,7 @@ pub async fn set_gateway_catalog_hide_official(
     patch_default_profile_field(&state, target, |profile| {
         profile.hide_official = Some(enabled);
     })?;
+    crate::catalog::invalidate_view_cache();
     if gateway_catalog_on(&state, target) {
         sync_gateway_catalog_target(target, Some(&app), &state).await?;
     }
@@ -250,6 +253,7 @@ async fn persist_claude_code_catalog_setting<R: tauri::Runtime>(
 ) -> AppResult<()> {
     require_claude_code_catalog(target)?;
     state.db.with_conn(|conn| set_setting(conn, key, value))?;
+    crate::catalog::invalidate_view_cache();
     if key == catalog::GATEWAY_CATALOG_CODE_OPUSPLAN_KEY {
         patch_default_profile_field(state, target, |profile| {
             profile.role_routing_enabled = Some(false);

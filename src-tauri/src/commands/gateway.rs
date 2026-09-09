@@ -401,6 +401,7 @@ pub async fn bind_smart_gateway(
     state.db.with_conn(|conn| {
         crate::database::dao::gateway::upsert_binding(conn, target, &provider_id)
     })?;
+    crate::catalog::invalidate_view_cache();
     let provider = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target)?;
     crate::commands::providers::switch_provider_for_target(&provider.id, target, Some(&app), &state).await?;
     crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state).await?;
@@ -417,6 +418,7 @@ pub async fn unbind_smart_gateway(
     state
         .db
         .with_conn(|conn| crate::database::dao::gateway::delete_binding(conn, target))?;
+    crate::catalog::invalidate_view_cache();
     crate::commands::providers::sync_live_after_connection_change(target, false, &app, &state).await?;
     crate::gateway::service::emit_status(&app);
     Ok(())

@@ -280,7 +280,10 @@ pub fn build_async_client(connect_secs: u64, timeout_secs: u64) -> reqwest::Clie
             .user_agent("antigravity")
             .build()
     })
-    .expect("antigravity async http client fallback")
+    .unwrap_or_else(|error| {
+        log::error!("Antigravity async client fallback also failed ({error}); using reqwest defaults");
+        reqwest::Client::new()
+    })
 }
 
 pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
@@ -300,7 +303,10 @@ pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
             .user_agent("ai-switcher-antigravity")
             .build()
     })
-    .expect("antigravity blocking http client fallback")
+    .unwrap_or_else(|error| {
+        log::error!("Antigravity blocking client fallback also failed ({error}); using reqwest defaults");
+        reqwest::blocking::Client::new()
+    })
 }
 
 #[cfg(test)]

@@ -284,7 +284,9 @@ fn scan_zstd_frames(bytes: &[u8]) -> Result<Vec<(usize, usize)>, String> {
     while offset < bytes.len() {
         let start = offset;
         if bytes.len().saturating_sub(offset) < 5 { break }
-        let magic = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+        let mut magic_buf = [0u8; 4];
+        magic_buf.copy_from_slice(&bytes[offset..offset + 4]);
+        let magic = u32::from_le_bytes(magic_buf);
         if magic != ZSTD_MAGIC { return Err(format!("invalid Zstandard frame magic at byte {offset}")) }
         offset += 4;
         let descriptor = bytes[offset];

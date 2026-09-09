@@ -2472,7 +2472,7 @@ pub async fn run_dsh_cli_update() -> AppResult<String> {
 
 fn dsh_web_is_ready() -> bool {
     std::net::TcpStream::connect_timeout(
-        &"127.0.0.1:3080".parse().expect("static socket address"),
+        &std::net::SocketAddr::from(([127, 0, 0, 1], 3080)),
         Duration::from_millis(250),
     )
     .is_ok()

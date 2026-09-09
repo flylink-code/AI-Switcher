@@ -119,7 +119,7 @@ pub fn set_plugin_enabled(plugin_id: &str, enabled: bool) -> AppResult<()> {
     }
     let path = get_codex_config_path();
     let mut doc = load_config_document()?;
-    let plugins = ensure_table(&mut doc, "plugins");
+    let plugins = ensure_table(&mut doc, "plugins")?;
     let key = plugin_id.to_string();
     let entry = plugins
         .entry(&key)
@@ -822,12 +822,14 @@ fn load_config_document_tolerant(path: &Path) -> (DocumentMut, bool, Option<Stri
     }
 }
 
-fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> &'a mut Table {
+fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> AppResult<&'a mut Table> {
     let needs_table = doc.get(key).map(|item| !item.is_table()).unwrap_or(true);
     if needs_table {
         doc[key] = Item::Table(Table::new());
     }
-    doc[key].as_table_mut().expect("table was just ensured")
+    doc.get_mut(key)
+        .and_then(|item| item.as_table_mut())
+        .ok_or_else(|| AppError::Config(format!("Codex config.toml 无法创建表 `{key}`")))
 }
 
 fn read_enabled_map(doc: &DocumentMut) -> Vec<(String, bool)> {

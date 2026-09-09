@@ -60,7 +60,6 @@ import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "@/components/layout/AppShell";
 import { DesktopShell } from "@/components/v2/shell/DesktopShell";
-import { DashboardV2 } from "@/components/v2/dashboard/DashboardV2";
 import { UsagePageV2 } from "@/components/v2/usage/UsagePageV2";
 import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
 import { useThemeStore } from "@/stores/themeStore";
@@ -445,7 +444,7 @@ export default function App() {
                   onOpenUpdate={openUpdatePrompt}
                 >
                   <ErrorBoundary key={activeKey}>
-                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
+                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
                   </ErrorBoundary>
                 </DesktopShell>
               ) : (
@@ -456,7 +455,7 @@ export default function App() {
                   onOpenUpdate={openUpdatePrompt}
                 >
                   <ErrorBoundary key={activeKey}>
-                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} onNavigate={handleNavigate} />
+                    <ActivePage pageKey={activeKey} onPaint={handlePagePaint} />
                   </ErrorBoundary>
                 </AppShell>
               )}
@@ -535,11 +534,9 @@ export default function App() {
 function ActivePage({
   pageKey,
   onPaint,
-  onNavigate,
 }: {
   pageKey: PageKey;
   onPaint: (key: PageKey) => void;
-  onNavigate: (key: PageKey) => void;
 }) {
   const { t } = useTranslation();
   const layoutMode = useAppStore((s) => s.layoutMode);
@@ -600,15 +597,15 @@ function ActivePage({
     );
   }
 
-  if (layoutMode === "top") {
-    if (pageKey === "workbench") {
-      return <DashboardV2 onNavigate={onNavigate} />;
-    }
-    if (pageKey === "usage") {
-      return <UsagePageV2 />;
-    }
-    // settings / about / providers / … → 原页面；顶部高亮与 ← 设置 返回栏由 DesktopShell 处理
+  if (layoutMode === "top" && pageKey === "usage") {
+    return (
+      <UsagePageV2>
+        <Page />
+      </UsagePageV2>
+    );
   }
+  // 顶部布局的其余页面（概览 / 设置 / 供应商 …）直接用懒加载页面；
+  // 顶栏高亮与 ← 设置 返回栏由 DesktopShell 处理。
 
   return <Page />;
 }

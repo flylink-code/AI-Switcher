@@ -657,7 +657,9 @@ fn write_deployment_mode(path: &Path, mode: &str) -> AppResult<()> {
 
 fn write_meta(path: &Path, applied_id: Option<&str>, our_name: Option<&str>) -> AppResult<()> {
     let mut value = read_json_or_empty(path)?;
-    let obj = value.as_object_mut().expect("normalized to object");
+    let obj = value.as_object_mut().ok_or_else(|| {
+        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
+    })?;
 
     let mut entries = obj
         .get("entries")

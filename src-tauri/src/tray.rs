@@ -26,7 +26,11 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
     let menu = create_tray_menu(app, &language)?;
 
     TrayIconBuilder::with_id(TRAY_ID)
-        .icon(app.default_window_icon().cloned().expect("missing icon"))
+        .icon(
+            app.default_window_icon()
+                .cloned()
+                .ok_or_else(|| AppError::Config("缺少托盘图标资源".into()))?,
+        )
         .tooltip("AI-Switcher")
         .menu(&menu)
         .show_menu_on_left_click(false)

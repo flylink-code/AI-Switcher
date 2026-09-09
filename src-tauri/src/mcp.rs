@@ -197,7 +197,9 @@ fn write_mcp_map(path: &Path, servers: &Map<String, Value>) -> AppResult<()> {
         backup_file_named(path, &stem, MCP_BACKUP_KEEP)?;
     }
 
-    let obj = value.as_object_mut().expect("normalized to object");
+    let obj = value.as_object_mut().ok_or_else(|| {
+        AppError::Config(format!("{} 无法写成 JSON 对象", path.display()))
+    })?;
     if servers.is_empty() {
         obj.remove("mcpServers");
     } else {

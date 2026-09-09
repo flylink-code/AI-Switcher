@@ -146,7 +146,9 @@ fn replace_dollar_math(input: &str, max_chars: usize) -> String {
                 }
             }
         }
-        let ch = input[i..].chars().next().unwrap();
+        let Some(ch) = input[i..].chars().next() else {
+            break;
+        };
         out.push(ch);
         i += ch.len_utf8();
     }

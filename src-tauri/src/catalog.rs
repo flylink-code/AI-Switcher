@@ -4,7 +4,9 @@
 //! Code and Codex only speak one upstream, so the local proxy exposes a merged
 //! model list and routes each request by `model`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
@@ -72,13 +74,77 @@ pub fn execute_setting_key(target: ProviderTarget) -> Option<&'static str> {
     }
 }
 
+/// Snapshot of catalog flags for one Agent. Loaded in a single connection so
+/// proxy requests do not take the write mutex once per flag.
+#[derive(Debug, Clone, Default)]
+pub struct CatalogView {
+    pub enabled: bool,
+    pub hide_official: bool,
+    pub subagent_model: Option<String>,
+    pub plan_model: Option<String>,
+    pub execute_model: Option<String>,
+}
+
+const VIEW_TTL: Duration = Duration::from_millis(1500);
+
+struct CachedView {
+    loaded_at: Instant,
+    view: CatalogView,
+}
+
+static VIEW_CACHE: OnceLock<Mutex<HashMap<ProviderTarget, CachedView>>> = OnceLock::new();
+
+fn lock_view_cache() -> std::sync::MutexGuard<'static, HashMap<ProviderTarget, CachedView>> {
+    VIEW_CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Drop cached catalog flags after a bind/unbind or catalog-setting write.
+pub fn invalidate_view_cache() {
+    lock_view_cache().clear();
+}
+
+pub fn view_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> CatalogView {
+    CatalogView {
+        enabled: enabled_for_conn(conn, target),
+        hide_official: hide_official_for_conn(conn, target),
+        subagent_model: subagent_for_conn(conn, target),
+        plan_model: plan_model_for_conn(conn, target),
+        execute_model: execute_model_for_conn(conn, target),
+    }
+}
+
+pub fn view(db: &Database, target: ProviderTarget) -> CatalogView {
+    {
+        let cache = lock_view_cache();
+        if let Some(entry) = cache.get(&target) {
+            if entry.loaded_at.elapsed() < VIEW_TTL {
+                return entry.view.clone();
+            }
+        }
+    }
+    let loaded = db
+        .with_conn(|conn| Ok(view_for_conn(conn, target)))
+        .unwrap_or_default();
+    let mut cache = lock_view_cache();
+    cache.insert(
+        target,
+        CachedView {
+            loaded_at: Instant::now(),
+            view: loaded.clone(),
+        },
+    );
+    loaded
+}
+
 pub fn enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
     gateway::is_gateway_connection(conn, target)
 }
 
 pub fn enabled(db: &Database, target: ProviderTarget) -> bool {
-    db.with_conn(|conn| Ok(enabled_for_conn(conn, target)))
-        .unwrap_or(false)
+    view(db, target).enabled
 }
 
 pub fn hide_official_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
@@ -92,8 +158,7 @@ pub fn hide_official_for_conn(conn: &rusqlite::Connection, target: ProviderTarge
 }
 
 pub fn hide_official(db: &Database, target: ProviderTarget) -> bool {
-    db.with_conn(|conn| Ok(hide_official_for_conn(conn, target)))
-        .unwrap_or(false)
+    view(db, target).hide_official
 }
 
 pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
@@ -112,9 +177,7 @@ pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) ->
 }
 
 pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
-    db.with_conn(|conn| Ok(subagent_for_conn(conn, target)))
-        .ok()
-        .flatten()
+    view(db, target).subagent_model
 }
 
 fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<String> {
@@ -129,9 +192,8 @@ pub fn opusplan_enabled_for_conn(_conn: &rusqlite::Connection, _target: Provider
     false
 }
 
-pub fn opusplan_enabled(db: &Database, target: ProviderTarget) -> bool {
-    db.with_conn(|conn| Ok(opusplan_enabled_for_conn(conn, target)))
-        .unwrap_or(false)
+pub fn opusplan_enabled(_db: &Database, _target: ProviderTarget) -> bool {
+    false
 }
 
 pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
@@ -146,9 +208,7 @@ pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) 
 }
 
 pub fn plan_model(db: &Database, target: ProviderTarget) -> Option<String> {
-    db.with_conn(|conn| Ok(plan_model_for_conn(conn, target)))
-        .ok()
-        .flatten()
+    view(db, target).plan_model
 }
 
 pub fn execute_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
@@ -163,9 +223,7 @@ pub fn execute_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarge
 }
 
 pub fn execute_model(db: &Database, target: ProviderTarget) -> Option<String> {
-    db.with_conn(|conn| Ok(execute_model_for_conn(conn, target)))
-        .ok()
-        .flatten()
+    view(db, target).execute_model
 }
 
 /// Opus Plan is removed; keep the helper so leftover IPC callers stay off.

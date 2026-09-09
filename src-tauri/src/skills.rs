@@ -474,7 +474,13 @@ pub async fn check_skill_updates(target: SkillTarget) -> AppResult<Vec<SkillUpda
             Ok((bytes, repo)) => {
                 let archive = Arc::new(bytes);
                 for skill in group {
-                    let source = skill.source.clone().expect("github Skill 必有来源记录");
+                    let Some(source) = skill.source.clone() else {
+                        statuses.insert(
+                            skill.name.clone(),
+                            skill_check_error(&skill.name, None, "GitHub Skill 缺少来源记录"),
+                        );
+                        continue;
+                    };
                     let status = compare_installed_github_skill(&skill, &source, archive.clone(), &repo).await;
                     statuses.insert(skill.name.clone(), status);
                 }
@@ -773,7 +779,9 @@ async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> 
             Err(error) => last_error = Some((attempt, error)),
         }
     }
-    let (attempts, error) = last_error.expect("download attempts are non-empty");
+    let Some((attempts, error)) = last_error else {
+        return Err(AppError::Other("GitHub Skill 下载失败".into()));
+    };
     Err(AppError::Other(format!("GitHub Skill 下载失败（已重试 {attempts} 次）: {error}")))
 }
 
@@ -868,12 +876,18 @@ fn parse_github_url(url: &str) -> AppResult<(&str, &str)> {
         .or_else(|| trimmed.strip_prefix("http://github.com/"))
         .ok_or_else(|| AppError::Config("仅支持 https://github.com/<owner>/<repo> 地址".to_string()))?;
     let mut parts = path.split('/');
-    let owner = parts.next().filter(|value| !value.is_empty());
-    let repo = parts.next().filter(|value| !value.is_empty());
-    if owner.is_none() || repo.is_none() || parts.next().is_some() {
+    let owner = parts
+        .next()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()))?;
+    let repo = parts
+        .next()
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()))?;
+    if parts.next().is_some() {
         return Err(AppError::Config("GitHub 地址必须为 https://github.com/<owner>/<repo>".to_string()));
     }
-    Ok((owner.unwrap(), repo.unwrap()))
+    Ok((owner, repo))
 }
 
 fn normalize_github_url(url: &str) -> AppResult<String> {

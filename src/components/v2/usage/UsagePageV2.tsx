@@ -1,11 +1,18 @@
 import React from "react";
-import UsagePage from "@/pages/UsagePage";
+
+export interface UsagePageV2Props {
+  /**
+   * The lazily loaded Usage page. Passing it in keeps `UsagePage` (and its
+   * recharts dependency) inside its own bundle chunk instead of the shell.
+   */
+  children: React.ReactNode;
+}
 
 /** V2 usage shell — embeds the existing UsagePage analytics engine. */
-export const UsagePageV2: React.FC = () => {
+export const UsagePageV2: React.FC<UsagePageV2Props> = ({ children }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px", minHeight: "500px" }}>
-      <UsagePage />
+      {children}
     </div>
   );
 };

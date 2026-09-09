@@ -588,7 +588,12 @@ fn mcp_entry_from_opencode(config: &Value) -> Option<Value> {
 pub fn sync_mcp_servers_at(path: &Path, servers: &[McpServer]) -> AppResult<()> {
     let _guard = lock_opencode_config()?;
     let mut config = read_opencode_config_at(path)?;
-    let obj = config.as_object_mut().expect("read_opencode_config_at 保证对象");
+    let obj = config.as_object_mut().ok_or_else(|| {
+        AppError::Config(format!(
+            "OpenCode 配置文件根节点必须是 JSON 对象: {}",
+            path.display()
+        ))
+    })?;
     let managed: std::collections::HashSet<&str> =
         servers.iter().map(|s| s.name.as_str()).collect();
 
