@@ -1,8 +1,8 @@
 //! SQLite storage layer.
 //!
-//! A single `rusqlite::Connection` is guarded by a `Mutex` (rusqlite's
-//! `Connection` is `!Sync`). The connection lives inside [`Database`], which is
-//! shared across commands via Tauri's managed state.
+//! Writes go through a mutex-guarded `rusqlite::Connection`. Heavy analytics
+//! reads use [`Database::with_read_conn`] (a separate WAL reader) so usage
+//! dashboard scans do not stall gateway log inserts.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -17,8 +17,13 @@ pub mod schema;
 pub mod seed;
 
 /// Wraps a mutex-guarded SQLite connection.
+///
+/// Analytics reads use [`Self::with_read_conn`] so they do not hold this mutex
+/// for seconds (usage period switches were stalling gateway log inserts).
 pub struct Database {
     conn: Mutex<Connection>,
+    /// On-disk path. `None` for in-memory databases (tests).
+    path: Option<PathBuf>,
 }
 
 /// Convenience: lock the connection, returning a `Result` of the guard.
@@ -53,6 +58,7 @@ impl Database {
         }
         let db = Self {
             conn: Mutex::new(conn),
+            path: Some(path),
         };
         db.ensure_schema()?;
         Ok(db)
@@ -65,6 +71,7 @@ impl Database {
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
         let db = Self {
             conn: Mutex::new(conn),
+            path: None,
         };
         db.ensure_schema()?;
         Ok(db)
@@ -93,6 +100,22 @@ impl Database {
         F: FnOnce(&Connection) -> AppResult<T>,
     {
         let conn = lock_conn!(self.conn);
+        f(&conn)
+    }
+
+    /// Read-only connection that does not take the write mutex.
+    ///
+    /// WAL lets this overlap with gateway/proxy inserts. In-memory databases
+    /// have no file to open, so they fall back to [`Self::with_conn`].
+    pub fn with_read_conn<F, T>(&self, f: F) -> AppResult<T>
+    where
+        F: FnOnce(&Connection) -> AppResult<T>,
+    {
+        let Some(path) = self.path.as_ref() else {
+            return self.with_conn(f);
+        };
+        let conn = Connection::open(path)?;
+        conn.execute_batch("PRAGMA query_only = ON; PRAGMA busy_timeout = 5000;")?;
         f(&conn)
     }
 
@@ -204,3 +227,61 @@ impl Database {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{mpsc, Arc};
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn read_conn_does_not_wait_for_write_mutex() {
+        let path = std::env::temp_dir().join(format!(
+            "aisw-read-conn-{}-{}.db",
+            std::process::id(),
+            UtcStamp::now()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let db = Arc::new(Database::init_at(path.clone()).expect("init db"));
+        let writer = Arc::clone(&db);
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            writer
+                .with_conn(|_conn| {
+                    locked_tx.send(()).unwrap();
+                    thread::sleep(Duration::from_millis(250));
+                    Ok(())
+                })
+                .unwrap();
+        });
+        locked_rx.recv().expect("write lock held");
+        let started = Instant::now();
+        db.with_read_conn(|conn| {
+            let one: i32 = conn.query_row("SELECT 1;", [], |row| row.get(0))?;
+            assert_eq!(one, 1);
+            Ok(())
+        })
+        .expect("read conn");
+        assert!(
+            started.elapsed() < Duration::from_millis(150),
+            "read conn blocked on write mutex: {:?}",
+            started.elapsed()
+        );
+        handle.join().unwrap();
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
+
+    struct UtcStamp;
+    impl UtcStamp {
+        fn now() -> i64 {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0)
+        }
+    }
+}
+

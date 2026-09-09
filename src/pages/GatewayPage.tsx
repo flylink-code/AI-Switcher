@@ -12,6 +12,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from "antd";
@@ -22,7 +23,13 @@ import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { GatewayUpstreamPanel } from "@/components/proxy";
+import {
+  GatewayUpstreamPanel,
+  RouteModesHelpButton,
+  RouteModesHelpDrawer,
+  RouteModesTutorialButton,
+  type RouteHelpTab,
+} from "@/components/proxy";
 import AntigravityPage from "@/pages/AntigravityPage";
 import { BIND_TARGETS } from "@/components/antigravity";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -112,6 +119,8 @@ export default function GatewayPage() {
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const [port, setPort] = useState(15828);
   const [busy, setBusy] = useState(false);
+  const [modesHelpOpen, setModesHelpOpen] = useState(false);
+  const [modesHelpTab, setModesHelpTab] = useState<RouteHelpTab>("guide");
 
   const statusQuery = useQuery({
     queryKey: ["smart-gateway-status"],
@@ -130,6 +139,7 @@ export default function GatewayPage() {
   const statsQuery = useQuery({
     queryKey: ["route-mode-usage"],
     queryFn: listRouteModeUsageStats,
+    staleTime: 60_000,
   });
   const catalogQuery = useQuery({
     queryKey: ["gateway-catalog-entries", "claude_code"],
@@ -299,7 +309,32 @@ export default function GatewayPage() {
 
       <GatewayUpstreamPanel allowlistTarget="claude_code" />
 
-      <Card size="small" title={t("gateway.routeModes", { defaultValue: "路由模式" })}>
+      <Card
+        size="small"
+        title={t("gateway.routeModes", { defaultValue: "路由模式" })}
+        extra={
+          <Space size={8}>
+            <RouteModesHelpButton
+              onClick={() => {
+                setModesHelpTab("guide");
+                setModesHelpOpen(true);
+              }}
+            />
+            <RouteModesTutorialButton
+              onClick={() => {
+                setModesHelpTab("tutorial");
+                setModesHelpOpen(true);
+              }}
+            />
+          </Space>
+        }
+      >
+        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+          {t("gateway.modesHelpIntro", {
+            defaultValue:
+              "Agent 请求 auto 时，网关按这次请求的特征选一行。你在 /model 里点了具体目录模型时，模式全部让路。",
+          })}
+        </Text>
         <Table
           size="small"
           rowKey="id"
@@ -313,7 +348,13 @@ export default function GatewayPage() {
             {
               title: t("gateway.modeName", { defaultValue: "模式" }),
               dataIndex: "id",
-              render: (id: string) => t(`gateway.modes.${id}`, { defaultValue: id }),
+              render: (id: string) => (
+                <Tooltip title={t(`gateway.modeHint.${id}`, { defaultValue: id })}>
+                  <span style={{ cursor: "help", borderBottom: "1px dotted var(--color-text-tertiary)" }}>
+                    {t(`gateway.modes.${id}`, { defaultValue: id })}
+                  </span>
+                </Tooltip>
+              ),
             },
             {
               title: t("gateway.enabled", { defaultValue: "启用" }),
@@ -479,11 +520,13 @@ export default function GatewayPage() {
           </Button>
         }
       >
+        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+          {t("gateway.rulesHelpIntro", {
+            defaultValue:
+              "规则优先于模式、排在显式模型之后。model-prefix 按客户端模型名前缀匹配；condition 用 token/工具/是否含图等左值。不做 JS 脚本。",
+          })}
+        </Text>
         <Table
-          size="small"
-          rowKey="id"
-          pagination={false}
-          dataSource={rulesQuery.data ?? []}
           columns={[
             {
               title: t("gateway.ruleType", { defaultValue: "类型" }),
@@ -569,6 +612,13 @@ export default function GatewayPage() {
           ]}
         />
       </Card>
+
+      <RouteModesHelpDrawer
+        open={modesHelpOpen}
+        onClose={() => setModesHelpOpen(false)}
+        tab={modesHelpTab}
+        onTabChange={setModesHelpTab}
+      />
 
       <Card size="small" title={t("proxy.recentRoutes")}>
         <Table

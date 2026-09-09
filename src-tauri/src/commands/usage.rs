@@ -223,7 +223,7 @@ pub async fn list_proxy_request_logs_cmd(
     };
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
-        db.with_conn(|conn| list_proxy_request_logs(conn, &filters, page, page_size))
+        db.with_read_conn(|conn| list_proxy_request_logs(conn, &filters, page, page_size))
     })
     .await
     .map_err(|e| AppError::Database(format!("list proxy logs task failed: {e}")))?
@@ -251,7 +251,7 @@ pub async fn get_usage_dashboard(
     let source = UsageSource::parse(source.as_deref())?;
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
-        db.with_conn(|conn| {
+        db.with_read_conn(|conn| {
             let local_codex = if source.includes_local_codex() {
                 let count: i64 = conn.query_row(
                     "SELECT COUNT(*) FROM proxy_request_logs

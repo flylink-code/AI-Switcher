@@ -1,5 +1,7 @@
 //! Agent connection + gateway profile commands.
 
+use std::sync::Arc;
+
 use serde::Serialize;
 
 use crate::commands::providers::sync_live_after_connection_change;
@@ -483,12 +485,14 @@ pub struct RouteModeUsageStat {
 }
 
 #[tauri::command]
-pub fn list_route_mode_usage_stats(
+pub async fn list_route_mode_usage_stats(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<RouteModeUsageStat>> {
     use crate::database::dao::proxy_logs::{EFFECTIVE_USAGE_FILTER, ROW_COST_SQL};
     let since = chrono::Utc::now().timestamp_millis() - 7 * 24 * 60 * 60 * 1000;
-    state.db.with_conn(|conn| {
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_read_conn(|conn| {
         let sql = format!(
             "SELECT COALESCE(l.route_reason, ''), COUNT(*), COALESCE(SUM({ROW_COST_SQL}), 0)
              FROM proxy_request_logs l
@@ -542,5 +546,8 @@ pub fn list_route_mode_usage_stats(
                 estimated_cost,
             })
             .collect())
+        })
     })
+    .await
+    .map_err(|e| AppError::Database(format!("route mode usage stats task failed: {e}")))?
 }
