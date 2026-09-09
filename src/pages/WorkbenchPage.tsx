@@ -24,6 +24,7 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
 import { usagePeriodHourKeys } from "@/utils/usagePeriod";
+import { getSmartGatewayStatus } from "@/services/providers";
 
 const { Text } = Typography;
 
@@ -59,6 +60,10 @@ export default function WorkbenchPage() {
     useQuery(providerListOptions("opencode")),
   ];
 
+  const gatewayQuery = useQuery({
+    queryKey: ["smart-gateway-status"],
+    queryFn: getSmartGatewayStatus,
+  });
   const dashboardQuery = useQuery(usageDashboardOptions("24h", heatmapSource));
   const trendQuery = useQuery(usageTrendOptions("24h", heatmapSource));
   const activityQuery = useQuery(usageLogsOptions("24h", 0, heatmapSource));
@@ -158,11 +163,19 @@ export default function WorkbenchPage() {
           agent: t(LABEL_KEYS[target]),
           defaultValue: "{{agent}} 代理异常",
         }),
-        page: "proxy",
+        page: "localProxy",
         action: t("workbench.viewProxyLink", { defaultValue: "查看代理" }),
       });
     }
   });
+  if (gatewayQuery.data && gatewayQuery.data.bindingCount > 0 && (gatewayQuery.data.phase === "error" || !gatewayQuery.data.running)) {
+    attentionItems.push({
+      key: "smart-gateway",
+      text: t("workbench.attentionGatewayError", { defaultValue: "已绑定应用的智能网关未运行" }),
+      page: "gateway",
+      action: t("workbench.viewGatewayLink", { defaultValue: "查看网关" }),
+    });
+  }
   if (providersLoaded && providerCount === 0) {
     attentionItems.push({
       key: "no-providers",
@@ -180,6 +193,7 @@ export default function WorkbenchPage() {
   const activityGroups = (() => {
     const groups = new Map<string, ActivityGroup>();
     for (const row of activityQuery.data?.data ?? []) {
+      if (row.usageCounted === false) continue;
       const key = row.targetApp ?? "__unknown__";
       const tokens =
         row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens;
@@ -286,7 +300,7 @@ export default function WorkbenchPage() {
           size="small"
           icon={<ArrowRightOutlined />}
           iconPosition="end"
-          onClick={() => navigate("proxy")}
+          onClick={() => navigate("gateway")}
           style={{ marginLeft: "auto", fontSize: 12, padding: 0 }}
         >
           {t("workbench.stripViewStatus", { defaultValue: "查看状态" })}

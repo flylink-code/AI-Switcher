@@ -2,7 +2,7 @@
 
 Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.0**
 
-**This release:** Each Agent picks an external provider or a gateway profile. The smart gateway owns catalog routing, role slots, and bounded fallback.
+**This release:** The smart gateway is a standalone listener on `127.0.0.1:15828` with per-app bindings, nine route modes, and condition rules. Primary nav is 7 items; local proxy is back under Settings.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -22,7 +22,7 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 ## Features
 
 - **Providers:** Each agent chooses an **external provider connection** or a **gateway profile connection**. The gateway aggregates catalogs, plan/execute/subagent roles, and route logs. Cards copy across agents (protocol and URL rewritten). OpenCode / Pi / DSH still write every provider when external; a gateway connection writes a single loopback entry.
-- **Smart gateway:** Per-agent loopback listeners, key injection, profile routing, bounded 429/5xx fallback. Entry: Settings → Tools & environment → Smart gateway (route key remains `proxy`).
+- **Smart gateway:** Standalone listener at `127.0.0.1:15828` for mode routing, thinking levels, catalog scope, and condition rules. Binding an agent writes an Auto card that points at that port. Usage counts only the innermost hop. Entry: main nav **Gateway**.
 - **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
 - **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
 - **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events. Claude Desktop’s private history is not parsed.

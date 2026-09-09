@@ -80,6 +80,9 @@ use crate::commands::{
     import_gateway_upstreams_from_providers, list_gateway_upstream_models, set_gateway_upstream_model_visible,
     discover_gateway_upstream_models, discover_gateway_upstream_models_batch,
     ensure_smart_gateway_provider,
+    get_smart_gateway_status, set_smart_gateway_port, start_smart_gateway, stop_smart_gateway,
+    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
+    update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule, list_route_mode_usage_stats,
     get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_gateway_catalog_opusplan,
     get_gateway_catalog_plan, get_gateway_catalog_execute, get_claude_code_default_permission_mode,
     get_db_info, get_paths,
@@ -296,6 +299,19 @@ pub fn run() {
             discover_gateway_upstream_models,
             discover_gateway_upstream_models_batch,
             ensure_smart_gateway_provider,
+            get_smart_gateway_status,
+            set_smart_gateway_port,
+            start_smart_gateway,
+            stop_smart_gateway,
+            list_smart_gateway_bindings,
+            bind_smart_gateway,
+            unbind_smart_gateway,
+            list_route_modes,
+            update_route_mode,
+            list_route_rules,
+            upsert_route_rule,
+            delete_route_rule,
+            list_route_mode_usage_stats,
             copy_provider_to_target,
             create_provider,
             update_provider,
@@ -590,6 +606,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         proxy_status: tokio::sync::RwLock::new(initial_proxy_status),
     });
     crate::antigravity::gateway::init_gateway(Arc::clone(&db));
+    crate::gateway::service::init_service(Arc::clone(&db));
     commands::proxy::spawn_proxy_lifecycle_listener(
         app.handle().clone(),
         proxy_lifecycle_rx,
@@ -632,12 +649,16 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             background_started.elapsed().as_millis()
         );
         crate::antigravity::gateway::restore_gateway_if_enabled().await;
+        crate::gateway::service::restore_if_enabled(Arc::clone(&state.db)).await;
+        crate::gateway::service::emit_status(&app_handle);
         // Post-update NSIS relaunch can still leave ports busy after the first
         // pass; recover Codex routing + proxy binding a few seconds later.
         let recover_handle = app_handle.clone();
         tauri::async_runtime::spawn(async move {
             let state = recover_handle.state::<AppState>();
             commands::proxy::recover_runtime_after_relaunch(&recover_handle, &state).await;
+            crate::gateway::service::restore_after_relaunch(Arc::clone(&state.db)).await;
+            crate::gateway::service::emit_status(&recover_handle);
             log::info!("启动后二次恢复检查完成");
         });
     });

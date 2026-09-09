@@ -176,11 +176,11 @@ export default function SettingsPage() {
       {/* Tools & environment */}
       <SettingsSection title={t("settings.sectionToolsEnv", { defaultValue: "工具与环境" })}>
         <SettingsRow
-          title={t("navigation.proxy", { defaultValue: "智能网关" })}
-          description={t("settings.proxyHint", {
-            defaultValue: "上游池、路由档案与本机入口；也可从主导航进入",
+          title={t("nav.localProxy", { defaultValue: "本地代理" })}
+          description={t("settings.localProxyHint", {
+            defaultValue: "按 Agent 做协议转换与故障切换",
           })}
-          onClick={() => navigate("proxy")}
+          onClick={() => navigate("localProxy")}
         />
         <SettingsRow
           title={t("nav.environment", { defaultValue: "环境信息" })}

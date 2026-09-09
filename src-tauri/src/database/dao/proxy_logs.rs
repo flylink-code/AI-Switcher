@@ -25,7 +25,8 @@ const SESSION_PROXY_DEDUP_WINDOW_MS: i64 = 10 * 60 * 1000;
 
 /// SQL fragment: drop session-sync rows that duplicate a nearby proxy row.
 /// Uses a created_at range (not ABS) so SQLite can use indexes.
-const EFFECTIVE_USAGE_FILTER: &str = "
+/// Session-vs-proxy row dedup. Log lists keep outer hops so the chain is visible.
+const SESSION_DEDUP_FILTER: &str = "
   AND (
     COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
     OR NOT EXISTS (
@@ -51,6 +52,68 @@ const EFFECTIVE_USAGE_FILTER: &str = "
           OR lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, '')) || '-fast'
           OR lower(COALESCE(l.model, '')) = lower(COALESCE(p.model, '')) || '-fast'
         )
+    )
+  )
+";
+
+const USAGE_COUNTED_SQL: &str = "
+    CASE
+      WHEN l.correlation_id IS NULL OR trim(l.correlation_id) = ''
+        OR l.hop IS NULL OR trim(l.hop) = ''
+        OR l.hop = (
+          SELECT CASE
+            WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
+            WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
+            ELSE MAX(hop)
+          END
+          FROM proxy_request_logs c
+          WHERE c.correlation_id = l.correlation_id
+        )
+      THEN 1 ELSE 0
+    END
+";
+
+/// SQL fragment: drop session-sync rows that duplicate a nearby proxy row,
+/// and keep only the innermost hop for a correlated multi-hop request.
+pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
+  AND (
+    COALESCE(l.data_source, 'proxy') NOT IN ('codex_session', 'claude_code_session', 'pi_session')
+    OR NOT EXISTS (
+      SELECT 1 FROM proxy_request_logs p
+      WHERE COALESCE(p.data_source, 'proxy') = 'proxy'
+        AND (
+          CASE COALESCE(l.data_source, 'proxy')
+            WHEN 'claude_code_session' THEN p.target_app = 'claude_code'
+            WHEN 'codex_session' THEN p.target_app = 'codex'
+            WHEN 'pi_session' THEN p.target_app IN ('pi', 'antigravity')
+            ELSE 0
+          END
+        )
+        AND p.status_code BETWEEN 200 AND 299
+        AND p.created_at BETWEEN l.created_at - 600000 AND l.created_at + 600000
+        AND p.input_tokens = l.input_tokens
+        AND p.output_tokens = l.output_tokens
+        AND p.cache_read_input_tokens = l.cache_read_input_tokens
+        AND (
+          lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, ''))
+          OR lower(COALESCE(l.model, '')) IN ('', 'unknown')
+          OR lower(COALESCE(p.model, '')) IN ('', 'unknown')
+          OR lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, '')) || '-fast'
+          OR lower(COALESCE(l.model, '')) = lower(COALESCE(p.model, '')) || '-fast'
+        )
+    )
+  )
+  AND (
+    l.correlation_id IS NULL OR trim(l.correlation_id) = ''
+    OR l.hop IS NULL OR trim(l.hop) = ''
+    OR l.hop = (
+      SELECT CASE
+        WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
+        WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
+        ELSE MAX(hop)
+      END
+      FROM proxy_request_logs c
+      WHERE c.correlation_id = l.correlation_id
     )
   )
 ";
@@ -277,6 +340,19 @@ pub fn insert_proxy_log_with_source(
         ],
     )?;
     Ok(id)
+}
+
+pub fn update_proxy_log_hop(
+    conn: &Connection,
+    id: &str,
+    correlation_id: Option<&str>,
+    hop: Option<&str>,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE proxy_request_logs SET correlation_id = COALESCE(?, correlation_id), hop = COALESCE(?, hop) WHERE id = ?;",
+        params![correlation_id, hop, id],
+    )?;
+    Ok(())
 }
 
 pub fn should_skip_codex_session_insert(
@@ -738,7 +814,7 @@ pub fn update_proxy_log_route(
 }
 
 /// Per-request cost from matched `model_pricing` (any currency).
-const ROW_COST_SQL: &str = "\
+pub(crate) const ROW_COST_SQL: &str = "\
     COALESCE(l.input_tokens, 0) * COALESCE(p.input_price_per_million, 0) / 1000000.0 \
     + COALESCE(l.cache_read_input_tokens, 0) * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0 \
     + COALESCE(l.cache_creation_input_tokens, 0) * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0 \
@@ -1038,6 +1114,9 @@ pub struct ProxyRequestLog {
     pub requested_model: Option<String>,
     pub upstream_id: Option<String>,
     pub profile_id: Option<String>,
+    pub correlation_id: Option<String>,
+    pub hop: Option<String>,
+    pub usage_counted: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -1121,9 +1200,9 @@ pub fn list_proxy_request_logs(
     }
 
     let where_clause = if conditions.is_empty() {
-        format!("WHERE 1=1 {EFFECTIVE_USAGE_FILTER}")
+        format!("WHERE 1=1 {SESSION_DEDUP_FILTER}")
     } else {
-        format!("WHERE {} {EFFECTIVE_USAGE_FILTER}", conditions.join(" AND "))
+        format!("WHERE {} {SESSION_DEDUP_FILTER}", conditions.join(" AND "))
     };
 
     let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs l {where_clause}");
@@ -1136,7 +1215,8 @@ pub fn list_proxy_request_logs(
                 l.output_tokens, l.usage_available, l.duration_ms, l.target_app, l.protocol, l.route,
                 l.is_stream, l.error_category, l.diagnostic,
                 COALESCE(l.data_source, 'proxy'), l.session_id, l.stream_outcome,
-                l.route_reason, l.requested_model, l.upstream_id, l.profile_id
+                l.route_reason, l.requested_model, l.upstream_id, l.profile_id,
+                l.correlation_id, l.hop, {USAGE_COUNTED_SQL}
          FROM proxy_request_logs l
          {where_clause}
          ORDER BY l.created_at DESC
@@ -1174,6 +1254,9 @@ pub fn list_proxy_request_logs(
             requested_model: row.get(22)?,
             upstream_id: row.get(23)?,
             profile_id: row.get(24)?,
+            correlation_id: row.get(25)?,
+            hop: row.get(26)?,
+            usage_counted: row.get::<_, i64>(27)? != 0,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;
@@ -1216,5 +1299,75 @@ mod tests {
         let (currency, amount) = pick_primary_currency_amount(&amounts);
         assert_eq!(currency, "USD");
         assert!((amount - 1.25).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn correlation_keeps_innermost_hop_for_usage() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let outer = insert_proxy_log(
+                conn,
+                Some("p1"),
+                Some("proxy"),
+                Some("m"),
+                Some(200),
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &outer, Some("req_abc"), Some("agent_proxy"))?;
+            let inner = insert_proxy_log(
+                conn,
+                Some("ag"),
+                Some("Antigravity"),
+                Some("m"),
+                Some(200),
+                20,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner, Some("req_abc"), Some("antigravity"))?;
+            let count: i64 = conn.query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
+                ),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 1);
+            let hop: String = conn.query_row(
+                &format!(
+                    "SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
+                ),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(hop, "antigravity");
+            let listed = list_proxy_request_logs(conn, &ProxyLogFilters::default(), 0, 20)?;
+            assert_eq!(listed.data.len(), 2);
+            let counted: Vec<&str> = listed
+                .data
+                .iter()
+                .filter(|row| row.usage_counted)
+                .filter_map(|row| row.hop.as_deref())
+                .collect();
+            assert_eq!(counted, vec!["antigravity"]);
+            let transit = listed
+                .data
+                .iter()
+                .find(|row| !row.usage_counted)
+                .and_then(|row| row.hop.as_deref());
+            assert_eq!(transit, Some("agent_proxy"));
+            Ok(())
+        })
+        .unwrap();
     }
 }

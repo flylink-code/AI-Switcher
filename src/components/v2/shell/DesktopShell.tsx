@@ -39,9 +39,8 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
   "providers",
-  "proxy",
+  "gateway",
   "usage",
-  "antigravity",
   "workspace",
   "sessions",
   "settings",
@@ -99,6 +98,12 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
       case "localization":
         return {
           title: t("nav.localization", { defaultValue: "汉化与本地化" }),
+          parentKey: "settings" as PageKey,
+          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
+        };
+      case "localProxy":
+        return {
+          title: t("nav.localProxy", { defaultValue: "本地代理" }),
           parentKey: "settings" as PageKey,
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };

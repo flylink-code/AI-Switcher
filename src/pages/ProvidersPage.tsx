@@ -492,7 +492,7 @@ export default function ProvidersPage() {
             style={{ cursor: "pointer", margin: 0 }}
             onClick={() => {
               setProxyTarget(target);
-              navigate("proxy");
+              navigate("gateway");
             }}
           >
             {isNativeCatalog
@@ -504,7 +504,7 @@ export default function ProvidersPage() {
           <Tag
             color={antigravity?.running ? "purple" : undefined}
             style={{ cursor: "pointer", margin: 0 }}
-            onClick={() => navigate("antigravity")}
+            onClick={() => navigate("gateway")}
           >
             {antigravity?.running
               ? t("workbench.antigravityRunning", { port: antigravity.port })
@@ -846,7 +846,7 @@ export default function ProvidersPage() {
                         size="small"
                         onClick={() => {
                           setProxyTarget(target);
-                          navigate("proxy");
+                          navigate("gateway");
                         }}
                       >
                         {t("providers.configureGateway")}

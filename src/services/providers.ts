@@ -24,6 +24,12 @@ import type {
   GatewayUpstreamImportResult,
   GatewayUpstreamModelRow,
   GatewayUpstreamDiscoverItem,
+  SmartGatewayStatus,
+  GatewayBinding,
+  RouteMode,
+  RouteModePatch,
+  RouteRule,
+  RouteModeUsageStat,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -85,10 +91,10 @@ export async function updateGatewayProfile(
 }
 
 export async function listGatewayRouteLogs(
-  target: ProviderTarget,
+  target?: ProviderTarget | null,
   limit = 20,
 ): Promise<GatewayRouteLog[]> {
-  return call<GatewayRouteLog[]>("list_gateway_route_logs", { target, limit });
+  return call<GatewayRouteLog[]>("list_gateway_route_logs", { target: target ?? null, limit });
 }
 
 export async function listGatewayUpstreams(): Promise<Provider[]> {
@@ -321,4 +327,56 @@ export async function confirmImportPreview(preview: ImportPreview): Promise<Deep
 
 export async function buildProviderDeeplink(providerId: string): Promise<string> {
   return call<string>("build_provider_deeplink", { providerId });
+}
+
+export async function getSmartGatewayStatus(): Promise<SmartGatewayStatus> {
+  return call("get_smart_gateway_status");
+}
+
+export async function setSmartGatewayPort(port: number): Promise<void> {
+  await call("set_smart_gateway_port", { port });
+}
+
+export async function startSmartGateway(port?: number): Promise<SmartGatewayStatus> {
+  return call("start_smart_gateway", { port: port ?? null });
+}
+
+export async function stopSmartGateway(): Promise<SmartGatewayStatus> {
+  return call("stop_smart_gateway");
+}
+
+export async function listSmartGatewayBindings(): Promise<GatewayBinding[]> {
+  return call("list_smart_gateway_bindings");
+}
+
+export async function bindSmartGateway(target: ProviderTarget): Promise<Provider> {
+  return call("bind_smart_gateway", { target });
+}
+
+export async function unbindSmartGateway(target: ProviderTarget): Promise<void> {
+  await call("unbind_smart_gateway", { target });
+}
+
+export async function listRouteModes(): Promise<RouteMode[]> {
+  return call("list_route_modes");
+}
+
+export async function updateRouteMode(id: string, patch: RouteModePatch): Promise<RouteMode> {
+  return call("update_route_mode", { id, patch });
+}
+
+export async function listRouteRules(): Promise<RouteRule[]> {
+  return call("list_route_rules");
+}
+
+export async function upsertRouteRule(rule: RouteRule): Promise<RouteRule> {
+  return call("upsert_route_rule", { rule });
+}
+
+export async function deleteRouteRule(id: string): Promise<void> {
+  await call("delete_route_rule", { id });
+}
+
+export async function listRouteModeUsageStats(): Promise<RouteModeUsageStat[]> {
+  return call("list_route_mode_usage_stats");
 }

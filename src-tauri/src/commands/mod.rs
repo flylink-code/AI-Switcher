@@ -142,6 +142,10 @@ pub use gateway::{
     import_gateway_upstreams_from_providers, list_gateway_profiles, list_gateway_route_logs,
     list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
     set_gateway_upstream_model_visible, update_gateway_profile, upsert_gateway_upstream,
+    get_smart_gateway_status, set_smart_gateway_port, start_smart_gateway, stop_smart_gateway,
+    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
+    update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule,
+    list_route_mode_usage_stats,
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,

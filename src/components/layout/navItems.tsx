@@ -4,7 +4,6 @@ import {
   AppstoreOutlined,
   ClusterOutlined,
   BarChartOutlined,
-  UserOutlined,
   FolderOutlined,
   MessageOutlined,
   SettingOutlined,
@@ -22,9 +21,8 @@ export interface NavItemDef {
 export const NAV_ITEMS: NavItemDef[] = [
   { key: "workbench", labelKey: "navigation.dashboard", defaultLabel: "概览", icon: <AppstoreOutlined /> },
   { key: "providers", labelKey: "navigation.providers", defaultLabel: "供应商", icon: <ClusterOutlined /> },
-  { key: "proxy", labelKey: "navigation.proxy", defaultLabel: "智能网关", icon: <ApiOutlined /> },
+  { key: "gateway", labelKey: "navigation.gateway", defaultLabel: "网关", icon: <ApiOutlined /> },
   { key: "usage", labelKey: "navigation.usage", defaultLabel: "用量统计", icon: <BarChartOutlined /> },
-  { key: "antigravity", labelKey: "navigation.accounts", defaultLabel: "账号与额度", icon: <UserOutlined /> },
   { key: "workspace", labelKey: "navigation.workspace", defaultLabel: "工作区", icon: <FolderOutlined /> },
   { key: "sessions", labelKey: "navigation.sessions", defaultLabel: "会话", icon: <MessageOutlined /> },
   { key: "settings", labelKey: "navigation.settings", defaultLabel: "设置", icon: <SettingOutlined /> },
@@ -36,7 +34,10 @@ export function isPrimaryActive(navKey: PageKey, activeKey: PageKey): boolean {
   if (navKey === "workspace" && ["workspace", "mcp", "prompts", "skills", "agents", "plugins", "profiles"].includes(activeKey)) {
     return true;
   }
-  if (navKey === "settings" && ["settings", "about", "environment", "localization", "agentTools"].includes(activeKey)) {
+  if (navKey === "settings" && ["settings", "about", "environment", "localization", "agentTools", "localProxy"].includes(activeKey)) {
+    return true;
+  }
+  if (navKey === "gateway" && ["gateway", "proxy", "antigravity"].includes(activeKey)) {
     return true;
   }
   return false;

@@ -1,7 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
 import { queryClient } from "@/lib/queryClient";
 import { getProxyStatus } from "@/services/api";
-import type { ProviderTarget, ProxyStatusUpdated } from "@/types/backend";
+import { getSmartGatewayStatus } from "@/services/providers";
+import type { ProviderTarget, ProxyStatusUpdated, SmartGatewayStatus } from "@/types/backend";
 
 let initialized = false;
 
@@ -15,6 +16,16 @@ export function initializeProxyStatusEvents(): void {
     },
   )
     .then(() => synchronizeProxySnapshots())
+    .catch(() => undefined);
+  void listen<SmartGatewayStatus>(
+    "smart-gateway-status-updated",
+    ({ payload }) => {
+      queryClient.setQueryData(["smart-gateway-status"], payload);
+    },
+  )
+    .then(() => getSmartGatewayStatus().then((status) => {
+      queryClient.setQueryData(["smart-gateway-status"], status);
+    }))
     .catch(() => undefined);
 }
 

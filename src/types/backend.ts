@@ -80,6 +80,10 @@ export interface GatewayCatalogModelOption {
   publicId: string;
   displayName: string;
   providerName: string;
+  contextWindow?: number;
+  webSearchEnabled?: boolean;
+  visionEnabled?: boolean;
+  reasoningLevels?: string[];
 }
 
 export interface ClaudeModelMapping {
@@ -237,6 +241,66 @@ export interface GatewayUpstreamImportResult {
 export interface GatewayUpstreamModelRow {
   modelId: string;
   visible: boolean;
+  displayName?: string;
+  contextWindow?: number | null;
+  maxOutputTokens?: number | null;
+  reasoningLevels?: string[];
+  capabilities?: Record<string, boolean>;
+}
+
+export interface SmartGatewayStatus {
+  running: boolean;
+  port: number;
+  phase: string;
+  lastError: string | null;
+  baseUrl: string;
+  bindingCount: number;
+  checkedAt: number;
+}
+
+export interface GatewayBinding {
+  targetApp: ProviderTarget;
+  entryTokenSet: boolean;
+  providerId: string;
+  createdAt: number;
+}
+
+export interface RouteMode {
+  id: string;
+  profileId: string;
+  enabled: boolean;
+  model: string;
+  thinkingConfigJson: string;
+  fallbackModels: string[];
+  threshold: number;
+  sortIndex: number;
+}
+
+export interface RouteModePatch {
+  enabled?: boolean;
+  model?: string;
+  thinkingConfigJson?: string;
+  fallbackModels?: string[];
+  threshold?: number;
+}
+
+export interface RouteRule {
+  id: string;
+  profileId: string;
+  enabled: boolean;
+  sortIndex: number;
+  ruleType: string;
+  conditionJson: string;
+  pattern: string;
+  targetModel: string;
+  thinkingConfigJson: string;
+  rewritesJson: string;
+}
+
+export interface RouteModeUsageStat {
+  modeId: string;
+  requestCount: number;
+  estimatedCost: number;
 }
 
 export interface GatewayUpstreamDiscoverItem {
@@ -1045,6 +1109,9 @@ export interface ProxyRequestLog {
   requestedModel: string | null;
   upstreamId: string | null;
   profileId: string | null;
+  correlationId: string | null;
+  hop: string | null;
+  usageCounted: boolean;
 }
 
 export interface PaginatedProxyLogs {

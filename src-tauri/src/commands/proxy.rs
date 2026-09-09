@@ -430,6 +430,7 @@ pub fn prepare_for_updater_exit(app: &tauri::AppHandle) {
                 let mut proxy = state.proxy.lock().await;
                 proxy.stop_graceful().await;
             }
+            let _ = crate::gateway::service::stop_service().await;
             if let Err(error) = state.db.checkpoint_wal() {
                 log::warn!("updater exit: WAL checkpoint failed: {error}");
             }

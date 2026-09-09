@@ -109,6 +109,7 @@ pub async fn anthropic_messages(
                 .unwrap_or(false),
             None,
             Some("fast_path"),
+            Some(&headers),
         );
         if payload
             .get("stream")
@@ -277,6 +278,7 @@ pub async fn openai_responses_compact(
         false,
         None,
         Some("compact=stub"),
+        Some(&headers),
     );
     Json(compact).into_response()
 }
@@ -662,6 +664,7 @@ async fn dispatch_generation(
                     stream,
                     Some("upstream"),
                     Some(&last_error),
+                    Some(headers),
                 );
                 return error_json(status, &last_error);
             }
@@ -777,6 +780,7 @@ async fn dispatch_generation(
                 stream,
                 Some("upstream"),
                 Some(&last_error),
+                Some(headers),
             );
             return error_json(status, &last_error);
         }
@@ -855,6 +859,7 @@ async fn dispatch_generation(
                 stream,
                 Some("upstream"),
                 Some(&last_error),
+                Some(headers),
             );
             let client_status =
                 StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_REQUEST);
@@ -885,6 +890,7 @@ async fn dispatch_generation(
             stream,
             None,
             diagnostic.as_deref(),
+            Some(headers),
         );
         if stream {
             return stream_response(
@@ -980,6 +986,7 @@ async fn dispatch_generation(
         stream,
         Some(error_category),
         Some(&clipped_error),
+        Some(headers),
     );
     error_json_with_retry_after(status, &clipped_error, last_upstream_retry_after)
 }

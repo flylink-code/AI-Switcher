@@ -5,8 +5,9 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_usage_idempotent};
+use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_hop, update_proxy_log_usage_idempotent};
 use crate::database::Database;
+use axum::http::HeaderMap;
 
 pub const TARGET_APP: &str = "antigravity";
 pub const PROVIDER_NAME: &str = "Antigravity";
@@ -44,6 +45,7 @@ pub fn insert_request(
     is_stream: bool,
     error_category: Option<&str>,
     diagnostic: Option<&str>,
+    headers: Option<&HeaderMap>,
 ) -> Option<String> {
     let duration_ms = started.elapsed().as_millis() as i64;
     let model = model.trim();
@@ -71,6 +73,14 @@ pub fn insert_request(
         )
     }) {
         Ok(id) => {
+            let correlation = crate::gateway::correlation::resolve(
+                headers.unwrap_or(&HeaderMap::new()),
+                crate::gateway::correlation::HOP_ANTIGRAVITY,
+                Some(TARGET_APP),
+            );
+            let _ = db.with_conn(|conn| {
+                update_proxy_log_hop(conn, &id, Some(&correlation.id), Some(correlation.hop))
+            });
             crate::usage_events::notify_log_recorded();
             Some(id)
         }

@@ -99,7 +99,7 @@ pub async fn codex_proxy_handler(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let catalog_mode = crate::catalog::enabled(state.db.as_ref(), state.target);
+    let catalog_mode = super::gateway_catalog_enabled(&state);
     let mut is_catalog_subagent = false;
     let mut route_decision = None;
     let attempt_index: i64 = 0;
@@ -109,6 +109,7 @@ pub async fn codex_proxy_handler(
             &requested_model,
             has_subagent_header(&headers),
             &incoming,
+            uri.path(),
         ) {
             Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));

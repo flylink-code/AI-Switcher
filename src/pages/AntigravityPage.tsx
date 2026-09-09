@@ -72,7 +72,7 @@ function errMsg(error: unknown): string {
   return String(error ?? "未知错误");
 }
 
-export default function AntigravityPage() {
+export default function AntigravityPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -333,6 +333,7 @@ export default function AntigravityPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {!embedded && (
       <Segmented<string>
         className="app-segmented-switcher"
         size="small"
@@ -349,6 +350,7 @@ export default function AntigravityPage() {
           },
         ]}
       />
+      )}
 
       {activeTab === "antigravity" && (
         <AntigravityContent

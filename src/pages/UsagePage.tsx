@@ -663,6 +663,9 @@ export default function UsagePage() {
                   <Space size={4} wrap>
                     <span>{label}</span>
                     {viaGateway ? <Tag color="blue">{t("usage.viaSmartGateway")}</Tag> : null}
+                    {row.usageCounted === false ? (
+                      <Tag color="default">{t("usage.transitHop", { defaultValue: "中转" })}</Tag>
+                    ) : null}
                   </Space>
                 );
               },

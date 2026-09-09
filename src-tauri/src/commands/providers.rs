@@ -223,6 +223,14 @@ pub struct GatewayCatalogModelOption {
     pub public_id: String,
     pub display_name: String,
     pub provider_name: String,
+    #[serde(default)]
+    pub context_window: u64,
+    #[serde(default)]
+    pub web_search_enabled: bool,
+    #[serde(default)]
+    pub vision_enabled: bool,
+    #[serde(default)]
+    pub reasoning_levels: Vec<String>,
 }
 
 fn require_claude_code_catalog(target: ProviderTarget) -> AppResult<()> {
@@ -384,17 +392,31 @@ pub fn list_gateway_catalog_entries(
         provider_name: "Auto".to_string(),
         public_id: "auto".to_string(),
         display_name: "Auto".to_string(),
+        context_window: 0,
+        web_search_enabled: false,
+        vision_enabled: false,
+        reasoning_levels: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
     }];
-    options.extend(build_catalog_with(style, &pairs, hide_official).into_iter().map(
-        |entry| GatewayCatalogModelOption {
+    options.extend(build_catalog_with(style, &pairs, hide_official).into_iter().map(|entry| {
+        let inferred = crate::gateway::metadata::infer(&entry.public_id);
+        GatewayCatalogModelOption {
             provider_name: names
                 .get(&entry.provider_id)
                 .cloned()
                 .unwrap_or_else(|| entry.display_name.clone()),
             public_id: entry.public_id,
             display_name: entry.display_name,
-        },
-    ));
+            context_window: entry.context_window,
+            web_search_enabled: entry.web_search_enabled
+                || inferred.capabilities["web_search"].as_bool().unwrap_or(false),
+            vision_enabled: inferred.capabilities["vision"].as_bool().unwrap_or(false),
+            reasoning_levels: if inferred.reasoning_levels.is_empty() {
+                vec!["off".into(), "low".into(), "medium".into(), "high".into()]
+            } else {
+                inferred.reasoning_levels
+            },
+        }
+    }));
     Ok(options)
 }
 
@@ -1723,7 +1745,14 @@ fn gateway_live_entry(
     target: ProviderTarget,
     template: &Provider,
 ) -> AppResult<(Provider, Vec<String>)> {
-    let port = get_saved_proxy_port(state, target);
+    let port = state
+        .db
+        .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
+        .ok()
+        .flatten()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(crate::gateway::SMART_GATEWAY_PORT);
     let token = state
         .db
         .with_conn(|conn| crate::database::dao::gateway::profile_entry_token(conn, target))?
@@ -1791,6 +1820,32 @@ fn apply_native_gateway_entry(state: &AppState, target: ProviderTarget) -> AppRe
         ProviderTarget::Pi => apply_pi_gateway_entry(state, live, extra),
         _ => Ok(()),
     }
+}
+
+pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<()> {
+    let bindings = state
+        .db
+        .with_conn(crate::database::dao::gateway::list_bindings)?;
+    for binding in bindings {
+        match binding.target_app {
+            ProviderTarget::OpenCode
+            | ProviderTarget::Pi
+            | ProviderTarget::Dsh
+            | ProviderTarget::Cline => {
+                let _ = apply_native_gateway_entry(state, binding.target_app);
+            }
+            _ => {
+                if let Ok(Some(provider)) = state.db.with_conn(|conn| {
+                    Ok(dao::list_providers(conn, binding.target_app)?
+                        .into_iter()
+                        .find(|item| item.is_smart_gateway()))
+                }) {
+                    let _ = apply_target_provider(&provider, None::<&tauri::AppHandle>, state).await;
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn apply_pi_gateway_entry(_state: &AppState, live: Provider, extra: Vec<String>) -> AppResult<()> {
@@ -1880,6 +1935,7 @@ pub(crate) fn sync_cline_providers_to_live(state: &AppState) -> AppResult<()> {
                     .unwrap_or_default())
             })
             .unwrap_or_default();
+        let extra_models = runtime.filter_hidden_models(extra_models);
         entries.push((runtime, extra_models));
     }
     sync_managed_cline_providers(&entries)
@@ -3092,14 +3148,21 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
         if current.is_none() {
             return Ok(());
         }
-        let port = get_saved_proxy_port(state, ProviderTarget::Codex);
+        let port = state
+            .db
+            .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
+            .ok()
+            .flatten()
+            .and_then(|value| value.parse::<u16>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(crate::gateway::SMART_GATEWAY_PORT);
         if let Some(current_base) = codex::managed_provider_base_url() {
             if is_local_proxy_base_url_for_port(&current_base, port) {
                 return Ok(());
             }
         }
         sync_gateway_catalog_target(ProviderTarget::Codex, None::<&tauri::AppHandle>, state).await?;
-        log::info!("Codex 统一目录模式：已把 managed provider 指回本地代理 {port}");
+        log::info!("Codex 智能网关：已把 managed provider 指向独立网关 {port}");
         return Ok(());
     }
 
@@ -3463,8 +3526,16 @@ pub(crate) fn ensure_smart_gateway_provider_row(
     state: &AppState,
     target: ProviderTarget,
 ) -> AppResult<Provider> {
-    let port = get_saved_proxy_port(state, target);
-    let (protocol_type, base_url) = crate::gateway::smart_gateway_live_endpoint(target, port);
+    let port = crate::gateway::SMART_GATEWAY_PORT;
+    let saved = state
+        .db
+        .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
+        .ok()
+        .flatten()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(port);
+    let (protocol_type, base_url) = crate::gateway::smart_gateway_live_endpoint(target, saved);
     let profile = state.db.with_conn(|conn| {
         crate::database::dao::gateway::ensure_profile_for_target(conn, target)
     })?;
@@ -3484,11 +3555,15 @@ pub(crate) fn ensure_smart_gateway_provider_row(
         .as_ref()
         .map(|provider| provider.id.clone())
         .unwrap_or_else(|| crate::gateway::smart_gateway_provider_id(target));
-    let token = if !profile.entry_token.trim().is_empty() {
-        profile.entry_token.clone()
-    } else {
-        String::new()
-    };
+    let token = state
+        .db
+        .with_conn(|conn| {
+            Ok(crate::database::dao::gateway::binding_for_target(conn, target)?
+                .map(|binding| binding.entry_token)
+                .filter(|token| !token.trim().is_empty())
+                .unwrap_or_else(|| profile.entry_token.clone()))
+        })
+        .unwrap_or_else(|_| profile.entry_token.clone());
     let model = existing
         .as_ref()
         .map(|provider| crate::gateway::normalize_live_model(&provider.model))

@@ -121,6 +121,14 @@ pub struct GatewayUpstreamImportResult {
 pub struct GatewayUpstreamModelRow {
     pub model_id: String,
     pub visible: bool,
+    #[serde(default)]
+    pub display_name: String,
+    pub context_window: Option<i64>,
+    pub max_output_tokens: Option<i64>,
+    #[serde(default)]
+    pub reasoning_levels: Vec<String>,
+    #[serde(default)]
+    pub capabilities: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,17 +174,29 @@ pub fn seed_from_legacy(conn: &Connection) -> AppResult<()> {
 }
 
 fn copy_providers_to_upstreams(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(
+    let has_kind: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'provider_kind';",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let filter = if has_kind > 0 {
+        "WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway'"
+    } else {
+        ""
+    };
+    conn.execute_batch(&format!(
         "INSERT OR IGNORE INTO upstreams (
             id, name, base_url, api_key, model, protocol_type, notes, sort_index, created_at
          )
          SELECT id, name, base_url, api_key, model, protocol_type, notes, sort_index, created_at
          FROM providers
-         WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway';
+         {filter};
          INSERT OR IGNORE INTO gateway_id_map (old_provider_id, upstream_id)
          SELECT id, id FROM providers
-         WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway';",
-    )?;
+         {filter};"
+    ))?;
     copy_optional_provider_column(conn, "provider_kind", "UPDATE upstreams SET provider_kind = (SELECT provider_kind FROM providers WHERE providers.id = upstreams.id) WHERE provider_kind = 'standard';")?;
     copy_optional_provider_column(conn, "auth_binding", "UPDATE upstreams SET auth_binding = COALESCE((SELECT auth_binding FROM providers WHERE providers.id = upstreams.id), '');")?;
     copy_optional_provider_column(conn, "model_context_window", "UPDATE upstreams SET model_context_window = (SELECT model_context_window FROM providers WHERE providers.id = upstreams.id);")?;
@@ -361,6 +381,9 @@ fn ensure_default_profile(
 }
 
 fn ensure_external_connections(conn: &Connection, target: &str, now: i64) -> AppResult<()> {
+    if !table_exists(conn, "agent_connections") || !table_exists(conn, "providers") {
+        return Ok(());
+    }
     let mut stmt = conn.prepare(
         "SELECT id, is_current FROM providers WHERE target_app = ?;",
     )?;
@@ -381,6 +404,9 @@ fn ensure_external_connections(conn: &Connection, target: &str, now: i64) -> App
 }
 
 fn ensure_gateway_connection(conn: &Connection, target: &str, now: i64) -> AppResult<()> {
+    if !table_exists(conn, "agent_connections") {
+        return Ok(());
+    }
     let id = format!("aconn_gw_{target}");
     conn.execute(
         "INSERT OR IGNORE INTO agent_connections
@@ -431,23 +457,28 @@ fn hide_official_key(target: &str) -> Option<&'static str> {
 }
 
 pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool {
-    let has_rows: i64 = conn
-        .query_row(
-            "SELECT count(*) FROM agent_connections WHERE target_app = ?;",
-            params![target.as_str()],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-    if has_rows > 0 {
-        return conn
+    if binding_for_target(conn, target).ok().flatten().is_some() {
+        return true;
+    }
+    if table_exists(conn, "agent_connections") {
+        let has_rows: i64 = conn
             .query_row(
-                "SELECT count(*) FROM agent_connections
-                 WHERE target_app = ? AND connection_type = 'gateway' AND is_current = 1;",
+                "SELECT count(*) FROM agent_connections WHERE target_app = ?;",
                 params![target.as_str()],
                 |row| row.get(0),
             )
-            .unwrap_or(0)
-            > 0;
+            .unwrap_or(0);
+        if has_rows > 0 {
+            return conn
+                .query_row(
+                    "SELECT count(*) FROM agent_connections
+                     WHERE target_app = ? AND connection_type = 'gateway' AND is_current = 1;",
+                    params![target.as_str()],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0)
+                > 0;
+        }
     }
     let key = match target {
         ProviderTarget::ClaudeCode => Some(CATALOG_CODE_KEY),
@@ -529,7 +560,10 @@ fn parse_string_list(raw: String) -> Vec<String> {
 pub fn ensure_profile_for_target(conn: &Connection, target: ProviderTarget) -> AppResult<GatewayProfile> {
     let now = chrono::Utc::now().timestamp_millis();
     let profile = ensure_shared_profile(conn, now)?;
-    ensure_gateway_connection(conn, target.as_str(), now)?;
+    let _ = seed_route_modes_from_profile(conn, &profile);
+    if table_exists(conn, "agent_connections") {
+        ensure_gateway_connection(conn, target.as_str(), now)?;
+    }
     Ok(profile)
 }
 
@@ -622,6 +656,9 @@ fn insert_shared_profile(conn: &Connection, source: Option<&GatewayProfile>, now
 }
 
 fn relink_gateway_connections_to_shared(conn: &Connection) -> AppResult<()> {
+    if !table_exists(conn, "agent_connections") {
+        return Ok(());
+    }
     conn.execute(
         "UPDATE agent_connections SET profile_id = ?
          WHERE connection_type = 'gateway'
@@ -632,7 +669,17 @@ fn relink_gateway_connections_to_shared(conn: &Connection) -> AppResult<()> {
 }
 
 fn sync_smart_gateway_provider_tokens(conn: &Connection, token: &str) -> AppResult<()> {
-    if token.trim().is_empty() {
+    if token.trim().is_empty() || !table_exists(conn, "providers") {
+        return Ok(());
+    }
+    let has_kind: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'provider_kind';",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    if has_kind == 0 {
         return Ok(());
     }
     conn.execute(
@@ -658,6 +705,7 @@ pub fn ensure_shared_profile(conn: &Connection, now: i64) -> AppResult<GatewayPr
     relink_gateway_connections_to_shared(conn)?;
     let mut profile = get_profile(conn, SHARED_PROFILE_ID)?
         .ok_or_else(|| AppError::Config("未能创建共享网关档案".to_string()))?;
+    seed_route_modes_from_profile(conn, &profile)?;
     if profile.entry_token.trim().is_empty() {
         profile.entry_token = format!("gwt_{}", Uuid::new_v4().simple());
         profile.entry_token_set = true;
@@ -823,18 +871,11 @@ pub fn set_current_connection_type(
 ) -> AppResult<()> {
     let now = chrono::Utc::now().timestamp_millis();
     ensure_default_profile(conn, target, false, now)?;
-    ensure_gateway_connection(conn, target, now)?;
-    conn.execute(
-        "UPDATE agent_connections SET is_current = 0 WHERE target_app = ?;",
-        params![target],
-    )?;
+    let target_enum = ProviderTarget::from_str_lossy(target);
     match kind {
         ConnectionType::Gateway => {
-            conn.execute(
-                "UPDATE agent_connections SET is_current = 1
-                 WHERE target_app = ? AND connection_type = 'gateway';",
-                params![target],
-            )?;
+            let provider_id = crate::gateway::smart_gateway_provider_id(target_enum);
+            upsert_binding(conn, target_enum, &provider_id)?;
             if let Some(key) = match target {
                 "claude_code" => Some(CATALOG_CODE_KEY),
                 "codex" => Some(CATALOG_CODEX_KEY),
@@ -844,20 +885,39 @@ pub fn set_current_connection_type(
             }
         }
         ConnectionType::External => {
-            conn.execute(
-                "UPDATE agent_connections SET is_current = 1
-                 WHERE id = (
-                    SELECT 'aconn_ext_' || id FROM providers
-                    WHERE target_app = ? AND is_current = 1 LIMIT 1
-                 );",
-                params![target],
-            )?;
+            delete_binding(conn, target_enum)?;
             if let Some(key) = match target {
                 "claude_code" => Some(CATALOG_CODE_KEY),
                 "codex" => Some(CATALOG_CODEX_KEY),
                 _ => None,
             } {
                 set_setting(conn, key, "false")?;
+            }
+        }
+    }
+    if table_exists(conn, "agent_connections") {
+        ensure_gateway_connection(conn, target, now)?;
+        conn.execute(
+            "UPDATE agent_connections SET is_current = 0 WHERE target_app = ?;",
+            params![target],
+        )?;
+        match kind {
+            ConnectionType::Gateway => {
+                conn.execute(
+                    "UPDATE agent_connections SET is_current = 1
+                     WHERE target_app = ? AND connection_type = 'gateway';",
+                    params![target],
+                )?;
+            }
+            ConnectionType::External => {
+                conn.execute(
+                    "UPDATE agent_connections SET is_current = 1
+                     WHERE id = (
+                        SELECT 'aconn_ext_' || id FROM providers
+                        WHERE target_app = ? AND is_current = 1 LIMIT 1
+                     );",
+                    params![target],
+                )?;
             }
         }
     }
@@ -928,7 +988,7 @@ pub fn sync_upstream_from_provider(conn: &Connection, provider: &Provider) -> Ap
         params![provider.target_app.as_str()],
         |row| row.get(0),
     )?;
-    if has_profile > 0 {
+    if has_profile > 0 && table_exists(conn, "agent_connections") {
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             "INSERT OR IGNORE INTO agent_connections
@@ -967,13 +1027,19 @@ fn add_upstream_to_default_allowlist(conn: &Connection, target: &str, upstream_i
 }
 
 pub fn assert_upstream_deletable(conn: &Connection, id: &str) -> AppResult<()> {
-    let gateway_current: i64 = conn.query_row(
-        "SELECT count(*) FROM agent_connections
-         WHERE connection_type = 'gateway' AND is_current = 1
-           AND profile_id IN (SELECT id FROM gateway_profiles);",
-        [],
-        |row| row.get(0),
-    )?;
+    let gateway_current: i64 = if table_exists(conn, "gateway_bindings") {
+        conn.query_row("SELECT count(*) FROM gateway_bindings;", [], |row| row.get(0))?
+    } else if table_exists(conn, "agent_connections") {
+        conn.query_row(
+            "SELECT count(*) FROM agent_connections
+             WHERE connection_type = 'gateway' AND is_current = 1
+               AND profile_id IN (SELECT id FROM gateway_profiles);",
+            [],
+            |row| row.get(0),
+        )?
+    } else {
+        0
+    };
     if gateway_current > 0 {
         let referenced: i64 = conn.query_row(
             "SELECT count(*) FROM gateway_profiles
@@ -993,12 +1059,18 @@ pub fn assert_upstream_deletable(conn: &Connection, id: &str) -> AppResult<()> {
                 let (profile_id, json) = row?;
                 let ids = parse_string_list(json);
                 if ids.iter().any(|item| item == id) {
-                    let in_use: i64 = conn.query_row(
+                    let in_use: i64 = if table_exists(conn, "gateway_bindings") {
+                        conn.query_row("SELECT count(*) FROM gateway_bindings;", [], |row| row.get(0))?
+                    } else if table_exists(conn, "agent_connections") {
+                        conn.query_row(
                         "SELECT count(*) FROM agent_connections
                          WHERE profile_id = ? AND connection_type = 'gateway' AND is_current = 1;",
                         params![profile_id],
                         |row| row.get(0),
-                    )?;
+                    )?
+                    } else {
+                        0
+                    };
                     if in_use > 0 {
                         return Err(AppError::Config(
                             "该上游正被当前网关档案使用，请先从档案允许列表中移除".to_string(),
@@ -1013,7 +1085,9 @@ pub fn assert_upstream_deletable(conn: &Connection, id: &str) -> AppResult<()> {
 
 pub fn delete_upstream_mirror(conn: &Connection, id: &str) -> AppResult<()> {
     conn.execute("DELETE FROM upstream_models WHERE upstream_id = ?;", params![id])?;
-    conn.execute("DELETE FROM agent_connections WHERE upstream_id = ?;", params![id])?;
+    if table_exists(conn, "agent_connections") {
+        conn.execute("DELETE FROM agent_connections WHERE upstream_id = ?;", params![id])?;
+    }
     conn.execute("DELETE FROM gateway_id_map WHERE old_provider_id = ? OR upstream_id = ?;", params![id, id])?;
     conn.execute("DELETE FROM upstreams WHERE id = ?;", params![id])?;
     strip_upstream_from_profiles(conn, id)?;
@@ -1042,6 +1116,9 @@ fn strip_upstream_from_profiles(conn: &Connection, id: &str) -> AppResult<()> {
 }
 
 pub fn profile_entry_token(conn: &Connection, target: ProviderTarget) -> AppResult<Option<String>> {
+    if let Some(token) = binding_token(conn, target) {
+        return Ok(Some(token));
+    }
     Ok(current_profile(conn, target)?
         .map(|profile| profile.entry_token)
         .filter(|token| !token.trim().is_empty()))
@@ -1307,13 +1384,22 @@ pub fn upstream_endpoint_key(base_url: &str, protocol: ProtocolType) -> String {
 
 pub fn list_upstream_models(conn: &Connection, upstream_id: &str) -> AppResult<Vec<GatewayUpstreamModelRow>> {
     let mut stmt = conn.prepare(
-        "SELECT model_id, visible FROM upstream_models WHERE upstream_id = ? ORDER BY model_id COLLATE NOCASE;",
+        "SELECT model_id, visible, COALESCE(display_name, ''), context_window, max_output_tokens,
+                COALESCE(reasoning_levels_json, '[]'), COALESCE(capabilities_json, '{}')
+         FROM upstream_models WHERE upstream_id = ? ORDER BY model_id COLLATE NOCASE;",
     )?;
     let rows = stmt.query_map(params![upstream_id], |row| {
         let visible: i64 = row.get(1)?;
+        let reasoning: String = row.get(5)?;
+        let capabilities: String = row.get(6)?;
         Ok(GatewayUpstreamModelRow {
             model_id: row.get(0)?,
             visible: visible != 0,
+            display_name: row.get(2)?,
+            context_window: row.get(3)?,
+            max_output_tokens: row.get(4)?,
+            reasoning_levels: serde_json::from_str(&reasoning).unwrap_or_default(),
+            capabilities: serde_json::from_str(&capabilities).unwrap_or_else(|_| serde_json::json!({})),
         })
     })?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -1379,11 +1465,22 @@ pub fn replace_upstream_models(conn: &Connection, upstream_id: &str, models: &[S
         let key = model.to_ascii_lowercase();
         let visible = key == default_key
             || existing.get(&key).copied().unwrap_or(!hidden.contains(&key));
+        let inferred = crate::gateway::metadata::infer(&model);
         let row_id = format!("{upstream_id}:{model}");
         conn.execute(
-            "INSERT INTO upstream_models (id, upstream_id, model_id, verified_status, visible)
-             VALUES (?, ?, ?, 'declared', ?);",
-            params![row_id, upstream_id, model, if visible { 1 } else { 0 }],
+            "INSERT INTO upstream_models (id, upstream_id, model_id, verified_status, visible, display_name, context_window, max_output_tokens, reasoning_levels_json, capabilities_json)
+             VALUES (?, ?, ?, 'declared', ?, ?, ?, ?, ?, ?);",
+            params![
+                row_id,
+                upstream_id,
+                model,
+                if visible { 1 } else { 0 },
+                inferred.display_name,
+                inferred.context_window,
+                inferred.max_output_tokens,
+                serde_json::to_string(&inferred.reasoning_levels).unwrap_or_else(|_| "[]".into()),
+                inferred.capabilities.to_string()
+            ],
         )?;
     }
     sync_hidden_models_from_rows(conn, upstream_id)?;
@@ -1581,6 +1678,457 @@ pub fn import_providers_as_upstreams(
         skipped,
         items,
     })
+}
+
+fn table_exists(conn: &Connection, name: &str) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name = ?;",
+        params![name],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
+pub const ROUTE_MODE_IDS: [&str; 9] = [
+    "default",
+    "background",
+    "plan",
+    "think",
+    "edit",
+    "long_context",
+    "web_search",
+    "vision",
+    "image_gen",
+];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayBinding {
+    pub target_app: ProviderTarget,
+    pub entry_token: String,
+    pub entry_token_set: bool,
+    pub provider_id: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteMode {
+    pub id: String,
+    pub profile_id: String,
+    pub enabled: bool,
+    pub model: String,
+    pub thinking_config_json: String,
+    pub fallback_models: Vec<String>,
+    pub threshold: i64,
+    pub sort_index: i64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteModePatch {
+    pub enabled: Option<bool>,
+    pub model: Option<String>,
+    pub thinking_config_json: Option<String>,
+    pub fallback_models: Option<Vec<String>>,
+    pub threshold: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteRule {
+    pub id: String,
+    pub profile_id: String,
+    pub enabled: bool,
+    pub sort_index: i64,
+    pub rule_type: String,
+    pub condition_json: String,
+    pub pattern: String,
+    pub target_model: String,
+    pub thinking_config_json: String,
+    pub rewrites_json: String,
+}
+
+pub fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
+    let now = chrono::Utc::now().timestamp_millis();
+    let profile = ensure_shared_profile(conn, now)?;
+    seed_route_modes_from_profile(conn, &profile)?;
+    migrate_bindings_from_connections(conn, &profile, now)?;
+    rewrite_smart_gateway_cards_to_standalone(conn)?;
+    if table_exists(conn, "agent_connections") {
+        conn.execute_batch("DROP TABLE IF EXISTS agent_connections;")?;
+    }
+    Ok(())
+}
+
+fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) -> AppResult<()> {
+    let seeds: [(&str, bool, &str, i64, i64); 9] = [
+        ("default", true, profile.default_model.trim(), 0, 0),
+        ("background", !profile.subagent_model.trim().is_empty(), profile.subagent_model.trim(), 0, 1),
+        ("plan", false, "", 0, 2),
+        ("think", false, "", 0, 3),
+        ("edit", false, "", 0, 4),
+        (
+            "long_context",
+            !profile.long_context_model.trim().is_empty(),
+            profile.long_context_model.trim(),
+            profile.long_context_tokens,
+            5,
+        ),
+        ("web_search", !profile.web_search_model.trim().is_empty(), profile.web_search_model.trim(), 0, 6),
+        ("vision", false, "", 0, 7),
+        ("image_gen", false, "", 0, 8),
+    ];
+    for (id, enabled, model, threshold, sort_index) in seeds {
+        conn.execute(
+            "INSERT OR IGNORE INTO route_modes
+                (id, profile_id, enabled, model, thinking_config_json, fallback_models_json, threshold, sort_index)
+             VALUES (?, ?, ?, ?, '{}', '[]', ?, ?);",
+            params![
+                id,
+                SHARED_PROFILE_ID,
+                if enabled { 1 } else { 0 },
+                model,
+                threshold.max(0),
+                sort_index
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn migrate_bindings_from_connections(
+    conn: &Connection,
+    profile: &GatewayProfile,
+    now: i64,
+) -> AppResult<()> {
+    let mut targets: Vec<String> = Vec::new();
+    if table_exists(conn, "agent_connections") {
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT target_app FROM agent_connections
+             WHERE connection_type = 'gateway' AND is_current = 1;",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            targets.push(row?);
+        }
+    }
+    if table_exists(conn, "providers") {
+        let has_kind: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'provider_kind';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        if has_kind > 0 {
+            let mut stmt = conn.prepare(
+                "SELECT DISTINCT target_app FROM providers
+                 WHERE COALESCE(provider_kind, '') = 'smart_gateway' AND is_current = 1;",
+            )?;
+            let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+            for row in rows {
+                let target = row?;
+                if !targets.iter().any(|item| item == &target) {
+                    targets.push(target);
+                }
+            }
+        }
+    }
+    for (index, target) in targets.into_iter().enumerate() {
+        let token = if index == 0 && !profile.entry_token.trim().is_empty() {
+            profile.entry_token.clone()
+        } else {
+            format!("gwt_{}", Uuid::new_v4().simple())
+        };
+        let provider_id = format!("sgw_{target}");
+        conn.execute(
+            "INSERT OR IGNORE INTO gateway_bindings (target_app, entry_token, provider_id, created_at)
+             VALUES (?, ?, ?, ?);",
+            params![target, token, provider_id, now],
+        )?;
+    }
+    Ok(())
+}
+
+fn rewrite_smart_gateway_cards_to_standalone(conn: &Connection) -> AppResult<()> {
+    if !table_exists(conn, "providers") {
+        return Ok(());
+    }
+    let has_kind: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = 'provider_kind';",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    if has_kind == 0 {
+        return Ok(());
+    }
+    let port = crate::gateway::SMART_GATEWAY_PORT;
+    let mut stmt = conn.prepare(
+        "SELECT id, target_app FROM providers WHERE COALESCE(provider_kind, '') = 'smart_gateway';",
+    )?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+    for (id, target_app) in rows {
+        let target = ProviderTarget::from_str_lossy(&target_app);
+        let (_, base_url) = crate::gateway::smart_gateway_live_endpoint(target, port);
+        let token = binding_token(conn, target).unwrap_or_default();
+        conn.execute(
+            "UPDATE providers SET base_url = ?, api_key = ? WHERE id = ?;",
+            params![base_url, token, id],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn list_bindings(conn: &Connection) -> AppResult<Vec<GatewayBinding>> {
+    if !table_exists(conn, "gateway_bindings") {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn.prepare(
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings ORDER BY target_app;",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        let target = ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?);
+        let token: String = row.get(1)?;
+        Ok(GatewayBinding {
+            target_app: target,
+            entry_token_set: !token.trim().is_empty(),
+            entry_token: token,
+            provider_id: row.get(2)?,
+            created_at: row.get(3)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn binding_for_target(conn: &Connection, target: ProviderTarget) -> AppResult<Option<GatewayBinding>> {
+    if !table_exists(conn, "gateway_bindings") {
+        return Ok(None);
+    }
+    let mut stmt = conn.prepare(
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE target_app = ?;",
+    )?;
+    let mut rows = stmt.query(params![target.as_str()])?;
+    let Some(row) = rows.next()? else {
+        return Ok(None);
+    };
+    let token: String = row.get(1)?;
+    Ok(Some(GatewayBinding {
+        target_app: target,
+        entry_token_set: !token.trim().is_empty(),
+        entry_token: token,
+        provider_id: row.get(2)?,
+        created_at: row.get(3)?,
+    }))
+}
+
+pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<GatewayBinding>> {
+    let trimmed = token.trim();
+    if trimmed.is_empty() || !table_exists(conn, "gateway_bindings") {
+        return Ok(None);
+    }
+    let mut stmt = conn.prepare(
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE entry_token = ?;",
+    )?;
+    let mut rows = stmt.query(params![trimmed])?;
+    let Some(row) = rows.next()? else {
+        return Ok(None);
+    };
+    let target = ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?);
+    Ok(Some(GatewayBinding {
+        target_app: target,
+        entry_token_set: true,
+        entry_token: row.get(1)?,
+        provider_id: row.get(2)?,
+        created_at: row.get(3)?,
+    }))
+}
+
+fn binding_token(conn: &Connection, target: ProviderTarget) -> Option<String> {
+    binding_for_target(conn, target)
+        .ok()
+        .flatten()
+        .map(|binding| binding.entry_token)
+        .filter(|token| !token.trim().is_empty())
+}
+
+pub fn upsert_binding(conn: &Connection, target: ProviderTarget, provider_id: &str) -> AppResult<GatewayBinding> {
+    let now = chrono::Utc::now().timestamp_millis();
+    if let Some(existing) = binding_for_target(conn, target)? {
+        if existing.entry_token.trim().is_empty() {
+            let token = format!("gwt_{}", Uuid::new_v4().simple());
+            conn.execute(
+                "UPDATE gateway_bindings SET entry_token = ?, provider_id = ? WHERE target_app = ?;",
+                params![token, provider_id, target.as_str()],
+            )?;
+        } else if existing.provider_id != provider_id {
+            conn.execute(
+                "UPDATE gateway_bindings SET provider_id = ? WHERE target_app = ?;",
+                params![provider_id, target.as_str()],
+            )?;
+        }
+        return binding_for_target(conn, target)?
+            .ok_or_else(|| AppError::Config("绑定写入失败".to_string()));
+    }
+    let token = format!("gwt_{}", Uuid::new_v4().simple());
+    conn.execute(
+        "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at)
+         VALUES (?, ?, ?, ?);",
+        params![target.as_str(), token, provider_id, now],
+    )?;
+    binding_for_target(conn, target)?.ok_or_else(|| AppError::Config("绑定写入失败".to_string()))
+}
+
+pub fn delete_binding(conn: &Connection, target: ProviderTarget) -> AppResult<()> {
+    if table_exists(conn, "gateway_bindings") {
+        conn.execute(
+            "DELETE FROM gateway_bindings WHERE target_app = ?;",
+            params![target.as_str()],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn has_any_binding(conn: &Connection) -> bool {
+    if !table_exists(conn, "gateway_bindings") {
+        return false;
+    }
+    conn.query_row("SELECT count(*) FROM gateway_bindings;", [], |row| row.get::<_, i64>(0))
+        .unwrap_or(0)
+        > 0
+}
+
+pub fn list_route_modes(conn: &Connection, profile_id: &str) -> AppResult<Vec<RouteMode>> {
+    if !table_exists(conn, "route_modes") {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn.prepare(
+        "SELECT id, profile_id, enabled, model, thinking_config_json, fallback_models_json, threshold, sort_index
+         FROM route_modes WHERE profile_id = ? ORDER BY sort_index ASC;",
+    )?;
+    let rows = stmt.query_map(params![profile_id], |row| {
+        Ok(RouteMode {
+            id: row.get(0)?,
+            profile_id: row.get(1)?,
+            enabled: row.get::<_, i64>(2)? != 0,
+            model: row.get(3)?,
+            thinking_config_json: row.get(4)?,
+            fallback_models: parse_string_list(row.get(5)?),
+            threshold: row.get(6)?,
+            sort_index: row.get(7)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn patch_route_mode(conn: &Connection, mode_id: &str, patch: &RouteModePatch) -> AppResult<RouteMode> {
+    let mut modes = list_route_modes(conn, SHARED_PROFILE_ID)?;
+    let Some(mode) = modes.iter_mut().find(|item| item.id == mode_id) else {
+        return Err(AppError::Config(format!("未知路由模式: {mode_id}")));
+    };
+    if let Some(enabled) = patch.enabled {
+        mode.enabled = enabled;
+    }
+    if let Some(model) = &patch.model {
+        mode.model = model.trim().to_string();
+    }
+    if let Some(thinking) = &patch.thinking_config_json {
+        mode.thinking_config_json = thinking.clone();
+    }
+    if let Some(fallback) = &patch.fallback_models {
+        mode.fallback_models = fallback.clone();
+    }
+    if let Some(threshold) = patch.threshold {
+        mode.threshold = threshold.max(0);
+    }
+    conn.execute(
+        "UPDATE route_modes SET enabled = ?, model = ?, thinking_config_json = ?, fallback_models_json = ?, threshold = ?
+         WHERE profile_id = ? AND id = ?;",
+        params![
+            if mode.enabled { 1 } else { 0 },
+            mode.model,
+            mode.thinking_config_json,
+            serde_json::to_string(&mode.fallback_models).unwrap_or_else(|_| "[]".into()),
+            mode.threshold,
+            SHARED_PROFILE_ID,
+            mode_id
+        ],
+    )?;
+    list_route_modes(conn, SHARED_PROFILE_ID)?
+        .into_iter()
+        .find(|item| item.id == mode_id)
+        .ok_or_else(|| AppError::Config("路由模式写入失败".to_string()))
+}
+
+pub fn list_route_rules(conn: &Connection, profile_id: &str) -> AppResult<Vec<RouteRule>> {
+    if !table_exists(conn, "route_rules") {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn.prepare(
+        "SELECT id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model,
+                thinking_config_json, rewrites_json
+         FROM route_rules WHERE profile_id = ? ORDER BY sort_index ASC;",
+    )?;
+    let rows = stmt.query_map(params![profile_id], |row| {
+        Ok(RouteRule {
+            id: row.get(0)?,
+            profile_id: row.get(1)?,
+            enabled: row.get::<_, i64>(2)? != 0,
+            sort_index: row.get(3)?,
+            rule_type: row.get(4)?,
+            condition_json: row.get(5)?,
+            pattern: row.get(6)?,
+            target_model: row.get(7)?,
+            thinking_config_json: row.get(8)?,
+            rewrites_json: row.get(9)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn upsert_route_rule(conn: &Connection, rule: &RouteRule) -> AppResult<RouteRule> {
+    conn.execute(
+        "INSERT INTO route_rules
+            (id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model,
+             thinking_config_json, rewrites_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+            enabled = excluded.enabled,
+            sort_index = excluded.sort_index,
+            rule_type = excluded.rule_type,
+            condition_json = excluded.condition_json,
+            pattern = excluded.pattern,
+            target_model = excluded.target_model,
+            thinking_config_json = excluded.thinking_config_json,
+            rewrites_json = excluded.rewrites_json;",
+        params![
+            rule.id,
+            SHARED_PROFILE_ID,
+            if rule.enabled { 1 } else { 0 },
+            rule.sort_index,
+            rule.rule_type,
+            rule.condition_json,
+            rule.pattern,
+            rule.target_model,
+            rule.thinking_config_json,
+            rule.rewrites_json
+        ],
+    )?;
+    list_route_rules(conn, SHARED_PROFILE_ID)?
+        .into_iter()
+        .find(|item| item.id == rule.id)
+        .ok_or_else(|| AppError::Config("规则写入失败".to_string()))
+}
+
+pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM route_rules WHERE id = ?;", params![id])?;
+    Ok(())
 }
 
 #[cfg(test)]

@@ -1,38 +1,21 @@
 # 验收
 
-文案三态必须可区分：**配置已保存**（DB/档案）、**Agent 已写入**（settings.json / config.toml / opencode.json 等）、**请求已验证**（真实或模拟 HTTP）。
+## 阶段 A
 
-## 路由
+- 7 项导航在 sidebar / top / 窄窗下可用；设置能进本地代理并返回。
+- 启动 15828；绑定 Claude Code 后 `/model` 能看到网关模型范围。
+- 停掉网关或先占住 15828 再启：界面有 `last_error`，不是静默。
+- 隐藏一个上游模型 → OpenCode 配置跟着变。
+- 经 AG 的同一次请求，用量只计一次花费。
 
-| ID | 给定 | 期望 |
-| --- | --- | --- |
-| R1 | 明确目录 public id | `route_reason=explicit_model`，不被规划槽改写 |
-| R2 | Code 请求 `opus` / `sonnet` / `opusplan` | 不 remap；不写 `opusplan` |
-| R3 | 残留 plan/execute 列 | 不 remap；不写 `opusplan` |
-| R4 | 流式已出正文后 429 | 不切模型拼接 |
-| R5 | 档案 `fallback_mode=off` | 即使全局旧 failover 开着也不跨供应商扩大 |
-| R6 | 上游 URL 为本机 15821–15827 | 拒绝保存 |
-| R7 | AG `127.0.0.1:15830` | 允许 |
-| R8 | 改供应商 URL 后 | 上游池行不变；需再导入才更新 |
+## 阶段 B
 
-## Agent（每项至少一条连接测试）
+- 9 个模式可逐个触发；最近路由显示命中模式与依据。
+- 挡位按 Anthropic / Chat / Responses / Gemini 分别写对。
+- 模式表显示单价与近 7 天花费（去重后）；能力不匹配标黄。
 
-| ID | Agent | 检查 |
-| --- | --- | --- |
-| A1 | Code | external 写当前供应商；gateway 写入口 + 档案 token（`ANTHROPIC_AUTH_TOKEN` 与 `ANTHROPIC_API_KEY` 相同，禁止 `local-proxy-code` / `kr://`）+ `ANTHROPIC_MODEL=claude.auto`（或 Auto 卡明确 id）；settings 无 `opusplan` |
-| A2 | Desktop | gateway 无 opusplan 信号不假装规划/执行；3p profile 入口为档案 token、默认模型 `claude.auto`；429 原样 |
-| A3 | Codex | 无 opusplan；子代理头改写；目录模式 `auth.json` / `experimental_bearer_token` 写档案 token（不要 `PROXY_MANAGED`）；备用默认不扩大 |
-| A4 | OpenCode | gateway 配置仅一条受管入口 |
-| A5 | Pi | 同上 |
-| A6 | DSH | 同上；仅 gateway 时起 listener |
-| A7 | Cline | sidecar 指向 15827 + 档案 token；用量 `target_app=cline` |
+## 阶段 C
 
-无真实凭据标 **未验证**，用内存/模拟补齐。
-
-## UI
-
-- 供应商页无连接类型开关；有且仅有一张托管 Auto 卡；「新增供应商」含快捷「智能网关」（无 Key 表单）；Claude Code 工作模式仍可改；**无 Opus Plan 入口**。
-- 设为 Auto 当前后，Agent 只拿到本机入口，拿不到上游 Key；Claude Code 默认请求 `claude.auto`（显示名 Auto），Codex / OpenCode / Pi 默认 `auto`；`/model` 与 VS Code 选择器能看到 Auto 和目录模型。改完入口凭据后需再「设为当前」并重启 Agent。
-- 智能网关是主导航第 8 项（路由 key 仍为 `proxy`）；设置旧入口跳转到该页；网关页可「启用此 Agent 的智能网关」。顶栏 Agent 只影响接入/监听/最近路由，**不换档案**。
-- 网关页：上游池（导入 / 批量刷新模型 / 按模型开关）、**全局** Auto 档案槽（默认/辅助/长上下文/联网）、最近路由。改 Codex 槽后 Code 接入同一套即生效。
-- 用量明细供应商旁「经智能网关」标签；可筛「仅网关」；仪表盘仍按 Agent + 实际上游聚合。
+- 规则优先于模式；显式目录模型优先于规则。
+- rewrite 白名单生效，鉴权头改不动。
+- 规则排序与启停重启后仍在。

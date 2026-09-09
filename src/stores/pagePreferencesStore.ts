@@ -12,6 +12,7 @@ interface PersistedPagePreferences {
   providersTarget?: ProviderTarget;
   /** Independent proxy-page target. */
   proxyTarget?: ProviderTarget;
+  gatewayTab?: "smart" | "antigravity";
   usagePeriod?: UsagePeriod;
   /** Providers heatmap period; falls back to usagePeriod on first load. */
   heatmapPeriod?: UsagePeriod;
@@ -28,6 +29,7 @@ interface PagePreferencesState {
   workspaceTarget: ProviderTarget;
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
+  gatewayTab: "smart" | "antigravity";
   usagePeriod: UsagePeriod;
   heatmapPeriod: UsagePeriod;
   usageLogPage: number;
@@ -40,6 +42,7 @@ interface PagePreferencesState {
   setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
+  setGatewayTab: (tab: "smart" | "antigravity") => void;
   setUsagePeriod: (period: UsagePeriod) => void;
   setHeatmapPeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
@@ -56,6 +59,7 @@ const DEFAULTS: Pick<
   | "workspaceTarget"
   | "providersTarget"
   | "proxyTarget"
+  | "gatewayTab"
   | "usagePeriod"
   | "heatmapPeriod"
   | "usageLogTarget"
@@ -68,6 +72,7 @@ const DEFAULTS: Pick<
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
+  gatewayTab: "smart",
   usagePeriod: 365,
   heatmapPeriod: 365,
   usageLogTarget: "all",
@@ -178,11 +183,15 @@ function initialState() {
       ? stored.agQuotaViewMode
       : DEFAULTS.agQuotaViewMode;
 
+  const gatewayTab: "smart" | "antigravity" =
+    stored.gatewayTab === "antigravity" ? "antigravity" : "smart";
+
   return {
     visibleAgents,
     workspaceTarget,
     providersTarget,
     proxyTarget,
+    gatewayTab,
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
     usageLogTarget,
@@ -200,6 +209,7 @@ function persistSlice(
     | "workspaceTarget"
     | "providersTarget"
     | "proxyTarget"
+    | "gatewayTab"
     | "usagePeriod"
     | "heatmapPeriod"
     | "usageLogTarget"
@@ -214,6 +224,7 @@ function persistSlice(
     workspaceTarget: state.workspaceTarget,
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
+    gatewayTab: state.gatewayTab,
     usagePeriod: state.usagePeriod,
     heatmapPeriod: state.heatmapPeriod,
     usageLogTarget: state.usageLogTarget,
@@ -265,6 +276,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setProxyTarget: (proxyTarget) => {
     set({ proxyTarget });
+    persistSlice(get());
+  },
+  setGatewayTab: (gatewayTab) => {
+    set({ gatewayTab });
     persistSlice(get());
   },
   setUsagePeriod: (usagePeriod) => {

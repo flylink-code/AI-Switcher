@@ -8,16 +8,14 @@ import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
 import FolderOutlined from "@ant-design/icons/es/icons/FolderOutlined";
 import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
-import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import type { PageKey } from "@/lib/pageRegistry";
 import { useThemeStore } from "@/stores/themeStore";
 
 export type V2MainTab =
   | "workbench"
   | "providers"
-  | "proxy"
+  | "gateway"
   | "usage"
-  | "antigravity"
   | "workspace"
   | "sessions"
   | "settings";
@@ -30,7 +28,7 @@ export interface TopNavigationProps {
 }
 
 /** Full label dock for 8 short items needs extra width in the center slot. */
-const COMPACT_BREAKPOINT = 920;
+const COMPACT_BREAKPOINT = 820;
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   activeKey,
@@ -77,9 +75,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const getActiveTab = (key: PageKey): V2MainTab => {
     if (key === "workbench") return "workbench";
     if (key === "providers") return "providers";
-    if (key === "proxy") return "proxy";
+    if (key === "gateway" || key === "proxy" || key === "antigravity") return "gateway";
     if (key === "usage") return "usage";
-    if (key === "antigravity") return "antigravity";
     if (
       key === "workspace" ||
       key === "mcp" ||
@@ -97,7 +94,8 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       key === "environment" ||
       key === "localization" ||
       key === "about" ||
-      key === "agentTools"
+      key === "agentTools" ||
+      key === "localProxy"
     ) {
       return "settings";
     }
@@ -120,22 +118,16 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       targetPage: "providers",
     },
     {
-      key: "proxy",
-      label: t("navigation.proxyShort", { defaultValue: "智能网关" }),
+      key: "gateway",
+      label: t("navigation.gatewayShort", { defaultValue: "网关" }),
       icon: <ApiOutlined />,
-      targetPage: "proxy",
+      targetPage: "gateway",
     },
     {
       key: "usage",
       label: t("navigation.usageShort", { defaultValue: "用量" }),
       icon: <BarChartOutlined />,
       targetPage: "usage",
-    },
-    {
-      key: "antigravity",
-      label: t("navigation.accountsShort", { defaultValue: "账号" }),
-      icon: <UserOutlined />,
-      targetPage: "antigravity",
     },
     {
       key: "workspace",

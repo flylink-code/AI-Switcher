@@ -104,20 +104,29 @@ pub struct GatewayRouteLog {
 
 #[tauri::command]
 pub fn list_gateway_route_logs(
-    target: ProviderTarget,
+    target: Option<ProviderTarget>,
     limit: Option<i64>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayRouteLog>> {
     let cap = limit.unwrap_or(30).clamp(1, 200);
     state.db.with_conn(|conn| {
-        let mut stmt = conn.prepare(
+        let sql = if target.is_some() {
             "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
                     provider_name, attempt_index, status_code
              FROM proxy_request_logs
              WHERE target_app = ? AND COALESCE(data_source, 'proxy') = 'proxy'
-             ORDER BY created_at DESC LIMIT ?;",
-        )?;
-        let rows = stmt.query_map(rusqlite::params![target.as_str(), cap], |row| {
+             ORDER BY created_at DESC LIMIT ?;"
+        } else {
+            "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
+                    provider_name, attempt_index, status_code
+             FROM proxy_request_logs
+             WHERE COALESCE(data_source, 'proxy') = 'proxy'
+               AND (hop IS NULL OR hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))
+               AND route_reason IS NOT NULL AND trim(route_reason) != ''
+             ORDER BY created_at DESC LIMIT ?;"
+        };
+        let mut stmt = conn.prepare(sql)?;
+        let map_row = |row: &rusqlite::Row<'_>| {
             Ok(GatewayRouteLog {
                 id: row.get(0)?,
                 created_at: row.get(1)?,
@@ -130,8 +139,14 @@ pub fn list_gateway_route_logs(
                 attempt_index: row.get::<_, Option<i64>>(8)?.unwrap_or(0),
                 status_code: row.get(9)?,
             })
-        })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        };
+        if let Some(target) = target {
+            let rows = stmt.query_map(rusqlite::params![target.as_str(), cap], map_row)?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        } else {
+            let rows = stmt.query_map(rusqlite::params![cap], map_row)?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        }
     })
 }
 
@@ -184,15 +199,17 @@ pub fn list_gateway_upstream_models(
 }
 
 #[tauri::command]
-pub fn set_gateway_upstream_model_visible(
+pub async fn set_gateway_upstream_model_visible(
     id: String,
     model_id: String,
     visible: bool,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayUpstreamModelRow>> {
-    state
+    let rows = state
         .db
-        .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))
+        .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))?;
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    Ok(rows)
 }
 
 #[tauri::command]
@@ -258,6 +275,7 @@ async fn discover_one_upstream(
             replace_upstream_models(conn, &provider.id, &result.models)?;
             Ok(())
         })?;
+        let _ = crate::commands::providers::push_bound_gateway_catalogs(state).await;
     }
     Ok(result)
 }
@@ -319,4 +337,210 @@ pub fn add_antigravity_gateway_upstream(state: tauri::State<'_, AppState>) -> Ap
         custom_headers: None,
     };
     state.db.with_conn(|conn| upsert_upstream(conn, &input))
+}
+
+#[tauri::command]
+pub fn get_smart_gateway_status() -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+    Ok(crate::gateway::service::current_status())
+}
+
+#[tauri::command]
+pub fn set_smart_gateway_port(port: u16, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    crate::gateway::service::persist_port(state.db.as_ref(), port)
+}
+
+#[tauri::command]
+pub async fn start_smart_gateway(
+    port: Option<u16>,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+    let result = crate::gateway::service::start_via_state(&state, port).await;
+    crate::gateway::service::emit_status(&app);
+    result
+}
+
+#[tauri::command]
+pub async fn stop_smart_gateway(app: tauri::AppHandle) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+    let status = crate::gateway::service::stop_service().await?;
+    crate::gateway::service::emit_status(&app);
+    Ok(status)
+}
+
+#[tauri::command]
+pub fn list_smart_gateway_bindings(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<crate::database::dao::gateway::GatewayBinding>> {
+    state.db.with_conn(crate::database::dao::gateway::list_bindings)
+}
+
+#[tauri::command]
+pub async fn bind_smart_gateway(
+    target: ProviderTarget,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
+    let enabled = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::list_upstream_providers(conn, false))?;
+    if enabled.is_empty() {
+        return Err(AppError::Config("请先在上游池中添加至少一个供应商".into()));
+    }
+    crate::gateway::service::mark_enabled(state.db.as_ref())?;
+    if !crate::gateway::service::current_status().running {
+        crate::gateway::service::start_via_state(&state, None).await?;
+    }
+    let provider_id = crate::gateway::smart_gateway_provider_id(target);
+    state.db.with_conn(|conn| {
+        crate::database::dao::gateway::upsert_binding(conn, target, &provider_id)
+    })?;
+    let provider = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target)?;
+    crate::commands::providers::switch_provider_for_target(&provider.id, target, Some(&app), &state).await?;
+    crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state).await?;
+    crate::gateway::service::emit_status(&app);
+    Ok(provider)
+}
+
+#[tauri::command]
+pub async fn unbind_smart_gateway(
+    target: ProviderTarget,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::delete_binding(conn, target))?;
+    crate::commands::providers::sync_live_after_connection_change(target, false, &app, &state).await?;
+    crate::gateway::service::emit_status(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_route_modes(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<crate::database::dao::gateway::RouteMode>> {
+    state.db.with_conn(|conn| {
+        crate::database::dao::gateway::ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+        crate::database::dao::gateway::list_route_modes(
+            conn,
+            crate::database::dao::gateway::SHARED_PROFILE_ID,
+        )
+    })
+}
+
+#[tauri::command]
+pub async fn update_route_mode(
+    id: String,
+    patch: crate::database::dao::gateway::RouteModePatch,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::database::dao::gateway::RouteMode> {
+    let mode = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::patch_route_mode(conn, &id, &patch))?;
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    Ok(mode)
+}
+
+#[tauri::command]
+pub fn list_route_rules(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<crate::database::dao::gateway::RouteRule>> {
+    state.db.with_conn(|conn| {
+        crate::database::dao::gateway::list_route_rules(
+            conn,
+            crate::database::dao::gateway::SHARED_PROFILE_ID,
+        )
+    })
+}
+
+#[tauri::command]
+pub async fn upsert_route_rule(
+    rule: crate::database::dao::gateway::RouteRule,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::database::dao::gateway::RouteRule> {
+    let saved = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::upsert_route_rule(conn, &rule))?;
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    Ok(saved)
+}
+
+#[tauri::command]
+pub async fn delete_route_rule(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::delete_route_rule(conn, &id))?;
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    Ok(())
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteModeUsageStat {
+    pub mode_id: String,
+    pub request_count: i64,
+    pub estimated_cost: f64,
+}
+
+#[tauri::command]
+pub fn list_route_mode_usage_stats(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<RouteModeUsageStat>> {
+    use crate::database::dao::proxy_logs::{EFFECTIVE_USAGE_FILTER, ROW_COST_SQL};
+    let since = chrono::Utc::now().timestamp_millis() - 7 * 24 * 60 * 60 * 1000;
+    state.db.with_conn(|conn| {
+        let sql = format!(
+            "SELECT COALESCE(l.route_reason, ''), COUNT(*), COALESCE(SUM({ROW_COST_SQL}), 0)
+             FROM proxy_request_logs l
+             LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(l.model, ''))
+             WHERE l.created_at >= ? AND COALESCE(l.data_source, 'proxy') = 'proxy'
+             {EFFECTIVE_USAGE_FILTER}
+             GROUP BY l.route_reason;"
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(rusqlite::params![since], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, f64>(2)?,
+            ))
+        })?;
+        let mut merged: std::collections::BTreeMap<String, (i64, f64)> =
+            std::collections::BTreeMap::new();
+        for row in rows {
+            let (reason, count, cost) = row?;
+            let mode_id = if reason.contains("规划") || reason == "plan" {
+                "plan"
+            } else if reason.contains("改内容") || reason == "edit" {
+                "edit"
+            } else if reason.contains("后台") || reason == "background" || reason == "role_subagent" {
+                "background"
+            } else if reason.contains("思考") || reason == "think" {
+                "think"
+            } else if reason.contains("长上下文") || reason == "long_context" {
+                "long_context"
+            } else if reason.contains("联网") || reason == "web_search" {
+                "web_search"
+            } else if reason.contains("视觉") || reason == "vision" {
+                "vision"
+            } else if reason.contains("图像") || reason == "image_gen" {
+                "image_gen"
+            } else if reason.contains("默认") || reason == "auto" || reason == "profile_default" {
+                "default"
+            } else {
+                continue;
+            };
+            let entry = merged.entry(mode_id.to_string()).or_insert((0, 0.0));
+            entry.0 += count;
+            entry.1 += cost;
+        }
+        Ok(merged
+            .into_iter()
+            .map(|(mode_id, (request_count, estimated_cost))| RouteModeUsageStat {
+                mode_id,
+                request_count,
+                estimated_cost,
+            })
+            .collect())
+    })
 }

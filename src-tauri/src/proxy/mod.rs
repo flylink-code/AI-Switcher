@@ -37,7 +37,7 @@ use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
-    update_proxy_log_route, update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
+    update_proxy_log_hop, update_proxy_log_route, update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
 use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
@@ -173,8 +173,11 @@ impl ProxyManager {
             circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
             codex_history: Arc::new(codex_history::CodexHistoryStore::default()),
             target,
+            listener_kind: ListenerKind::Agent,
             port,
             started_at: Instant::now(),
+            correlation: None,
+            request_path: String::new(),
         };
 
         let app = if matches!(
@@ -347,6 +350,37 @@ impl ProxyManager {
     }
 }
 
+pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(300))
+        .no_proxy()
+        .build()
+        .unwrap_or_else(|_| Client::new());
+    let state = ProxyState {
+        db,
+        client,
+        circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        codex_history: Arc::new(codex_history::CodexHistoryStore::default()),
+        target: ProviderTarget::ClaudeCode,
+        listener_kind: ListenerKind::SmartGateway,
+        port,
+        started_at: Instant::now(),
+        correlation: None,
+        request_path: String::new(),
+    };
+    Router::new()
+        .route("/health", get(health_handler))
+        .route("/v1/models", get(models_handler))
+        .route("/v1/messages", any(proxy_handler))
+        .route("/v1/chat/completions", any(codex::codex_proxy_handler))
+        .route("/v1/responses", any(codex::codex_proxy_handler))
+        .route("/v1/responses/compact", any(codex::codex_proxy_handler))
+        .route("/responses/compact", any(codex::codex_proxy_handler))
+        .route("/v1/images/generations", any(proxy_handler))
+        .layer(CorsLayer::permissive())
+        .with_state(state)
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyStatus {
@@ -364,6 +398,12 @@ pub struct ProxyLifecycleEvent {
     pub error: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListenerKind {
+    Agent,
+    SmartGateway,
+}
+
 #[derive(Clone)]
 pub(crate) struct ProxyState {
     pub(crate) db: Arc<Database>,
@@ -371,8 +411,11 @@ pub(crate) struct ProxyState {
     circuits: Arc<Mutex<std::collections::HashMap<String, ProviderCircuit>>>,
     pub(crate) codex_history: Arc<codex_history::CodexHistoryStore>,
     pub(crate) target: ProviderTarget,
+    pub(crate) listener_kind: ListenerKind,
     port: u16,
     started_at: Instant,
+    pub(crate) correlation: Option<crate::gateway::correlation::Correlation>,
+    request_path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -564,8 +607,39 @@ pub(crate) fn load_gateway_catalog(
     Ok((providers, entries))
 }
 
-fn gateway_catalog_enabled(state: &ProxyState) -> bool {
-    crate::catalog::enabled(state.db.as_ref(), state.target)
+fn presented_listener_token(headers: &HeaderMap) -> String {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| {
+            value
+                .strip_prefix("Bearer ")
+                .or_else(|| value.strip_prefix("bearer "))
+                .unwrap_or(value)
+                .trim()
+                .to_string()
+        })
+        .or_else(|| {
+            headers
+                .get("x-api-key")
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.trim().to_string())
+        })
+        .unwrap_or_default()
+}
+
+fn resolve_binding_target(state: &ProxyState, headers: &HeaderMap) -> Option<ProviderTarget> {
+    let token = presented_listener_token(headers);
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::binding_by_token(conn, &token))
+        .ok()
+        .flatten()
+        .map(|binding| binding.target_app)
+}
+
+pub(crate) fn gateway_catalog_enabled(state: &ProxyState) -> bool {
+    state.listener_kind == ListenerKind::SmartGateway
 }
 
 fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
@@ -605,7 +679,7 @@ pub(crate) fn select_gateway_runtime_provider(
     requested_model: &str,
     incoming: &Value,
 ) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
-    select_gateway_runtime_provider_with(state, requested_model, false, incoming)
+    select_gateway_runtime_provider_with(state, requested_model, false, incoming, "")
 }
 
 pub(crate) fn select_gateway_runtime_provider_with(
@@ -613,6 +687,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
     requested_model: &str,
     force_catalog_subagent: bool,
     incoming: &Value,
+    request_path: &str,
 ) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
@@ -621,12 +696,40 @@ pub(crate) fn select_gateway_runtime_provider_with(
         .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         .ok()
         .flatten();
+    let modes = state
+        .db
+        .with_conn(crate::gateway::modes::load_modes)
+        .unwrap_or_default();
+    let rules = state
+        .db
+        .with_conn(|conn| {
+            crate::database::dao::gateway::list_route_rules(
+                conn,
+                crate::database::dao::gateway::SHARED_PROFILE_ID,
+            )
+        })
+        .unwrap_or_default();
+    let tool_names = crate::gateway::modes::extract_tool_names(incoming);
+    if matches!(state.listener_kind, ListenerKind::SmartGateway) {
+        log::info!(
+            "tool-signal-probe tools=[{}] path={} target={}",
+            tool_names.join(","),
+            request_path,
+            state.target.as_str()
+        );
+    }
     let hints = crate::gateway::RouteHints {
         token_count: crate::gateway::estimate_request_tokens(incoming),
         has_web_search: crate::gateway::request_has_web_search(incoming),
+        has_vision: crate::gateway::modes::has_vision_content(incoming),
+        has_thinking: crate::gateway::modes::has_thinking_signal(incoming),
+        is_image_gen: request_path.contains("/images/generations"),
+        tool_names,
+        path: request_path.to_string(),
+        target: Some(state.target),
     };
-    let Some((provider, upstream, decision, plan, is_catalog_subagent)) =
-        crate::gateway::resolve_gateway_route_with(
+    let Some((mut provider, upstream, decision, plan, is_catalog_subagent)) =
+        crate::gateway::resolve_gateway_route_with_modes(
             style,
             &entries,
             &providers,
@@ -634,6 +737,8 @@ pub(crate) fn select_gateway_runtime_provider_with(
             force_catalog_subagent,
             profile.as_ref(),
             &hints,
+            &modes,
+            &rules,
         )
     else {
         return Ok(None);
@@ -665,12 +770,18 @@ fn prepare_upstream_request(
 ) -> AppResult<PreparedUpstreamRequest> {
     let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("");
     provider.model = resolve_upstream_model(provider, requested_model);
-    let target_url = api_endpoint_url(
-        &provider.base_url,
-        protocol_endpoint_path_for_provider(provider),
-    )?;
-    let (outgoing_body, translated) =
-        encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers);
+    let image_gen = state.request_path.contains("/images/generations");
+    let endpoint_path = if image_gen {
+        "/v1/images/generations"
+    } else {
+        protocol_endpoint_path_for_provider(provider)
+    };
+    let target_url = api_endpoint_url(&provider.base_url, endpoint_path)?;
+    let (outgoing_body, translated) = if image_gen {
+        (body_bytes.clone(), false)
+    } else {
+        encode_upstream_request(provider, incoming, body_bytes, incoming_stream, headers)
+    };
     let mut builder = state.client.request(method.clone(), target_url).header(header::CONTENT_TYPE, "application/json");
     if !provider.is_codex_oauth() {
         for (name, value) in headers.iter() {
@@ -685,6 +796,15 @@ fn prepare_upstream_request(
                 continue;
             }
             builder = builder.header(name, value);
+        }
+    }
+    if let Some(correlation) = state.correlation.as_ref() {
+        builder = builder.header(
+            crate::gateway::correlation::REQUEST_ID_HEADER,
+            correlation.id.as_str(),
+        );
+        if let Some(target) = correlation.target_app.as_deref() {
+            builder = builder.header(crate::gateway::correlation::TARGET_APP_HEADER, target);
         }
     }
     let key = provider.api_key.trim();
@@ -895,7 +1015,8 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
         return gateway_auth_error(error);
     }
     if gateway_catalog_enabled(&state) {
-        let style = crate::catalog::catalog_style_for(state.target);
+        let target = resolve_binding_target(&state, &headers).unwrap_or(state.target);
+        let style = crate::catalog::catalog_style_for(target);
         match load_gateway_catalog(&state, style) {
             Ok((_, entries)) if !entries.is_empty() => {
                 let payload = match style {
@@ -929,15 +1050,30 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
 }
 
 async fn proxy_handler(
-    State(state): State<ProxyState>,
+    State(mut state): State<ProxyState>,
     method: Method,
     uri: Uri,
-    headers: HeaderMap,
+    mut headers: HeaderMap,
     body: Body,
 ) -> Response {
     if let Err(error) = validate_listener_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
+    if state.listener_kind == ListenerKind::SmartGateway {
+        if let Some(target) = resolve_binding_target(&state, &headers) {
+            state.target = target;
+        }
+    }
+    let hop = match state.listener_kind {
+        ListenerKind::SmartGateway => crate::gateway::correlation::HOP_SMART_GATEWAY,
+        ListenerKind::Agent => crate::gateway::correlation::HOP_AGENT_PROXY,
+    };
+    state.correlation = Some(crate::gateway::correlation::resolve(
+        &headers,
+        hop,
+        Some(state.target.as_str()),
+    ));
+    state.request_path = uri.path().to_string();
     let started = Instant::now();
 
     // Resolve a seed provider so body-read failures can still be logged.
@@ -1025,17 +1161,24 @@ async fn proxy_handler(
     let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
     let mut attempt_index: i64 = 0;
     if gateway_catalog_enabled(&state) {
-        match select_gateway_runtime_provider(&state, &requested_model, &incoming) {
+        match select_gateway_runtime_provider_with(&state, &requested_model, false, &incoming, uri.path()) {
             Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
                 provider = selected;
                 requested_model = upstream.clone();
                 is_catalog_subagent = routed_subagent;
+                crate::gateway::rules::apply_rewrites(&mut incoming, &mut headers, &decision.rewrites);
+                if let Some(thinking) = decision.thinking.as_ref() {
+                    crate::gateway::thinking::apply_to_body(&mut incoming, provider.protocol_type, thinking);
+                    if provider.is_antigravity() {
+                        crate::gateway::thinking::apply_gemini_thinking_budget(&mut incoming, thinking);
+                    }
+                }
                 route_decision = Some(decision);
                 route_plan = Some(plan);
                 if let Some(object) = incoming.as_object_mut() {
                     object.insert("model".to_string(), Value::String(upstream.clone()));
                 }
-                body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &upstream));
+                body_bytes = Bytes::from(serde_json::to_vec(&incoming).unwrap_or_else(|_| rewrite_json_model(&body_bytes, &upstream)));
             }
             Ok(None) => {
                 log_early_failure(
@@ -2043,6 +2186,18 @@ pub(crate) fn log_request_with_diagnostic(
         )
     }) {
         Ok(id) => {
+            let hop = state
+                .correlation
+                .as_ref()
+                .map(|item| item.hop)
+                .unwrap_or(match state.listener_kind {
+                    ListenerKind::SmartGateway => crate::gateway::correlation::HOP_SMART_GATEWAY,
+                    ListenerKind::Agent => crate::gateway::correlation::HOP_AGENT_PROXY,
+                });
+            let correlation_id = state.correlation.as_ref().map(|item| item.id.as_str());
+            let _ = state.db.with_conn(|conn| {
+                update_proxy_log_hop(conn, &id, correlation_id, Some(hop))
+            });
             crate::usage_events::notify_log_recorded();
             Some(id)
         }
@@ -2096,23 +2251,13 @@ pub(crate) fn log_request(
 }
 
 fn validate_listener_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
-    if gateway_catalog_enabled(state) {
-        return validate_gateway_profile_auth(state, headers);
+    if state.listener_kind == ListenerKind::SmartGateway {
+        return validate_smart_gateway_binding_auth(state, headers);
     }
     validate_desktop_gateway_auth(state, headers)
 }
 
-fn validate_gateway_profile_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
-    let token = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::profile_entry_token(conn, state.target))
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-    let token = token.trim();
-    if token.is_empty() {
-        return Ok(());
-    }
+fn validate_smart_gateway_binding_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
     let presented = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
@@ -2131,7 +2276,13 @@ fn validate_gateway_profile_auth(state: &ProxyState, headers: &HeaderMap) -> App
                 .map(|value| value.trim().to_string())
         })
         .unwrap_or_default();
-    if presented == token {
+    if presented.is_empty() {
+        return Err(AppError::Config("网关入口凭据无效".to_string()));
+    }
+    let binding = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::binding_by_token(conn, &presented)
+    })?;
+    if binding.is_some() {
         Ok(())
     } else {
         Err(AppError::Config("网关入口凭据无效".to_string()))
@@ -2434,8 +2585,11 @@ mod tests {
             circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
             codex_history: Arc::new(super::codex_history::CodexHistoryStore::default()),
             target: ProviderTarget::ClaudeCode,
+            listener_kind: ListenerKind::Agent,
             port: DEFAULT_PORT,
             started_at: Instant::now(),
+            correlation: None,
+            request_path: String::new(),
         }
     }
 

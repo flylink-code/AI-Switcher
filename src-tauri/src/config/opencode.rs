@@ -115,20 +115,23 @@ fn opencode_sdk_base_url(provider: &Provider) -> String {
 const OPENCODE_DEFAULT_CONTEXT_WINDOW: u64 = 200_000;
 const OPENCODE_DEFAULT_OUTPUT_TOKENS: u64 = 32_000;
 
-fn opencode_model_context(provider: &Provider) -> u64 {
+fn opencode_model_context(provider: &Provider, model_id: &str) -> u64 {
+    let inferred = crate::gateway::metadata::context_window_for(model_id);
     provider
         .model_context_window
         .filter(|window| *window > 0)
         .unwrap_or(OPENCODE_DEFAULT_CONTEXT_WINDOW)
+        .max(inferred)
 }
 
 fn opencode_model_output(context: u64) -> u64 {
-    OPENCODE_DEFAULT_OUTPUT_TOKENS.min(context.max(1))
+    crate::gateway::metadata::max_output_for("", context)
+        .max(OPENCODE_DEFAULT_OUTPUT_TOKENS.min(context.max(1)))
 }
 
 /// OpenCode 自定义模型缺字段时默认无图片、无推理档位。托管项必须显式声明。
 fn opencode_model_entry(provider: &Provider, model_id: &str) -> Value {
-    let context = opencode_model_context(provider);
+    let context = opencode_model_context(provider, model_id);
     let mut entry = json!({
         "name": model_id,
         "attachment": true,

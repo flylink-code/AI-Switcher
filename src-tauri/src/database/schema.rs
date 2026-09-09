@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 30;
+pub const SCHEMA_VERSION: u32 = 31;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -111,7 +111,9 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             route_reason TEXT,
             attempt_index INTEGER NOT NULL DEFAULT 0,
             requested_model TEXT,
-            upstream_id  TEXT
+            upstream_id  TEXT,
+            correlation_id TEXT,
+            hop TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
@@ -189,7 +191,12 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
             model_id TEXT NOT NULL,
             capability_json TEXT NOT NULL DEFAULT '{}',
             verified_status TEXT NOT NULL DEFAULT 'declared',
-            visible INTEGER NOT NULL DEFAULT 1
+            visible INTEGER NOT NULL DEFAULT 1,
+            display_name TEXT NOT NULL DEFAULT '',
+            context_window INTEGER,
+            max_output_tokens INTEGER,
+            reasoning_levels_json TEXT NOT NULL DEFAULT '[]',
+            capabilities_json TEXT NOT NULL DEFAULT '{}'
         );
         CREATE INDEX IF NOT EXISTS idx_upstream_models_upstream ON upstream_models(upstream_id);
         CREATE TABLE IF NOT EXISTS gateway_profiles (
@@ -231,7 +238,38 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
         CREATE TABLE IF NOT EXISTS gateway_id_map (
             old_provider_id TEXT PRIMARY KEY,
             upstream_id TEXT NOT NULL
-        );",
+        );
+        CREATE TABLE IF NOT EXISTS gateway_bindings (
+            target_app TEXT PRIMARY KEY,
+            entry_token TEXT NOT NULL,
+            provider_id TEXT NOT NULL DEFAULT '',
+            created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS route_modes (
+            id TEXT NOT NULL,
+            profile_id TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 0,
+            model TEXT NOT NULL DEFAULT '',
+            thinking_config_json TEXT NOT NULL DEFAULT '{}',
+            fallback_models_json TEXT NOT NULL DEFAULT '[]',
+            threshold INTEGER NOT NULL DEFAULT 0,
+            sort_index INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (profile_id, id)
+        );
+        CREATE TABLE IF NOT EXISTS route_rules (
+            id TEXT PRIMARY KEY,
+            profile_id TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort_index INTEGER NOT NULL DEFAULT 0,
+            rule_type TEXT NOT NULL,
+            condition_json TEXT NOT NULL DEFAULT '{}',
+            pattern TEXT NOT NULL DEFAULT '',
+            target_model TEXT NOT NULL DEFAULT '',
+            thinking_config_json TEXT NOT NULL DEFAULT '{}',
+            rewrites_json TEXT NOT NULL DEFAULT '[]'
+        );
+        CREATE INDEX IF NOT EXISTS idx_route_modes_profile ON route_modes(profile_id);
+        CREATE INDEX IF NOT EXISTS idx_route_rules_profile ON route_rules(profile_id);",
     )?;
     Ok(())
 }
@@ -336,6 +374,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 30 {
         migrate_v29_to_v30(conn)?;
+    }
+    if current < 31 {
+        migrate_v30_to_v31(conn)?;
     }
     Ok(())
 }
@@ -1094,6 +1135,70 @@ fn migrate_v29_to_v30(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 30)
 }
 
+fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
+    create_gateway_tables(conn)?;
+    add_proxy_log_correlation_columns(conn)?;
+    add_upstream_model_metadata_columns(conn)?;
+    crate::database::dao::gateway::migrate_v30_to_v31(conn)?;
+    set_user_version(conn, 31)
+}
+
+fn add_proxy_log_correlation_columns(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    for (name, ddl) in [
+        ("correlation_id", "ALTER TABLE proxy_request_logs ADD COLUMN correlation_id TEXT;"),
+        ("hop", "ALTER TABLE proxy_request_logs ADD COLUMN hop TEXT;"),
+    ] {
+        let has: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if has == 0 {
+            conn.execute_batch(ddl)?;
+        }
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_logs_correlation ON proxy_request_logs(correlation_id);",
+    )?;
+    Ok(())
+}
+
+fn add_upstream_model_metadata_columns(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='upstream_models';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    for (name, ddl) in [
+        ("display_name", "ALTER TABLE upstream_models ADD COLUMN display_name TEXT NOT NULL DEFAULT '';"),
+        ("context_window", "ALTER TABLE upstream_models ADD COLUMN context_window INTEGER;"),
+        ("max_output_tokens", "ALTER TABLE upstream_models ADD COLUMN max_output_tokens INTEGER;"),
+        ("reasoning_levels_json", "ALTER TABLE upstream_models ADD COLUMN reasoning_levels_json TEXT NOT NULL DEFAULT '[]';"),
+        ("capabilities_json", "ALTER TABLE upstream_models ADD COLUMN capabilities_json TEXT NOT NULL DEFAULT '{}';"),
+    ] {
+        let has: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('upstream_models') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if has == 0 {
+            conn.execute_batch(ddl)?;
+        }
+    }
+    Ok(())
+}
+
 fn add_gateway_profile_auto_columns(conn: &Connection) -> AppResult<()> {
     let table_exists: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='gateway_profiles';",
@@ -1174,7 +1279,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "agent_connections", "gateway_id_map"] {
+            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "gateway_bindings", "route_modes", "route_rules", "gateway_id_map"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],
@@ -1188,6 +1293,20 @@ mod tests {
                 |r| r.get(0),
             )?;
             assert_eq!(has_file_size, 1);
+            let dropped: i64 = conn.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_connections';",
+                [],
+                |r| r.get(0),
+            )?;
+            assert_eq!(dropped, 0);
+            for column in ["correlation_id", "hop"] {
+                let has: i64 = conn.query_row(
+                    "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+                    [column],
+                    |r| r.get(0),
+                )?;
+                assert_eq!(has, 1, "missing log column {column}");
+            }
             Ok(())
         })
         .unwrap();
@@ -1610,8 +1729,7 @@ mod tests {
         assert_eq!(upstreams, 1);
         let gateway_current: i64 = conn
             .query_row(
-                "SELECT count(*) FROM agent_connections
-                 WHERE target_app = 'claude_code' AND connection_type = 'gateway' AND is_current = 1;",
+                "SELECT count(*) FROM gateway_bindings WHERE target_app = 'claude_code';",
                 [],
                 |row| row.get(0),
             )
