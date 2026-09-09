@@ -116,6 +116,7 @@ export default function UsagePage() {
   const [detailDiagnostic, setDetailDiagnostic] = useState<string | null>(null);
   const [trendExpanded, setTrendExpanded] = useState(false);
   const [onlyFailures, setOnlyFailures] = useState(false);
+  const [onlyGateway, setOnlyGateway] = useState(false);
 
   const logRefreshTimerRef = useRef<number | null>(null);
   const lastLogRefreshAtRef = useRef(0);
@@ -126,7 +127,7 @@ export default function UsagePage() {
     placeholderData: keepPreviousData,
   });
   const logsQuery = useQuery({
-    ...usageLogsOptions(period, logPage, logTargetApp, onlyFailures),
+    ...usageLogsOptions(period, logPage, logTargetApp, onlyFailures, onlyGateway),
     placeholderData: keepPreviousData,
   });
   const metaQuery = useQuery(usageMetaOptions);
@@ -580,15 +581,26 @@ export default function UsagePage() {
         className="page-surface"
         title={<Space><UnorderedListOutlined />{t("usage.requestLogs")}</Space>}
         extra={
-          <Checkbox
-            checked={onlyFailures}
-            onChange={(e) => {
-              setOnlyFailures(e.target.checked);
-              setLogPage(0);
-            }}
-          >
-            {t("usage.onlyFailures")}
-          </Checkbox>
+          <Space>
+            <Checkbox
+              checked={onlyFailures}
+              onChange={(e) => {
+                setOnlyFailures(e.target.checked);
+                setLogPage(0);
+              }}
+            >
+              {t("usage.onlyFailures")}
+            </Checkbox>
+            <Checkbox
+              checked={onlyGateway}
+              onChange={(e) => {
+                setOnlyGateway(e.target.checked);
+                setLogPage(0);
+              }}
+            >
+              {t("usage.onlyGateway")}
+            </Checkbox>
+          </Space>
         }
       >
         {isCodexOnly && (
@@ -638,12 +650,21 @@ export default function UsagePage() {
               render: (v: string | null, row: PaginatedProxyLogs["data"][number]) => {
                 if (row.dataSource === "codex_session") return t("usage.codexSessionSource");
                 if (row.dataSource === "opencode_session") return t("usage.opencodeSessionSource");
+                const viaGateway = Boolean(row.routeReason?.trim() || row.profileId?.trim());
+                let label: string;
                 if (row.targetApp === "antigravity") {
                   const rawId = row.providerId;
                   const resolvedEmail = rawId ? (agAccountMap[rawId] || rawId) : null;
-                  return resolvedEmail ? `Antigravity (${resolvedEmail})` : (v ?? "Antigravity");
+                  label = resolvedEmail ? `Antigravity (${resolvedEmail})` : (v ?? "Antigravity");
+                } else {
+                  label = v ?? "—";
                 }
-                return v ?? "—";
+                return (
+                  <Space size={4} wrap>
+                    <span>{label}</span>
+                    {viaGateway ? <Tag color="blue">{t("usage.viaSmartGateway")}</Tag> : null}
+                  </Space>
+                );
               },
             },
             {

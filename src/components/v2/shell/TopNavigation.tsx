@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
+import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
 import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
@@ -14,6 +15,7 @@ import { useThemeStore } from "@/stores/themeStore";
 export type V2MainTab =
   | "workbench"
   | "providers"
+  | "proxy"
   | "usage"
   | "antigravity"
   | "workspace"
@@ -27,8 +29,8 @@ export interface TopNavigationProps {
   compact?: boolean;
 }
 
-/** Full label dock for 7 short items needs ~760px in the center slot. */
-const COMPACT_BREAKPOINT = 760;
+/** Full label dock for 8 short items needs extra width in the center slot. */
+const COMPACT_BREAKPOINT = 920;
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   activeKey,
@@ -75,6 +77,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
   const getActiveTab = (key: PageKey): V2MainTab => {
     if (key === "workbench") return "workbench";
     if (key === "providers") return "providers";
+    if (key === "proxy") return "proxy";
     if (key === "usage") return "usage";
     if (key === "antigravity") return "antigravity";
     if (
@@ -94,7 +97,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       key === "environment" ||
       key === "localization" ||
       key === "about" ||
-      key === "proxy" ||
       key === "agentTools"
     ) {
       return "settings";
@@ -116,6 +118,12 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       label: t("navigation.providers", { defaultValue: "供应商" }),
       icon: <ClusterOutlined />,
       targetPage: "providers",
+    },
+    {
+      key: "proxy",
+      label: t("navigation.proxyShort", { defaultValue: "智能网关" }),
+      icon: <ApiOutlined />,
+      targetPage: "proxy",
     },
     {
       key: "usage",

@@ -179,6 +179,7 @@ pub struct ProxyLogListInput {
     pub target_app: Option<String>,
     pub status_code: Option<i64>,
     pub only_failures: Option<bool>,
+    pub only_gateway: Option<bool>,
     pub page: Option<u32>,
     pub page_size: Option<u32>,
 }
@@ -218,6 +219,7 @@ pub async fn list_proxy_request_logs_cmd(
         target_app: input.target_app,
         status_code: input.status_code,
         only_failures: input.only_failures,
+        only_gateway: input.only_gateway,
     };
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {

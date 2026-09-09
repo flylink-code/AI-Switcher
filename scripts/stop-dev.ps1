@@ -17,13 +17,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$vitePorts = 5250..5270
+$vitePortMin = 5250
+$vitePortMax = 5270
 
 Write-Host "[stop-dev] Project: $root"
 
 function Stop-PidTree([int]$ProcessId) {
     if ($ProcessId -le 4) { return }
-    & taskkill.exe /F /T /PID $ProcessId 2>$null | Out-Null
+    # taskkill can stall on a dying GUI; cap wait so hot-reload is not stuck on "closing".
+    $proc = Start-Process -FilePath "taskkill.exe" -ArgumentList @("/F", "/T", "/PID", "$ProcessId") `
+        -WindowStyle Hidden -PassThru
+    if (-not $proc.WaitForExit(8000)) {
+        Write-Host "[stop-dev]   taskkill PID $ProcessId timed out; continuing"
+        try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch { }
+    }
 }
 
 function Get-ProcessCommandLine([int]$ProcessId) {
@@ -35,17 +42,30 @@ function Get-ProcessCommandLine([int]$ProcessId) {
     }
 }
 
-function Get-ListenPids([int]$ListenPort) {
-    $pids = @()
-    foreach ($addr in @("127.0.0.1", "0.0.0.0", "::1", "::")) {
-        try {
-            $pids += @(
-                Get-NetTCPConnection -LocalAddress $addr -LocalPort $ListenPort -State Listen -ErrorAction SilentlyContinue |
-                    ForEach-Object { $_.OwningProcess }
-            )
-        } catch { }
+# One netstat parse. Per-port Get-NetTCPConnection (21 ports x 4 addresses, then
+# again in the wait loop) routinely hangs for minutes on Windows.
+function Get-ListenPidMap {
+    $map = @{}
+    $lines = @()
+    try {
+        $lines = & netstat.exe -ano -p tcp 2>$null
+    } catch {
+        return $map
     }
-    $pids | Where-Object { $_ -and $_ -gt 0 } | Select-Object -Unique
+    foreach ($line in $lines) {
+        if ($line -notmatch '^\s*TCP\s+(\S+)\s+\S+\s+LISTENING\s+(\d+)\s*$') { continue }
+        $local = $Matches[1]
+        $procId = 0
+        if (-not [int]::TryParse($Matches[2], [ref]$procId) -or $procId -le 0) { continue }
+        $colon = $local.LastIndexOf(':')
+        if ($colon -lt 0) { continue }
+        $port = 0
+        if (-not [int]::TryParse($local.Substring($colon + 1), [ref]$port)) { continue }
+        if ($port -lt $vitePortMin -or $port -gt $vitePortMax) { continue }
+        if (-not $map.ContainsKey($port)) { $map[$port] = @() }
+        if ($map[$port] -notcontains $procId) { $map[$port] += $procId }
+    }
+    return $map
 }
 
 function Test-IsOurProcess([int]$ProcessId, [switch]$AllowViteListener) {
@@ -83,15 +103,15 @@ foreach ($procName in @("claude-switcher", "AISwitcher")) {
 }
 
 if (-not $AppOnly) {
-    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.Name -match '^(node|nodejs|pnpm|corepack)(\.exe)?$' -and
-            (Test-IsOurProcess $_.ProcessId)
-        } |
+    Write-Host "[stop-dev] Checking leftover Vite / node"
+    Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='nodejs.exe' OR Name='pnpm.exe' OR Name='corepack.exe'" `
+        -ErrorAction SilentlyContinue |
+        Where-Object { Test-IsOurProcess $_.ProcessId } |
         ForEach-Object { Invoke-StopOnce $_.ProcessId "vite/node" }
 
-    foreach ($listenPort in $vitePorts) {
-        foreach ($listenPid in (Get-ListenPids $listenPort)) {
+    $listenMap = Get-ListenPidMap
+    foreach ($listenPort in $listenMap.Keys) {
+        foreach ($listenPid in $listenMap[$listenPort]) {
             if (Test-IsOurProcess $listenPid -AllowViteListener) {
                 Invoke-StopOnce $listenPid "listen :$listenPort"
             }
@@ -99,10 +119,11 @@ if (-not $AppOnly) {
     }
 
     $waited = 0
-    while ($waited -lt 8000) {
+    while ($waited -lt 4000) {
         $stillHeld = $false
-        foreach ($listenPort in $vitePorts) {
-            foreach ($listenPid in (Get-ListenPids $listenPort)) {
+        $listenMap = Get-ListenPidMap
+        foreach ($listenPort in $listenMap.Keys) {
+            foreach ($listenPid in $listenMap[$listenPort]) {
                 if (Test-IsOurProcess $listenPid -AllowViteListener) {
                     $stillHeld = $true
                     break

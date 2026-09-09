@@ -93,15 +93,12 @@ pub async fn codex_proxy_handler(
     }
 
     let mut original_body = body;
-    let requested_model = serde_json::from_slice::<Value>(&original_body)
-        .ok()
-        .and_then(|value| {
-            value
-                .get("model")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        })
-        .unwrap_or_default();
+    let incoming: Value = serde_json::from_slice(&original_body).unwrap_or(Value::Null);
+    let requested_model = incoming
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     let catalog_mode = crate::catalog::enabled(state.db.as_ref(), state.target);
     let mut is_catalog_subagent = false;
     let mut route_decision = None;
@@ -111,6 +108,7 @@ pub async fn codex_proxy_handler(
             &state,
             &requested_model,
             has_subagent_header(&headers),
+            &incoming,
         ) {
             Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));

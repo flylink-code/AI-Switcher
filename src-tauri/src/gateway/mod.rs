@@ -11,15 +11,18 @@ use crate::catalog::{
 use crate::database::dao::gateway::{
     profile_allows_upstream, GatewayProfile,
 };
-use crate::provider::Provider;
+use crate::provider::{Provider, ProviderKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RouteSource {
     Explicit,
+    Auto,
     RolePlan,
     RoleExecute,
     RoleSubagent,
+    LongContext,
+    WebSearch,
     ProfileDefault,
 }
 
@@ -27,9 +30,12 @@ impl RouteSource {
     pub fn as_reason(self) -> &'static str {
         match self {
             RouteSource::Explicit => "explicit_model",
+            RouteSource::Auto => "auto",
             RouteSource::RolePlan => "role_plan",
             RouteSource::RoleExecute => "role_execute",
             RouteSource::RoleSubagent => "role_subagent",
+            RouteSource::LongContext => "long_context",
+            RouteSource::WebSearch => "web_search",
             RouteSource::ProfileDefault => "profile_default",
         }
     }
@@ -110,6 +116,100 @@ pub fn assert_not_self_referential(url: &str) -> crate::error::AppResult<()> {
     Ok(())
 }
 
+pub fn assert_not_managed_gateway_kind(kind: ProviderKind) -> crate::error::AppResult<()> {
+    if kind == ProviderKind::SmartGateway {
+        return Err(crate::error::AppError::Config(
+            "智能网关 Auto 卡不能作为上游".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn is_auto_model_id(model: &str) -> bool {
+    let trimmed = model.trim();
+    trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto")
+}
+
+/// Live default written to Agent config when the Auto card is current.
+/// Leftover `opusplan` is treated as auto; an explicit catalog id is kept.
+pub fn normalize_live_model(model: &str) -> String {
+    let trimmed = model.trim();
+    if is_auto_model_id(trimmed) || trimmed.eq_ignore_ascii_case("opusplan") {
+        "auto".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+pub fn default_listener_port(target: crate::provider::ProviderTarget) -> u16 {
+    match target {
+        crate::provider::ProviderTarget::ClaudeCode => 15821,
+        crate::provider::ProviderTarget::ClaudeDesktop => 15822,
+        crate::provider::ProviderTarget::Codex => 15823,
+        crate::provider::ProviderTarget::OpenCode => 15824,
+        crate::provider::ProviderTarget::Pi => 15825,
+        crate::provider::ProviderTarget::Dsh => 15826,
+        crate::provider::ProviderTarget::Cline => 15827,
+    }
+}
+
+pub fn smart_gateway_provider_id(target: crate::provider::ProviderTarget) -> String {
+    format!("sgw_{}", target.as_str())
+}
+
+pub fn smart_gateway_live_endpoint(
+    target: crate::provider::ProviderTarget,
+    port: u16,
+) -> (crate::provider::ProtocolType, String) {
+    use crate::provider::{ProtocolType, ProviderTarget};
+    match target {
+        ProviderTarget::Codex | ProviderTarget::Cline => {
+            (ProtocolType::OpenAiResponses, format!("http://127.0.0.1:{port}/v1"))
+        }
+        ProviderTarget::OpenCode => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}/v1")),
+        _ => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}")),
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RouteHints {
+    pub token_count: u32,
+    pub has_web_search: bool,
+}
+
+pub fn estimate_request_tokens(body: &serde_json::Value) -> u32 {
+    let blob = serde_json::json!({
+        "messages": body.get("messages"),
+        "system": body.get("system"),
+        "input": body.get("input"),
+        "instructions": body.get("instructions"),
+        "tools": body.get("tools"),
+    });
+    let chars = blob.to_string().chars().count() as u32;
+    (chars / 4).max(1)
+}
+
+pub fn request_has_web_search(body: &serde_json::Value) -> bool {
+    let Some(tools) = body.get("tools").and_then(|value| value.as_array()) else {
+        return false;
+    };
+    tools.iter().any(|tool| {
+        let name = tool
+            .get("name")
+            .or_else(|| tool.pointer("/function/name"))
+            .or_else(|| tool.pointer("/web_search/name"))
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let kind = tool.get("type").and_then(|value| value.as_str()).unwrap_or("");
+        let lower = name.to_ascii_lowercase();
+        kind.eq_ignore_ascii_case("web_search")
+            || kind.eq_ignore_ascii_case("web_fetch")
+            || lower.contains("web_search")
+            || lower.contains("web_fetch")
+            || lower.contains("websearch")
+    })
+}
+
 pub fn classify_route_source(
     requested: &str,
     normalized: &str,
@@ -143,8 +243,8 @@ pub fn classify_route_source(
             return RouteSource::RoleSubagent;
         }
     }
-    if requested.is_empty() {
-        return RouteSource::ProfileDefault;
+    if requested.is_empty() || is_auto_model_id(requested) {
+        return RouteSource::Auto;
     }
     RouteSource::ProfileDefault
 }
@@ -155,7 +255,11 @@ fn chain_for_source(profile: &GatewayProfile, source: RouteSource) -> &[String] 
         RouteSource::RoleExecute => &profile.execute_fallback,
         RouteSource::RoleSubagent => &profile.subagent_fallback,
         RouteSource::Explicit if profile.explicit_fallback_enabled => &profile.fallback_models,
-        RouteSource::Explicit | RouteSource::ProfileDefault => &profile.fallback_models,
+        RouteSource::Explicit
+        | RouteSource::Auto
+        | RouteSource::LongContext
+        | RouteSource::WebSearch
+        | RouteSource::ProfileDefault => &profile.fallback_models,
     }
 }
 
@@ -205,6 +309,8 @@ pub fn slot_diagnostics(profile: &GatewayProfile, entries: &[CatalogEntry]) -> V
         ("plan", profile.plan_model.as_str()),
         ("execute", profile.execute_model.as_str()),
         ("subagent", profile.subagent_model.as_str()),
+        ("long_context", profile.long_context_model.as_str()),
+        ("web_search", profile.web_search_model.as_str()),
     ];
     for (label, value) in slots {
         let value = value.trim();
@@ -230,37 +336,45 @@ pub fn resolve_gateway_route(
     force_subagent: bool,
     profile: Option<&GatewayProfile>,
 ) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
-    let hide_official = profile.map(|profile| profile.hide_official).unwrap_or(false);
-    let subagent = profile
-        .map(|profile| profile.subagent_model.clone())
-        .filter(|value| !value.trim().is_empty());
-    let role_routing = profile
-        .map(|profile| profile.role_routing_enabled)
-        .unwrap_or(false);
-    let plan = if role_routing {
-        profile
-            .map(|profile| profile.plan_model.clone())
-            .filter(|value| !value.trim().is_empty())
-    } else {
-        None
-    };
-    let execute = if role_routing {
-        profile
-            .map(|profile| profile.execute_model.clone())
-            .filter(|value| !value.trim().is_empty())
-    } else {
-        None
-    };
-    let normalized = normalize_client_request_with(
+    resolve_gateway_route_with(
         style,
         entries,
         providers,
         requested_model,
+        force_subagent,
+        profile,
+        &RouteHints::default(),
+    )
+}
+
+pub fn resolve_gateway_route_with(
+    style: CatalogStyle,
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    requested_model: &str,
+    force_subagent: bool,
+    profile: Option<&GatewayProfile>,
+    hints: &RouteHints,
+) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
+    let hide_official = profile.map(|profile| profile.hide_official).unwrap_or(false);
+    let subagent = profile
+        .map(|profile| profile.subagent_model.clone())
+        .filter(|value| !value.trim().is_empty());
+    // Opus Plan / role remap is removed: leftover plan/execute columns are unused.
+    let role_routing = false;
+    let plan = None;
+    let execute = None;
+    let (lookup_model, auto_source) = auto_slot_rewrite(requested_model, force_subagent, profile, hints);
+    let normalized = normalize_client_request_with(
+        style,
+        entries,
+        providers,
+        &lookup_model,
         hide_official,
         subagent.as_deref(),
         force_subagent,
-        plan.as_deref(),
-        execute.as_deref(),
+        plan,
+        execute,
         role_routing,
     );
     let (provider_id, upstream) = resolve_request(entries, providers, &normalized)?;
@@ -271,9 +385,9 @@ pub fn resolve_gateway_route(
     }
     let provider = providers
         .iter()
-        .find(|provider| provider.id == provider_id)?
+        .find(|provider| provider.id == provider_id && !provider.is_smart_gateway())?
         .clone();
-    let source = classify_route_source(
+    let mut source = classify_route_source(
         requested_model,
         &normalized,
         force_subagent,
@@ -283,11 +397,11 @@ pub fn resolve_gateway_route(
         subagent.as_deref(),
     );
     let in_catalog = catalog_in_entries(entries, requested_model);
-    let source = if in_catalog && !force_subagent {
-        RouteSource::Explicit
-    } else {
-        source
-    };
+    if in_catalog && !force_subagent && !is_auto_model_id(requested_model) {
+        source = RouteSource::Explicit;
+    } else if let Some(auto_source) = auto_source {
+        source = auto_source;
+    }
     let diagnostics = profile
         .map(|profile| slot_diagnostics(profile, entries))
         .unwrap_or_default();
@@ -303,6 +417,38 @@ pub fn resolve_gateway_route(
     let plan = build_execution_plan(profile, &upstream, Some(&provider_id), source);
     let is_subagent = matches!(source, RouteSource::RoleSubagent) || force_subagent;
     Some((provider, upstream, decision, plan, is_subagent))
+}
+
+fn auto_slot_rewrite(
+    requested_model: &str,
+    force_subagent: bool,
+    profile: Option<&GatewayProfile>,
+    hints: &RouteHints,
+) -> (String, Option<RouteSource>) {
+    if force_subagent || !is_auto_model_id(requested_model) {
+        return (requested_model.to_string(), None);
+    }
+    let Some(profile) = profile else {
+        return (String::new(), Some(RouteSource::Auto));
+    };
+    if hints.has_web_search {
+        let model = profile.web_search_model.trim();
+        if !model.is_empty() {
+            return (model.to_string(), Some(RouteSource::WebSearch));
+        }
+    }
+    if profile.long_context_tokens > 0 && i64::from(hints.token_count) >= profile.long_context_tokens
+    {
+        let model = profile.long_context_model.trim();
+        if !model.is_empty() {
+            return (model.to_string(), Some(RouteSource::LongContext));
+        }
+    }
+    let default = profile.default_model.trim();
+    if !default.is_empty() {
+        return (default.to_string(), Some(RouteSource::Auto));
+    }
+    (String::new(), Some(RouteSource::Auto))
 }
 
 #[cfg(test)]
@@ -350,6 +496,9 @@ mod tests {
             plan_fallback: vec![],
             execute_fallback: vec![],
             subagent_fallback: vec![],
+            long_context_model: String::new(),
+            long_context_tokens: 0,
+            web_search_model: String::new(),
             created_at: 0,
             updated_at: 0,
         };
@@ -379,11 +528,60 @@ mod tests {
             plan_fallback: vec!["plan-b".into()],
             execute_fallback: vec![],
             subagent_fallback: vec![],
+            long_context_model: String::new(),
+            long_context_tokens: 0,
+            web_search_model: String::new(),
             created_at: 0,
             updated_at: 0,
         };
         let plan = build_execution_plan(Some(&profile), "plan-a", Some("p1"), RouteSource::RolePlan);
         assert_eq!(plan.attempts.len(), 2);
         assert_eq!(plan.attempts[1].model, "plan-b");
+    }
+
+    #[test]
+    fn auto_slots_ignore_explicit_catalog_ids() {
+        let profile = GatewayProfile {
+            id: "gprof_claude_code".into(),
+            name: "t".into(),
+            target_app: crate::provider::ProviderTarget::ClaudeCode,
+            default_model: "default-m".into(),
+            plan_model: String::new(),
+            execute_model: String::new(),
+            subagent_model: String::new(),
+            allowed_upstream_ids: vec![],
+            role_routing_enabled: false,
+            explicit_fallback_enabled: false,
+            fallback_mode: "off".into(),
+            fallback_models: vec![],
+            hide_official: false,
+            entry_token: String::new(),
+            entry_token_set: false,
+            plan_fallback: vec![],
+            execute_fallback: vec![],
+            subagent_fallback: vec![],
+            long_context_model: "long-m".into(),
+            long_context_tokens: 100,
+            web_search_model: "web-m".into(),
+            created_at: 0,
+            updated_at: 0,
+        };
+        let hints = RouteHints {
+            token_count: 9_000,
+            has_web_search: true,
+        };
+        let (lookup, source) = auto_slot_rewrite("claude.kimi.k2", false, Some(&profile), &hints);
+        assert_eq!(lookup, "claude.kimi.k2");
+        assert!(source.is_none());
+        let (lookup, source) = auto_slot_rewrite("auto", false, Some(&profile), &hints);
+        assert_eq!(lookup, "web-m");
+        assert_eq!(source, Some(RouteSource::WebSearch));
+        let hints = RouteHints {
+            token_count: 9_000,
+            has_web_search: false,
+        };
+        let (lookup, source) = auto_slot_rewrite("auto", false, Some(&profile), &hints);
+        assert_eq!(lookup, "long-m");
+        assert_eq!(source, Some(RouteSource::LongContext));
     }
 }

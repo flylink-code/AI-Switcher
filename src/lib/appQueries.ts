@@ -175,9 +175,10 @@ export const usageLogsOptions = (
   logPage: number,
   target: UsageSourceFilter,
   onlyFailures?: boolean,
+  onlyGateway?: boolean,
 ) =>
   queryOptions({
-    queryKey: ["usage-logs", period, logPage, target, onlyFailures] as const,
+    queryKey: ["usage-logs", period, logPage, target, onlyFailures, onlyGateway] as const,
     queryFn: () =>
       listProxyRequestLogs({
         ...usagePeriodToQuery(period),
@@ -185,6 +186,7 @@ export const usageLogsOptions = (
         pageSize: 20,
         targetApp: target === "all" ? undefined : target,
         onlyFailures: onlyFailures || undefined,
+        onlyGateway: onlyGateway || undefined,
       }),
     staleTime: 15_000,
   });

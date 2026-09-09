@@ -117,10 +117,6 @@ pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
         .flatten()
 }
 
-fn setting_flag_for_conn(conn: &rusqlite::Connection, key: &str) -> bool {
-    get_setting(conn, key).ok().flatten().as_deref() == Some("true")
-}
-
 fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<String> {
     get_setting(conn, key)
         .ok()
@@ -129,14 +125,8 @@ fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<Stri
         .filter(|value| !value.is_empty())
 }
 
-pub fn opusplan_enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
-    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
-        return profile.role_routing_enabled;
-    }
-    let Some(key) = opusplan_setting_key(target) else {
-        return false;
-    };
-    setting_flag_for_conn(conn, key)
+pub fn opusplan_enabled_for_conn(_conn: &rusqlite::Connection, _target: ProviderTarget) -> bool {
+    false
 }
 
 pub fn opusplan_enabled(db: &Database, target: ProviderTarget) -> bool {
@@ -178,9 +168,9 @@ pub fn execute_model(db: &Database, target: ProviderTarget) -> Option<String> {
         .flatten()
 }
 
-/// Write top-level `model=opusplan` when the switch is on and at least one slot is set.
-pub fn opusplan_should_write_alias(enabled: bool, plan: Option<&str>, execute: Option<&str>) -> bool {
-    enabled && (nonempty_slot(plan).is_some() || nonempty_slot(execute).is_some())
+/// Opus Plan is removed; keep the helper so leftover IPC callers stay off.
+pub fn opusplan_should_write_alias(_enabled: bool, _plan: Option<&str>, _execute: Option<&str>) -> bool {
+    false
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -316,6 +306,30 @@ pub fn build_catalog_with(
         }
     }
     entries
+}
+
+pub fn auto_catalog_entry() -> CatalogEntry {
+    CatalogEntry {
+        public_id: "auto".to_string(),
+        display_name: "Auto".to_string(),
+        upstream_slug: "auto".to_string(),
+        provider_id: String::new(),
+        context_window: 200_000,
+        anthropic_upstream: false,
+        web_search_enabled: false,
+    }
+}
+
+pub fn with_auto_entry(mut entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
+    entries.retain(|entry| entry.public_id != "auto");
+    entries.insert(0, auto_catalog_entry());
+    entries
+}
+
+pub fn with_auto_public_ids(mut ids: Vec<String>) -> Vec<String> {
+    ids.retain(|id| !id.eq_ignore_ascii_case("auto"));
+    ids.insert(0, "auto".to_string());
+    ids
 }
 
 /// Map a client-facing model id to `(provider_id, upstream_slug)`.
@@ -488,7 +502,7 @@ pub fn normalize_client_request_with(
         return catalog_subagent_target(entries, providers, subagent);
     }
     let requested = requested.trim();
-    if requested.is_empty() {
+    if requested.is_empty() || requested.eq_ignore_ascii_case("auto") {
         return fallback;
     }
     let in_catalog = catalog_in_entries(entries, requested);
@@ -501,21 +515,7 @@ pub fn normalize_client_request_with(
     if style == CatalogStyle::Claude && haiku_or_subagent && !in_catalog {
         return catalog_subagent_target(entries, providers, subagent);
     }
-    if style == CatalogStyle::Claude && !in_catalog && role_routing_enabled {
-        if is_opusplan_alias(requested) {
-            if let Some(slot) = nonempty_slot(execute) {
-                return slot.to_string();
-            }
-        } else if is_catalog_opus_role(requested) {
-            if let Some(slot) = nonempty_slot(plan) {
-                return slot.to_string();
-            }
-        } else if is_catalog_sonnet_role(requested) {
-            if let Some(slot) = nonempty_slot(execute) {
-                return slot.to_string();
-            }
-        }
-    }
+    let _ = (plan, execute, role_routing_enabled);
     if hide_official && is_injected_official_model_slug(requested) && !in_catalog {
         return fallback;
     }
@@ -668,33 +668,6 @@ fn is_claude_role_request(requested: &str) -> bool {
         || normalized.contains("haiku")
         || normalized.contains("fable")
         || normalized.contains("subagent")
-}
-
-fn nonempty_slot(value: Option<&str>) -> Option<&str> {
-    value.map(str::trim).filter(|value| !value.is_empty())
-}
-
-fn catalog_role_stem(requested: &str) -> String {
-    let (stem, _) = crate::provider::split_model_window_label(requested.trim());
-    stem.trim().to_ascii_lowercase()
-}
-
-fn is_opusplan_alias(requested: &str) -> bool {
-    catalog_role_stem(requested) == "opusplan"
-}
-
-fn is_catalog_opus_role(requested: &str) -> bool {
-    matches!(
-        catalog_role_stem(requested).as_str(),
-        "opus" | "claude-opus-5"
-    )
-}
-
-fn is_catalog_sonnet_role(requested: &str) -> bool {
-    matches!(
-        catalog_role_stem(requested).as_str(),
-        "sonnet" | "claude-sonnet-5"
-    )
 }
 
 fn strip_claude_alias(requested: &str) -> Option<&str> {
@@ -1059,7 +1032,7 @@ mod tests {
     }
 
     #[test]
-    fn opusplan_slots_split_opus_and_sonnet_across_providers() {
+    fn leftover_opusplan_slots_do_not_remap_role_ids() {
         let mut ag = provider("ag", "Antigravity (Built-in)", "gemini-3.8-flash-high");
         ag.provider_kind = ProviderKind::Antigravity;
         let kimi = provider("p1", "Kimi", "kimi-k2");
@@ -1079,13 +1052,13 @@ mod tests {
                 &catalog,
                 &providers,
                 CLAUDE_OPUS_ROLE_ID,
-                true,
+                false,
                 None,
                 false,
                 Some(plan),
                 Some(execute),
             ),
-            plan
+            CLAUDE_OPUS_ROLE_ID
         );
         assert_eq!(
             normalize_client_request(
@@ -1093,13 +1066,13 @@ mod tests {
                 &catalog,
                 &providers,
                 "claude-opus-5[1m]",
-                true,
+                false,
                 None,
                 false,
                 Some(plan),
                 Some(execute),
             ),
-            plan
+            "claude-opus-5[1m]"
         );
         assert_eq!(
             normalize_client_request(
@@ -1107,13 +1080,13 @@ mod tests {
                 &catalog,
                 &providers,
                 CLAUDE_SONNET_ROLE_ID,
-                true,
+                false,
                 None,
                 false,
                 Some(plan),
                 Some(execute),
             ),
-            execute
+            CLAUDE_SONNET_ROLE_ID
         );
         assert_eq!(
             normalize_client_request(
@@ -1121,13 +1094,13 @@ mod tests {
                 &catalog,
                 &providers,
                 "opusplan",
-                true,
+                false,
                 None,
                 false,
                 Some(plan),
                 Some(execute),
             ),
-            execute
+            "opusplan"
         );
         assert_eq!(
             normalize_client_request(
@@ -1172,9 +1145,9 @@ mod tests {
                 false,
             ),
             CLAUDE_OPUS_ROLE_ID,
-            "closing role routing must ignore leftover plan/execute slots"
+            "leftover plan/execute slots must not remap role ids"
         );
-        assert!(opusplan_should_write_alias(true, Some(plan), None));
+        assert!(!opusplan_should_write_alias(true, Some(plan), None));
         assert!(!opusplan_should_write_alias(true, None, None));
         assert!(!opusplan_should_write_alias(false, Some(plan), Some(execute)));
     }

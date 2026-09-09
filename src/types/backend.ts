@@ -7,7 +7,7 @@ export * from "./quota";
 
 export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_responses";
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
-export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
+export type ProviderKind = "standard" | "codex_oauth" | "antigravity" | "smart_gateway";
 
 export type ConnectionType = "external" | "gateway";
 
@@ -29,6 +29,9 @@ export interface GatewayProfile {
   planFallback: string[];
   executeFallback: string[];
   subagentFallback: string[];
+  longContextModel: string;
+  longContextTokens: number;
+  webSearchModel: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -68,6 +71,9 @@ export interface GatewayProfilePatch {
   planFallback?: string[];
   executeFallback?: string[];
   subagentFallback?: string[];
+  longContextModel?: string;
+  longContextTokens?: number;
+  webSearchModel?: string;
 }
 
 export interface GatewayCatalogModelOption {
@@ -212,6 +218,31 @@ export interface ModelDiscoveryResult {
   stale: boolean;
   expiresAt?: number | null;
   error?: string | null;
+}
+
+export interface GatewayUpstreamImportItem {
+  providerId: string;
+  name: string;
+  upstreamId?: string | null;
+  skipped: boolean;
+  reason: string;
+}
+
+export interface GatewayUpstreamImportResult {
+  imported: number;
+  skipped: number;
+  items: GatewayUpstreamImportItem[];
+}
+
+export interface GatewayUpstreamModelRow {
+  modelId: string;
+  visible: boolean;
+}
+
+export interface GatewayUpstreamDiscoverItem {
+  id: string;
+  name: string;
+  result: ModelDiscoveryResult;
 }
 
 export interface ProviderImportResult {
@@ -1010,6 +1041,10 @@ export interface ProxyRequestLog {
   streamOutcome: string | null;
   dataSource: string;
   sessionId: string | null;
+  routeReason: string | null;
+  requestedModel: string | null;
+  upstreamId: string | null;
+  profileId: string | null;
 }
 
 export interface PaginatedProxyLogs {
@@ -1026,6 +1061,7 @@ export interface ProxyLogListInput {
   targetApp?: string;
   statusCode?: number;
   onlyFailures?: boolean;
+  onlyGateway?: boolean;
   page?: number;
   pageSize?: number;
 }

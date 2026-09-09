@@ -155,7 +155,7 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
         let env = ensure_env_object(&mut settings);
         remove_managed_keys(env);
         set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
-        set_str(env, "ANTHROPIC_AUTH_TOKEN", "local-proxy-code");
+        set_str(env, "ANTHROPIC_AUTH_TOKEN", proxy_auth_token(provider, catalog_discovery));
         if catalog_discovery {
             set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
             inject_catalog_proxy_models(env, provider, subagent_model);
@@ -163,9 +163,8 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
             inject_proxy_models(env, provider);
         }
     }
-    if catalog_discovery && opusplan_alias {
-        apply_opusplan_model_value(&mut settings, true);
-    }
+    let _ = opusplan_alias;
+    apply_opusplan_model_value(&mut settings, false);
 
     write_settings(path, &settings)
 }
@@ -496,12 +495,24 @@ fn inject_catalog_proxy_models(
         set_str(env, model_key, stable_model);
         set_str(env, &format!("{model_key}_NAME"), stable_model);
     }
+    let default = crate::gateway::normalize_live_model(&provider.model);
+    set_str(env, "ANTHROPIC_MODEL", &default);
     let subagent = subagent_model
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| provider.model.trim().to_string());
+        .unwrap_or_else(|| default);
     set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", &subagent);
+}
+
+fn proxy_auth_token(provider: &Provider, catalog_discovery: bool) -> &str {
+    if catalog_discovery {
+        let key = provider.api_key.trim();
+        if !key.is_empty() {
+            return key;
+        }
+    }
+    "local-proxy-code"
 }
 
 fn is_proxy_role_model(model: &str) -> bool {
@@ -723,20 +734,24 @@ mod tests {
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
+        assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
     }
 
     #[test]
-    fn catalog_proxy_writes_opusplan_alias_and_clears_only_that_model() {
+    fn catalog_proxy_clears_leftover_opusplan_and_writes_auto_model() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
         fs::write(
             &path,
-            json!({ "model": "claude-sonnet-5", "env": {} }).to_string(),
+            json!({ "model": "opusplan", "env": {} }).to_string(),
         )
         .unwrap();
 
+        let mut provider = sample_provider();
+        provider.api_key = "gwt_shared_token".into();
+        provider.model = "auto".into();
         apply_provider_to_settings_via_proxy_at_with_opusplan(
-            &sample_provider(),
+            &provider,
             15_821,
             &path,
             true,
@@ -745,27 +760,16 @@ mod tests {
         )
         .unwrap();
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(written["model"], "opusplan");
+        assert!(written.get("model").is_none());
+        let env = written["env"].as_object().unwrap();
+        assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "gwt_shared_token");
+        assert_eq!(env["ANTHROPIC_MODEL"], "auto");
+    }
 
-        apply_provider_to_settings_via_proxy_at_with_opusplan(
-            &sample_provider(),
-            15_821,
-            &path,
-            true,
-            None,
-            false,
-        )
-        .unwrap();
-        let preserved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(
-            preserved["model"], "opusplan",
-            "catalog apply without the alias flag must not strip a user opusplan"
-        );
-
-        apply_opusplan_model_at(&path, false).unwrap();
-        let cleared: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(cleared.get("model").is_none());
-
+    #[test]
+    fn clearing_opusplan_preserves_other_top_level_model() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
         fs::write(
             &path,
             json!({ "model": "claude.kimi.kimi-k2", "env": {} }).to_string(),

@@ -1034,6 +1034,10 @@ pub struct ProxyRequestLog {
     pub stream_outcome: Option<String>,
     pub data_source: String,
     pub session_id: Option<String>,
+    pub route_reason: Option<String>,
+    pub requested_model: Option<String>,
+    pub upstream_id: Option<String>,
+    pub profile_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1051,6 +1055,7 @@ pub struct ProxyLogFilters {
     pub target_app: Option<String>,
     pub status_code: Option<i64>,
     pub only_failures: Option<bool>,
+    pub only_gateway: Option<bool>,
 }
 
 pub fn update_proxy_log_stream_outcome(
@@ -1111,6 +1116,9 @@ pub fn list_proxy_request_logs(
     if filters.only_failures.unwrap_or(false) {
         conditions.push("(l.status_code >= 400 OR l.error_category IS NOT NULL OR l.stream_outcome IN ('midstream_error', 'cancelled'))".to_string());
     }
+    if filters.only_gateway.unwrap_or(false) {
+        conditions.push("(NULLIF(TRIM(COALESCE(l.route_reason, '')), '') IS NOT NULL OR NULLIF(TRIM(COALESCE(l.profile_id, '')), '') IS NOT NULL)".to_string());
+    }
 
     let where_clause = if conditions.is_empty() {
         format!("WHERE 1=1 {EFFECTIVE_USAGE_FILTER}")
@@ -1127,7 +1135,8 @@ pub fn list_proxy_request_logs(
                 l.input_tokens, l.cache_read_input_tokens, l.cache_creation_input_tokens,
                 l.output_tokens, l.usage_available, l.duration_ms, l.target_app, l.protocol, l.route,
                 l.is_stream, l.error_category, l.diagnostic,
-                COALESCE(l.data_source, 'proxy'), l.session_id, l.stream_outcome
+                COALESCE(l.data_source, 'proxy'), l.session_id, l.stream_outcome,
+                l.route_reason, l.requested_model, l.upstream_id, l.profile_id
          FROM proxy_request_logs l
          {where_clause}
          ORDER BY l.created_at DESC
@@ -1161,6 +1170,10 @@ pub fn list_proxy_request_logs(
             data_source: row.get(18)?,
             session_id: row.get(19)?,
             stream_outcome: row.get(20)?,
+            route_reason: row.get(21)?,
+            requested_model: row.get(22)?,
+            upstream_id: row.get(23)?,
+            profile_id: row.get(24)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   App,
-  AutoComplete,
   Badge,
   Button,
   Card,
@@ -12,7 +11,6 @@ import {
   Segmented,
   Select,
   Space,
-  Switch,
   Tag,
   Tooltip,
   Typography,
@@ -52,32 +50,21 @@ import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
   batchDiagnoseProviders,
   ensureCodexOauthProvider,
+  ensureSmartGatewayProvider,
   getAntigravityGatewayStatus,
   startDshWeb,
   getCodexAuthStatus,
-  getAgentConnection,
-  setAgentConnection,
-  updateGatewayProfile,
-  getGatewayCatalogSubagent,
-  getGatewayCatalogHideOfficial,
-  getGatewayCatalogOpusplan,
-  getGatewayCatalogPlan,
-  getGatewayCatalogExecute,
   getPaths,
   getPiSettings,
   getClaudeCodeDefaultPermissionMode,
-  listGatewayCatalogModels,
+  importGatewayUpstreamsFromProviders,
   listGatewayCatalogEntries,
   pollCodexOauthLogin,
   quarantineFailedProviders,
-  setGatewayCatalogSubagent,
-  setGatewayCatalogHideOfficial,
-  setGatewayCatalogOpusplan,
-  setGatewayCatalogPlan,
-  setGatewayCatalogExecute,
   setClaudeCodeDefaultPermissionMode,
   startCodexOauthLogin,
   updatePiSettings,
+  updateProvider,
 } from "@/services/api";
 
 const { Text } = Typography;
@@ -105,8 +92,8 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const isNativeCatalog = target === "opencode" || target === "pi" || target === "dsh" || target === "cline";
-  const supportsGatewayCatalog = target === "claude_code" || target === "codex";
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
@@ -124,12 +111,7 @@ export default function ProvidersPage() {
   const [quarantining, setQuarantining] = useState(false);
   const [piThinkingLevel, setPiThinkingLevel] = useState<string>("medium");
   const [startingDsh, setStartingDsh] = useState(false);
-  const [catalogBusy, setCatalogBusy] = useState(false);
-  const [subagentDraft, setSubagentDraft] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    setSubagentDraft(undefined);
-  }, [target]);
+  const [autoModelSaving, setAutoModelSaving] = useState(false);
 
   const piSettingsQuery = useQuery({
     queryKey: ["pi-settings"],
@@ -143,47 +125,13 @@ export default function ProvidersPage() {
     enabled: target === "pi",
   });
 
-  const connectionQuery = useQuery({
-    queryKey: ["agent-connection", target],
-    queryFn: () => getAgentConnection(target),
-  });
-  const gatewayCatalog = connectionQuery.data?.connectionType === "gateway";
-  const hideProviderSwitch = isNativeCatalog || gatewayCatalog;
+  const gatewayCatalog = store.providers.some(
+    (provider) => provider.providerKind === "smart_gateway" && provider.isCurrent,
+  );
 
-  const catalogModelsQuery = useQuery({
-    queryKey: ["gateway-catalog-models", target],
-    queryFn: () => listGatewayCatalogModels(target),
-    enabled: gatewayCatalog,
-  });
   const catalogEntriesQuery = useQuery({
     queryKey: ["gateway-catalog-entries", target],
     queryFn: () => listGatewayCatalogEntries(target),
-    enabled: gatewayCatalog && target === "claude_code",
-  });
-  const subagentQuery = useQuery({
-    queryKey: ["gateway-catalog-subagent", target],
-    queryFn: () => getGatewayCatalogSubagent(target),
-    enabled: gatewayCatalog,
-  });
-  const hideOfficialQuery = useQuery({
-    queryKey: ["gateway-catalog-hide-official", target],
-    queryFn: () => getGatewayCatalogHideOfficial(target),
-    enabled: gatewayCatalog,
-  });
-  const opusplanQuery = useQuery({
-    queryKey: ["gateway-catalog-opusplan", target],
-    queryFn: () => getGatewayCatalogOpusplan(target),
-    enabled: gatewayCatalog && target === "claude_code",
-  });
-  const catalogPlanQuery = useQuery({
-    queryKey: ["gateway-catalog-plan", target],
-    queryFn: () => getGatewayCatalogPlan(target),
-    enabled: gatewayCatalog && target === "claude_code",
-  });
-  const catalogExecuteQuery = useQuery({
-    queryKey: ["gateway-catalog-execute", target],
-    queryFn: () => getGatewayCatalogExecute(target),
-    enabled: gatewayCatalog && target === "claude_code",
   });
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
@@ -272,8 +220,10 @@ export default function ProvidersPage() {
   }, [store.load, target]);
 
   useEffect(() => {
-    setSubagentDraft(undefined);
-  }, [target]);
+    void ensureSmartGatewayProvider(target)
+      .then(() => store.load(target))
+      .catch(() => undefined);
+  }, [store.load, target]);
 
   useEffect(() => {
     if (target !== "codex") return;
@@ -285,103 +235,36 @@ export default function ProvidersPage() {
   const proxyQuery = useQuery(proxyStatusOptions(target));
   const proxy = proxyQuery.data;
 
-  const handleCatalogModeChange = async (enabled: boolean) => {
-    setCatalogBusy(true);
+  const handleAutoModelChange = async (provider: Provider, model: string) => {
+    setAutoModelSaving(true);
     try {
-      await setAgentConnection(target, enabled ? "gateway" : "external");
-      await connectionQuery.refetch();
-      await catalogModelsQuery.refetch();
-      await catalogEntriesQuery.refetch();
-      await subagentQuery.refetch();
-      await hideOfficialQuery.refetch();
-      await opusplanQuery.refetch();
-      await catalogPlanQuery.refetch();
-      await catalogExecuteQuery.refetch();
+      await updateProvider({
+        id: provider.id,
+        name: provider.name,
+        baseUrl: provider.baseUrl,
+        apiKey: "",
+        model,
+        modelContextWindow: provider.modelContextWindow,
+        autoReviewModelOverride: provider.autoReviewModelOverride,
+        webSearchEnabled: provider.webSearchEnabled,
+        modelMapping: provider.modelMapping,
+        protocolType: provider.protocolType,
+        providerKind: "smart_gateway",
+        authBinding: provider.authBinding,
+        targetApp: provider.targetApp,
+        notes: provider.notes,
+        failoverGroup: provider.failoverGroup,
+        failoverModels: provider.failoverModels,
+        hiddenModels: provider.hiddenModels,
+        thinkingConfig: provider.thinkingConfig,
+        customHeaders: provider.customHeaders,
+      });
       await store.load(target);
-      await proxyQuery.refetch();
-      void message.success(
-        enabled ? t("providers.catalogModeEnabled") : t("providers.catalogModeDisabled"),
-      );
+      void message.success(t("providers.autoModelSaved"));
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
-      setCatalogBusy(false);
-    }
-  };
-
-  const handleFallbackModeChange = async (mode: string) => {
-    setCatalogBusy(true);
-    try {
-      await updateGatewayProfile(target, { fallbackMode: mode });
-      await connectionQuery.refetch();
-      void message.success(t("providers.fallbackModeSaved"));
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setCatalogBusy(false);
-    }
-  };
-
-  const handleSubagentChange = async (model: string) => {
-    const next = model.trim();
-    try {
-      await setGatewayCatalogSubagent(target, next);
-      setSubagentDraft(undefined);
-      await subagentQuery.refetch();
-      void message.success(t("providers.catalogSubagentSaved"));
-    } catch (error) {
-      void message.error(errMsg(error));
-    }
-  };
-  const handleHideOfficialChange = async (enabled: boolean) => {
-    setCatalogBusy(true);
-    try {
-      await setGatewayCatalogHideOfficial(target, enabled);
-      await hideOfficialQuery.refetch();
-      await catalogModelsQuery.refetch();
-      await catalogEntriesQuery.refetch();
-      void message.success(
-        enabled ? t("providers.catalogHideOfficialOn") : t("providers.catalogHideOfficialOff"),
-      );
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setCatalogBusy(false);
-    }
-  };
-
-  const handleOpusplanChange = async (enabled: boolean) => {
-    setCatalogBusy(true);
-    try {
-      await setGatewayCatalogOpusplan(target, enabled);
-      await opusplanQuery.refetch();
-      void message.success(
-        enabled ? t("providers.catalogOpusplanOn") : t("providers.catalogOpusplanOff"),
-      );
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setCatalogBusy(false);
-    }
-  };
-
-  const handleCatalogPlanChange = async (model: string) => {
-    try {
-      await setGatewayCatalogPlan(target, model);
-      await catalogPlanQuery.refetch();
-      void message.success(t("providers.catalogPlanSaved"));
-    } catch (error) {
-      void message.error(errMsg(error));
-    }
-  };
-
-  const handleCatalogExecuteChange = async (model: string) => {
-    try {
-      await setGatewayCatalogExecute(target, model);
-      await catalogExecuteQuery.refetch();
-      void message.success(t("providers.catalogExecuteSaved"));
-    } catch (error) {
-      void message.error(errMsg(error));
+      setAutoModelSaving(false);
     }
   };
 
@@ -390,6 +273,19 @@ export default function ProvidersPage() {
       await setClaudeCodeDefaultPermissionMode(mode);
       await defaultPermissionModeQuery.refetch();
       void message.success(t("providers.defaultPermissionModeSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const handleImportToGateway = async (provider: Provider) => {
+    try {
+      const result = await importGatewayUpstreamsFromProviders(target, [provider.id], target);
+      if (result.imported > 0) {
+        void message.success(t("proxy.importUpstreamDone", { imported: result.imported, skipped: result.skipped }));
+      } else {
+        void message.info(t("proxy.importUpstreamDone", { imported: result.imported, skipped: result.skipped }));
+      }
     } catch (error) {
       void message.error(errMsg(error));
     }
@@ -417,6 +313,33 @@ export default function ProvidersPage() {
     setImportHint(null);
     setFormOpen(true);
   };
+
+  const handleCreateSmartGateway = async () => {
+    try {
+      const auto = await ensureSmartGatewayProvider(target);
+      await store.load(target);
+      if (!auto.isCurrent) {
+        await handleSwitch(auto);
+      } else {
+        void message.success(t("providers.smartGatewayReady"));
+      }
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const createMenuItems: MenuProps["items"] = [
+    {
+      key: "smart_gateway",
+      label: t("providers.createSmartGateway"),
+      onClick: () => void handleCreateSmartGateway(),
+    },
+    {
+      key: "custom",
+      label: t("providers.createCustom"),
+      onClick: openCreate,
+    },
+  ];
 
   const openEdit = (provider: Provider, hint?: string | null) => {
     setEditing(provider);
@@ -567,7 +490,10 @@ export default function ProvidersPage() {
             icon={<NodeIndexOutlined />}
             color={isNativeCatalog ? "blue" : proxy?.running ? "green" : undefined}
             style={{ cursor: "pointer", margin: 0 }}
-            onClick={() => navigate("proxy")}
+            onClick={() => {
+              setProxyTarget(target);
+              navigate("proxy");
+            }}
           >
             {isNativeCatalog
               ? t("workbench.proxyDirect")
@@ -586,9 +512,11 @@ export default function ProvidersPage() {
           </Tag>
         </div>
         <div className="cc-header-right">
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t("providers.create")}
-          </Button>
+          <Dropdown menu={{ items: createMenuItems }} trigger={["click"]}>
+            <Button type="primary" icon={<PlusOutlined />}>
+              {t("providers.create")}
+            </Button>
+          </Dropdown>
           {target === "opencode" && (
             <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
               {t("providers.syncOpenCodeLive")}
@@ -628,171 +556,19 @@ export default function ProvidersPage() {
       </div>
 
       {/* Onboarding Tips */}
-      {!hideProviderSwitch && (
-        <OnboardingTip
-          tipKey="providers_hot_switch"
+      <OnboardingTip
+        tipKey="providers_hot_switch"
+        type="info"
+        message={t("providers.hotSwitchTitle")}
+        description={t("providers.hotSwitchDescription")}
+      />
+      {!gatewayCatalog && (
+        <Alert
           type="info"
-          message={t("providers.hotSwitchTitle")}
-          description={t("providers.hotSwitchDescription")}
+          showIcon
+          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
+          message={<span style={{ fontSize: "12.5px" }}>{t("providers.enableGatewayHint")}</span>}
         />
-      )}
-      {true && (
-        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-          <Space direction="vertical" size="small" style={{ width: "100%" }}>
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space>
-                <strong>{t("providers.routingModeTitle")}</strong>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.routingModeHint")}
-                </Text>
-              </Space>
-              <Segmented
-                size="small"
-                value={gatewayCatalog ? "catalog" : "independent"}
-                disabled={catalogBusy || connectionQuery.isLoading}
-                onChange={(value) => void handleCatalogModeChange(value === "catalog")}
-                options={[
-                  { label: t("providers.routingIndependent"), value: "independent" },
-                  { label: t("providers.routingCatalog"), value: "catalog" },
-                ]}
-              />
-            </Space>
-            {gatewayCatalog && supportsGatewayCatalog && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0}>
-                  <strong>{t("providers.catalogSubagentLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {target === "codex"
-                      ? t("providers.catalogSubagentHintCodex")
-                      : t("providers.catalogSubagentHint")}
-                  </Text>
-                </Space>
-                <AutoComplete
-                  allowClear
-                  style={{ minWidth: 280 }}
-                  value={subagentDraft ?? subagentQuery.data ?? ""}
-                  options={(catalogModelsQuery.data ?? []).map((id) => ({ value: id, label: id }))}
-                  placeholder={t("providers.catalogSubagentPlaceholder")}
-                  filterOption={(input, option) =>
-                    String(option?.value ?? "").toLowerCase().includes(input.toLowerCase())
-                  }
-                  onChange={(value) => setSubagentDraft(String(value ?? ""))}
-                  onSelect={(value) => void handleSubagentChange(String(value ?? ""))}
-                  onBlur={() => {
-                    const next = (subagentDraft ?? subagentQuery.data ?? "").trim();
-                    if (next !== (subagentQuery.data ?? "").trim()) {
-                      void handleSubagentChange(next);
-                    }
-                  }}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && target === "claude_code" && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                  <strong>{t("providers.catalogOpusplanLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.catalogOpusplanHint")}
-                  </Text>
-                </Space>
-                <Switch
-                  checked={opusplanQuery.data === true}
-                  disabled={catalogBusy || opusplanQuery.isLoading}
-                  onChange={(checked) => void handleOpusplanChange(checked)}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && target === "claude_code" && opusplanQuery.data === true && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                  <strong>{t("providers.catalogPlanLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.catalogPlanHint")}
-                  </Text>
-                </Space>
-                <Select
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  style={{ minWidth: 280 }}
-                  value={catalogPlanQuery.data || undefined}
-                  options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
-                  placeholder={t("providers.catalogPlanPlaceholder")}
-                  disabled={catalogBusy || catalogPlanQuery.isLoading}
-                  onChange={(value) => void handleCatalogPlanChange(String(value ?? ""))}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && target === "claude_code" && opusplanQuery.data === true && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                  <strong>{t("providers.catalogExecuteLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.catalogExecuteHint")}
-                  </Text>
-                </Space>
-                <Select
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  style={{ minWidth: 280 }}
-                  value={catalogExecuteQuery.data || undefined}
-                  options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
-                  placeholder={t("providers.catalogExecutePlaceholder")}
-                  disabled={catalogBusy || catalogExecuteQuery.isLoading}
-                  onChange={(value) => void handleCatalogExecuteChange(String(value ?? ""))}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && supportsGatewayCatalog && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0}>
-                  <strong>{t("providers.catalogHideOfficialLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.catalogHideOfficialHint")}
-                  </Text>
-                </Space>
-                <Switch
-                  checked={hideOfficialQuery.data === true}
-                  disabled={catalogBusy || hideOfficialQuery.isLoading}
-                  onChange={(checked) => void handleHideOfficialChange(checked)}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && (
-              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space direction="vertical" size={0}>
-                  <strong>{t("providers.fallbackModeLabel")}</strong>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t("providers.fallbackModeHint")}
-                  </Text>
-                </Space>
-                <Select
-                  size="small"
-                  style={{ minWidth: 180 }}
-                  value={connectionQuery.data?.profile?.fallbackMode ?? "off"}
-                  disabled={catalogBusy}
-                  onChange={(value) => void handleFallbackModeChange(String(value))}
-                  options={[
-                    { value: "off", label: t("providers.fallbackModeOff") },
-                    { value: "retry", label: t("providers.fallbackModeRetry") },
-                    { value: "model_chain", label: t("providers.fallbackModeChain") },
-                  ]}
-                />
-              </Space>
-            )}
-            {gatewayCatalog && (
-              <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.catalogModeDescription")}
-                </Text>
-                <Button type="link" size="small" onClick={() => navigate("proxy")}>
-                  {t("providers.openGatewayRoutes")}
-                </Button>
-              </Space>
-            )}
-          </Space>
-        </Card>
       )}
       {target === "claude_code" && (
         <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
@@ -962,14 +738,7 @@ export default function ProvidersPage() {
                       size="small"
                       style={{ borderRadius: 6, fontSize: 12 }}
                       loading={switchingId === "official"}
-                      onClick={() => {
-                        void (async () => {
-                          await handleOfficial();
-                          if (supportsGatewayCatalog) {
-                            await connectionQuery.refetch();
-                          }
-                        })();
-                      }}
+                      onClick={() => void handleOfficial()}
                     >
                       {t("providers.switchTo")}
                     </Button>
@@ -981,24 +750,36 @@ export default function ProvidersPage() {
         )}
 
         {/* Custom Provider Cards */}
-        {store.providers.map((provider) => {
+        {[...store.providers]
+          .sort((left, right) => Number(right.providerKind === "smart_gateway") - Number(left.providerKind === "smart_gateway"))
+          .map((provider) => {
+          const isAuto = provider.providerKind === "smart_gateway";
           const isCurrent = provider.isCurrent;
           const extraModels = extraListedModels(provider);
+          const showSwitch = !isCurrent && (isAuto || !isNativeCatalog || gatewayCatalog);
+          const showCurrent = isCurrent && (isAuto || !isNativeCatalog);
           return (
             <div
               key={provider.id}
-              className={`cc-provider-card ${!hideProviderSwitch && isCurrent ? "cc-provider-card-active" : ""}`}
+              className={`cc-provider-card ${showCurrent ? "cc-provider-card-active" : ""}`}
             >
               <div className="cc-provider-card-body">
                 <div className="cc-provider-card-header">
                   <div className="cc-provider-main">
                     <ProviderBrandIcon provider={provider} size={36} />
                     <div className="cc-provider-info">
-                      <span className="cc-provider-name">{provider.name}</span>
+                      <span className="cc-provider-name">
+                        {isAuto ? t("providers.autoCardName") : provider.name}
+                      </span>
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {!hideProviderSwitch && isCurrent && (
+                    {isAuto && (
+                      <Tag color="blue" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
+                        {t("providers.autoCardTag")}
+                      </Tag>
+                    )}
+                    {showCurrent && (
                       <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
                         🟢 {t("providers.current")}
                       </Tag>
@@ -1015,10 +796,23 @@ export default function ProvidersPage() {
                 </div>
 
                 <div className="cc-provider-card-meta">
-                  <Tag className="cc-provider-model-tag" title={provider.model || "Default"}>
-                    Model: {provider.model || "Default"}
-                  </Tag>
-                  {extraModels.length > 0 && (
+                  {isAuto ? (
+                    <Select
+                      size="small"
+                      showSearch
+                      optionFilterProp="label"
+                      style={{ minWidth: 220 }}
+                      value={provider.model || "auto"}
+                      loading={autoModelSaving}
+                      options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
+                      onChange={(value) => void handleAutoModelChange(provider, String(value ?? "auto"))}
+                    />
+                  ) : (
+                    <Tag className="cc-provider-model-tag" title={provider.model || "Default"}>
+                      Model: {provider.model || "Default"}
+                    </Tag>
+                  )}
+                  {!isAuto && extraModels.length > 0 && (
                     <Tag
                       className="cc-provider-meta-tag"
                       title={t("providers.extraModelsHint", { models: extraModels.join(", ") })}
@@ -1026,16 +820,16 @@ export default function ProvidersPage() {
                       +{extraModels.length}
                     </Tag>
                   )}
-                  <Tag className="cc-provider-meta-tag">{provider.protocolType}</Tag>
-                  <ProviderQuotaView providerId={provider.id} />
+                  <Tag className="cc-provider-meta-tag">{isAuto ? "auto" : provider.protocolType}</Tag>
+                  {!isAuto && <ProviderQuotaView providerId={provider.id} />}
                 </div>
 
                 <div className="cc-provider-card-footer">
                   <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
-                    {provider.baseUrl}
+                    {isAuto ? t("providers.autoCardHint") : provider.baseUrl}
                   </Text>
                   <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
-                    {!hideProviderSwitch && !isCurrent && (
+                    {showSwitch && (
                       <Button
                         type="primary"
                         size="small"
@@ -1043,9 +837,21 @@ export default function ProvidersPage() {
                         loading={switchingId === provider.id}
                         onClick={() => void handleSwitch(provider)}
                       >
-                        {t("providers.switchTo")}
+                        {isAuto ? t("providers.enableSmartGateway") : t("providers.switchTo")}
                       </Button>
                     )}
+                    {isAuto ? (
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() => {
+                          setProxyTarget(target);
+                          navigate("proxy");
+                        }}
+                      >
+                        {t("providers.configureGateway")}
+                      </Button>
+                    ) : (
                     <Space size={2}>
                       <Tooltip title={t("providers.testConnection")}>
                         <Button
@@ -1062,6 +868,14 @@ export default function ProvidersPage() {
                           type="text"
                           icon={<EditOutlined />}
                           onClick={() => openEdit(provider)}
+                        />
+                      </Tooltip>
+                      <Tooltip title={t("providers.importToGateway")}>
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={<ImportOutlined />}
+                          onClick={() => void handleImportToGateway(provider)}
                         />
                       </Tooltip>
                       <Tooltip title={t("providers.copyToAgent")}>
@@ -1099,6 +913,7 @@ export default function ProvidersPage() {
                         </Tooltip>
                       </Popconfirm>
                     </Space>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1114,9 +929,11 @@ export default function ProvidersPage() {
               style={{ padding: "20px 16px" }}
               action={
                 <Space>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                    {t("providers.create")}
-                  </Button>
+                  <Dropdown menu={{ items: createMenuItems }} trigger={["click"]}>
+                    <Button type="primary" icon={<PlusOutlined />}>
+                      {t("providers.create")}
+                    </Button>
+                  </Dropdown>
                   {target === "opencode" && (
                     <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
                       {t("providers.syncOpenCodeLive")}

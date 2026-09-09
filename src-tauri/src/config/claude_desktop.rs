@@ -439,8 +439,13 @@ fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
 }
 
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
-    let role_routes = provider.requires_local_proxy();
-    let (base_url, api_key) = if role_routes {
+    let role_routes = provider.requires_local_proxy() && !provider.is_smart_gateway();
+    let (base_url, api_key) = if provider.is_smart_gateway() {
+        (
+            desktop_proxy_gateway_base_url(proxy_port),
+            provider.api_key.clone(),
+        )
+    } else if role_routes {
         let token = get_or_create_gateway_token()?;
         (desktop_proxy_gateway_base_url(proxy_port), token)
     } else {
@@ -459,7 +464,12 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
         "autoModeEnabled": true,
     });
 
-    if role_routes {
+    if provider.is_smart_gateway() {
+        let model = crate::gateway::normalize_live_model(&provider.model);
+        profile["inferenceModels"] = serde_json::json!([
+            { "name": model, "supports1m": true }
+        ]);
+    } else if role_routes {
         profile["inferenceModels"] = Value::Array(desktop_inference_models(provider));
     } else if !provider.model.trim().is_empty() {
         profile["inferenceModels"] = serde_json::json!([

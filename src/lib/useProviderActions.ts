@@ -61,7 +61,7 @@ export function useProviderActions(options: {
   };
 
   const handleSwitch = async (provider: Provider) => {
-    if (!provider.apiKeySet) {
+    if (!provider.apiKeySet && provider.providerKind !== "smart_gateway") {
       void message.warning(t("providers.missingKey"));
       return;
     }

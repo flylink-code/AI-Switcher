@@ -21,6 +21,9 @@ import type {
   GatewayProfile,
   GatewayProfilePatch,
   GatewayRouteLog,
+  GatewayUpstreamImportResult,
+  GatewayUpstreamModelRow,
+  GatewayUpstreamDiscoverItem,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -86,6 +89,64 @@ export async function listGatewayRouteLogs(
   limit = 20,
 ): Promise<GatewayRouteLog[]> {
   return call<GatewayRouteLog[]>("list_gateway_route_logs", { target, limit });
+}
+
+export async function listGatewayUpstreams(): Promise<Provider[]> {
+  return call<Provider[]>("list_gateway_upstreams");
+}
+
+export async function upsertGatewayUpstream(input: ProviderInput): Promise<Provider> {
+  return call<Provider>("upsert_gateway_upstream", { input });
+}
+
+export async function deleteGatewayUpstream(id: string): Promise<void> {
+  return call<void>("delete_gateway_upstream", { id });
+}
+
+export async function addAntigravityGatewayUpstream(): Promise<Provider> {
+  return call<Provider>("add_antigravity_gateway_upstream");
+}
+
+export async function importGatewayUpstreamsFromProviders(
+  sourceTarget: ProviderTarget,
+  providerIds: string[],
+  addToAllowlistTarget?: ProviderTarget | null,
+): Promise<GatewayUpstreamImportResult> {
+  return call<GatewayUpstreamImportResult>("import_gateway_upstreams_from_providers", {
+    sourceTarget,
+    providerIds,
+    addToAllowlistTarget: addToAllowlistTarget ?? null,
+  });
+}
+
+export async function listGatewayUpstreamModels(id: string): Promise<GatewayUpstreamModelRow[]> {
+  return call<GatewayUpstreamModelRow[]>("list_gateway_upstream_models", { id });
+}
+
+export async function setGatewayUpstreamModelVisible(
+  id: string,
+  modelId: string,
+  visible: boolean,
+): Promise<GatewayUpstreamModelRow[]> {
+  return call<GatewayUpstreamModelRow[]>("set_gateway_upstream_model_visible", {
+    id,
+    modelId,
+    visible,
+  });
+}
+
+export async function discoverGatewayUpstreamModels(id: string): Promise<ModelDiscoveryResult> {
+  return call<ModelDiscoveryResult>("discover_gateway_upstream_models", { id });
+}
+
+export async function discoverGatewayUpstreamModelsBatch(
+  ids: string[],
+): Promise<GatewayUpstreamDiscoverItem[]> {
+  return call<GatewayUpstreamDiscoverItem[]>("discover_gateway_upstream_models_batch", { ids });
+}
+
+export async function ensureSmartGatewayProvider(target: ProviderTarget): Promise<Provider> {
+  return call<Provider>("ensure_smart_gateway_provider", { target });
 }
 
 export async function getGatewayCatalogEnabled(target: ProviderTarget): Promise<boolean> {

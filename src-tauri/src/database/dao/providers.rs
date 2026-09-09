@@ -117,7 +117,26 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     } else {
         normalize_provider_base_url(input.target_app, protocol_type, &input.base_url)?
     };
-    crate::gateway::assert_not_self_referential(&base_url)?;
+    let existing = input
+        .id
+        .as_ref()
+        .map(|id| get_provider(conn, id))
+        .transpose()?
+        .flatten();
+    let is_smart_gateway = input.provider_kind == ProviderKind::SmartGateway
+        || existing
+            .as_ref()
+            .map(Provider::is_smart_gateway)
+            .unwrap_or(false);
+    if !is_smart_gateway {
+        crate::gateway::assert_not_self_referential(&base_url)?;
+        crate::gateway::assert_not_managed_gateway_kind(input.provider_kind)?;
+    }
+    let provider_kind = if is_smart_gateway {
+        ProviderKind::SmartGateway
+    } else {
+        input.provider_kind
+    };
     let model_mapping_json = serde_json::to_string(&normalized_model_mapping(
         input.target_app,
         input.model_mapping.clone(),
@@ -141,8 +160,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
 
     let now = Utc::now().timestamp_millis();
     if let Some(id) = input.id.as_ref() {
-        let existing = get_provider(conn, id)?
-            .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+        if let Some(existing) = get_provider(conn, id)? {
         if existing.target_app != input.target_app {
             return Err(AppError::Config("不能跨应用更新供应商".to_string()));
         }
@@ -171,7 +189,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
                 input.name, base_url, api_key_col, input.model,
                 protocol_type.as_str(), input.notes, model_mapping_json,
                 input.model_context_window, auto_review_model_override,
-                input.provider_kind.as_str(), input.auth_binding.trim(),
+                provider_kind.as_str(), input.auth_binding.trim(),
                 web_search_sql(input.web_search_enabled),
                 input.failover_group,
                 serde_json::to_string(&normalize_failover_models(&input.failover_models))?,
@@ -185,11 +203,15 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             secrets::delete_key(id)?;
         }
         let updated = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-        let _ = super::gateway::sync_upstream_from_provider(conn, &updated);
         return Ok(updated);
+        }
     }
 
-    let id = format!("p_{}", uuid_v8());
+    let id = input
+        .id
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("p_{}", uuid_v8()));
     let next_sort = next_sort_index(conn, input.target_app)?;
     // Create: store key (if provided) before inserting the row.
     if input.clear_api_key {
@@ -209,7 +231,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         params![
             id, input.name, base_url, api_key_col, input.model,
-            protocol_type.as_str(), input.provider_kind.as_str(), input.auth_binding.trim(),
+            protocol_type.as_str(), provider_kind.as_str(), input.auth_binding.trim(),
             input.target_app.as_str(), input.notes, next_sort, now,
             model_mapping_json, input.model_context_window, auto_review_model_override,
             web_search_sql(input.web_search_enabled),
@@ -225,9 +247,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         }
         return Err(error.into());
     }
-    let created = get_provider(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回供应商".to_string()))?;
-    let _ = super::gateway::sync_upstream_from_provider(conn, &created);
-    Ok(created)
+    get_provider(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回供应商".to_string()))
 }
 
 /// Resolve a provider's API key to plaintext at runtime.
@@ -239,15 +259,32 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
 /// Callers that write the key into config files (settings.json, configLibrary)
 /// or forward it upstream must go through this so the DB never holds plaintext.
 pub fn resolve_api_key(conn: &Connection, id: &str) -> AppResult<Option<String>> {
-    let provider = get_provider(conn, id)?
-        .ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
-    Ok(match provider.api_key.as_str() {
+    let stored = if let Some(provider) = get_provider(conn, id)? {
+        provider.api_key
+    } else {
+        match conn.query_row(
+            "SELECT api_key FROM upstreams WHERE id = ?;",
+            params![id],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(value) => value,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                return Err(AppError::Config(format!("供应商不存在: {id}")));
+            }
+            Err(error) => return Err(error.into()),
+        }
+    };
+    Ok(match stored.as_str() {
         "" => None,
         v if secrets::is_keyring_ref(v) => {
             let account = &v[secrets::KEYRING_REF_PREFIX.len()..];
             secrets::load_key(account)?
         }
-        _ => return Err(AppError::Config("检测到未迁移的明文 API Key，请重新启动以完成凭据迁移".to_string())),
+        _ => {
+            return Err(AppError::Config(
+                "检测到未迁移的明文 API Key，请重新启动以完成凭据迁移".to_string(),
+            ))
+        }
     })
 }
 
@@ -314,22 +351,26 @@ pub fn migrate_plaintext_api_keys(conn: &Connection) -> AppResult<()> {
 /// Also removes the stored credential from the OS keyring (best-effort).
 pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     let provider = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+    if provider.is_smart_gateway() {
+        return Err(AppError::Config("不能删除智能网关 Auto 卡".to_string()));
+    }
     if provider.is_current
         && !provider.target_app.is_catalog_target()
         && !catalog::enabled_for_conn(conn, provider.target_app)
     {
         return Err(AppError::Config("不能删除当前激活的供应商".to_string()));
     }
-    super::gateway::assert_upstream_deletable(conn, id)?;
+    let upstream_shares_id = super::gateway::get_upstream_provider(conn, id)?.is_some();
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM provider_models WHERE provider_id = ?;", params![id])?;
     tx.execute("DELETE FROM provider_health WHERE provider_id = ?;", params![id])?;
     tx.execute("DELETE FROM providers WHERE id = ?;", params![id])?;
     tx.commit()?;
-    let _ = super::gateway::delete_upstream_mirror(conn, id);
-    // Clean up the keyring entry; a missing entry is not an error.
-    if let Err(e) = secrets::delete_key(id) {
-        log::warn!("删除供应商 {id} 的凭据失败（已忽略）: {e}");
+    // Shared-id legacy mirrors keep the keyring; imported `up_*` rows have their own secret.
+    if !upstream_shares_id {
+        if let Err(e) = secrets::delete_key(id) {
+            log::warn!("删除供应商 {id} 的凭据失败（已忽略）: {e}");
+        }
     }
     Ok(())
 }

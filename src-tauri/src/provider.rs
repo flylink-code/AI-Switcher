@@ -80,6 +80,16 @@ impl ProviderTarget {
         )
     }
 
+    pub const ALL: [ProviderTarget; 7] = [
+        ProviderTarget::ClaudeCode,
+        ProviderTarget::ClaudeDesktop,
+        ProviderTarget::Codex,
+        ProviderTarget::OpenCode,
+        ProviderTarget::Pi,
+        ProviderTarget::Dsh,
+        ProviderTarget::Cline,
+    ];
+
     /// Claude Code / Codex 可选「统一模型目录」（由设置项开启）。
     pub fn supports_gateway_catalog(self) -> bool {
         matches!(self, ProviderTarget::ClaudeCode | ProviderTarget::Codex)
@@ -139,6 +149,8 @@ pub enum ProviderKind {
     CodexOauth,
     /// Built-in Antigravity Google-account gateway.
     Antigravity,
+    /// Managed Smart Gateway Auto card (local listener, not an upstream).
+    SmartGateway,
 }
 
 impl ProviderKind {
@@ -147,6 +159,7 @@ impl ProviderKind {
             ProviderKind::Standard => "standard",
             ProviderKind::CodexOauth => "codex_oauth",
             ProviderKind::Antigravity => "antigravity",
+            ProviderKind::SmartGateway => "smart_gateway",
         }
     }
 
@@ -154,6 +167,7 @@ impl ProviderKind {
         match value {
             "codex_oauth" => ProviderKind::CodexOauth,
             "antigravity" => ProviderKind::Antigravity,
+            "smart_gateway" => ProviderKind::SmartGateway,
             _ => ProviderKind::Standard,
         }
     }
@@ -331,6 +345,9 @@ pub fn copied_provider_input(
     existing_names: &[String],
     api_key: String,
 ) -> AppResult<ProviderInput> {
+    if source.is_smart_gateway() {
+        return Err(AppError::Config("不能复制智能网关 Auto 卡".to_string()));
+    }
     if source.target_app == dest {
         return Err(AppError::Config("不能复制到同一个 Agent".to_string()));
     }
@@ -1002,8 +1019,15 @@ impl Provider {
         self.provider_kind == ProviderKind::Antigravity
     }
 
+    pub fn is_smart_gateway(&self) -> bool {
+        self.provider_kind == ProviderKind::SmartGateway
+    }
+
     pub fn requires_local_proxy(&self) -> bool {
         if self.is_codex_oauth() {
+            return true;
+        }
+        if self.is_smart_gateway() {
             return true;
         }
         // Built-in Antigravity gateway already speaks Anthropic/OpenAI; Code/Codex

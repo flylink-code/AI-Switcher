@@ -18,6 +18,8 @@ function canCopyProviderKindTo(kind: ProviderKind, dest: ProviderTarget): boolea
     case "standard":
     case "antigravity":
       return true;
+    case "smart_gateway":
+      return false;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Badge, Button, Card, Space, Table, Typography, message } from "antd";
+import { Alert, Badge, Button, Card, Space, Table, Tag, Typography, message } from "antd";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -15,13 +15,19 @@ import {
   setProxyPort,
   startProxy,
   stopProxy,
+  switchProvider,
 } from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
-import { getAgentConnection, listGatewayRouteLogs } from "@/services/providers";
+import { useNavigatePage } from "@/lib/navigation";
+import {
+  getAgentConnection,
+  listGatewayRouteLogs,
+  ensureSmartGatewayProvider,
+} from "@/services/providers";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
-import { ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
+import { ProxyRoutePanel, ResilienceSettings, GatewayUpstreamPanel, GatewayProfilePanel } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 import type { ProviderTarget } from "@/types/backend";
 
@@ -40,8 +46,10 @@ const PROXY_TARGETS: ProviderTarget[] = [
 export default function ProxyPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigatePage();
   const [port, setPort] = useState<number>(15821);
   const [busy, setBusy] = useState(false);
+  const [enabling, setEnabling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [failoverSaving, setFailoverSaving] = useState(false);
   const [retryCodes, setRetryCodes] = useState("400-404,408,429,500-599");
@@ -52,6 +60,7 @@ export default function ProxyPage() {
   // Page-local Agent target (independent persisted slice).
   const target = usePagePreferencesStore((state) => state.proxyTarget);
   const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
+  const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
   const connectionQuery = useQuery({
@@ -75,6 +84,10 @@ export default function ProxyPage() {
     queryKey: ["proxy-streaming-idle-timeout"],
     queryFn: getProxyStreamingIdleTimeoutSecs,
   });
+
+  useEffect(() => {
+    void ensureSmartGatewayProvider(target).catch(() => undefined);
+  }, [target]);
 
   useEffect(() => {
     if (status) setPort(status.port);
@@ -113,6 +126,27 @@ export default function ProxyPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleEnableGateway = async () => {
+    setEnabling(true);
+    try {
+      const auto = await ensureSmartGatewayProvider(target);
+      await switchProvider(auto.id);
+      await queryClient.invalidateQueries({ queryKey: ["agent-connection", target] });
+      await queryClient.invalidateQueries({ queryKey: ["providers", target] });
+      await queryClient.invalidateQueries({ queryKey: ["proxy-status", target] });
+      void message.success(t("proxy.gatewayEnabled"));
+    } catch (e) {
+      void message.error(errMsg(e));
+    } finally {
+      setEnabling(false);
+    }
+  };
+
+  const handleOpenProvidersAuto = () => {
+    setProvidersTarget(target);
+    navigate("providers");
   };
 
   const handleRefresh = async () => {
@@ -209,6 +243,19 @@ export default function ProxyPage() {
         <div className="cc-header-left">
           <AgentTargetSwitcher value={target} onChange={setProxyTarget} targets={PROXY_TARGETS} />
           {statusBadge}
+          {isGateway ? (
+            <Tag
+              color="blue"
+              style={{ cursor: "pointer", margin: 0 }}
+              onClick={handleOpenProvidersAuto}
+            >
+              {t("proxy.gatewayEnabledTag")}
+            </Tag>
+          ) : (
+            <Button size="small" type="primary" loading={enabling} onClick={() => void handleEnableGateway()}>
+              {t("proxy.enableThisAgent")}
+            </Button>
+          )}
         </div>
         {!isOpencodeDirect && (
           <div className="cc-header-right">
@@ -253,6 +300,9 @@ export default function ProxyPage() {
         clientLabel={t(`workspace.${target}`)}
         directOnly={isOpencodeDirect}
       />
+
+      <GatewayUpstreamPanel allowlistTarget={target} />
+      <GatewayProfilePanel target={target} />
 
       <Card size="small" className="page-surface" title={t("proxy.recentRoutes")}>
         <Table

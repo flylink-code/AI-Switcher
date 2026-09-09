@@ -39,7 +39,7 @@ use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
     update_proxy_log_route, update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
-use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, list_providers, resolve_api_key};
+use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -519,7 +519,11 @@ pub(crate) fn load_gateway_catalog(
 ) -> AppResult<(Vec<Provider>, Vec<crate::catalog::CatalogEntry>)> {
     let providers = state
         .db
-        .with_conn(|conn| list_providers(conn, state.target))?;
+        .with_conn(|conn| crate::database::dao::gateway::list_upstream_providers(conn, false))?;
+    let providers: Vec<Provider> = providers
+        .into_iter()
+        .filter(|provider| !provider.is_smart_gateway())
+        .collect();
     let profile = state
         .db
         .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
@@ -544,9 +548,7 @@ pub(crate) fn load_gateway_catalog(
         let cached = state
             .db
             .with_conn(|conn| {
-                Ok(get_provider_model_cache(conn, &provider.id)?
-                    .map(|cache| cache.models)
-                    .unwrap_or_default())
+                crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &provider.id)
             })
             .unwrap_or_default();
         pairs.push((provider.clone(), cached));
@@ -598,14 +600,16 @@ pub(crate) const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 pub(crate) fn select_gateway_runtime_provider(
     state: &ProxyState,
     requested_model: &str,
+    incoming: &Value,
 ) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
-    select_gateway_runtime_provider_with(state, requested_model, false)
+    select_gateway_runtime_provider_with(state, requested_model, false, incoming)
 }
 
 pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
     force_catalog_subagent: bool,
+    incoming: &Value,
 ) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
@@ -614,14 +618,19 @@ pub(crate) fn select_gateway_runtime_provider_with(
         .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         .ok()
         .flatten();
+    let hints = crate::gateway::RouteHints {
+        token_count: crate::gateway::estimate_request_tokens(incoming),
+        has_web_search: crate::gateway::request_has_web_search(incoming),
+    };
     let Some((provider, upstream, decision, plan, is_catalog_subagent)) =
-        crate::gateway::resolve_gateway_route(
+        crate::gateway::resolve_gateway_route_with(
             style,
             &entries,
             &providers,
             requested_model,
             force_catalog_subagent,
             profile.as_ref(),
+            &hints,
         )
     else {
         return Ok(None);
@@ -1013,7 +1022,7 @@ async fn proxy_handler(
     let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
     let mut attempt_index: i64 = 0;
     if gateway_catalog_enabled(&state) {
-        match select_gateway_runtime_provider(&state, &requested_model) {
+        match select_gateway_runtime_provider(&state, &requested_model, &incoming) {
             Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
                 provider = selected;
                 requested_model = upstream.clone();

@@ -176,6 +176,8 @@ export function ProviderForm({
   const watchedMapping = Form.useWatch("modelMapping", form) ?? EMPTY_MODEL_MAPPING;
   const watchedProviderKind = Form.useWatch("providerKind", form) ?? "standard";
   const watchedThinkingMode = Form.useWatch(["thinkingConfig", "mode"], form) ?? "auto";
+  const isSmartGateway =
+    watchedProviderKind === "smart_gateway" || editing?.providerKind === "smart_gateway";
   const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
   let nameRef: InputRef | null = null;
 
@@ -301,6 +303,10 @@ export function ProviderForm({
 
   const handleOk = async () => {
     try {
+      if (isSmartGateway) {
+        void message.error(t("providers.smartGatewayFormBlocked"));
+        return;
+      }
       const values = await form.validateFields();
       let baseUrl = normalizeBaseUrl(values.baseUrl);
       if (isDirect && (values.protocolType === "openai_chat" || values.protocolType === "openai_responses")) {
@@ -653,6 +659,15 @@ export function ProviderForm({
           </Typography.Paragraph>
         ) : null}
 
+        {isSmartGateway ? (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={t("providers.smartGatewayReadOnly")}
+          />
+        ) : null}
+
         <Form.Item
           name="name"
           label={t("providers.fieldName")}
@@ -666,6 +681,8 @@ export function ProviderForm({
           />
         </Form.Item>
 
+        {!isSmartGateway ? (
+        <>
         <Form.Item
           name="protocolType"
           label={t("providers.fieldProtocol")}
@@ -744,6 +761,8 @@ export function ProviderForm({
             <Checkbox>{t("providers.clearKey")}</Checkbox>
           </Form.Item>
         )}
+        </>
+        ) : null}
 
         <Form.Item
           name="model"

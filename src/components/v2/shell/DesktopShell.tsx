@@ -39,6 +39,7 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
   "providers",
+  "proxy",
   "usage",
   "antigravity",
   "workspace",
@@ -83,12 +84,6 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
 
   const getSecondaryHeaderMeta = (key: PageKey) => {
     switch (key) {
-      case "proxy":
-        return {
-          title: t("navigation.proxy", { defaultValue: "本地代理" }),
-          parentKey: "settings" as PageKey,
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
       case "environment":
         return {
           title: t("nav.environment", { defaultValue: "环境信息" }),

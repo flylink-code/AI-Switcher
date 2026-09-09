@@ -134,10 +134,14 @@ pub use providers::{
     set_claude_code_default_permission_mode, speedtest_provider_endpoint,
     switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
+    ensure_smart_gateway_provider,
 };
 pub use gateway::{
-    get_agent_connection, get_gateway_profile, list_gateway_profiles, list_gateway_route_logs,
-    set_agent_connection, update_gateway_profile,
+    add_antigravity_gateway_upstream, delete_gateway_upstream, discover_gateway_upstream_models,
+    discover_gateway_upstream_models_batch, get_agent_connection, get_gateway_profile,
+    import_gateway_upstreams_from_providers, list_gateway_profiles, list_gateway_route_logs,
+    list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
+    set_gateway_upstream_model_visible, update_gateway_profile, upsert_gateway_upstream,
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,
