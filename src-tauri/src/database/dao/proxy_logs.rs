@@ -1,5 +1,6 @@
 //! Request-log persistence and usage-statistic queries for the local proxy.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use chrono::Utc;
@@ -151,7 +152,7 @@ pub struct UsageBreakdown {
     pub cache_creation_input_tokens: i64,
     pub output_tokens: i64,
     pub estimated_cost: f64,
-    /// Pricing currency for this row (`MIXED` when a provider spans multiple currencies).
+    /// Pricing currency for this row. Mixed-currency groups are converted to USD.
     pub currency: String,
 }
 
@@ -625,28 +626,6 @@ pub fn reset_dsh_session_usage(conn: &Connection) -> AppResult<i64> {
     Ok(deleted)
 }
 
-/// Fill in token counts when they become available in a completed response.
-pub fn update_proxy_log_usage(
-    conn: &Connection,
-    id: &str,
-    input_tokens: i64,
-    cache_read_input_tokens: i64,
-    cache_creation_input_tokens: i64,
-    output_tokens: i64,
-) -> AppResult<()> {
-    update_proxy_log_usage_idempotent(
-        conn,
-        id,
-        None,
-        None,
-        None,
-        input_tokens,
-        cache_read_input_tokens,
-        cache_creation_input_tokens,
-        output_tokens,
-    )
-}
-
 /// Persist usage and optionally rematerialize the log row under a stable
 /// response-scoped id so retries/replays of the same upstream response do not
 /// stack duplicate rows.
@@ -934,39 +913,75 @@ fn usage_breakdown(
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
                 COALESCE(SUM({ROW_COST_SQL}), 0),
-                CASE
-                  WHEN COUNT(DISTINCT CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END) > 1
-                    THEN 'MIXED'
-                  ELSE COALESCE(MAX(CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END), 'USD')
-                END
+                {PRICING_CURRENCY_SQL}
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
            {EFFECTIVE_USAGE_FILTER}
-         GROUP BY {grouping} ORDER BY 2 DESC, 1 ASC;"
+         GROUP BY {grouping}, {PRICING_CURRENCY_SQL};"
     );
+    struct Acc {
+        request_count: i64,
+        input_tokens: i64,
+        cache_read_input_tokens: i64,
+        cache_creation_input_tokens: i64,
+        output_tokens: i64,
+        costs: Vec<(String, f64)>,
+    }
     let mut stmt = conn.prepare(&sql)?;
+    let mut grouped: HashMap<String, Acc> = HashMap::new();
     let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
-        let currency: String = row.get(7)?;
-        let estimated_cost: f64 = row.get(6)?;
-        // Avoid presenting a mixed-currency sum as a single meaningful total.
-        let (estimated_cost, currency) = if currency == "MIXED" {
-            (0.0, currency)
-        } else {
-            (estimated_cost, currency)
-        };
-        Ok(UsageBreakdown {
-            key: row.get(0)?,
-            request_count: row.get(1)?,
-            input_tokens: row.get(2)?,
-            cache_read_input_tokens: row.get(3)?,
-            cache_creation_input_tokens: row.get(4)?,
-            output_tokens: row.get(5)?,
-            estimated_cost,
-            currency,
-        })
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, f64>(6)?,
+            row.get::<_, String>(7)?,
+        ))
     })?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    for row in rows {
+        let (key, request_count, input_tokens, cache_read, cache_write, output_tokens, cost, currency) =
+            row?;
+        let acc = grouped.entry(key).or_insert_with(|| Acc {
+            request_count: 0,
+            input_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 0,
+            costs: Vec::new(),
+        });
+        acc.request_count += request_count;
+        acc.input_tokens += input_tokens;
+        acc.cache_read_input_tokens += cache_read;
+        acc.cache_creation_input_tokens += cache_write;
+        acc.output_tokens += output_tokens;
+        acc.costs.push((currency, cost));
+    }
+    let mut out: Vec<UsageBreakdown> = grouped
+        .into_iter()
+        .map(|(key, acc)| {
+            let (currency, estimated_cost) = crate::usage::summarize_costs_as_usd(&acc.costs);
+            UsageBreakdown {
+                key,
+                request_count: acc.request_count,
+                input_tokens: acc.input_tokens,
+                cache_read_input_tokens: acc.cache_read_input_tokens,
+                cache_creation_input_tokens: acc.cache_creation_input_tokens,
+                output_tokens: acc.output_tokens,
+                estimated_cost,
+                currency,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.request_count
+            .cmp(&a.request_count)
+            .then_with(|| a.key.cmp(&b.key))
+    });
+    Ok(out)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1366,6 +1381,105 @@ mod tests {
                 .find(|row| !row.usage_counted)
                 .and_then(|row| row.hop.as_deref());
             assert_eq!(transit, Some("agent_proxy"));
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn provider_breakdown_converts_mixed_currency_to_usd() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            save_model_pricing(
+                conn,
+                &ModelPricing {
+                    model: "ais-test-usd-mix".to_string(),
+                    provider: "test-mix".to_string(),
+                    input_price_per_million: 1.0,
+                    cache_read_price_per_million: 0.0,
+                    cache_write_price_per_million: 0.0,
+                    output_price_per_million: 0.0,
+                    batch_input_price_per_million: 0.0,
+                    batch_output_price_per_million: 0.0,
+                    currency: "USD".to_string(),
+                    source_url: String::new(),
+                    effective_date: String::new(),
+                    is_default: false,
+                },
+            )?;
+            save_model_pricing(
+                conn,
+                &ModelPricing {
+                    model: "ais-test-cny-mix".to_string(),
+                    provider: "test-mix".to_string(),
+                    input_price_per_million: 7.25,
+                    cache_read_price_per_million: 0.0,
+                    cache_write_price_per_million: 0.0,
+                    output_price_per_million: 0.0,
+                    batch_input_price_per_million: 0.0,
+                    batch_output_price_per_million: 0.0,
+                    currency: "CNY".to_string(),
+                    source_url: String::new(),
+                    effective_date: String::new(),
+                    is_default: false,
+                },
+            )?;
+            let now = Utc::now().timestamp_millis();
+            insert_proxy_log_with_source(
+                conn,
+                None,
+                now,
+                Some("mix-provider"),
+                Some("Mix Provider"),
+                Some("ais-test-usd-mix"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                0,
+                true,
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            insert_proxy_log_with_source(
+                conn,
+                None,
+                now,
+                Some("mix-provider"),
+                Some("Mix Provider"),
+                Some("ais-test-cny-mix"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                0,
+                true,
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            let rows = get_usage_by_provider_for_target(conn, now - 1, Some("claude_code"))?;
+            let mix = rows
+                .iter()
+                .find(|row| row.key == "Mix Provider")
+                .expect("provider row");
+            assert_eq!(mix.request_count, 2);
+            assert_eq!(mix.currency, "USD");
+            // 1 USD + 7.25 CNY (= 1 USD) = 2 USD
+            assert!((mix.estimated_cost - 2.0).abs() < 1e-9);
             Ok(())
         })
         .unwrap();

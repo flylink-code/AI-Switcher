@@ -63,8 +63,8 @@ export const proxyStatusOptions = (target: ProviderTarget) =>
 export const managedAppsRuntimeStatusOptions = queryOptions({
   queryKey: ["managed-apps-runtime-status"] as const,
   queryFn: getManagedAppsRuntimeStatus,
-  staleTime: 2_000,
-  refetchInterval: 3_000,
+  staleTime: 8_000,
+  refetchInterval: 8_000,
 });
 
 export const mcpServersOptions = queryOptions({

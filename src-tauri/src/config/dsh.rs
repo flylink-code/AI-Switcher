@@ -91,10 +91,14 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         credentials = json!({});
     }
 
-    let creds_map = credentials.as_object_mut().unwrap();
+    let creds_map = credentials.as_object_mut().ok_or_else(|| {
+        AppError::Config("DeepSeek Harness .credentials.yaml 不是对象".to_string())
+    })?;
 
     // 追踪先前的托管列表，以便清理废弃供应商
-    let settings_obj = settings.as_object_mut().unwrap();
+    let settings_obj = settings.as_object_mut().ok_or_else(|| {
+        AppError::Config("DeepSeek Harness settings.yaml 不是对象".to_string())
+    })?;
     let previously_managed: Vec<String> = settings_obj
         .get(DSH_MANAGED_KEY)
         .and_then(|v| v.as_array())
@@ -110,14 +114,16 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
 
     let providers_val = llm_pi_ai
         .as_object_mut()
-        .unwrap()
+        .ok_or_else(|| AppError::Config("DeepSeek Harness settings.yaml 的 llm-pi-ai 不是对象".to_string()))?
         .entry("providers".to_string())
         .or_insert_with(|| json!({}));
     if !providers_val.is_object() {
         *providers_val = json!({});
     }
 
-    let providers_map = providers_val.as_object_mut().unwrap();
+    let providers_map = providers_val.as_object_mut().ok_or_else(|| {
+        AppError::Config("DeepSeek Harness settings.yaml 的 providers 不是对象".to_string())
+    })?;
 
     // 清理废弃的旧托管 Key 与 Credentials 环境变量名
     let current_ids: Vec<String> = entries.iter().map(|(p, _)| p.id.clone()).collect();

@@ -63,19 +63,26 @@ const slowTasks: StartupTask[] = [
   },
 ];
 
+const FOREGROUND_PAGES = ["workbench", "providers"] as const;
+
 export async function runStartupWarmup(
   language: string,
   onProgress: (progress: StartupProgress) => void,
 ): Promise<StartupProgress> {
-  const pageTasks = PAGE_KEYS
+  const foregroundPageTasks = FOREGROUND_PAGES.map((key) => ({
+    id: `${key}Page`,
+    run: () => preloadPage(key),
+  }));
+  const backgroundPageTasks = PAGE_KEYS
     .filter((key) => key !== "localization" || language === "zh-CN")
+    .filter((key) => !FOREGROUND_PAGES.includes(key as (typeof FOREGROUND_PAGES)[number]))
     .map((key) => ({ id: `${key}Page`, run: () => preloadPage(key) }));
   const enabledSlowTasks = slowTasks.filter(
     (task) => task.id !== "localizationData" || language === "zh-CN",
   );
   const state: StartupProgress = {
     completed: 0,
-    total: pageTasks.length + criticalTasks.length,
+    total: foregroundPageTasks.length + criticalTasks.length,
     current: "starting",
     failures: [],
   };
@@ -83,7 +90,7 @@ export async function runStartupWarmup(
   report();
 
   const pageModulesStartedAt = performance.now();
-  await runTasks(pageTasks, 2, state, report);
+  await runTasks(foregroundPageTasks, 2, state, report);
   void reportFrontendPerformance(
     "startup_phase",
     "page_modules",
@@ -99,18 +106,22 @@ export async function runStartupWarmup(
   ).catch(() => undefined);
   state.current = "done";
   report();
-  void runBackgroundWarmup(enabledSlowTasks);
+  void runBackgroundWarmup(enabledSlowTasks, backgroundPageTasks);
   return state;
 }
 
-async function runBackgroundWarmup(enabledSlowTasks: StartupTask[]): Promise<void> {
+async function runBackgroundWarmup(
+  enabledSlowTasks: StartupTask[],
+  backgroundPageTasks: StartupTask[],
+): Promise<void> {
   const backgroundState: StartupProgress = {
     completed: 0,
-    total: localDataTasks.length + enabledSlowTasks.length,
+    total: backgroundPageTasks.length + localDataTasks.length + enabledSlowTasks.length,
     current: "background",
     failures: [],
   };
   const silentReport = () => undefined;
+  await runTasks(backgroundPageTasks, 2, backgroundState, silentReport);
   await runTasks(localDataTasks, 3, backgroundState, silentReport);
   await runTasks(enabledSlowTasks, 2, backgroundState, silentReport);
 }

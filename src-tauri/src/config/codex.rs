@@ -103,14 +103,14 @@ fn load_document(path: &Path) -> AppResult<DocumentMut> {
 /// `toml_edit` treats `doc["missing"]` as an IndexMut insert of a vacant entry;
 /// a subsequent nested write then panics with `index not found`. Always probe
 /// with `DocumentMut::get` (or `entry`) before creating the table.
-fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> &'a mut Table {
+fn ensure_table<'a>(doc: &'a mut DocumentMut, key: &str) -> AppResult<&'a mut Table> {
     let needs_table = doc.get(key).map(|item| !item.is_table()).unwrap_or(true);
     if needs_table {
         doc[key] = Item::Table(Table::new());
     }
-    doc[key]
-        .as_table_mut()
-        .expect("table was just ensured")
+    doc.get_mut(key)
+        .and_then(|item| item.as_table_mut())
+        .ok_or_else(|| AppError::Config(format!("Codex config.toml 无法创建表 `{key}`")))
 }
 
 fn backup_once(path: &Path, backup_name: &str) -> AppResult<()> {
@@ -216,7 +216,7 @@ fn apply_provider_once(
         proxy_port,
         api_key,
         gateway_catalog,
-    );
+    )?;
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
     if !preserved_official_login {
@@ -254,16 +254,16 @@ fn apply_auth_strategy(
     proxy_port: Option<u16>,
     api_key: &str,
     gateway_catalog: bool,
-) -> bool {
+) -> AppResult<bool> {
     let preserved = existing_auth.is_some_and(auth_has_credential_login_material);
-    let entry = &mut ensure_table(doc, "model_providers")[MANAGED_PROVIDER_ID];
+    let entry = &mut ensure_table(doc, "model_providers")?[MANAGED_PROVIDER_ID];
     if preserved {
         entry["experimental_bearer_token"] =
             value(proxy_listener_token(proxy_port, api_key, gateway_catalog));
     } else if let Some(table) = entry.as_table_mut() {
         table.remove("experimental_bearer_token");
     }
-    preserved
+    Ok(preserved)
 }
 
 fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
@@ -417,11 +417,11 @@ fn write_managed_provider(
     // Advertise Fast-mode UI (/fast) when the model supports it. Do not force
     // service_tier=fast — that doubles API cost; users opt in via Codex.
     if model_supports_codex_fast(model) {
-        ensure_table(doc, "features")["fast_mode"] = value(true);
+        ensure_table(doc, "features")?["fast_mode"] = value(true);
     }
-    ensure_table(doc, "model_providers");
+    ensure_table(doc, "model_providers")?;
     remove_legacy_managed_providers(doc);
-    let entry = &mut ensure_table(doc, "model_providers")[provider_id];
+    let entry = &mut ensure_table(doc, "model_providers")?[provider_id];
     if !entry.is_table() {
         *entry = Item::Table(Table::new());
     }
@@ -939,7 +939,7 @@ pub fn repair_model_catalog_file(catalog: &[CatalogEntry]) -> AppResult<String> 
 pub fn sync_mcp_servers(servers: &[McpServer]) -> AppResult<()> {
     let path = get_codex_config_path();
     let mut doc = load_document(&path)?;
-    let table = ensure_table(&mut doc, "mcp_servers");
+    let table = ensure_table(&mut doc, "mcp_servers")?;
     for server in servers.iter().filter(|server| server.enabled_codex) {
         let Some(object) = server.server_config.as_object() else { continue; };
         let mut entry = Table::new();
@@ -1502,7 +1502,7 @@ mod tests {
             "auth_mode": "chatgpt"
         });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor", false);
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor", false).unwrap();
 
         assert!(preserved);
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
@@ -1517,7 +1517,7 @@ mod tests {
         let (mut doc, _temp) = doc_with_managed_entry();
         let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor", false);
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor", false).unwrap();
 
         assert!(preserved);
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
@@ -1533,7 +1533,7 @@ mod tests {
         let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
 
         let preserved =
-            apply_auth_strategy(&mut doc, Some(&auth), Some(15_823), "gwt_shared", true);
+            apply_auth_strategy(&mut doc, Some(&auth), Some(15_823), "gwt_shared", true).unwrap();
 
         assert!(preserved);
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
@@ -1564,7 +1564,7 @@ mod tests {
             None,
         ] {
             let preserved =
-                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor", false);
+                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor", false).unwrap();
             assert!(!preserved);
             assert!(
                 doc["model_providers"][MANAGED_PROVIDER_ID]

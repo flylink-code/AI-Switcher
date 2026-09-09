@@ -294,7 +294,7 @@ export default function ProvidersPage() {
   const antigravityQuery = useQuery({
     queryKey: ["antigravity-gateway"],
     queryFn: getAntigravityGatewayStatus,
-    refetchInterval: 5_000,
+    refetchInterval: (query) => (query.state.data?.running ? 5_000 : false),
   });
   const antigravity = antigravityQuery.data;
 

@@ -150,39 +150,6 @@ pub fn rebuild_codex_session_usage_db(db: &Database) -> AppResult<CodexSessionSy
     Ok(result)
 }
 
-/// Kept for tests that already hold a connection.
-pub fn sync_codex_session_usage(conn: &Connection) -> AppResult<CodexSessionSyncResult> {
-    let files = collect_session_files();
-    let mut inserted = 0_i64;
-    let mut skipped = 0_i64;
-    for path in &files {
-        let (file_inserted, file_skipped) = sync_one_file(conn, path)?;
-        inserted += file_inserted;
-        skipped += file_skipped;
-    }
-    Ok(CodexSessionSyncResult {
-        scanned_files: files.len() as i64,
-        inserted_rows: inserted,
-        skipped_rows: skipped,
-        message: format!(
-            "Scanned {} Codex session files; inserted {}; skipped {}",
-            files.len(),
-            inserted,
-            skipped
-        ),
-    })
-}
-
-pub fn rebuild_codex_session_usage(conn: &Connection) -> AppResult<CodexSessionSyncResult> {
-    let deleted = reset_codex_session_usage(conn)?;
-    let mut result = sync_codex_session_usage(conn)?;
-    result.message = format!(
-        "Rebuilt Codex session usage (removed {deleted} old rows). {}",
-        result.message
-    );
-    Ok(result)
-}
-
 fn collect_session_files() -> Vec<PathBuf> {
     let config_dir = crate::config::get_codex_config_dir();
     let roots = [

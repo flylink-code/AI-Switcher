@@ -126,6 +126,7 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             last_synced_at INTEGER NOT NULL
         );",
     )?;
+    ensure_proxy_log_analytics_indexes(conn)?;
 
     // Workspace configuration snapshots (profiles).
     conn.execute_batch(
@@ -271,6 +272,49 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
         CREATE INDEX IF NOT EXISTS idx_route_modes_profile ON route_modes(profile_id);
         CREATE INDEX IF NOT EXISTS idx_route_rules_profile ON route_rules(profile_id);",
     )?;
+    Ok(())
+}
+
+fn log_column_exists(conn: &Connection, name: &str) -> AppResult<bool> {
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+        [name],
+        |row| row.get(0),
+    )?;
+    Ok(has > 0)
+}
+
+/// Extra analytics indexes. Guarded so `create_tables` can run against a
+/// legacy `proxy_request_logs` that does not yet have correlation/hop columns.
+fn ensure_proxy_log_analytics_indexes(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    if log_column_exists(conn, "created_at")? && log_column_exists(conn, "status_code")? {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_logs_created_status ON proxy_request_logs(created_at, status_code);",
+        )?;
+    }
+    if log_column_exists(conn, "correlation_id")? && log_column_exists(conn, "hop")? {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_logs_correlation_hop ON proxy_request_logs(correlation_id, hop);",
+        )?;
+    }
+    if log_column_exists(conn, "created_at")?
+        && log_column_exists(conn, "data_source")?
+        && log_column_exists(conn, "route_reason")?
+    {
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_logs_route_reason_created
+                ON proxy_request_logs(created_at DESC)
+                WHERE COALESCE(data_source, 'proxy') = 'proxy' AND route_reason IS NOT NULL;",
+        )?;
+    }
     Ok(())
 }
 
@@ -1168,6 +1212,7 @@ fn add_proxy_log_correlation_columns(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_logs_correlation ON proxy_request_logs(correlation_id);",
     )?;
+    ensure_proxy_log_analytics_indexes(conn)?;
     Ok(())
 }
 
@@ -1271,6 +1316,17 @@ pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
 mod tests {
     use super::*;
     use crate::database::Database;
+    use crate::error::AppResult;
+
+    fn explain_plan(conn: &Connection, sql: &str) -> AppResult<String> {
+        let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(3))?;
+        let mut details = Vec::new();
+        for row in rows {
+            details.push(row?);
+        }
+        Ok(details.join(" | "))
+    }
 
     #[test]
     fn schema_is_created_and_versioned() {
@@ -1307,6 +1363,37 @@ mod tests {
                 )?;
                 assert_eq!(has, 1, "missing log column {column}");
             }
+            for index in [
+                "idx_logs_correlation_hop",
+                "idx_logs_created_status",
+                "idx_logs_route_reason_created",
+            ] {
+                let has: i64 = conn.query_row(
+                    "SELECT count(*) FROM sqlite_master WHERE type='index' AND name = ?;",
+                    [index],
+                    |r| r.get(0),
+                )?;
+                assert_eq!(has, 1, "missing index {index}");
+            }
+            let hop_plan = explain_plan(
+                conn,
+                "SELECT hop FROM proxy_request_logs WHERE correlation_id = 'req' AND hop = 'antigravity'",
+            )?;
+            assert!(
+                hop_plan.contains("idx_logs_correlation_hop") || hop_plan.contains("idx_logs_correlation"),
+                "correlation+hop lookup should use an index, got: {hop_plan}"
+            );
+            let route_plan = explain_plan(
+                conn,
+                "SELECT id FROM proxy_request_logs
+                 WHERE COALESCE(data_source, 'proxy') = 'proxy'
+                   AND route_reason IS NOT NULL
+                 ORDER BY created_at DESC LIMIT 30",
+            )?;
+            assert!(
+                route_plan.contains("idx_logs_route_reason_created") || route_plan.contains("idx_logs_created"),
+                "route log query should use an index, got: {route_plan}"
+            );
             Ok(())
         })
         .unwrap();

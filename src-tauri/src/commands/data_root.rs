@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::config::paths::{configured_data_root, get_legacy_app_config_dir, write_data_root_config};
 use crate::error::{AppError, AppResult};
+use crate::process_util::spawn_blocking_result;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +36,11 @@ pub fn get_data_root() -> DataRootInfo {
 /// Copy the legacy AI-Switcher data directory into an empty target and make it
 /// the active root for the next process launch. Existing data is never removed.
 #[tauri::command]
-pub fn migrate_data_root(target_path: String) -> AppResult<DataRootInfo> {
+pub async fn migrate_data_root(target_path: String) -> AppResult<DataRootInfo> {
+    spawn_blocking_result(move || migrate_data_root_blocking(target_path)).await
+}
+
+fn migrate_data_root_blocking(target_path: String) -> AppResult<DataRootInfo> {
     let legacy = get_legacy_app_config_dir();
     let source = configured_data_root().unwrap_or_else(|| legacy.clone());
     let target = normalize_target(&target_path)?;

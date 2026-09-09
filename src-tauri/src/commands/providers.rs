@@ -6,6 +6,7 @@ use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
+use crate::process_util::spawn_blocking_result;
 use crate::provider::{
     api_endpoint_url, catalog_models_from_provider, copied_provider_input, normalize_base_url,
     protocol_endpoint_path, should_activate_copied_provider, strip_anthropic_compat_path,
@@ -23,7 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
@@ -42,7 +43,7 @@ fn codex_switch_lock() -> &'static tokio::sync::Mutex<()> {
 
 #[tauri::command]
 pub fn list_providers(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
-    state.db.with_conn(|conn| dao::list_providers(conn, target))
+    state.db.with_read_conn(|conn| dao::list_providers(conn, target))
 }
 
 fn gateway_catalog_on(state: &AppState, target: ProviderTarget) -> bool {
@@ -1434,7 +1435,19 @@ pub async fn reorder_providers(
 
 /// Import a live third-party configuration into its matching application list.
 #[tauri::command]
-pub fn import_live_config(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub async fn import_live_config(
+    target: ProviderTarget,
+    app: tauri::AppHandle,
+    _state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    spawn_blocking_result(move || {
+        let state = app.state::<AppState>();
+        import_live_config_sync(target, &state)
+    })
+    .await
+}
+
+fn import_live_config_sync(target: ProviderTarget, state: &AppState) -> AppResult<()> {
     if target == ProviderTarget::OpenCode {
         return import_opencode_live_providers(&state);
     }
@@ -1711,33 +1724,29 @@ async fn sync_live_providers<R: tauri::Runtime>(
 }
 
 pub(crate) fn load_gateway_pairs(state: &AppState, target: ProviderTarget) -> AppResult<Vec<(Provider, Vec<String>)>> {
-    let profile = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, target))
-        .ok()
-        .flatten();
-    let providers = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::list_upstream_providers(conn, false))?;
-    let providers: Vec<Provider> = providers
-        .into_iter()
-        .filter(|provider| {
-            !provider.is_smart_gateway()
-                && profile
-                    .as_ref()
-                    .map(|profile| crate::database::dao::gateway::profile_allows_upstream(profile, &provider.id))
-                    .unwrap_or(true)
-        })
-        .collect();
-    let mut entries = Vec::with_capacity(providers.len());
-    for provider in providers {
-        let cached = state
-            .db
-            .with_conn(|conn| crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &provider.id))
-            .unwrap_or_default();
-        entries.push((provider, cached));
-    }
-    Ok(entries)
+    state.db.with_read_conn(|conn| {
+        let profile = crate::database::dao::gateway::current_profile(conn, target)
+            .ok()
+            .flatten();
+        let providers = crate::database::dao::gateway::list_upstream_providers(conn, false)?;
+        let providers: Vec<Provider> = providers
+            .into_iter()
+            .filter(|provider| {
+                !provider.is_smart_gateway()
+                    && profile
+                        .as_ref()
+                        .map(|profile| crate::database::dao::gateway::profile_allows_upstream(profile, &provider.id))
+                        .unwrap_or(true)
+            })
+            .collect();
+        let mut entries = Vec::with_capacity(providers.len());
+        for provider in providers {
+            let cached = crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &provider.id)
+                .unwrap_or_default();
+            entries.push((provider, cached));
+        }
+        Ok(entries)
+    })
 }
 
 fn gateway_live_entry(

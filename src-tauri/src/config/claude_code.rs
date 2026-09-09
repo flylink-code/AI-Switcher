@@ -114,7 +114,7 @@ pub fn apply_provider_to_settings_at(provider: &Provider, path: &Path) -> AppRes
     // Snapshot before mutating, for safety/rollback.
     backup_settings(path)?;
 
-    let env = ensure_env_object(&mut settings);
+    let env = ensure_env_object(&mut settings)?;
     remove_managed_keys(env);
     inject_provider_env(env, provider);
 
@@ -152,7 +152,7 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
     backup_settings(path)?;
 
     {
-        let env = ensure_env_object(&mut settings);
+        let env = ensure_env_object(&mut settings)?;
         remove_managed_keys(env);
         set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
         let token = proxy_auth_token(provider, catalog_discovery)?;
@@ -218,7 +218,7 @@ pub fn clear_provider_from_settings() -> AppResult<()> {
 pub fn clear_provider_from_settings_at(path: &Path) -> AppResult<()> {
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
-    let env = ensure_env_object(&mut settings);
+    let env = ensure_env_object(&mut settings)?;
     remove_managed_keys(env);
     write_settings(path, &settings)
 }
@@ -231,7 +231,7 @@ pub fn restore_managed_fields(
     let path = get_claude_settings_path();
     let mut settings = read_or_init_settings_at(&path)?;
     backup_settings(&path)?;
-    let env = ensure_env_object(&mut settings);
+    let env = ensure_env_object(&mut settings)?;
     remove_managed_keys(env);
     for (key, value) in values {
         if let Some(value) = value {
@@ -371,7 +371,7 @@ pub fn apply_permission_default_mode_at(path: &Path, mode: &str) -> AppResult<St
     let normalized = parse_permission_default_mode(mode)?.to_string();
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
-    ensure_permissions_object(&mut settings)
+    ensure_permissions_object(&mut settings)?
         .insert("defaultMode".to_string(), Value::String(normalized.clone()));
     write_settings(path, &settings)?;
     Ok(normalized)
@@ -394,25 +394,25 @@ fn read_or_init_settings_at(path: &Path) -> AppResult<Value> {
 }
 
 /// Ensure `settings.permissions` is an object and return a mutable reference.
-fn ensure_permissions_object(settings: &mut Value) -> &mut Map<String, Value> {
+fn ensure_permissions_object(settings: &mut Value) -> AppResult<&mut Map<String, Value>> {
     if settings.get("permissions").is_none() || !settings["permissions"].is_object() {
         settings["permissions"] = Value::Object(Map::new());
     }
     settings
         .get_mut("permissions")
         .and_then(Value::as_object_mut)
-        .expect("permissions is an object (just ensured)")
+        .ok_or_else(|| AppError::Config("Claude Code settings.json 的 permissions 不是对象".to_string()))
 }
 
 /// Ensure `settings.env` is an object and return a mutable reference to it.
-fn ensure_env_object(settings: &mut Value) -> &mut Map<String, Value> {
+fn ensure_env_object(settings: &mut Value) -> AppResult<&mut Map<String, Value>> {
     if settings.get("env").is_none() || !settings["env"].is_object() {
         settings["env"] = Value::Object(Map::new());
     }
     settings
         .get_mut("env")
         .and_then(Value::as_object_mut)
-        .expect("env is an object (just ensured)")
+        .ok_or_else(|| AppError::Config("Claude Code settings.json 的 env 不是对象".to_string()))
 }
 
 /// Remove only the explicit provider fields managed by Claude Switcher.

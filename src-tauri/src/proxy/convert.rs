@@ -255,7 +255,9 @@ pub fn apply_codex_oauth_response_body(value: &mut Value) {
     if !include.is_array() {
         *include = Value::Array(Vec::new());
     }
-    let items = include.as_array_mut().expect("include normalized to array");
+    let Some(items) = include.as_array_mut() else {
+        return;
+    };
     let encrypted_content = Value::String("reasoning.encrypted_content".to_string());
     if !items.contains(&encrypted_content) {
         items.push(encrypted_content);

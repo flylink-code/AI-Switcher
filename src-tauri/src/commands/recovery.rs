@@ -11,6 +11,7 @@ use crate::config::{atomic_write, detect_claude_desktop, get_backup_dir, get_cla
 use crate::database::dao;
 use crate::database::dao::settings::set_setting;
 use crate::error::{AppError, AppResult};
+use crate::process_util::spawn_blocking_result;
 use crate::provider::ProviderTarget;
 use crate::store::AppState;
 
@@ -24,7 +25,14 @@ pub struct ConfigBackup {
 }
 
 #[tauri::command]
-pub fn list_config_backups(
+pub async fn list_config_backups(
+    target: ProviderTarget,
+    directory: Option<String>,
+) -> AppResult<Vec<ConfigBackup>> {
+    spawn_blocking_result(move || list_config_backups_blocking(target, directory)).await
+}
+
+fn list_config_backups_blocking(
     target: ProviderTarget,
     directory: Option<String>,
 ) -> AppResult<Vec<ConfigBackup>> {
@@ -55,16 +63,19 @@ pub fn list_config_backups(
 }
 
 #[tauri::command]
-pub fn preview_config_backup(
+pub async fn preview_config_backup(
     target: ProviderTarget,
     name: String,
     directory: Option<String>,
 ) -> AppResult<String> {
-    let path = backup_path(target, &name, directory.as_deref())?;
-    verify_backup(&path)?;
-    let value: Value = serde_json::from_slice(&fs::read(path)?)
-        .map_err(|_| AppError::Config("该备份不是可预览的 JSON 配置".to_string()))?;
-    Ok(serde_json::to_string_pretty(&redact(value))?)
+    spawn_blocking_result(move || {
+        let path = backup_path(target, &name, directory.as_deref())?;
+        verify_backup(&path)?;
+        let value: Value = serde_json::from_slice(&fs::read(path)?)
+            .map_err(|_| AppError::Config("该备份不是可预览的 JSON 配置".to_string()))?;
+        Ok(serde_json::to_string_pretty(&redact(value))?)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -190,7 +201,7 @@ mod tests {
         let dir = tempdir().unwrap();
         fs::write(dir.path().join("settings.json_1.bak"), b"{}").unwrap();
         fs::write(dir.path().join("unrelated.bak"), b"{}").unwrap();
-        let listed = list_config_backups(
+        let listed = list_config_backups_blocking(
             ProviderTarget::ClaudeCode,
             Some(dir.path().to_string_lossy().into_owned()),
         )

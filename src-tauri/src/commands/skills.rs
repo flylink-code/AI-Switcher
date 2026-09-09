@@ -1,6 +1,7 @@
 //! Commands for discovering and managing Claude Code and Codex Skills.
 
 use crate::error::AppResult;
+use crate::process_util::spawn_blocking_result;
 use crate::skills::{
     delete_skill as remove_skill, get_skill_repository as get_repository,
     ignore_unmanaged_skill as ignore_unmanaged,
@@ -112,8 +113,8 @@ pub async fn update_github_skills(names: Vec<String>, target: Option<SkillTarget
 }
 
 #[tauri::command]
-pub fn scan_unmanaged_skills(target: Option<SkillTarget>) -> AppResult<Vec<UnmanagedSkill>> {
-    scan_unmanaged(target.unwrap_or_default())
+pub async fn scan_unmanaged_skills(target: Option<SkillTarget>) -> AppResult<Vec<UnmanagedSkill>> {
+    spawn_blocking_result(move || scan_unmanaged(target.unwrap_or_default())).await
 }
 
 #[tauri::command]

@@ -272,12 +272,6 @@ fn apply_provider_at(path: &Path, provider: &Provider, extra_models: &[String]) 
     apply_all_providers_at(path, &[(provider.clone(), extra_models.to_vec())])
 }
 
-/// 将单个供应商写入 OpenCode（会先清掉其它托管项再只留这一条）。
-/// OpenCode 正常路径请用 [`apply_all_providers`]。
-pub fn apply_provider(provider: &Provider, extra_models: &[String]) -> AppResult<()> {
-    apply_provider_at(&get_opencode_config_path(), provider, extra_models)
-}
-
 fn clear_provider_at(path: &Path) -> AppResult<()> {
     let _guard = lock_opencode_config()?;
     if !path.exists() {
@@ -512,11 +506,6 @@ pub fn read_live_providers() -> AppResult<Vec<OpenCodeLiveProvider>> {
         Err(error) => log::warn!("读取 OpenCode auth.json 失败: {error}"),
     }
     Ok(providers)
-}
-
-/// 读取 OpenCode 当前生效的第三方供应商（供「导入 live 配置」）。
-pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
-    read_current_live_provider_at(&get_opencode_config_path())
 }
 
 // ---- MCP 服务器同步 ---------------------------------------------------------
@@ -759,13 +748,13 @@ mod tests {
 
         provider.model_context_window = Some(128_000);
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 128_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
         assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
 
         provider.model_context_window = Some(8_000);
         let value = managed_provider_value(&provider, &[]);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 8_000);
-        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 8_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["context"], 200_000);
+        assert_eq!(value["models"]["claude-sonnet-5"]["limit"]["output"], 32_000);
     }
 
     #[test]

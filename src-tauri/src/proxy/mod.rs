@@ -674,14 +674,6 @@ fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> Ap
 
 pub(crate) const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 
-pub(crate) fn select_gateway_runtime_provider(
-    state: &ProxyState,
-    requested_model: &str,
-    incoming: &Value,
-) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
-    select_gateway_runtime_provider_with(state, requested_model, false, incoming, "")
-}
-
 pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,

@@ -355,7 +355,9 @@ pub async fn codex_proxy_handler(
         && status == StatusCode::BAD_REQUEST;
     let mut upstream = Some(upstream);
     if retry_chat {
-        let current = upstream.take().expect("Codex upstream response");
+        let Some(current) = upstream.take() else {
+            return json_error(StatusCode::BAD_GATEWAY, "Codex 上游响应丢失");
+        };
         match current.bytes().await {
             Ok(error_bytes) => {
                 if is_unsupported_content_type_error(&error_bytes) {
@@ -430,7 +432,9 @@ pub async fn codex_proxy_handler(
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
 
-    let upstream = upstream.expect("Codex upstream response");
+    let Some(upstream) = upstream else {
+        return json_error(StatusCode::BAD_GATEWAY, "Codex 上游响应丢失");
+    };
     if status.is_success() {
         record_provider_success(&state, &provider.id);
     }

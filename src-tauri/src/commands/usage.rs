@@ -1044,12 +1044,12 @@ fn pick_summary_currency(amounts: &[CurrencyAmount]) -> (String, f64) {
 
 #[tauri::command]
 pub fn list_model_pricing(state: tauri::State<'_, AppState>) -> AppResult<Vec<ModelPricing>> {
-    state.db.with_conn(list_pricing)
+    state.db.with_read_conn(list_pricing)
 }
 
 #[tauri::command]
 pub fn get_pricing_catalog(state: tauri::State<'_, AppState>) -> AppResult<PricingCatalog> {
-    state.db.with_conn(|conn| Ok(PricingCatalog {
+    state.db.with_read_conn(|conn| Ok(PricingCatalog {
         version: crate::database::seed::CATALOG_VERSION.to_string(),
         entries: list_pricing(conn)?,
     }))
@@ -1067,7 +1067,7 @@ pub fn export_model_pricing_xlsx(destination_path: String, state: tauri::State<'
     if destination.extension().and_then(|value| value.to_str()).is_none_or(|value| !value.eq_ignore_ascii_case("xlsx")) {
         return Err(AppError::Config("导出文件必须使用 .xlsx 扩展名".to_string()));
     }
-    let pricing = state.db.with_conn(list_pricing)?;
+    let pricing = state.db.with_read_conn(list_pricing)?;
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
     worksheet.set_name("Model Pricing").map_err(|error| AppError::Other(format!("设置 Excel 工作表名称失败: {error}")))?;
@@ -1121,7 +1121,7 @@ pub fn import_model_pricing_xlsx(source_path: String, state: tauri::State<'_, Ap
 struct ParsedPricingImport { rows: Vec<ModelPricing>, errors: Vec<String> }
 
 fn preview_pricing_rows(db: &crate::database::Database, rows: &[ModelPricing], errors: Vec<String>) -> AppResult<PricingImportPreview> {
-    let existing = db.with_conn(list_pricing)?.into_iter().map(|entry| entry.model).collect::<BTreeSet<_>>();
+    let existing = db.with_read_conn(list_pricing)?.into_iter().map(|entry| entry.model).collect::<BTreeSet<_>>();
     Ok(PricingImportPreview {
         new_models: rows.iter().filter(|entry| !existing.contains(&entry.model)).map(|entry| entry.model.clone()).collect(),
         updated_models: rows.iter().filter(|entry| existing.contains(&entry.model)).map(|entry| entry.model.clone()).collect(),
@@ -1205,7 +1205,7 @@ pub fn save_log_maintenance_policy(policy: LogMaintenancePolicy, state: tauri::S
 
 #[tauri::command]
 pub fn preview_proxy_log_maintenance(policy: Option<LogMaintenancePolicy>, state: tauri::State<'_, AppState>) -> AppResult<LogMaintenancePreview> {
-    state.db.with_conn(|conn| {
+    state.db.with_read_conn(|conn| {
         let policy = policy.map(normalize_log_maintenance_policy)
             .unwrap_or(load_log_maintenance_policy(conn)?);
         preview_logs(conn, policy.retention_days, policy.max_rows)

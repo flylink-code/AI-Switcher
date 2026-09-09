@@ -63,6 +63,10 @@ pub fn list_gateway_profiles(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayProfile>> {
+    let listed = state.db.with_read_conn(|conn| list_profiles(conn, target))?;
+    if !listed.is_empty() {
+        return Ok(listed);
+    }
     state.db.with_conn(|conn| {
         ensure_profile_for_target(conn, target)?;
         list_profiles(conn, target)
@@ -111,12 +115,13 @@ pub fn list_gateway_route_logs(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayRouteLog>> {
     let cap = limit.unwrap_or(30).clamp(1, 200);
-    state.db.with_conn(|conn| {
+    state.db.with_read_conn(|conn| {
         let sql = if target.is_some() {
             "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
                     provider_name, attempt_index, status_code
              FROM proxy_request_logs
              WHERE target_app = ? AND COALESCE(data_source, 'proxy') = 'proxy'
+               AND route_reason IS NOT NULL AND trim(route_reason) != ''
              ORDER BY created_at DESC LIMIT ?;"
         } else {
             "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
@@ -373,7 +378,7 @@ pub async fn stop_smart_gateway(app: tauri::AppHandle) -> AppResult<crate::gatew
 pub fn list_smart_gateway_bindings(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::GatewayBinding>> {
-    state.db.with_conn(crate::database::dao::gateway::list_bindings)
+    state.db.with_read_conn(crate::database::dao::gateway::list_bindings)
 }
 
 #[tauri::command]
@@ -421,6 +426,15 @@ pub async fn unbind_smart_gateway(
 pub fn list_route_modes(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::RouteMode>> {
+    let listed = state.db.with_read_conn(|conn| {
+        crate::database::dao::gateway::list_route_modes(
+            conn,
+            crate::database::dao::gateway::SHARED_PROFILE_ID,
+        )
+    })?;
+    if !listed.is_empty() {
+        return Ok(listed);
+    }
     state.db.with_conn(|conn| {
         crate::database::dao::gateway::ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
         crate::database::dao::gateway::list_route_modes(
@@ -447,7 +461,7 @@ pub async fn update_route_mode(
 pub fn list_route_rules(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::RouteRule>> {
-    state.db.with_conn(|conn| {
+    state.db.with_read_conn(|conn| {
         crate::database::dao::gateway::list_route_rules(
             conn,
             crate::database::dao::gateway::SHARED_PROFILE_ID,

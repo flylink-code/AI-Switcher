@@ -131,7 +131,9 @@ fn responses_compact_to_chat_like(body: &Value, model: &str) -> AppResult<Value>
             messages.push(json!({"role": "user", "content": text}));
         }
         Some(Value::Object(_)) => {
-            append_compact_input_item(body.get("input").unwrap(), &mut messages);
+            if let Some(input) = body.get("input") {
+                append_compact_input_item(input, &mut messages);
+            }
         }
         _ => {}
     }

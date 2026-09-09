@@ -19,7 +19,7 @@ use uuid::Uuid;
 use crate::config::atomic::{read_json_file, write_json_file};
 use crate::config::paths::get_app_config_dir;
 use crate::error::{AppError, AppResult};
-use crate::process_util::apply_no_window;
+use crate::process_util::{apply_no_window, spawn_blocking_result};
 
 const SYNC_TARGETS_VERSION: u8 = 1;
 const SYNC_TARGETS_FILE: &str = "sync-targets.json";
@@ -193,7 +193,19 @@ pub fn preview_sync(target_id: String) -> AppResult<SyncPreview> {
 /// Optional `provider_targets` limits which Agent `providers` rows are packed;
 /// it is not written to `sync-targets.json`.
 #[tauri::command]
-pub fn push_sync_archive(
+pub async fn push_sync_archive(
+    target_id: String,
+    password: Option<String>,
+    include_api_keys: Option<bool>,
+    provider_targets: Option<Vec<crate::provider::ProviderTarget>>,
+) -> AppResult<SyncPushResult> {
+    spawn_blocking_result(move || {
+        push_sync_archive_blocking(target_id, password, include_api_keys, provider_targets)
+    })
+    .await
+}
+
+fn push_sync_archive_blocking(
     target_id: String,
     password: Option<String>,
     include_api_keys: Option<bool>,
@@ -423,8 +435,8 @@ pub fn get_wsl_runtime_status() -> crate::wsl_direct::WslRuntimeStatus {
 }
 
 #[tauri::command]
-pub fn sync_wsl_direct() -> AppResult<crate::wsl_direct::WslRuntimeStatus> {
-    crate::wsl_direct::sync_claude_codex_files()
+pub async fn sync_wsl_direct() -> AppResult<crate::wsl_direct::WslRuntimeStatus> {
+    spawn_blocking_result(crate::wsl_direct::sync_claude_codex_files).await
 }
 
 #[cfg(test)]

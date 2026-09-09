@@ -144,28 +144,6 @@ pub fn rebuild_claude_code_session_usage_db(db: &Database) -> AppResult<ClaudeCo
     Ok(result)
 }
 
-pub fn sync_claude_code_session_usage(conn: &Connection) -> AppResult<ClaudeCodeSessionSyncResult> {
-    let files = collect_session_files();
-    let mut inserted = 0_i64;
-    let mut skipped = 0_i64;
-    for path in &files {
-        let (file_inserted, file_skipped) = sync_one_file(conn, path)?;
-        inserted += file_inserted;
-        skipped += file_skipped;
-    }
-    Ok(ClaudeCodeSessionSyncResult {
-        scanned_files: files.len() as i64,
-        inserted_rows: inserted,
-        skipped_rows: skipped,
-        message: format!(
-            "Scanned {} Claude Code session files; inserted {}; skipped {}",
-            files.len(),
-            inserted,
-            skipped
-        ),
-    })
-}
-
 fn collect_session_files() -> Vec<PathBuf> {
     let root = crate::config::get_claude_config_dir().join("projects");
     let mut files = Vec::new();

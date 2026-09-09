@@ -1,5 +1,7 @@
 //! Backup trigger command.
 
+use std::sync::Arc;
+
 use crate::backup::{
     backup_file, export_library_backup as export_library,
     find_latest_library_archive, preview_library_backup as preview_library,
@@ -8,58 +10,66 @@ use crate::backup::{
 };
 use crate::config::paths::get_app_db_path;
 use crate::error::{AppError, AppResult};
+use crate::process_util::spawn_blocking_result;
 use crate::store::AppState;
 
 /// Back up the app database now, returning the created backup path (or a message
 /// if the source was missing).
 #[tauri::command]
-pub fn backup_now() -> AppResult<String> {
-    let src = get_app_db_path();
-    // Checkpoint WAL so the backup copy reflects the latest committed data.
-    // (No-op if the DB has no WAL; safe to ignore the result.)
-    if let Ok(conn) = rusqlite::Connection::open(&src) {
-        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-    }
+pub async fn backup_now() -> AppResult<String> {
+    spawn_blocking_result(|| {
+        let src = get_app_db_path();
+        // Checkpoint WAL so the backup copy reflects the latest committed data.
+        // (No-op if the DB has no WAL; safe to ignore the result.)
+        if let Ok(conn) = rusqlite::Connection::open(&src) {
+            let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        }
 
-    match backup_file(&src, DEFAULT_BACKUP_KEEP)? {
-        Some(p) => Ok(p.to_string_lossy().into_owned()),
-        None => Err(AppError::Config(format!(
-            "数据库文件不存在，无法备份: {}",
-            src.display()
-        ))),
-    }
+        match backup_file(&src, DEFAULT_BACKUP_KEEP)? {
+            Some(p) => Ok(p.to_string_lossy().into_owned()),
+            None => Err(AppError::Config(format!(
+                "数据库文件不存在，无法备份: {}",
+                src.display()
+            ))),
+        }
+    })
+    .await
 }
 
 /// Export a versioned, portable managed-library ZIP.
 /// Optional `destination_dir` writes the ZIP into that directory.
 /// Optional `include_credentials` embeds resolved API keys (opt-in only).
 #[tauri::command]
-pub fn export_library_backup(
+pub async fn export_library_backup(
     destination_dir: Option<String>,
     include_credentials: Option<bool>,
 ) -> AppResult<LibraryBackupInfo> {
-    let destination = destination_dir
-        .as_deref()
-        .map(std::path::Path::new)
-        .filter(|path| !path.as_os_str().is_empty());
-    export_library(destination, include_credentials.unwrap_or(false), None)
+    spawn_blocking_result(move || {
+        let destination = destination_dir
+            .as_deref()
+            .map(std::path::Path::new)
+            .filter(|path| !path.as_os_str().is_empty());
+        export_library(destination, include_credentials.unwrap_or(false), None)
+    })
+    .await
 }
 
 /// Verify a portable library ZIP before any restore workflow is allowed to
 /// stage it.  This command never extracts or changes local files.
 #[tauri::command]
-pub fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchivePreview> {
-    preview_library(std::path::Path::new(&archive_path))
+pub async fn preview_library_backup(archive_path: String) -> AppResult<LibraryArchivePreview> {
+    spawn_blocking_result(move || preview_library(std::path::Path::new(&archive_path))).await
 }
 
 /// Replace the local managed library from a verified portable ZIP.
 /// Requires an application restart before the restored database is used.
 #[tauri::command]
-pub fn restore_library_backup(
+pub async fn restore_library_backup(
     archive_path: String,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<LibraryRestoreResult> {
-    restore_library(std::path::Path::new(&archive_path), &state.db)
+    let db = Arc::clone(&state.db);
+    spawn_blocking_result(move || restore_library(std::path::Path::new(&archive_path), &db)).await
 }
 
 /// Resolve the newest `library-*.zip` inside a directory (for sync incoming folders).

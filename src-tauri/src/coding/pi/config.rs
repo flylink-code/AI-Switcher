@@ -109,7 +109,9 @@ pub fn update_pi_settings(
         current = json!({});
     }
 
-    let obj = current.as_object_mut().unwrap();
+    let obj = current.as_object_mut().ok_or_else(|| {
+        AppError::Config("Pi settings.json 不是 JSON 对象".to_string())
+    })?;
 
     if let Some(dp) = default_provider {
         if dp.is_empty() {
@@ -226,7 +228,9 @@ pub fn sync_managed_pi_providers(entries: &[(String, Value)]) -> AppResult<Vec<S
     if !root.is_object() {
         root = json!({});
     }
-    let root_obj = root.as_object_mut().unwrap();
+    let root_obj = root.as_object_mut().ok_or_else(|| {
+        AppError::Config("Pi models.json 不是 JSON 对象".to_string())
+    })?;
     let previously: Vec<String> = root_obj
         .get(PI_MANAGED_IDS_KEY)
         .and_then(|value| value.as_array())
@@ -243,7 +247,9 @@ pub fn sync_managed_pi_providers(entries: &[(String, Value)]) -> AppResult<Vec<S
     if !providers.is_object() {
         *providers = json!({});
     }
-    let map = providers.as_object_mut().unwrap();
+    let map = providers.as_object_mut().ok_or_else(|| {
+        AppError::Config("Pi models.json 的 providers 不是对象".to_string())
+    })?;
     let keep: Vec<String> = entries.iter().map(|(id, _)| id.clone()).collect();
     let mut retired = Vec::new();
     for id in &previously {

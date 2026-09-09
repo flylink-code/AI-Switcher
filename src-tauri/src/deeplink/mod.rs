@@ -39,14 +39,6 @@ impl ImportResource {
             other => Err(AppError::Config(format!("不支持的 Deep Link 资源类型: {other}"))),
         }
     }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Provider => "provider",
-            Self::Mcp => "mcp",
-            Self::Skill => "skill",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

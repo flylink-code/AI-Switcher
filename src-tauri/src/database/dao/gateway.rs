@@ -31,13 +31,6 @@ pub enum ConnectionType {
 }
 
 impl ConnectionType {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ConnectionType::External => "external",
-            ConnectionType::Gateway => "gateway",
-        }
-    }
-
     pub fn from_str_lossy(value: &str) -> Self {
         if value == "gateway" {
             ConnectionType::Gateway
@@ -129,18 +122,6 @@ pub struct GatewayUpstreamModelRow {
     pub reasoning_levels: Vec<String>,
     #[serde(default)]
     pub capabilities: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentConnection {
-    pub id: String,
-    pub target_app: ProviderTarget,
-    pub connection_type: ConnectionType,
-    pub upstream_id: Option<String>,
-    pub profile_id: Option<String>,
-    pub is_current: bool,
-    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1689,18 +1670,6 @@ fn table_exists(conn: &Connection, name: &str) -> bool {
     .unwrap_or(0)
         > 0
 }
-
-pub const ROUTE_MODE_IDS: [&str; 9] = [
-    "default",
-    "background",
-    "plan",
-    "think",
-    "edit",
-    "long_context",
-    "web_search",
-    "vision",
-    "image_gen",
-];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

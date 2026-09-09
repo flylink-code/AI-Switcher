@@ -1,5 +1,7 @@
 //! MCP server management commands.
 
+use std::sync::Arc;
+
 use crate::database::dao::mcp as dao;
 use crate::error::AppResult;
 use crate::mcp::{
@@ -12,6 +14,7 @@ use crate::mcp_oauth::{
 use crate::mcp_registry::{
     resolve_mcp_registry_server, search_mcp_registry as search_registry, RegistryMcpServer,
 };
+use crate::process_util::spawn_blocking_result;
 use crate::store::AppState;
 
 /// List all unified MCP servers.
@@ -72,15 +75,17 @@ pub fn reorder_mcp_servers(
 /// stored config (DB is the source of truth once managed). Import does NOT sync
 /// back — the next edit/toggle will.
 #[tauri::command]
-pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImportSummary> {
-    let code = mcp::read_code_mcp_servers()?;
-    let desktop = mcp::read_desktop_mcp_servers()?;
-    let codex = crate::config::codex::read_mcp_servers()?;
-    let opencode = crate::config::opencode::read_mcp_servers()?;
-    let pi = crate::coding::pi::mcp::read_mcp_servers()?;
-    let cline = crate::coding::cline::mcp::read_mcp_servers()?;
+pub async fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImportSummary> {
+    let db = Arc::clone(&state.db);
+    spawn_blocking_result(move || {
+        let code = mcp::read_code_mcp_servers()?;
+        let desktop = mcp::read_desktop_mcp_servers()?;
+        let codex = crate::config::codex::read_mcp_servers()?;
+        let opencode = crate::config::opencode::read_mcp_servers()?;
+        let pi = crate::coding::pi::mcp::read_mcp_servers()?;
+        let cline = crate::coding::cline::mcp::read_mcp_servers()?;
 
-    state.db.with_conn(|conn| {
+        db.with_conn(|conn| {
         let mut imported = 0i64;
         let mut updated = 0i64;
 
@@ -202,7 +207,9 @@ pub fn import_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<McpImp
             }
         }
         Ok(McpImportSummary { imported, updated })
+        })
     })
+    .await
 }
 
 /// Search the public official MCP Registry. Results are read-only metadata;
