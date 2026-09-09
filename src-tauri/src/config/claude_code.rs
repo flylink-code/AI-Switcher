@@ -155,8 +155,10 @@ pub fn apply_provider_to_settings_via_proxy_at_with_opusplan(
         let env = ensure_env_object(&mut settings);
         remove_managed_keys(env);
         set_str(env, "ANTHROPIC_BASE_URL", &format!("http://127.0.0.1:{proxy_port}"));
-        set_str(env, "ANTHROPIC_AUTH_TOKEN", proxy_auth_token(provider, catalog_discovery));
+        let token = proxy_auth_token(provider, catalog_discovery)?;
+        set_str(env, "ANTHROPIC_AUTH_TOKEN", &token);
         if catalog_discovery {
+            set_str(env, "ANTHROPIC_API_KEY", &token);
             set_str(env, "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "1");
             inject_catalog_proxy_models(env, provider, subagent_model);
         } else {
@@ -495,7 +497,10 @@ fn inject_catalog_proxy_models(
         set_str(env, model_key, stable_model);
         set_str(env, &format!("{model_key}_NAME"), stable_model);
     }
-    let default = crate::gateway::normalize_live_model(&provider.model);
+    let default = crate::gateway::normalize_live_model_for(
+        crate::provider::ProviderTarget::ClaudeCode,
+        &provider.model,
+    );
     set_str(env, "ANTHROPIC_MODEL", &default);
     let subagent = subagent_model
         .map(str::trim)
@@ -505,14 +510,18 @@ fn inject_catalog_proxy_models(
     set_str(env, "CLAUDE_CODE_SUBAGENT_MODEL", &subagent);
 }
 
-fn proxy_auth_token(provider: &Provider, catalog_discovery: bool) -> &str {
+fn proxy_auth_token(provider: &Provider, catalog_discovery: bool) -> AppResult<String> {
     if catalog_discovery {
-        let key = provider.api_key.trim();
-        if !key.is_empty() {
-            return key;
-        }
+        crate::gateway::resolved_gateway_token(&provider.api_key)
+            .map(str::to_string)
+            .ok_or_else(|| {
+                crate::error::AppError::Config(
+                    "智能网关入口凭据缺失，请重新设为当前 Auto 卡".to_string(),
+                )
+            })
+    } else {
+        Ok("local-proxy-code".to_string())
     }
-    "local-proxy-code"
 }
 
 fn is_proxy_role_model(model: &str) -> bool {
@@ -735,6 +744,8 @@ mod tests {
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
         assert_eq!(env["ANTHROPIC_MODEL"], "deepseek-v4-pro");
+        assert_eq!(env["ANTHROPIC_API_KEY"], "sk-deepseek");
+        assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "sk-deepseek");
     }
 
     #[test]
@@ -763,7 +774,24 @@ mod tests {
         assert!(written.get("model").is_none());
         let env = written["env"].as_object().unwrap();
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "gwt_shared_token");
-        assert_eq!(env["ANTHROPIC_MODEL"], "auto");
+        assert_eq!(env["ANTHROPIC_API_KEY"], "gwt_shared_token");
+        assert_eq!(env["ANTHROPIC_MODEL"], "claude.auto");
+    }
+
+    #[test]
+    fn catalog_proxy_rejects_unresolved_entry_token() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut provider = sample_provider();
+        provider.api_key = "kr://sgw_claude_code".into();
+        let err = apply_provider_to_settings_via_proxy_at(&provider, 15_821, &path, true, None)
+            .unwrap_err();
+        assert!(err.to_string().contains("入口凭据"));
+
+        provider.api_key.clear();
+        let err = apply_provider_to_settings_via_proxy_at(&provider, 15_821, &path, true, None)
+            .unwrap_err();
+        assert!(err.to_string().contains("入口凭据"));
     }
 
     #[test]

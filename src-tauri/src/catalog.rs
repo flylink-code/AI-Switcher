@@ -308,11 +308,29 @@ pub fn build_catalog_with(
     entries
 }
 
-pub fn auto_catalog_entry() -> CatalogEntry {
+/// Codex / OpenAI-style Auto id. Claude discovery cannot use this bare slug.
+pub const AUTO_PUBLIC_ID: &str = "auto";
+/// Claude Code `/v1/models` Auto id; must contain `claude` to pass discovery.
+pub const CLAUDE_AUTO_PUBLIC_ID: &str = "claude.auto";
+
+pub fn auto_public_id(style: CatalogStyle) -> &'static str {
+    match style {
+        CatalogStyle::Claude => CLAUDE_AUTO_PUBLIC_ID,
+        CatalogStyle::Codex => AUTO_PUBLIC_ID,
+    }
+}
+
+pub fn is_auto_public_id(id: &str) -> bool {
+    let trimmed = id.trim();
+    trimmed.eq_ignore_ascii_case(AUTO_PUBLIC_ID)
+        || trimmed.eq_ignore_ascii_case(CLAUDE_AUTO_PUBLIC_ID)
+}
+
+pub fn auto_catalog_entry(style: CatalogStyle) -> CatalogEntry {
     CatalogEntry {
-        public_id: "auto".to_string(),
+        public_id: auto_public_id(style).to_string(),
         display_name: "Auto".to_string(),
-        upstream_slug: "auto".to_string(),
+        upstream_slug: AUTO_PUBLIC_ID.to_string(),
         provider_id: String::new(),
         context_window: 200_000,
         anthropic_upstream: false,
@@ -320,15 +338,15 @@ pub fn auto_catalog_entry() -> CatalogEntry {
     }
 }
 
-pub fn with_auto_entry(mut entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
-    entries.retain(|entry| entry.public_id != "auto");
-    entries.insert(0, auto_catalog_entry());
+pub fn with_auto_entry(style: CatalogStyle, mut entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
+    entries.retain(|entry| !is_auto_public_id(&entry.public_id));
+    entries.insert(0, auto_catalog_entry(style));
     entries
 }
 
-pub fn with_auto_public_ids(mut ids: Vec<String>) -> Vec<String> {
-    ids.retain(|id| !id.eq_ignore_ascii_case("auto"));
-    ids.insert(0, "auto".to_string());
+pub fn with_auto_public_ids(style: CatalogStyle, mut ids: Vec<String>) -> Vec<String> {
+    ids.retain(|id| !is_auto_public_id(id));
+    ids.insert(0, auto_public_id(style).to_string());
     ids
 }
 
@@ -343,10 +361,9 @@ pub fn resolve_request(
         let first = providers.first()?;
         return Some((first.id.clone(), first.model.trim().to_string()));
     }
-    if let Some(entry) = entries
-        .iter()
-        .find(|entry| entry.public_id.eq_ignore_ascii_case(requested))
-    {
+    if let Some(entry) = entries.iter().find(|entry| {
+        entry.public_id.eq_ignore_ascii_case(requested) && !entry.provider_id.trim().is_empty()
+    }) {
         return Some((entry.provider_id.clone(), entry.upstream_slug.clone()));
     }
     let upstream_hits: Vec<&CatalogEntry> = entries
@@ -1150,5 +1167,38 @@ mod tests {
         assert!(!opusplan_should_write_alias(true, Some(plan), None));
         assert!(!opusplan_should_write_alias(true, None, None));
         assert!(!opusplan_should_write_alias(false, Some(plan), Some(execute)));
+    }
+
+    #[test]
+    fn claude_auto_public_id_passes_discovery() {
+        let kimi = provider("p1", "Kimi", "kimi-k2");
+        let catalog = with_auto_entry(
+            CatalogStyle::Claude,
+            build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]),
+        );
+        assert_eq!(catalog[0].public_id, CLAUDE_AUTO_PUBLIC_ID);
+        assert_eq!(catalog[0].display_name, "Auto");
+        assert!(passes_claude_discovery(&catalog[0].public_id));
+        let payload = claude_discovery_payload(&catalog);
+        let ids: Vec<&str> = payload["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids[0], CLAUDE_AUTO_PUBLIC_ID);
+        assert!(ids.iter().any(|id| *id == "claude.kimi.kimi-k2"));
+    }
+
+    #[test]
+    fn codex_auto_public_id_stays_bare_auto() {
+        let first = provider("a", "Alpha", "deepseek-v3");
+        let catalog = with_auto_entry(
+            CatalogStyle::Codex,
+            build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
+        );
+        assert_eq!(catalog[0].public_id, AUTO_PUBLIC_ID);
+        let ids = with_auto_public_ids(CatalogStyle::Codex, vec!["deepseek-v3".into()]);
+        assert_eq!(ids[0], AUTO_PUBLIC_ID);
     }
 }

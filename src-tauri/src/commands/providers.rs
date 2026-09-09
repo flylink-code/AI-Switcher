@@ -360,6 +360,7 @@ pub fn list_gateway_catalog_models(
     let pairs = load_gateway_pairs(&state, target)?;
     let hide_official = catalog::hide_official(state.db.as_ref(), target);
     Ok(catalog::with_auto_public_ids(
+        style,
         build_catalog_with(style, &pairs, hide_official)
             .into_iter()
             .map(|entry| entry.public_id)
@@ -1750,6 +1751,7 @@ fn gateway_live_entry(
     let hide = catalog::hide_official(state.db.as_ref(), target);
     let entries = build_catalog_with(catalog::catalog_style_for(target), &pairs, hide);
     let extra: Vec<String> = catalog::with_auto_public_ids(
+        catalog::catalog_style_for(target),
         entries.iter().map(|entry| entry.public_id.clone()).collect(),
     );
     let mut live = template.clone();
@@ -1764,7 +1766,7 @@ fn gateway_live_entry(
         _ => format!("http://127.0.0.1:{port}/v1"),
     };
     live.api_key = token;
-    live.model = crate::gateway::normalize_live_model(&live.model);
+    live.model = crate::gateway::normalize_live_model_for(target, &live.model);
     Ok((live, extra))
 }
 
@@ -2202,11 +2204,16 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .with_conn(|conn| {
                 Ok(
                     crate::database::dao::gateway::profile_entry_token(conn, provider.target_app)?
-                        .filter(|token| !token.trim().is_empty())
+                        .and_then(|token| {
+                            crate::gateway::resolved_gateway_token(&token).map(str::to_string)
+                        })
                         .or_else(|| {
                             dao::resolve_api_key(conn, &provider.id)
                                 .ok()
                                 .flatten()
+                                .and_then(|key| {
+                                    crate::gateway::resolved_gateway_token(&key).map(str::to_string)
+                                })
                         })
                         .unwrap_or_default(),
                 )
@@ -2220,14 +2227,25 @@ async fn apply_target_provider<R: tauri::Runtime>(
         })?
     };
     if runtime_provider.is_smart_gateway() {
-        runtime_provider.model = crate::gateway::normalize_live_model(&runtime_provider.model);
+        runtime_provider.model = crate::gateway::normalize_live_model_for(
+            runtime_provider.target_app,
+            &runtime_provider.model,
+        );
         runtime_provider.api_key = state
             .db
             .with_conn(|conn| crate::database::dao::gateway::profile_entry_token(conn, provider.target_app))
             .ok()
             .flatten()
-            .filter(|token| !token.trim().is_empty())
+            .and_then(|token| crate::gateway::resolved_gateway_token(&token).map(str::to_string))
             .unwrap_or(runtime_provider.api_key);
+    }
+    if crate::gateway::resolved_gateway_token(&runtime_provider.api_key).is_none()
+        && gateway_catalog_on(state, runtime_provider.target_app)
+        && !runtime_provider.is_codex_oauth()
+    {
+        return Err(AppError::Config(
+            "智能网关入口凭据缺失，请重新设为当前 Auto 卡".to_string(),
+        ));
     }
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
     let _codex_switch_guard = if runtime_provider.target_app == ProviderTarget::Codex {
@@ -2313,11 +2331,10 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
                     let hide_official =
                         catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
-                    let catalog = catalog::with_auto_entry(build_catalog_with(
+                    let catalog = catalog::with_auto_entry(
                         CatalogStyle::Codex,
-                        &pairs,
-                        hide_official,
-                    ));
+                        build_catalog_with(CatalogStyle::Codex, &pairs, hide_official),
+                    );
                     tauri::async_runtime::spawn_blocking(move || {
                         codex::apply_provider_with_catalog(
                             &provider,
@@ -2611,11 +2628,23 @@ impl FileSnapshot {
     }
 }
 
+fn switch_failure_message(error: &AppError) -> String {
+    match error {
+        AppError::Config(message) => message.clone(),
+        other => other.to_string(),
+    }
+}
+
 async fn rollback_switch<T>(snapshot: SwitchSnapshot, state: &AppState, error: AppError) -> AppResult<T> {
     match snapshot.restore(state).await {
-        Ok(()) => Err(AppError::Config(format!("{error}（已回滚到切换前配置）"))),
+        Ok(()) => Err(AppError::Config(format!(
+            "{}（已回滚到切换前配置）",
+            switch_failure_message(&error)
+        ))),
         Err(rollback_error) => Err(AppError::Config(format!(
-            "{error}；已尝试回滚，但部分恢复失败：{rollback_error}"
+            "{}；已尝试回滚，但部分恢复失败：{}",
+            switch_failure_message(&error),
+            switch_failure_message(&rollback_error)
         ))),
     }
 }
@@ -2783,12 +2812,24 @@ fn expected_code_fields(
         format!("http://127.0.0.1:{port}")
     } else { provider.base_url.clone() })));
     values.insert("ANTHROPIC_AUTH_TOKEN".to_string(), Some(Value::String(if proxy {
-        if catalog && !provider.api_key.trim().is_empty() {
-            provider.api_key.clone()
+        if catalog {
+            crate::gateway::resolved_gateway_token(&provider.api_key)
+                .unwrap_or("")
+                .to_string()
         } else {
             "local-proxy-code".to_string()
         }
     } else { provider.api_key.clone() })));
+    if catalog && proxy {
+        values.insert(
+            "ANTHROPIC_API_KEY".to_string(),
+            Some(Value::String(
+                crate::gateway::resolved_gateway_token(&provider.api_key)
+                    .unwrap_or("")
+                    .to_string(),
+            )),
+        );
+    }
     if catalog {
         values.insert(
             "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY".to_string(),
@@ -2824,7 +2865,10 @@ fn expected_code_fields(
     if catalog {
         values.insert(
             "ANTHROPIC_MODEL".to_string(),
-            Some(Value::String(crate::gateway::normalize_live_model(&provider.model))),
+            Some(Value::String(crate::gateway::normalize_live_model_for(
+                ProviderTarget::ClaudeCode,
+                &provider.model,
+            ))),
         );
     } else if !proxy && !provider.model.trim().is_empty() {
         values.insert(
@@ -2944,6 +2988,33 @@ fn restore_code_ownership(state: &AppState) -> AppResult<()> {
 
 const DESKTOP_OWNERSHIP_KEY: &str = "p7.desktop_original_applied_id";
 
+fn desktop_switch_original_applied_id(
+    stored_raw: Option<&str>,
+    current_applied: Option<&str>,
+) -> AppResult<Option<String>> {
+    let current = current_applied
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string);
+    let current_is_managed = current
+        .as_deref()
+        .is_some_and(claude_desktop::is_managed_profile_id);
+    if let Some(raw) = stored_raw.map(str::trim).filter(|value| !value.is_empty()) {
+        if current_is_managed {
+            let original: Option<String> = serde_json::from_str(raw)?;
+            return Ok(original.filter(|id| !claude_desktop::is_managed_profile_id(id)));
+        }
+        // Desktop UI (or a failed gateway session) switched away from our
+        // profile. An explicit「设为当前」must take over again, same as Code
+        // rebasing onto drifted settings instead of refusing forever.
+        log::warn!(
+            "Claude Desktop appliedId drifted from managed profile; rebasing ownership before switch"
+        );
+        return Ok(current.filter(|id| !claude_desktop::is_managed_profile_id(id)));
+    }
+    Ok(current.filter(|id| !claude_desktop::is_managed_profile_id(id)))
+}
+
 fn prepare_desktop_ownership(state: &AppState) -> AppResult<Option<String>> {
     if !claude_desktop::is_supported_platform() {
         // Stale ownership from a Windows/macOS DB copy must not block Linux users.
@@ -2953,19 +3024,8 @@ fn prepare_desktop_ownership(state: &AppState) -> AppResult<Option<String>> {
         ));
     }
     let raw = state.db.with_conn(|conn| get_setting(conn, DESKTOP_OWNERSHIP_KEY))?;
-    if let Some(raw) = raw.filter(|value| !value.is_empty()) {
-        if !claude_desktop::current_applied_id()?
-            .as_deref()
-            .is_some_and(claude_desktop::is_managed_profile_id)
-        {
-            return Err(AppError::Config("检测到 Claude Desktop 配置已被外部修改，已拒绝覆盖".to_string()));
-        }
-        let original: Option<String> = serde_json::from_str(&raw)?;
-        Ok(original.filter(|id| !claude_desktop::is_managed_profile_id(id)))
-    } else {
-        let applied = claude_desktop::current_applied_id()?;
-        Ok(applied.filter(|id| !claude_desktop::is_managed_profile_id(id)))
-    }
+    let applied = claude_desktop::current_applied_id()?;
+    desktop_switch_original_applied_id(raw.as_deref(), applied.as_deref())
 }
 
 fn commit_desktop_ownership(state: &AppState, original_applied_id: Option<String>) -> AppResult<()> {
@@ -3413,7 +3473,7 @@ pub(crate) fn ensure_smart_gateway_provider_row(
     let catalog_ids: Vec<String> = build_catalog_with(catalog::catalog_style_for(target), &pairs, hide)
         .into_iter()
         .map(|entry| entry.public_id)
-        .filter(|id| !id.eq_ignore_ascii_case("auto"))
+        .filter(|id| !catalog::is_auto_public_id(id))
         .collect();
     let existing = state.db.with_conn(|conn| {
         Ok(dao::list_providers(conn, target)?
@@ -3796,6 +3856,37 @@ mod tests {
         let left = BTreeMap::from([("ANTHROPIC_API_KEY".into(), Some(Value::String("  ".into())))]);
         let right = BTreeMap::from([("ANTHROPIC_API_KEY".into(), None)]);
         assert!(managed_fields_match(&left, &right));
+    }
+
+    #[test]
+    fn desktop_switch_keeps_stored_original_when_still_on_managed_profile() {
+        let stored = serde_json::to_string(&Some("user-profile")).unwrap();
+        let original = desktop_switch_original_applied_id(
+            Some(&stored),
+            Some(claude_desktop::PROFILE_ID),
+        )
+        .unwrap();
+        assert_eq!(original.as_deref(), Some("user-profile"));
+    }
+
+    #[test]
+    fn desktop_switch_rebases_when_applied_id_drifted() {
+        let stored = serde_json::to_string(&Some("old-profile")).unwrap();
+        let original =
+            desktop_switch_original_applied_id(Some(&stored), Some("desktop-user-profile"))
+                .unwrap();
+        assert_eq!(original.as_deref(), Some("desktop-user-profile"));
+    }
+
+    #[test]
+    fn desktop_switch_first_apply_captures_unmanaged_applied_id() {
+        let original =
+            desktop_switch_original_applied_id(None, Some("desktop-user-profile")).unwrap();
+        assert_eq!(original.as_deref(), Some("desktop-user-profile"));
+        assert_eq!(
+            desktop_switch_original_applied_id(None, Some(claude_desktop::PROFILE_ID)).unwrap(),
+            None
+        );
     }
 
     #[test]

@@ -126,18 +126,40 @@ pub fn assert_not_managed_gateway_kind(kind: ProviderKind) -> crate::error::AppR
 }
 
 pub fn is_auto_model_id(model: &str) -> bool {
-    let trimmed = model.trim();
-    trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto")
+    crate::catalog::is_auto_public_id(model) || model.trim().is_empty()
 }
 
-/// Live default written to Agent config when the Auto card is current.
+/// Canonical Auto id stored on the Auto card / in SQLite (`auto`, not `claude.auto`).
 /// Leftover `opusplan` is treated as auto; an explicit catalog id is kept.
 pub fn normalize_live_model(model: &str) -> String {
     let trimmed = model.trim();
     if is_auto_model_id(trimmed) || trimmed.eq_ignore_ascii_case("opusplan") {
-        "auto".to_string()
+        crate::catalog::AUTO_PUBLIC_ID.to_string()
     } else {
         trimmed.to_string()
+    }
+}
+
+/// Live default written to an Agent. Claude discovery requires `claude.auto`.
+pub fn normalize_live_model_for(
+    target: crate::provider::ProviderTarget,
+    model: &str,
+) -> String {
+    let trimmed = model.trim();
+    if is_auto_model_id(trimmed) || trimmed.eq_ignore_ascii_case("opusplan") {
+        crate::catalog::auto_public_id(crate::catalog::catalog_style_for(target)).to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Plaintext gateway entry token. Keyring refs and empty strings are not usable live credentials.
+pub fn resolved_gateway_token(value: &str) -> Option<&str> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed.starts_with("kr://") {
+        None
+    } else {
+        Some(trimmed)
     }
 }
 
@@ -583,5 +605,28 @@ mod tests {
         let (lookup, source) = auto_slot_rewrite("auto", false, Some(&profile), &hints);
         assert_eq!(lookup, "long-m");
         assert_eq!(source, Some(RouteSource::LongContext));
+        let (lookup, source) = auto_slot_rewrite("claude.auto", false, Some(&profile), &hints);
+        assert_eq!(lookup, "long-m");
+        assert_eq!(source, Some(RouteSource::LongContext));
+    }
+
+    #[test]
+    fn live_auto_id_is_claude_prefixed_for_code() {
+        assert_eq!(
+            normalize_live_model_for(crate::provider::ProviderTarget::ClaudeCode, "auto"),
+            "claude.auto"
+        );
+        assert_eq!(
+            normalize_live_model_for(crate::provider::ProviderTarget::ClaudeDesktop, ""),
+            "claude.auto"
+        );
+        assert_eq!(
+            normalize_live_model_for(crate::provider::ProviderTarget::Codex, "auto"),
+            "auto"
+        );
+        assert_eq!(normalize_live_model("claude.auto"), "auto");
+        assert!(resolved_gateway_token("gwt_abc").is_some());
+        assert!(resolved_gateway_token("kr://sgw_claude_code").is_none());
+        assert!(resolved_gateway_token("").is_none());
     }
 }

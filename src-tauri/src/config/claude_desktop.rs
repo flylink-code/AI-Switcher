@@ -441,10 +441,12 @@ fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
 fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     let role_routes = provider.requires_local_proxy() && !provider.is_smart_gateway();
     let (base_url, api_key) = if provider.is_smart_gateway() {
-        (
-            desktop_proxy_gateway_base_url(proxy_port),
-            provider.api_key.clone(),
-        )
+        let token = crate::gateway::resolved_gateway_token(&provider.api_key)
+            .map(str::to_string)
+            .ok_or_else(|| {
+                AppError::Config("智能网关入口凭据缺失，请重新设为当前 Auto 卡".to_string())
+            })?;
+        (desktop_proxy_gateway_base_url(proxy_port), token)
     } else if role_routes {
         let token = get_or_create_gateway_token()?;
         (desktop_proxy_gateway_base_url(proxy_port), token)
@@ -465,7 +467,7 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     });
 
     if provider.is_smart_gateway() {
-        let model = crate::gateway::normalize_live_model(&provider.model);
+        let model = crate::gateway::normalize_live_model_for(provider.target_app, &provider.model);
         profile["inferenceModels"] = serde_json::json!([
             { "name": model, "supports1m": true }
         ]);
@@ -881,6 +883,29 @@ mod tests {
         );
         assert_eq!(profile["coworkEgressAllowedHosts"], serde_json::json!(["*"]));
         assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
+    }
+
+    #[test]
+    fn smart_gateway_profile_uses_entry_token_and_claude_auto() {
+        let mut provider = mapped_provider();
+        provider.provider_kind = ProviderKind::SmartGateway;
+        provider.api_key = "gwt_desktop".into();
+        provider.model = "auto".into();
+        let profile = build_profile(&provider, 15_822).expect("profile");
+        assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
+        assert_eq!(
+            profile["inferenceModels"][0]["name"],
+            serde_json::json!("claude.auto")
+        );
+    }
+
+    #[test]
+    fn smart_gateway_profile_rejects_keyring_ref() {
+        let mut provider = mapped_provider();
+        provider.provider_kind = ProviderKind::SmartGateway;
+        provider.api_key = "kr://sgw_claude_desktop".into();
+        let err = build_profile(&provider, 15_822).unwrap_err();
+        assert!(err.to_string().contains("入口凭据"));
     }
 
     #[test]

@@ -553,10 +553,13 @@ pub(crate) fn load_gateway_catalog(
             .unwrap_or_default();
         pairs.push((provider.clone(), cached));
     }
-    let entries = crate::catalog::build_catalog_with(
+    let entries = crate::catalog::with_auto_entry(
         style,
-        &pairs,
-        crate::catalog::hide_official(state.db.as_ref(), state.target),
+        crate::catalog::build_catalog_with(
+            style,
+            &pairs,
+            crate::catalog::hide_official(state.db.as_ref(), state.target),
+        ),
     );
     Ok((providers, entries))
 }

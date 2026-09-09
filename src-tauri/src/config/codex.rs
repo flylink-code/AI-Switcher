@@ -149,19 +149,30 @@ pub fn apply_provider(
     extra_models: &[String],
 ) -> AppResult<CodexApplyInfo> {
     let catalog = catalog_for_single_provider(provider, extra_models);
-    apply_provider_with_catalog(provider, api_key, proxy_port, &catalog)
+    apply_managed_provider(provider, api_key, proxy_port, &catalog, false)
 }
 
 /// Apply the managed `ai_switcher` slot and a pre-built (possibly multi-provider) catalog.
+/// Gateway catalog mode writes the shared profile entry token instead of `PROXY_MANAGED`.
 pub fn apply_provider_with_catalog(
     provider: &Provider,
     api_key: &str,
     proxy_port: Option<u16>,
     catalog: &[CatalogEntry],
 ) -> AppResult<CodexApplyInfo> {
+    apply_managed_provider(provider, api_key, proxy_port, catalog, true)
+}
+
+fn apply_managed_provider(
+    provider: &Provider,
+    api_key: &str,
+    proxy_port: Option<u16>,
+    catalog: &[CatalogEntry],
+    gateway_catalog: bool,
+) -> AppResult<CodexApplyInfo> {
     const MAX_ATTEMPTS: u32 = 6;
     for attempt in 1..=MAX_ATTEMPTS {
-        match apply_provider_once(provider, api_key, proxy_port, catalog) {
+        match apply_provider_once(provider, api_key, proxy_port, catalog, gateway_catalog) {
             Ok(info) => return Ok(info),
             Err(error) if is_retryable_windows_config_conflict(&error) && attempt < MAX_ATTEMPTS => {
                 let delay_ms = 500u64.saturating_mul(u64::from(attempt)).min(2_500);
@@ -185,6 +196,7 @@ fn apply_provider_once(
     api_key: &str,
     proxy_port: Option<u16>,
     catalog: &[CatalogEntry],
+    gateway_catalog: bool,
 ) -> AppResult<CodexApplyInfo> {
     validate_target_protocol(ProviderTarget::Codex, provider.protocol_type)?;
     let config_path = get_codex_config_path();
@@ -198,19 +210,34 @@ fn apply_provider_once(
 
     let mut doc = load_document(&config_path)?;
     write_managed_provider(&mut doc, provider, proxy_port, catalog)?;
-    let preserved_official_login =
-        apply_auth_strategy(&mut doc, existing_auth.as_ref(), proxy_port, api_key);
+    let preserved_official_login = apply_auth_strategy(
+        &mut doc,
+        existing_auth.as_ref(),
+        proxy_port,
+        api_key,
+        gateway_catalog,
+    );
     atomic_write(&config_path, doc.to_string().as_bytes())?;
 
     if !preserved_official_login {
-        let auth_key = if proxy_port.is_some() {
-            PROXY_MANAGED_API_KEY
-        } else {
-            api_key
-        };
-        write_auth_api_key(&auth_path, auth_key)?;
+        write_auth_api_key(
+            &auth_path,
+            proxy_listener_token(proxy_port, api_key, gateway_catalog),
+        )?;
     }
     Ok(CodexApplyInfo { preserved_official_login })
+}
+
+fn proxy_listener_token<'a>(
+    proxy_port: Option<u16>,
+    api_key: &'a str,
+    gateway_catalog: bool,
+) -> &'a str {
+    if proxy_port.is_some() && !gateway_catalog {
+        PROXY_MANAGED_API_KEY
+    } else {
+        api_key
+    }
 }
 
 /// Decide where the vendor credential goes and update the managed provider
@@ -226,16 +253,13 @@ fn apply_auth_strategy(
     existing_auth: Option<&Value>,
     proxy_port: Option<u16>,
     api_key: &str,
+    gateway_catalog: bool,
 ) -> bool {
     let preserved = existing_auth.is_some_and(auth_has_credential_login_material);
     let entry = &mut ensure_table(doc, "model_providers")[MANAGED_PROVIDER_ID];
     if preserved {
-        let auth_key = if proxy_port.is_some() {
-            PROXY_MANAGED_API_KEY
-        } else {
-            api_key
-        };
-        entry["experimental_bearer_token"] = value(auth_key);
+        entry["experimental_bearer_token"] =
+            value(proxy_listener_token(proxy_port, api_key, gateway_catalog));
     } else if let Some(table) = entry.as_table_mut() {
         table.remove("experimental_bearer_token");
     }
@@ -1478,7 +1502,7 @@ mod tests {
             "auth_mode": "chatgpt"
         });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor");
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), None, "sk-vendor", false);
 
         assert!(preserved);
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
@@ -1493,13 +1517,37 @@ mod tests {
         let (mut doc, _temp) = doc_with_managed_entry();
         let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
 
-        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor");
+        let preserved = apply_auth_strategy(&mut doc, Some(&auth), Some(8787), "sk-vendor", false);
 
         assert!(preserved);
         let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
         assert_eq!(
             entry.get("experimental_bearer_token").and_then(Item::as_str),
             Some(PROXY_MANAGED_API_KEY)
+        );
+    }
+
+    #[test]
+    fn gateway_catalog_proxy_writes_entry_token_not_proxy_managed() {
+        let (mut doc, _temp) = doc_with_managed_entry();
+        let auth = serde_json::json!({ "tokens": { "access_token": "official" } });
+
+        let preserved =
+            apply_auth_strategy(&mut doc, Some(&auth), Some(15_823), "gwt_shared", true);
+
+        assert!(preserved);
+        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+        assert_eq!(
+            entry.get("experimental_bearer_token").and_then(Item::as_str),
+            Some("gwt_shared")
+        );
+        assert_eq!(
+            proxy_listener_token(Some(15_823), "gwt_shared", true),
+            "gwt_shared"
+        );
+        assert_eq!(
+            proxy_listener_token(Some(15_823), "sk-vendor", false),
+            PROXY_MANAGED_API_KEY
         );
     }
 
@@ -1516,7 +1564,7 @@ mod tests {
             None,
         ] {
             let preserved =
-                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor");
+                apply_auth_strategy(&mut doc, existing_auth.as_ref(), None, "sk-vendor", false);
             assert!(!preserved);
             assert!(
                 doc["model_providers"][MANAGED_PROVIDER_ID]

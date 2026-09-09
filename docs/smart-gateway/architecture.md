@@ -42,8 +42,10 @@ Antigravity 内建反代仍是 **15830 普通上游**。「添加到网关上游
 
 1. 鉴权档案（入口 token）
 2. 明确目录 public id（且落在档案允许上游内）→ 记 `explicit_model`（**始终优先，不被 auto 槽改写**）
-3. 请求为 `auto` / 空时才进槽：联网 `web_search` → 长上下文 token 阈值 → 辅助 → 档案默认
+3. 请求为 `auto` / `claude.auto` / 空时才进槽：联网 `web_search` → 长上下文 token 阈值 → 辅助 → 档案默认
 4. 槽记 `auto` / `long_context` / `web_search` / `role_subagent` / `profile_default`
+
+Claude Code `/v1/models` 的 Auto 公开 id 是 `claude.auto`（发现过滤要求含 `claude`/`anthropic`）；Codex 仍为 `auto`。监听器只认 `gprof_shared.entry_token`，Code/Desktop/Codex 目录写出必须是该 token。
 
 明确模型是否允许备用是档案开关（`explicit_fallback_enabled`），默认关。辅助槽有备用链，且不得越出允许上游。已输出流式正文后禁止切模型拼接。
 
