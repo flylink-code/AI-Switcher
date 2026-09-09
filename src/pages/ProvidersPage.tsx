@@ -55,7 +55,9 @@ import {
   getAntigravityGatewayStatus,
   startDshWeb,
   getCodexAuthStatus,
-  getGatewayCatalogEnabled,
+  getAgentConnection,
+  setAgentConnection,
+  updateGatewayProfile,
   getGatewayCatalogSubagent,
   getGatewayCatalogHideOfficial,
   getGatewayCatalogOpusplan,
@@ -68,7 +70,6 @@ import {
   listGatewayCatalogEntries,
   pollCodexOauthLogin,
   quarantineFailedProviders,
-  setGatewayCatalogEnabled,
   setGatewayCatalogSubagent,
   setGatewayCatalogHideOfficial,
   setGatewayCatalogOpusplan,
@@ -142,12 +143,11 @@ export default function ProvidersPage() {
     enabled: target === "pi",
   });
 
-  const catalogQuery = useQuery({
-    queryKey: ["gateway-catalog", target],
-    queryFn: () => getGatewayCatalogEnabled(target),
-    enabled: supportsGatewayCatalog,
+  const connectionQuery = useQuery({
+    queryKey: ["agent-connection", target],
+    queryFn: () => getAgentConnection(target),
   });
-  const gatewayCatalog = supportsGatewayCatalog && catalogQuery.data === true;
+  const gatewayCatalog = connectionQuery.data?.connectionType === "gateway";
   const hideProviderSwitch = isNativeCatalog || gatewayCatalog;
 
   const catalogModelsQuery = useQuery({
@@ -288,8 +288,8 @@ export default function ProvidersPage() {
   const handleCatalogModeChange = async (enabled: boolean) => {
     setCatalogBusy(true);
     try {
-      await setGatewayCatalogEnabled(target, enabled);
-      await catalogQuery.refetch();
+      await setAgentConnection(target, enabled ? "gateway" : "external");
+      await connectionQuery.refetch();
       await catalogModelsQuery.refetch();
       await catalogEntriesQuery.refetch();
       await subagentQuery.refetch();
@@ -302,6 +302,19 @@ export default function ProvidersPage() {
       void message.success(
         enabled ? t("providers.catalogModeEnabled") : t("providers.catalogModeDisabled"),
       );
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
+
+  const handleFallbackModeChange = async (mode: string) => {
+    setCatalogBusy(true);
+    try {
+      await updateGatewayProfile(target, { fallbackMode: mode });
+      await connectionQuery.refetch();
+      void message.success(t("providers.fallbackModeSaved"));
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -623,7 +636,7 @@ export default function ProvidersPage() {
           description={t("providers.hotSwitchDescription")}
         />
       )}
-      {supportsGatewayCatalog && (
+      {true && (
         <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
           <Space direction="vertical" size="small" style={{ width: "100%" }}>
             <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
@@ -636,7 +649,7 @@ export default function ProvidersPage() {
               <Segmented
                 size="small"
                 value={gatewayCatalog ? "catalog" : "independent"}
-                disabled={catalogBusy || catalogQuery.isLoading}
+                disabled={catalogBusy || connectionQuery.isLoading}
                 onChange={(value) => void handleCatalogModeChange(value === "catalog")}
                 options={[
                   { label: t("providers.routingIndependent"), value: "independent" },
@@ -644,7 +657,7 @@ export default function ProvidersPage() {
                 ]}
               />
             </Space>
-            {gatewayCatalog && (
+            {gatewayCatalog && supportsGatewayCatalog && (
               <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Space direction="vertical" size={0}>
                   <strong>{t("providers.catalogSubagentLabel")}</strong>
@@ -731,7 +744,7 @@ export default function ProvidersPage() {
                 />
               </Space>
             )}
-            {gatewayCatalog && (
+            {gatewayCatalog && supportsGatewayCatalog && (
               <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Space direction="vertical" size={0}>
                   <strong>{t("providers.catalogHideOfficialLabel")}</strong>
@@ -747,9 +760,36 @@ export default function ProvidersPage() {
               </Space>
             )}
             {gatewayCatalog && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("providers.catalogModeDescription")}
-              </Text>
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Space direction="vertical" size={0}>
+                  <strong>{t("providers.fallbackModeLabel")}</strong>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {t("providers.fallbackModeHint")}
+                  </Text>
+                </Space>
+                <Select
+                  size="small"
+                  style={{ minWidth: 180 }}
+                  value={connectionQuery.data?.profile?.fallbackMode ?? "off"}
+                  disabled={catalogBusy}
+                  onChange={(value) => void handleFallbackModeChange(String(value))}
+                  options={[
+                    { value: "off", label: t("providers.fallbackModeOff") },
+                    { value: "retry", label: t("providers.fallbackModeRetry") },
+                    { value: "model_chain", label: t("providers.fallbackModeChain") },
+                  ]}
+                />
+              </Space>
+            )}
+            {gatewayCatalog && (
+              <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.catalogModeDescription")}
+                </Text>
+                <Button type="link" size="small" onClick={() => navigate("proxy")}>
+                  {t("providers.openGatewayRoutes")}
+                </Button>
+              </Space>
             )}
           </Space>
         </Card>
@@ -926,7 +966,7 @@ export default function ProvidersPage() {
                         void (async () => {
                           await handleOfficial();
                           if (supportsGatewayCatalog) {
-                            await catalogQuery.refetch();
+                            await connectionQuery.refetch();
                           }
                         })();
                       }}

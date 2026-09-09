@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.4.12**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.0**
 
-**This release:** Claude Code unified catalog can enable Opus Plan, with separate planning and execute models (even from different providers).
+**This release:** Each Agent picks an external provider or a gateway profile. The smart gateway owns catalog routing, role slots, and bounded fallback.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -21,8 +21,8 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 
 ## Features
 
-- **Providers:** Independent per agent. Claude Code / Codex can use a unified model catalog so CLI `/model` lists every visible model. Cards copy across agents (protocol and URL rewritten). OpenCode / Pi / DSH keep multiple providers and sync on save.
-- **Local proxy:** Anthropic-compatible forwarding, key injection, failover on 429/5xx. Entry: Settings → Tools & environment → Local proxy.
+- **Providers:** Each agent chooses an **external provider connection** or a **gateway profile connection**. The gateway aggregates catalogs, plan/execute/subagent roles, and route logs. Cards copy across agents (protocol and URL rewritten). OpenCode / Pi / DSH still write every provider when external; a gateway connection writes a single loopback entry.
+- **Smart gateway:** Per-agent loopback listeners, key injection, profile routing, bounded 429/5xx fallback. Entry: Settings → Tools & environment → Smart gateway (route key remains `proxy`).
 - **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
 - **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
 - **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events. Claude Desktop’s private history is not parsed.

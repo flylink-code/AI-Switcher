@@ -4037,29 +4037,31 @@ mod tests {
     #[test]
     fn collect_codex_finds_nested_rollout_jsonl() {
         let dir = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", dir.path());
-        let nested = dir
-            .path()
-            .join("sessions")
-            .join("2026")
-            .join("08")
-            .join("05");
-        fs::create_dir_all(&nested).unwrap();
-        let rollout = nested.join(
-            "rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl",
-        );
-        File::create(&rollout).unwrap();
-        File::create(nested.join("agent-child.jsonl")).unwrap();
+        crate::config::paths::with_isolated_codex_home(dir.path(), || {
+            let nested = dir
+                .path()
+                .join("sessions")
+                .join("2026")
+                .join("08")
+                .join("05");
+            fs::create_dir_all(&nested).unwrap();
+            let rollout = nested.join(
+                "rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl",
+            );
+            File::create(&rollout).unwrap();
+            File::create(nested.join("agent-child.jsonl")).unwrap();
 
-        let result = scan_sessions(Some(SessionProvider::Codex), Some(0), Some(10)).unwrap();
-        std::env::remove_var("CODEX_HOME");
+            let result = scan_sessions(Some(SessionProvider::Codex), Some(0), Some(10)).unwrap();
 
-        assert_eq!(result.total, 1, "providers={:?}", result.providers);
-        assert_eq!(result.sessions[0].provider, SessionProvider::Codex);
-        assert!(result.sessions[0]
-            .source_path
-            .replace('\\', "/")
-            .ends_with("rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl"));
+            assert_eq!(result.total, 1, "providers={:?}", result.providers);
+            assert_eq!(result.sessions[0].provider, SessionProvider::Codex);
+            assert!(result.sessions[0]
+                .source_path
+                .replace('\\', "/")
+                .ends_with(
+                    "rollout-2026-08-05T12-00-00-019f8d32-4e9b-7551-acde-45e4c9a58e0b.jsonl"
+                ));
+        });
     }
 
     #[test]

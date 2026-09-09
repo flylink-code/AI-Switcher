@@ -16,6 +16,11 @@ import type {
   ProviderTarget,
   SwitchProviderResult,
   GatewayCatalogModelOption,
+  AgentConnectionView,
+  ConnectionType,
+  GatewayProfile,
+  GatewayProfilePatch,
+  GatewayRouteLog,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -52,6 +57,35 @@ export async function ensureCodexOauthProvider(
 
 export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {
   return call<Provider | null>("get_current_provider", { target });
+}
+
+export async function getAgentConnection(target: ProviderTarget): Promise<AgentConnectionView> {
+  return call<AgentConnectionView>("get_agent_connection", { target });
+}
+
+export async function setAgentConnection(
+  target: ProviderTarget,
+  connectionType: ConnectionType,
+): Promise<AgentConnectionView> {
+  return call<AgentConnectionView>("set_agent_connection", { target, connectionType });
+}
+
+export async function getGatewayProfile(target: ProviderTarget): Promise<GatewayProfile | null> {
+  return call<GatewayProfile | null>("get_gateway_profile", { target });
+}
+
+export async function updateGatewayProfile(
+  target: ProviderTarget,
+  patch: GatewayProfilePatch,
+): Promise<GatewayProfile> {
+  return call<GatewayProfile>("update_gateway_profile", { target, patch });
+}
+
+export async function listGatewayRouteLogs(
+  target: ProviderTarget,
+  limit = 20,
+): Promise<GatewayRouteLog[]> {
+  return call<GatewayRouteLog[]>("list_gateway_route_logs", { target, limit });
 }
 
 export async function getGatewayCatalogEnabled(target: ProviderTarget): Promise<boolean> {

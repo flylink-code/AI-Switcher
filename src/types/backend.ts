@@ -9,6 +9,67 @@ export type ProtocolType = "anthropic" | "proxy" | "openai_chat" | "openai_respo
 export type ProviderTarget = "claude_code" | "claude_desktop" | "codex" | "opencode" | "pi" | "dsh" | "cline";
 export type ProviderKind = "standard" | "codex_oauth" | "antigravity";
 
+export type ConnectionType = "external" | "gateway";
+
+export interface GatewayProfile {
+  id: string;
+  name: string;
+  targetApp: ProviderTarget;
+  defaultModel: string;
+  planModel: string;
+  executeModel: string;
+  subagentModel: string;
+  allowedUpstreamIds: string[];
+  roleRoutingEnabled: boolean;
+  explicitFallbackEnabled: boolean;
+  fallbackMode: string;
+  fallbackModels: string[];
+  hideOfficial: boolean;
+  entryTokenSet: boolean;
+  planFallback: string[];
+  executeFallback: string[];
+  subagentFallback: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AgentConnectionView {
+  target: ProviderTarget;
+  connectionType: ConnectionType;
+  upstreamId?: string | null;
+  profile?: GatewayProfile | null;
+}
+
+export interface GatewayRouteLog {
+  id: string;
+  createdAt: number;
+  requestedModel?: string | null;
+  model?: string | null;
+  routeReason?: string | null;
+  profileId?: string | null;
+  upstreamId?: string | null;
+  providerName?: string | null;
+  attemptIndex: number;
+  statusCode?: number | null;
+}
+
+export interface GatewayProfilePatch {
+  name?: string;
+  defaultModel?: string;
+  planModel?: string;
+  executeModel?: string;
+  subagentModel?: string;
+  allowedUpstreamIds?: string[];
+  roleRoutingEnabled?: boolean;
+  explicitFallbackEnabled?: boolean;
+  fallbackMode?: string;
+  fallbackModels?: string[];
+  hideOfficial?: boolean;
+  planFallback?: string[];
+  executeFallback?: string[];
+  subagentFallback?: string[];
+}
+
 export interface GatewayCatalogModelOption {
   publicId: string;
   displayName: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Badge, Button, Space, Typography, message } from "antd";
+import { Alert, Badge, Button, Card, Space, Table, Typography, message } from "antd";
 import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
@@ -17,6 +17,7 @@ import {
   stopProxy,
 } from "@/services/api";
 import { proxyStatusOptions } from "@/lib/appQueries";
+import { getAgentConnection, listGatewayRouteLogs } from "@/services/providers";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
@@ -32,6 +33,7 @@ const PROXY_TARGETS: ProviderTarget[] = [
   "codex",
   "opencode",
   "pi",
+  "dsh",
   "cline",
 ];
 
@@ -52,7 +54,16 @@ export default function ProxyPage() {
   const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const statusQuery = useQuery(proxyStatusOptions(target));
   const status = statusQuery.data ?? null;
-  const isOpencode = target === "opencode";
+  const connectionQuery = useQuery({
+    queryKey: ["agent-connection", target],
+    queryFn: () => getAgentConnection(target),
+  });
+  const routesQuery = useQuery({
+    queryKey: ["gateway-route-logs", target],
+    queryFn: () => listGatewayRouteLogs(target, 20),
+  });
+  const isGateway = connectionQuery.data?.connectionType === "gateway";
+  const isOpencodeDirect = target === "opencode" && !isGateway;
   const isRunning = status?.running ?? false;
 
   const failoverQuery = useQuery({ queryKey: ["proxy-failover-enabled"], queryFn: getProxyFailoverEnabled });
@@ -108,6 +119,7 @@ export default function ProxyPage() {
     setRefreshing(true);
     try {
       await statusQuery.refetch();
+      await routesQuery.refetch();
     } finally {
       setRefreshing(false);
     }
@@ -157,7 +169,7 @@ export default function ProxyPage() {
   };
 
   const statusBadge = (() => {
-    if (isOpencode) {
+    if (isOpencodeDirect) {
       return <Badge status="processing" text={t("workbench.proxyDirect")} />;
     }
     if (!status) {
@@ -198,7 +210,7 @@ export default function ProxyPage() {
           <AgentTargetSwitcher value={target} onChange={setProxyTarget} targets={PROXY_TARGETS} />
           {statusBadge}
         </div>
-        {!isOpencode && (
+        {!isOpencodeDirect && (
           <div className="cc-header-right">
             <Button
               icon={<ReloadOutlined spin={refreshing} />}
@@ -239,9 +251,51 @@ export default function ProxyPage() {
         onPortChange={setPort}
         busy={busy}
         clientLabel={t(`workspace.${target}`)}
+        directOnly={isOpencodeDirect}
       />
 
-      {!isOpencode && (
+      <Card size="small" className="page-surface" title={t("proxy.recentRoutes")}>
+        <Table
+          size="small"
+          pagination={false}
+          rowKey="id"
+          locale={{ emptyText: t("proxy.routeEmpty") }}
+          dataSource={routesQuery.data ?? []}
+          columns={[
+            {
+              title: t("proxy.routeRequested"),
+              dataIndex: "requestedModel",
+              ellipsis: true,
+              render: (value: string | null | undefined, row) => value || row.model || "—",
+            },
+            {
+              title: t("proxy.routeReason"),
+              dataIndex: "routeReason",
+              width: 140,
+              render: (value: string | null | undefined) => value || "—",
+            },
+            {
+              title: t("proxy.fieldTarget"),
+              dataIndex: "providerName",
+              ellipsis: true,
+              render: (value: string | null | undefined) => value || "—",
+            },
+            {
+              title: t("proxy.routeAttempt"),
+              dataIndex: "attemptIndex",
+              width: 72,
+            },
+            {
+              title: t("proxy.fieldRunning"),
+              dataIndex: "statusCode",
+              width: 80,
+              render: (value: number | null | undefined) => value ?? "—",
+            },
+          ]}
+        />
+      </Card>
+
+      {!isOpencodeDirect && (
         <ResilienceSettings
           failoverEnabled={failoverQuery.data ?? false}
           failoverSaving={failoverQuery.isPending || failoverSaving}

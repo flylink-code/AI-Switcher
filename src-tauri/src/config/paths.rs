@@ -188,6 +188,25 @@ pub fn get_codex_config_dir() -> PathBuf {
         .unwrap_or_else(|| get_home_dir().join(".codex"))
 }
 
+/// Serialize tests that override `CODEX_HOME`. The env var is process-wide;
+/// without a shared lock, one test's `TempDir` can be dropped while another
+/// is still writing `config.toml` or the model catalog (Windows OS error 3).
+#[cfg(test)]
+pub fn with_isolated_codex_home<R>(home: &Path, body: impl FnOnce() -> R) -> R {
+    use std::sync::Mutex;
+    static LOCK: Mutex<()> = Mutex::new(());
+    let _guard = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    std::env::set_var("CODEX_HOME", home);
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            std::env::remove_var("CODEX_HOME");
+        }
+    }
+    let _reset = Reset;
+    body()
+}
+
 pub fn get_codex_config_path() -> PathBuf {
     get_codex_config_dir().join("config.toml")
 }

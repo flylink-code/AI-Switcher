@@ -964,22 +964,7 @@ mod tests {
         ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget,
     };
 
-    static CODEX_HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
-    fn with_isolated_codex_home<R>(home: &std::path::Path, body: impl FnOnce() -> R) -> R {
-        let _guard = CODEX_HOME_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        std::env::set_var("CODEX_HOME", home);
-        struct Reset;
-        impl Drop for Reset {
-            fn drop(&mut self) {
-                std::env::remove_var("CODEX_HOME");
-            }
-        }
-        let _reset = Reset;
-        body()
-    }
+    use crate::config::paths::with_isolated_codex_home;
 
     fn sample_codex_provider() -> Provider {
         Provider {
@@ -1018,11 +1003,11 @@ mod tests {
         provider.model = "gpt-5.6-sol".into();
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-        assert_eq!(doc["features"]["fast_mode"].as_bool(), Some(true));
-        assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
-        std::env::remove_var("CODEX_HOME");
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+            assert_eq!(doc["features"]["fast_mode"].as_bool(), Some(true));
+            assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
+        });
     }
 
     #[test]
@@ -1030,11 +1015,11 @@ mod tests {
         let provider = sample_codex_provider();
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-        assert!(doc.get("features").is_none());
-        assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
-        std::env::remove_var("CODEX_HOME");
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+            assert!(doc.get("features").is_none());
+            assert!(doc["model_providers"][MANAGED_PROVIDER_ID].is_table());
+        });
     }
 
     #[test]
@@ -1055,38 +1040,45 @@ mod tests {
         doc["model_providers"]["ai_switcher"]["env_key"] = value("OPENAI_API_KEY");
 
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
 
-        let text = doc.to_string();
-        assert!(text.contains("requires_openai_auth = true"));
-        assert!(!text.contains("env_key"));
-        assert!(!text.contains("[model_providers.ai_switcher_old]"));
-        assert_eq!(doc["model"].as_str(), Some("gpt-5"));
-        assert_eq!(doc["model_provider"].as_str(), Some(MANAGED_PROVIDER_ID));
-        assert_eq!(doc["model_catalog_json"].as_str(), Some(MODEL_CATALOG_FILENAME));
-        assert_eq!(doc["model_context_window"].as_integer(), Some(272_000));
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
-        assert_eq!(entry.get("name").and_then(Item::as_str), Some("ThirdParty"));
-        assert_eq!(
-            entry.get("base_url").and_then(Item::as_str),
-            Some("https://api.example.com/v1")
-        );
-        assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
-        assert_eq!(entry.get("requires_openai_auth").and_then(Item::as_bool), Some(true));
-        assert!(entry.get("env_key").is_none());
+            let text = doc.to_string();
+            assert!(text.contains("requires_openai_auth = true"));
+            assert!(!text.contains("env_key"));
+            assert!(!text.contains("[model_providers.ai_switcher_old]"));
+            assert_eq!(doc["model"].as_str(), Some("gpt-5"));
+            assert_eq!(doc["model_provider"].as_str(), Some(MANAGED_PROVIDER_ID));
+            assert_eq!(doc["model_catalog_json"].as_str(), Some(MODEL_CATALOG_FILENAME));
+            assert_eq!(doc["model_context_window"].as_integer(), Some(272_000));
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            assert_eq!(entry.get("name").and_then(Item::as_str), Some("ThirdParty"));
+            assert_eq!(
+                entry.get("base_url").and_then(Item::as_str),
+                Some("https://api.example.com/v1")
+            );
+            assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
+            assert_eq!(
+                entry.get("requires_openai_auth").and_then(Item::as_bool),
+                Some(true)
+            );
+            assert!(entry.get("env_key").is_none());
 
-        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
-        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
-        let models = catalog["models"].as_array().unwrap();
-        assert!(models.len() > 1, "catalog should include default + suggestions");
-        assert_eq!(models[0]["slug"], "gpt-5");
-        assert_eq!(models[0]["supports_reasoning_summaries"], true);
-        assert_eq!(models[0]["context_window"], 272_000);
-        assert_eq!(models[0]["priority"], 1);
-        assert!(models.iter().any(|entry| entry["slug"] == "gpt-6-astra"));
-        assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
-        std::env::remove_var("CODEX_HOME");
+            let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+            let catalog: Value =
+                serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+            let models = catalog["models"].as_array().unwrap();
+            assert!(
+                models.len() > 1,
+                "catalog should include default + suggestions"
+            );
+            assert_eq!(models[0]["slug"], "gpt-5");
+            assert_eq!(models[0]["supports_reasoning_summaries"], true);
+            assert_eq!(models[0]["context_window"], 272_000);
+            assert_eq!(models[0]["priority"], 1);
+            assert!(models.iter().any(|entry| entry["slug"] == "gpt-6-astra"));
+            assert!(models.iter().any(|entry| entry["slug"] == "gpt-5.6-terra"));
+        });
     }
 
     #[test]
@@ -1100,13 +1092,13 @@ mod tests {
         doc["model_providers"][MANAGED_PROVIDER_ID]["wire_api"] = value("responses");
 
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
-        let base_url = entry.get("base_url").and_then(Item::as_str).unwrap_or("");
-        assert_eq!(base_url, "https://api.example.com/v1");
-        assert!(!base_url.contains("127.0.0.1"));
-        std::env::remove_var("CODEX_HOME");
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            let base_url = entry.get("base_url").and_then(Item::as_str).unwrap_or("");
+            assert_eq!(base_url, "https://api.example.com/v1");
+            assert!(!base_url.contains("127.0.0.1"));
+        });
     }
 
     #[test]
@@ -1121,26 +1113,27 @@ mod tests {
 
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
 
-        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
-        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
-        let models = catalog["models"].as_array().unwrap();
-        assert_eq!(models.len(), 2);
-        assert_eq!(models[0]["slug"], "deepseek-v4-flash");
-        assert_eq!(models[0]["display_name"], "DeepSeek V4 Flash");
-        assert_eq!(models[0]["priority"], 1);
-        assert_eq!(models[1]["slug"], "deepseek-v4-pro");
-        assert_eq!(models[1]["display_name"], "DeepSeek V4 Pro");
-        assert_eq!(models[1]["priority"], 2);
-        assert!(!models.iter().any(|entry| {
-            entry["slug"]
-                .as_str()
-                .is_some_and(|slug| slug.starts_with("gpt-"))
-        }));
-        assert_eq!(doc["model"].as_str(), Some("deepseek-v4-flash"));
-        std::env::remove_var("CODEX_HOME");
+            let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+            let catalog: Value =
+                serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+            let models = catalog["models"].as_array().unwrap();
+            assert_eq!(models.len(), 2);
+            assert_eq!(models[0]["slug"], "deepseek-v4-flash");
+            assert_eq!(models[0]["display_name"], "DeepSeek V4 Flash");
+            assert_eq!(models[0]["priority"], 1);
+            assert_eq!(models[1]["slug"], "deepseek-v4-pro");
+            assert_eq!(models[1]["display_name"], "DeepSeek V4 Pro");
+            assert_eq!(models[1]["priority"], 2);
+            assert!(!models.iter().any(|entry| {
+                entry["slug"]
+                    .as_str()
+                    .is_some_and(|slug| slug.starts_with("gpt-"))
+            }));
+            assert_eq!(doc["model"].as_str(), Some("deepseek-v4-flash"));
+        });
     }
 
     #[test]
@@ -1154,60 +1147,70 @@ mod tests {
 
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
 
-        let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
-        let catalog: Value = serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
-        let models = catalog["models"].as_array().unwrap();
-        assert_eq!(models.len(), 2);
-        assert_eq!(models[0]["display_name"], "Kimi K3");
-        assert_eq!(models[1]["display_name"], "Kimi K2.6");
-        assert!(!models.iter().any(|entry| {
-            entry["slug"]
-                .as_str()
-                .is_some_and(|slug| slug.starts_with("gpt-"))
-        }));
-        std::env::remove_var("CODEX_HOME");
+            let catalog_path = temp.path().join(MODEL_CATALOG_FILENAME);
+            let catalog: Value =
+                serde_json::from_str(&fs::read_to_string(catalog_path).unwrap()).unwrap();
+            let models = catalog["models"].as_array().unwrap();
+            assert_eq!(models.len(), 2);
+            assert_eq!(models[0]["display_name"], "Kimi K3");
+            assert_eq!(models[1]["display_name"], "Kimi K2.6");
+            assert!(!models.iter().any(|entry| {
+                entry["slug"]
+                    .as_str()
+                    .is_some_and(|slug| slug.starts_with("gpt-"))
+            }));
+        });
     }
 
     #[test]
     fn catalog_uses_explicit_context_window() {
         let mut provider = sample_codex_provider();
         provider.model_context_window = Some(200_000);
-        let entry = codex_model_catalog_entry(
-            "gpt-5",
-            effective_model_context_window(&provider),
-            false,
-            true,
-            1,
-        );
-        assert_eq!(entry["context_window"], 200_000);
-        assert_eq!(entry["max_context_window"], 200_000);
-        assert_eq!(entry["supports_reasoning_summaries"], true);
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            let entry = codex_model_catalog_entry(
+                "gpt-5",
+                effective_model_context_window(&provider),
+                false,
+                true,
+                1,
+            );
+            assert_eq!(entry["context_window"], 200_000);
+            assert_eq!(entry["max_context_window"], 200_000);
+            assert_eq!(entry["supports_reasoning_summaries"], true);
+        });
     }
 
     #[test]
     fn anthropic_upstream_catalog_disables_incompatible_codex_tools() {
-        let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false, 1);
-        assert_eq!(entry["apply_patch_tool_type"], "structured");
-        assert_eq!(entry["web_search_tool_type"], "disabled");
-        assert_eq!(entry["supports_search_tool"], false);
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false, 1);
+            assert_eq!(entry["apply_patch_tool_type"], "structured");
+            assert_eq!(entry["web_search_tool_type"], "disabled");
+            assert_eq!(entry["supports_search_tool"], false);
+        });
     }
 
     #[test]
     fn provider_can_disable_web_search_for_openai_upstream() {
         let mut provider = sample_codex_provider();
         provider.web_search_enabled = Some(false);
-        let entry = codex_model_catalog_entry(
-            &provider.model,
-            effective_model_context_window(&provider),
-            false,
-            provider.web_search_enabled.unwrap_or(true),
-            1,
-        );
-        assert_eq!(entry["web_search_tool_type"], "disabled");
-        assert_eq!(entry["supports_search_tool"], false);
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            let entry = codex_model_catalog_entry(
+                &provider.model,
+                effective_model_context_window(&provider),
+                false,
+                provider.web_search_enabled.unwrap_or(true),
+                1,
+            );
+            assert_eq!(entry["web_search_tool_type"], "disabled");
+            assert_eq!(entry["supports_search_tool"], false);
+        });
     }
 
     #[test]
@@ -1217,27 +1220,36 @@ mod tests {
         provider.base_url = "https://api.anthropic.test".into();
         let mut doc = DocumentMut::new();
         doc["model_providers"] = Item::Table(Table::new());
-        write_managed_provider(&mut doc, &provider, Some(15823), &[]).unwrap();
-        let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
-        assert_eq!(entry.get("wire_api").and_then(Item::as_str), Some("responses"));
-        assert_eq!(
-            entry.get("base_url").and_then(Item::as_str),
-            Some("http://127.0.0.1:15823/v1")
-        );
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, Some(15823), &[]).unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            assert_eq!(
+                entry.get("wire_api").and_then(Item::as_str),
+                Some("responses")
+            );
+            assert_eq!(
+                entry.get("base_url").and_then(Item::as_str),
+                Some("http://127.0.0.1:15823/v1")
+            );
+        });
     }
 
     #[test]
     fn catalog_advertises_fast_mode_for_sol() {
-        let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true, 1);
-        assert_eq!(entry["service_tiers"][0]["id"], "fast");
-        assert_eq!(entry["additional_speed_tiers"][0], "fast");
-        assert!(model_supports_codex_fast("gpt-6-astra"));
-        assert!(model_supports_codex_fast("gpt-6-astra-fast"));
-        assert!(model_supports_codex_fast("gpt-5.6-sol"));
-        assert!(model_supports_codex_fast("gpt-5.5"));
-        assert!(model_supports_codex_fast("gpt-5.4"));
-        assert!(!model_supports_codex_fast("gpt-5.6-luna"));
-        assert!(!model_supports_codex_fast("gpt-5.4-mini"));
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true, 1);
+            assert_eq!(entry["service_tiers"][0]["id"], "fast");
+            assert_eq!(entry["additional_speed_tiers"][0], "fast");
+            assert!(model_supports_codex_fast("gpt-6-astra"));
+            assert!(model_supports_codex_fast("gpt-6-astra-fast"));
+            assert!(model_supports_codex_fast("gpt-5.6-sol"));
+            assert!(model_supports_codex_fast("gpt-5.5"));
+            assert!(model_supports_codex_fast("gpt-5.4"));
+            assert!(!model_supports_codex_fast("gpt-5.6-luna"));
+            assert!(!model_supports_codex_fast("gpt-5.4-mini"));
+        });
     }
 
     #[test]
@@ -1452,9 +1464,9 @@ mod tests {
         let provider = sample_codex_provider();
         let mut doc = DocumentMut::new();
         let temp = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", temp.path());
-        write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
-        std::env::remove_var("CODEX_HOME");
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+        });
         (doc, temp)
     }
 

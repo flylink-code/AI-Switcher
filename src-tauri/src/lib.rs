@@ -8,6 +8,7 @@
 mod backup;
 mod agents;
 mod catalog;
+mod gateway;
 mod antigravity;
 mod claude_plugins;
 mod coding;
@@ -73,7 +74,8 @@ use crate::commands::{
     set_antigravity_outbound_proxy, start_antigravity_gateway, start_antigravity_oauth_login,
     stop_antigravity_gateway,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
-    get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled,
+    get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled, get_agent_connection, set_agent_connection,
+    get_gateway_profile, list_gateway_profiles, update_gateway_profile, list_gateway_route_logs,
     get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_gateway_catalog_opusplan,
     get_gateway_catalog_plan, get_gateway_catalog_execute, get_claude_code_default_permission_mode,
     get_db_info, get_paths,
@@ -274,6 +276,12 @@ pub fn run() {
             set_claude_code_default_permission_mode,
             list_gateway_catalog_models,
             list_gateway_catalog_entries,
+            get_agent_connection,
+            set_agent_connection,
+            get_gateway_profile,
+            list_gateway_profiles,
+            update_gateway_profile,
+            list_gateway_route_logs,
             copy_provider_to_target,
             create_provider,
             update_provider,

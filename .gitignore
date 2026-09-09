@@ -48,6 +48,8 @@ ui-test.html
 
 # Local secrets (never commit; use .env.example as template)
 .env
-docs/
+docs/**
+!docs/smart-gateway/
+!docs/smart-gateway/**
 .cursor/
 1-examples-2-ccswitch-cached-tide.md

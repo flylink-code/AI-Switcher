@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.4.12**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.0**
 
-**本版**：Claude Code 统一目录可开启 Opus Plan，规划与执行分模型（可跨供应商）。
+**本版**：Agent 连接改为外部供应商或网关档案；智能网关按档案做目录、角色分工与有界备用。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -21,8 +21,8 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 
 ## 功能
 
-- **供应商**：各 Agent 独立配置。Claude Code / Codex 可开统一模型目录，CLI `/model` 选用全部可见模型。卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi / DSH 多供应商并存，保存即同步。
-- **本地代理**：Anthropic 兼容转发、密钥注入、429/5xx 故障切换。入口在设置 → 工具与环境 → 本地代理。
+- **供应商**：各 Agent 选择 **外部供应商连接** 或 **网关档案连接**。网关聚合目录、规划/执行/辅助分工与观测；卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi / DSH 在外部连接时仍多供应商并存；网关连接只写一条本机入口。
+- **智能网关**：本机按 Agent 端口转发、密钥注入、档案路由、429/5xx 有界备用。入口在设置 → 工具与环境 → 智能网关（路由 key 仍为 `proxy`）。
 - **Antigravity 网关**：`127.0.0.1:15830`，把 Cloud Code 接到 Anthropic Messages / OpenAI Chat / Responses。浏览器登录账号池、按额度调度。个人自用，请自行评估上游条款。
 - **工作区**：MCP、Prompts、Skills、Agents、插件、项目快照；按当前 Agent 只显示其支持的 Tab。
 - **会话与用量**：浏览、搜索、备份本地会话；合并代理日志与会话事件估算费用。不解析 Claude Desktop 私有历史。

@@ -5,6 +5,7 @@ pub mod profiles;
 pub mod providers;
 pub mod proxy_logs;
 pub mod settings;
+pub mod gateway;
 
 pub use profiles::{
     create_profile, delete_profile, get_current_profile_id, get_profile, list_profiles,

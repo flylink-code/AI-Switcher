@@ -8,6 +8,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{json, Value};
 
+use crate::database::dao::gateway;
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::provider::{
@@ -72,10 +73,7 @@ pub fn execute_setting_key(target: ProviderTarget) -> Option<&'static str> {
 }
 
 pub fn enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
-    let Some(key) = setting_key(target) else {
-        return false;
-    };
-    get_setting(conn, key).ok().flatten().as_deref() == Some("true")
+    gateway::is_gateway_connection(conn, target)
 }
 
 pub fn enabled(db: &Database, target: ProviderTarget) -> bool {
@@ -84,6 +82,9 @@ pub fn enabled(db: &Database, target: ProviderTarget) -> bool {
 }
 
 pub fn hide_official_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        return profile.hide_official;
+    }
     let Some(key) = hide_official_setting_key(target) else {
         return false;
     };
@@ -96,6 +97,12 @@ pub fn hide_official(db: &Database, target: ProviderTarget) -> bool {
 }
 
 pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        let value = profile.subagent_model.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
     let key = subagent_setting_key(target)?;
     get_setting(conn, key)
         .ok()
@@ -123,6 +130,9 @@ fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<Stri
 }
 
 pub fn opusplan_enabled_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> bool {
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        return profile.role_routing_enabled;
+    }
     let Some(key) = opusplan_setting_key(target) else {
         return false;
     };
@@ -135,6 +145,13 @@ pub fn opusplan_enabled(db: &Database, target: ProviderTarget) -> bool {
 }
 
 pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        let value = profile.plan_model.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+        return None;
+    }
     setting_model_for_conn(conn, plan_setting_key(target)?)
 }
 
@@ -145,6 +162,13 @@ pub fn plan_model(db: &Database, target: ProviderTarget) -> Option<String> {
 }
 
 pub fn execute_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
+    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
+        let value = profile.execute_model.trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+        return None;
+    }
     setting_model_for_conn(conn, execute_setting_key(target)?)
 }
 
@@ -165,6 +189,17 @@ pub enum CatalogStyle {
     Claude,
     /// Codex catalog / OpenAI `/v1/models`. Any slug is fine; collisions get a prefix.
     Codex,
+}
+
+pub fn catalog_style_for(target: ProviderTarget) -> CatalogStyle {
+    match target {
+        ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => CatalogStyle::Claude,
+        ProviderTarget::Codex
+        | ProviderTarget::OpenCode
+        | ProviderTarget::Pi
+        | ProviderTarget::Dsh
+        | ProviderTarget::Cline => CatalogStyle::Codex,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -422,6 +457,32 @@ pub fn normalize_client_request(
     plan: Option<&str>,
     execute: Option<&str>,
 ) -> String {
+    normalize_client_request_with(
+        style,
+        entries,
+        providers,
+        requested,
+        hide_official,
+        subagent,
+        force_subagent,
+        plan,
+        execute,
+        true,
+    )
+}
+
+pub fn normalize_client_request_with(
+    style: CatalogStyle,
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    requested: &str,
+    hide_official: bool,
+    subagent: Option<&str>,
+    force_subagent: bool,
+    plan: Option<&str>,
+    execute: Option<&str>,
+    role_routing_enabled: bool,
+) -> String {
     let fallback = catalog_fallback_id(entries, providers, subagent);
     if force_subagent {
         return catalog_subagent_target(entries, providers, subagent);
@@ -440,7 +501,7 @@ pub fn normalize_client_request(
     if style == CatalogStyle::Claude && haiku_or_subagent && !in_catalog {
         return catalog_subagent_target(entries, providers, subagent);
     }
-    if style == CatalogStyle::Claude && !in_catalog {
+    if style == CatalogStyle::Claude && !in_catalog && role_routing_enabled {
         if is_opusplan_alias(requested) {
             if let Some(slot) = nonempty_slot(execute) {
                 return slot.to_string();
@@ -1096,6 +1157,22 @@ mod tests {
             ),
             plan,
             "catalog public ids must not be stolen by role rewriting"
+        );
+        assert_eq!(
+            normalize_client_request_with(
+                CatalogStyle::Claude,
+                &catalog,
+                &providers,
+                CLAUDE_OPUS_ROLE_ID,
+                false,
+                None,
+                false,
+                Some(plan),
+                Some(execute),
+                false,
+            ),
+            CLAUDE_OPUS_ROLE_ID,
+            "closing role routing must ignore leftover plan/execute slots"
         );
         assert!(opusplan_should_write_alias(true, Some(plan), None));
         assert!(!opusplan_should_write_alias(true, None, None));

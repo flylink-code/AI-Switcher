@@ -117,6 +117,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     } else {
         normalize_provider_base_url(input.target_app, protocol_type, &input.base_url)?
     };
+    crate::gateway::assert_not_self_referential(&base_url)?;
     let model_mapping_json = serde_json::to_string(&normalized_model_mapping(
         input.target_app,
         input.model_mapping.clone(),
@@ -183,7 +184,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         if input.clear_api_key || is_codex_oauth {
             secrets::delete_key(id)?;
         }
-        return get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")));
+        let updated = get_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("供应商不存在: {id}")))?;
+        let _ = super::gateway::sync_upstream_from_provider(conn, &updated);
+        return Ok(updated);
     }
 
     let id = format!("p_{}", uuid_v8());
@@ -222,7 +225,9 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         }
         return Err(error.into());
     }
-    get_provider(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回供应商".to_string()))
+    let created = get_provider(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回供应商".to_string()))?;
+    let _ = super::gateway::sync_upstream_from_provider(conn, &created);
+    Ok(created)
 }
 
 /// Resolve a provider's API key to plaintext at runtime.
@@ -315,11 +320,13 @@ pub fn delete_provider(conn: &Connection, id: &str) -> AppResult<()> {
     {
         return Err(AppError::Config("不能删除当前激活的供应商".to_string()));
     }
+    super::gateway::assert_upstream_deletable(conn, id)?;
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM provider_models WHERE provider_id = ?;", params![id])?;
     tx.execute("DELETE FROM provider_health WHERE provider_id = ?;", params![id])?;
     tx.execute("DELETE FROM providers WHERE id = ?;", params![id])?;
     tx.commit()?;
+    let _ = super::gateway::delete_upstream_mirror(conn, id);
     // Clean up the keyring entry; a missing entry is not an error.
     if let Err(e) = secrets::delete_key(id) {
         log::warn!("删除供应商 {id} 的凭据失败（已忽略）: {e}");

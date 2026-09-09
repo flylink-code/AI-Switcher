@@ -24,6 +24,7 @@ pub mod runtime_status;
 pub mod sessions;
 pub mod providers;
 pub mod proxy;
+pub mod gateway;
 pub mod quota;
 pub mod skills;
 pub mod system;
@@ -133,6 +134,10 @@ pub use providers::{
     set_claude_code_default_permission_mode, speedtest_provider_endpoint,
     switch_provider, switch_to_official,
     test_provider_connection, test_provider_input, update_provider,
+};
+pub use gateway::{
+    get_agent_connection, get_gateway_profile, list_gateway_profiles, list_gateway_route_logs,
+    set_agent_connection, update_gateway_profile,
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,

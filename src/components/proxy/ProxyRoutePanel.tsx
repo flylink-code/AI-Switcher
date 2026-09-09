@@ -13,6 +13,8 @@ export interface ProxyRoutePanelProps {
   busy: boolean;
   /** Localized label of the page-local Agent target. */
   clientLabel: string;
+  /** When true, hide start/port endpoint as a direct (non-gateway) connection. */
+  directOnly?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -25,12 +27,13 @@ export const ProxyRoutePanel: React.FC<ProxyRoutePanelProps> = ({
   onPortChange,
   busy,
   clientLabel,
+  directOnly,
   className = "",
   style,
 }) => {
   const { t } = useTranslation();
   const isRunning = status?.running ?? false;
-  const isOpencode = target === "opencode";
+  const isOpencode = directOnly ?? target === "opencode";
   const portLocked = busy || isRunning || status?.phase === "starting";
 
   const endpointUrl = target === "codex"

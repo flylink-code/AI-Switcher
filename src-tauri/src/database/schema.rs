@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 28;
+pub const SCHEMA_VERSION: u32 = 29;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -106,7 +106,12 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             diagnostic   TEXT,
             stream_outcome TEXT,
             data_source  TEXT NOT NULL DEFAULT 'proxy',
-            session_id   TEXT
+            session_id   TEXT,
+            profile_id   TEXT,
+            route_reason TEXT,
+            attempt_index INTEGER NOT NULL DEFAULT 0,
+            requested_model TEXT,
+            upstream_id  TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
@@ -150,6 +155,81 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
         );",
     )?;
 
+    create_gateway_tables(conn)?;
+    Ok(())
+}
+
+fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upstreams (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL,
+            base_url      TEXT NOT NULL,
+            api_key       TEXT NOT NULL DEFAULT '',
+            model         TEXT,
+            protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+            provider_kind TEXT NOT NULL DEFAULT 'standard',
+            auth_binding  TEXT NOT NULL DEFAULT '',
+            notes         TEXT NOT NULL DEFAULT '',
+            sort_index    INTEGER NOT NULL DEFAULT 0,
+            enabled       INTEGER NOT NULL DEFAULT 1,
+            model_context_window INTEGER,
+            web_search_enabled INTEGER,
+            auto_review_model_override TEXT,
+            failover_group INTEGER NOT NULL DEFAULT 0,
+            failover_models TEXT NOT NULL DEFAULT '[]',
+            hidden_models_json TEXT NOT NULL DEFAULT '[]',
+            thinking_config_json TEXT NOT NULL DEFAULT '{}',
+            custom_headers_json TEXT NOT NULL DEFAULT '{}',
+            created_at    INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS upstream_models (
+            id TEXT PRIMARY KEY,
+            upstream_id TEXT NOT NULL,
+            model_id TEXT NOT NULL,
+            capability_json TEXT NOT NULL DEFAULT '{}',
+            verified_status TEXT NOT NULL DEFAULT 'declared',
+            visible INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_upstream_models_upstream ON upstream_models(upstream_id);
+        CREATE TABLE IF NOT EXISTS gateway_profiles (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            target_app TEXT NOT NULL,
+            default_model TEXT NOT NULL DEFAULT '',
+            plan_model TEXT NOT NULL DEFAULT '',
+            execute_model TEXT NOT NULL DEFAULT '',
+            subagent_model TEXT NOT NULL DEFAULT '',
+            allowed_upstream_ids_json TEXT NOT NULL DEFAULT '[]',
+            role_routing_enabled INTEGER NOT NULL DEFAULT 0,
+            explicit_fallback_enabled INTEGER NOT NULL DEFAULT 0,
+            fallback_mode TEXT NOT NULL DEFAULT 'off',
+            fallback_models_json TEXT NOT NULL DEFAULT '[]',
+            hide_official INTEGER NOT NULL DEFAULT 0,
+            entry_token TEXT NOT NULL DEFAULT '',
+            plan_fallback_json TEXT NOT NULL DEFAULT '[]',
+            execute_fallback_json TEXT NOT NULL DEFAULT '[]',
+            subagent_fallback_json TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_gateway_profiles_target ON gateway_profiles(target_app);
+        CREATE TABLE IF NOT EXISTS agent_connections (
+            id TEXT PRIMARY KEY,
+            target_app TEXT NOT NULL,
+            connection_type TEXT NOT NULL,
+            upstream_id TEXT,
+            profile_id TEXT,
+            is_current INTEGER NOT NULL DEFAULT 0,
+            client_config_json TEXT NOT NULL DEFAULT '{}',
+            created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_connections_target ON agent_connections(target_app);
+        CREATE TABLE IF NOT EXISTS gateway_id_map (
+            old_provider_id TEXT PRIMARY KEY,
+            upstream_id TEXT NOT NULL
+        );",
+    )?;
     Ok(())
 }
 
@@ -247,6 +327,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 28 {
         migrate_v27_to_v28(conn)?;
+    }
+    if current < 29 {
+        migrate_v28_to_v29(conn)?;
     }
     Ok(())
 }
@@ -989,6 +1072,41 @@ fn migrate_v27_to_v28(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 28)
 }
 
+fn migrate_v28_to_v29(conn: &Connection) -> AppResult<()> {
+    create_gateway_tables(conn)?;
+    add_proxy_log_route_columns(conn)?;
+    crate::database::dao::gateway::seed_from_legacy(conn)?;
+    set_user_version(conn, 29)
+}
+
+fn add_proxy_log_route_columns(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    for (name, ddl) in [
+        ("profile_id", "ALTER TABLE proxy_request_logs ADD COLUMN profile_id TEXT;"),
+        ("route_reason", "ALTER TABLE proxy_request_logs ADD COLUMN route_reason TEXT;"),
+        ("attempt_index", "ALTER TABLE proxy_request_logs ADD COLUMN attempt_index INTEGER NOT NULL DEFAULT 0;"),
+        ("requested_model", "ALTER TABLE proxy_request_logs ADD COLUMN requested_model TEXT;"),
+        ("upstream_id", "ALTER TABLE proxy_request_logs ADD COLUMN upstream_id TEXT;"),
+    ] {
+        let has: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if has == 0 {
+            conn.execute_batch(ddl)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn set_user_version(conn: &Connection, version: u32) -> AppResult<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version};"))?;
     Ok(())
@@ -1006,7 +1124,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models"] {
+            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "agent_connections", "gateway_id_map"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],
@@ -1375,5 +1493,116 @@ mod tests {
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();
         assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn v29_seeds_gateway_tables_from_legacy_catalog() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE providers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_url TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                model TEXT,
+                model_mapping_json TEXT NOT NULL DEFAULT '{}',
+                protocol_type TEXT NOT NULL DEFAULT 'anthropic',
+                provider_kind TEXT NOT NULL DEFAULT 'standard',
+                auth_binding TEXT NOT NULL DEFAULT '',
+                target_app TEXT NOT NULL DEFAULT 'claude_code',
+                notes TEXT NOT NULL DEFAULT '',
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                failover_group INTEGER NOT NULL DEFAULT 0,
+                failover_models TEXT NOT NULL DEFAULT '[]',
+                hidden_models_json TEXT NOT NULL DEFAULT '[]',
+                thinking_config_json TEXT NOT NULL DEFAULT '{}',
+                custom_headers_json TEXT NOT NULL DEFAULT '{}',
+                model_context_window INTEGER,
+                web_search_enabled INTEGER,
+                auto_review_model_override TEXT,
+                is_current BOOLEAN NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            CREATE TABLE proxy_request_logs (
+                id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                provider_id TEXT,
+                provider_name TEXT,
+                model TEXT,
+                status_code INTEGER,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO providers (id, name, base_url, model, target_app, is_current, created_at)
+            VALUES ('p_code', 'Kimi', 'https://api.example.test', 'kimi-k2', 'claude_code', 1, 1);
+            INSERT INTO settings (key, value) VALUES
+                ('gateway_catalog_claude_code', 'true'),
+                ('gateway_catalog_claude_code_opusplan', 'true'),
+                ('gateway_catalog_claude_code_plan', 'plan-id'),
+                ('gateway_catalog_claude_code_execute', 'exec-id'),
+                ('proxy_failover_enabled', 'false');
+            PRAGMA user_version = 28;",
+        )
+        .unwrap();
+
+        migrate(&conn).unwrap();
+        migrate(&conn).unwrap();
+
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        let upstreams: i64 = conn
+            .query_row("SELECT count(*) FROM upstreams;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(upstreams, 1);
+        let gateway_current: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM agent_connections
+                 WHERE target_app = 'claude_code' AND connection_type = 'gateway' AND is_current = 1;",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(gateway_current, 1);
+        let plan: String = conn
+            .query_row(
+                "SELECT plan_model FROM gateway_profiles WHERE id = 'gprof_claude_code';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(plan, "plan-id");
+        let has_reason: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'route_reason';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_reason, 1);
+        let token: String = conn
+            .query_row(
+                "SELECT entry_token FROM gateway_profiles WHERE id = 'gprof_claude_code';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!token.is_empty());
+        migrate(&conn).unwrap();
+        let token2: String = conn
+            .query_row(
+                "SELECT entry_token FROM gateway_profiles WHERE id = 'gprof_claude_code';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(token, token2);
+        let upstreams2: i64 = conn
+            .query_row("SELECT count(*) FROM upstreams;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(upstreams2, 1);
     }
 }

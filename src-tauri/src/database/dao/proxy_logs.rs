@@ -712,6 +712,31 @@ pub fn update_proxy_log_diagnostic(
     Ok(())
 }
 
+pub fn update_proxy_log_route(
+    conn: &Connection,
+    id: &str,
+    profile_id: Option<&str>,
+    route_reason: Option<&str>,
+    attempt_index: i64,
+    requested_model: Option<&str>,
+    upstream_id: Option<&str>,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE proxy_request_logs
+         SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?
+         WHERE id = ?;",
+        params![
+            profile_id,
+            route_reason,
+            attempt_index,
+            requested_model,
+            upstream_id,
+            id
+        ],
+    )?;
+    Ok(())
+}
+
 /// Per-request cost from matched `model_pricing` (any currency).
 const ROW_COST_SQL: &str = "\
     COALESCE(l.input_tokens, 0) * COALESCE(p.input_price_per_million, 0) / 1000000.0 \

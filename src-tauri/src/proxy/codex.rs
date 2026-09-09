@@ -12,10 +12,10 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use serde_json::Value;
 
-use crate::catalog::{openai_models_payload, rewrite_json_model, CatalogStyle};
+use crate::catalog::{openai_models_payload, rewrite_json_model};
 use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, resolve_api_key};
 use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
-use crate::provider::{api_endpoint_url, ProtocolType, Provider, ProviderTarget};
+use crate::provider::{api_endpoint_url, ProtocolType, Provider};
 
 use super::codex_anthropic::{
     anthropic_response_to_responses, anthropic_version_header, parse_anthropic_sse_frame,
@@ -36,8 +36,8 @@ use super::{
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
-    if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
-        match super::load_gateway_catalog(&state, CatalogStyle::Codex) {
+    if crate::catalog::enabled(state.db.as_ref(), state.target) {
+        match super::load_gateway_catalog(&state, crate::catalog::catalog_style_for(state.target)) {
             Ok((_, entries)) if !entries.is_empty() => {
                 let body = openai_models_payload(&entries);
                 return Response::builder()
@@ -52,7 +52,7 @@ pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
     }
     match state
         .db
-        .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
+        .with_conn(|conn| get_current_provider(conn, state.target))
     {
         Ok(Some(provider)) => {
             let cached = state
@@ -63,7 +63,10 @@ pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
                         .unwrap_or_default())
                 })
                 .unwrap_or_default();
-            let entries = crate::catalog::build_catalog(CatalogStyle::Codex, &[(provider, cached)]);
+            let entries = crate::catalog::build_catalog(
+                crate::catalog::catalog_style_for(state.target),
+                &[(provider, cached)],
+            );
             let body = openai_models_payload(&entries);
             Response::builder()
                 .status(StatusCode::OK)
@@ -99,17 +102,20 @@ pub async fn codex_proxy_handler(
                 .map(str::to_string)
         })
         .unwrap_or_default();
-    let catalog_mode = crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex);
+    let catalog_mode = crate::catalog::enabled(state.db.as_ref(), state.target);
     let mut is_catalog_subagent = false;
+    let mut route_decision = None;
+    let attempt_index: i64 = 0;
     let mut provider = if catalog_mode {
         match select_gateway_runtime_provider_with(
             &state,
             &requested_model,
             has_subagent_header(&headers),
         ) {
-            Ok(Some((selected, upstream, routed_subagent))) => {
+            Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
                 is_catalog_subagent = routed_subagent;
+                route_decision = Some(decision);
                 selected
             }
             Ok(None) => {
@@ -136,7 +142,7 @@ pub async fn codex_proxy_handler(
     } else {
         match state
             .db
-            .with_conn(|conn| get_current_provider(conn, ProviderTarget::Codex))
+            .with_conn(|conn| get_current_provider(conn, state.target))
         {
             Ok(Some(provider)) => provider,
             Ok(None) => {
@@ -448,6 +454,9 @@ pub async fn codex_proxy_handler(
         },
         failover_diag.as_deref(),
     );
+    if let (Some(id), Some(decision)) = (log_id.as_deref(), route_decision.as_ref()) {
+        super::patch_route_log(&state, id, decision, attempt_index);
+    }
 
     let is_streaming = is_stream
         || upstream
@@ -631,8 +640,8 @@ fn catalog_failover_body_if_needed(
     if !catalog_mode {
         return original_body.clone();
     }
-    let subagent = crate::catalog::subagent_model(state.db.as_ref(), ProviderTarget::Codex);
-    let entries = super::load_gateway_catalog(state, CatalogStyle::Codex)
+    let subagent = crate::catalog::subagent_model(state.db.as_ref(), state.target);
+    let entries = super::load_gateway_catalog(state, crate::catalog::catalog_style_for(state.target))
         .map(|(_, entries)| entries)
         .unwrap_or_default();
     let upstream =
@@ -726,7 +735,7 @@ fn prepare_codex_upstream(
     // Failover must use the *target* provider's auto-review override.
     // Catalog mode rewrites any subagent at routing time; keep the per-provider
     // override for independent mode only.
-    let body = if crate::catalog::enabled(state.db.as_ref(), ProviderTarget::Codex) {
+    let body = if crate::catalog::enabled(state.db.as_ref(), state.target) {
         Bytes::copy_from_slice(original_body)
     } else {
         apply_auto_review_model_override(

@@ -917,12 +917,7 @@ fn newest_version_dir(plugin_dir: &Path) -> AppResult<(Option<String>, Option<Pa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Mutex, OnceLock};
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
+    use crate::config::paths::with_isolated_codex_home;
 
     #[test]
     fn split_plugin_id_uses_last_at() {
@@ -933,43 +928,39 @@ mod tests {
 
     #[test]
     fn list_and_toggle_plugins_from_config_and_cache() {
-        let _guard = env_lock().lock().unwrap();
         let root = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", root.path());
+        with_isolated_codex_home(root.path(), || {
+            let cache = root
+                .path()
+                .join("plugins")
+                .join("cache")
+                .join("openai-curated")
+                .join("slack")
+                .join("1.0.0");
+            fs::create_dir_all(&cache).unwrap();
+            fs::write(
+                root.path().join("config.toml"),
+                "[plugins.\"slack@openai-curated\"]\nenabled = true\n",
+            )
+            .unwrap();
 
-        let cache = root
-            .path()
-            .join("plugins")
-            .join("cache")
-            .join("openai-curated")
-            .join("slack")
-            .join("1.0.0");
-        fs::create_dir_all(&cache).unwrap();
-        fs::write(
-            root.path().join("config.toml"),
-            "[plugins.\"slack@openai-curated\"]\nenabled = true\n",
-        )
-        .unwrap();
+            let listed = list_plugins().unwrap();
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].plugin_id, "slack@openai-curated");
+            assert!(listed[0].enabled);
+            assert!(listed[0].installed);
+            assert_eq!(listed[0].version.as_deref(), Some("1.0.0"));
 
-        let listed = list_plugins().unwrap();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].plugin_id, "slack@openai-curated");
-        assert!(listed[0].enabled);
-        assert!(listed[0].installed);
-        assert_eq!(listed[0].version.as_deref(), Some("1.0.0"));
-
-        set_plugin_enabled("slack@openai-curated", false).unwrap();
-        let listed = list_plugins().unwrap();
-        assert!(!listed[0].enabled);
-
-        std::env::remove_var("CODEX_HOME");
+            set_plugin_enabled("slack@openai-curated", false).unwrap();
+            let listed = list_plugins().unwrap();
+            assert!(!listed[0].enabled);
+        });
     }
 
     #[test]
     fn list_snapshot_reads_quoted_plugin_table_keys() {
-        let _guard = env_lock().lock().unwrap();
         let root = tempfile::tempdir().unwrap();
-        std::env::set_var("CODEX_HOME", root.path());
+        with_isolated_codex_home(root.path(), || {
 
         let cache = root
             .path()
@@ -1003,13 +994,11 @@ enabled = false
             .expect("calendar plugin");
         assert!(calendar.enabled);
         assert!(calendar.installed);
-
-        std::env::remove_var("CODEX_HOME");
+        });
     }
 
     #[test]
     fn catalog_reads_agents_marketplace_json() {
-        let _guard = env_lock().lock().unwrap();
         let root = tempfile::tempdir().unwrap();
         let market_root = root.path().join("openai-curated");
         let manifest_dir = market_root.join(".agents").join("plugins");

@@ -37,13 +37,13 @@ use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{
     insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
-    update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
+    update_proxy_log_route, update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
 };
 use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::catalog::{claude_discovery_payload, resolve_request, rewrite_json_model, CatalogStyle};
+use crate::catalog::{claude_discovery_payload, openai_models_payload, rewrite_json_model, CatalogStyle};
 use crate::provider::{
     api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
     Provider, ProviderTarget,
@@ -79,7 +79,9 @@ pub struct ProxyManager {
     code: Option<ProxyRuntime>,
     desktop: Option<ProxyRuntime>,
     codex: Option<ProxyRuntime>,
+    opencode: Option<ProxyRuntime>,
     pi: Option<ProxyRuntime>,
+    dsh: Option<ProxyRuntime>,
     cline: Option<ProxyRuntime>,
 }
 
@@ -100,7 +102,9 @@ impl ProxyManager {
             code: None,
             desktop: None,
             codex: None,
+            opencode: None,
             pi: None,
+            dsh: None,
             cline: None,
         }
     }
@@ -110,8 +114,9 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
-            ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
+            ProviderTarget::OpenCode => self.opencode.as_ref(),
             ProviderTarget::Pi => self.pi.as_ref(),
+            ProviderTarget::Dsh => self.dsh.as_ref(),
             ProviderTarget::Cline => self.cline.as_ref(),
         };
         let running = runtime.is_some_and(|runtime| !runtime.handle.is_finished());
@@ -137,17 +142,13 @@ impl ProxyManager {
 
     /// Start or replace one app's proxy without interrupting the other app.
     pub async fn start(&mut self, port: u16, target: ProviderTarget) -> AppResult<()> {
-        if matches!(target, ProviderTarget::OpenCode | ProviderTarget::Dsh) {
-            return Err(AppError::Config(
-                "OpenCode / DeepSeek Harness 使用直连，不启动本地代理".to_string(),
-            ));
-        }
         let current = match target {
             ProviderTarget::ClaudeCode => self.code.as_ref(),
             ProviderTarget::ClaudeDesktop => self.desktop.as_ref(),
             ProviderTarget::Codex => self.codex.as_ref(),
-            ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
+            ProviderTarget::OpenCode => self.opencode.as_ref(),
             ProviderTarget::Pi => self.pi.as_ref(),
+            ProviderTarget::Dsh => self.dsh.as_ref(),
             ProviderTarget::Cline => self.cline.as_ref(),
         };
         if current.is_some_and(|runtime| runtime.port == port && !runtime.handle.is_finished()) {
@@ -176,14 +177,21 @@ impl ProxyManager {
             started_at: Instant::now(),
         };
 
-        let app = if matches!(target, ProviderTarget::Codex | ProviderTarget::Cline) {
-            Router::new()
+        let app = if matches!(
+            target,
+            ProviderTarget::Codex | ProviderTarget::Cline | ProviderTarget::OpenCode | ProviderTarget::Dsh
+        ) {
+            let mut app = Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
                 .route("/v1/responses", any(codex::codex_proxy_handler))
                 .route("/v1/responses/compact", any(codex::codex_proxy_handler))
                 .route("/responses/compact", any(codex::codex_proxy_handler))
-                .route("/v1/chat/completions", any(codex::codex_proxy_handler))
+                .route("/v1/chat/completions", any(codex::codex_proxy_handler));
+            if matches!(target, ProviderTarget::OpenCode | ProviderTarget::Dsh) {
+                app = app.route("/v1/messages", any(proxy_handler));
+            }
+            app
         } else {
             let mut app = Router::new()
                 .route("/health", get(health_handler))
@@ -228,8 +236,9 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.replace(runtime),
             ProviderTarget::ClaudeDesktop => self.desktop.replace(runtime),
             ProviderTarget::Codex => self.codex.replace(runtime),
-            ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
+            ProviderTarget::OpenCode => self.opencode.replace(runtime),
             ProviderTarget::Pi => self.pi.replace(runtime),
+            ProviderTarget::Dsh => self.dsh.replace(runtime),
             ProviderTarget::Cline => self.cline.replace(runtime),
         };
         if let Some(previous) = previous {
@@ -246,7 +255,9 @@ impl ProxyManager {
         self.stop_target(ProviderTarget::ClaudeCode);
         self.stop_target(ProviderTarget::ClaudeDesktop);
         self.stop_target(ProviderTarget::Codex);
+        self.stop_target(ProviderTarget::OpenCode);
         self.stop_target(ProviderTarget::Pi);
+        self.stop_target(ProviderTarget::Dsh);
         self.stop_target(ProviderTarget::Cline);
         log::info!("本地代理已停止");
     }
@@ -258,7 +269,9 @@ impl ProxyManager {
         self.stop_target_graceful(ProviderTarget::ClaudeCode).await;
         self.stop_target_graceful(ProviderTarget::ClaudeDesktop).await;
         self.stop_target_graceful(ProviderTarget::Codex).await;
+        self.stop_target_graceful(ProviderTarget::OpenCode).await;
         self.stop_target_graceful(ProviderTarget::Pi).await;
+        self.stop_target_graceful(ProviderTarget::Dsh).await;
         self.stop_target_graceful(ProviderTarget::Cline).await;
         log::info!("本地代理已优雅停止");
     }
@@ -268,8 +281,9 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
-            ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
+            ProviderTarget::OpenCode => self.opencode.take(),
             ProviderTarget::Pi => self.pi.take(),
+            ProviderTarget::Dsh => self.dsh.take(),
             ProviderTarget::Cline => self.cline.take(),
         };
         if let Some(runtime) = runtime {
@@ -283,8 +297,9 @@ impl ProxyManager {
             ProviderTarget::ClaudeCode => self.code.take(),
             ProviderTarget::ClaudeDesktop => self.desktop.take(),
             ProviderTarget::Codex => self.codex.take(),
-            ProviderTarget::OpenCode | ProviderTarget::Dsh => None,
+            ProviderTarget::OpenCode => self.opencode.take(),
             ProviderTarget::Pi => self.pi.take(),
+            ProviderTarget::Dsh => self.dsh.take(),
             ProviderTarget::Cline => self.cline.take(),
         };
         let Some(runtime) = runtime else {
@@ -429,12 +444,37 @@ pub(crate) fn next_failover_provider_ex(
     requested_model: &str,
     ignore_model_filter: bool,
 ) -> AppResult<Option<Provider>> {
-    let enabled = state.db.with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
-        .as_deref() == Some("true");
+    let enabled = if gateway_catalog_enabled(state) {
+        let mode = state
+            .db
+            .with_conn(|conn| {
+                Ok(crate::database::dao::gateway::current_profile(conn, state.target)?
+                    .map(|profile| profile.fallback_mode)
+                    .unwrap_or_else(|| "off".to_string()))
+            })
+            .unwrap_or_else(|_| "off".to_string());
+        mode == "retry" || mode == "model_chain"
+    } else {
+        state
+            .db
+            .with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
+            .as_deref()
+            == Some("true")
+    };
     if !enabled {
         return Ok(None);
     }
     let mut candidates = state.db.with_conn(|conn| list_providers(conn, state.target))?;
+    if gateway_catalog_enabled(state) {
+        if let Ok(Some(profile)) = state
+            .db
+            .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
+        {
+            candidates.retain(|candidate| {
+                crate::database::dao::gateway::profile_allows_upstream(&profile, &candidate.id)
+            });
+        }
+    }
     candidates.sort_by(|left, right| {
         left.failover_group
             .cmp(&right.failover_group)
@@ -480,6 +520,25 @@ pub(crate) fn load_gateway_catalog(
     let providers = state
         .db
         .with_conn(|conn| list_providers(conn, state.target))?;
+    let profile = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
+        .ok()
+        .flatten();
+    let providers: Vec<Provider> = if let Some(profile) = profile.as_ref() {
+        if profile.allowed_upstream_ids.is_empty() {
+            providers
+        } else {
+            providers
+                .into_iter()
+                .filter(|provider| {
+                    crate::database::dao::gateway::profile_allows_upstream(profile, &provider.id)
+                })
+                .collect()
+        }
+    } else {
+        providers
+    };
     let mut pairs = Vec::with_capacity(providers.len());
     for provider in &providers {
         let cached = state
@@ -539,7 +598,7 @@ pub(crate) const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 pub(crate) fn select_gateway_runtime_provider(
     state: &ProxyState,
     requested_model: &str,
-) -> AppResult<Option<(Provider, String, bool)>> {
+) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
     select_gateway_runtime_provider_with(state, requested_model, false)
 }
 
@@ -547,44 +606,24 @@ pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
     force_catalog_subagent: bool,
-) -> AppResult<Option<(Provider, String, bool)>> {
-    let style = if state.target == ProviderTarget::Codex {
-        CatalogStyle::Codex
-    } else {
-        CatalogStyle::Claude
-    };
+) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
+    let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
-    let hide_official = crate::catalog::hide_official(state.db.as_ref(), state.target);
-    let subagent = crate::catalog::subagent_model(state.db.as_ref(), state.target);
-    let subagent_slot =
-        crate::catalog::catalog_subagent_target(&entries, &providers, subagent.as_deref());
-    let plan = if state.target == ProviderTarget::ClaudeCode {
-        crate::catalog::plan_model(state.db.as_ref(), state.target)
-    } else {
-        None
-    };
-    let execute = if state.target == ProviderTarget::ClaudeCode {
-        crate::catalog::execute_model(state.db.as_ref(), state.target)
-    } else {
-        None
-    };
-    let requested = crate::catalog::normalize_client_request(
-        style,
-        &entries,
-        &providers,
-        requested_model,
-        hide_official,
-        subagent.as_deref(),
-        force_catalog_subagent,
-        plan.as_deref(),
-        execute.as_deref(),
-    );
-    let is_catalog_subagent =
-        force_catalog_subagent || requested.eq_ignore_ascii_case(&subagent_slot);
-    let Some((provider_id, upstream)) = resolve_request(&entries, &providers, &requested) else {
-        return Ok(None);
-    };
-    let Some(provider) = providers.into_iter().find(|provider| provider.id == provider_id) else {
+    let profile = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
+        .ok()
+        .flatten();
+    let Some((provider, upstream, decision, plan, is_catalog_subagent)) =
+        crate::gateway::resolve_gateway_route(
+            style,
+            &entries,
+            &providers,
+            requested_model,
+            force_catalog_subagent,
+            profile.as_ref(),
+        )
+    else {
         return Ok(None);
     };
     let Some(mut provider) = hydrate_provider_credential(state, provider)? else {
@@ -592,10 +631,15 @@ pub(crate) fn select_gateway_runtime_provider_with(
     };
     provider.model = upstream.clone();
     log::info!(
-        "Catalog route client={requested_model} normalized={requested} provider={} upstream={upstream} subagent={is_catalog_subagent}",
-        provider.name
+        "Catalog route client={} normalized={} reason={} provider={} upstream={} subagent={}",
+        decision.requested_model,
+        decision.normalized_model,
+        decision.reason,
+        provider.name,
+        upstream,
+        is_catalog_subagent
     );
-    Ok(Some((provider, upstream, is_catalog_subagent)))
+    Ok(Some((provider, upstream, is_catalog_subagent, decision, plan)))
 }
 
 fn prepare_upstream_request(
@@ -835,13 +879,18 @@ async fn health_handler(State(state): State<ProxyState>) -> impl IntoResponse {
 }
 
 async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> Response {
-    if let Err(error) = validate_desktop_gateway_auth(&state, &headers) {
+    if let Err(error) = validate_listener_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
-    if state.target == ProviderTarget::ClaudeCode && gateway_catalog_enabled(&state) {
-        match load_gateway_catalog(&state, CatalogStyle::Claude) {
+    if gateway_catalog_enabled(&state) {
+        let style = crate::catalog::catalog_style_for(state.target);
+        match load_gateway_catalog(&state, style) {
             Ok((_, entries)) if !entries.is_empty() => {
-                axum::Json(claude_discovery_payload(&entries)).into_response()
+                let payload = match style {
+                    CatalogStyle::Claude => claude_discovery_payload(&entries),
+                    CatalogStyle::Codex => openai_models_payload(&entries),
+                };
+                axum::Json(payload).into_response()
             }
             Ok(_) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有已配置的第三方供应商"),
             Err(error) => {
@@ -874,14 +923,14 @@ async fn proxy_handler(
     headers: HeaderMap,
     body: Body,
 ) -> Response {
-    if let Err(error) = validate_desktop_gateway_auth(&state, &headers) {
+    if let Err(error) = validate_listener_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
     let started = Instant::now();
 
     // Resolve a seed provider so body-read failures can still be logged.
     let provider: Option<Provider> = match state.db.with_conn(|conn| {
-        if state.target == ProviderTarget::ClaudeCode && crate::catalog::enabled_for_conn(conn, state.target) {
+        if crate::catalog::enabled_for_conn(conn, state.target) {
             let listed = list_providers(conn, state.target)?;
             Ok(listed
                 .iter()
@@ -960,12 +1009,17 @@ async fn proxy_handler(
         .unwrap_or("")
         .to_string();
     let mut is_catalog_subagent = false;
-    if state.target == ProviderTarget::ClaudeCode && gateway_catalog_enabled(&state) {
+    let mut route_decision: Option<crate::gateway::RouteDecision> = None;
+    let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
+    let mut attempt_index: i64 = 0;
+    if gateway_catalog_enabled(&state) {
         match select_gateway_runtime_provider(&state, &requested_model) {
-            Ok(Some((selected, upstream, routed_subagent))) => {
+            Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
                 provider = selected;
                 requested_model = upstream.clone();
                 is_catalog_subagent = routed_subagent;
+                route_decision = Some(decision);
+                route_plan = Some(plan);
                 if let Some(object) = incoming.as_object_mut() {
                     object.insert("model".to_string(), Value::String(upstream.clone()));
                 }
@@ -1056,6 +1110,7 @@ async fn proxy_handler(
                     Ok(response) => {
                         failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
                         provider = fallback;
+                        attempt_index = attempt_index.saturating_add(1);
                         recovered = Some(response);
                         break;
                     }
@@ -1105,7 +1160,23 @@ async fn proxy_handler(
     {
         // Ordered model fallback on the same provider before walking other vendors.
         // Only used before any client bytes are written.
-        for next_model in provider.failover_models.clone() {
+        let plan_models: Vec<String> = route_plan
+            .as_ref()
+            .filter(|plan| plan.fallback_mode == "model_chain")
+            .map(|plan| {
+                plan.attempts
+                    .iter()
+                    .skip(1)
+                    .map(|attempt| attempt.model.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let model_chain = if plan_models.is_empty() {
+            provider.failover_models.clone()
+        } else {
+            plan_models
+        };
+        for next_model in model_chain {
             let next_model = next_model.trim().to_string();
             if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
                 continue;
@@ -1136,6 +1207,7 @@ async fn proxy_handler(
             {
                 Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
                     failover_trace.push(format!("{} 模型 {} 接管", provider.name, next_model));
+                    attempt_index = attempt_index.saturating_add(1);
                     upstream_resp = response;
                     break;
                 }
@@ -1321,6 +1393,9 @@ async fn proxy_handler(
         error_category,
         failover_diag.as_deref(),
     );
+    if let (Some(id), Some(decision)) = (log_id.as_deref(), route_decision.as_ref()) {
+        patch_route_log(&state, id, decision, attempt_index);
+    }
 
     // OpenAI upstreams are normalized into Anthropic JSON. For an Anthropic
     // streaming request, keep the OpenAI upstream stream open and translate each
@@ -1966,6 +2041,27 @@ pub(crate) fn log_request_with_diagnostic(
     }
 }
 
+pub(crate) fn patch_route_log(
+    state: &ProxyState,
+    id: &str,
+    decision: &crate::gateway::RouteDecision,
+    attempt_index: i64,
+) {
+    if let Err(error) = state.db.with_conn(|conn| {
+        update_proxy_log_route(
+            conn,
+            id,
+            decision.profile_id.as_deref(),
+            Some(decision.reason.as_str()),
+            attempt_index,
+            Some(decision.requested_model.as_str()),
+            decision.upstream_id.as_deref(),
+        )
+    }) {
+        log::warn!("写入网关路由观测失败: {error}");
+    }
+}
+
 pub(crate) fn log_request(
     state: &ProxyState,
     provider: &Provider,
@@ -1985,6 +2081,49 @@ pub(crate) fn log_request(
         error_category,
         None,
     )
+}
+
+fn validate_listener_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
+    if gateway_catalog_enabled(state) {
+        return validate_gateway_profile_auth(state, headers);
+    }
+    validate_desktop_gateway_auth(state, headers)
+}
+
+fn validate_gateway_profile_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
+    let token = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::profile_entry_token(conn, state.target))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let token = token.trim();
+    if token.is_empty() {
+        return Ok(());
+    }
+    let presented = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| {
+            value
+                .strip_prefix("Bearer ")
+                .or_else(|| value.strip_prefix("bearer "))
+                .unwrap_or(value)
+                .trim()
+                .to_string()
+        })
+        .or_else(|| {
+            headers
+                .get("x-api-key")
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.trim().to_string())
+        })
+        .unwrap_or_default();
+    if presented == token {
+        Ok(())
+    } else {
+        Err(AppError::Config("网关入口凭据无效".to_string()))
+    }
 }
 
 fn validate_desktop_gateway_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
