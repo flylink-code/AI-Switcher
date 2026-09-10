@@ -40,6 +40,12 @@ import {
   syncMappingOnDefaultChange,
   type ProviderPreset,
 } from "@/lib/providerPresets";
+import {
+  buildEndpointPreview,
+  ensureOpenAiV1Suffix,
+  needsOpenAiV1Suffix,
+  normalizeBaseUrl,
+} from "@/lib/providerUrl";
 
 interface ProviderFormProps {
   open: boolean;
@@ -54,13 +60,6 @@ interface ProviderFormProps {
   onSubmit: (input: ProviderInput) => Promise<void>;
 }
 
-const protocolEndpoints: Record<ProtocolType, string> = {
-  anthropic: "/v1/messages",
-  proxy: "/v1/chat/completions",
-  openai_chat: "/v1/chat/completions",
-  openai_responses: "/v1/responses",
-};
-
 const codexModelSuggestions = [
   "gpt-6-astra",
   "gpt-6-astra-fast",
@@ -72,58 +71,6 @@ const codexModelSuggestions = [
   "gpt-5.4-mini",
   "gpt-5.3-codex",
 ];
-
-function isLocalHttpHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
-}
-
-/** Validate and convert a pasted request endpoint into a reusable Base URL. */
-function normalizeBaseUrl(value: string): string {
-  const trimmed = value.trim();
-  let url: URL;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    throw new Error("invalidBaseUrl");
-  }
-  const allowLocalHttp = url.protocol === "http:" && isLocalHttpHost(url.hostname);
-  if (url.protocol !== "https:" && !allowLocalHttp) throw new Error("baseUrlMustUseHttps");
-  if (url.username || url.password) throw new Error("baseUrlNoCredentials");
-  if (url.search || url.hash) throw new Error("baseUrlNoQueryOrFragment");
-
-  let path = url.pathname.replace(/\/+$/, "");
-  path = path.replace(/\/(?:chat\/completions|messages|responses|models)$/i, "");
-  url.pathname = path.replace(/\/+$/, "") || "/";
-  return url.toString().replace(/\/+$/, "");
-}
-
-function needsOpenAiV1Suffix(value: string): boolean {
-  try {
-    const normalized = normalizeBaseUrl(value);
-    const url = new URL(normalized);
-    const path = url.pathname.replace(/\/+$/, "") || "/";
-    return path === "/";
-  } catch {
-    return false;
-  }
-}
-
-function ensureOpenAiV1Suffix(value: string): string {
-  const normalized = normalizeBaseUrl(value);
-  return needsOpenAiV1Suffix(normalized) ? `${normalized}/v1` : normalized;
-}
-
-function buildEndpointPreview(baseUrl: string | undefined, protocol: ProtocolType): string {
-  if (!baseUrl?.trim()) return "";
-  try {
-    const base = normalizeBaseUrl(baseUrl);
-    const endpoint = protocolEndpoints[protocol];
-    return `${base}${base.endsWith("/v1") && endpoint.startsWith("/v1/") ? endpoint.slice(3) : endpoint}`;
-  } catch {
-    return "";
-  }
-}
 
 const EMPTY_MODEL_MAPPING: ClaudeModelMapping = {
   sonnet: "",

@@ -16,9 +16,16 @@
 
 ## 绑定
 
-与 Antigravity `BindAppsCard` 同构：绑定某 Agent 后写入普通供应商卡 `provider_kind=smart_gateway`，`base_url` 指向 `127.0.0.1:15828`（Codex/Cline/OpenCode 带 `/v1`，Claude 系用宿主根），`api_key` 为该 App 独立 `entry_token`。设为当前才走网关。
+与 Antigravity `BindAppsCard` 同构：绑定某 Agent 后写入普通供应商卡 `provider_kind=smart_gateway`，`base_url` 指向 `127.0.0.1:15828`（Codex/Cline/OpenCode 带 `/v1`，Claude 系用宿主根），`api_key` 为该 App 独立 `entry_token`。
+
+- **Claude Code / Desktop / Codex**：把 Auto 卡设为当前才走网关（与独立供应商互斥）。
+- **OpenCode / Pi / DSH / Cline**：目录型多供应商，绑定只**追加**一条 Auto 入口，写出全部供应商，不设 `is_current`、不出现切换。Agent 配置里既能选直连卡，也能选 `auto` 走网关。
 
 是否再经本地代理：Desktop / Cline 仍走本地代理；Code / Codex / OpenCode / Pi / DSH 直连 15828。
+
+## 自定义 Agent
+
+不必绑定。设置键 `smart_gateway_api_key`（首次读状态时生成 `sk-aisw-…`，可保存或轮换）。请求带 `Authorization: Bearer` 或 `x-api-key`。默认按 Claude Code 目录解析 `auto`；OpenAI 风格模型名加请求头 `x-ai-switcher-target: codex`。OpenAI SDK 的 Base URL 用 `http://127.0.0.1:15828/v1`，Anthropic SDK 用宿主根（不要再加 `/v1`）。仍只监听 `127.0.0.1`，不做局域网/公网。
 
 ## 路由顺序
 

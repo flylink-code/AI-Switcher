@@ -372,13 +372,31 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
         .route("/health", get(health_handler))
         .route("/v1/models", get(models_handler))
         .route("/v1/messages", any(proxy_handler))
-        .route("/v1/chat/completions", any(codex::codex_proxy_handler))
-        .route("/v1/responses", any(codex::codex_proxy_handler))
-        .route("/v1/responses/compact", any(codex::codex_proxy_handler))
-        .route("/responses/compact", any(codex::codex_proxy_handler))
+        .route("/v1/chat/completions", any(smart_gateway_openai_handler))
+        .route("/v1/responses", any(smart_gateway_openai_handler))
+        .route("/v1/responses/compact", any(smart_gateway_openai_handler))
+        .route("/responses/compact", any(smart_gateway_openai_handler))
         .route("/v1/images/generations", any(proxy_handler))
         .layer(CorsLayer::permissive())
         .with_state(state)
+}
+
+/// OpenAI Chat / Responses on the smart gateway: require the public API key (or a
+/// bound-app token) and honor `x-ai-switcher-target` the same way `/v1/messages` does.
+async fn smart_gateway_openai_handler(
+    State(mut state): State<ProxyState>,
+    uri: Uri,
+    method: Method,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(error) = validate_listener_auth(&state, &headers) {
+        return gateway_auth_error(error);
+    }
+    if let Some(target) = resolve_binding_target(&state, &headers) {
+        state.target = target;
+    }
+    codex::codex_proxy_handler(State(state), uri, method, headers, body).await
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -612,12 +630,22 @@ fn presented_listener_token(headers: &HeaderMap) -> String {
 
 fn resolve_binding_target(state: &ProxyState, headers: &HeaderMap) -> Option<ProviderTarget> {
     let token = presented_listener_token(headers);
+    let requested = headers
+        .get("x-ai-switcher-target")
+        .and_then(|value| value.to_str().ok())
+        .map(ProviderTarget::from_str_lossy);
     state
         .db
-        .with_conn(|conn| crate::database::dao::gateway::binding_by_token(conn, &token))
+        .with_conn(|conn| {
+            if crate::gateway::service::api_key_matches(conn, &token) {
+                return Ok(requested.or(Some(ProviderTarget::ClaudeCode)));
+            }
+            Ok(crate::database::dao::gateway::binding_by_token(conn, &token)?
+                .map(|binding| binding.target_app)
+                .or(requested))
+        })
         .ok()
         .flatten()
-        .map(|binding| binding.target_app)
 }
 
 pub(crate) fn gateway_catalog_enabled(state: &ProxyState) -> bool {
@@ -2232,31 +2260,17 @@ fn validate_listener_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<
 }
 
 fn validate_smart_gateway_binding_auth(state: &ProxyState, headers: &HeaderMap) -> AppResult<()> {
-    let presented = headers
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .map(|value| {
-            value
-                .strip_prefix("Bearer ")
-                .or_else(|| value.strip_prefix("bearer "))
-                .unwrap_or(value)
-                .trim()
-                .to_string()
-        })
-        .or_else(|| {
-            headers
-                .get("x-api-key")
-                .and_then(|value| value.to_str().ok())
-                .map(|value| value.trim().to_string())
-        })
-        .unwrap_or_default();
+    let presented = presented_listener_token(headers);
     if presented.is_empty() {
         return Err(AppError::Config("网关入口凭据无效".to_string()));
     }
-    let binding = state.db.with_conn(|conn| {
-        crate::database::dao::gateway::binding_by_token(conn, &presented)
+    let accepted = state.db.with_conn(|conn| {
+        if crate::gateway::service::api_key_matches(conn, &presented) {
+            return Ok(true);
+        }
+        Ok(crate::database::dao::gateway::binding_by_token(conn, &presented)?.is_some())
     })?;
-    if binding.is_some() {
+    if accepted {
         Ok(())
     } else {
         Err(AppError::Config("网关入口凭据无效".to_string()))

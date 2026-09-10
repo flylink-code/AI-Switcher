@@ -127,8 +127,10 @@ pub(crate) async fn sync_live_after_connection_change<R: tauri::Runtime>(
         if target.supports_gateway_catalog() {
             sync_gateway_catalog_target(target, Some(app), state).await?;
         } else {
-            let port = get_saved_proxy_port(state, target);
-            state.proxy.lock().await.start(port, target).await?;
+            if target == ProviderTarget::Cline {
+                let port = get_saved_proxy_port(state, target);
+                state.proxy.lock().await.start(port, target).await?;
+            }
             sync_live_providers(state, target, Some(app)).await?;
         }
     } else if target.supports_gateway_catalog() {
@@ -1553,23 +1555,7 @@ pub(crate) fn sync_opencode_providers_to_live(state: &AppState) -> AppResult<()>
         .with_conn(|conn| dao::list_providers(conn, ProviderTarget::OpenCode))?;
     let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
     for provider in providers {
-        let mut runtime = provider.clone();
-        runtime.api_key = state
-            .db
-            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        let mut extra_models = state
-            .db
-            .with_conn(|conn| {
-                Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                    .map(|cache| cache.models)
-                    .unwrap_or_default())
-            })
-            .unwrap_or_default();
-        extra_models = extra_models_for_ag_catalog_apply(&provider, extra_models);
-        entries.push((runtime, extra_models));
+        entries.push(hydrate_catalog_runtime(state, provider)?);
     }
     opencode::apply_all_providers(&entries)
 }
@@ -1705,16 +1691,16 @@ async fn sync_live_providers<R: tauri::Runtime>(
 ) -> AppResult<()> {
     if target.is_catalog_target() {
         if gateway_catalog_on(state, target) {
-            let port = get_saved_proxy_port(state, target);
-            let _ = state.proxy.lock().await.start(port, target).await;
-            return apply_native_gateway_entry(state, target);
+            let _ = ensure_smart_gateway_provider_row(state, target)?;
+            if target == ProviderTarget::Cline {
+                let port = get_saved_proxy_port(state, target);
+                let _ = state.proxy.lock().await.start(port, target).await;
+            }
+            return sync_catalog_target(state, target);
         }
         if target == ProviderTarget::Cline {
             let port = get_saved_proxy_port(state, target);
             let _ = state.proxy.lock().await.start(port, target).await;
-        }
-        if matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::Codex) {
-            let _ = crate::wsl_direct::sync_claude_codex_files();
         }
         return sync_catalog_target(state, target);
     }
@@ -1768,8 +1754,17 @@ fn gateway_live_entry(
         .unwrap_or(crate::gateway::SMART_GATEWAY_PORT);
     let token = state
         .db
-        .with_conn(|conn| crate::database::dao::gateway::profile_entry_token(conn, target))?
-        .unwrap_or_default();
+        .with_conn(|conn| {
+            Ok(crate::database::dao::gateway::binding_for_target(conn, target)?
+                .map(|binding| binding.entry_token)
+                .filter(|token| !token.trim().is_empty())
+                .or_else(|| {
+                    crate::database::dao::gateway::profile_entry_token(conn, target)
+                        .ok()
+                        .flatten()
+                })
+                .unwrap_or_default())
+        })?;
     let pairs = load_gateway_pairs(state, target)?;
     let profile = state
         .db
@@ -1812,27 +1807,57 @@ fn gateway_live_entry(
     Ok((live, extra))
 }
 
-fn apply_native_gateway_entry(state: &AppState, target: ProviderTarget) -> AppResult<()> {
-    let template = state
-        .db
-        .with_conn(|conn| {
-            let listed = dao::list_providers(conn, target)?;
-            Ok(listed
-                .iter()
-                .find(|item| item.is_smart_gateway())
-                .cloned()
-                .or_else(|| listed.iter().find(|item| item.is_current).cloned())
-                .or_else(|| listed.first().cloned()))
-        })?
-        .ok_or_else(|| AppError::Config("没有可写入网关入口的上游".to_string()))?;
-    let (live, extra) = gateway_live_entry(state, target, &template)?;
-    match target {
-        ProviderTarget::OpenCode => opencode::apply_all_providers(&[(live, extra)]),
-        ProviderTarget::Cline => crate::config::cline::sync_managed_cline_providers(&[(live, extra)]),
-        ProviderTarget::Dsh => crate::config::dsh::sync_managed_dsh_providers(&[(live, extra)]),
-        ProviderTarget::Pi => apply_pi_gateway_entry(state, live, extra),
-        _ => Ok(()),
+fn hydrate_catalog_runtime(
+    state: &AppState,
+    provider: Provider,
+) -> AppResult<(Provider, Vec<String>)> {
+    if provider.is_smart_gateway() && gateway_catalog_on(state, provider.target_app) {
+        return gateway_live_entry(state, provider.target_app, &provider);
     }
+    let mut runtime = provider.clone();
+    runtime.api_key = state
+        .db
+        .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
+        runtime.api_key = crate::antigravity::gateway::builtin_api_key();
+    }
+    let extra_models = match provider.target_app {
+        ProviderTarget::Pi => state
+            .db
+            .with_conn(|conn| extra_models_for_pi_apply(conn, &runtime))
+            .unwrap_or_default(),
+        ProviderTarget::Cline => {
+            let cached = state
+                .db
+                .with_conn(|conn| {
+                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                        .map(|cache| cache.models)
+                        .unwrap_or_default())
+                })
+                .unwrap_or_default();
+            runtime.filter_hidden_models(cached)
+        }
+        _ => {
+            let cached = state
+                .db
+                .with_conn(|conn| {
+                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
+                        .map(|cache| cache.models)
+                        .unwrap_or_default())
+                })
+                .unwrap_or_default();
+            extra_models_for_ag_catalog_apply(&provider, cached)
+        }
+    };
+    Ok((runtime, extra_models))
+}
+
+fn apply_native_gateway_entry(state: &AppState, target: ProviderTarget) -> AppResult<()> {
+    let _ = ensure_smart_gateway_provider_row(state, target)?;
+    sync_catalog_target(state, target)
 }
 
 pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<()> {
@@ -1861,20 +1886,6 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
     Ok(())
 }
 
-fn apply_pi_gateway_entry(_state: &AppState, live: Provider, extra: Vec<String>) -> AppResult<()> {
-    use crate::coding::pi::config::{sync_managed_pi_auth, sync_managed_pi_providers, update_pi_settings};
-    let provider_id = pi_provider_id(&live);
-    let config = pi_provider_config(&live, &extra)?;
-    let retired = sync_managed_pi_providers(&[(provider_id.clone(), config)])?;
-    let mut auth = Vec::new();
-    if !live.api_key.trim().is_empty() {
-        auth.push((provider_id.clone(), live.api_key.clone()));
-    }
-    sync_managed_pi_auth(&auth, &retired)?;
-    let _ = update_pi_settings(Some(provider_id), Some(live.model.clone()), None, None);
-    Ok(())
-}
-
 /// Apply the gateway connection: write the local listener using the current provider as the live-config vehicle.
 async fn sync_gateway_catalog_target<R: tauri::Runtime>(
     target: ProviderTarget,
@@ -1898,26 +1909,7 @@ pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
         .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Dsh))?;
     let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
     for provider in providers {
-        let mut runtime = provider.clone();
-        runtime.api_key = state
-            .db
-            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
-            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
-        }
-        let mut extra_models = state
-            .db
-            .with_conn(|conn| {
-                Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                    .map(|cache| cache.models)
-                    .unwrap_or_default())
-            })
-            .unwrap_or_default();
-        extra_models = extra_models_for_ag_catalog_apply(&provider, extra_models);
-        entries.push((runtime, extra_models));
+        entries.push(hydrate_catalog_runtime(state, provider)?);
     }
     sync_managed_dsh_providers(&entries)
 }
@@ -1930,26 +1922,7 @@ pub(crate) fn sync_cline_providers_to_live(state: &AppState) -> AppResult<()> {
         .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Cline))?;
     let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
     for provider in providers {
-        let mut runtime = provider.clone();
-        runtime.api_key = state
-            .db
-            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
-            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
-        }
-        let extra_models = state
-            .db
-            .with_conn(|conn| {
-                Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                    .map(|cache| cache.models)
-                    .unwrap_or_default())
-            })
-            .unwrap_or_default();
-        let extra_models = runtime.filter_hidden_models(extra_models);
-        entries.push((runtime, extra_models));
+        entries.push(hydrate_catalog_runtime(state, provider)?);
     }
     sync_managed_cline_providers(&entries)
 }
@@ -1966,20 +1939,7 @@ pub(crate) fn sync_pi_providers_to_live(state: &AppState) -> AppResult<()> {
     let mut model_entries: Vec<(String, serde_json::Value)> = Vec::with_capacity(providers.len());
     let mut auth_entries: Vec<(String, String)> = Vec::with_capacity(providers.len());
     for provider in &providers {
-        let mut runtime = provider.clone();
-        runtime.api_key = state
-            .db
-            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
-            runtime.api_key = crate::antigravity::gateway::builtin_api_key();
-        }
-        let extra_models = state
-            .db
-            .with_conn(|conn| extra_models_for_pi_apply(conn, &runtime))
-            .unwrap_or_default();
+        let (runtime, extra_models) = hydrate_catalog_runtime(state, provider.clone())?;
         let provider_id = pi_provider_id(&runtime);
         model_entries.push((
             provider_id.clone(),
@@ -2310,10 +2270,11 @@ async fn apply_target_provider<R: tauri::Runtime>(
     }
     if crate::gateway::resolved_gateway_token(&runtime_provider.api_key).is_none()
         && gateway_catalog_on(state, runtime_provider.target_app)
+        && runtime_provider.is_smart_gateway()
         && !runtime_provider.is_codex_oauth()
     {
         return Err(AppError::Config(
-            "智能网关入口凭据缺失，请重新设为当前 Auto 卡".to_string(),
+            "智能网关入口凭据缺失，请重新绑定智能网关".to_string(),
         ));
     }
     let proxy_port = get_saved_proxy_port(state, runtime_provider.target_app);
@@ -2327,9 +2288,14 @@ async fn apply_target_provider<R: tauri::Runtime>(
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
     let gateway_catalog = gateway_catalog_on(state, runtime_provider.target_app);
-    let uses_proxy = gateway_catalog
-        || runtime_provider.is_codex_oauth()
-        || runtime_provider.requires_local_proxy();
+    let uses_proxy = match runtime_provider.target_app {
+        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => false,
+        _ => {
+            gateway_catalog
+                || runtime_provider.is_codex_oauth()
+                || runtime_provider.requires_local_proxy()
+        }
+    };
     let result: AppResult<(Option<CodexProviderSyncResult>, Option<&'static str>)> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
@@ -2469,50 +2435,19 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 Ok((Some(session_sync), codex_notice))
             }
             ProviderTarget::OpenCode => {
-                if gateway_catalog {
-                    let port = get_saved_proxy_port(state, ProviderTarget::OpenCode);
-                    state.proxy.lock().await.start(port, ProviderTarget::OpenCode).await?;
-                    apply_native_gateway_entry(state, ProviderTarget::OpenCode)?;
-                } else {
-                    sync_opencode_providers_to_live(state)?;
-                }
+                sync_opencode_providers_to_live(state)?;
                 Ok((None, None))
             }
             ProviderTarget::Pi => {
-                if gateway_catalog {
-                    let port = get_saved_proxy_port(state, ProviderTarget::Pi);
-                    state.proxy.lock().await.start(port, ProviderTarget::Pi).await?;
-                    apply_native_gateway_entry(state, ProviderTarget::Pi)?;
-                } else {
-                    sync_pi_providers_to_live(state)?;
-                    let provider_id = pi_provider_id(&runtime_provider);
-                    crate::coding::pi::config::update_pi_settings(
-                        Some(provider_id),
-                        Some(runtime_provider.model.clone()),
-                        None,
-                        None,
-                    )?;
-                }
+                sync_pi_providers_to_live(state)?;
                 Ok((None, None))
             }
             ProviderTarget::Dsh => {
-                if gateway_catalog {
-                    let port = get_saved_proxy_port(state, ProviderTarget::Dsh);
-                    state.proxy.lock().await.start(port, ProviderTarget::Dsh).await?;
-                    apply_native_gateway_entry(state, ProviderTarget::Dsh)?;
-                } else {
-                    sync_dsh_providers_to_live(state)?;
-                }
+                sync_dsh_providers_to_live(state)?;
                 Ok((None, None))
             }
             ProviderTarget::Cline => {
-                if gateway_catalog {
-                    let port = get_saved_proxy_port(state, ProviderTarget::Cline);
-                    state.proxy.lock().await.start(port, ProviderTarget::Cline).await?;
-                    apply_native_gateway_entry(state, ProviderTarget::Cline)?;
-                } else {
-                    sync_cline_providers_to_live(state)?;
-                }
+                sync_cline_providers_to_live(state)?;
                 Ok((None, None))
             }
         }

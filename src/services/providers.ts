@@ -337,6 +337,14 @@ export async function setSmartGatewayPort(port: number): Promise<void> {
   await call("set_smart_gateway_port", { port });
 }
 
+export async function setSmartGatewayApiKey(apiKey: string): Promise<SmartGatewayStatus> {
+  return call("set_smart_gateway_api_key", { apiKey });
+}
+
+export async function rotateSmartGatewayApiKey(): Promise<SmartGatewayStatus> {
+  return call("rotate_smart_gateway_api_key");
+}
+
 export async function startSmartGateway(port?: number): Promise<SmartGatewayStatus> {
   return call("start_smart_gateway", { port: port ?? null });
 }

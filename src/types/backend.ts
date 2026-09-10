@@ -254,6 +254,7 @@ export interface SmartGatewayStatus {
   phase: string;
   lastError: string | null;
   baseUrl: string;
+  apiKey: string;
   bindingCount: number;
   checkedAt: number;
 }

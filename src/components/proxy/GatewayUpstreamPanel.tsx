@@ -7,6 +7,7 @@ import {
   Form,
   Input,
   Modal,
+  AutoComplete,
   Popconfirm,
   Select,
   Space,
@@ -33,6 +34,14 @@ import {
   upsertGatewayUpstream,
 } from "@/services/providers";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
+import { PROVIDER_PRESETS, type ProviderPreset } from "@/lib/providerPresets";
+import {
+  buildEndpointPreview,
+  ensureOpenAiV1Suffix,
+  isReservedListenerUrl,
+  needsOpenAiV1Suffix,
+  normalizeBaseUrl,
+} from "@/lib/providerUrl";
 import type { Provider, ProviderInput, ProviderTarget, ProtocolType } from "@/types/backend";
 
 const { Text } = Typography;
@@ -42,6 +51,10 @@ const PROTOCOL_OPTIONS: { value: ProtocolType; label: string }[] = [
   { value: "openai_chat", label: "OpenAI Chat" },
   { value: "openai_responses", label: "OpenAI Responses" },
 ];
+
+const UPSTREAM_PRESETS: ProviderPreset[] = PROVIDER_PRESETS.filter(
+  (preset) => !isReservedListenerUrl(preset.baseUrl) && !preset.baseUrl.includes(":15830"),
+);
 
 export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: ProviderTarget }) {
   const { t } = useTranslation();
@@ -53,6 +66,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
   const [addingAg, setAddingAg] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importTarget, setImportTarget] = useState<ProviderTarget>(allowlistTarget);
@@ -62,6 +76,14 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
 
   const [modelsUpstream, setModelsUpstream] = useState<Provider | null>(null);
   const [modelsSaving, setModelsSaving] = useState(false);
+
+  const watchedBaseUrl = Form.useWatch("baseUrl", form);
+  const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
+  const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
+  const showAppendV1 =
+    (watchedProtocol === "openai_chat" || watchedProtocol === "openai_responses")
+    && typeof watchedBaseUrl === "string"
+    && needsOpenAiV1Suffix(watchedBaseUrl);
 
   const upstreamsQuery = useQuery({
     queryKey: ["gateway-upstreams"],
@@ -83,6 +105,21 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
     [importProvidersQuery.data],
   );
 
+  const urlOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const options: Array<{ value: string }> = [];
+    for (const url of [
+      ...UPSTREAM_PRESETS.map((preset) => preset.baseUrl),
+      ...(upstreamsQuery.data ?? []).map((item) => item.baseUrl),
+    ]) {
+      const value = url.trim();
+      if (!value || isReservedListenerUrl(value) || seen.has(value)) continue;
+      seen.add(value);
+      options.push({ value });
+    }
+    return options;
+  }, [upstreamsQuery.data]);
+
   const invalidatePool = async () => {
     await queryClient.invalidateQueries({ queryKey: ["gateway-upstreams"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
@@ -91,6 +128,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
 
   const openCreate = () => {
     setEditing(null);
+    setSelectedPresetId(null);
     form.resetFields();
     form.setFieldsValue({
       name: "",
@@ -107,6 +145,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
 
   const openEdit = (provider: Provider) => {
     setEditing(provider);
+    setSelectedPresetId(null);
     form.resetFields();
     form.setFieldsValue({
       id: provider.id,
@@ -122,14 +161,68 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
     setOpen(true);
   };
 
+  const applyPreset = (preset: ProviderPreset) => {
+    setSelectedPresetId(preset.id);
+    form.setFieldsValue({
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      protocolType: preset.protocolType,
+      notes: preset.notes ?? "",
+    });
+  };
+
+  const clearPreset = () => {
+    setSelectedPresetId(null);
+    form.setFieldsValue({
+      name: "",
+      baseUrl: "",
+      model: "",
+      protocolType: "anthropic",
+      notes: "",
+    });
+  };
+
+  const normalizeBaseUrlField = () => {
+    const value = form.getFieldValue("baseUrl");
+    if (typeof value !== "string" || !value.trim()) return;
+    try {
+      let next = normalizeBaseUrl(value);
+      const protocol = form.getFieldValue("protocolType") as ProtocolType;
+      if (protocol === "openai_chat" || protocol === "openai_responses") {
+        next = ensureOpenAiV1Suffix(next);
+      }
+      form.setFieldValue("baseUrl", next);
+    } catch {
+      // Keep invalid input so the validator can explain it.
+    }
+  };
+
+  const appendV1Suffix = () => {
+    const value = form.getFieldValue("baseUrl");
+    if (typeof value !== "string" || !value.trim()) return;
+    try {
+      form.setFieldValue("baseUrl", ensureOpenAiV1Suffix(value));
+    } catch {
+      // Keep invalid input visible.
+    }
+  };
+
   const handleSave = async () => {
     const values = await form.validateFields();
     setSaving(true);
     try {
+      let baseUrl = normalizeBaseUrl(values.baseUrl);
+      if (values.protocolType === "openai_chat" || values.protocolType === "openai_responses") {
+        baseUrl = ensureOpenAiV1Suffix(baseUrl);
+      }
+      if (isReservedListenerUrl(baseUrl)) {
+        throw new Error(t("proxy.upstreamReservedUrl", { defaultValue: "上游不能指向本机 15821–15828" }));
+      }
       await upsertGatewayUpstream({
         id: editing?.id,
         name: values.name,
-        baseUrl: values.baseUrl,
+        baseUrl,
         apiKey: values.apiKey ?? "",
         model: values.model,
         protocolType: values.protocolType,
@@ -353,11 +446,91 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
         destroyOnHidden
       >
         <Form form={form} layout="vertical">
+          {!editing ? (
+            <Form.Item
+              label={t("providers.fromPreset")}
+              extra={t("providers.fromPresetHint")}
+            >
+              <Space wrap size={[8, 8]}>
+                <Button
+                  size="small"
+                  type={selectedPresetId === null ? "primary" : "default"}
+                  onClick={clearPreset}
+                >
+                  {t("providers.blankPreset")}
+                </Button>
+                {UPSTREAM_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.id}
+                    size="small"
+                    type={selectedPresetId === preset.id ? "primary" : "default"}
+                    onClick={() => applyPreset(preset)}
+                  >
+                    {preset.name}
+                    {preset.protocolType === "openai_chat"
+                      ? " · Chat"
+                      : preset.protocolType === "openai_responses"
+                        ? " · Responses"
+                        : ""}
+                  </Button>
+                ))}
+              </Space>
+            </Form.Item>
+          ) : null}
           <Form.Item name="name" label={t("proxy.upstreamName")} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="baseUrl" label={t("proxy.upstreamUrl")} rules={[{ required: true }]}>
-            <Input placeholder="https://api.example.com" />
+          <Form.Item
+            name="baseUrl"
+            label={t("proxy.upstreamUrl")}
+            extra={
+              <Space direction="vertical" size={2}>
+                {endpointPreview ? (
+                  <>
+                    <Text type="secondary">{t("providers.endpointPreview")}</Text>
+                    <Text code copyable>{endpointPreview}</Text>
+                  </>
+                ) : (
+                  <Text type="secondary">{t("providers.baseUrlHint")}</Text>
+                )}
+                {showAppendV1 ? (
+                  <Button type="link" size="small" onClick={appendV1Suffix} style={{ paddingInline: 0 }}>
+                    {t("providers.appendV1")}
+                  </Button>
+                ) : null}
+              </Space>
+            }
+            rules={[
+              { required: true },
+              {
+                validator: async (_, value: unknown) => {
+                  if (typeof value !== "string" || !value.trim()) return;
+                  try {
+                    const normalized = normalizeBaseUrl(value);
+                    if (isReservedListenerUrl(normalized)) {
+                      throw new Error("upstreamReservedUrl");
+                    }
+                  } catch (error) {
+                    const key = error instanceof Error ? error.message : "invalidBaseUrl";
+                    if (key === "upstreamReservedUrl") {
+                      throw new Error(
+                        t("proxy.upstreamReservedUrl", { defaultValue: "上游不能指向本机 15821–15828" }),
+                      );
+                    }
+                    throw new Error(t(`providers.${key}`));
+                  }
+                },
+              },
+            ]}
+          >
+            <AutoComplete
+              options={urlOptions}
+              placeholder="https://api.deepseek.com/anthropic"
+              onBlur={normalizeBaseUrlField}
+              filterOption={(input, option) =>
+                String(option?.value ?? "").toLowerCase().includes(input.trim().toLowerCase())
+              }
+            />
           </Form.Item>
           <Form.Item
             name="apiKey"

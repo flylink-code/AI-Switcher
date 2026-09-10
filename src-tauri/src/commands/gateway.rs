@@ -357,6 +357,23 @@ pub fn set_smart_gateway_port(port: u16, state: tauri::State<'_, AppState>) -> A
 }
 
 #[tauri::command]
+pub fn set_smart_gateway_api_key(
+    api_key: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+    crate::gateway::service::persist_api_key(state.db.as_ref(), &api_key)?;
+    Ok(crate::gateway::service::current_status())
+}
+
+#[tauri::command]
+pub fn rotate_smart_gateway_api_key(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::service::SmartGatewayStatus> {
+    crate::gateway::service::rotate_api_key(state.db.as_ref())?;
+    Ok(crate::gateway::service::current_status())
+}
+
+#[tauri::command]
 pub async fn start_smart_gateway(
     port: Option<u16>,
     app: tauri::AppHandle,
@@ -403,7 +420,13 @@ pub async fn bind_smart_gateway(
     })?;
     crate::catalog::invalidate_view_cache();
     let provider = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target)?;
-    crate::commands::providers::switch_provider_for_target(&provider.id, target, Some(&app), &state).await?;
+    if target.is_catalog_target() {
+        state
+            .db
+            .with_conn(|conn| crate::database::dao::clear_current_provider(conn, target))?;
+    } else {
+        crate::commands::providers::switch_provider_for_target(&provider.id, target, Some(&app), &state).await?;
+    }
     crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state).await?;
     crate::gateway::service::emit_status(&app);
     Ok(provider)
@@ -418,6 +441,11 @@ pub async fn unbind_smart_gateway(
     state
         .db
         .with_conn(|conn| crate::database::dao::gateway::delete_binding(conn, target))?;
+    if target.is_catalog_target() {
+        state
+            .db
+            .with_conn(|conn| crate::database::dao::clear_current_provider(conn, target))?;
+    }
     crate::catalog::invalidate_view_cache();
     crate::commands::providers::sync_live_after_connection_change(target, false, &app, &state).await?;
     crate::gateway::service::emit_status(&app);

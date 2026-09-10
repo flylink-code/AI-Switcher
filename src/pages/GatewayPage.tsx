@@ -21,6 +21,8 @@ import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import LinkOutlined from "@ant-design/icons/es/icons/LinkOutlined";
 import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
+import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -45,6 +47,8 @@ import {
   listRouteRules,
   listSmartGatewayBindings,
   setSmartGatewayPort,
+  setSmartGatewayApiKey,
+  rotateSmartGatewayApiKey,
   startSmartGateway,
   stopSmartGateway,
   unbindSmartGateway,
@@ -53,7 +57,9 @@ import {
 } from "@/services/providers";
 import type { ProviderTarget, RouteMode, RouteRule, GatewayCatalogModelOption } from "@/types/backend";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
+
+type SnippetKind = "sdk" | "openai" | "anthropic" | "responses";
 
 const MODE_ORDER = [
   "image_gen",
@@ -118,7 +124,10 @@ export default function GatewayPage() {
   const setTab = usePagePreferencesStore((state) => state.setGatewayTab);
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const [port, setPort] = useState(15828);
+  const [apiKeyDraft, setApiKeyDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [curlVisible, setCurlVisible] = useState(true);
+  const [snippetKind, setSnippetKind] = useState<SnippetKind>("sdk");
   const [modesHelpOpen, setModesHelpOpen] = useState(false);
   const [modesHelpTab, setModesHelpTab] = useState<RouteHelpTab>("guide");
 
@@ -148,6 +157,51 @@ export default function GatewayPage() {
   const pricingQuery = useQuery({ queryKey: ["model-pricing"], queryFn: listModelPricing });
 
   const status = statusQuery.data;
+  const apiKey = apiKeyDraft ?? status?.apiKey ?? "";
+  const listenUrl = (status?.baseUrl ?? `http://127.0.0.1:${status?.port ?? port}`).replace(/\/$/, "");
+  const openaiUrl = `${listenUrl}/v1`;
+  const curlSnippet = useMemo(() => {
+    const key = apiKey || "sk-aisw-your-key";
+    switch (snippetKind) {
+      case "sdk":
+        return t("gateway.sdkSnippet", {
+          openaiUrl,
+          anthropicUrl: listenUrl,
+          apiKey: key,
+          defaultValue: [
+            `OpenAI / Cursor / Continue / 其他兼容客户端`,
+            `  Base URL: ${openaiUrl}`,
+            `  API Key:  ${key}`,
+            `  Model:    auto`,
+            ``,
+            `Anthropic SDK`,
+            `  Base URL: ${listenUrl}`,
+            `  API Key:  ${key}`,
+            `  Model:    auto`,
+            ``,
+            `Codex 风格目录加请求头: x-ai-switcher-target: codex`,
+          ].join("\n"),
+        });
+      case "anthropic":
+        return `curl -s ${listenUrl}/v1/messages \\\n  -H "x-api-key: ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"auto","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}'`;
+      case "responses":
+        return `curl -s ${listenUrl}/v1/responses \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "x-ai-switcher-target: codex" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"auto","input":"hi"}'`;
+      case "openai":
+        return `curl -s ${listenUrl}/v1/chat/completions \\\n  -H "Authorization: Bearer ${key}" \\\n  -H "content-type: application/json" \\\n  -d '{"model":"auto","messages":[{"role":"user","content":"hi"}]}'`;
+      default: {
+        const _exhaustive: never = snippetKind;
+        return _exhaustive;
+      }
+    }
+  }, [apiKey, listenUrl, openaiUrl, snippetKind, t]);
+  const copyText = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      void message.success(t("antigravity.copied", { defaultValue: "已复制" }));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
   const bound = new Set((bindingsQuery.data ?? []).map((item) => item.targetApp));
   const modelOptions = useMemo(() => {
     const pricing = new Map(
@@ -190,6 +244,34 @@ export default function GatewayPage() {
       const next = await stopSmartGateway();
       queryClient.setQueryData(["smart-gateway-status"], next);
       void message.success(t("gateway.stopped", { defaultValue: "智能网关已停止" }));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    setBusy(true);
+    try {
+      const next = await setSmartGatewayApiKey(apiKey);
+      queryClient.setQueryData(["smart-gateway-status"], next);
+      setApiKeyDraft(null);
+      void message.success(t("gateway.apiKeySaved", { defaultValue: "对外 API Key 已保存" }));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRotateApiKey = async () => {
+    setBusy(true);
+    try {
+      const next = await rotateSmartGatewayApiKey();
+      queryClient.setQueryData(["smart-gateway-status"], next);
+      setApiKeyDraft(null);
+      void message.success(t("gateway.apiKeyRotated", { defaultValue: "已生成新的对外 API Key，请更新自定义 Agent" }));
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -276,10 +358,122 @@ export default function GatewayPage() {
           </Space>
         }
       >
-        <Space>
-          <Text>{t("gateway.port", { defaultValue: "端口" })}</Text>
-          <InputNumber min={1024} max={65535} value={status?.port ?? port} onChange={(value) => setPort(value ?? 15828)} disabled={running} />
-          <Text code>{status?.baseUrl ?? `http://127.0.0.1:${port}`}</Text>
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Space wrap>
+            <Tag color={running ? "success" : phase === "error" ? "error" : "default"}>
+              {running ? t("proxy.running") : phase === "error" ? t("proxy.failed") : t("proxy.stopped")}
+            </Tag>
+            <Text type="secondary">
+              {t("gateway.bindingsCount", {
+                count: status?.bindingCount ?? bound.size,
+                defaultValue: "{{count}} 个绑定",
+              })}
+            </Text>
+          </Space>
+
+          <Text type="secondary">
+            {t("gateway.externalHint", {
+              defaultValue:
+                "对外 API Key 已自动生成，自定义 Agent 直接复制即可，不必绑定。把 Base URL 指到访问地址，模型用 auto。已绑定应用仍用各自入口令牌。",
+            })}
+          </Text>
+
+          <Input
+            readOnly
+            value={listenUrl}
+            addonBefore={t("gateway.accessUrl", { defaultValue: "访问地址" })}
+            addonAfter={
+              <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => void copyText(listenUrl)}>
+                {t("gateway.copyBaseUrl", { defaultValue: "复制地址" })}
+              </Button>
+            }
+          />
+          <Input
+            readOnly
+            value={openaiUrl}
+            addonBefore={t("gateway.openaiBaseUrl", { defaultValue: "OpenAI Base URL" })}
+            addonAfter={
+              <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => void copyText(openaiUrl)}>
+                {t("gateway.copyBaseUrl", { defaultValue: "复制地址" })}
+              </Button>
+            }
+          />
+
+          <Space wrap>
+            <InputNumber
+              min={1024}
+              max={65535}
+              value={status?.port ?? port}
+              onChange={(value) => setPort(value ?? 15828)}
+              disabled={running}
+              addonBefore={t("gateway.port", { defaultValue: "端口" })}
+            />
+            <Input.Password
+              style={{ width: 280 }}
+              value={apiKey}
+              onChange={(event) => setApiKeyDraft(event.target.value)}
+              placeholder="sk-aisw-..."
+              addonBefore="API Key"
+            />
+            <Button
+              type="primary"
+              size="small"
+              icon={<CopyOutlined />}
+              disabled={!apiKey}
+              onClick={() => void copyText(apiKey)}
+            >
+              {t("gateway.copyApiKey", { defaultValue: "复制 Key" })}
+            </Button>
+            <Button size="small" loading={busy} onClick={() => void handleSaveApiKey()}>
+              {t("gateway.saveApiKey", { defaultValue: "保存 Key" })}
+            </Button>
+            <Button size="small" icon={<ReloadOutlined />} loading={busy} onClick={() => void handleRotateApiKey()}>
+              {t("gateway.rotateApiKey", { defaultValue: "换新 Key" })}
+            </Button>
+          </Space>
+
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("gateway.externalEndpoints", {
+              defaultValue:
+                "协议：Anthropic POST /v1/messages；OpenAI Chat POST /v1/chat/completions；Responses POST /v1/responses；目录 GET /v1/models；绘图 POST /v1/images/generations。OpenAI 风格模型名可加请求头 x-ai-switcher-target: codex。",
+            })}
+          </Text>
+
+          <Space wrap>
+            <Segmented
+              size="small"
+              value={snippetKind}
+              onChange={(value) => setSnippetKind(value as SnippetKind)}
+              options={[
+                { value: "sdk", label: t("gateway.snippetSdk", { defaultValue: "接入配置" }) },
+                { value: "openai", label: "OpenAI Chat" },
+                { value: "anthropic", label: "Anthropic" },
+                { value: "responses", label: "Responses" },
+              ]}
+            />
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => void copyText(curlSnippet)}
+            >
+              {snippetKind === "sdk"
+                ? t("gateway.copySdk", { defaultValue: "复制配置" })
+                : t("antigravity.copyCurl", { defaultValue: "复制测试命令" })}
+            </Button>
+          </Space>
+          {curlVisible ? (
+            <Paragraph style={{ marginBottom: 0 }}>
+              <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
+                {curlSnippet}
+              </pre>
+              <Button type="link" size="small" style={{ padding: 0, marginTop: 4 }} onClick={() => setCurlVisible(false)}>
+                {t("antigravity.hideTestCommand", { defaultValue: "收起测试命令" })}
+              </Button>
+            </Paragraph>
+          ) : (
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setCurlVisible(true)}>
+              {t("antigravity.viewTestCommand", { defaultValue: "查看测试命令" })}
+            </Button>
+          )}
         </Space>
         {status?.lastError ? (
           <Alert style={{ marginTop: 12 }} type="error" showIcon message={status.lastError} />
@@ -287,7 +481,7 @@ export default function GatewayPage() {
       </Card>
 
       <Card size="small" title={t("gateway.bindApps", { defaultValue: "绑定应用" })}>
-        <Text type="secondary">{t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。" })}</Text>
+        <Text type="secondary">{t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。自定义 Agent 用上方 API Key 即可，不必绑定。" })}</Text>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           {BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => {
             const isBound = bound.has(target);

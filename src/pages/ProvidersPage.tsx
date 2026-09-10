@@ -51,6 +51,7 @@ import {
   batchDiagnoseProviders,
   ensureCodexOauthProvider,
   ensureSmartGatewayProvider,
+  bindSmartGateway,
   getAntigravityGatewayStatus,
   startDshWeb,
   getCodexAuthStatus,
@@ -316,6 +317,12 @@ export default function ProvidersPage() {
 
   const handleCreateSmartGateway = async () => {
     try {
+      if (isNativeCatalog) {
+        await bindSmartGateway(target);
+        await store.load(target);
+        void message.success(t("providers.smartGatewayReady"));
+        return;
+      }
       const auto = await ensureSmartGatewayProvider(target);
       await store.load(target);
       if (!auto.isCurrent) {
@@ -756,8 +763,8 @@ export default function ProvidersPage() {
           const isAuto = provider.providerKind === "smart_gateway";
           const isCurrent = provider.isCurrent;
           const extraModels = extraListedModels(provider);
-          const showSwitch = !isCurrent && (isAuto || !isNativeCatalog || gatewayCatalog);
-          const showCurrent = isCurrent && (isAuto || !isNativeCatalog);
+          const showSwitch = !isNativeCatalog && !isCurrent;
+          const showCurrent = !isNativeCatalog && isCurrent;
           return (
             <div
               key={provider.id}

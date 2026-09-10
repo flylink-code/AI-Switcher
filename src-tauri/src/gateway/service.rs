@@ -8,7 +8,7 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
-use crate::database::dao::gateway::has_any_binding;
+use crate::database::dao::gateway::{has_any_binding, list_bindings};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -18,6 +18,7 @@ use crate::store::AppState;
 
 pub const PORT_SETTING: &str = "smart_gateway_port";
 pub const ENABLED_SETTING: &str = "smart_gateway_enabled";
+pub const API_KEY_SETTING: &str = "smart_gateway_api_key";
 pub const STATUS_EVENT: &str = "smart-gateway-status-updated";
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,6 +29,7 @@ pub struct SmartGatewayStatus {
     pub phase: String,
     pub last_error: Option<String>,
     pub base_url: String,
+    pub api_key: String,
     pub binding_count: usize,
     pub checked_at: i64,
 }
@@ -82,6 +84,7 @@ pub fn current_status() -> SmartGatewayStatus {
             phase: "stopped".into(),
             last_error: Some("智能网关尚未初始化".into()),
             base_url: format!("http://127.0.0.1:{SMART_GATEWAY_PORT}"),
+            api_key: String::new(),
             binding_count: 0,
             checked_at: chrono::Utc::now().timestamp_millis(),
         };
@@ -97,9 +100,9 @@ pub fn current_status() -> SmartGatewayStatus {
         .unwrap_or_else(|| saved_port(&manager.db));
     let binding_count = manager
         .db
-        .with_conn(|conn| Ok(has_any_binding(conn) as i64))
-        .ok()
-        .unwrap_or(0) as usize;
+        .with_conn(|conn| Ok(list_bindings(conn)?.len()))
+        .unwrap_or(0);
+    let api_key = ensure_api_key(&manager.db);
     SmartGatewayStatus {
         running,
         port,
@@ -110,9 +113,62 @@ pub fn current_status() -> SmartGatewayStatus {
         },
         last_error: manager.last_error.clone(),
         base_url: format!("http://127.0.0.1:{port}"),
+        api_key,
         binding_count,
         checked_at: chrono::Utc::now().timestamp_millis(),
     }
+}
+
+pub fn api_key_for_conn(conn: &rusqlite::Connection) -> Option<String> {
+    get_setting(conn, API_KEY_SETTING)
+        .ok()
+        .flatten()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+pub fn api_key_matches(conn: &rusqlite::Connection, presented: &str) -> bool {
+    let presented = presented.trim();
+    !presented.is_empty() && api_key_for_conn(conn).as_deref() == Some(presented)
+}
+
+fn new_api_key() -> String {
+    format!("sk-aisw-{}", uuid::Uuid::new_v4().simple())
+}
+
+/// Public API key for custom agents that are not a bound App. Created on first read.
+pub fn ensure_api_key(db: &Database) -> String {
+    db.with_conn(|conn| {
+        if let Some(existing) = api_key_for_conn(conn) {
+            return Ok(existing);
+        }
+        let key = new_api_key();
+        set_setting(conn, API_KEY_SETTING, &key)?;
+        Ok(key)
+    })
+    .unwrap_or_default()
+}
+
+pub fn rotate_api_key(db: &Database) -> AppResult<String> {
+    db.with_conn(|conn| {
+        let key = new_api_key();
+        set_setting(conn, API_KEY_SETTING, &key)?;
+        Ok(key)
+    })
+}
+
+pub fn persist_api_key(db: &Database, api_key: &str) -> AppResult<String> {
+    let trimmed = api_key.trim();
+    if trimmed.is_empty() {
+        return rotate_api_key(db);
+    }
+    if trimmed.len() < 8 {
+        return Err(AppError::Config("API Key 至少 8 个字符".into()));
+    }
+    db.with_conn(|conn| {
+        set_setting(conn, API_KEY_SETTING, trimmed)?;
+        Ok(trimmed.to_string())
+    })
 }
 
 pub fn persist_port(db: &Database, port: u16) -> AppResult<()> {
@@ -335,5 +391,31 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn public_api_key_is_stable_until_rotated() {
+        let db = crate::database::Database::memory().unwrap();
+        let first = ensure_api_key(&db);
+        assert!(first.starts_with("sk-aisw-"));
+        assert_eq!(ensure_api_key(&db), first);
+        let rotated = rotate_api_key(&db).unwrap();
+        assert_ne!(rotated, first);
+        assert_eq!(ensure_api_key(&db), rotated);
+        db.with_conn(|conn| {
+            assert!(api_key_matches(conn, &rotated));
+            assert!(!api_key_matches(conn, "sk-wrong"));
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn persist_api_key_rejects_short_and_keeps_custom() {
+        let db = crate::database::Database::memory().unwrap();
+        assert!(persist_api_key(&db, "short").is_err());
+        let saved = persist_api_key(&db, "  sk-custom-agent-key  ").unwrap();
+        assert_eq!(saved, "sk-custom-agent-key");
+        assert_eq!(ensure_api_key(&db), "sk-custom-agent-key");
     }
 }
