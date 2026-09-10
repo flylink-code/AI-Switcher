@@ -3,7 +3,7 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -14,11 +14,11 @@ use rust_xlsxwriter::Workbook;
 
 use crate::database::dao::proxy_logs::{
     delete_model_pricing as delete_pricing, get_usage_by_model_for_target,
-    get_usage_by_provider_for_target, get_usage_summary_for_target,
+    get_usage_by_provider_model_for_target, get_usage_summary_for_target,
     get_usage_trend_for_target, list_model_pricing as list_pricing,
     list_proxy_request_logs, save_model_pricing as save_pricing, CurrencyAmount, ModelPricing,
-    PaginatedProxyLogs, ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageSummary,
-    UsageTrendPoint, LogMaintenancePreview, LogMaintenanceResult,
+    PaginatedProxyLogs, ProxyLogFilters, TrendGranularity, UsageBreakdown, UsageProviderModelGroup,
+    UsageSummary, UsageTrendPoint, LogMaintenancePreview, LogMaintenanceResult,
     maintain_proxy_logs as maintain_logs, preview_proxy_log_maintenance as preview_logs,
 };
 use crate::database::dao::settings::{get_setting, set_setting};
@@ -348,8 +348,8 @@ pub async fn get_usage_dashboard(
                 apply_fuzzy_pricing_to_breakdowns(&mut by_model, &pricing);
                 let mut summary = get_usage_summary_for_target(conn, since, target)?;
                 rebuild_summary_costs_from_models(&mut summary, &mut by_model);
-                let mut by_provider = get_usage_by_provider_for_target(conn, since, target)?;
-                apply_fuzzy_pricing_to_breakdowns(&mut by_provider, &pricing);
+                let groups = get_usage_by_provider_model_for_target(conn, since, target)?;
+                let mut by_provider = fold_provider_breakdowns(&groups, &pricing);
                 if summary.estimated_cost_currency == "USD"
                     && summary.estimated_costs_by_currency.len() > 1
                 {
@@ -785,6 +785,15 @@ fn estimate_token_cost(
         + (output as f64) * pricing.output_price_per_million / 1_000_000.0
 }
 
+fn pricing_currency(entry: &ModelPricing) -> String {
+    let trimmed = entry.currency.trim();
+    if trimmed.is_empty() {
+        "USD".to_string()
+    } else {
+        trimmed.to_ascii_uppercase()
+    }
+}
+
 fn apply_fuzzy_pricing_to_breakdowns(rows: &mut [UsageBreakdown], pricing: &[ModelPricing]) {
     for item in rows.iter_mut() {
         let matched = find_pricing_for_model(pricing, &item.key);
@@ -799,19 +808,77 @@ fn apply_fuzzy_pricing_to_breakdowns(rows: &mut [UsageBreakdown], pricing: &[Mod
                 )
             })
             .unwrap_or(0.0);
-        let currency = matched
-            .map(|entry| {
-                let trimmed = entry.currency.trim();
-                if trimmed.is_empty() {
-                    "USD".to_string()
-                } else {
-                    trimmed.to_ascii_uppercase()
-                }
-            })
-            .unwrap_or_else(|| "USD".to_string());
         item.estimated_cost = cost;
-        item.currency = currency;
+        item.currency = matched
+            .map(pricing_currency)
+            .unwrap_or_else(|| "USD".to_string());
     }
+}
+
+/// Price each (provider, model) group by the **model**, then fold into provider rows.
+/// Do not pass provider names to [`apply_fuzzy_pricing_to_breakdowns`].
+fn fold_provider_breakdowns(
+    groups: &[UsageProviderModelGroup],
+    pricing: &[ModelPricing],
+) -> Vec<UsageBreakdown> {
+    struct Acc {
+        request_count: i64,
+        input_tokens: i64,
+        cache_read_input_tokens: i64,
+        cache_creation_input_tokens: i64,
+        output_tokens: i64,
+        costs: Vec<(String, f64)>,
+    }
+    let mut grouped: HashMap<String, Acc> = HashMap::new();
+    for group in groups {
+        let acc = grouped.entry(group.provider.clone()).or_insert_with(|| Acc {
+            request_count: 0,
+            input_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 0,
+            costs: Vec::new(),
+        });
+        acc.request_count += group.request_count;
+        acc.input_tokens += group.input_tokens;
+        acc.cache_read_input_tokens += group.cache_read_input_tokens;
+        acc.cache_creation_input_tokens += group.cache_creation_input_tokens;
+        acc.output_tokens += group.output_tokens;
+        if let Some(entry) = find_pricing_for_model(pricing, &group.model) {
+            let cost = estimate_token_cost(
+                entry,
+                group.input_tokens,
+                group.cache_read_input_tokens,
+                group.cache_creation_input_tokens,
+                group.output_tokens,
+            );
+            if cost.abs() > f64::EPSILON {
+                acc.costs.push((pricing_currency(entry), cost));
+            }
+        }
+    }
+    let mut out: Vec<UsageBreakdown> = grouped
+        .into_iter()
+        .map(|(key, acc)| {
+            let (currency, estimated_cost) = crate::usage::summarize_costs_as_usd(&acc.costs);
+            UsageBreakdown {
+                key,
+                request_count: acc.request_count,
+                input_tokens: acc.input_tokens,
+                cache_read_input_tokens: acc.cache_read_input_tokens,
+                cache_creation_input_tokens: acc.cache_creation_input_tokens,
+                output_tokens: acc.output_tokens,
+                estimated_cost,
+                currency,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.request_count
+            .cmp(&a.request_count)
+            .then_with(|| a.key.cmp(&b.key))
+    });
+    out
 }
 
 fn rebuild_summary_costs_from_models(summary: &mut UsageSummary, by_model: &mut [UsageBreakdown]) {
@@ -908,19 +975,11 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
                 )
             })
             .unwrap_or(0.0);
-        let currency = matched
-            .map(|entry| {
-                let trimmed = entry.currency.trim();
-                if trimmed.is_empty() {
-                    "USD".to_string()
-                } else {
-                    trimmed.to_ascii_uppercase()
-                }
-            })
-            .unwrap_or_else(|| "USD".to_string());
         item.estimated_cost = cost;
-        item.currency = currency.clone();
-        *by_currency.entry(currency).or_insert(0.0) += cost;
+        item.currency = matched
+            .map(pricing_currency)
+            .unwrap_or_else(|| "USD".to_string());
+        *by_currency.entry(item.currency.clone()).or_insert(0.0) += cost;
     }
     let estimated_costs_by_currency: Vec<CurrencyAmount> = by_currency
         .into_iter()
@@ -1590,6 +1649,103 @@ mod tests {
         assert_eq!(local.summary.estimated_costs_by_currency.len(), 2);
         assert_eq!(local.by_model["k3"].currency, "USD");
         assert!((local.by_model["k3"].estimated_cost - (70.0 / 7.25)).abs() < 1e-9);
+    }
+
+    fn usd_pricing(model: &str, input: f64, output: f64) -> ModelPricing {
+        ModelPricing {
+            model: model.to_string(),
+            provider: "test".to_string(),
+            input_price_per_million: input,
+            cache_read_price_per_million: 0.0,
+            cache_write_price_per_million: 0.0,
+            output_price_per_million: output,
+            batch_input_price_per_million: 0.0,
+            batch_output_price_per_million: 0.0,
+            currency: "USD".to_string(),
+            source_url: String::new(),
+            effective_date: String::new(),
+            is_default: false,
+        }
+    }
+
+    fn cny_pricing(model: &str, input: f64, output: f64) -> ModelPricing {
+        let mut row = usd_pricing(model, input, output);
+        row.currency = "CNY".to_string();
+        row
+    }
+
+    fn provider_group(provider: &str, model: &str, input: i64, output: i64) -> UsageProviderModelGroup {
+        UsageProviderModelGroup {
+            provider: provider.to_string(),
+            model: model.to_string(),
+            request_count: 1,
+            input_tokens: input,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: output,
+        }
+    }
+
+    #[test]
+    fn fold_provider_breakdowns_prices_by_model_not_provider_name() {
+        let groups = vec![provider_group(
+            "Antigravity",
+            "gemini-3.8-flash-high",
+            1_000_000,
+            500_000,
+        )];
+        let pricing = vec![usd_pricing("gemini-3.8-flash-high", 1.0, 2.0)];
+        let rows = fold_provider_breakdowns(&groups, &pricing);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].key, "Antigravity");
+        // 1M * $1 + 0.5M * $2 = $2
+        assert!((rows[0].estimated_cost - 2.0).abs() < 1e-9);
+        assert_eq!(rows[0].currency, "USD");
+        assert_eq!(rows[0].request_count, 1);
+    }
+
+    #[test]
+    fn apply_fuzzy_pricing_must_not_zero_provider_costs() {
+        let mut rows = vec![UsageBreakdown {
+            key: "Antigravity".to_string(),
+            request_count: 2,
+            input_tokens: 1_000_000,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 500_000,
+            estimated_cost: 2.0,
+            currency: "USD".to_string(),
+        }];
+        let pricing = vec![usd_pricing("gemini-3.8-flash-high", 1.0, 2.0)];
+        apply_fuzzy_pricing_to_breakdowns(&mut rows, &pricing);
+        // Provider names are not model ids; this helper would wipe SQL costs.
+        assert!(rows[0].estimated_cost.abs() < f64::EPSILON);
+        let groups = vec![provider_group(
+            "Antigravity",
+            "gemini-3.8-flash-high",
+            1_000_000,
+            500_000,
+        )];
+        let folded = fold_provider_breakdowns(&groups, &pricing);
+        assert!((folded[0].estimated_cost - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn fold_provider_breakdowns_sums_mixed_models_as_usd() {
+        let groups = vec![
+            provider_group("Antigravity", "gemini-3.8-flash-high", 1_000_000, 0),
+            provider_group("Antigravity", "k3", 1_000_000, 500_000),
+        ];
+        let pricing = vec![
+            usd_pricing("gemini-3.8-flash-high", 2.0, 8.0),
+            cny_pricing("k3", 20.0, 100.0),
+        ];
+        let rows = fold_provider_breakdowns(&groups, &pricing);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].currency, "USD");
+        // 2 USD + 70 CNY / 7.25
+        assert!((rows[0].estimated_cost - (2.0 + 70.0 / 7.25)).abs() < 1e-9);
+        assert_eq!(rows[0].request_count, 2);
     }
 
     fn row(values: &[&str]) -> Vec<String> {

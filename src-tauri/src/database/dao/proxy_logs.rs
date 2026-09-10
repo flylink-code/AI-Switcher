@@ -156,6 +156,18 @@ pub struct UsageBreakdown {
     pub currency: String,
 }
 
+/// Token totals grouped by provider name and model, before pricing.
+#[derive(Debug, Clone)]
+pub struct UsageProviderModelGroup {
+    pub provider: String,
+    pub model: String,
+    pub request_count: i64,
+    pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
+    pub output_tokens: i64,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageTrendPoint {
@@ -891,6 +903,40 @@ pub fn get_usage_by_provider_for_target(
     target_app: Option<&str>,
 ) -> AppResult<Vec<UsageBreakdown>> {
     usage_breakdown(conn, since, target_app, "COALESCE(l.provider_name, 'Unknown')")
+}
+
+pub fn get_usage_by_provider_model_for_target(
+    conn: &Connection,
+    since: i64,
+    target_app: Option<&str>,
+) -> AppResult<Vec<UsageProviderModelGroup>> {
+    let sql = format!(
+        "SELECT COALESCE(l.provider_name, 'Unknown'),
+                COALESCE(l.model, 'Unknown'),
+                COUNT(*),
+                COALESCE(SUM(l.input_tokens), 0),
+                COALESCE(SUM(l.cache_read_input_tokens), 0),
+                COALESCE(SUM(l.cache_creation_input_tokens), 0),
+                COALESCE(SUM(l.output_tokens), 0)
+         FROM proxy_request_logs l
+         WHERE l.created_at >= :since
+           AND (:target_app IS NULL OR l.target_app = :target_app)
+           {EFFECTIVE_USAGE_FILTER}
+         GROUP BY COALESCE(l.provider_name, 'Unknown'), COALESCE(l.model, 'Unknown');"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
+        Ok(UsageProviderModelGroup {
+            provider: row.get(0)?,
+            model: row.get(1)?,
+            request_count: row.get(2)?,
+            input_tokens: row.get(3)?,
+            cache_read_input_tokens: row.get(4)?,
+            cache_creation_input_tokens: row.get(5)?,
+            output_tokens: row.get(6)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
 pub fn get_usage_by_model_for_target(
