@@ -2,6 +2,8 @@
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
@@ -22,6 +24,8 @@ const CATALOG_EXECUTE_KEY: &str = "gateway_catalog_claude_code_execute";
 
 pub const DEFAULT_PROFILE_PREFIX: &str = "gprof_";
 pub const SHARED_PROFILE_ID: &str = "gprof_shared";
+/// New long-context rows and leftover `threshold = 1` (matches almost every request).
+pub const DEFAULT_LONG_CONTEXT_THRESHOLD: i64 = 20_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -41,6 +45,7 @@ impl ConnectionType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayProfile {
     pub id: String,
@@ -57,6 +62,7 @@ pub struct GatewayProfile {
     pub fallback_models: Vec<String>,
     pub hide_official: bool,
     #[serde(skip_serializing)]
+    #[cfg_attr(test, ts(skip))]
     pub entry_token: String,
     pub entry_token_set: bool,
     pub plan_fallback: Vec<String>,
@@ -1699,6 +1705,7 @@ pub struct GatewayBinding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct RouteMode {
     pub id: String,
@@ -1722,6 +1729,7 @@ pub struct RouteModePatch {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct RouteRule {
     pub id: String,
@@ -1749,6 +1757,11 @@ pub fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
 }
 
 fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) -> AppResult<()> {
+    let long_context_threshold = if profile.long_context_tokens > 0 {
+        profile.long_context_tokens
+    } else {
+        DEFAULT_LONG_CONTEXT_THRESHOLD
+    };
     let seeds: [(&str, bool, &str, i64, i64); 9] = [
         ("default", true, profile.default_model.trim(), 0, 0),
         ("background", !profile.subagent_model.trim().is_empty(), profile.subagent_model.trim(), 0, 1),
@@ -1759,7 +1772,7 @@ fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) ->
             "long_context",
             !profile.long_context_model.trim().is_empty(),
             profile.long_context_model.trim(),
-            profile.long_context_tokens,
+            long_context_threshold,
             5,
         ),
         ("web_search", !profile.web_search_model.trim().is_empty(), profile.web_search_model.trim(), 0, 6),
@@ -1781,6 +1794,16 @@ fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) ->
             ],
         )?;
     }
+    repair_long_context_one_token_threshold(conn)?;
+    Ok(())
+}
+
+pub(crate) fn repair_long_context_one_token_threshold(conn: &Connection) -> AppResult<()> {
+    conn.execute(
+        "UPDATE route_modes SET threshold = ?
+         WHERE profile_id = ? AND id = 'long_context' AND threshold = 1;",
+        params![DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID],
+    )?;
     Ok(())
 }
 
@@ -2046,6 +2069,13 @@ pub fn patch_route_mode(conn: &Connection, mode_id: &str, patch: &RouteModePatch
             mode_id
         ],
     )?;
+    if mode_id == "background" {
+        let now = chrono::Utc::now().timestamp_millis();
+        conn.execute(
+            "UPDATE gateway_profiles SET subagent_model = ?, updated_at = ? WHERE id = ?;",
+            params![mode.model, now, SHARED_PROFILE_ID],
+        )?;
+    }
     list_route_modes(conn, SHARED_PROFILE_ID)?
         .into_iter()
         .find(|item| item.id == mode_id)
@@ -2119,7 +2149,11 @@ pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_gateway_connection, upsert_binding, upstream_endpoint_key};
+    use super::{
+        ensure_profile_for_target, is_gateway_connection, list_route_modes,
+        repair_long_context_one_token_threshold, upsert_binding, upstream_endpoint_key,
+        DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID,
+    };
     use crate::database::dao::{set_current_provider, upsert_provider};
     use crate::database::Database;
     use crate::provider::{
@@ -2208,6 +2242,24 @@ mod tests {
                 is_gateway_connection(conn, ProviderTarget::Cline),
                 "catalog agents stay catalog-on from the binding alone"
             );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn long_context_threshold_one_is_repaired_to_20000() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            conn.execute(
+                "UPDATE route_modes SET threshold = 1 WHERE id = 'long_context';",
+                [],
+            )?;
+            repair_long_context_one_token_threshold(conn)?;
+            let modes = list_route_modes(conn, SHARED_PROFILE_ID)?;
+            let long_context = modes.iter().find(|mode| mode.id == "long_context").unwrap();
+            assert_eq!(long_context.threshold, DEFAULT_LONG_CONTEXT_THRESHOLD);
             Ok(())
         })
         .unwrap();

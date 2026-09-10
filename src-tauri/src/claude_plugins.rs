@@ -102,10 +102,6 @@ pub struct ClaudePluginUpdateStatus {
     pub remote_version: Option<String>,
 }
 
-pub fn list_plugins() -> AppResult<Vec<ClaudePlugin>> {
-    Ok(list_plugins_snapshot()?.plugins)
-}
-
 pub fn list_plugins_snapshot() -> AppResult<ClaudePluginsSnapshot> {
     list_plugins_snapshot_at(
         &get_claude_settings_path(),

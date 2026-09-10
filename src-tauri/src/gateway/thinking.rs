@@ -13,16 +13,6 @@ pub fn effort_to_budget(effort: &str) -> Option<u32> {
     }
 }
 
-pub fn budget_to_effort(budget: u32) -> &'static str {
-    if budget <= 4096 {
-        "low"
-    } else if budget <= 16384 {
-        "medium"
-    } else {
-        "high"
-    }
-}
-
 pub fn apply_to_body(body: &mut Value, protocol: ProtocolType, thinking: &ThinkingConfig) {
     match protocol {
         ProtocolType::Anthropic => apply_anthropic(body, thinking),

@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use ts_rs::TS;
 
 use crate::error::{AppError, AppResult};
 
@@ -16,14 +18,17 @@ use crate::error::{AppError, AppResult};
 /// - `proxy`: the provider needs protocol translation; Claude Code points at the
 ///   local proxy which forwards to `base_url` (P2, reserved).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "snake_case")]
 pub enum ProtocolType {
     Anthropic,
     /// OpenAI Chat Completions upstream, reached through the local proxy.
     #[serde(rename = "openai_chat", alias = "open_ai_chat")]
+    #[cfg_attr(test, ts(rename = "openai_chat"))]
     OpenAiChat,
     /// OpenAI Responses upstream, reached through the local proxy.
     #[serde(rename = "openai_responses", alias = "open_ai_responses")]
+    #[cfg_attr(test, ts(rename = "openai_responses"))]
     OpenAiResponses,
     /// Legacy P2 value. It remains readable and behaves as OpenAI Chat.
     Proxy,
@@ -31,6 +36,7 @@ pub enum ProtocolType {
 
 /// The Claude application whose configuration owns a provider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderTarget {
     ClaudeCode,
@@ -141,6 +147,7 @@ impl ProtocolType {
 
 /// How a provider authenticates / routes upstream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderKind {
     #[default]
@@ -238,6 +245,7 @@ pub fn normalized_model_mapping(target: ProviderTarget, mapping: ClaudeModelMapp
 /// Standardizes parameters across Anthropic (budget_tokens), OpenAI (reasoning_effort),
 /// Gemini (thinking_budget), and DeepSeek (thinking prefix / tags).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ThinkingConfig {
     /// Thinking mode: "auto" | "disabled" | "budget" | "effort"
@@ -830,6 +838,7 @@ pub fn protocol_endpoint_path_for_provider(provider: &Provider) -> &'static str 
 /// `Provider.model` remains the required default. Empty role values fall back
 /// to that default so legacy single-model providers continue to work.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeModelMapping {
     #[serde(default)]
@@ -947,6 +956,7 @@ pub fn resolve_upstream_model(provider: &Provider, requested: &str) -> String {
 /// frontend. Use [`crate::secrets`] / [`crate::database::dao::providers::resolve_api_key`]
 /// to obtain the real key at runtime. The frontend instead reads `api_key_set`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Provider {
     pub id: String,
@@ -954,6 +964,7 @@ pub struct Provider {
     pub base_url: String,
     /// Keyring reference (`kr://<id>`) or empty. Never serialized to the frontend.
     #[serde(skip_serializing, default)]
+    #[cfg_attr(test, ts(skip))]
     pub api_key: String,
     /// Whether an API key is stored for this provider (derived from `api_key`).
     #[serde(default)]
@@ -1112,6 +1123,7 @@ fn is_claude_desktop_safe_model(model: &str) -> bool {
 /// Subset that can be created/updated from the frontend. `id` is optional on
 /// create (assigned server-side); required on update.
 #[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderInput {
     #[serde(default)]

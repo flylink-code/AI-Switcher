@@ -1,7 +1,7 @@
 //! SQLite storage layer.
 //!
 //! Writes go through a mutex-guarded `rusqlite::Connection`. Heavy analytics
-//! reads use [`Database::with_read_conn`] (a separate WAL reader) so usage
+//! reads use [`Database::with_read_conn`] (a pooled WAL reader, cap 4) so usage
 //! dashboard scans do not stall gateway log inserts.
 
 use std::path::PathBuf;
@@ -20,10 +20,13 @@ pub mod seed;
 ///
 /// Analytics reads use [`Self::with_read_conn`] so they do not hold this mutex
 /// for seconds (usage period switches were stalling gateway log inserts).
+const READ_POOL_CAP: usize = 4;
+
 pub struct Database {
     conn: Mutex<Connection>,
     /// On-disk path. `None` for in-memory databases (tests).
     path: Option<PathBuf>,
+    read_pool: Mutex<Vec<Connection>>,
 }
 
 /// Convenience: lock the connection, returning a `Result` of the guard.
@@ -59,6 +62,7 @@ impl Database {
         let db = Self {
             conn: Mutex::new(conn),
             path: Some(path),
+            read_pool: Mutex::new(Vec::with_capacity(READ_POOL_CAP)),
         };
         db.ensure_schema()?;
         Ok(db)
@@ -72,6 +76,7 @@ impl Database {
         let db = Self {
             conn: Mutex::new(conn),
             path: None,
+            read_pool: Mutex::new(Vec::new()),
         };
         db.ensure_schema()?;
         Ok(db)
@@ -114,9 +119,40 @@ impl Database {
         let Some(path) = self.path.as_ref() else {
             return self.with_conn(f);
         };
+        let conn = self.take_read_conn(path)?;
+        let result = f(&conn);
+        self.return_read_conn(conn);
+        result
+    }
+
+    fn take_read_conn(&self, path: &std::path::Path) -> AppResult<Connection> {
+        if let Ok(mut pool) = self.read_pool.lock() {
+            if let Some(conn) = pool.pop() {
+                return Ok(conn);
+            }
+        }
         let conn = Connection::open(path)?;
         conn.execute_batch("PRAGMA query_only = ON; PRAGMA busy_timeout = 5000;")?;
-        f(&conn)
+        Ok(conn)
+    }
+
+    fn return_read_conn(&self, conn: Connection) {
+        if let Ok(mut pool) = self.read_pool.lock() {
+            if pool.len() < READ_POOL_CAP {
+                pool.push(conn);
+            }
+        }
+    }
+
+    fn drain_read_pool(&self) {
+        if let Ok(mut pool) = self.read_pool.lock() {
+            pool.clear();
+        }
+    }
+
+    #[cfg(test)]
+    fn read_pool_len(&self) -> usize {
+        self.read_pool.lock().map(|pool| pool.len()).unwrap_or(0)
     }
 
     /// Run a mutable closure while holding the database lock.
@@ -130,6 +166,7 @@ impl Database {
 
     /// Flush WAL before hard process exit (Windows updater `std::process::exit`).
     pub fn checkpoint_wal(&self) -> AppResult<()> {
+        self.drain_read_pool();
         let conn = lock_conn!(self.conn);
         conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
         Ok(())
@@ -161,6 +198,7 @@ impl Database {
             }
         }
 
+        self.drain_read_pool();
         let path = get_app_db_path();
         let mut guard = lock_conn!(self.conn);
         let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -272,6 +310,104 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
+
+    #[test]
+    fn concurrent_read_conn_does_not_grow_past_pool_cap() {
+        let path = std::env::temp_dir().join(format!(
+            "aisw-read-pool-{}-{}.db",
+            std::process::id(),
+            UtcStamp::now()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let db = Arc::new(Database::init_at(path.clone()).expect("init db"));
+        let handles: Vec<_> = (0..12)
+            .map(|_| {
+                let db = Arc::clone(&db);
+                thread::spawn(move || {
+                    db.with_read_conn(|conn| {
+                        let one: i32 = conn.query_row("SELECT 1;", [], |row| row.get(0))?;
+                        assert_eq!(one, 1);
+                        Ok(())
+                    })
+                    .unwrap();
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        assert!(
+            db.read_pool_len() <= READ_POOL_CAP,
+            "read pool grew to {}",
+            db.read_pool_len()
+        );
+        db.checkpoint_wal().expect("checkpoint");
+        assert_eq!(db.read_pool_len(), 0);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
+
+    #[test]
+    fn replace_database_reads_the_new_file() {
+        let stamp = UtcStamp::now();
+        let path = std::env::temp_dir().join(format!(
+            "aisw-replace-live-{}-{}.db",
+            std::process::id(),
+            stamp
+        ));
+        let incoming = std::env::temp_dir().join(format!(
+            "aisw-replace-new-{}-{}.db",
+            std::process::id(),
+            stamp
+        ));
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&incoming);
+        let db = Database::init_at(path.clone()).expect("init live");
+        db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(conn, "pool_probe", "old")
+        })
+        .unwrap();
+        db.with_read_conn(|conn| {
+            let value = crate::database::dao::settings::get_setting(conn, "pool_probe")?;
+            assert_eq!(value.as_deref(), Some("old"));
+            Ok(())
+        })
+        .unwrap();
+
+        let incoming_db = Database::init_at(incoming.clone()).expect("init incoming");
+        incoming_db
+            .with_conn(|conn| {
+                crate::database::dao::settings::set_setting(conn, "pool_probe", "new")
+            })
+            .unwrap();
+        drop(incoming_db);
+
+        db.drain_read_pool();
+        {
+            let mut guard = db.conn.lock().expect("write lock");
+            *guard = Connection::open_in_memory().unwrap();
+            std::fs::copy(&incoming, &path).unwrap();
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
+            )
+            .unwrap();
+            *guard = conn;
+        }
+        db.with_read_conn(|conn| {
+            let value = crate::database::dao::settings::get_setting(conn, "pool_probe")?;
+            assert_eq!(value.as_deref(), Some("new"));
+            Ok(())
+        })
+        .unwrap();
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&incoming);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+        let _ = std::fs::remove_file(format!("{}-wal", incoming.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", incoming.display()));
     }
 
     struct UtcStamp;

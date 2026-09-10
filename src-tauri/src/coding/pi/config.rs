@@ -1,7 +1,6 @@
 //! Pi 配置文件解析与原子读写 (`settings.json`, `auth.json`, `models.json`, `AGENTS.md`)
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -73,17 +72,6 @@ fn lock_pi_config() -> AppResult<std::sync::MutexGuard<'static, ()>> {
     pi_config_lock()
         .lock()
         .map_err(|error| AppError::Config(format!("Pi 配置锁已中毒: {error}")))
-}
-
-/// Pi settings.json 的 DTO
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PiSettingsDto {
-    pub default_provider: Option<String>,
-    pub default_model: Option<String>,
-    pub default_thinking_level: Option<String>, // off / minimal / low / medium / high / xhigh / max
-    #[serde(flatten)]
-    pub extra: Map<String, Value>,
 }
 
 /// 读取 `settings.json`
@@ -210,11 +198,6 @@ pub fn save_pi_models(models_val: Value) -> AppResult<()> {
     }
     write_json_file(&path, &current)?;
     Ok(())
-}
-
-/// Upsert one custom provider under `models.json` → `providers.<id>` (Pi official schema).
-pub fn upsert_pi_models_provider(provider_id: &str, provider_cfg: Value) -> AppResult<()> {
-    sync_managed_pi_providers(&[(provider_id.to_string(), provider_cfg)]).map(|_| ())
 }
 
 const PI_MANAGED_IDS_KEY: &str = "aiSwitcherProviders";

@@ -31,11 +31,14 @@
 
 ```
 客户端点名的目录模型  →  规则
+  →  子代理/Haiku：只走 background（未开则 default）
   →  image_gen  →  web_search  →  vision  →  long_context
-  →  background  →  plan  →  think  →  edit  →  default
+  →  plan  →  think  →  edit  →  default
 ```
 
-`plan` / `edit` 只看工具清单（Claude Code：`ExitPlanMode` / `Edit`/`Write`；Codex：`update_plan` / `apply_patch`/`shell`），不看正文关键词。这两个模式默认关闭。最近路由写「命中规划模式（依据：tools 含 ExitPlanMode）」，不写「检测到用户在做规划」。
+Haiku / Explore / `x-cs-subagent` 不会被长上下文阈值或请求体里的 `thinking` 抢走。模式选出的后台模型在 `force_subagent` 归一化时保留，不再跟空的档案子代理槽或池里 `is_current` 默认。长上下文阈值 `<= 0` 不匹配；新行默认 **20000**（存量 `1` 会迁到 20000）。
+
+`plan` 看工具清单里是否声明了 `ExitPlanMode` / `enterplanmode` / `update_plan`（Claude Code 只在 Plan 工作模式下才下发）。`edit` 看最近一轮真实调用：Anthropic 最后一条 assistant 的 `tool_use`，Codex 看 `input` 末尾一批 `function_call`（`Edit` / `Write` / `apply_patch` / `Bash` 等）。不看正文关键词，也不把 `body.tools` 目录当成改内容信号。这两个模式默认关闭。最近路由写「命中规划模式（依据：tools 含 ExitPlanMode）」或「命中改内容模式（依据：最近一轮调用了 Write）」，不写「检测到用户在做规划」。
 
 ## 服务可用性
 

@@ -244,7 +244,7 @@ fn sync_opencode_db_inner(conn: &Connection) -> AppResult<OpenCodeSessionSyncRes
             }
         };
 
-        let mut session_had_error = false;
+        let session_had_error = false;
         for (message_id, data) in &messages {
             // output 含 reasoning（按输出计费）。
             let output = data.output_tokens + data.reasoning_tokens;

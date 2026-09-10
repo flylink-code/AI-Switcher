@@ -313,32 +313,6 @@ pub fn prune_catalog_models(mut models: Vec<CatalogModel>) -> Vec<CatalogModel> 
     models
 }
 
-/// Keep only ids that are still listable in the live catalog.
-pub fn filter_listable_model_ids(ids: &[String]) -> Vec<String> {
-    let catalog: std::collections::HashSet<String> = list_model_ids()
-        .into_iter()
-        .map(|id| id.to_ascii_lowercase())
-        .collect();
-    let mut out: Vec<String> = Vec::new();
-    for id in ids {
-        let trimmed = id.trim();
-        if trimmed.is_empty() || is_retired_model(trimmed) || should_remap_legacy_gemini(trimmed) {
-            continue;
-        }
-        let lower = trimmed.to_ascii_lowercase();
-        if !catalog.is_empty() && !catalog.contains(&lower) {
-            continue;
-        }
-        if !out
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(trimmed))
-        {
-            out.push(trimmed.to_string());
-        }
-    }
-    out
-}
-
 /// Whether this Cloud Code model id is useful for Claude Code / Codex agents.
 pub fn is_agent_facing_model(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();

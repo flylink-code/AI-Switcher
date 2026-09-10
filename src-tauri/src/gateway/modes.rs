@@ -2,7 +2,9 @@
 
 use serde_json::Value;
 
-use crate::database::dao::gateway::{list_route_modes, RouteMode, SHARED_PROFILE_ID};
+use crate::database::dao::gateway::{
+    list_route_modes, repair_long_context_one_token_threshold, RouteMode, SHARED_PROFILE_ID,
+};
 use crate::provider::ProviderTarget;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,21 +34,6 @@ impl ModeId {
             ModeId::Vision => "vision",
         }
     }
-
-    pub fn from_str(value: &str) -> Option<Self> {
-        match value {
-            "default" => Some(Self::Default),
-            "background" => Some(Self::Background),
-            "plan" => Some(Self::Plan),
-            "think" => Some(Self::Think),
-            "edit" => Some(Self::Edit),
-            "long_context" => Some(Self::LongContext),
-            "web_search" => Some(Self::WebSearch),
-            "vision" => Some(Self::Vision),
-            "image_gen" => Some(Self::ImageGen),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -58,6 +45,7 @@ pub struct ModeSignals {
     pub is_subagent: bool,
     pub is_image_gen: bool,
     pub tool_names: Vec<String>,
+    pub recent_write_tool: Option<String>,
     pub target: Option<ProviderTarget>,
     pub path: String,
 }
@@ -147,22 +135,91 @@ pub fn looks_like_plan(tools: &[String], _target: Option<ProviderTarget>) -> boo
     })
 }
 
-pub fn looks_like_edit(tools: &[String]) -> bool {
-    tools.iter().any(|name| {
-        let lower = name.to_ascii_lowercase();
-        matches!(
-            lower.as_str(),
-            "edit"
-                | "write"
-                | "notebookedit"
-                | "fileedit"
-                | "filewrite"
-                | "apply_patch"
-                | "apply-patch"
-                | "shell"
-                | "bash"
-        )
-    })
+fn is_write_tool_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase().replace('-', "_");
+    matches!(
+        lower.as_str(),
+        "edit"
+            | "write"
+            | "notebookedit"
+            | "fileedit"
+            | "filewrite"
+            | "apply_patch"
+            | "shell"
+            | "bash"
+    )
+}
+
+pub fn looks_like_edit(recent_write_tool: Option<&str>) -> bool {
+    recent_write_tool.is_some_and(is_write_tool_name)
+}
+
+/// Last assistant round's write-tool name, not the advertised `tools` catalog.
+pub fn extract_recent_write_tool(body: &Value) -> Option<String> {
+    last_assistant_tool_use(body)
+        .into_iter()
+        .find(|name| is_write_tool_name(name))
+        .or_else(|| {
+            last_function_call_batch(body)
+                .into_iter()
+                .find(|name| is_write_tool_name(name))
+        })
+}
+
+fn last_assistant_tool_use(body: &Value) -> Vec<String> {
+    let Some(message) = body.get("messages").and_then(Value::as_array).and_then(|messages| {
+        messages
+            .iter()
+            .rev()
+            .find(|item| item.get("role").and_then(Value::as_str) == Some("assistant"))
+    }) else {
+        return Vec::new();
+    };
+    let mut names = Vec::new();
+    if let Some(content) = message.get("content").and_then(Value::as_array) {
+        for block in content {
+            if block.get("type").and_then(Value::as_str) != Some("tool_use") {
+                continue;
+            }
+            if let Some(name) = block.get("name").and_then(Value::as_str) {
+                names.push(name.to_string());
+            }
+        }
+    }
+    if let Some(calls) = message.get("tool_calls").and_then(Value::as_array) {
+        for call in calls {
+            if let Some(name) = call
+                .get("function")
+                .and_then(Value::as_object)
+                .and_then(|function| function.get("name"))
+                .and_then(Value::as_str)
+            {
+                names.push(name.to_string());
+            }
+        }
+    }
+    names
+}
+
+fn last_function_call_batch(body: &Value) -> Vec<String> {
+    let Some(items) = body.get("input").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut names = Vec::new();
+    for item in items.iter().rev() {
+        let kind = item.get("type").and_then(Value::as_str).unwrap_or("");
+        if kind == "function_call_output" {
+            continue;
+        }
+        if kind != "function_call" {
+            break;
+        }
+        if let Some(name) = item.get("name").and_then(Value::as_str) {
+            names.push(name.to_string());
+        }
+    }
+    names.reverse();
+    names
 }
 
 pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<&'a RouteMode> {
@@ -171,6 +228,14 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
             .iter()
             .find(|mode| mode.id == id.as_str() && mode.enabled && !mode.model.trim().is_empty())
     };
+    // Haiku / Explore / x-cs-subagent: only background (or default). Long-context
+    // threshold 1 and thinking fields on those requests must not steal them.
+    if signals.is_subagent {
+        if let Some(mode) = enabled(ModeId::Background) {
+            return Some(mode);
+        }
+        return enabled(ModeId::Default).or_else(|| modes.iter().find(|mode| mode.id == "default"));
+    }
     if signals.is_image_gen {
         if let Some(mode) = enabled(ModeId::ImageGen) {
             return Some(mode);
@@ -191,11 +256,6 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
             return Some(mode);
         }
     }
-    if signals.is_subagent {
-        if let Some(mode) = enabled(ModeId::Background) {
-            return Some(mode);
-        }
-    }
     if looks_like_plan(&signals.tool_names, signals.target) {
         if let Some(mode) = enabled(ModeId::Plan) {
             return Some(mode);
@@ -206,7 +266,9 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
             return Some(mode);
         }
     }
-    if looks_like_edit(&signals.tool_names) && !looks_like_plan(&signals.tool_names, signals.target) {
+    if looks_like_edit(signals.recent_write_tool.as_deref())
+        && !looks_like_plan(&signals.tool_names, signals.target)
+    {
         if let Some(mode) = enabled(ModeId::Edit) {
             return Some(mode);
         }
@@ -215,7 +277,15 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
 }
 
 pub fn load_modes(conn: &rusqlite::Connection) -> crate::error::AppResult<Vec<RouteMode>> {
+    repair_long_context_one_token_threshold(conn)?;
     list_route_modes(conn, SHARED_PROFILE_ID)
+}
+
+pub fn enabled_background_model(modes: &[RouteMode]) -> Option<String> {
+    modes
+        .iter()
+        .find(|mode| mode.id == "background" && mode.enabled && !mode.model.trim().is_empty())
+        .map(|mode| mode.model.clone())
 }
 
 #[cfg(test)]
@@ -271,6 +341,7 @@ mod tests {
             &modes,
             &ModeSignals {
                 tool_names: vec!["ExitPlanMode".into(), "Edit".into()],
+                recent_write_tool: Some("Edit".into()),
                 ..ModeSignals::default()
             },
         )
@@ -286,11 +357,61 @@ mod tests {
             &modes,
             &ModeSignals {
                 tool_names: vec!["Write".into()],
+                recent_write_tool: Some("Write".into()),
                 ..ModeSignals::default()
             },
         )
         .unwrap();
         assert_eq!(hit.id, "edit");
+    }
+
+    #[test]
+    fn advertised_edit_tools_without_call_stay_on_default() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                tool_names: vec!["Edit".into(), "Write".into(), "Bash".into()],
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "default");
+    }
+
+    #[test]
+    fn recent_write_tool_use_hits_edit() {
+        let body = serde_json::json!({
+            "tools": [{"name": "Edit"}, {"name": "Bash"}],
+            "messages": [
+                {"role": "user", "content": "change it"},
+                {"role": "assistant", "content": [{"type": "tool_use", "name": "Write"}]}
+            ]
+        });
+        assert_eq!(extract_recent_write_tool(&body).as_deref(), Some("Write"));
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                tool_names: extract_tool_names(&body),
+                recent_write_tool: extract_recent_write_tool(&body),
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "edit");
+    }
+
+    #[test]
+    fn recent_codex_apply_patch_hits_edit() {
+        let body = serde_json::json!({
+            "input": [
+                {"type": "message", "role": "user", "content": "patch it"},
+                {"type": "function_call", "name": "apply_patch"},
+                {"type": "function_call_output", "call_id": "1"}
+            ]
+        });
+        assert_eq!(extract_recent_write_tool(&body).as_deref(), Some("apply_patch"));
     }
 
     #[test]
@@ -353,6 +474,67 @@ mod tests {
         )
         .unwrap();
         assert_eq!(hit.id, "background");
+    }
+
+    #[test]
+    fn subagent_beats_long_context_think_and_web_search() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                is_subagent: true,
+                token_count: 250_000,
+                has_thinking: true,
+                has_web_search: true,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "background");
+        assert_eq!(hit.model, "deepseek.bg");
+    }
+
+    #[test]
+    fn subagent_without_background_follows_default_not_think() {
+        let mut modes = all_modes();
+        modes
+            .iter_mut()
+            .find(|mode| mode.id == "background")
+            .unwrap()
+            .enabled = false;
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                is_subagent: true,
+                has_thinking: true,
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "default");
+        assert_eq!(hit.model, "deepseek.chat");
+    }
+
+    #[test]
+    fn main_session_think_still_beats_default_below_long_context() {
+        let mut modes = all_modes();
+        modes
+            .iter_mut()
+            .find(|mode| mode.id == "long_context")
+            .unwrap()
+            .threshold = 20_000;
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                has_thinking: true,
+                token_count: 5_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "think");
+        assert_eq!(hit.model, "gpt.think");
     }
 
     #[test]

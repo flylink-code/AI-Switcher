@@ -17,7 +17,7 @@ struct ClaudeOAuthEntry {
     #[serde(rename = "accessToken")]
     access_token: Option<String>,
     #[serde(rename = "expiresAt")]
-    expires_at: Option<Value>,
+    _expires_at: Option<Value>,
 }
 
 /// Read Claude Code OAuth access token from ~/.claude/.credentials.json (or macOS Keychain)

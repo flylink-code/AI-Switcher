@@ -314,20 +314,3 @@ pub async fn ensure_gateway_running_for_provider(provider: &Provider) -> AppResu
     }
     Ok(())
 }
-
-pub fn antigravity_provider_uses_gateway(provider: &Provider) -> bool {
-    provider.provider_kind == ProviderKind::Antigravity
-        || provider.base_url.contains("127.0.0.1:15830")
-        || provider.base_url.contains("localhost:15830")
-}
-
-#[allow(dead_code)]
-pub fn validate_has_accounts() -> AppResult<()> {
-    let accounts = list_accounts()?;
-    if accounts.is_empty() {
-        return Err(AppError::Config(
-            "请先在 Antigravity 网关页导入至少一个账号".into(),
-        ));
-    }
-    Ok(())
-}

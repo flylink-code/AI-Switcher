@@ -12,7 +12,6 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
-use uuid::Uuid;
 
 use super::limiter::{AccountLimiter, LimiterSettings};
 use super::pool::AccountPool;
@@ -466,27 +465,6 @@ pub async fn restore_gateway_if_enabled() {
     }
 }
 
-pub fn is_gateway_enabled(db: &Database) -> bool {
-    db.with_conn(|conn| get_setting(conn, ENABLED_SETTING))
-        .ok()
-        .flatten()
-        .is_some_and(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
-}
-
-pub fn builtin_base_url() -> String {
-    let port = lock_manager()
-        .as_ref()
-        .map(|manager| {
-            manager
-                .runtime
-                .as_ref()
-                .map(|runtime| runtime.port)
-                .unwrap_or_else(|| saved_port(&manager.db))
-        })
-        .unwrap_or(DEFAULT_GATEWAY_PORT);
-    format!("http://127.0.0.1:{port}")
-}
-
 /// Drop in-memory session→account bindings so a newly marked active account
 /// is used on the next request instead of a previous sticky session.
 pub fn clear_sticky_sessions() {
@@ -502,11 +480,6 @@ pub fn builtin_api_key() -> String {
         .and_then(|manager| manager.api_key.lock().ok().map(|guard| guard.clone()))
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| DEFAULT_API_KEY.to_string())
-}
-
-pub fn ensure_api_key_seed() -> String {
-    let key = format!("sk-{}", Uuid::new_v4().simple());
-    key
 }
 
 fn saved_port(db: &Database) -> u16 {

@@ -188,14 +188,6 @@ fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<Stri
         .filter(|value| !value.is_empty())
 }
 
-pub fn opusplan_enabled_for_conn(_conn: &rusqlite::Connection, _target: ProviderTarget) -> bool {
-    false
-}
-
-pub fn opusplan_enabled(_db: &Database, _target: ProviderTarget) -> bool {
-    false
-}
-
 pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
     if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
         let value = profile.plan_model.trim();
@@ -489,6 +481,11 @@ pub fn is_injected_official_model_slug(id: &str) -> bool {
     is_official_openai_builtin(catalog_model_stem(id))
 }
 
+fn is_haiku_or_subagent_slug(id: &str) -> bool {
+    let lower = id.trim().to_ascii_lowercase();
+    lower.contains("haiku") || lower.contains("subagent")
+}
+
 pub fn catalog_in_entries(entries: &[CatalogEntry], requested: &str) -> bool {
     let requested = requested.trim();
     if requested.is_empty() {
@@ -574,6 +571,16 @@ pub fn normalize_client_request_with(
 ) -> String {
     let fallback = catalog_fallback_id(entries, providers, subagent);
     if force_subagent {
+        let requested = requested.trim();
+        // Mode matching already picked a concrete upstream (usually background).
+        // Do not throw that away and follow is_current / empty profile.subagent_model.
+        if !requested.is_empty()
+            && !is_auto_public_id(requested)
+            && !is_haiku_or_subagent_slug(requested)
+            && catalog_in_entries(entries, requested)
+        {
+            return requested.to_string();
+        }
         return catalog_subagent_target(entries, providers, subagent);
     }
     let requested = requested.trim();
@@ -581,13 +588,11 @@ pub fn normalize_client_request_with(
         return fallback;
     }
     let in_catalog = catalog_in_entries(entries, requested);
-    let lower = requested.to_ascii_lowercase();
-    let haiku_or_subagent = lower.contains("haiku") || lower.contains("subagent");
     // Claude Code Explore / compact / Task agents send the stable Haiku role
     // id. That must hit the catalog subagent slot even when "hide official"
     // is off — otherwise resolve_request treats it as a role and inherits the
     // current /model default (same SKU as the main session).
-    if style == CatalogStyle::Claude && haiku_or_subagent && !in_catalog {
+    if style == CatalogStyle::Claude && is_haiku_or_subagent_slug(requested) && !in_catalog {
         return catalog_subagent_target(entries, providers, subagent);
     }
     let _ = (plan, execute, role_routing_enabled);
@@ -928,7 +933,7 @@ mod tests {
 
     #[test]
     fn hide_official_drops_gpt6_astra_suggestions() {
-        let mut relay = provider("p1", "sub2api", "gpt-5.4-mini");
+        let relay = provider("p1", "sub2api", "gpt-5.4-mini");
         let cached = vec!["gpt-6-astra".into(), "gpt-5.4-mini".into()];
         let visible = collect_provider_slugs_with(&relay, &cached, true);
         assert!(visible.iter().any(|id| id == "gpt-5.4-mini"));
@@ -1085,6 +1090,39 @@ mod tests {
         assert_eq!(
             routed, "claude.antigravity--built-in.gemini-3.6-flash-low",
             "Haiku/Explore must use the catalog subagent, not the current default high"
+        );
+    }
+
+    #[test]
+    fn force_subagent_keeps_mode_chosen_upstream() {
+        let mut ag = provider("ag", "Antigravity", "gemini-3.8-flash-high");
+        ag.provider_kind = ProviderKind::Antigravity;
+        ag.is_current = true;
+        let providers = vec![ag.clone()];
+        let catalog = build_catalog(
+            CatalogStyle::Claude,
+            &[(
+                ag,
+                vec![
+                    "gemini-3.8-flash-high".into(),
+                    "gemini-3.8-flash-low".into(),
+                ],
+            )],
+        );
+        let routed = normalize_client_request(
+            CatalogStyle::Claude,
+            &catalog,
+            &providers,
+            "gemini-3.8-flash-low",
+            false,
+            None,
+            true,
+            None,
+            None,
+        );
+        assert_eq!(
+            routed, "gemini-3.8-flash-low",
+            "background lookup must not fall back to is_current default high"
         );
     }
 

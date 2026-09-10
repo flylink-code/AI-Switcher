@@ -352,7 +352,7 @@ export default function EnvironmentPage() {
     finally { setRunning(false); }
   }, [paths, t]);
 
-  const useKnownArchiveDirectory = useCallback(async (directory: string) => {
+  const applyKnownArchiveDirectory = useCallback(async (directory: string) => {
     setRunning(true);
     try {
       const archivePath = await findLatestLibraryArchive(directory);
@@ -422,7 +422,7 @@ export default function EnvironmentPage() {
     await loadConfigBackups(backupTarget, selected);
   }, [backupTarget, loadConfigBackups, t]);
 
-  const useDefaultConfigBackupDirectory = useCallback(async () => {
+  const restoreDefaultConfigBackupDirectory = useCallback(async () => {
     setConfigBackupDirectory(null);
     await loadConfigBackups(backupTarget, null);
   }, [backupTarget, loadConfigBackups]);
@@ -814,7 +814,7 @@ export default function EnvironmentPage() {
           <Space wrap style={{ marginBottom: 8 }}>
             <Button size="small" onClick={() => void pickConfigBackupDirectory()}>{t("env.chooseBackupDirectory")}</Button>
             {configBackupDirectory && (
-              <Button size="small" onClick={() => void useDefaultConfigBackupDirectory()}>{t("env.useDefaultBackupDirectory")}</Button>
+              <Button size="small" onClick={() => void restoreDefaultConfigBackupDirectory()}>{t("env.useDefaultBackupDirectory")}</Button>
             )}
           </Space>
           {configBackupDirectory && (
@@ -836,12 +836,12 @@ export default function EnvironmentPage() {
               <Button onClick={() => void pickLibraryArchiveFile()}>{t("env.chooseArchiveFile")}</Button>
               <Button onClick={() => void pickLibraryArchiveDirectory()}>{t("env.chooseArchiveDirectory")}</Button>
               {paths?.appConfigDir && (
-                <Button onClick={() => void useKnownArchiveDirectory(`${paths.appConfigDir}/backups`)}>
+                <Button onClick={() => void applyKnownArchiveDirectory(`${paths.appConfigDir}/backups`)}>
                   {t("env.useBackupsDirectory")}
                 </Button>
               )}
               {paths?.home && (
-                <Button onClick={() => void useKnownArchiveDirectory(`${paths.home}/.ai-switcher/incoming`)}>
+                <Button onClick={() => void applyKnownArchiveDirectory(`${paths.home}/.ai-switcher/incoming`)}>
                   {t("env.useSyncIncomingDirectory")}
                 </Button>
               )}

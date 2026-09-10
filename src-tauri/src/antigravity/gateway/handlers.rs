@@ -653,7 +653,6 @@ async fn dispatch_generation(
                         text.trim().chars().take(400).collect::<String>()
                     )
                 };
-                last_fail_status = status.as_u16();
                 let _ = usage_log::insert_request(
                     &state.db,
                     exclude_labels.last().map(String::as_str),
@@ -766,7 +765,6 @@ async fn dispatch_generation(
             } else {
                 format!("upstream {status}: {clipped}")
             };
-            last_fail_status = status.as_u16();
             log::warn!(
                 "Antigravity request-body error {status} on {account_email} model={last_attempted_model}; not rotating: {last_error}"
             );

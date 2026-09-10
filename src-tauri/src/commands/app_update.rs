@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use semver::Version;
 use serde::Serialize;
-use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 

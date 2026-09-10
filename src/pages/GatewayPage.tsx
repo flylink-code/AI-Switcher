@@ -649,6 +649,7 @@ export default function GatewayPage() {
                 row.id === "long_context" ? (
                   <InputNumber
                     min={0}
+                    placeholder="20000"
                     value={row.threshold}
                     addonAfter={t("gateway.thresholdUnit", { defaultValue: "token" })}
                     onChange={(value) => {

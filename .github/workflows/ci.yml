@@ -31,6 +31,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
       # `pnpm build` runs `tsc --noEmit` before `vite build`.
       - name: Type-check and build
         run: pnpm build
@@ -69,10 +72,22 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --lib --all-targets -- -D warnings
+
+      - name: Check generated TypeScript bindings
+        working-directory: src-tauri
+        run: |
+          cargo test --lib ts_bindings::tests::export_bindings -- --exact --nocapture
+          git -C .. diff --exit-code src/types/generated
 
       - name: Run library tests
         working-directory: src-tauri

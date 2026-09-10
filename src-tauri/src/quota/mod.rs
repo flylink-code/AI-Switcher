@@ -11,7 +11,6 @@ use chrono::Utc;
 use std::time::Duration;
 
 pub use detector::{query_official_quota, query_provider_quota};
-pub use types::*;
 
 /// Get current timestamp in milliseconds.
 pub fn now_millis() -> i64 {

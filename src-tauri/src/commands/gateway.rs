@@ -483,6 +483,7 @@ pub async fn update_route_mode(
     let mode = state
         .db
         .with_conn(|conn| crate::database::dao::gateway::patch_route_mode(conn, &id, &patch))?;
+    crate::catalog::invalidate_view_cache();
     let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
     Ok(mode)
 }

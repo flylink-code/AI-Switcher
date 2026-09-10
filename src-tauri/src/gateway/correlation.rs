@@ -15,7 +15,6 @@ pub struct Correlation {
     pub id: String,
     pub target_app: Option<String>,
     pub hop: &'static str,
-    pub transit: bool,
 }
 
 pub fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -40,10 +39,5 @@ pub fn resolve(
         id,
         target_app,
         hop,
-        transit: false,
     }
-}
-
-pub fn is_internal_upstream(url: &str) -> bool {
-    crate::gateway::is_self_referential_upstream(url, &crate::gateway::reserved_listener_ports())
 }

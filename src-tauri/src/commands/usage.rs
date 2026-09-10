@@ -24,8 +24,7 @@ use crate::database::dao::proxy_logs::{
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
 use crate::store::AppState;
-
-const CODEX_LOCAL_PROVIDER_KEY: &str = "Codex local events";
+use crate::usage::find_pricing_for_model;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UsageSource {
@@ -516,17 +515,6 @@ struct LocalCodexAggregation {
 #[derive(Default, Clone, Copy)]
 struct TokenTotals { input: i64, cached: i64, output: i64 }
 
-fn collect_codex_local_usage(since: i64) -> LocalCodexAggregation {
-    let config_dir = crate::config::get_codex_config_dir();
-    collect_codex_local_usage_from_roots(
-        &[
-            config_dir.join("sessions"),
-            config_dir.join("archived_sessions"),
-        ],
-        since,
-    )
-}
-
 fn collect_codex_local_usage_from_root(root: &Path, since: i64) -> LocalCodexAggregation {
     collect_codex_local_usage_from_roots(&[root.to_path_buf()], since)
 }
@@ -917,49 +905,6 @@ fn convert_breakdown_to_usd(item: &mut UsageBreakdown) {
     item.currency = "USD".to_string();
 }
 
-fn merge_breakdown_costs(existing: &mut UsageBreakdown, incoming: &UsageBreakdown) {
-    if existing.currency == incoming.currency {
-        existing.estimated_cost += incoming.estimated_cost;
-        return;
-    }
-    if existing.estimated_cost.abs() <= f64::EPSILON {
-        existing.estimated_cost = incoming.estimated_cost;
-        existing.currency = incoming.currency.clone();
-        return;
-    }
-    if incoming.estimated_cost.abs() <= f64::EPSILON {
-        return;
-    }
-    existing.estimated_cost = crate::usage::to_usd(existing.estimated_cost, &existing.currency)
-        + crate::usage::to_usd(incoming.estimated_cost, &incoming.currency);
-    existing.currency = "USD".to_string();
-}
-
-fn merge_trend_costs(existing: &mut UsageTrendPoint, incoming: &UsageTrendPoint) {
-    if existing.currency == incoming.currency {
-        existing.estimated_cost += incoming.estimated_cost;
-        return;
-    }
-    if existing.estimated_cost.abs() <= f64::EPSILON {
-        existing.estimated_cost = incoming.estimated_cost;
-        existing.currency = incoming.currency.clone();
-        return;
-    }
-    if incoming.estimated_cost.abs() <= f64::EPSILON {
-        return;
-    }
-    existing.estimated_cost = crate::usage::to_usd(existing.estimated_cost, &existing.currency)
-        + crate::usage::to_usd(incoming.estimated_cost, &incoming.currency);
-    existing.currency = "USD".to_string();
-}
-
-fn find_pricing_for_model<'a>(
-    pricing: &'a [ModelPricing],
-    model: &str,
-) -> Option<&'a ModelPricing> {
-    crate::usage::find_pricing_for_model(pricing, model)
-}
-
 fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[ModelPricing]) {
     let mut by_currency: BTreeMap<String, f64> = BTreeMap::new();
     for item in local.by_model.values_mut() {
@@ -1014,85 +959,6 @@ fn apply_codex_estimated_cost(local: &mut LocalCodexAggregation, pricing: &[Mode
     }
 }
 
-fn merge_local_codex_usage(dashboard: &mut UsageDashboard, local: LocalCodexAggregation) {
-    dashboard.summary.request_count += local.summary.request_count;
-    dashboard.summary.successful_request_count += local.summary.successful_request_count;
-    dashboard.summary.input_tokens += local.summary.input_tokens;
-    dashboard.summary.cache_read_input_tokens += local.summary.cache_read_input_tokens;
-    dashboard.summary.output_tokens += local.summary.output_tokens;
-    merge_currency_amounts(
-        &mut dashboard.summary.estimated_costs_by_currency,
-        &local.summary.estimated_costs_by_currency,
-    );
-    let (currency, amount) = pick_summary_currency(&dashboard.summary.estimated_costs_by_currency);
-    dashboard.summary.estimated_cost = amount;
-    dashboard.summary.estimated_cost_currency = currency;
-    if local.status.available {
-        let mut provider = empty_breakdown(CODEX_LOCAL_PROVIDER_KEY.to_string());
-        provider.request_count = local.summary.request_count;
-        provider.input_tokens = local.summary.input_tokens;
-        provider.cache_read_input_tokens = local.summary.cache_read_input_tokens;
-        provider.output_tokens = local.summary.output_tokens;
-        provider.estimated_cost = local.summary.estimated_cost;
-        provider.currency = local.summary.estimated_cost_currency.clone();
-        dashboard.by_provider.push(provider);
-    }
-    for (key, item) in local.by_model {
-        if let Some(existing) = dashboard.by_model.iter_mut().find(|existing| existing.key == key)
-        {
-            existing.request_count += item.request_count;
-            existing.input_tokens += item.input_tokens;
-            existing.cache_read_input_tokens += item.cache_read_input_tokens;
-            existing.output_tokens += item.output_tokens;
-            merge_breakdown_costs(existing, &item);
-        } else {
-            dashboard.by_model.push(item);
-        }
-    }
-    for (date, item) in local.trend {
-        if let Some(existing) = dashboard.trend.iter_mut().find(|existing| existing.date == date)
-        {
-            existing.request_count += item.request_count;
-            existing.input_tokens += item.input_tokens;
-            existing.cache_read_input_tokens += item.cache_read_input_tokens;
-            existing.output_tokens += item.output_tokens;
-            merge_trend_costs(existing, &item);
-        } else {
-            dashboard.trend.push(item);
-        }
-    }
-    dashboard
-        .trend
-        .sort_by(|left, right| left.date.cmp(&right.date));
-}
-
-fn merge_currency_amounts(target: &mut Vec<CurrencyAmount>, incoming: &[CurrencyAmount]) {
-    for entry in incoming {
-        if let Some(existing) = target
-            .iter_mut()
-            .find(|item| item.currency.eq_ignore_ascii_case(&entry.currency))
-        {
-            existing.amount += entry.amount;
-        } else {
-            target.push(CurrencyAmount {
-                currency: entry.currency.clone(),
-                amount: entry.amount,
-            });
-        }
-    }
-    target.retain(|entry| entry.amount.abs() > f64::EPSILON);
-    target.sort_by(|left, right| {
-        right
-            .amount
-            .abs()
-            .partial_cmp(&left.amount.abs())
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| left.currency.cmp(&right.currency))
-    });
-}
-
-/// Pick the headline currency for a cost summary.
-/// Single currency stays native; multiple currencies convert to USD and sum.
 fn pick_summary_currency(amounts: &[CurrencyAmount]) -> (String, f64) {
     let pairs: Vec<(String, f64)> = amounts
         .iter()

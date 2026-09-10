@@ -86,7 +86,7 @@ impl LimiterSettings {
         }
     }
 
-    pub fn from_config(config: &LimiterConfig) -> Self {
+    pub(crate) fn from_config(config: &LimiterConfig) -> Self {
         Self {
             account_concurrency: config.account_concurrency,
             subagent_concurrency: config.subagent_concurrency,
@@ -99,7 +99,7 @@ impl LimiterSettings {
 }
 
 #[derive(Debug, Clone)]
-struct LimiterConfig {
+pub(crate) struct LimiterConfig {
     account_concurrency: usize,
     subagent_concurrency: usize,
     min_request_interval: Duration,
@@ -131,7 +131,6 @@ struct RateState {
     tokens: f64,
     last_refill: Instant,
     rate_per_min: f64,
-    token_capacity: f64,
     backoff_until: Option<Instant>,
     success_streak: u32,
 }
@@ -147,7 +146,6 @@ impl RateState {
             } else {
                 DEFAULT_RATE_PER_MIN as f64
             },
-            token_capacity: config.token_capacity,
             backoff_until: None,
             success_streak: 0,
         }

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use chrono::Utc;
-use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -21,13 +20,6 @@ const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v2/userinfo";
 const OAUTH_TIMEOUT_SECS: u64 = 300;
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AntigravityOauthStart {
-    pub auth_url: String,
-    pub redirect_uri: String,
-}
 
 /// Open the system browser for Google login and wait for the localhost callback.
 pub async fn login_with_browser(app: &AppHandle) -> AppResult<AntigravityAccountPublic> {

@@ -6,6 +6,8 @@ use std::path::Path;
 use chrono::Utc;
 use rusqlite::{named_params, params, Connection};
 use serde::Serialize;
+#[cfg(test)]
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::error::AppResult;
@@ -120,6 +122,7 @@ pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
 ";
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct CurrencyAmount {
     pub currency: String,
@@ -127,6 +130,7 @@ pub struct CurrencyAmount {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct UsageSummary {
     pub request_count: i64,
@@ -143,6 +147,7 @@ pub struct UsageSummary {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct UsageBreakdown {
     pub key: String,
@@ -169,6 +174,7 @@ pub struct UsageProviderModelGroup {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct UsageTrendPoint {
     pub date: String,
@@ -182,6 +188,7 @@ pub struct UsageTrendPoint {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ModelPricing {
     pub model: String,
@@ -1182,6 +1189,7 @@ pub fn delete_model_pricing(conn: &Connection, model: &str) -> AppResult<()> {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyRequestLog {
     pub id: String,
@@ -1215,6 +1223,7 @@ pub struct ProxyRequestLog {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct PaginatedProxyLogs {
     pub data: Vec<ProxyRequestLog>,
@@ -1224,6 +1233,7 @@ pub struct PaginatedProxyLogs {
 }
 
 #[derive(Debug, Default)]
+#[cfg_attr(test, derive(TS))]
 pub struct ProxyLogFilters {
     pub since: Option<i64>,
     pub target_app: Option<String>,

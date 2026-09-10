@@ -15,7 +15,7 @@ export const languages: { value: Language; label: string }[] = [
   { value: "en-US", label: "English" },
 ];
 
-i18n.use(initReactI18next).init({
+void i18n.use(initReactI18next).init({
   resources,
   lng: "zh-CN",
   fallbackLng: "zh-CN",

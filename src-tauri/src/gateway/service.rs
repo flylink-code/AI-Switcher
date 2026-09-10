@@ -13,7 +13,6 @@ use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 use crate::gateway::SMART_GATEWAY_PORT;
-use crate::proxy::{ListenerKind, ProxyStatus};
 use crate::store::AppState;
 
 pub const PORT_SETTING: &str = "smart_gateway_port";
@@ -341,18 +340,6 @@ pub async fn restore_after_relaunch(db: Arc<Database>) {
     restore_if_enabled(db).await;
 }
 
-pub fn snapshot_as_proxy_status() -> ProxyStatus {
-    let status = current_status();
-    ProxyStatus {
-        running: status.running,
-        port: status.port,
-        target_provider: Some("智能网关".into()),
-        phase: status.phase,
-        last_error: status.last_error,
-        checked_at: status.checked_at,
-    }
-}
-
 pub fn emit_status(app: &tauri::AppHandle) {
     let status = current_status();
     let _ = tauri::Emitter::emit(app, STATUS_EVENT, status);
@@ -365,10 +352,6 @@ pub async fn start_via_state(state: &AppState, port: Option<u16>) -> AppResult<S
 /// Used by catalog-push / bind to force-enable the listener.
 pub fn mark_enabled(db: &Database) -> AppResult<()> {
     db.with_conn(|conn| set_setting(conn, ENABLED_SETTING, "1"))
-}
-
-pub fn listener_kind() -> ListenerKind {
-    ListenerKind::SmartGateway
 }
 
 #[cfg(test)]

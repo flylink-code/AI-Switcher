@@ -225,8 +225,7 @@ pub async fn list_trashed_sessions(provider: SessionProvider) -> AppResult<Vec<S
         .await.map_err(|error| AppError::Tauri(format!("会话回收站读取失败: {error}")))?
 }
 
-// migrate_claude_code_session: UI/IPC disabled — proxy Responses multi-turn fix
-// made same-provider resume work; keep session_manager::migrate_* for unit tests only.
+// migrate_claude_code_session was removed; same-provider resume no longer needs a session fork.
 
 // --- Legacy Claude Code-only session commands ---
 // Kept for backward compatibility; the frontend now uses the generic

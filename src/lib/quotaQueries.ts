@@ -35,8 +35,8 @@ export function useInvalidateQuota() {
     invalidateOfficialQuota: (target: ProviderTarget) =>
       queryClient.invalidateQueries({ queryKey: ["official-quota", target] }),
     invalidateAllQuotas: () => {
-      queryClient.invalidateQueries({ queryKey: ["provider-quota"] });
-      queryClient.invalidateQueries({ queryKey: ["official-quota"] });
+      void queryClient.invalidateQueries({ queryKey: ["provider-quota"] });
+      void queryClient.invalidateQueries({ queryKey: ["official-quota"] });
     },
   };
 }

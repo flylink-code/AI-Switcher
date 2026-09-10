@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::account::{store, AntigravityAccount};
 use super::limiter::AccountLimiter;
@@ -233,10 +232,6 @@ impl AccountPool {
 
     pub fn note_success(&self, account_id: &str) {
         let _ = store().mark_success(account_id);
-    }
-
-    pub fn new_session_key() -> String {
-        Uuid::new_v4().to_string()
     }
 
     /// Recommends the highest scored account currently schedulable in the pool.
