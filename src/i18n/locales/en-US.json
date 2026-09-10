@@ -111,11 +111,11 @@
     "modesHelpCcrBody": "Classic CCR JSON used Router.default / background / think / longContext (later webSearch and image). Newer CCR is a rule list (model-prefix / condition / script) plus a failure fallback. This app keeps the common slots as nine fixed rows, with no JS scripts or a classifier model. Plan/edit look at tool names only, never message keywords.",
     "modesHelpCheckTitle": "How to confirm it worked",
     "modesHelpCheck": "Use Recent routes below. It will say “hit plan mode (tools include ExitPlanMode)”, not “detected that you are planning”.",
-    "modesHelpAgents": "Plan and edit only have signals on Claude Code and Codex; Desktop / OpenCode / Pi / DSH never hit those rows. After a change, restart Claude Code / Desktop / Codex to refresh /v1/models.",
+    "modesHelpAgents": "Plan and edit only have signals on Claude Code and Codex; Desktop / OpenCode / Pi / DSH / Cline never hit those rows. Claude Code’s Plan / Auto on the Providers page is the client working mode (permissions.defaultMode), not the gateway Plan row. After a change, restart Claude Code / Desktop / Codex to refresh /v1/models.",
     "modeHint": {
       "default": "Fallback when nothing else matches. Use DeepSeek Chat or Gemini 3.8 Flash, not gpt-6-astra — that is the strongest model and belongs on think.",
       "background": "Subagents, Explore, Haiku-style background requests.",
-      "plan": "Claude Code Plan mode (tools include ExitPlanMode); Codex uses update_plan. Off by default.",
+      "plan": "Tools include ExitPlanMode (not the Providers-page working mode Plan); Codex uses update_plan. Off by default.",
       "think": "Request body already has thinking / reasoning / reasoning_effort.",
       "edit": "Write tools such as Edit / Write / apply_patch, and not a plan turn. Off by default.",
       "long_context": "Estimated tokens exceed the threshold on this row.",
@@ -128,10 +128,10 @@
     "modesTutorial": "Tutorial",
     "tutorialIntro": "Add upstreams, bind an agent, then copy one of the tables. Put an everyday model on Default (DeepSeek or Gemini 3.8 Flash); save gpt-6-astra for think. Dropdown names include an upstream prefix; match by display name.",
     "tutorialStepsTitle": "First-time setup",
-    "tutorialStep1": "In Bind apps, select the agents that should use the gateway, and set the Smart Gateway Auto card as current on the Providers page.",
+    "tutorialStep1": "In Bind apps, select the agents that should use the gateway. For Claude Code / Desktop / Codex, set the Smart Gateway Auto card as current on Providers. OpenCode / Pi / DSH / Cline only get an Auto entry appended — they are not switched. Custom agents do not bind; use the service card URL and public API key.",
     "tutorialStep2": "Add providers to the upstream pool. The mode table can only pick models from the pool, not provider cards that were never imported.",
     "tutorialStep3": "Enable Default and pick a model. A row with no model is the same as off.",
-    "tutorialStep4": "Keep the agent on auto (claude.auto for Claude Code / Desktop). Picking a specific catalog model skips both rules and modes.",
+    "tutorialStep4": "Keep the agent on auto (claude.auto for Claude Code / Desktop). Picking a specific catalog model skips the whole table of rules and modes.",
     "tutorialStep5": "Send a request and check Recent routes at the bottom. Restart Claude Code / Desktop / Codex after catalog changes.",
     "tutorialRecipeMinimalTitle": "Example 1 · Minimal",
     "tutorialRecipeMinimalLead": "Enable Default only. Pick DeepSeek Chat or Gemini 3.8 Flash — not gpt-6-astra, which is the strongest model.",
@@ -165,7 +165,84 @@
     "tutorialEffortOff": "Thinking off",
     "tutorialEffortHigh": "Thinking high",
     "tutorialThreshold60k": "Thinking off, threshold 60000",
-    "tutorialKeepOff": "Leave off"
+    "tutorialKeepOff": "Leave off",
+    "tutorialAgentsTitle": "Recommended setup by agent",
+    "tutorialAgentsLead": "The mode table is global. How each agent connects and which signals it sends differ. Connect as below, then copy Example 2 or 3.",
+    "tutorialAgent": {
+      "claude_code": {
+        "title": "Claude Code",
+        "lead": "Exclusive bind. Stay on claude.auto and enable the mode rows you want. The Providers-page working mode Plan does not send the gateway Plan row.",
+        "bind": "In Bind apps, select Claude Code, then set the Smart Gateway Auto card as current on Providers.",
+        "model": "Pick claude.auto in the agent. A specific catalog model skips every mode. Restart Claude Code after catalog changes.",
+        "modes": "Plan fires when tools include ExitPlanMode, not when working mode is Plan. Explore / Haiku following auto almost never hit Background. Edit stays off by default (Edit / Write appear on almost every turn). To split traffic: enable Think / Long context / Background and pick models.",
+        "recipe": "Copy Example 2 or 3 below. Leave Plan and Edit off at first.",
+        "check": "Send a normal chat. Recent routes should say Default. After enabling Think, a request with thinking should hit Think.",
+        "note": "If you only use claude.auto and every other row is off or has no model, Recent routes will only show Default."
+      },
+      "claude_desktop": {
+        "title": "Claude Desktop",
+        "lead": "Exclusive bind; traffic still goes through the local proxy. No plan / edit tools.",
+        "bind": "Bind Claude Desktop and set Auto as current on Providers.",
+        "model": "Stay on auto. Restart Desktop after catalog changes.",
+        "modes": "No plan / edit. You can enable Think, Long context, Vision, and Web search.",
+        "recipe": "Copy Example 2 or 3 below; keep Plan and Edit off.",
+        "check": "Recent routes should show Default or Think / Long context; never Plan / Edit."
+      },
+      "codex": {
+        "title": "Codex",
+        "lead": "Exclusive bind. Plan looks for update_plan; Edit looks for apply_patch / shell.",
+        "bind": "Bind Codex and set Auto as current on Providers.",
+        "model": "Keep auto in the CLI. You may still need to restart the CLI after catalog changes.",
+        "modes": "Plan = update_plan; Edit = apply_patch / shell. Think looks at reasoning.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Check Recent routes. OpenAI-style custom clients also need the header x-ai-switcher-target: codex."
+      },
+      "opencode": {
+        "title": "OpenCode",
+        "lead": "Catalog agent. Binding only appends an Auto entry; other direct cards stay. Providers has no Switch.",
+        "bind": "Bind OpenCode. Do not switch or set current on Providers.",
+        "model": "Pick the Auto entry inside OpenCode. Live config is rewritten immediately.",
+        "modes": "No plan / edit. Daily chat uses Default; split with Think (thinking in the body), Long context, or Vision.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Send a request via Auto and check Recent routes. Other direct cards bypass the gateway."
+      },
+      "pi": {
+        "title": "Pi",
+        "lead": "Catalog agent. Binding only appends Auto; other direct cards stay. Default provider is not switched.",
+        "bind": "Bind Pi. Do not switch or set current on Providers.",
+        "model": "Pick the Auto entry inside Pi. Live config is rewritten immediately.",
+        "modes": "No plan / edit. Daily chat uses Default; split with Think, Long context, or Vision.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Send a request via Auto and check Recent routes. Other direct cards bypass the gateway."
+      },
+      "dsh": {
+        "title": "DSH",
+        "lead": "Catalog agent (DeepSeek Harness). Binding only appends Auto; other direct cards stay.",
+        "bind": "Bind DSH. Do not switch or set current on Providers.",
+        "model": "Pick the Auto entry inside DSH. Live config is rewritten immediately.",
+        "modes": "No plan / edit. Daily chat uses Default; split with Think, Long context, or Vision.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Send a request via Auto and check Recent routes. Other direct cards bypass the gateway."
+      },
+      "cline": {
+        "title": "Cline",
+        "lead": "Catalog agent. Binding only appends Auto; traffic still goes through local proxy 15827 (Responses).",
+        "bind": "Bind Cline. Do not switch or set current on Providers.",
+        "model": "Pick the Auto entry inside Cline. Live config is rewritten immediately.",
+        "modes": "No plan / edit. Daily chat uses Default; split with Think, Long context, or Vision.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Send a request via Auto and check Recent routes. Other direct cards bypass the gateway."
+      },
+      "custom": {
+        "title": "Custom agent",
+        "lead": "No bind. Copy the service-card URL and public API key (sk-aisw-…).",
+        "bind": "Open the gateway service card and copy http://127.0.0.1:15828 plus the key. Authorization: Bearer or x-api-key.",
+        "model": "OpenAI SDK: http://127.0.0.1:15828/v1 with model auto. Anthropic uses the host root. Codex-style ids need header x-ai-switcher-target: codex.",
+        "modes": "No binding token. Plan / Edit only fire if the client sends those tools; otherwise Default / Think / Long context / Vision.",
+        "recipe": "Copy Example 2 or 3 below.",
+        "check": "Check Recent routes. The gateway listens on 127.0.0.1 only — not the LAN."
+      }
+    }
   },
   "app": {
     "name": "AI-Switcher",

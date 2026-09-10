@@ -1,4 +1,4 @@
-import { Button, Drawer, Table, Tabs, Typography } from "antd";
+import { Button, Collapse, Drawer, Table, Tabs, Typography } from "antd";
 import BookOutlined from "@ant-design/icons/es/icons/BookOutlined";
 import QuestionCircleOutlined from "@ant-design/icons/es/icons/QuestionCircleOutlined";
 import { useTranslation } from "react-i18next";
@@ -63,6 +63,21 @@ const RECIPE_MIX: RecipeRow[] = [
   { modeId: "plan", on: "off", pickKey: "tutorialPickEmpty", extraKey: "tutorialKeepOff" },
   { modeId: "edit", on: "off", pickKey: "tutorialPickEmpty", extraKey: "tutorialKeepOff" },
 ];
+
+const TUTORIAL_AGENTS = [
+  "claude_code",
+  "claude_desktop",
+  "codex",
+  "opencode",
+  "pi",
+  "dsh",
+  "cline",
+  "custom",
+] as const;
+
+type TutorialAgentId = (typeof TUTORIAL_AGENTS)[number];
+
+const AGENT_STEP_KEYS = ["bind", "model", "modes", "recipe", "check"] as const;
 
 export function RouteModesHelpButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation();
@@ -179,7 +194,7 @@ function GuidePanel() {
       <Paragraph type="secondary">
         {t("gateway.modesHelpAgents", {
           defaultValue:
-            "规划 / 改内容只有 Claude Code 与 Codex 有信号；Desktop / OpenCode / Pi / DSH 这两行不会触发。改完后 Claude Code / Desktop / Codex 需重启 Agent 才刷新 /v1/models。",
+            "规划 / 改内容只有 Claude Code 与 Codex 有信号；Desktop / OpenCode / Pi / DSH / Cline 这两行不会触发。Claude Code 供应商页的「Plan / 自动」是客户端工作模式（permissions.defaultMode），不是网关「规划」行。改完后 Claude Code / Desktop / Codex 需重启 Agent 才刷新 /v1/models。",
         })}
       </Paragraph>
     </>
@@ -199,12 +214,29 @@ function TutorialPanel() {
 
       <Title level={5}>{t("gateway.tutorialStepsTitle", { defaultValue: "第一次怎么走" })}</Title>
       <ol style={{ paddingLeft: 20, marginBottom: 20 }}>
-        <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep1", { defaultValue: "「绑定应用」勾选要走网关的 Agent，并在供应商页把智能网关 Auto 卡设为当前。" })}</li>
+        <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep1", { defaultValue: "「绑定应用」勾选要走网关的 Agent。Claude Code / Desktop / Codex 绑定后到供应商页把智能网关 Auto 卡设为当前。OpenCode / Pi / DSH / Cline 绑定只追加 Auto 入口、不切换。自定义 Agent 不必绑定，用服务卡上的地址和对外 API Key。" })}</li>
         <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep2", { defaultValue: "「上游池」加入供应商。模式表只能选池里的模型，不是供应商页上未入池的卡片。" })}</li>
         <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep3", { defaultValue: "至少启用「默认」并选一个模型。没选模型的行等于关掉。" })}</li>
-        <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep4", { defaultValue: "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）。点了目录里的具体模型会跳过规则和模式。" })}</li>
+        <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep4", { defaultValue: "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）。点了目录里的具体模型会整表跳过规则和模式。" })}</li>
         <li style={{ marginBottom: 8 }}>{t("gateway.tutorialStep5", { defaultValue: "发一条请求，看本页底部「最近路由」的模式与依据。Claude Code / Desktop / Codex 改完目录后需重启 Agent。" })}</li>
       </ol>
+
+      <Title level={5}>{t("gateway.tutorialAgentsTitle", { defaultValue: "按 Agent 推荐配置" })}</Title>
+      <Paragraph type="secondary">
+        {t("gateway.tutorialAgentsLead", {
+          defaultValue: "模式表是全局一份。各 Agent 接入方式和能发出的信号不同。先按下面接好，再抄示例 2 或 3。",
+        })}
+      </Paragraph>
+      <Collapse
+        size="small"
+        defaultActiveKey={["claude_code"]}
+        style={{ marginBottom: 20 }}
+        items={TUTORIAL_AGENTS.map((id) => ({
+          key: id,
+          label: t(`gateway.tutorialAgent.${id}.title`, { defaultValue: id }),
+          children: <AgentTutorialBody agentId={id} />,
+        }))}
+      />
 
       <Title level={5}>{t("gateway.tutorialRecipeMinimalTitle", { defaultValue: "示例 1 · 最少配置" })}</Title>
       <Paragraph type="secondary">
@@ -280,6 +312,33 @@ function TutorialPanel() {
           defaultValue: "和长上下文模式同类，但规则更先命中，可用来覆盖模式表。一般二选一即可。",
         })}
       </Paragraph>
+    </>
+  );
+}
+
+function AgentTutorialBody({ agentId }: { agentId: TutorialAgentId }) {
+  const { t } = useTranslation();
+  const showClaudeCodeNote = agentId === "claude_code";
+  return (
+    <>
+      <Paragraph>
+        {t(`gateway.tutorialAgent.${agentId}.lead`, { defaultValue: "" })}
+      </Paragraph>
+      <ol style={{ paddingLeft: 20, marginBottom: showClaudeCodeNote ? 8 : 0 }}>
+        {AGENT_STEP_KEYS.map((key) => (
+          <li key={key} style={{ marginBottom: 8 }}>
+            {t(`gateway.tutorialAgent.${agentId}.${key}`, { defaultValue: "" })}
+          </li>
+        ))}
+      </ol>
+      {showClaudeCodeNote ? (
+        <Paragraph type="secondary">
+          {t("gateway.tutorialAgent.claude_code.note", {
+            defaultValue:
+              "只用 claude.auto 且其它行关掉或没选模型时，最近路由只会「命中默认模式」。",
+          })}
+        </Paragraph>
+      ) : null}
     </>
   );
 }

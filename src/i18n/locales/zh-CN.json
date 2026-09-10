@@ -111,11 +111,11 @@
     "modesHelpCcrBody": "经典 CCR 在 JSON 的 Router 里写 default / background / think / longContext（后来还有 webSearch、image）。新版 CCR 改成规则列表（model-prefix / condition / script）加失败兜底。这里把常用槽做成 9 行固定表，不引入 JS 脚本或小模型分类器；规划/改内容只看工具名，不看正文关键词。",
     "modesHelpCheckTitle": "怎么确认生效",
     "modesHelpCheck": "配完看下方「最近路由」。会写「命中规划模式（依据：tools 含 ExitPlanMode）」这类依据，而不是「检测到你在做规划」。",
-    "modesHelpAgents": "规划 / 改内容只有 Claude Code 与 Codex 有信号；Desktop / OpenCode / Pi / DSH 这两行不会触发。改完后 Claude Code / Desktop / Codex 需重启 Agent 才刷新 /v1/models。",
+    "modesHelpAgents": "规划 / 改内容只有 Claude Code 与 Codex 有信号；Desktop / OpenCode / Pi / DSH / Cline 这两行不会触发。Claude Code 供应商页的「Plan / 自动」是客户端工作模式（permissions.defaultMode），不是网关「规划」行。改完后 Claude Code / Desktop / Codex 需重启 Agent 才刷新 /v1/models。",
     "modeHint": {
       "default": "上面全没命中时的兜底。放 DeepSeek Chat 或 Gemini 3.8 Flash，不要把最强的 gpt-6-astra 放这里。",
       "background": "子代理、Explore、Haiku 等后台请求。",
-      "plan": "Claude Code 处于 Plan 模式（tools 含 ExitPlanMode）；Codex 对应 update_plan。默认关。",
+      "plan": "请求 tools 含 ExitPlanMode（不是供应商页工作模式 Plan）；Codex 对应 update_plan。默认关。",
       "think": "请求体已带 thinking / reasoning / reasoning_effort。",
       "edit": "有 Edit / Write / apply_patch 等写盘工具，且不是规划。默认关。",
       "long_context": "估算 token 超过右侧阈值。",
@@ -128,10 +128,10 @@
     "modesTutorial": "教程",
     "tutorialIntro": "先加上游、再绑定 Agent，然后按下表抄一份。默认放日常模型（DeepSeek / Gemini 3.8 Flash），gpt-6-astra 留给思考。下拉里的名字会带上游前缀，按显示名选即可。",
     "tutorialStepsTitle": "第一次怎么走",
-    "tutorialStep1": "「绑定应用」勾选要走网关的 Agent，并在供应商页把智能网关 Auto 卡设为当前。",
+    "tutorialStep1": "「绑定应用」勾选要走网关的 Agent。Claude Code / Desktop / Codex 绑定后到供应商页把智能网关 Auto 卡设为当前。OpenCode / Pi / DSH / Cline 绑定只追加 Auto 入口、不切换。自定义 Agent 不必绑定，用服务卡上的地址和对外 API Key。",
     "tutorialStep2": "「上游池」加入供应商。模式表只能选池里的模型，不是供应商页上未入池的卡片。",
     "tutorialStep3": "至少启用「默认」并选一个模型。没选模型的行等于关掉。",
-    "tutorialStep4": "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）。点了目录里的具体模型会跳过规则和模式。",
+    "tutorialStep4": "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）。点了目录里的具体模型会整表跳过规则和模式。",
     "tutorialStep5": "发一条请求，看本页底部「最近路由」的模式与依据。Claude Code / Desktop / Codex 改完目录后需重启 Agent。",
     "tutorialRecipeMinimalTitle": "示例 1 · 最少配置",
     "tutorialRecipeMinimalLead": "只开默认，先打通。选 DeepSeek Chat 或 Gemini 3.8 Flash，不要把最强的 gpt-6-astra 放在默认。",
@@ -165,7 +165,84 @@
     "tutorialEffortOff": "挡位关闭",
     "tutorialEffortHigh": "挡位高",
     "tutorialThreshold60k": "挡位关闭，阈值 60000",
-    "tutorialKeepOff": "先别开"
+    "tutorialKeepOff": "先别开",
+    "tutorialAgentsTitle": "按 Agent 推荐配置",
+    "tutorialAgentsLead": "模式表是全局一份。各 Agent 接入方式和能发出的信号不同。先按下面接好，再抄示例 2 或 3。",
+    "tutorialAgent": {
+      "claude_code": {
+        "title": "Claude Code",
+        "lead": "独占接入。必须用 claude.auto，并打开要分流的模式行。供应商页的工作模式 Plan 不会让网关走「规划」。",
+        "bind": "网关页「绑定应用」勾选 Claude Code，再到供应商页把智能网关 Auto 卡设为当前。",
+        "model": "Agent 里选 claude.auto。点了目录里的具体模型会跳过全部模式。改完目录后重启 Claude Code。",
+        "modes": "规划看 tools 含 ExitPlanMode，不是工作模式 Plan。Explore / Haiku 跟随 auto 时后台几乎不触发。改内容默认关（Edit / Write 几乎每轮都有）。想分流：启用思考 / 长上下文 / 后台并选模型。",
+        "recipe": "抄下面示例 2 或 3。先不要开规划与改内容。",
+        "check": "发一条普通对话，底部「最近路由」应写命中默认模式。开思考后带 thinking 的请求应变思考。",
+        "note": "只用 claude.auto 且其它行关掉或没选模型时，最近路由只会「命中默认模式」。"
+      },
+      "claude_desktop": {
+        "title": "Claude Desktop",
+        "lead": "独占接入，请求仍经本地代理。没有规划 / 改内容工具。",
+        "bind": "绑定 Claude Desktop，供应商页把 Auto 设为当前。",
+        "model": "保持 auto。改目录后重启 Desktop。",
+        "modes": "无 plan / edit。可开思考、长上下文、视觉、联网。",
+        "recipe": "抄下面示例 2 或 3；规划与改内容保持关。",
+        "check": "最近路由应出现默认或思考 / 长文等；不会出现规划 / 改内容。"
+      },
+      "codex": {
+        "title": "Codex",
+        "lead": "独占接入。规划看 update_plan，改内容看 apply_patch / shell。",
+        "bind": "绑定 Codex，供应商页把 Auto 设为当前。",
+        "model": "CLI 里保持 auto。改完目录后 CLI 可能要重启。",
+        "modes": "规划 = update_plan；改内容 = apply_patch / shell。思考看 reasoning。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "看最近路由的模式与依据。OpenAI 风格自定义客户端要加请求头 x-ai-switcher-target: codex。"
+      },
+      "opencode": {
+        "title": "OpenCode",
+        "lead": "目录型。绑定只追加 Auto 入口，其它直连卡仍在，供应商页没有「切换」。",
+        "bind": "绑定 OpenCode。不要去供应商页点切换或设为当前。",
+        "model": "在 OpenCode 里选 Auto 入口。配置会立刻重写。",
+        "modes": "无 plan / edit。日常走默认；分流靠思考（请求带 thinking）、长上下文、视觉。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "用 Auto 发一条，看最近路由。点了其它直连卡则不经网关。"
+      },
+      "pi": {
+        "title": "Pi",
+        "lead": "目录型。绑定只追加 Auto 入口，其它直连卡仍在，不切换默认供应商。",
+        "bind": "绑定 Pi。不要去供应商页点切换或设为当前。",
+        "model": "在 Pi 里选 Auto 入口。配置会立刻重写。",
+        "modes": "无 plan / edit。日常走默认；分流靠思考、长上下文、视觉。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "用 Auto 发一条，看最近路由。点了其它直连卡则不经网关。"
+      },
+      "dsh": {
+        "title": "DSH",
+        "lead": "目录型（DeepSeek Harness）。绑定只追加 Auto 入口，其它直连卡仍在。",
+        "bind": "绑定 DSH。不要去供应商页点切换或设为当前。",
+        "model": "在 DSH 里选 Auto 入口。配置会立刻重写。",
+        "modes": "无 plan / edit。日常走默认；分流靠思考、长上下文、视觉。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "用 Auto 发一条，看最近路由。点了其它直连卡则不经网关。"
+      },
+      "cline": {
+        "title": "Cline",
+        "lead": "目录型。绑定只追加 Auto 入口，请求仍走本地代理 15827（Responses）。",
+        "bind": "绑定 Cline。不要去供应商页点切换或设为当前。",
+        "model": "在 Cline 里选 Auto 入口。配置会立刻重写。",
+        "modes": "无 plan / edit。日常走默认；分流靠思考、长上下文、视觉。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "用 Auto 发一条，看最近路由。点了其它直连卡则不经网关。"
+      },
+      "custom": {
+        "title": "自定义 Agent",
+        "lead": "不必绑定。复制服务卡访问地址和对外 API Key（sk-aisw-…）。",
+        "bind": "打开网关服务卡，复制 http://127.0.0.1:15828 与 Key。Authorization: Bearer 或 x-api-key。",
+        "model": "OpenAI SDK 用 http://127.0.0.1:15828/v1，模型填 auto。Anthropic 用宿主根。Codex 风格模型名加请求头 x-ai-switcher-target: codex。",
+        "modes": "无绑定 token。客户端带阶段工具才会打规划 / 改内容，否则走默认 / 思考 / 长文 / 视觉。",
+        "recipe": "抄下面示例 2 或 3。",
+        "check": "看最近路由。只听 127.0.0.1，不做局域网。"
+      }
+    }
   },
   "app": {
     "name": "AI-Switcher",
