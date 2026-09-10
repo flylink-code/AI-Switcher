@@ -675,7 +675,7 @@ export default function ProvidersPage() {
           style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
           message={
             <span style={{ fontSize: "12.5px" }}>
-              Cline 走 OpenAI Responses + 本机代理，保存后写入 ~/.cline/ai-switcher.json。
+              <strong>{t("providers.clineNoSwitchTitle")}</strong> — {t("providers.clineNoSwitchDescription")}
             </span>
           }
         />

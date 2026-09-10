@@ -226,7 +226,7 @@
       },
       "cline": {
         "title": "Cline",
-        "lead": "目录型。绑定只追加 Auto 入口，请求仍走本地代理 15827（Responses）。",
+        "lead": "目录型。绑定只追加 Auto 入口，Auto 直连 15828（Responses）；独立卡仍可走本地代理 15827。",
         "bind": "绑定 Cline。不要去供应商页点切换或设为当前。",
         "model": "在 Cline 里选 Auto 入口。配置会立刻重写。",
         "modes": "无 plan / edit。日常走默认；分流靠思考、长上下文、视觉。",
@@ -578,6 +578,8 @@
     "piNoSwitchDescription": "新增、编辑或从其他 Agent 导入后会自动写入 ~/.pi/agent/models.json。可在 Pi 里用 /model 直接选择任意供应商的模型；OpenAI 接口直连上游，不走本地代理。",
     "dshNoSwitchTitle": "DSH 无需切换供应商",
     "dshNoSwitchDescription": "新增、编辑或从其他 Agent 导入后会自动写入 ~/.dsh/settings.yaml 与 ~/.dsh/.credentials.yaml。可在 Harness 界面或 CLI 中直接选用任意供应商；直连上游端点，不走本地代理。",
+    "clineNoSwitchTitle": "Cline 无需切换供应商",
+    "clineNoSwitchDescription": "新增、编辑或导入后会把全部供应商写入 ~/.cline/ai-switcher.json。绑定智能网关时追加 Auto 并直连 15828；未绑定的独立卡仍走本机代理 15827。",
     "startDshWeb": "启动 DSH 网页",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
@@ -1060,7 +1062,7 @@
     "dshEmptyTitle": "DSH 用量为空",
     "dshEmptyHint": "DSH 直连上游，不会走本地代理。请点击「同步 DSH 会话」，从 ~/.dsh/sessions 回填 Token。",
     "clineEmptyTitle": "Cline 用量为空",
-    "clineEmptyHint": "Cline 走本机代理（默认端口 15827）。请先启动代理，并在 Cline 中使用 AI-Switcher 写入的 openai-native 供应商后再发请求。",
+    "clineEmptyHint": "Cline 用量来自代理日志。绑定智能网关后 Auto 直连 15828；独立卡走本机代理（默认 15827）。请用 AI-Switcher 写入的 openai-native 供应商发请求。",
     "period": "统计范围",
     "statsSource": "统计来源",
     "sourceAll": "全部",
@@ -1768,9 +1770,11 @@
         "Claude Code 统一目录可开启 Opus Plan：规划与执行可分别指定目录模型（可跨供应商）。写入 settings.json 的 model=opusplan；代理把 opus 改写到规划槽、sonnet/opusplan 改写到执行槽。VS Code 下拉不会出现该别名，须进 Plan。"
       ],
       "1_5_0": [
-        "智能网关独立监听 127.0.0.1:15828，按应用绑定入口令牌；主导航改为 7 项，本地代理回到设置。",
-        "9 个路由模式（默认 / 后台 / 规划 / 思考 / 改内容 / 长上下文 / 联网 / 视觉 / 图像）与条件规则，模式级推理挡位按协议写入。",
-        "用量按 correlation_id 只计最内层跳；上游池隐藏模型后立即重写 OpenCode / Pi / DSH / Cline 配置。Claude Code / Desktop / Codex 需重启才刷新目录。"
+        "智能网关独立监听 127.0.0.1:15828，按应用绑定入口令牌；自定义 Agent 不必绑定，用服务卡对外 API Key（sk-aisw-…）。主导航 7 项，本地代理回到设置。",
+        "9 个路由模式（默认 / 后台 / 规划 / 思考 / 改内容 / 长上下文 / 联网 / 视觉 / 图像）与条件规则；模式卡提供说明 / 教程抽屉（含按 Agent 推荐配置）。",
+        "Claude Code / Codex 把 Auto 设为当前后直连 15828 拉完整目录；Desktop 仍经 15822，由代理转发目录。OpenCode / Pi / DSH / Cline 绑定只追加 Auto，立刻重写全部供应商。",
+        "用量按 correlation_id 只计最内层跳；按 (供应商, 模型) 计价，混合币种折 USD。隐藏上游模型后立即重写 OpenCode / Pi / DSH / Cline。",
+        "Cline sidecar 写出全部供应商；绑定后 Auto 直连 15828，不再空占 15827。"
       ]
     },
     "appName": "应用名称",

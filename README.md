@@ -2,7 +2,7 @@
 
 本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.0**
 
-**本版**：智能网关独立监听 `127.0.0.1:15828`，按应用绑定；9 个路由模式与条件规则；主导航 7 项，本地代理回到设置。
+**本版**：智能网关独立监听 `127.0.0.1:15828`，按应用绑定；自定义 Agent 用公开 API Key；Code / Codex 直连网关拉目录；用量按模型计价并折 USD。主导航 7 项，本地代理回到设置。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -38,7 +38,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 | OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
 | Pi | `~/.pi/agent/` |
 | DSH | `~/.dsh/` |
-| Cline | `~/.cline/`（sidecar `ai-switcher.json`，代理 `:15827`） |
+| Cline | `~/.cline/`（sidecar `ai-switcher.json`；绑定 Auto 走 `:15828`，独立卡可走 `:15827`） |
 | 本应用 | `~/.claude-switcher/`（可迁移；库名保持兼容旧用户） |
 
 导出 / 同步默认不含 API Key。
@@ -62,7 +62,7 @@ pnpm build:exe              # 正式 exe → release\AISwitcher.exe
 
 - 客户端就是上述七个 Agent；AG 网关把 Gemini / Cloud Code 接到它们。
 - Pi / DSH / Cline 不接插件、Agents、Profiles、托盘切换。
-- Pi / DSH 的 OpenAI 兼容上游直连；Cline 始终走本机代理 `:15827`。
+- Pi / DSH 的 OpenAI 兼容上游直连；Cline 绑定 Auto 直连 `:15828`，独立卡仍可走本机代理 `:15827`。
 - 不同步远端冲突，不做团队分享。
 - Linux 仅 Ubuntu 22.04 / Debian 12+。
 

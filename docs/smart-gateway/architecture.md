@@ -21,7 +21,7 @@
 - **Claude Code / Desktop / Codex**：把 Auto 卡设为当前才走网关（与独立供应商互斥）。
 - **OpenCode / Pi / DSH / Cline**：目录型多供应商，绑定只**追加**一条 Auto 入口，写出全部供应商，不设 `is_current`、不出现切换。Agent 配置里既能选直连卡，也能选 `auto` 走网关。
 
-是否再经本地代理：Desktop / Cline 仍走本地代理；Code / Codex / OpenCode / Pi / DSH 直连 15828。
+是否再经本地代理：Desktop 仍走 15822；Code / Codex / OpenCode / Pi / DSH / Cline（绑定 Auto）直连 15828。Cline 未绑定的独立卡仍可走 15827。
 
 ## 自定义 Agent
 

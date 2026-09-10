@@ -127,7 +127,7 @@ pub(crate) async fn sync_live_after_connection_change<R: tauri::Runtime>(
         if target.supports_gateway_catalog() {
             sync_gateway_catalog_target(target, Some(app), state).await?;
         } else {
-            if target == ProviderTarget::Cline {
+            if target == ProviderTarget::Cline && !gateway {
                 let port = get_saved_proxy_port(state, target);
                 state.proxy.lock().await.start(port, target).await?;
             }
@@ -399,7 +399,7 @@ fn saved_smart_gateway_port(state: &AppState) -> u16 {
 }
 
 /// Whether applying this provider should start the per-agent local proxy.
-/// Smart-gateway catalog for Code/Codex hits 15828 directly; Desktop/Cline still use 15822/15827.
+/// Smart-gateway catalog for Code/Codex/Cline hits 15828 directly; Desktop still uses 15822.
 fn target_starts_agent_proxy(
     target: ProviderTarget,
     gateway_catalog: bool,
@@ -407,8 +407,20 @@ fn target_starts_agent_proxy(
 ) -> bool {
     match target {
         ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => false,
-        ProviderTarget::ClaudeCode | ProviderTarget::Codex if gateway_catalog => false,
+        ProviderTarget::ClaudeCode | ProviderTarget::Codex | ProviderTarget::Cline
+            if gateway_catalog =>
+        {
+            false
+        }
         _ => gateway_catalog || provider.is_codex_oauth() || provider.requires_local_proxy(),
+    }
+}
+
+fn live_uses_gateway_catalog(state: &AppState, provider: &Provider) -> bool {
+    if provider.target_app.is_catalog_target() {
+        gateway_catalog_on(state, provider.target_app)
+    } else {
+        provider.is_smart_gateway()
     }
 }
 
@@ -615,13 +627,14 @@ pub async fn switch_provider_for_target<R: tauri::Runtime>(
         crate::database::dao::gateway::ensure_profile_for_target(conn, target)?;
         crate::database::dao::gateway::set_current_connection_type(conn, target.as_str(), connection)
     })?;
+    crate::catalog::invalidate_view_cache();
     if provider.is_smart_gateway() {
         provider = ensure_smart_gateway_provider_row(state, target)?;
     }
     if provider.is_current {
         let needs_proxy = target_starts_agent_proxy(
             target,
-            gateway_catalog_on(state, target),
+            live_uses_gateway_catalog(state, &provider),
             &provider,
         );
         let proxy_running = state.proxy.lock().await.status_for(target).running;
@@ -659,6 +672,7 @@ pub async fn switch_provider_for_target<R: tauri::Runtime>(
     if let Err(error) = state.db.with_conn(|conn| dao::set_current_provider(conn, &provider.id)) {
         return rollback_switch(snapshot, state, error).await;
     }
+    crate::catalog::invalidate_view_cache();
     log::info!(
         "供应商快速切换完成: target={} provider={} apply={}ms total={}ms",
         target.as_str(),
@@ -1724,8 +1738,7 @@ async fn sync_live_providers<R: tauri::Runtime>(
         if gateway_catalog_on(state, target) {
             let _ = ensure_smart_gateway_provider_row(state, target)?;
             if target == ProviderTarget::Cline {
-                let port = get_saved_proxy_port(state, target);
-                let _ = state.proxy.lock().await.start(port, target).await;
+                state.proxy.lock().await.stop_target(target);
             }
             return sync_catalog_target(state, target);
         }
@@ -1923,11 +1936,21 @@ async fn sync_gateway_catalog_target<R: tauri::Runtime>(
     app: Option<&tauri::AppHandle<R>>,
     state: &AppState,
 ) -> AppResult<()> {
-    if !gateway_catalog_on(state, target) {
+    let bound = state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::binding_for_target(conn, target))
+        .ok()
+        .flatten()
+        .is_some();
+    if !bound {
         return Ok(());
     }
     let auto = ensure_smart_gateway_provider_row(state, target)?;
     let _ = apply_target_provider(&auto, app, state).await?;
+    let _ = state
+        .db
+        .with_conn(|conn| dao::set_current_provider(conn, &auto.id));
+    crate::catalog::invalidate_view_cache();
     Ok(())
 }
 
@@ -2318,7 +2341,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
     if runtime_provider.model.trim().is_empty() {
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
-    let gateway_catalog = gateway_catalog_on(state, runtime_provider.target_app);
+    let gateway_catalog = live_uses_gateway_catalog(state, &runtime_provider);
     let uses_proxy = target_starts_agent_proxy(
         runtime_provider.target_app,
         gateway_catalog,
@@ -2484,6 +2507,14 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 Ok((None, None))
             }
             ProviderTarget::Cline => {
+                if uses_proxy {
+                    state
+                        .proxy
+                        .lock()
+                        .await
+                        .start(proxy_port, ProviderTarget::Cline)
+                        .await?;
+                }
                 sync_cline_providers_to_live(state)?;
                 Ok((None, None))
             }
@@ -3199,7 +3230,7 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
     let Some(provider) = provider else {
         return Ok(());
     };
-    let catalog = gateway_catalog_on(state, ProviderTarget::ClaudeCode);
+    let catalog = live_uses_gateway_catalog(state, &provider);
     let uses_proxy = target_starts_agent_proxy(
         ProviderTarget::ClaudeCode,
         catalog,
@@ -4034,6 +4065,18 @@ mod tests {
         assert!(!target_starts_agent_proxy(
             ProviderTarget::OpenCode,
             true,
+            &provider
+        ));
+        provider.target_app = ProviderTarget::Cline;
+        assert!(!target_starts_agent_proxy(
+            ProviderTarget::Cline,
+            true,
+            &provider
+        ));
+        provider.provider_kind = ProviderKind::Standard;
+        assert!(target_starts_agent_proxy(
+            ProviderTarget::Cline,
+            false,
             &provider
         ));
     }

@@ -2,7 +2,7 @@
 
 Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.0**
 
-**This release:** The smart gateway is a standalone listener on `127.0.0.1:15828` with per-app bindings, nine route modes, and condition rules. Primary nav is 7 items; local proxy is back under Settings.
+**This release:** The smart gateway is a standalone listener on `127.0.0.1:15828` with per-app bindings. Custom agents use a public API key; Code / Codex talk to the gateway for the catalog; usage is priced per model and converted to USD. Primary nav is 7 items; local proxy is back under Settings.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -38,7 +38,7 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 | OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
 | Pi | `~/.pi/agent/` |
 | DSH | `~/.dsh/` |
-| Cline | `~/.cline/` (sidecar `ai-switcher.json`, proxy `:15827`) |
+| Cline | `~/.cline/` (sidecar `ai-switcher.json`; bound Auto uses `:15828`, independent cards can use `:15827`) |
 | This app | `~/.claude-switcher/` (relocatable; path kept for older installs) |
 
 Exports and sync omit API keys by default.
@@ -62,7 +62,7 @@ pnpm build:exe              # release exe → release\AISwitcher.exe
 
 - The seven agents above are the product surface; the AG gateway attaches Gemini / Cloud Code to them.
 - Pi / DSH / Cline have no plugins, agents, profiles, or tray switching.
-- Pi / DSH OpenAI-compatible upstreams go direct; Cline always uses local proxy `:15827`.
+- Pi / DSH OpenAI-compatible upstreams go direct; Cline bound Auto talks to `:15828`, independent cards can still use local proxy `:15827`.
 - No remote conflict merge, no team sharing.
 - Linux is Ubuntu 22.04 / Debian 12+ only.
 

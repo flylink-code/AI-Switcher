@@ -1055,38 +1055,72 @@ pub fn get_usage_trend_for_target(
                 COALESCE(SUM(l.cache_creation_input_tokens), 0),
                 COALESCE(SUM(l.output_tokens), 0),
                 COALESCE(SUM({ROW_COST_SQL}), 0),
-                CASE
-                  WHEN COUNT(DISTINCT CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END) > 1
-                    THEN 'MIXED'
-                  ELSE COALESCE(MAX(CASE WHEN p.model IS NOT NULL THEN {PRICING_CURRENCY_SQL} END), 'USD')
-                END
+                {PRICING_CURRENCY_SQL}
          FROM proxy_request_logs l LEFT JOIN model_pricing p ON p.model = l.model
          WHERE l.created_at >= :since
            AND (:target_app IS NULL OR l.target_app = :target_app)
            {EFFECTIVE_USAGE_FILTER}
-         GROUP BY 1 ORDER BY 1 ASC;"
+         GROUP BY 1, {PRICING_CURRENCY_SQL}
+         ORDER BY 1 ASC;"
     );
+    struct Acc {
+        request_count: i64,
+        input_tokens: i64,
+        cache_read_input_tokens: i64,
+        cache_creation_input_tokens: i64,
+        output_tokens: i64,
+        costs: Vec<(String, f64)>,
+    }
     let mut stmt = conn.prepare(&sql)?;
+    let mut grouped: HashMap<String, Acc> = HashMap::new();
     let rows = stmt.query_map(named_params! { ":since": since, ":target_app": target_app }, |row| {
-        let currency: String = row.get(7)?;
-        let estimated_cost: f64 = row.get(6)?;
-        let (estimated_cost, currency) = if currency == "MIXED" {
-            (0.0, currency)
-        } else {
-            (estimated_cost, currency)
-        };
-        Ok(UsageTrendPoint {
-            date: row.get(0)?,
-            request_count: row.get(1)?,
-            input_tokens: row.get(2)?,
-            cache_read_input_tokens: row.get(3)?,
-            cache_creation_input_tokens: row.get(4)?,
-            output_tokens: row.get(5)?,
-            estimated_cost,
-            currency,
-        })
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, i64>(3)?,
+            row.get::<_, i64>(4)?,
+            row.get::<_, i64>(5)?,
+            row.get::<_, f64>(6)?,
+            row.get::<_, String>(7)?,
+        ))
     })?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    for row in rows {
+        let (date, request_count, input_tokens, cache_read, cache_write, output_tokens, cost, currency) =
+            row?;
+        let acc = grouped.entry(date).or_insert_with(|| Acc {
+            request_count: 0,
+            input_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            output_tokens: 0,
+            costs: Vec::new(),
+        });
+        acc.request_count += request_count;
+        acc.input_tokens += input_tokens;
+        acc.cache_read_input_tokens += cache_read;
+        acc.cache_creation_input_tokens += cache_write;
+        acc.output_tokens += output_tokens;
+        acc.costs.push((currency, cost));
+    }
+    let mut out: Vec<UsageTrendPoint> = grouped
+        .into_iter()
+        .map(|(date, acc)| {
+            let (currency, estimated_cost) = crate::usage::summarize_costs_as_usd(&acc.costs);
+            UsageTrendPoint {
+                date,
+                request_count: acc.request_count,
+                input_tokens: acc.input_tokens,
+                cache_read_input_tokens: acc.cache_read_input_tokens,
+                cache_creation_input_tokens: acc.cache_creation_input_tokens,
+                output_tokens: acc.output_tokens,
+                estimated_cost,
+                currency,
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(out)
 }
 
 pub fn list_model_pricing(conn: &Connection) -> AppResult<Vec<ModelPricing>> {
@@ -1526,6 +1560,17 @@ mod tests {
             assert_eq!(mix.currency, "USD");
             // 1 USD + 7.25 CNY (= 1 USD) = 2 USD
             assert!((mix.estimated_cost - 2.0).abs() < 1e-9);
+
+            let trend = get_usage_trend_for_target(
+                conn,
+                now - 1,
+                Some("claude_code"),
+                TrendGranularity::Day,
+            )?;
+            assert_eq!(trend.len(), 1);
+            assert_eq!(trend[0].request_count, 2);
+            assert_eq!(trend[0].currency, "USD");
+            assert!((trend[0].estimated_cost - 2.0).abs() < 1e-9);
             Ok(())
         })
         .unwrap();

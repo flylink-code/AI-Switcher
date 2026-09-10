@@ -437,9 +437,26 @@ fn hide_official_key(target: &str) -> Option<&'static str> {
     }
 }
 
+fn current_provider_is_smart_gateway(conn: &Connection, target: ProviderTarget) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM providers
+         WHERE target_app = ? AND is_current = 1
+           AND COALESCE(provider_kind, '') = 'smart_gateway';",
+        params![target.as_str()],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
 pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool {
     if binding_for_target(conn, target).ok().flatten().is_some() {
-        return true;
+        // Catalog agents keep Auto as an extra entry; binding alone means catalog-on.
+        // Code / Desktop / Codex only route through the gateway when Auto is current.
+        if target.is_catalog_target() {
+            return true;
+        }
+        return current_provider_is_smart_gateway(conn, target);
     }
     if table_exists(conn, "agent_connections") {
         let has_rows: i64 = conn
@@ -2102,8 +2119,12 @@ pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::upstream_endpoint_key;
-    use crate::provider::ProtocolType;
+    use super::{is_gateway_connection, upsert_binding, upstream_endpoint_key};
+    use crate::database::dao::{set_current_provider, upsert_provider};
+    use crate::database::Database;
+    use crate::provider::{
+        ClaudeModelMapping, ProtocolType, ProviderInput, ProviderKind, ProviderTarget,
+    };
 
     #[test]
     fn endpoint_key_ignores_trailing_slash_and_case() {
@@ -2112,6 +2133,84 @@ mod tests {
         assert_eq!(left, right);
         let chat = upstream_endpoint_key("https://api.example.com/v1", ProtocolType::OpenAiChat);
         assert_ne!(left, chat);
+    }
+
+    fn provider_input(
+        id: Option<&str>,
+        target: ProviderTarget,
+        kind: ProviderKind,
+        protocol: ProtocolType,
+        base_url: &str,
+        model: &str,
+    ) -> ProviderInput {
+        ProviderInput {
+            id: id.map(str::to_string),
+            name: format!("{target:?} {kind:?}"),
+            base_url: base_url.to_string(),
+            api_key: String::new(),
+            clear_api_key: false,
+            model: model.to_string(),
+            model_context_window: None,
+            auto_review_model_override: None,
+            web_search_enabled: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: protocol,
+            provider_kind: kind,
+            auth_binding: String::new(),
+            target_app: target,
+            notes: String::new(),
+            failover_group: 0,
+            failover_models: Vec::new(),
+            hidden_models: Vec::new(),
+            thinking_config: None,
+            custom_headers: None,
+        }
+    }
+
+    #[test]
+    fn gateway_connection_requires_auto_current_for_exclusive_agents() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let independent = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_indep"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.example.test",
+                    "claude-sonnet-4-6",
+                ),
+            )?;
+            set_current_provider(conn, &independent.id)?;
+            upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
+            assert!(
+                !is_gateway_connection(conn, ProviderTarget::ClaudeCode),
+                "bound Code with an independent current must not look like catalog-on"
+            );
+
+            let auto = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_sg_claude_code"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::SmartGateway,
+                    ProtocolType::Anthropic,
+                    "http://127.0.0.1:15828",
+                    "claude.auto",
+                ),
+            )?;
+            set_current_provider(conn, &auto.id)?;
+            assert!(is_gateway_connection(conn, ProviderTarget::ClaudeCode));
+
+            upsert_binding(conn, ProviderTarget::Cline, "p_sg_cline")?;
+            assert!(
+                is_gateway_connection(conn, ProviderTarget::Cline),
+                "catalog agents stay catalog-on from the binding alone"
+            );
+            Ok(())
+        })
+        .unwrap();
     }
 }
 

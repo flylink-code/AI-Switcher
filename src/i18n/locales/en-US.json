@@ -226,7 +226,7 @@
       },
       "cline": {
         "title": "Cline",
-        "lead": "Catalog agent. Binding only appends Auto; traffic still goes through local proxy 15827 (Responses).",
+        "lead": "Catalog agent. Binding only appends Auto; Auto talks to 15828 (Responses). Independent cards can still use local proxy 15827.",
         "bind": "Bind Cline. Do not switch or set current on Providers.",
         "model": "Pick the Auto entry inside Cline. Live config is rewritten immediately.",
         "modes": "No plan / edit. Daily chat uses Default; split with Think, Long context, or Vision.",
@@ -578,6 +578,8 @@
     "piNoSwitchDescription": "Creating, editing, or importing a provider writes ~/.pi/agent/models.json. Pick any provider’s models in Pi with /model. OpenAI endpoints go direct to upstream, not through the local proxy.",
     "dshNoSwitchTitle": "DSH does not need provider switching",
     "dshNoSwitchDescription": "Creating, editing, or importing a provider writes ~/.dsh/settings.yaml and ~/.dsh/.credentials.yaml. Select models directly in Harness UI or CLI; connects directly to upstream endpoints without a local proxy.",
+    "clineNoSwitchTitle": "Cline does not need provider switching",
+    "clineNoSwitchDescription": "Creating, editing, or importing a provider writes every card to ~/.cline/ai-switcher.json. Binding the smart gateway appends Auto and talks to 15828; unbound independent cards still use local proxy 15827.",
     "startDshWeb": "Start DSH Web UI",
     "claudeCode": "Claude Code",
     "claudeDesktop": "Claude Desktop",
@@ -1060,7 +1062,7 @@
     "dshEmptyTitle": "DSH usage is empty",
     "dshEmptyHint": "DSH connects directly to upstream providers and does not use the local proxy. Click Sync DSH sessions to import tokens from ~/.dsh/sessions.",
     "clineEmptyTitle": "Cline usage is empty",
-    "clineEmptyHint": "Cline uses the local proxy (default port 15827). Start the proxy and send requests with the openai-native provider written by AI-Switcher.",
+    "clineEmptyHint": "Cline usage comes from proxy logs. Bound Auto talks to 15828; independent cards use the local proxy (default 15827). Send requests with the openai-native provider written by AI-Switcher.",
     "period": "Period",
     "statsSource": "Usage source",
     "sourceAll": "All",
@@ -1768,9 +1770,11 @@
         "Claude Code unified catalog can enable Opus Plan: pick separate planning and execute models (even from different providers). Writes model=opusplan; the proxy rewrites opus to the plan slot and sonnet/opusplan to the execute slot. The VS Code picker still will not list the alias; enter Plan mode."
       ],
       "1_5_0": [
-        "The smart gateway now listens on 127.0.0.1:15828 with per-app bind tokens. Primary nav is 7 items; local proxy moved back under Settings.",
-        "Nine route modes (default / background / plan / think / edit / long context / web search / vision / image) plus condition rules, with per-mode thinking applied by protocol.",
-        "Usage counts only the innermost hop of a correlation_id. Hiding an upstream model immediately rewrites OpenCode / Pi / DSH / Cline configs. Claude Code / Desktop / Codex need a restart to refresh /v1/models."
+        "The smart gateway now listens on 127.0.0.1:15828 with per-app bind tokens. Custom agents need no bind: copy the public API key (sk-aisw-…) from the service card. Primary nav is 7 items; local proxy moved back under Settings.",
+        "Nine route modes (default / background / plan / think / edit / long context / web search / vision / image) plus condition rules. The mode card has a help/tutorial drawer with per-agent recipes.",
+        "Claude Code / Codex hit 15828 directly once Auto is current and load the full catalog. Desktop still uses 15822, which forwards the catalog. OpenCode / Pi / DSH / Cline only append Auto and rewrite every provider immediately.",
+        "Usage counts only the innermost hop of a correlation_id, prices by (provider, model), and converts mixed currencies to USD. Hiding an upstream model immediately rewrites OpenCode / Pi / DSH / Cline.",
+        "The Cline sidecar writes every provider. Bound Auto talks to 15828 and no longer occupies unused port 15827."
       ]
     },
     "appName": "App name",

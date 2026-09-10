@@ -1028,10 +1028,7 @@ impl Provider {
             return true;
         }
         if self.is_smart_gateway() {
-            return matches!(
-                self.target_app,
-                ProviderTarget::ClaudeDesktop | ProviderTarget::Cline
-            );
+            return self.target_app == ProviderTarget::ClaudeDesktop;
         }
         // Built-in Antigravity gateway already speaks Anthropic/OpenAI; Code/Codex
         // can point at it directly. Desktop may still need the local proxy for
