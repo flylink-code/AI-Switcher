@@ -651,6 +651,69 @@ fn probe_installation() -> Probe {
     }
 }
 
+fn wsl_sidecar_distro(wsl: Option<&Probe>) -> Option<String> {
+    match wsl {
+        Some(Probe::Found(installation) | Probe::Broken(installation, _)) => Some(
+            installation
+                .wsl_distro
+                .clone()
+                .unwrap_or_else(|| "default".to_string()),
+        ),
+        _ => None,
+    }
+}
+
+fn claude_code_version_from_probes(
+    native: Probe,
+    wsl: Option<Probe>,
+    latest_version: Option<String>,
+) -> ClaudeCodeVersionInfo {
+    let wsl_only_distro = match &native {
+        Probe::Found(_) | Probe::Broken(_, _) => None,
+        Probe::NotFound(_) => wsl_sidecar_distro(wsl.as_ref()),
+    };
+    let (installation, error, installed_but_broken) = match &native {
+        Probe::Found(installation) => (Some(installation), None, false),
+        Probe::Broken(installation, error) => (Some(installation), Some(error.clone()), true),
+        Probe::NotFound(error) => (None, Some(error.clone()), false),
+    };
+    let current_version = installation.and_then(|value| value.version.clone());
+    let has_update = current_version
+        .as_deref()
+        .zip(latest_version.as_deref())
+        .is_some_and(|(current, latest)| update_available(current, latest));
+
+    ClaudeCodeVersionInfo {
+        installed: installation.is_some(),
+        current_version,
+        latest_version,
+        update_available: has_update,
+        install_command: install_command(),
+        update_command: update_command_for(installation),
+        error,
+        executable_path: installation.map(|value| value.path.clone()),
+        source: installation.map(|value| value.source.clone()),
+        environment: installation
+            .map(|value| value.environment.clone())
+            .unwrap_or_else(|| if cfg!(windows) { "windows" } else { "native" }.to_string()),
+        installed_but_broken,
+        wsl_distro: installation
+            .and_then(|value| value.wsl_distro.clone())
+            .or(wsl_only_distro),
+    }
+}
+
+/// GUI install/update on Windows must not treat a WSL-only `claude` as the
+/// local install; that path runs `wsl.exe ... sh -lc` and never writes a
+/// Windows npm/native binary.
+fn claude_install_uses_wsl_shell(native: &Probe) -> bool {
+    matches!(
+        native,
+        Probe::Found(installation) | Probe::Broken(installation, _)
+            if installation.environment == "wsl"
+    )
+}
+
 async fn fetch_npm_latest() -> Option<String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
@@ -777,43 +840,36 @@ fn update_command_for(installation: Option<&Installation>) -> String {
 pub async fn get_claude_code_version(
     include_latest: Option<bool>,
 ) -> AppResult<ClaudeCodeVersionInfo> {
-    let probe_task = tokio::task::spawn_blocking(probe_installation);
+    let probe_task = tokio::task::spawn_blocking(|| {
+        let native = probe_native_installations();
+        let wsl = match &native {
+            Probe::NotFound(_) => {
+                #[cfg(windows)]
+                {
+                    match probe_wsl() {
+                        Probe::NotFound(_) => None,
+                        other => Some(other),
+                    }
+                }
+                #[cfg(not(windows))]
+                {
+                    None
+                }
+            }
+            _ => None,
+        };
+        (native, wsl)
+    });
     let (probe_result, latest_version) = if include_latest.unwrap_or(true) {
         let (probe_result, latest_version) = tokio::join!(probe_task, fetch_npm_latest());
         (probe_result, latest_version)
     } else {
         (probe_task.await, None)
     };
-    let probe = probe_result
+    let (native, wsl) = probe_result
         .map_err(|error| AppError::Other(format!("Claude Code version probe failed: {error}")))?;
 
-    let (installation, error, installed_but_broken) = match &probe {
-        Probe::Found(installation) => (Some(installation), None, false),
-        Probe::Broken(installation, error) => (Some(installation), Some(error.clone()), true),
-        Probe::NotFound(error) => (None, Some(error.clone()), false),
-    };
-    let current_version = installation.and_then(|value| value.version.clone());
-    let has_update = current_version
-        .as_deref()
-        .zip(latest_version.as_deref())
-        .is_some_and(|(current, latest)| update_available(current, latest));
-
-    Ok(ClaudeCodeVersionInfo {
-        installed: installation.is_some(),
-        current_version,
-        latest_version,
-        update_available: has_update,
-        install_command: install_command(),
-        update_command: update_command_for(installation),
-        error,
-        executable_path: installation.map(|value| value.path.clone()),
-        source: installation.map(|value| value.source.clone()),
-        environment: installation
-            .map(|value| value.environment.clone())
-            .unwrap_or_else(|| if cfg!(windows) { "windows" } else { "native" }.to_string()),
-        installed_but_broken,
-        wsl_distro: installation.and_then(|value| value.wsl_distro.clone()),
-    })
+    Ok(claude_code_version_from_probes(native, wsl, latest_version))
 }
 
 #[cfg(windows)]
@@ -1161,10 +1217,17 @@ fn ensure_npm_cli_after_install(node: &Path, npm: &Path, cli_name: &str, output:
 }
 
 fn run_claude_install_or_update() -> AppResult<Output> {
-    let probe = probe_installation();
+    // Windows GUI install is native-only. A WSL-only `claude` must not steal
+    // this path into `wsl.exe -- sh -lc` (hangs under GUI, never installs Windows).
+    let probe = probe_native_installations();
+    let probe = if claude_install_uses_wsl_shell(&probe) {
+        Probe::NotFound("Claude Code executable was not found".to_string())
+    } else {
+        probe
+    };
     match probe {
         Probe::Found(installation) | Probe::Broken(installation, _) => {
-            if installation.source == "native" || installation.environment == "wsl" {
+            if installation.source == "native" {
                 return run_anchored_update(&installation)
                     .map_err(|error| AppError::Other(format!("无法执行更新命令: {error}")));
             }
@@ -2632,6 +2695,43 @@ mod tests {
         let command = update_command_for(Some(&installation));
         assert!(command.starts_with(r#"wsl -d "Ubuntu-24.04" -- "#));
         assert!(command.contains("claude update"));
+    }
+
+    #[test]
+    fn wsl_only_version_info_is_not_installed_on_windows() {
+        let native = Probe::NotFound("Claude Code executable was not found".into());
+        let wsl = Probe::Found(Installation {
+            path: "/home/me/.local/bin/claude".into(),
+            version: Some("2.1.146".into()),
+            source: "wsl".into(),
+            environment: "wsl".into(),
+            wsl_distro: Some("Ubuntu-24.04".into()),
+        });
+        let info = claude_code_version_from_probes(native, Some(wsl), None);
+        assert!(!info.installed);
+        assert_eq!(info.environment, if cfg!(windows) { "windows" } else { "native" });
+        assert_eq!(info.wsl_distro.as_deref(), Some("Ubuntu-24.04"));
+        assert!(info.executable_path.is_none());
+        assert!(!info.update_command.contains("wsl"));
+        assert!(!info.update_command.contains("sh -lc"));
+    }
+
+    #[test]
+    fn wsl_only_install_does_not_use_wsl_shell() {
+        let native = Probe::NotFound("Claude Code executable was not found".into());
+        assert!(!claude_install_uses_wsl_shell(&native));
+        let wsl_probe = Probe::Found(Installation {
+            path: "/home/me/.local/bin/claude".into(),
+            version: Some("2.1.146".into()),
+            source: "wsl".into(),
+            environment: "wsl".into(),
+            wsl_distro: Some("Ubuntu-24.04".into()),
+        });
+        // Combined probe_installation still reports WSL, but GUI install uses native only.
+        assert!(claude_install_uses_wsl_shell(&wsl_probe));
+        assert!(!claude_install_uses_wsl_shell(&Probe::NotFound(
+            "missing".into()
+        )));
     }
 
     #[test]

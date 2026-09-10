@@ -380,8 +380,16 @@ export default function DesktopLocalizationPage() {
                   </Button>
                 </Popconfirm>
                 <Popconfirm
-                  title={t("env.localization.confirmCodeUpdate")}
-                  description={t("env.localization.confirmCodeUpdateDescription")}
+                  title={
+                    codeResourceInstalled
+                      ? t("env.localization.confirmCodeUpdate")
+                      : t("env.localization.confirmCodeInstall")
+                  }
+                  description={
+                    codeResourceInstalled
+                      ? t("env.localization.confirmCodeUpdateDescription")
+                      : t("env.localization.confirmCodeInstallDescription")
+                  }
                   onConfirm={() => updateClaudeCode.mutate()}
                 >
                   <Button
@@ -389,17 +397,18 @@ export default function DesktopLocalizationPage() {
                     disabled={
                       busy ||
                       !hub?.claudeCode.installed ||
-                      !codeResourceInstalled ||
-                      codeRelation === "same"
+                      (codeResourceInstalled && codeRelation === "same")
                     }
                   >
-                    {codeRelation === "same"
+                    {codeResourceInstalled && codeRelation === "same"
                       ? t("env.localization.alreadyLatest")
-                      : updateButtonLabel(
-                          t,
-                          hub?.claudeCode.pluginVersion,
-                          upstream?.claudeCode.version,
-                        )}
+                      : !codeResourceInstalled
+                        ? t("env.localization.installFromUpstream")
+                        : updateButtonLabel(
+                            t,
+                            hub?.claudeCode.pluginVersion,
+                            upstream?.claudeCode.version,
+                          )}
                   </Button>
                 </Popconfirm>
                 <Popconfirm
@@ -674,17 +683,31 @@ function EditorLocalizationCard({
               </Button>
             </Popconfirm>
             <Popconfirm
-              title={t("env.localization.confirmEditorUpdate", { editor: editor.label })}
-              description={t("env.localization.confirmEditorUpdateDescription")}
+              title={
+                editor.helperInstalled
+                  ? t("env.localization.confirmEditorUpdate", { editor: editor.label })
+                  : t("env.localization.confirmEditorInstall", { editor: editor.label })
+              }
+              description={
+                editor.helperInstalled
+                  ? t("env.localization.confirmEditorUpdateDescription")
+                  : t("env.localization.confirmEditorInstallDescription")
+              }
               onConfirm={onUpdate}
             >
               <Button
                 loading={updating}
-                disabled={busy || !canManage || !editor.helperInstalled || relation === "same"}
+                disabled={
+                  busy ||
+                  !canManage ||
+                  (editor.helperInstalled && relation === "same")
+                }
               >
-                {relation === "same"
+                {editor.helperInstalled && relation === "same"
                   ? t("env.localization.alreadyLatest")
-                  : updateButtonLabel(t, editor.helperVersion, remote?.version)}
+                  : !editor.helperInstalled
+                    ? t("env.localization.installFromUpstream")
+                    : updateButtonLabel(t, editor.helperVersion, remote?.version)}
               </Button>
             </Popconfirm>
             <Popconfirm

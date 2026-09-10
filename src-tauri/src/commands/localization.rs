@@ -128,7 +128,13 @@ pub async fn get_localization_hub_status() -> AppResult<LocalizationHubStatus> {
         plugin_enabled,
         settings_configured,
         message: if !code_info.installed {
-            "未检测到 Claude Code".to_string()
+            if let Some(distro) = code_info.wsl_distro.as_deref() {
+                format!(
+                    "未检测到本机 Claude Code（WSL {distro} 里已有）。请先在 Agent 工具安装 Windows 版。"
+                )
+            } else {
+                "未检测到 Claude Code".to_string()
+            }
         } else if spinner_verbs_invalid {
             "settings.json 中 spinnerVerbs 格式无效（写成了数组），会导致 Claude Code 整份设置失效；请重新执行「安装中文」以自动修复".to_string()
         } else if plugin_enabled && plugin_version.is_some() && settings_configured {
@@ -454,10 +460,23 @@ fn installed_zh_cn_plugin_version() -> Option<String> {
 
 async fn require_native_claude_executable() -> AppResult<String> {
     let info = get_claude_code_version(Some(false)).await?;
-    let executable = info.executable_path
-        .ok_or_else(|| AppError::Config("未检测到 Claude Code，无法管理中文插件".to_string()))?;
+    if !info.installed {
+        if let Some(distro) = info.wsl_distro {
+            return Err(AppError::Config(format!(
+                "未检测到本机 Claude Code（WSL {distro} 里已有）。请先在 Agent 工具安装 Windows 版。"
+            )));
+        }
+        return Err(AppError::Config(
+            "未检测到 Claude Code，无法管理中文插件".to_string(),
+        ));
+    }
+    let executable = info.executable_path.ok_or_else(|| {
+        AppError::Config("未检测到 Claude Code，无法管理中文插件".to_string())
+    })?;
     if info.environment == "wsl" {
-        return Err(AppError::Config("请在 WSL 终端中管理 Claude Code 中文插件".to_string()));
+        return Err(AppError::Config(
+            "请在 WSL 终端中管理 Claude Code 中文插件".to_string(),
+        ));
     }
     Ok(executable)
 }

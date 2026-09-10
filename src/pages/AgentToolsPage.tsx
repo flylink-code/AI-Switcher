@@ -452,6 +452,11 @@ export default function AgentToolsPage() {
           onRefresh={() => void claudeQuery.refetch()}
           onCopy={(command) => void copyCommand(command)}
           onInstallOrUpdate={() => void updateClaudeCode()}
+          sidecarNotice={
+            claudeInfo && !claudeInfo.installed && claudeInfo.wslDistro
+              ? t("about.claudeWslOnlyHint", { distro: claudeInfo.wslDistro })
+              : undefined
+          }
           labels={{
             current: t("about.claudeCurrentVersion"),
             latest: t("about.claudeLatestVersion"),
@@ -668,6 +673,7 @@ function CliToolCard({
   onCopy,
   onInstallOrUpdate,
   primaryLabel,
+  sidecarNotice,
   labels,
 }: {
   title: string;
@@ -678,6 +684,7 @@ function CliToolCard({
   onCopy: (command: string) => void;
   onInstallOrUpdate: () => void;
   primaryLabel?: string;
+  sidecarNotice?: string;
   labels: {
     current: string;
     latest: string;
@@ -749,7 +756,11 @@ function CliToolCard({
           </Button>
         </Space>
 
-        {info?.error && <Alert type="warning" showIcon message={info.error} />}
+        {sidecarNotice ? (
+          <Alert type="info" showIcon message={sidecarNotice} />
+        ) : info?.error ? (
+          <Alert type="warning" showIcon message={info.error} />
+        ) : null}
 
         <Collapse
           ghost
