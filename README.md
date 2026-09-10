@@ -2,7 +2,9 @@
 
 本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.0**
 
-**本版**：智能网关独立监听 `127.0.0.1:15828`，按应用绑定；自定义 Agent 用公开 API Key；Code / Codex 直连网关拉目录；用量按模型计价并折 USD。主导航 7 项，本地代理回到设置。
+**本版**：智能网关独立监听 `127.0.0.1:15828`，按应用绑定；自定义 Agent 用公开 API Key；Code / Codex 直连网关拉目录；用量按模型计价并折 USD。主导航 7 项，本地代理回到设置。独立供应商连接仍是默认；取消 1.4.12 的 Opus Plan 别名，规划改走网关模式（默认关）。
+
+**升级注意**：资料库 Schema 28→31 单向。请先备份 `~/.claude-switcher`；升完后 1.4.12 无法打开同一份库。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 31。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

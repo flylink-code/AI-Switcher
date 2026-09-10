@@ -2,7 +2,9 @@
 
 Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.0**
 
-**This release:** The smart gateway is a standalone listener on `127.0.0.1:15828` with per-app bindings. Custom agents use a public API key; Code / Codex talk to the gateway for the catalog; usage is priced per model and converted to USD. Primary nav is 7 items; local proxy is back under Settings.
+**This release:** The smart gateway is a standalone listener on `127.0.0.1:15828` with per-app bindings. Custom agents use a public API key; Code / Codex talk to the gateway for the catalog; usage is priced per model and converted to USD. Primary nav is 7 items; local proxy is back under Settings. Independent provider connections remain the default; the 1.4.12 Opus Plan alias is replaced by the gateway Plan mode (off by default).
+
+**Upgrade note:** Schema 28→31 is one-way. Back up `~/.claude-switcher` first; 1.4.12 cannot open that database afterwards. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 31.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

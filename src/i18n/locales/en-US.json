@@ -1773,10 +1773,12 @@
       ],
       "1_5_0": [
         "The smart gateway now listens on 127.0.0.1:15828 with per-app bind tokens. Custom agents need no bind: copy the public API key (sk-aisw-…) from the service card. Primary nav is 7 items; local proxy moved back under Settings.",
+        "Independent provider connections remain the default; the gateway is opt-in (bind, then set Auto current). The 1.4.12 Opus Plan alias is gone; planning uses the gateway Plan mode (off by default).",
         "Nine route modes (default / background / plan / think / edit / long context / web search / vision / image) plus condition rules. The mode card has a help/tutorial drawer with per-agent recipes.",
         "Claude Code / Codex hit 15828 directly once Auto is current and load the full catalog. Desktop still uses 15822, which forwards the catalog. OpenCode / Pi / DSH / Cline only append Auto and rewrite every provider immediately.",
         "Usage counts only the innermost hop of a correlation_id, prices by (provider, model), and converts mixed currencies to USD. Hiding an upstream model immediately rewrites OpenCode / Pi / DSH / Cline.",
-        "The Cline sidecar writes every provider. Bound Auto talks to 15828 and no longer occupies unused port 15827."
+        "The Cline sidecar writes every provider. Bound Auto talks to 15828 and no longer occupies unused port 15827.",
+        "Upgrading migrates the local database to Schema 31 (one-way). Back up ~/.claude-switcher first; 1.4.12 cannot open that database afterwards."
       ]
     },
     "appName": "App name",
