@@ -274,7 +274,7 @@ pub fn validate_gateway_auth_header(auth_header: Option<&str>) -> AppResult<()> 
 
 /// Activate a provider for Claude Desktop by writing the configLibrary profile
 /// and updating `_meta.json`.
-pub fn apply_provider(provider: &Provider, proxy_port: u16) -> AppResult<()> {
+pub fn apply_provider(provider: &Provider, proxy_port: u16, catalog_models: &[String]) -> AppResult<()> {
     let paths = platform_paths()?;
     let config_library = paths
         .config_library
@@ -315,7 +315,7 @@ pub fn apply_provider(provider: &Provider, proxy_port: u16) -> AppResult<()> {
         )?;
     }
 
-    let profile = build_profile(provider, proxy_port)?;
+    let profile = build_profile(provider, proxy_port, catalog_models)?;
     write_json_file(&profile_path, &profile)?;
     write_meta(meta_path, Some(PROFILE_ID), Some(PROFILE_NAME))?;
     if legacy_profile_path.exists() {
@@ -438,7 +438,7 @@ fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
         })
 }
 
-fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
+fn build_profile(provider: &Provider, proxy_port: u16, catalog_models: &[String]) -> AppResult<Value> {
     let role_routes = provider.requires_local_proxy() && !provider.is_smart_gateway();
     let (base_url, api_key) = if provider.is_smart_gateway() {
         let token = crate::gateway::resolved_gateway_token(&provider.api_key)
@@ -467,10 +467,18 @@ fn build_profile(provider: &Provider, proxy_port: u16) -> AppResult<Value> {
     });
 
     if provider.is_smart_gateway() {
-        let model = crate::gateway::normalize_live_model_for(provider.target_app, &provider.model);
-        profile["inferenceModels"] = serde_json::json!([
-            { "name": model, "supports1m": true }
-        ]);
+        let models: Vec<Value> = if catalog_models.is_empty() {
+            let model = crate::gateway::normalize_live_model_for(provider.target_app, &provider.model);
+            vec![serde_json::json!({ "name": model, "supports1m": true })]
+        } else {
+            catalog_models
+                .iter()
+                .map(|id| id.trim())
+                .filter(|id| !id.is_empty())
+                .map(|id| serde_json::json!({ "name": id, "supports1m": true }))
+                .collect()
+        };
+        profile["inferenceModels"] = Value::Array(models);
     } else if role_routes {
         profile["inferenceModels"] = Value::Array(desktop_inference_models(provider));
     } else if !provider.model.trim().is_empty() {
@@ -878,7 +886,7 @@ mod tests {
             health_checked_at: None,
             health_latency_ms: None,
         };
-        let profile = build_profile(&provider, 15_821).expect("profile");
+        let profile = build_profile(&provider, 15_821, &[]).expect("profile");
         assert_eq!(
             profile["inferenceGatewayBaseUrl"],
             serde_json::json!("http://127.0.0.1:15821/claude-desktop")
@@ -893,11 +901,28 @@ mod tests {
         provider.provider_kind = ProviderKind::SmartGateway;
         provider.api_key = "gwt_desktop".into();
         provider.model = "auto".into();
-        let profile = build_profile(&provider, 15_822).expect("profile");
+        let profile = build_profile(&provider, 15_822, &[]).expect("profile");
         assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
         assert_eq!(
             profile["inferenceModels"][0]["name"],
             serde_json::json!("claude.auto")
+        );
+        assert_eq!(profile["inferenceModels"].as_array().map(Vec::len), Some(1));
+
+        let catalog = vec![
+            "claude.auto".to_string(),
+            "claude.ag.gemini-3.8-flash-high".to_string(),
+        ];
+        let catalog_profile = build_profile(&provider, 15_822, &catalog).expect("profile");
+        let names: Vec<&str> = catalog_profile["inferenceModels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|model| model.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(
+            names,
+            vec!["claude.auto", "claude.ag.gemini-3.8-flash-high"]
         );
     }
 
@@ -906,7 +931,7 @@ mod tests {
         let mut provider = mapped_provider();
         provider.provider_kind = ProviderKind::SmartGateway;
         provider.api_key = "kr://sgw_claude_desktop".into();
-        let err = build_profile(&provider, 15_822).unwrap_err();
+        let err = build_profile(&provider, 15_822, &[]).unwrap_err();
         assert!(err.to_string().contains("入口凭据"));
     }
 

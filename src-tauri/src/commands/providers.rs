@@ -371,8 +371,12 @@ pub fn list_gateway_catalog_models(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<String>> {
+    catalog_public_ids_for(&state, target)
+}
+
+fn catalog_public_ids_for(state: &AppState, target: ProviderTarget) -> AppResult<Vec<String>> {
     let style = catalog::catalog_style_for(target);
-    let pairs = load_gateway_pairs(&state, target)?;
+    let pairs = load_gateway_pairs(state, target)?;
     let hide_official = catalog::hide_official(state.db.as_ref(), target);
     Ok(catalog::with_auto_public_ids(
         style,
@@ -381,6 +385,31 @@ pub fn list_gateway_catalog_models(
             .map(|entry| entry.public_id)
             .collect(),
     ))
+}
+
+fn saved_smart_gateway_port(state: &AppState) -> u16 {
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
+        .ok()
+        .flatten()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(crate::gateway::SMART_GATEWAY_PORT)
+}
+
+/// Whether applying this provider should start the per-agent local proxy.
+/// Smart-gateway catalog for Code/Codex hits 15828 directly; Desktop/Cline still use 15822/15827.
+fn target_starts_agent_proxy(
+    target: ProviderTarget,
+    gateway_catalog: bool,
+    provider: &Provider,
+) -> bool {
+    match target {
+        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => false,
+        ProviderTarget::ClaudeCode | ProviderTarget::Codex if gateway_catalog => false,
+        _ => gateway_catalog || provider.is_codex_oauth() || provider.requires_local_proxy(),
+    }
 }
 
 #[tauri::command]
@@ -590,9 +619,11 @@ pub async fn switch_provider_for_target<R: tauri::Runtime>(
         provider = ensure_smart_gateway_provider_row(state, target)?;
     }
     if provider.is_current {
-        let needs_proxy = gateway_catalog_on(state, target)
-            || provider.is_codex_oauth()
-            || provider.requires_local_proxy();
+        let needs_proxy = target_starts_agent_proxy(
+            target,
+            gateway_catalog_on(state, target),
+            &provider,
+        );
         let proxy_running = state.proxy.lock().await.status_for(target).running;
         if needs_proxy == proxy_running {
             log::debug!(
@@ -2288,23 +2319,26 @@ async fn apply_target_provider<R: tauri::Runtime>(
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
     let gateway_catalog = gateway_catalog_on(state, runtime_provider.target_app);
-    let uses_proxy = match runtime_provider.target_app {
-        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh => false,
-        _ => {
-            gateway_catalog
-                || runtime_provider.is_codex_oauth()
-                || runtime_provider.requires_local_proxy()
-        }
-    };
+    let uses_proxy = target_starts_agent_proxy(
+        runtime_provider.target_app,
+        gateway_catalog,
+        &runtime_provider,
+    );
     let result: AppResult<(Option<CodexProviderSyncResult>, Option<&'static str>)> = async {
         match runtime_provider.target_app {
             ProviderTarget::ClaudeCode => {
+                let write_port = if gateway_catalog {
+                    saved_smart_gateway_port(state)
+                } else {
+                    proxy_port
+                };
+                let field_proxy = uses_proxy || gateway_catalog;
                 let mut ownership = prepare_code_ownership(
                     &runtime_provider,
                     state,
-                    uses_proxy,
+                    field_proxy,
                     gateway_catalog,
-                    proxy_port,
+                    write_port,
                 )?;
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeCode).await?;
@@ -2316,17 +2350,15 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     None
                 };
                 tauri::async_runtime::spawn_blocking(move || {
-                    if uses_proxy {
-                        if gateway_catalog {
-                            claude_code::apply_provider_to_settings_via_catalog_proxy(
-                                &provider,
-                                proxy_port,
-                                subagent.as_deref(),
-                                false,
-                            )
-                        } else {
-                            claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
-                        }
+                    if gateway_catalog {
+                        claude_code::apply_provider_to_settings_via_catalog_proxy(
+                            &provider,
+                            write_port,
+                            subagent.as_deref(),
+                            false,
+                        )
+                    } else if uses_proxy {
+                        claude_code::apply_provider_to_settings_via_proxy(&provider, proxy_port)
                     } else {
                         claude_code::apply_provider_to_settings(&provider)
                     }
@@ -2348,8 +2380,13 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
                 }
                 let provider = runtime_provider.clone();
+                let catalog_models = if gateway_catalog {
+                    catalog_public_ids_for(state, ProviderTarget::ClaudeDesktop).unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
                 tauri::async_runtime::spawn_blocking(move || {
-                    claude_desktop::apply_provider(&provider, proxy_port)
+                    claude_desktop::apply_provider(&provider, proxy_port, &catalog_models)
                 })
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;
@@ -2374,7 +2411,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                         codex::apply_provider_with_catalog(
                             &provider,
                             &api_key,
-                            Some(proxy_port),
+                            None,
                             &catalog,
                         )
                     })
@@ -3096,14 +3133,7 @@ pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<
         if current.is_none() {
             return Ok(());
         }
-        let port = state
-            .db
-            .with_conn(|conn| crate::database::dao::settings::get_setting(conn, crate::gateway::service::PORT_SETTING))
-            .ok()
-            .flatten()
-            .and_then(|value| value.parse::<u16>().ok())
-            .filter(|value| *value > 0)
-            .unwrap_or(crate::gateway::SMART_GATEWAY_PORT);
+        let port = saved_smart_gateway_port(state);
         if let Some(current_base) = codex::managed_provider_base_url() {
             if is_local_proxy_base_url_for_port(&current_base, port) {
                 return Ok(());
@@ -3170,11 +3200,23 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
         return Ok(());
     };
     let catalog = gateway_catalog_on(state, ProviderTarget::ClaudeCode);
-    let proxy = catalog || provider.requires_local_proxy();
-    let port = get_saved_proxy_port(state, ProviderTarget::ClaudeCode);
-    let expected = expected_code_fields(&provider, proxy, catalog, port);
+    let uses_proxy = target_starts_agent_proxy(
+        ProviderTarget::ClaudeCode,
+        catalog,
+        &provider,
+    );
+    let port = if catalog {
+        saved_smart_gateway_port(state)
+    } else {
+        get_saved_proxy_port(state, ProviderTarget::ClaudeCode)
+    };
+    let expected = expected_code_fields(&provider, uses_proxy || catalog, catalog, port);
     let current = code_managed_fields()?;
     let model_keys = [
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
         "ANTHROPIC_MODEL",
         "ANTHROPIC_DEFAULT_SONNET_MODEL",
         "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
@@ -3964,5 +4006,35 @@ mod tests {
         assert!(extra.iter().any(|id| id == "show-me"));
         assert!(extra.iter().any(|id| id == "cached"));
         assert!(!extra.iter().any(|id| id == "hide-me"));
+    }
+
+    #[test]
+    fn smart_gateway_catalog_starts_desktop_proxy_not_code_or_codex() {
+        let mut provider = pi_test_provider(ProtocolType::Anthropic, "claude.auto");
+        provider.provider_kind = ProviderKind::SmartGateway;
+        provider.target_app = ProviderTarget::ClaudeCode;
+        assert!(!target_starts_agent_proxy(
+            ProviderTarget::ClaudeCode,
+            true,
+            &provider
+        ));
+        provider.target_app = ProviderTarget::Codex;
+        assert!(!target_starts_agent_proxy(
+            ProviderTarget::Codex,
+            true,
+            &provider
+        ));
+        provider.target_app = ProviderTarget::ClaudeDesktop;
+        assert!(target_starts_agent_proxy(
+            ProviderTarget::ClaudeDesktop,
+            true,
+            &provider
+        ));
+        provider.target_app = ProviderTarget::OpenCode;
+        assert!(!target_starts_agent_proxy(
+            ProviderTarget::OpenCode,
+            true,
+            &provider
+        ));
     }
 }

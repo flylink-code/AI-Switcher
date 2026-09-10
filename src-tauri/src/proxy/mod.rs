@@ -1016,8 +1016,12 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
     if let Err(error) = validate_listener_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
-    if gateway_catalog_enabled(&state) {
-        let target = resolve_binding_target(&state, &headers).unwrap_or(state.target);
+    if gateway_catalog_enabled(&state) || desktop_bound_smart_gateway(&state) {
+        let target = if gateway_catalog_enabled(&state) {
+            resolve_binding_target(&state, &headers).unwrap_or(state.target)
+        } else {
+            state.target
+        };
         let style = crate::catalog::catalog_style_for(target);
         match load_gateway_catalog(&state, style) {
             Ok((_, entries)) if !entries.is_empty() => {
@@ -1049,6 +1053,19 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
             }
         }
     }
+}
+
+fn desktop_bound_smart_gateway(state: &ProxyState) -> bool {
+    if state.target != ProviderTarget::ClaudeDesktop {
+        return false;
+    }
+    state
+        .db
+        .with_conn(|conn| {
+            Ok(get_current_provider(conn, ProviderTarget::ClaudeDesktop)?
+                .is_some_and(|provider| provider.is_smart_gateway()))
+        })
+        .unwrap_or(false)
 }
 
 async fn proxy_handler(
@@ -2284,7 +2301,37 @@ fn validate_desktop_gateway_auth(state: &ProxyState, headers: &HeaderMap) -> App
     let auth = headers
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok());
-    crate::config::claude_desktop::validate_gateway_auth_header(auth)
+    if crate::config::claude_desktop::validate_gateway_auth_header(auth).is_ok() {
+        return Ok(());
+    }
+    let presented = presented_listener_token(headers);
+    if presented.is_empty() {
+        return Err(AppError::Config(
+            "Claude Desktop gateway 缺少 Authorization 头".to_string(),
+        ));
+    }
+    let accepted = state
+        .db
+        .with_conn(|conn| {
+            let Some(provider) = get_current_provider(conn, ProviderTarget::ClaudeDesktop)? else {
+                return Ok(false);
+            };
+            if !provider.is_smart_gateway() {
+                return Ok(false);
+            }
+            if crate::gateway::service::api_key_matches(conn, &presented) {
+                return Ok(true);
+            }
+            Ok(crate::database::dao::gateway::binding_by_token(conn, &presented)?.is_some())
+        })
+        .unwrap_or(false);
+    if accepted {
+        Ok(())
+    } else {
+        Err(AppError::Config(
+            "Claude Desktop gateway token 无效".to_string(),
+        ))
+    }
 }
 
 fn gateway_auth_error(error: AppError) -> Response {

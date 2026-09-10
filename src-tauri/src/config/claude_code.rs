@@ -89,7 +89,8 @@ pub fn apply_provider_to_settings_via_proxy(
     )
 }
 
-/// Catalog mode: same proxy endpoint, plus Claude Code gateway model discovery.
+/// Catalog mode: Claude Code talks to the smart gateway (15828 by default)
+/// with gateway model discovery enabled.
 pub fn apply_provider_to_settings_via_catalog_proxy(
     provider: &Provider,
     proxy_port: u16,
@@ -732,7 +733,7 @@ mod tests {
     fn catalog_proxy_mode_enables_gateway_model_discovery() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
-        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_821, &path, true, Some("claude.ag.gemini-3.7-flash")).unwrap();
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_828, &path, true, Some("claude.ag.gemini-3.7-flash")).unwrap();
         let written: Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let env = written["env"].as_object().unwrap();
@@ -740,6 +741,7 @@ mod tests {
             env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"],
             "1"
         );
+        assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "claude-haiku-4-5");
         assert_eq!(env["ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"], "claude-haiku-4-5");
         assert_eq!(env["CLAUDE_CODE_SUBAGENT_MODEL"], "claude.ag.gemini-3.7-flash");
@@ -763,7 +765,7 @@ mod tests {
         provider.model = "auto".into();
         apply_provider_to_settings_via_proxy_at_with_opusplan(
             &provider,
-            15_821,
+            15_828,
             &path,
             true,
             None,
@@ -776,6 +778,7 @@ mod tests {
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "gwt_shared_token");
         assert_eq!(env["ANTHROPIC_API_KEY"], "gwt_shared_token");
         assert_eq!(env["ANTHROPIC_MODEL"], "claude.auto");
+        assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
     }
 
     #[test]

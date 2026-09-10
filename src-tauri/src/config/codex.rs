@@ -1552,6 +1552,28 @@ mod tests {
     }
 
     #[test]
+    fn gateway_catalog_direct_uses_provider_base_url() {
+        let mut provider = sample_codex_provider();
+        provider.base_url = "http://127.0.0.1:15828/v1".into();
+        provider.provider_kind = ProviderKind::SmartGateway;
+        let mut doc = DocumentMut::new();
+        doc["model_providers"] = Item::Table(Table::new());
+        let temp = tempfile::tempdir().unwrap();
+        with_isolated_codex_home(temp.path(), || {
+            write_managed_provider(&mut doc, &provider, None, &[]).unwrap();
+            let entry = doc["model_providers"][MANAGED_PROVIDER_ID].as_table().unwrap();
+            assert_eq!(
+                entry.get("base_url").and_then(Item::as_str),
+                Some("http://127.0.0.1:15828/v1")
+            );
+            assert_eq!(
+                proxy_listener_token(None, "gwt_shared", true),
+                "gwt_shared"
+            );
+        });
+    }
+
+    #[test]
     fn normal_mode_strips_stale_bearer_token() {
         let (mut doc, _temp) = doc_with_managed_entry();
         doc["model_providers"][MANAGED_PROVIDER_ID]["experimental_bearer_token"] =
