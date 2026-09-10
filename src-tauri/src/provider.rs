@@ -900,7 +900,7 @@ pub const CLAUDE_OPUS_ROLE_ID: &str = "claude-opus-5";
 pub const CLAUDE_HAIKU_ROLE_ID: &str = "claude-haiku-4-5";
 pub const CLAUDE_FABLE_ROLE_ID: &str = "claude-fable-5";
 
-fn classify_claude_model_role(model: &str) -> Option<ClaudeModelRole> {
+pub(crate) fn classify_claude_model_role(model: &str) -> Option<ClaudeModelRole> {
     let normalized = model.to_ascii_lowercase();
     if normalized.contains("subagent") {
         Some(ClaudeModelRole::Subagent)

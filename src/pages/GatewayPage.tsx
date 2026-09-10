@@ -648,8 +648,9 @@ export default function GatewayPage() {
               render: (_: unknown, row: RouteMode) =>
                 row.id === "long_context" ? (
                   <InputNumber
-                    min={1}
+                    min={0}
                     value={row.threshold}
+                    addonAfter={t("gateway.thresholdUnit", { defaultValue: "token" })}
                     onChange={(value) => {
                       void updateRouteMode(row.id, { threshold: value ?? 0 }).then(() => {
                         void queryClient.invalidateQueries({ queryKey: ["route-modes"] });

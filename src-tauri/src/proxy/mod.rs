@@ -684,6 +684,12 @@ fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> Ap
 
 pub(crate) const CS_SUBAGENT_HEADER: &str = "x-cs-subagent";
 
+pub(crate) fn is_claude_code_subagent_request(headers: &HeaderMap, requested_model: &str) -> bool {
+    headers.contains_key(CS_SUBAGENT_HEADER)
+        || crate::provider::classify_claude_model_role(requested_model)
+            == Some(crate::provider::ClaudeModelRole::Haiku)
+}
+
 pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
@@ -1180,7 +1186,8 @@ async fn proxy_handler(
     let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
     let mut attempt_index: i64 = 0;
     if gateway_catalog_enabled(&state) {
-        match select_gateway_runtime_provider_with(&state, &requested_model, false, &incoming, uri.path()) {
+        let force_subagent = is_claude_code_subagent_request(&headers, &requested_model);
+        match select_gateway_runtime_provider_with(&state, &requested_model, force_subagent, &incoming, uri.path()) {
             Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
                 provider = selected;
                 requested_model = upstream.clone();
@@ -2626,6 +2633,21 @@ mod tests {
             correlation: None,
             request_path: String::new(),
         }
+    }
+
+    #[test]
+    fn claude_haiku_role_is_subagent_signal() {
+        assert!(is_claude_code_subagent_request(
+            &HeaderMap::new(),
+            "claude-haiku-4-5"
+        ));
+        assert!(!is_claude_code_subagent_request(
+            &HeaderMap::new(),
+            "claude.auto"
+        ));
+        let mut headers = HeaderMap::new();
+        headers.insert(CS_SUBAGENT_HEADER, "1".parse().unwrap());
+        assert!(is_claude_code_subagent_request(&headers, "claude.auto"));
     }
 
     #[test]

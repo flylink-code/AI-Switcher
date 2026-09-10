@@ -82,21 +82,39 @@ pub fn extract_tool_names(body: &Value) -> Vec<String> {
 }
 
 pub fn has_vision_content(body: &Value) -> bool {
-    contains_image(body)
+    latest_user_turn(body).is_some_and(contains_visible_image)
 }
 
-fn contains_image(value: &Value) -> bool {
+fn latest_user_turn(body: &Value) -> Option<&Value> {
+    if let Some(messages) = body.get("messages").and_then(Value::as_array) {
+        return messages
+            .iter()
+            .rev()
+            .find(|item| item.get("role").and_then(Value::as_str) == Some("user"));
+    }
+    let input = body.get("input").and_then(Value::as_array)?;
+    input
+        .iter()
+        .rev()
+        .find(|item| item.get("role").and_then(Value::as_str) == Some("user"))
+        .or_else(|| input.last())
+}
+
+fn contains_visible_image(value: &Value) -> bool {
     match value {
         Value::Object(map) => {
-            if map.get("type").and_then(Value::as_str) == Some("image") {
+            if map.get("type").and_then(Value::as_str) == Some("tool_result") {
+                return false;
+            }
+            if matches!(
+                map.get("type").and_then(Value::as_str),
+                Some("image" | "image_url")
+            ) {
                 return true;
             }
-            if map.get("type").and_then(Value::as_str) == Some("image_url") {
-                return true;
-            }
-            map.values().any(contains_image)
+            map.values().any(contains_visible_image)
         }
-        Value::Array(items) => items.iter().any(contains_image),
+        Value::Array(items) => items.iter().any(contains_visible_image),
         _ => false,
     }
 }
@@ -169,7 +187,7 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
         }
     }
     if let Some(mode) = enabled(ModeId::LongContext) {
-        if signals.token_count as i64 >= mode.threshold.max(1) {
+        if mode.threshold > 0 && signals.token_count as i64 >= mode.threshold {
             return Some(mode);
         }
     }
@@ -287,5 +305,87 @@ mod tests {
         )
         .unwrap();
         assert_eq!(hit.id, "long_context");
+    }
+
+    #[test]
+    fn long_context_zero_threshold_does_not_match() {
+        let mut modes = all_modes();
+        modes
+            .iter_mut()
+            .find(|mode| mode.id == "long_context")
+            .unwrap()
+            .threshold = 0;
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "default");
+    }
+
+    #[test]
+    fn long_context_below_threshold_falls_to_default() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                token_count: 1,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "default");
+    }
+
+    #[test]
+    fn subagent_selects_background() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                is_subagent: true,
+                token_count: 1,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "background");
+    }
+
+    #[test]
+    fn vision_only_looks_at_latest_user_turn() {
+        let historical = serde_json::json!({
+            "messages": [
+                {"role": "user", "content": [{"type": "image"}]},
+                {"role": "assistant", "content": "saw it"},
+                {"role": "user", "content": [{"type": "text", "text": "thanks"}]}
+            ]
+        });
+        assert!(!has_vision_content(&historical));
+
+        let current = serde_json::json!({
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "see"}, {"type": "image"}]}
+            ]
+        });
+        assert!(has_vision_content(&current));
+
+        let tool_result = serde_json::json!({
+            "messages": [
+                {"role": "user", "content": [{"type": "tool_result", "content": [{"type": "image"}]}]}
+            ]
+        });
+        assert!(!has_vision_content(&tool_result));
+
+        let codex_history = serde_json::json!({
+            "input": [
+                {"role": "user", "content": [{"type": "image_url"}]},
+                {"role": "user", "content": "next"}
+            ]
+        });
+        assert!(!has_vision_content(&codex_history));
     }
 }

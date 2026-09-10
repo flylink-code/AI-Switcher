@@ -1364,6 +1364,132 @@ pub fn list_proxy_request_logs(
     })
 }
 
+/// Map a stored `route_reason` onto one of the nine mode ids.
+pub(crate) fn classify_route_reason_mode(reason: &str) -> Option<&'static str> {
+    if reason.contains("规划") || reason == "plan" {
+        Some("plan")
+    } else if reason.contains("改内容") || reason == "edit" {
+        Some("edit")
+    } else if reason.contains("后台") || reason == "background" || reason == "role_subagent" {
+        Some("background")
+    } else if reason.contains("思考") || reason == "think" {
+        Some("think")
+    } else if reason.contains("长上下文") || reason == "long_context" {
+        Some("long_context")
+    } else if reason.contains("联网") || reason == "web_search" {
+        Some("web_search")
+    } else if reason.contains("视觉") || reason == "vision" {
+        Some("vision")
+    } else if reason.contains("图像") || reason == "image_gen" {
+        Some("image_gen")
+    } else if reason.contains("默认") || reason == "auto" || reason == "profile_default" {
+        Some("default")
+    } else {
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RouteModeUsageRow {
+    pub mode_id: String,
+    pub request_count: i64,
+    pub estimated_cost: f64,
+}
+
+/// Count gateway route-mode hits. `route_reason` lives on the smart-gateway hop,
+/// so this does **not** use [`EFFECTIVE_USAGE_FILTER`] (that would keep only the
+/// innermost hop and drop every AG-backed mode hit). Same `correlation_id`
+/// counts once; empty gateway-row tokens fall back to the innermost hop.
+pub fn list_route_mode_usage_stats(
+    conn: &Connection,
+    since: i64,
+) -> AppResult<Vec<RouteModeUsageRow>> {
+    const GATEWAY_HAS_TOKENS: &str = "\
+        (COALESCE(l.input_tokens, 0)
+         + COALESCE(l.output_tokens, 0)
+         + COALESCE(l.cache_read_input_tokens, 0)
+         + COALESCE(l.cache_creation_input_tokens, 0)) > 0";
+    const INNERMOST_HOP: &str = "\
+        (SELECT CASE
+           WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
+           WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
+           ELSE MAX(hop)
+         END
+         FROM proxy_request_logs c
+         WHERE c.correlation_id = l.correlation_id)";
+    let sql = format!(
+        "SELECT COALESCE(bill.route_reason, ''), COUNT(*), COALESCE(SUM(
+                COALESCE(bill.input_tokens, 0) * COALESCE(p.input_price_per_million, 0) / 1000000.0
+              + COALESCE(bill.cache_read_input_tokens, 0) * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
+              + COALESCE(bill.cache_creation_input_tokens, 0) * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
+              + COALESCE(bill.output_tokens, 0) * COALESCE(p.output_price_per_million, 0) / 1000000.0
+            ), 0)
+         FROM (
+           SELECT l.route_reason AS route_reason,
+                  CASE WHEN {GATEWAY_HAS_TOKENS}
+                       THEN l.input_tokens ELSE COALESCE(i.input_tokens, l.input_tokens) END AS input_tokens,
+                  CASE WHEN {GATEWAY_HAS_TOKENS}
+                       THEN l.cache_read_input_tokens ELSE COALESCE(i.cache_read_input_tokens, l.cache_read_input_tokens) END AS cache_read_input_tokens,
+                  CASE WHEN {GATEWAY_HAS_TOKENS}
+                       THEN l.cache_creation_input_tokens ELSE COALESCE(i.cache_creation_input_tokens, l.cache_creation_input_tokens) END AS cache_creation_input_tokens,
+                  CASE WHEN {GATEWAY_HAS_TOKENS}
+                       THEN l.output_tokens ELSE COALESCE(i.output_tokens, l.output_tokens) END AS output_tokens,
+                  CASE WHEN {GATEWAY_HAS_TOKENS}
+                       THEN l.model ELSE COALESCE(i.model, l.model) END AS model
+           FROM proxy_request_logs l
+           LEFT JOIN proxy_request_logs i
+             ON NULLIF(TRIM(COALESCE(l.correlation_id, '')), '') IS NOT NULL
+            AND i.id = (
+              SELECT MIN(c.id) FROM proxy_request_logs c
+              WHERE c.correlation_id = l.correlation_id
+                AND c.hop = {INNERMOST_HOP}
+            )
+           WHERE l.created_at >= ?
+             AND COALESCE(l.data_source, 'proxy') = 'proxy'
+             AND NULLIF(TRIM(COALESCE(l.route_reason, '')), '') IS NOT NULL
+             AND (
+               l.correlation_id IS NULL OR TRIM(l.correlation_id) = ''
+               OR l.id = (
+                 SELECT MIN(g.id) FROM proxy_request_logs g
+                 WHERE g.correlation_id = l.correlation_id
+                   AND COALESCE(g.data_source, 'proxy') = 'proxy'
+                   AND NULLIF(TRIM(COALESCE(g.route_reason, '')), '') IS NOT NULL
+               )
+             )
+         ) bill
+         LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(bill.model, ''))
+         GROUP BY bill.route_reason;"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![since], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, f64>(2)?,
+        ))
+    })?;
+    let mut merged: HashMap<String, (i64, f64)> = HashMap::new();
+    for row in rows {
+        let (reason, count, cost) = row?;
+        let Some(mode_id) = classify_route_reason_mode(&reason) else {
+            continue;
+        };
+        let entry = merged.entry(mode_id.to_string()).or_insert((0, 0.0));
+        entry.0 += count;
+        entry.1 += cost;
+    }
+    let mut out: Vec<RouteModeUsageRow> = merged
+        .into_iter()
+        .map(|(mode_id, (request_count, estimated_cost))| RouteModeUsageRow {
+            mode_id,
+            request_count,
+            estimated_cost,
+        })
+        .collect();
+    out.sort_by(|a, b| a.mode_id.cmp(&b.mode_id));
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1571,6 +1697,96 @@ mod tests {
             assert_eq!(trend[0].request_count, 2);
             assert_eq!(trend[0].currency, "USD");
             assert!((trend[0].estimated_cost - 2.0).abs() < 1e-9);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn route_mode_stats_count_gateway_hop_and_bill_inner_tokens() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            save_model_pricing(
+                conn,
+                &ModelPricing {
+                    model: "gemini-3.8-flash-high".to_string(),
+                    provider: "ag".to_string(),
+                    input_price_per_million: 1.0,
+                    cache_read_price_per_million: 0.0,
+                    cache_write_price_per_million: 0.0,
+                    output_price_per_million: 0.0,
+                    batch_input_price_per_million: 0.0,
+                    batch_output_price_per_million: 0.0,
+                    currency: "USD".to_string(),
+                    source_url: String::new(),
+                    effective_date: String::new(),
+                    is_default: false,
+                },
+            )?;
+            let now = Utc::now().timestamp_millis();
+            let gateway = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw"),
+                now,
+                Some("sgw"),
+                Some("Smart Gateway"),
+                Some("gemini-3.8-flash-high"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &gateway, Some("corr_mode"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &gateway,
+                Some("gprof_shared"),
+                Some("命中默认模式"),
+                0,
+                Some("claude.auto"),
+                Some("ag"),
+            )?;
+            let inner = insert_proxy_log_with_source(
+                conn,
+                Some("log_ag"),
+                now,
+                Some("ag"),
+                Some("Antigravity"),
+                Some("gemini-3.8-flash-high"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                0,
+                true,
+                20,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner, Some("corr_mode"), Some("antigravity"))?;
+
+            let stats = list_route_mode_usage_stats(conn, now - 1)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].mode_id, "default");
+            assert_eq!(stats[0].request_count, 1);
+            assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
             Ok(())
         })
         .unwrap();

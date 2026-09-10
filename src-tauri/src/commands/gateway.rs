@@ -532,64 +532,20 @@ pub struct RouteModeUsageStat {
 pub async fn list_route_mode_usage_stats(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<RouteModeUsageStat>> {
-    use crate::database::dao::proxy_logs::{EFFECTIVE_USAGE_FILTER, ROW_COST_SQL};
     let since = chrono::Utc::now().timestamp_millis() - 7 * 24 * 60 * 60 * 1000;
     let db = Arc::clone(&state.db);
     tauri::async_runtime::spawn_blocking(move || {
         db.with_read_conn(|conn| {
-        let sql = format!(
-            "SELECT COALESCE(l.route_reason, ''), COUNT(*), COALESCE(SUM({ROW_COST_SQL}), 0)
-             FROM proxy_request_logs l
-             LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(l.model, ''))
-             WHERE l.created_at >= ? AND COALESCE(l.data_source, 'proxy') = 'proxy'
-             {EFFECTIVE_USAGE_FILTER}
-             GROUP BY l.route_reason;"
-        );
-        let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map(rusqlite::params![since], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, i64>(1)?,
-                row.get::<_, f64>(2)?,
-            ))
-        })?;
-        let mut merged: std::collections::BTreeMap<String, (i64, f64)> =
-            std::collections::BTreeMap::new();
-        for row in rows {
-            let (reason, count, cost) = row?;
-            let mode_id = if reason.contains("规划") || reason == "plan" {
-                "plan"
-            } else if reason.contains("改内容") || reason == "edit" {
-                "edit"
-            } else if reason.contains("后台") || reason == "background" || reason == "role_subagent" {
-                "background"
-            } else if reason.contains("思考") || reason == "think" {
-                "think"
-            } else if reason.contains("长上下文") || reason == "long_context" {
-                "long_context"
-            } else if reason.contains("联网") || reason == "web_search" {
-                "web_search"
-            } else if reason.contains("视觉") || reason == "vision" {
-                "vision"
-            } else if reason.contains("图像") || reason == "image_gen" {
-                "image_gen"
-            } else if reason.contains("默认") || reason == "auto" || reason == "profile_default" {
-                "default"
-            } else {
-                continue;
-            };
-            let entry = merged.entry(mode_id.to_string()).or_insert((0, 0.0));
-            entry.0 += count;
-            entry.1 += cost;
-        }
-        Ok(merged
-            .into_iter()
-            .map(|(mode_id, (request_count, estimated_cost))| RouteModeUsageStat {
-                mode_id,
-                request_count,
-                estimated_cost,
-            })
-            .collect())
+            crate::database::dao::proxy_logs::list_route_mode_usage_stats(conn, since)
+        })
+        .map(|rows| {
+            rows.into_iter()
+                .map(|row| RouteModeUsageStat {
+                    mode_id: row.mode_id,
+                    request_count: row.request_count,
+                    estimated_cost: row.estimated_cost,
+                })
+                .collect()
         })
     })
     .await
