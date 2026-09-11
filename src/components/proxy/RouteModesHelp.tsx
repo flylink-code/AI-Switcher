@@ -152,7 +152,7 @@ function GuidePanel() {
       <Paragraph>
         {t("gateway.modesHelpOrderBody", {
           defaultValue:
-            "显式目录模型 → 条件规则 → 图像生成 → 联网 → 视觉 → 长上下文 → 后台 → 规划 → 思考 → 改内容 → 默认。关掉或没选模型的行会被跳过。",
+            "显式目录模型 → 条件规则 → 后台（仅子代理/Haiku，独占）→ 图像生成 → 联网 → 视觉 → 规划 → 思考 → 改内容 → 长上下文 → 默认。关掉或没选模型的行会被跳过。",
         })}
       </Paragraph>
 

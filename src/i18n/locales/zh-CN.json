@@ -100,7 +100,7 @@
     "modesHelpTitle": "路由模式怎么配",
     "modesHelpIntro": "Agent 请求 auto 时，网关按这次请求的特征选一行。你在 /model 里点了具体目录模型时，模式全部让路。",
     "modesHelpOrderTitle": "匹配顺序（先到先得）",
-    "modesHelpOrderBody": "显式目录模型 → 条件规则 → 图像生成 → 联网 → 视觉 → 长上下文 → 后台 → 规划 → 思考 → 改内容 → 默认。关掉或没选模型的行会被跳过。",
+    "modesHelpOrderBody": "显式目录模型 → 条件规则 → 后台（仅子代理/Haiku，独占）→ 图像生成 → 联网 → 视觉 → 规划 → 思考 → 改内容 → 长上下文 → 默认。关掉或没选模型的行会被跳过。",
     "modesHelpWhenTitle": "各模式何时触发",
     "modesHelpColsTitle": "每一列",
     "modesHelpColEnabled": "启用：关 = 这行不参与匹配。",
@@ -115,9 +115,9 @@
     "modesHelpAgents": "规划 / 改内容只有 Claude Code 与 Codex 有信号；Desktop / OpenCode / Pi / DSH / Cline 这两行不会触发。Claude Code 供应商页的「Plan / 自动」是客户端工作模式（permissions.defaultMode），不是网关「规划」行。改完后 Claude Code / Desktop / Codex 需重启 Agent 才刷新 /v1/models。",
     "modeHint": {
       "default": "上面全没命中时的兜底。放 DeepSeek Chat 或 Gemini 3.8 Flash，不要把最强的 gpt-6-astra 放这里。",
-      "background": "子代理、Explore、Haiku 等后台请求。",
+      "background": "仅子代理 / Explore / Haiku（x-cs-subagent 或 Haiku 角色），独占，不被长上下文或思考抢走。",
       "plan": "请求 tools 含 ExitPlanMode（不是供应商页工作模式 Plan）；Codex 对应 update_plan。默认关。",
-      "think": "请求体已带 thinking / reasoning / reasoning_effort。",
+      "think": "请求体已带 thinking / reasoning / reasoning_effort（type=disabled 或空对象不算）。",
       "edit": "最近一轮真正调用了 Edit / Write / apply_patch 等写盘工具，且不是规划。默认关。声明在 tools 目录里不算。",
       "long_context": "估算 token 达到右侧阈值才换模型。0 表示不按长度分流。新行默认 20000；填 1 几乎每条都命中。",
       "web_search": "tools 含 web_search / web_fetch。",
@@ -1785,7 +1785,8 @@
         "智能网关上游池可显示供应商额度/余额（Kimi、智谱、MiniMax、DeepSeek、硅基流动、OpenRouter 等套餐与钱包，以及 sub2api），与供应商页同一套探测，点 Tag 刷新。",
         "本机网关端口与 Antigravity :15830 不探测；AG 账号额度仍在反代网关页。",
         "标题栏显示当前版本，点击可检查更新；设置关于行也显示版本号。",
-        "概览年热力图只拉用量趋势，不再跑完整仪表盘；空数据先画灰格，避免切页闪一下。"
+        "概览年热力图只拉用量趋势，不再跑完整仪表盘；空数据先画灰格，避免切页闪一下。",
+        "智能网关规划 / 思考 / 改内容优先于长上下文；thinking 为 disabled 时不算思考信号。"
       ]
     },
     "appName": "应用名称",

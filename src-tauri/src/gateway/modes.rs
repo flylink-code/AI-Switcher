@@ -108,21 +108,52 @@ fn contains_visible_image(value: &Value) -> bool {
 }
 
 pub fn has_thinking_signal(body: &Value) -> bool {
-    if body.get("thinking").is_some() || body.get("reasoning").is_some() {
-        return true;
+    thinking_field_enabled(body.get("thinking"))
+        || thinking_field_enabled(body.get("reasoning"))
+        || thinking_field_enabled(body.get("reasoning_effort"))
+}
+
+fn thinking_field_enabled(value: Option<&Value>) -> bool {
+    let Some(value) = value else {
+        return false;
+    };
+    match value {
+        Value::Null => false,
+        Value::Bool(enabled) => *enabled,
+        Value::Number(_) => true,
+        Value::String(text) => !is_disabled_thinking_token(text),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(map) => {
+            if map.is_empty() {
+                return false;
+            }
+            if map
+                .get("type")
+                .and_then(Value::as_str)
+                .is_some_and(is_disabled_thinking_token)
+            {
+                return false;
+            }
+            if map.get("enabled") == Some(&Value::Bool(false)) {
+                return false;
+            }
+            if map
+                .get("effort")
+                .and_then(Value::as_str)
+                .is_some_and(is_disabled_thinking_token)
+            {
+                return false;
+            }
+            true
+        }
     }
-    if body.get("reasoning_effort").is_some() {
-        return true;
-    }
-    if body
-        .get("reasoning")
-        .and_then(Value::as_object)
-        .and_then(|object| object.get("effort"))
-        .is_some()
-    {
-        return true;
-    }
-    false
+}
+
+fn is_disabled_thinking_token(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "" | "disabled" | "none" | "off" | "false"
+    )
 }
 
 pub fn looks_like_plan(tools: &[String], _target: Option<ProviderTarget>) -> bool {
@@ -229,7 +260,8 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
             .find(|mode| mode.id == id.as_str() && mode.enabled && !mode.model.trim().is_empty())
     };
     // Haiku / Explore / x-cs-subagent: only background (or default). Long-context
-    // threshold 1 and thinking fields on those requests must not steal them.
+    // and thinking fields on those requests must not steal them.
+    // After that: image → web → vision → plan → think → edit → long_context → default.
     if signals.is_subagent {
         if let Some(mode) = enabled(ModeId::Background) {
             return Some(mode);
@@ -251,11 +283,6 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
             return Some(mode);
         }
     }
-    if let Some(mode) = enabled(ModeId::LongContext) {
-        if mode.threshold > 0 && signals.token_count as i64 >= mode.threshold {
-            return Some(mode);
-        }
-    }
     if looks_like_plan(&signals.tool_names, signals.target) {
         if let Some(mode) = enabled(ModeId::Plan) {
             return Some(mode);
@@ -270,6 +297,11 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
         && !looks_like_plan(&signals.tool_names, signals.target)
     {
         if let Some(mode) = enabled(ModeId::Edit) {
+            return Some(mode);
+        }
+    }
+    if let Some(mode) = enabled(ModeId::LongContext) {
+        if mode.threshold > 0 && signals.token_count as i64 >= mode.threshold {
             return Some(mode);
         }
     }
@@ -535,6 +567,90 @@ mod tests {
         .unwrap();
         assert_eq!(hit.id, "think");
         assert_eq!(hit.model, "gpt.think");
+    }
+
+    #[test]
+    fn think_beats_long_context_when_both_match() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                has_thinking: true,
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "think");
+        assert_eq!(hit.model, "gpt.think");
+    }
+
+    #[test]
+    fn plan_beats_long_context_when_both_match() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                tool_names: vec!["ExitPlanMode".into()],
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "plan");
+        assert_eq!(hit.model, "gpt.plan");
+    }
+
+    #[test]
+    fn edit_beats_long_context_when_both_match() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                recent_write_tool: Some("Write".into()),
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "edit");
+        assert_eq!(hit.model, "deepseek.edit");
+    }
+
+    #[test]
+    fn long_context_still_wins_without_plan_think_or_edit() {
+        let modes = all_modes();
+        let hit = select_mode(
+            &modes,
+            &ModeSignals {
+                token_count: 250_000,
+                ..ModeSignals::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(hit.id, "long_context");
+        assert_eq!(hit.model, "gemini.long");
+    }
+
+    #[test]
+    fn has_thinking_signal_ignores_disabled_and_empty() {
+        assert!(!has_thinking_signal(&serde_json::json!({})));
+        assert!(!has_thinking_signal(&serde_json::json!({ "thinking": {} })));
+        assert!(!has_thinking_signal(
+            &serde_json::json!({ "thinking": { "type": "disabled" } })
+        ));
+        assert!(!has_thinking_signal(&serde_json::json!({ "thinking": "disabled" })));
+        assert!(!has_thinking_signal(
+            &serde_json::json!({ "reasoning": { "effort": "none" } })
+        ));
+        assert!(!has_thinking_signal(&serde_json::json!({ "reasoning_effort": "off" })));
+        assert!(has_thinking_signal(
+            &serde_json::json!({ "thinking": { "type": "enabled", "budget_tokens": 8000 } })
+        ));
+        assert!(has_thinking_signal(
+            &serde_json::json!({ "reasoning": { "effort": "low" } })
+        ));
+        assert!(has_thinking_signal(&serde_json::json!({ "reasoning_effort": "high" })));
     }
 
     #[test]
