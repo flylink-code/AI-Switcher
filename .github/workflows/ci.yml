@@ -51,6 +51,10 @@ jobs:
     name: Backend (cargo test --lib)
     needs: frontend
     runs-on: ubuntu-latest
+    env:
+      # Antigravity OAuth 客户端凭据（编译期 env!，与 release.yml 相同）
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
