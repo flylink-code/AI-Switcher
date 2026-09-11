@@ -33,8 +33,8 @@ const { Text } = Typography;
  * Structure: Status Strip (<=64px) → Today Usage Hero (KPI + 24h trend) →
  * Bottom Surface (Needs Attention | Recent Activity).
  * No Agent→Provider details, no provider switch, no proxy start/stop here;
- * those live on the Providers / Proxy pages. All data comes from existing
- * query options — no new queryFn, no polling added on this page.
+ * those live on the Providers / Proxy pages. Year heatmap uses a trend-only
+ * IPC so switching back in does not rebuild the full usage dashboard.
  */
 export default function WorkbenchPage() {
   const { t } = useTranslation();
@@ -43,9 +43,7 @@ export default function WorkbenchPage() {
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
   const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
 
-  // Existing queries only. proxyStatusOptions / managedAppsRuntimeStatusOptions
-  // were already mounted here by the former runtime rail; providerListOptions
-  // reuses the providers store's query keys (staleTime 30s, no interval).
+  // Existing queries. Year heatmap is trend-only (`get_usage_trend`).
   const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
   const proxyQueries = [
     useQuery(proxyStatusOptions("claude_code")),
@@ -65,9 +63,7 @@ export default function WorkbenchPage() {
     queryFn: getSmartGatewayStatus,
   });
   const dashboardQuery = useQuery(usageDashboardOptions("24h", heatmapSource));
-  const trendQuery = useQuery(usageTrendOptions("24h", heatmapSource));
   const activityQuery = useQuery(usageLogsOptions("24h", 0, heatmapSource));
-  // Yearly heatmap — same query option the old overview used (no new API/polling).
   const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   // ----- Aggregate status strip -----
@@ -97,7 +93,7 @@ export default function WorkbenchPage() {
   // Deltas: last 12h vs previous 12h, computed from the existing 24h hourly
   // trend. Hidden whenever the previous window has no data (never fabricated).
   const hourKeys = usagePeriodHourKeys("24h");
-  const trendByHour = new Map((trendQuery.data?.trend ?? []).map((row) => [row.date, row]));
+  const trendByHour = new Map((dashboardQuery.data?.trend ?? []).map((row) => [row.date, row]));
   const sumHours = (keys: string[]) =>
     keys.reduce(
       (acc, key) => {
@@ -119,7 +115,7 @@ export default function WorkbenchPage() {
   const prevWindow = sumHours(hourKeys.slice(0, 12));
   const lastWindow = sumHours(hourKeys.slice(12));
   const pctDelta = (current: number, previous: number) =>
-    trendQuery.data && previous > 0
+    dashboardQuery.data && previous > 0
       ? Math.round(((current - previous) / previous) * 1000) / 10
       : null;
   const deltas = {
@@ -340,8 +336,8 @@ export default function WorkbenchPage() {
           </div>
         </div>
 
-        {dashboardQuery.error || trendQuery.error ? (
-          <Alert type="error" showIcon message={errMsg(dashboardQuery.error ?? trendQuery.error)} />
+        {dashboardQuery.error ? (
+          <Alert type="error" showIcon message={errMsg(dashboardQuery.error)} />
         ) : heroEmpty ? (
           <div
             style={{
@@ -422,7 +418,7 @@ export default function WorkbenchPage() {
               />
             </div>
             <div className="workbench-hero-chart" style={{ marginTop: 8 }}>
-              <UsageTrendBars data={trendQuery.data?.trend ?? []} period="24h" compact />
+              <UsageTrendBars data={dashboardQuery.data?.trend ?? []} period="24h" compact />
             </div>
           </>
         )}
@@ -580,7 +576,14 @@ export default function WorkbenchPage() {
           {yearTrendQuery.error ? (
             <Alert type="error" showIcon message={errMsg(yearTrendQuery.error)} />
           ) : (
-            <div style={{ width: "100%", overflow: "hidden" }}>
+            <div
+              style={{
+                width: "100%",
+                overflow: "hidden",
+                opacity: yearTrendQuery.isPending && !yearTrendQuery.data ? 0.55 : 1,
+                transition: "opacity 0.15s ease",
+              }}
+            >
               <UsageCalendar
                 data={yearTrendQuery.data?.trend ?? []}
                 period={365}

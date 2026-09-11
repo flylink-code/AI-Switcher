@@ -384,6 +384,51 @@ pub async fn get_usage_dashboard(
     .map_err(|e| AppError::Database(format!("usage dashboard task failed: {e}")))?
 }
 
+/// Trend buckets only — used by the overview heatmap so it does not pay for
+/// summary / by-model / by-provider / session-file scans.
+#[tauri::command]
+pub async fn get_usage_trend(
+    days: Option<u32>,
+    hours: Option<u32>,
+    today: Option<bool>,
+    source: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<UsageDashboard> {
+    let since = resolve_usage_since(days, hours, today);
+    let granularity = if today.unwrap_or(false) || hours.is_some() {
+        TrendGranularity::Hour
+    } else {
+        TrendGranularity::Day
+    };
+    let trend_granularity = match granularity {
+        TrendGranularity::Hour => "hour",
+        TrendGranularity::Day => "day",
+    }
+    .to_string();
+    let source = UsageSource::parse(source.as_deref())?;
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_read_conn(|conn| {
+            let trend = match source.proxy_target() {
+                Some(target) => get_usage_trend_for_target(conn, since, target, granularity)?,
+                None => Vec::new(),
+            };
+            Ok(UsageDashboard {
+                summary: empty_summary(),
+                by_provider: Vec::new(),
+                by_model: Vec::new(),
+                trend,
+                trend_granularity,
+                local_codex: local_codex_not_selected(),
+                local_claude_code: local_codex_not_selected(),
+                local_opencode: local_codex_not_selected(),
+            })
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("usage trend task failed: {e}")))?
+}
+
 #[tauri::command]
 pub async fn sync_codex_session_usage_cmd(
     state: tauri::State<'_, AppState>,

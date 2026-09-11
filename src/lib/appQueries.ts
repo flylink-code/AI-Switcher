@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   getAutostartConfig,
   getClaudeCodeVersion,
@@ -20,6 +20,7 @@ import {
   getProxyStatus,
   getManagedAppsRuntimeStatus,
   getUsageDashboard,
+  getUsageTrend,
   listMcpServers,
   getMcpOauthStatus,
   getMcpDesktopConflictStatus,
@@ -229,16 +230,19 @@ export const usageOverviewOptions = (
     staleTime: 10_000,
   });
 
-/** Lightweight trend-only fetch for Providers calendar (no logs/pricing). */
+/** Trend buckets only (overview heatmap / 24h bars). Skips summary and breakdowns. */
 export const usageTrendOptions = (
   period: UsagePeriod,
   target: UsageSourceFilter = "all",
 ) =>
   queryOptions({
     queryKey: ["usage-trend", period, target] as const,
-    queryFn: () => getUsageDashboard(usagePeriodToQuery(period), target),
-    staleTime: 60_000,
+    queryFn: () => getUsageTrend(usagePeriodToQuery(period), target),
+    staleTime: period === 365 ? 5 * 60_000 : 60_000,
+    gcTime: 30 * 60_000,
     refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
 export const environmentOptions = queryOptions({

@@ -88,7 +88,7 @@ export function UsageCalendar({
   const activeDays = daily.filter((item) => item.tokens > 0).length;
   const total = daily.reduce((sum, item) => sum + item.tokens, 0);
 
-  if (!data.length && daily.every((item) => item.tokens === 0)) {
+  if (!compact && !data.length && daily.every((item) => item.tokens === 0)) {
     return <Empty description={t("usage.noData")} />;
   }
 
@@ -121,6 +121,7 @@ export function UsageCalendar({
         requestsLabel={t("usage.requests")}
         ariaLabel={t("usage.dailyStatistics")}
         orientation={orientation}
+        compact={compact}
         maxCellSize={maxCellSize ?? DAY_CELL.max}
         weekdayLabels={[
           t("usage.weekdaySun"),
@@ -163,6 +164,7 @@ function ContributionHeatmap({
   weekdayLabels,
   formatMonth,
   orientation = "horizontal",
+  compact = false,
   maxCellSize = DAY_CELL.max,
 }: {
   daily: DayCell[];
@@ -174,6 +176,7 @@ function ContributionHeatmap({
   weekdayLabels: string[];
   formatMonth: (date: Date) => string;
   orientation?: "horizontal" | "vertical";
+  compact?: boolean;
   maxCellSize?: number;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -234,22 +237,28 @@ function ContributionHeatmap({
     const tooltip = item.row
       ? `${item.key}: ${formatCompactNumber(item.tokens)} Token (${formatFullNumber(item.tokens)}) · ${item.row.requestCount} ${requestsLabel}`
       : `${item.key}: 0 Token`;
+    const cell = (
+      <span
+        role="gridcell"
+        aria-label={tooltip}
+        title={compact ? tooltip : undefined}
+        style={{
+          display: "block",
+          width: cellSize,
+          height: cellSize,
+          boxSizing: "border-box",
+          border: `1px solid ${border}`,
+          borderRadius: 2,
+          background: levels[level].color,
+        }}
+      />
+    );
+    if (compact) {
+      return <span key={item.key}>{cell}</span>;
+    }
     return (
       <Tooltip key={item.key} title={tooltip}>
-        <button
-          type="button"
-          role="gridcell"
-          aria-label={tooltip}
-          style={{
-            width: cellSize,
-            height: cellSize,
-            padding: 0,
-            border: `1px solid ${border}`,
-            borderRadius: 2,
-            background: levels[level].color,
-            cursor: "default",
-          }}
-        />
+        {cell}
       </Tooltip>
     );
   };

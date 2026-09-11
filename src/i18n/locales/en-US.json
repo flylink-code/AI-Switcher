@@ -1784,7 +1784,8 @@
       "1_5_1": [
         "The smart gateway upstream pool now shows provider quotas and balances (Kimi, Zhipu, MiniMax, DeepSeek, SiliconFlow, OpenRouter, and sub2api), using the same probes as the Providers page. Click a tag to refresh.",
         "Local gateway ports and Antigravity :15830 are not probed; AG account quotas stay on the reverse-proxy gateway page.",
-        "The title bar shows the current version and checks for updates on click; the Settings About row also shows the version."
+        "The title bar shows the current version and checks for updates on click; the Settings About row also shows the version.",
+        "The overview year heatmap loads usage trend only instead of the full dashboard, and draws an empty gray grid first so the page does not flash Empty."
       ]
     },
     "appName": "App name",

@@ -31,6 +31,25 @@ export async function getUsageDashboard(
   });
 }
 
+export async function getUsageTrend(
+  range: { days?: number; hours?: number; today?: boolean } | number = 30,
+  source: ProviderTarget | "all" | "antigravity" = "all",
+): Promise<UsageDashboard> {
+  const invoke = await getInvoke();
+  const params =
+    typeof range === "number"
+      ? { days: range }
+      : {
+          days: range.days,
+          hours: range.hours,
+          today: range.today,
+        };
+  return invoke<UsageDashboard>("get_usage_trend", {
+    ...params,
+    source: source === "all" ? undefined : source,
+  });
+}
+
 export interface CodexSessionSyncResult {
   scannedFiles: number;
   insertedRows: number;
