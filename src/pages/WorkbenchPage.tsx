@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
 import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
-import { usageSourceIcon, type UsageSourceFilter } from "@/components/UsageSourceIcons";
+import { usageSourceIcon, isUsageSourceFilter, usageSourceLabelKey } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
 import { Metric } from "@/components/ui";
 import {
@@ -221,6 +221,9 @@ export default function WorkbenchPage() {
   };
   const activityAgentLabel = (targetApp: string | null) => {
     if (targetApp && targetApp in LABEL_KEYS) return t(LABEL_KEYS[targetApp as ProviderTarget]);
+    if (targetApp && isUsageSourceFilter(targetApp)) {
+      return t(usageSourceLabelKey(targetApp));
+    }
     return targetApp ?? "—";
   };
   const activityGroupTokens = (group: ActivityGroup) => {
@@ -535,8 +538,8 @@ export default function WorkbenchPage() {
                   key={group.targetApp ?? "__unknown__"}
                   style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, minHeight: 20 }}
                 >
-                  {group.targetApp && group.targetApp in LABEL_KEYS
-                    ? usageSourceIcon(group.targetApp as UsageSourceFilter, { size: 13 })
+                  {group.targetApp && isUsageSourceFilter(group.targetApp)
+                    ? usageSourceIcon(group.targetApp, { size: 13 })
                     : null}
                   <Text ellipsis style={{ fontSize: 12, flex: "1 1 auto", minWidth: 0 }}>
                     {activityAgentLabel(group.targetApp)}

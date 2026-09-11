@@ -103,18 +103,19 @@ export function PiIcon({ size = 16, style, className }: IconProps) {
   );
 }
 
-/** Orbit mark for Antigravity gateway usage. */
+/**
+ * Google Antigravity logomark (official A/arch silhouette).
+ * Same filled-path treatment as Claude / Codex brand icons.
+ */
 export function AntigravityOrbitIcon({ size = 16, style, className }: IconProps) {
   return (
-    <SvgShell size={size} className={className} style={{ color: ANTIGRAVITY_PURPLE, ...style }}>
-      <circle cx="12" cy="12" r="2.4" />
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        d="M12 3.5a8.5 8.5 0 1 1-7.4 4.2"
-      />
-      <path d="M4.2 6.8 7.1 5.6 5.4 8.3Z" />
+    <SvgShell
+      size={size}
+      className={className}
+      viewBox="0 0 16 15"
+      style={{ color: ANTIGRAVITY_PURPLE, ...style }}
+    >
+      <path d="M14.0777 13.984C14.945 14.6345 16.2458 14.2008 15.0533 13.0084C11.476 9.53949 12.2349 0 7.79033 0C3.34579 0 4.10461 9.53949 0.527295 13.0084C-0.773543 14.3092 0.635692 14.6345 1.50293 13.984C4.86344 11.7076 4.64663 7.69664 7.79033 7.69664C10.934 7.69664 10.7172 11.7076 14.0777 13.984Z" />
     </SvgShell>
   );
 }
@@ -210,3 +211,13 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "cline", labelKey: "workspace.cline" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];
+
+export function isUsageSourceFilter(value: string): value is UsageSourceFilter {
+  return USAGE_SOURCE_FILTER_OPTIONS.some((option) => option.value === value);
+}
+
+export function usageSourceLabelKey(source: UsageSourceFilter): string {
+  return (
+    USAGE_SOURCE_FILTER_OPTIONS.find((option) => option.value === source)?.labelKey ?? "usage.sourceAll"
+  );
+}

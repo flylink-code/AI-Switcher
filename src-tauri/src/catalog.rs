@@ -376,22 +376,125 @@ pub fn is_auto_public_id(id: &str) -> bool {
         || trimmed.eq_ignore_ascii_case(CLAUDE_AUTO_PUBLIC_ID)
 }
 
+/// Fallback when no route-mode slot has a model. Claude Code also defaults here.
+pub const DEFAULT_DISCOVERY_CONTEXT_WINDOW: u64 = 200_000;
+
+const AUTO_WINDOW_MODE_IDS: &[&str] = &[
+    "default",
+    "long_context",
+    "think",
+    "plan",
+    "background",
+];
+
 pub fn auto_catalog_entry(style: CatalogStyle) -> CatalogEntry {
+    auto_catalog_entry_with_window(style, DEFAULT_DISCOVERY_CONTEXT_WINDOW)
+}
+
+fn auto_catalog_entry_with_window(style: CatalogStyle, context_window: u64) -> CatalogEntry {
     CatalogEntry {
         public_id: auto_public_id(style).to_string(),
         display_name: "Auto".to_string(),
         upstream_slug: AUTO_PUBLIC_ID.to_string(),
         provider_id: String::new(),
-        context_window: 200_000,
+        context_window: context_window.max(1),
         anthropic_upstream: false,
         web_search_enabled: false,
     }
 }
 
-pub fn with_auto_entry(style: CatalogStyle, mut entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
+pub fn with_auto_entry(style: CatalogStyle, entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
+    with_auto_entry_from_modes(style, entries, &[])
+}
+
+/// Insert Auto (and Claude Haiku role) using route-mode upstream windows.
+pub fn with_auto_entry_from_modes(
+    style: CatalogStyle,
+    mut entries: Vec<CatalogEntry>,
+    modes: &[gateway::RouteMode],
+) -> Vec<CatalogEntry> {
+    let auto_window = max_enabled_mode_window(modes, &entries);
     entries.retain(|entry| !is_auto_public_id(&entry.public_id));
-    entries.insert(0, auto_catalog_entry(style));
+    entries.insert(0, auto_catalog_entry_with_window(style, auto_window));
+    if style == CatalogStyle::Claude {
+        ensure_haiku_role_window(&mut entries, modes);
+    }
     entries
+}
+
+fn max_enabled_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
+    let mut max_window = 0u64;
+    for mode in modes {
+        if !AUTO_WINDOW_MODE_IDS.contains(&mode.id.as_str()) {
+            continue;
+        }
+        if !mode.enabled || mode.model.trim().is_empty() {
+            continue;
+        }
+        max_window = max_window.max(window_for_mode_model(entries, &mode.model));
+        for fallback in &mode.fallback_models {
+            if !fallback.trim().is_empty() {
+                max_window = max_window.max(window_for_mode_model(entries, fallback));
+            }
+        }
+    }
+    if max_window == 0 {
+        DEFAULT_DISCOVERY_CONTEXT_WINDOW
+    } else {
+        max_window
+    }
+}
+
+fn window_for_mode_model(entries: &[CatalogEntry], model: &str) -> u64 {
+    let trimmed = model.trim();
+    if trimmed.is_empty() {
+        return 0;
+    }
+    if let Some(entry) = entries.iter().find(|entry| {
+        entry.public_id.eq_ignore_ascii_case(trimmed)
+            || entry.upstream_slug.eq_ignore_ascii_case(trimmed)
+    }) {
+        return entry.context_window;
+    }
+    let slug = trimmed.rsplit('.').next().unwrap_or(trimmed);
+    if slug != trimmed {
+        if let Some(entry) = entries
+            .iter()
+            .find(|entry| entry.upstream_slug.eq_ignore_ascii_case(slug))
+        {
+            return entry.context_window;
+        }
+    }
+    crate::gateway::metadata::context_window_for(trimmed)
+}
+
+fn background_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
+    modes
+        .iter()
+        .find(|mode| mode.id == "background" && mode.enabled && !mode.model.trim().is_empty())
+        .map(|mode| window_for_mode_model(entries, &mode.model))
+        .filter(|window| *window > 0)
+        .unwrap_or(DEFAULT_DISCOVERY_CONTEXT_WINDOW)
+}
+
+fn ensure_haiku_role_window(entries: &mut Vec<CatalogEntry>, modes: &[gateway::RouteMode]) {
+    let window = background_mode_window(modes, entries);
+    if let Some(entry) = entries
+        .iter_mut()
+        .find(|entry| entry.public_id.eq_ignore_ascii_case(CLAUDE_HAIKU_ROLE_ID))
+    {
+        entry.context_window = window;
+        return;
+    }
+    entries.push(CatalogEntry {
+        public_id: CLAUDE_HAIKU_ROLE_ID.to_string(),
+        display_name: "Haiku / subagent".to_string(),
+        upstream_slug: CLAUDE_HAIKU_ROLE_ID.to_string(),
+        provider_id: String::new(),
+        context_window: window,
+        anthropic_upstream: false,
+        web_search_enabled: false,
+    });
 }
 
 pub fn with_auto_public_ids(style: CatalogStyle, mut ids: Vec<String>) -> Vec<String> {
@@ -450,6 +553,8 @@ pub fn claude_discovery_payload(entries: &[CatalogEntry]) -> Value {
         "data": entries.iter().map(|entry| json!({
             "id": entry.public_id,
             "display_name": entry.display_name,
+            "context_window": entry.context_window,
+            "max_input_tokens": entry.context_window,
         })).collect::<Vec<_>>(),
         "has_more": false,
     })
@@ -1284,6 +1389,90 @@ mod tests {
             .collect();
         assert_eq!(ids[0], CLAUDE_AUTO_PUBLIC_ID);
         assert!(ids.iter().any(|id| *id == "claude.kimi.kimi-k2"));
+        assert!(ids.iter().any(|id| *id == CLAUDE_HAIKU_ROLE_ID));
+        let auto = &payload["data"][0];
+        assert_eq!(auto["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+        assert_eq!(auto["max_input_tokens"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+    }
+
+    fn route_mode(id: &str, enabled: bool, model: &str) -> gateway::RouteMode {
+        gateway::RouteMode {
+            id: id.into(),
+            profile_id: "gprof_shared".into(),
+            enabled,
+            model: model.into(),
+            thinking_config_json: "{}".into(),
+            fallback_models: vec![],
+            threshold: 0,
+            sort_index: 0,
+        }
+    }
+
+    #[test]
+    fn auto_window_follows_max_gemini_mode_slot() {
+        let modes = vec![
+            route_mode("default", true, "claude.ag.gemini-3.8-flash-high"),
+            route_mode("background", true, "claude.ag.gemini-3.8-flash-low"),
+            route_mode("think", true, "gpt-6-astra"),
+        ];
+        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
+        assert_eq!(catalog[0].public_id, CLAUDE_AUTO_PUBLIC_ID);
+        assert_eq!(catalog[0].context_window, 1_000_000);
+        let payload = claude_discovery_payload(&catalog);
+        assert_eq!(payload["data"][0]["context_window"], 1_000_000);
+        assert_eq!(payload["data"][0]["max_input_tokens"], 1_000_000);
+        let haiku = catalog
+            .iter()
+            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
+            .expect("haiku role");
+        assert_eq!(haiku.context_window, 1_000_000);
+        assert!(passes_claude_discovery(&haiku.public_id));
+    }
+
+    #[test]
+    fn haiku_window_uses_background_slot_not_auto_max() {
+        let modes = vec![
+            route_mode("default", true, "gemini-3.8-flash-high"),
+            route_mode("background", true, "kimi-k2"),
+        ];
+        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
+        assert_eq!(catalog[0].context_window, 1_000_000);
+        let haiku = catalog
+            .iter()
+            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
+            .expect("haiku role");
+        assert_eq!(haiku.context_window, 200_000);
+    }
+
+    #[test]
+    fn existing_haiku_catalog_id_gets_background_window() {
+        let entries = vec![CatalogEntry {
+            public_id: CLAUDE_HAIKU_ROLE_ID.into(),
+            display_name: "Haiku".into(),
+            upstream_slug: CLAUDE_HAIKU_ROLE_ID.into(),
+            provider_id: "ag".into(),
+            context_window: 200_000,
+            anthropic_upstream: false,
+            web_search_enabled: false,
+        }];
+        let modes = vec![route_mode(
+            "background",
+            true,
+            "claude.ag.gemini-3.8-flash-low",
+        )];
+        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, entries, &modes);
+        let haiku = catalog
+            .iter()
+            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
+            .expect("haiku role");
+        assert_eq!(haiku.context_window, 1_000_000);
+        assert_eq!(
+            catalog
+                .iter()
+                .filter(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -1294,6 +1483,9 @@ mod tests {
             build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
         );
         assert_eq!(catalog[0].public_id, AUTO_PUBLIC_ID);
+        assert!(catalog
+            .iter()
+            .all(|entry| entry.public_id != CLAUDE_HAIKU_ROLE_ID));
         let ids = with_auto_public_ids(CatalogStyle::Codex, vec!["deepseek-v3".into()]);
         assert_eq!(ids[0], AUTO_PUBLIC_ID);
     }

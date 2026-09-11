@@ -958,9 +958,20 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
                     let hide_official =
                         catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
-                    let catalog = catalog::with_auto_entry(
+                    let modes = state
+                        .db
+                        .with_conn(|conn| {
+                            Ok(crate::database::dao::gateway::list_route_modes(
+                                conn,
+                                crate::database::dao::gateway::SHARED_PROFILE_ID,
+                            )
+                            .unwrap_or_default())
+                        })
+                        .unwrap_or_default();
+                    let catalog = catalog::with_auto_entry_from_modes(
                         CatalogStyle::Codex,
                         build_catalog_with(CatalogStyle::Codex, &pairs, hide_official),
+                        &modes,
                     );
                     tauri::async_runtime::spawn_blocking(move || {
                         codex::apply_provider_with_catalog(
