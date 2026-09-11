@@ -70,6 +70,7 @@ pub(crate) fn patch_route_log(
             attempt_index,
             Some(decision.requested_model.as_str()),
             decision.upstream_id.as_deref(),
+            decision.mode_id.as_deref(),
         )
     }) {
         log::warn!("写入网关路由观测失败: {error}");
@@ -373,10 +374,22 @@ fn usage_from_value(value: &Value) -> Option<UsageCounts> {
 }
 
 pub(crate) fn json_error(status: StatusCode, message: impl Into<String>) -> Response {
+    json_error_with_retry_after(status, message, None)
+}
+
+pub(crate) fn json_error_with_retry_after(
+    status: StatusCode,
+    message: impl Into<String>,
+    retry_after_secs: Option<u64>,
+) -> Response {
     let body = serde_json::json!({"error": message.into()});
-    Response::builder()
+    let mut builder = Response::builder()
         .status(status)
-        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(secs) = retry_after_secs.filter(|value| *value > 0) {
+        builder = builder.header(header::RETRY_AFTER, secs.to_string());
+    }
+    builder
         .body(Body::from(body.to_string()))
         .unwrap_or_else(|_| status.into_response())
 }

@@ -146,7 +146,10 @@ pub use gateway::{
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
     list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
     update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule,
-    list_route_mode_usage_stats,
+    list_route_mode_usage_stats, simulate_gateway_route, list_gateway_upstream_health,
+    get_smart_gateway_inbound_limits, set_smart_gateway_inbound_limits, get_smart_gateway_budget,
+    set_smart_gateway_budget, get_smart_gateway_health_probe_secs,
+    set_smart_gateway_health_probe_secs,
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,

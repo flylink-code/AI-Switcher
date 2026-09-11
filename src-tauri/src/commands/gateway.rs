@@ -101,38 +101,73 @@ pub struct GatewayRouteLog {
     pub requested_model: Option<String>,
     pub model: Option<String>,
     pub route_reason: Option<String>,
+    pub route_mode: Option<String>,
     pub profile_id: Option<String>,
     pub upstream_id: Option<String>,
     pub provider_name: Option<String>,
     pub attempt_index: i64,
     pub status_code: Option<i64>,
+    pub duration_ms: i64,
+    pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
+    pub output_tokens: i64,
+    pub error_category: Option<String>,
+    pub stream_outcome: Option<String>,
+    pub estimated_cost: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedGatewayRouteLogs {
+    pub data: Vec<GatewayRouteLog>,
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
 }
 
 #[tauri::command]
 pub fn list_gateway_route_logs(
     target: Option<ProviderTarget>,
     limit: Option<i64>,
+    offset: Option<i64>,
     state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<GatewayRouteLog>> {
-    let cap = limit.unwrap_or(30).clamp(1, 200);
+) -> AppResult<PaginatedGatewayRouteLogs> {
+    let cap = limit.unwrap_or(20).clamp(1, 200);
+    let skip = offset.unwrap_or(0).max(0);
+    let page = skip / cap;
     state.db.with_read_conn(|conn| {
-        let sql = if target.is_some() {
-            "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
-                    provider_name, attempt_index, status_code
-             FROM proxy_request_logs
-             WHERE target_app = ? AND COALESCE(data_source, 'proxy') = 'proxy'
-               AND route_reason IS NOT NULL AND trim(route_reason) != ''
-             ORDER BY created_at DESC LIMIT ?;"
+        let cost = crate::database::dao::proxy_logs::ROW_COST_SQL;
+        let where_sql = if target.is_some() {
+            "l.target_app = ? AND COALESCE(l.data_source, 'proxy') = 'proxy'
+               AND l.route_reason IS NOT NULL AND trim(l.route_reason) != ''"
         } else {
-            "SELECT id, created_at, requested_model, model, route_reason, profile_id, upstream_id,
-                    provider_name, attempt_index, status_code
-             FROM proxy_request_logs
-             WHERE COALESCE(data_source, 'proxy') = 'proxy'
-               AND (hop IS NULL OR hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))
-               AND route_reason IS NOT NULL AND trim(route_reason) != ''
-             ORDER BY created_at DESC LIMIT ?;"
+            "COALESCE(l.data_source, 'proxy') = 'proxy'
+               AND (l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))
+               AND l.route_reason IS NOT NULL AND trim(l.route_reason) != ''"
         };
-        let mut stmt = conn.prepare(sql)?;
+        let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs l WHERE {where_sql}");
+        let total: i64 = if let Some(target) = target {
+            conn.query_row(&count_sql, rusqlite::params![target.as_str()], |row| row.get(0))?
+        } else {
+            conn.query_row(&count_sql, [], |row| row.get(0))?
+        };
+        let columns = format!(
+            "l.id, l.created_at, l.requested_model, l.model, l.route_reason, l.route_mode,
+                    l.profile_id, l.upstream_id, l.provider_name, l.attempt_index, l.status_code,
+                    COALESCE(l.duration_ms, 0), COALESCE(l.input_tokens, 0),
+                    COALESCE(l.cache_read_input_tokens, 0), COALESCE(l.cache_creation_input_tokens, 0),
+                    COALESCE(l.output_tokens, 0), l.error_category, l.stream_outcome,
+                    COALESCE({cost}, 0)"
+        );
+        let sql = format!(
+            "SELECT {columns}
+             FROM proxy_request_logs l
+             LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(l.model, ''))
+             WHERE {where_sql}
+             ORDER BY l.created_at DESC LIMIT ? OFFSET ?;"
+        );
+        let mut stmt = conn.prepare(&sql)?;
         let map_row = |row: &rusqlite::Row<'_>| {
             Ok(GatewayRouteLog {
                 id: row.get(0)?,
@@ -140,20 +175,35 @@ pub fn list_gateway_route_logs(
                 requested_model: row.get(2)?,
                 model: row.get(3)?,
                 route_reason: row.get(4)?,
-                profile_id: row.get(5)?,
-                upstream_id: row.get(6)?,
-                provider_name: row.get(7)?,
-                attempt_index: row.get::<_, Option<i64>>(8)?.unwrap_or(0),
-                status_code: row.get(9)?,
+                route_mode: row.get(5)?,
+                profile_id: row.get(6)?,
+                upstream_id: row.get(7)?,
+                provider_name: row.get(8)?,
+                attempt_index: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
+                status_code: row.get(10)?,
+                duration_ms: row.get::<_, Option<i64>>(11)?.unwrap_or(0),
+                input_tokens: row.get::<_, Option<i64>>(12)?.unwrap_or(0),
+                cache_read_input_tokens: row.get::<_, Option<i64>>(13)?.unwrap_or(0),
+                cache_creation_input_tokens: row.get::<_, Option<i64>>(14)?.unwrap_or(0),
+                output_tokens: row.get::<_, Option<i64>>(15)?.unwrap_or(0),
+                error_category: row.get(16)?,
+                stream_outcome: row.get(17)?,
+                estimated_cost: row.get::<_, Option<f64>>(18)?.unwrap_or(0.0),
             })
         };
-        if let Some(target) = target {
-            let rows = stmt.query_map(rusqlite::params![target.as_str(), cap], map_row)?;
-            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        let data = if let Some(target) = target {
+            let rows = stmt.query_map(rusqlite::params![target.as_str(), cap, skip], map_row)?;
+            rows.collect::<Result<Vec<_>, _>>()?
         } else {
-            let rows = stmt.query_map(rusqlite::params![cap], map_row)?;
-            rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
-        }
+            let rows = stmt.query_map(rusqlite::params![cap, skip], map_row)?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+        Ok(PaginatedGatewayRouteLogs {
+            data,
+            total,
+            page,
+            page_size: cap,
+        })
     })
 }
 
@@ -551,4 +601,89 @@ pub async fn list_route_mode_usage_stats(
     })
     .await
     .map_err(|e| AppError::Database(format!("route mode usage stats task failed: {e}")))?
+}
+
+#[tauri::command]
+pub fn simulate_gateway_route(
+    input: crate::gateway::simulate::SimulateRouteInput,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::simulate::SimulateRouteResult> {
+    crate::gateway::simulate::simulate(&state.db, input)
+}
+
+#[tauri::command]
+pub fn list_gateway_upstream_health(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<crate::gateway::health::UpstreamHealth>> {
+    let ids = state
+        .db
+        .with_read_conn(|conn| list_upstream_providers(conn, true))?
+        .into_iter()
+        .map(|provider| provider.id)
+        .collect::<Vec<_>>();
+    Ok(crate::gateway::health::list_for_upstreams(&ids))
+}
+
+#[tauri::command]
+pub fn get_smart_gateway_inbound_limits(
+    state: tauri::State<'_, AppState>,
+) -> crate::gateway::inbound::InboundLimitSettings {
+    crate::gateway::inbound::load_from_db(&state.db)
+}
+
+#[tauri::command]
+pub fn set_smart_gateway_inbound_limits(
+    settings: crate::gateway::inbound::InboundLimitSettings,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::inbound::InboundLimitSettings> {
+    crate::gateway::inbound::persist(&state.db, &settings)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SmartGatewayBudgetView {
+    pub daily_budget_usd: f64,
+    pub action: String,
+    pub fallback_model: String,
+    pub today_spend_usd: f64,
+}
+
+#[tauri::command]
+pub fn get_smart_gateway_budget(
+    state: tauri::State<'_, AppState>,
+) -> SmartGatewayBudgetView {
+    let settings = crate::gateway::budget::load_from_db(&state.db);
+    SmartGatewayBudgetView {
+        daily_budget_usd: settings.daily_budget_usd,
+        action: settings.action,
+        fallback_model: settings.fallback_model,
+        today_spend_usd: crate::gateway::budget::today_spend_usd(&state.db),
+    }
+}
+
+#[tauri::command]
+pub fn set_smart_gateway_budget(
+    settings: crate::gateway::budget::BudgetSettings,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<SmartGatewayBudgetView> {
+    crate::gateway::budget::persist(&state.db, &settings)?;
+    Ok(SmartGatewayBudgetView {
+        daily_budget_usd: settings.daily_budget_usd,
+        action: settings.action,
+        fallback_model: settings.fallback_model,
+        today_spend_usd: crate::gateway::budget::today_spend_usd(&state.db),
+    })
+}
+
+#[tauri::command]
+pub fn get_smart_gateway_health_probe_secs(state: tauri::State<'_, AppState>) -> u64 {
+    crate::gateway::health::probe_interval_secs(&state.db)
+}
+
+#[tauri::command]
+pub fn set_smart_gateway_health_probe_secs(
+    secs: u64,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<u64> {
+    crate::gateway::health::persist_probe_interval(&state.db, secs)
 }

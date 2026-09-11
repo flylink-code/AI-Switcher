@@ -307,6 +307,7 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
         .route("/health", get(health_handler))
         .route("/v1/models", get(models_handler))
         .route("/v1/messages", any(proxy_handler))
+        .route("/v1/messages/count_tokens", any(count_tokens_handler))
         .route("/v1/chat/completions", any(smart_gateway_openai_handler))
         .route("/v1/responses", any(smart_gateway_openai_handler))
         .route("/v1/responses/compact", any(smart_gateway_openai_handler))
@@ -331,7 +332,47 @@ async fn smart_gateway_openai_handler(
     if let Some(target) = resolve_binding_target(&state, &headers) {
         state.target = target;
     }
+    state.correlation = Some(crate::gateway::correlation::resolve(
+        &headers,
+        crate::gateway::correlation::HOP_SMART_GATEWAY,
+        Some(state.target.as_str()),
+    ));
+    let _inbound_permit = match acquire_smart_gateway_inbound().await {
+        Ok(permit) => permit,
+        Err(response) => return response,
+    };
     codex::codex_proxy_handler(State(state), uri, method, headers, body).await
+}
+
+async fn count_tokens_handler(
+    State(mut state): State<ProxyState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if let Err(error) = validate_listener_auth(&state, &headers) {
+        return gateway_auth_error(error);
+    }
+    if let Some(target) = resolve_binding_target(&state, &headers) {
+        state.target = target;
+    }
+    let _inbound_permit = match acquire_smart_gateway_inbound().await {
+        Ok(permit) => permit,
+        Err(response) => return response,
+    };
+    crate::gateway::count_tokens::handle(state, headers, body).await
+}
+
+async fn acquire_smart_gateway_inbound(
+) -> Result<crate::gateway::inbound::InboundPermit, Response> {
+    crate::gateway::inbound::acquire()
+        .await
+        .map_err(|error| {
+            json_error_with_retry_after(
+                StatusCode::TOO_MANY_REQUESTS,
+                error.message,
+                Some(error.retry_after_secs),
+            )
+        })
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -411,6 +452,7 @@ pub(crate) fn record_provider_success(state: &ProxyState, provider_id: &str) {
     if let Ok(mut circuits) = state.circuits.lock() {
         circuits.remove(provider_id);
     }
+    crate::gateway::health::record_success(provider_id, None);
 }
 
 pub(crate) fn record_provider_failure(state: &ProxyState, provider_id: &str) {
@@ -424,6 +466,7 @@ pub(crate) fn record_provider_failure(state: &ProxyState, provider_id: &str) {
             circuit.open_until = Some(Instant::now() + std::time::Duration::from_secs(CIRCUIT_OPEN_SECONDS));
         }
     }
+    crate::gateway::health::record_failure(provider_id);
 }
 
 pub(crate) fn next_failover_provider(
@@ -472,9 +515,13 @@ pub(crate) fn next_failover_provider_ex(
         }
     }
     candidates.sort_by(|left, right| {
+        let (left_rank, left_latency) = crate::gateway::health::rank_for_failover(&left.id);
+        let (right_rank, right_latency) = crate::gateway::health::rank_for_failover(&right.id);
         left.failover_group
             .cmp(&right.failover_group)
             .then(left.sort_index.cmp(&right.sort_index))
+            .then(left_rank.cmp(&right_rank))
+            .then(left_latency.cmp(&right_latency))
             .then(left.created_at.cmp(&right.created_at))
             .then(left.id.cmp(&right.id))
     });
@@ -593,7 +640,7 @@ pub(crate) fn gateway_catalog_enabled(state: &ProxyState) -> bool {
     state.listener_kind == ListenerKind::SmartGateway
 }
 
-fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
+pub(crate) fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
     if provider.is_codex_oauth() {
         match crate::codex_oauth::manager().get_valid_token(Some(&provider.auth_binding)) {
             Ok((token, account_id)) => {

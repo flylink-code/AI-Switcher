@@ -20,25 +20,28 @@ import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
 import StopOutlined from "@ant-design/icons/es/icons/StopOutlined";
 import LinkOutlined from "@ant-design/icons/es/icons/LinkOutlined";
 import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
-import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import ExperimentOutlined from "@ant-design/icons/es/icons/ExperimentOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   GatewayUpstreamPanel,
+  GatewayLimitsCard,
   RouteModesHelpButton,
   RouteModesHelpDrawer,
   RouteModesTutorialButton,
+  RouteRulesCard,
+  RouteSimulatorDrawer,
   type RouteHelpTab,
 } from "@/components/proxy";
 import AntigravityPage from "@/pages/AntigravityPage";
 import { BIND_TARGETS } from "@/components/antigravity";
+import { OnboardingTip } from "@/components/OnboardingTip";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { listModelPricing } from "@/services/usage";
 import {
   bindSmartGateway,
-  deleteRouteRule,
   getSmartGatewayStatus,
   listGatewayCatalogEntries,
   listGatewayRouteLogs,
@@ -53,13 +56,15 @@ import {
   stopSmartGateway,
   unbindSmartGateway,
   updateRouteMode,
-  upsertRouteRule,
 } from "@/services/providers";
-import type { ProviderTarget, RouteMode, RouteRule, GatewayCatalogModelOption } from "@/types/backend";
+import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog } from "@/types/backend";
+import { formatCompactNumber } from "@/utils/formatCompact";
 
 const { Text, Paragraph } = Typography;
 
 type SnippetKind = "sdk" | "openai" | "anthropic" | "responses";
+
+const ROUTE_LOG_PAGE_SIZE = 20;
 
 const MODE_ORDER = [
   "image_gen",
@@ -72,6 +77,31 @@ const MODE_ORDER = [
   "edit",
   "default",
 ] as const;
+
+function routeModeColor(mode?: string | null): string {
+  switch (mode) {
+    case "long_context":
+      return "purple";
+    case "think":
+      return "blue";
+    case "plan":
+      return "cyan";
+    case "edit":
+      return "orange";
+    case "background":
+      return "geekblue";
+    case "web_search":
+      return "green";
+    case "vision":
+      return "magenta";
+    case "image_gen":
+      return "gold";
+    case "default":
+      return "default";
+    default:
+      return "default";
+  }
+}
 
 function modeCapabilityWarning(
   row: RouteMode,
@@ -122,39 +152,67 @@ export default function GatewayPage() {
   const queryClient = useQueryClient();
   const tab = usePagePreferencesStore((state) => state.gatewayTab);
   const setTab = usePagePreferencesStore((state) => state.setGatewayTab);
+  const section = usePagePreferencesStore((state) => state.gatewaySection);
+  const setSection = usePagePreferencesStore((state) => state.setGatewaySection);
+  const snippetVisible = usePagePreferencesStore((state) => state.gatewaySnippetVisible);
+  const setSnippetVisible = usePagePreferencesStore((state) => state.setGatewaySnippetVisible);
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
   const [port, setPort] = useState(15828);
   const [apiKeyDraft, setApiKeyDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [curlVisible, setCurlVisible] = useState(true);
+  const [routeLogPage, setRouteLogPage] = useState(0);
   const [snippetKind, setSnippetKind] = useState<SnippetKind>("sdk");
   const [modesHelpOpen, setModesHelpOpen] = useState(false);
   const [modesHelpTab, setModesHelpTab] = useState<RouteHelpTab>("guide");
+  const [simulateOpen, setSimulateOpen] = useState(false);
+
+  const smartTab = tab === "smart";
+  const serviceSection = smartTab && section === "service";
+  const routingSection = smartTab && section === "routing";
+  const upstreamsSection = smartTab && section === "upstreams";
+  const logsSection = smartTab && section === "logs";
 
   const statusQuery = useQuery({
     queryKey: ["smart-gateway-status"],
     queryFn: getSmartGatewayStatus,
+    enabled: serviceSection,
   });
   const bindingsQuery = useQuery({
     queryKey: ["smart-gateway-bindings"],
     queryFn: listSmartGatewayBindings,
+    enabled: serviceSection,
   });
-  const modesQuery = useQuery({ queryKey: ["route-modes"], queryFn: listRouteModes });
-  const rulesQuery = useQuery({ queryKey: ["route-rules"], queryFn: listRouteRules });
+  const modesQuery = useQuery({
+    queryKey: ["route-modes"],
+    queryFn: listRouteModes,
+    enabled: routingSection,
+  });
+  const rulesQuery = useQuery({
+    queryKey: ["route-rules"],
+    queryFn: listRouteRules,
+    enabled: routingSection,
+  });
   const routesQuery = useQuery({
-    queryKey: ["gateway-route-logs-all"],
-    queryFn: () => listGatewayRouteLogs(null, 20),
+    queryKey: ["gateway-route-logs-all", routeLogPage],
+    queryFn: () => listGatewayRouteLogs(null, ROUTE_LOG_PAGE_SIZE, routeLogPage * ROUTE_LOG_PAGE_SIZE),
+    enabled: logsSection,
   });
   const statsQuery = useQuery({
     queryKey: ["route-mode-usage"],
     queryFn: listRouteModeUsageStats,
     staleTime: 60_000,
+    enabled: routingSection,
   });
   const catalogQuery = useQuery({
     queryKey: ["gateway-catalog-entries", "claude_code"],
     queryFn: () => listGatewayCatalogEntries("claude_code"),
+    enabled: routingSection || upstreamsSection,
   });
-  const pricingQuery = useQuery({ queryKey: ["model-pricing"], queryFn: listModelPricing });
+  const pricingQuery = useQuery({
+    queryKey: ["model-pricing"],
+    queryFn: listModelPricing,
+    enabled: routingSection || upstreamsSection,
+  });
 
   const status = statusQuery.data;
   const apiKey = apiKeyDraft ?? status?.apiKey ?? "";
@@ -328,15 +386,38 @@ export default function GatewayPage() {
           { value: "antigravity", label: t("gateway.tabAntigravity", { defaultValue: "反代网关" }) },
         ]}
       />
+      <Segmented
+        size="small"
+        value={section}
+        onChange={(value) => {
+          switch (value) {
+            case "service":
+            case "routing":
+            case "upstreams":
+            case "logs":
+              setSection(value);
+              break;
+            default:
+              break;
+          }
+        }}
+        options={[
+          { value: "service", label: t("gateway.sectionService", { defaultValue: "服务与绑定" }) },
+          { value: "routing", label: t("gateway.sectionRouting", { defaultValue: "路由与规则" }) },
+          { value: "upstreams", label: t("gateway.sectionUpstreams", { defaultValue: "上游与限额" }) },
+          { value: "logs", label: t("gateway.sectionLogs", { defaultValue: "最近路由" }) },
+        ]}
+      />
 
-      <Alert
-        type="info"
-        showIcon
+      <OnboardingTip
+        tipKey="gateway_catalog_refresh"
         message={t("gateway.catalogRefreshHint", {
           defaultValue: "Claude Code / Desktop / Codex 通过 /v1/models 拉目录，变更后需重启 Agent 才刷新。OpenCode / Pi / DSH / Cline 会立即重写配置。",
         })}
       />
 
+      {section === "service" ? (
+      <>
       <Card
         size="small"
         title={t("gateway.service", { defaultValue: "智能网关服务" })}
@@ -371,12 +452,13 @@ export default function GatewayPage() {
             </Text>
           </Space>
 
-          <Text type="secondary">
-            {t("gateway.externalHint", {
+          <OnboardingTip
+            tipKey="gateway_external"
+            message={t("gateway.externalHint", {
               defaultValue:
                 "对外 API Key 已自动生成，自定义 Agent 直接复制即可，不必绑定。把 Base URL 指到访问地址，模型用 auto。已绑定应用仍用各自入口令牌。",
             })}
-          </Text>
+          />
 
           <Input
             readOnly
@@ -432,12 +514,13 @@ export default function GatewayPage() {
             </Button>
           </Space>
 
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t("gateway.externalEndpoints", {
+          <OnboardingTip
+            tipKey="gateway_endpoints"
+            message={t("gateway.externalEndpoints", {
               defaultValue:
                 "协议：Anthropic POST /v1/messages；OpenAI Chat POST /v1/chat/completions；Responses POST /v1/responses；目录 GET /v1/models；绘图 POST /v1/images/generations。OpenAI 风格模型名可加请求头 x-ai-switcher-target: codex。",
             })}
-          </Text>
+          />
 
           <Space wrap>
             <Segmented
@@ -460,17 +543,17 @@ export default function GatewayPage() {
                 : t("antigravity.copyCurl", { defaultValue: "复制测试命令" })}
             </Button>
           </Space>
-          {curlVisible ? (
+          {snippetVisible ? (
             <Paragraph style={{ marginBottom: 0 }}>
               <pre style={{ margin: 0, padding: 8, borderRadius: 6, background: "var(--ant-color-bg-layout, #f5f5f5)", whiteSpace: "pre-wrap", fontSize: 12 }}>
                 {curlSnippet}
               </pre>
-              <Button type="link" size="small" style={{ padding: 0, marginTop: 4 }} onClick={() => setCurlVisible(false)}>
+              <Button type="link" size="small" style={{ padding: 0, marginTop: 4 }} onClick={() => setSnippetVisible(false)}>
                 {t("antigravity.hideTestCommand", { defaultValue: "收起测试命令" })}
               </Button>
             </Paragraph>
           ) : (
-            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setCurlVisible(true)}>
+            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setSnippetVisible(true)}>
               {t("antigravity.viewTestCommand", { defaultValue: "查看测试命令" })}
             </Button>
           )}
@@ -481,7 +564,11 @@ export default function GatewayPage() {
       </Card>
 
       <Card size="small" title={t("gateway.bindApps", { defaultValue: "绑定应用" })}>
-        <Text type="secondary">{t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。自定义 Agent 用上方 API Key 即可，不必绑定。" })}</Text>
+        <OnboardingTip
+          tipKey="gateway_bind"
+          message={t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。自定义 Agent 用上方 API Key 即可，不必绑定。" })}
+          style={{ marginBottom: 12 }}
+        />
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           {BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => {
             const isBound = bound.has(target);
@@ -500,14 +587,31 @@ export default function GatewayPage() {
           })}
         </div>
       </Card>
+      </>
+      ) : null}
 
+      {section === "upstreams" ? (
+      <>
       <GatewayUpstreamPanel allowlistTarget="claude_code" />
 
+      <GatewayLimitsCard modelOptions={modelOptions} />
+      </>
+      ) : null}
+
+      {section === "routing" ? (
+      <>
       <Card
         size="small"
         title={t("gateway.routeModes", { defaultValue: "路由模式" })}
         extra={
           <Space size={8}>
+            <Button
+              size="small"
+              icon={<ExperimentOutlined />}
+              onClick={() => setSimulateOpen(true)}
+            >
+              {t("gateway.simulate", { defaultValue: "试跑" })}
+            </Button>
             <RouteModesHelpButton
               onClick={() => {
                 setModesHelpTab("guide");
@@ -647,17 +751,24 @@ export default function GatewayPage() {
               title: t("gateway.threshold", { defaultValue: "阈值" }),
               render: (_: unknown, row: RouteMode) =>
                 row.id === "long_context" ? (
-                  <InputNumber
-                    min={0}
-                    placeholder="20000"
-                    value={row.threshold}
-                    addonAfter={t("gateway.thresholdUnit", { defaultValue: "token" })}
-                    onChange={(value) => {
-                      void updateRouteMode(row.id, { threshold: value ?? 0 }).then(() => {
-                        void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                      });
-                    }}
-                  />
+                  <Tooltip
+                    title={t("gateway.thresholdHint", {
+                      defaultValue:
+                        "估算口径：CJK 约 1 token/字，ASCII 约 4 字符/token。新行默认 60000，不自动改写已有阈值。可用试跑器对照实时估算。",
+                    })}
+                  >
+                    <InputNumber
+                      min={0}
+                      placeholder="60000"
+                      value={row.threshold}
+                      addonAfter={t("gateway.thresholdUnit", { defaultValue: "token" })}
+                      onChange={(value) => {
+                        void updateRouteMode(row.id, { threshold: value ?? 0 }).then(() => {
+                          void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
+                        });
+                      }}
+                    />
+                  </Tooltip>
                 ) : (
                   "—"
                 ),
@@ -687,127 +798,13 @@ export default function GatewayPage() {
         />
       </Card>
 
-      <Card
-        size="small"
-        title={t("gateway.routeRules", { defaultValue: "条件规则" })}
-        extra={
-          <Button
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              const rule: RouteRule = {
-                id: `rule_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
-                profileId: "gprof_shared",
-                enabled: true,
-                sortIndex: (rulesQuery.data?.length ?? 0),
-                ruleType: "model-prefix",
-                conditionJson: "{}",
-                pattern: "",
-                targetModel: "",
-                thinkingConfigJson: "{}",
-                rewritesJson: "[]",
-              };
-              void upsertRouteRule(rule).then(() => {
-                void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-              });
-            }}
-          >
-            {t("gateway.addRule", { defaultValue: "添加规则" })}
-          </Button>
-        }
-      >
-        <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
-          {t("gateway.rulesHelpIntro", {
-            defaultValue:
-              "规则优先于模式、排在显式模型之后。model-prefix 按客户端模型名前缀匹配；condition 用 token/工具/是否含图等左值。不做 JS 脚本。",
-          })}
-        </Text>
-        <Table
-          columns={[
-            {
-              title: t("gateway.ruleType", { defaultValue: "类型" }),
-              dataIndex: "ruleType",
-              render: (value: string, row: RouteRule) => (
-                <Select
-                  value={value}
-                  options={[
-                    { value: "model-prefix", label: "model-prefix" },
-                    { value: "condition", label: "condition" },
-                  ]}
-                  onChange={(ruleType) => {
-                    void upsertRouteRule({ ...row, ruleType }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-                    });
-                  }}
-                />
-              ),
-            },
-            {
-              title: t("gateway.pattern", { defaultValue: "匹配" }),
-              render: (_: unknown, row: RouteRule) => (
-                <Input
-                  defaultValue={row.ruleType === "condition" ? row.conditionJson : row.pattern}
-                  onBlur={(event) => {
-                    const value = event.target.value;
-                    const next = row.ruleType === "condition"
-                      ? { ...row, conditionJson: value }
-                      : { ...row, pattern: value };
-                    void upsertRouteRule(next).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-                    });
-                  }}
-                />
-              ),
-            },
-            {
-              title: t("gateway.targetModel", { defaultValue: "目标模型" }),
-              render: (_: unknown, row: RouteRule) => (
-                <Select
-                  showSearch
-                  allowClear
-                  style={{ minWidth: 220 }}
-                  value={row.targetModel || undefined}
-                  options={modelOptions}
-                  onChange={(value) => {
-                    void upsertRouteRule({ ...row, targetModel: value ?? "" }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-                    });
-                  }}
-                />
-              ),
-            },
-            {
-              title: t("gateway.enabled", { defaultValue: "启用" }),
-              render: (_: unknown, row: RouteRule) => (
-                <Switch
-                  checked={row.enabled}
-                  onChange={(enabled) => {
-                    void upsertRouteRule({ ...row, enabled }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-                    });
-                  }}
-                />
-              ),
-            },
-            {
-              title: "",
-              render: (_: unknown, row: RouteRule) => (
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => {
-                    void deleteRouteRule(row.id).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
-                    });
-                  }}
-                >
-                  {t("common.delete", { defaultValue: "删除" })}
-                </Button>
-              ),
-            },
-          ]}
-        />
-      </Card>
+      <RouteRulesCard
+        rules={rulesQuery.data ?? []}
+        loading={rulesQuery.isLoading}
+        modelOptions={modelOptions}
+      />
+      </>
+      ) : null}
 
       <RouteModesHelpDrawer
         open={modesHelpOpen}
@@ -815,22 +812,69 @@ export default function GatewayPage() {
         tab={modesHelpTab}
         onTabChange={setModesHelpTab}
       />
+      <RouteSimulatorDrawer
+        open={simulateOpen}
+        onClose={() => setSimulateOpen(false)}
+        modelOptions={modelOptions}
+      />
 
+      {section === "logs" ? (
       <Card size="small" title={t("proxy.recentRoutes")}>
         <Table
           size="small"
           rowKey="id"
-          pagination={false}
-          dataSource={routesQuery.data ?? []}
+          dataSource={routesQuery.data?.data ?? []}
+          loading={routesQuery.isPending && !routesQuery.data}
+          pagination={{
+            current: (routesQuery.data?.page ?? routeLogPage) + 1,
+            pageSize: routesQuery.data?.pageSize ?? ROUTE_LOG_PAGE_SIZE,
+            total: routesQuery.data?.total ?? 0,
+            showSizeChanger: false,
+            onChange: (page) => setRouteLogPage(page - 1),
+          }}
           columns={[
-            { title: t("gateway.reason", { defaultValue: "依据" }), dataIndex: "routeReason" },
-            { title: t("gateway.requested", { defaultValue: "请求" }), dataIndex: "requestedModel" },
-            { title: t("gateway.model", { defaultValue: "模型" }), dataIndex: "model" },
-            { title: t("gateway.upstream", { defaultValue: "上游" }), dataIndex: "providerName" },
-            { title: "HTTP", dataIndex: "statusCode" },
+            {
+              title: t("gateway.time", { defaultValue: "时间" }),
+              dataIndex: "createdAt",
+              width: 90,
+              render: (value: number) => new Date(value).toLocaleTimeString(),
+            },
+            {
+              title: t("gateway.reason", { defaultValue: "依据" }),
+              render: (_: unknown, row: GatewayRouteLog) => (
+                <Tag color={routeModeColor(row.routeMode)}>
+                  {row.routeReason ?? row.routeMode ?? "—"}
+                </Tag>
+              ),
+            },
+            { title: t("gateway.requested", { defaultValue: "请求" }), dataIndex: "requestedModel", ellipsis: true },
+            { title: t("gateway.model", { defaultValue: "模型" }), dataIndex: "model", ellipsis: true },
+            { title: t("gateway.upstream", { defaultValue: "上游" }), dataIndex: "providerName", ellipsis: true },
+            {
+              title: t("gateway.duration", { defaultValue: "耗时" }),
+              dataIndex: "durationMs",
+              width: 80,
+              render: (value: number) => `${value}ms`,
+            },
+            {
+              title: "Token",
+              width: 110,
+              render: (_: unknown, row: GatewayRouteLog) => {
+                const input = row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens;
+                return `${formatCompactNumber(input)} / ${formatCompactNumber(row.outputTokens)}`;
+              },
+            },
+            {
+              title: t("gateway.cost", { defaultValue: "费用" }),
+              dataIndex: "estimatedCost",
+              width: 80,
+              render: (value: number) => `$${Number(value ?? 0).toFixed(4)}`,
+            },
+            { title: "HTTP", dataIndex: "statusCode", width: 64 },
           ]}
         />
       </Card>
+      ) : null}
     </Space>
   );
 }

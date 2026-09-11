@@ -22,6 +22,14 @@ async fn proxy_handler(
         hop,
         Some(state.target.as_str()),
     ));
+    let _inbound_permit = if state.listener_kind == ListenerKind::SmartGateway {
+        match acquire_smart_gateway_inbound().await {
+            Ok(permit) => Some(permit),
+            Err(response) => return response,
+        }
+    } else {
+        None
+    };
     state.request_path = uri.path().to_string();
     let started = Instant::now();
 
@@ -99,12 +107,26 @@ async fn proxy_handler(
     let incoming_stream = convert::wants_stream(&incoming);
     let mut incoming = incoming;
     web_tools::rewrite_server_tools(&mut incoming);
-    let mut body_bytes = Bytes::from(serde_json::to_vec(&incoming).unwrap_or_else(|_| body_bytes.to_vec()));
     let mut requested_model = incoming
         .get("model")
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    if state.listener_kind == ListenerKind::SmartGateway {
+        if let Err((message, retry_after)) =
+            crate::gateway::budget::apply_to_request(&state.db, &mut requested_model)
+        {
+            return json_error_with_retry_after(
+                StatusCode::TOO_MANY_REQUESTS,
+                message,
+                Some(retry_after),
+            );
+        }
+        if let Some(object) = incoming.as_object_mut() {
+            object.insert("model".to_string(), Value::String(requested_model.clone()));
+        }
+    }
+    let mut body_bytes = Bytes::from(serde_json::to_vec(&incoming).unwrap_or_else(|_| body_bytes.to_vec()));
     let mut is_catalog_subagent = false;
     let mut route_decision: Option<crate::gateway::RouteDecision> = None;
     let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;

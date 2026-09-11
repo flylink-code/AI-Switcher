@@ -28,11 +28,11 @@ use super::codex_chat::{
 use super::{
     codex_auto_review::{apply_auto_review_model_override, has_subagent_header}, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
-    log_early_failure, log_request, log_request_with_diagnostic, next_failover_provider,
-    next_failover_provider_ex, record_provider_failure,
+    json_error_with_retry_after, log_early_failure, log_request, log_request_with_diagnostic,
+    next_failover_provider, next_failover_provider_ex, record_provider_failure,
     record_provider_success, select_gateway_runtime_provider_with, CS_SUBAGENT_HEADER,
     session_prompt_cache_hint, should_failover_upstream_status_ex,
-    FAILOVER_MAX_HOPS, ProxyState,
+    FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -94,11 +94,30 @@ pub async fn codex_proxy_handler(
 
     let mut original_body = body;
     let incoming: Value = serde_json::from_slice(&original_body).unwrap_or(Value::Null);
-    let requested_model = incoming
+    let mut requested_model = incoming
         .get("model")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    if state.listener_kind == ListenerKind::SmartGateway {
+        if let Err((message, retry_after)) =
+            crate::gateway::budget::apply_to_request(&state.db, &mut requested_model)
+        {
+            return json_error_with_retry_after(
+                StatusCode::TOO_MANY_REQUESTS,
+                message,
+                Some(retry_after),
+            );
+        }
+        if incoming
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            != requested_model
+        {
+            original_body = Bytes::from(rewrite_json_model(&original_body, &requested_model));
+        }
+    }
     let catalog_mode = super::gateway_catalog_enabled(&state);
     let mut is_catalog_subagent = false;
     let mut route_decision = None;
@@ -918,6 +937,15 @@ fn prepare_codex_upstream(
     if is_catalog_subagent {
         request = request.header(CS_SUBAGENT_HEADER, "1");
     }
+    if let Some(correlation) = state.correlation.as_ref() {
+        request = request.header(
+            crate::gateway::correlation::REQUEST_ID_HEADER,
+            correlation.id.as_str(),
+        );
+        if let Some(target) = correlation.target_app.as_deref() {
+            request = request.header(crate::gateway::correlation::TARGET_APP_HEADER, target);
+        }
+    }
     for (name, value) in headers.iter() {
         let key = name.as_str();
         if is_hop_by_hop_header(key)
@@ -927,6 +955,8 @@ fn prepare_codex_upstream(
             || key.eq_ignore_ascii_case("x-api-key")
             || key.eq_ignore_ascii_case("anthropic-version")
             || key.eq_ignore_ascii_case("content-type")
+            || key.eq_ignore_ascii_case(crate::gateway::correlation::REQUEST_ID_HEADER)
+            || key.eq_ignore_ascii_case(crate::gateway::correlation::TARGET_APP_HEADER)
         {
             continue;
         }

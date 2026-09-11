@@ -37,6 +37,10 @@ const ONBOARDING_TIP_KEYS: &[&str] = &[
     "providers_codex_auth",
     "providers_hot_switch",
     "about",
+    "gateway_catalog_refresh",
+    "gateway_external",
+    "gateway_endpoints",
+    "gateway_bind",
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -604,6 +608,10 @@ mod tests {
         assert!(validate_onboarding_tip_key("providers_codex_auth").is_ok());
         assert!(validate_onboarding_tip_key("providers_hot_switch").is_ok());
         assert!(validate_onboarding_tip_key("about").is_ok());
+        assert!(validate_onboarding_tip_key("gateway_catalog_refresh").is_ok());
+        assert!(validate_onboarding_tip_key("gateway_external").is_ok());
+        assert!(validate_onboarding_tip_key("gateway_endpoints").is_ok());
+        assert!(validate_onboarding_tip_key("gateway_bind").is_ok());
         assert!(validate_onboarding_tip_key("anything-else").is_err());
     }
 

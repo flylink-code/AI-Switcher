@@ -25,7 +25,7 @@ const CATALOG_EXECUTE_KEY: &str = "gateway_catalog_claude_code_execute";
 pub const DEFAULT_PROFILE_PREFIX: &str = "gprof_";
 pub const SHARED_PROFILE_ID: &str = "gprof_shared";
 /// New long-context rows and leftover `threshold = 1` (matches almost every request).
-pub const DEFAULT_LONG_CONTEXT_THRESHOLD: i64 = 20_000;
+pub const DEFAULT_LONG_CONTEXT_THRESHOLD: i64 = 60_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

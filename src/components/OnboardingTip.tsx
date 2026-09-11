@@ -24,7 +24,11 @@ export type OnboardingTipKey =
   | "providers_codex_auth"
   | "providers_hot_switch"
   | "providers_opencode_multi"
-  | "about";
+  | "about"
+  | "gateway_catalog_refresh"
+  | "gateway_external"
+  | "gateway_endpoints"
+  | "gateway_bind";
 
 export function OnboardingTip({
   tipKey,

@@ -53,17 +53,115 @@ export interface AgentConnectionView {
   profile?: GatewayProfile | null;
 }
 
+export interface PaginatedGatewayRouteLogs {
+  data: GatewayRouteLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface GatewayRouteLog {
   id: string;
   createdAt: number;
   requestedModel?: string | null;
   model?: string | null;
   routeReason?: string | null;
+  routeMode?: string | null;
   profileId?: string | null;
   upstreamId?: string | null;
   providerName?: string | null;
   attemptIndex: number;
   statusCode?: number | null;
+  durationMs: number;
+  inputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  outputTokens: number;
+  errorCategory?: string | null;
+  streamOutcome?: string | null;
+  estimatedCost: number;
+}
+
+export interface GatewayUpstreamHealth {
+  upstreamId: string;
+  status: string;
+  consecutiveFailures: number;
+  cooldownRemainingMs: number;
+  lastLatencyMs?: number | null;
+  lastCheckedAt: number;
+}
+
+export interface SmartGatewayInboundLimits {
+  maxConcurrency: number;
+  minIntervalMs: number;
+  rpm: number;
+  burst: number;
+  acquireTimeoutSecs: number;
+}
+
+export interface SmartGatewayBudgetView {
+  dailyBudgetUsd: number;
+  action: string;
+  fallbackModel: string;
+  todaySpendUsd: number;
+}
+
+export interface SmartGatewayBudgetSettings {
+  dailyBudgetUsd: number;
+  action: string;
+  fallbackModel: string;
+}
+
+export interface SimulateGatewayRouteInput {
+  requestedModel?: string | null;
+  bodyJson?: string | null;
+  tokenCount?: number | null;
+  hasWebSearch?: boolean | null;
+  hasVision?: boolean | null;
+  hasThinking?: boolean | null;
+  isSubagent?: boolean | null;
+  isImageGen?: boolean | null;
+  toolNames?: string[] | null;
+  recentWriteTool?: string | null;
+  path?: string | null;
+  target?: ProviderTarget | null;
+}
+
+export interface SimulateRouteTraceStep {
+  stage: string;
+  id: string;
+  matched: boolean;
+  detail: string;
+}
+
+export interface SimulateGatewayRouteResult {
+  estimatedTokens: number;
+  decision?: {
+    requestedModel: string;
+    normalizedModel: string;
+    source: string;
+    reason: string;
+    profileId?: string | null;
+    upstreamId?: string | null;
+    diagnostics: string[];
+    modeId?: string | null;
+  } | null;
+  upstreamModel?: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  signals: {
+    tokenCount: number;
+    hasWebSearch: boolean;
+    hasVision: boolean;
+    hasThinking: boolean;
+    isSubagent: boolean;
+    isImageGen: boolean;
+    toolNames: string[];
+    recentWriteTool?: string | null;
+    path: string;
+    target: string;
+  };
+  steps: SimulateRouteTraceStep[];
 }
 
 export interface GatewayProfilePatch {

@@ -13,6 +13,7 @@ import {
   Space,
   Switch,
   Table,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -27,6 +28,7 @@ import {
   discoverGatewayUpstreamModels,
   discoverGatewayUpstreamModelsBatch,
   importGatewayUpstreamsFromProviders,
+  listGatewayUpstreamHealth,
   listGatewayUpstreamModels,
   listGatewayUpstreams,
   listProviders,
@@ -43,7 +45,7 @@ import {
   normalizeBaseUrl,
 } from "@/lib/providerUrl";
 import { ProviderQuotaView } from "@/components/ProviderQuotaView";
-import type { Provider, ProviderInput, ProviderTarget, ProtocolType } from "@/types/backend";
+import type { GatewayUpstreamHealth, Provider, ProviderInput, ProviderTarget, ProtocolType } from "@/types/backend";
 
 const { Text } = Typography;
 
@@ -52,6 +54,39 @@ const PROTOCOL_OPTIONS: { value: ProtocolType; label: string }[] = [
   { value: "openai_chat", label: "OpenAI Chat" },
   { value: "openai_responses", label: "OpenAI Responses" },
 ];
+
+function healthLabel(
+  row: GatewayUpstreamHealth | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+) {
+  if (!row || row.status === "unknown" || row.status === "ok") {
+    const latency = row?.lastLatencyMs != null
+      ? t("proxy.healthLatency", { ms: row.lastLatencyMs, defaultValue: "{{ms}}ms" })
+      : "";
+    return (
+      <Space size={4}>
+        <Tag color="green">{t("proxy.healthOk", { defaultValue: "正常" })}</Tag>
+        {latency ? <Text type="secondary">{latency}</Text> : null}
+      </Space>
+    );
+  }
+  if (row.status === "cooling") {
+    const secs = Math.max(1, Math.ceil(row.cooldownRemainingMs / 1000));
+    return (
+      <Space size={4}>
+        <Tag color="orange">{t("proxy.healthCooling", { secs, defaultValue: "冷却中 {{secs}}s" })}</Tag>
+        <Text type="secondary">×{row.consecutiveFailures}</Text>
+      </Space>
+    );
+  }
+  return (
+    <Space size={4}>
+      <Tag color="red">{t("proxy.healthFailing", { defaultValue: "连续失败" })}</Tag>
+      <Text type="secondary">×{row.consecutiveFailures}</Text>
+      {row.lastLatencyMs != null ? <Text type="secondary">{row.lastLatencyMs}ms</Text> : null}
+    </Space>
+  );
+}
 
 function canQueryUpstreamQuota(row: Provider): boolean {
   if (!row.apiKeySet) return false;
@@ -106,6 +141,11 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
     queryKey: ["gateway-upstreams"],
     queryFn: listGatewayUpstreams,
   });
+  const healthQuery = useQuery({
+    queryKey: ["gateway-upstream-health"],
+    queryFn: listGatewayUpstreamHealth,
+    refetchInterval: 15_000,
+  });
   const importProvidersQuery = useQuery({
     queryKey: ["providers", importTarget],
     queryFn: () => listProviders(importTarget),
@@ -139,6 +179,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
 
   const invalidatePool = async () => {
     await queryClient.invalidateQueries({ queryKey: ["gateway-upstreams"] });
+    await queryClient.invalidateQueries({ queryKey: ["gateway-upstream-health"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
   };
@@ -437,6 +478,15 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
               canQueryUpstreamQuota(row) ? (
                 <ProviderQuotaView providerId={row.id} />
               ) : null,
+          },
+          {
+            title: t("proxy.upstreamHealth", { defaultValue: "健康" }),
+            width: 180,
+            render: (_: unknown, row: Provider) =>
+              healthLabel(
+                (healthQuery.data ?? []).find((item) => item.upstreamId === row.id),
+                t,
+              ),
           },
           {
             title: t("proxy.upstreamActions"),

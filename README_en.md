@@ -1,10 +1,10 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.1**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.2**
 
-**This release:** The smart gateway upstream pool now shows provider quotas and balances. The title bar shows the current version and checks for updates on click. The overview year heatmap loads trend data only. Plan / think / edit now beat long context. Otherwise same as 1.5.0.
+**This release:** The smart gateway page is split into Service & bind / Routing & rules / Upstreams & limits / Recent routes, with dismissible tips and paginated recent routes. Upstream health, optional inbound limits, and a daily spend cap. Usage groups by route mode (Schema 32). Otherwise same as 1.5.1.
 
-**Upgrade note:** Schema 28→31 is one-way. Back up `~/.claude-switcher` first; 1.4.12 cannot open that database afterwards. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 31.
+**Upgrade note:** Schema 31→32 is one-way. Back up `~/.claude-switcher` first. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 32.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

@@ -59,7 +59,7 @@ pub const PROXY_STREAMING_IDLE_TIMEOUT_KEY: &str = "proxy_streaming_idle_timeout
 const DEFAULT_STREAMING_IDLE_TIMEOUT_SECS: u64 = 180;
 const MAX_UPSTREAM_ERROR_BYTES: usize = 16 * 1024;
 const CIRCUIT_FAILURE_THRESHOLD: u8 = 2;
-const CIRCUIT_OPEN_SECONDS: u64 = 60;
+pub(crate) const CIRCUIT_OPEN_SECONDS: u64 = 60;
 /// Max alternate upstreams tried on a single failing request chain.
 pub(crate) const FAILOVER_MAX_HOPS: usize = 3;
 

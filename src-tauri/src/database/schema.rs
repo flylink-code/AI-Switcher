@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 31;
+pub const SCHEMA_VERSION: u32 = 32;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -113,7 +113,8 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             requested_model TEXT,
             upstream_id  TEXT,
             correlation_id TEXT,
-            hop TEXT
+            hop TEXT,
+            route_mode TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
@@ -421,6 +422,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 31 {
         migrate_v30_to_v31(conn)?;
+    }
+    if current < 32 {
+        migrate_v31_to_v32(conn)?;
     }
     Ok(())
 }
@@ -1187,6 +1191,34 @@ fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 31)
 }
 
+fn migrate_v31_to_v32(conn: &Connection) -> AppResult<()> {
+    add_proxy_log_route_mode_column(conn)?;
+    set_user_version(conn, 32)
+}
+
+fn add_proxy_log_route_mode_column(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'route_mode';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has == 0 {
+        conn.execute_batch("ALTER TABLE proxy_request_logs ADD COLUMN route_mode TEXT;")?;
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_logs_route_mode ON proxy_request_logs(route_mode);",
+    )?;
+    Ok(())
+}
+
 fn add_proxy_log_correlation_columns(conn: &Connection) -> AppResult<()> {
     let table_exists: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
@@ -1355,7 +1387,7 @@ mod tests {
                 |r| r.get(0),
             )?;
             assert_eq!(dropped, 0);
-            for column in ["correlation_id", "hop"] {
+            for column in ["correlation_id", "hop", "route_mode"] {
                 let has: i64 = conn.query_row(
                     "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
                     [column],

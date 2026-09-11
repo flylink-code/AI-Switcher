@@ -9,6 +9,11 @@ pub mod modes;
 pub mod rules;
 pub mod service;
 pub mod thinking;
+pub mod health;
+pub mod inbound;
+pub mod budget;
+pub mod simulate;
+pub mod count_tokens;
 
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
@@ -75,6 +80,21 @@ impl RouteSource {
             _ => Self::ProfileDefault,
         }
     }
+
+    pub fn mode_id(self) -> Option<&'static str> {
+        match self {
+            RouteSource::Explicit | RouteSource::Rule => None,
+            RouteSource::Auto | RouteSource::ProfileDefault => Some("default"),
+            RouteSource::RolePlan | RouteSource::Plan => Some("plan"),
+            RouteSource::RoleExecute | RouteSource::Edit => Some("edit"),
+            RouteSource::RoleSubagent => Some("background"),
+            RouteSource::Think => Some("think"),
+            RouteSource::LongContext => Some("long_context"),
+            RouteSource::WebSearch => Some("web_search"),
+            RouteSource::Vision => Some("vision"),
+            RouteSource::ImageGen => Some("image_gen"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +113,8 @@ pub struct RouteDecision {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(test, ts(type = "unknown[]"))]
     pub rewrites: Vec<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,15 +256,58 @@ pub struct RouteHints {
 }
 
 pub fn estimate_request_tokens(body: &serde_json::Value) -> u32 {
-    let blob = serde_json::json!({
-        "messages": body.get("messages"),
-        "system": body.get("system"),
-        "input": body.get("input"),
-        "instructions": body.get("instructions"),
-        "tools": body.get("tools"),
-    });
-    let chars = blob.to_string().chars().count() as u32;
-    (chars / 4).max(1)
+    let mut total = 0u32;
+    for key in ["messages", "system", "input", "instructions", "tools"] {
+        if let Some(value) = body.get(key) {
+            accumulate_text_tokens(value, &mut total);
+        }
+    }
+    total.max(1)
+}
+
+fn accumulate_text_tokens(value: &serde_json::Value, total: &mut u32) {
+    match value {
+        serde_json::Value::String(text) => {
+            *total = total.saturating_add(estimate_text_tokens(text));
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                accumulate_text_tokens(item, total);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for (key, child) in map {
+                if matches!(
+                    key.as_str(),
+                    "type" | "role" | "id" | "model" | "cache_control" | "signature"
+                ) {
+                    continue;
+                }
+                accumulate_text_tokens(child, total);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn estimate_text_tokens(text: &str) -> u32 {
+    let mut tokens = 0u32;
+    let mut ascii_run = 0u32;
+    for ch in text.chars() {
+        if ch.is_ascii() {
+            ascii_run = ascii_run.saturating_add(1);
+            continue;
+        }
+        if ascii_run > 0 {
+            tokens = tokens.saturating_add(ascii_run.div_ceil(4));
+            ascii_run = 0;
+        }
+        tokens = tokens.saturating_add(1);
+    }
+    if ascii_run > 0 {
+        tokens = tokens.saturating_add(ascii_run.div_ceil(4));
+    }
+    tokens
 }
 
 pub fn request_has_web_search(body: &serde_json::Value) -> bool {
@@ -473,6 +538,7 @@ pub fn resolve_gateway_route_with_modes(
         diagnostics,
         thinking,
         rewrites,
+        mode_id: source.mode_id().map(str::to_string),
     };
     let plan = build_execution_plan_with_chain(
         profile,
@@ -710,5 +776,46 @@ mod tests {
         assert!(resolved_gateway_token("gwt_abc").is_some());
         assert!(resolved_gateway_token("kr://sgw_claude_code").is_none());
         assert!(resolved_gateway_token("").is_none());
+    }
+
+    #[test]
+    fn estimate_tokens_counts_cjk_near_one_per_char() {
+        let body = serde_json::json!({
+            "messages": [{ "role": "user", "content": "你好世界" }]
+        });
+        assert_eq!(estimate_request_tokens(&body), 4);
+    }
+
+    #[test]
+    fn estimate_tokens_uses_ascii_four_chars_per_token() {
+        let body = serde_json::json!({
+            "messages": [{ "role": "user", "content": "abcd" }]
+        });
+        assert_eq!(estimate_request_tokens(&body), 1);
+        let long = serde_json::json!({
+            "messages": [{ "role": "user", "content": "abcdefgh" }]
+        });
+        assert_eq!(estimate_request_tokens(&long), 2);
+    }
+
+    #[test]
+    fn estimate_tokens_mixed_cjk_and_ascii() {
+        let body = serde_json::json!({
+            "messages": [{ "role": "user", "content": "你好abcd" }]
+        });
+        assert_eq!(estimate_request_tokens(&body), 3);
+    }
+
+    #[test]
+    fn estimate_tokens_ignores_structural_keys() {
+        let body = serde_json::json!({
+            "messages": [{
+                "role": "user",
+                "type": "message",
+                "id": "msg_1",
+                "content": "ab"
+            }]
+        });
+        assert_eq!(estimate_request_tokens(&body), 1);
     }
 }

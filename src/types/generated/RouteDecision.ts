@@ -2,4 +2,4 @@
 import type { RouteSource } from "./RouteSource";
 import type { ThinkingConfig } from "./ThinkingConfig";
 
-export type RouteDecision = { requestedModel: string, normalizedModel: string, source: RouteSource, reason: string, profileId: string | null, upstreamId: string | null, diagnostics: Array<string>, thinking: ThinkingConfig | null, rewrites: unknown[], };
+export type RouteDecision = { requestedModel: string, normalizedModel: string, source: RouteSource, reason: string, profileId: string | null, upstreamId: string | null, diagnostics: Array<string>, thinking: ThinkingConfig | null, rewrites: unknown[], modeId: string | null, };

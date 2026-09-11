@@ -794,10 +794,11 @@ pub fn update_proxy_log_route(
     attempt_index: i64,
     requested_model: Option<&str>,
     upstream_id: Option<&str>,
+    route_mode: Option<&str>,
 ) -> AppResult<()> {
     conn.execute(
         "UPDATE proxy_request_logs
-         SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?
+         SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?, route_mode = ?
          WHERE id = ?;",
         params![
             profile_id,
@@ -805,6 +806,7 @@ pub fn update_proxy_log_route(
             attempt_index,
             requested_model,
             upstream_id,
+            route_mode,
             id
         ],
     )?;
@@ -1399,6 +1401,25 @@ pub(crate) fn classify_route_reason_mode(reason: &str) -> Option<&'static str> {
     }
 }
 
+fn resolve_route_mode_id(key: &str) -> Option<&'static str> {
+    match key {
+        "default" | "background" | "plan" | "think" | "edit" | "long_context"
+        | "web_search" | "vision" | "image_gen" => Some(match key {
+            "default" => "default",
+            "background" => "background",
+            "plan" => "plan",
+            "think" => "think",
+            "edit" => "edit",
+            "long_context" => "long_context",
+            "web_search" => "web_search",
+            "vision" => "vision",
+            "image_gen" => "image_gen",
+            _ => unreachable!(),
+        }),
+        _ => classify_route_reason_mode(key),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RouteModeUsageRow {
     pub mode_id: String,
@@ -1428,14 +1449,14 @@ pub fn list_route_mode_usage_stats(
          FROM proxy_request_logs c
          WHERE c.correlation_id = l.correlation_id)";
     let sql = format!(
-        "SELECT COALESCE(bill.route_reason, ''), COUNT(*), COALESCE(SUM(
+        "SELECT COALESCE(bill.mode_key, ''), COUNT(*), COALESCE(SUM(
                 COALESCE(bill.input_tokens, 0) * COALESCE(p.input_price_per_million, 0) / 1000000.0
               + COALESCE(bill.cache_read_input_tokens, 0) * COALESCE(p.cache_read_price_per_million, 0) / 1000000.0
               + COALESCE(bill.cache_creation_input_tokens, 0) * COALESCE(p.cache_write_price_per_million, 0) / 1000000.0
               + COALESCE(bill.output_tokens, 0) * COALESCE(p.output_price_per_million, 0) / 1000000.0
             ), 0)
          FROM (
-           SELECT l.route_reason AS route_reason,
+           SELECT COALESCE(NULLIF(TRIM(l.route_mode), ''), l.route_reason) AS mode_key,
                   CASE WHEN {GATEWAY_HAS_TOKENS}
                        THEN l.input_tokens ELSE COALESCE(i.input_tokens, l.input_tokens) END AS input_tokens,
                   CASE WHEN {GATEWAY_HAS_TOKENS}
@@ -1456,19 +1477,25 @@ pub fn list_route_mode_usage_stats(
             )
            WHERE l.created_at >= ?
              AND COALESCE(l.data_source, 'proxy') = 'proxy'
-             AND NULLIF(TRIM(COALESCE(l.route_reason, '')), '') IS NOT NULL
+             AND (
+               NULLIF(TRIM(COALESCE(l.route_mode, '')), '') IS NOT NULL
+               OR NULLIF(TRIM(COALESCE(l.route_reason, '')), '') IS NOT NULL
+             )
              AND (
                l.correlation_id IS NULL OR TRIM(l.correlation_id) = ''
                OR l.id = (
                  SELECT MIN(g.id) FROM proxy_request_logs g
                  WHERE g.correlation_id = l.correlation_id
                    AND COALESCE(g.data_source, 'proxy') = 'proxy'
-                   AND NULLIF(TRIM(COALESCE(g.route_reason, '')), '') IS NOT NULL
+                   AND (
+                     NULLIF(TRIM(COALESCE(g.route_mode, '')), '') IS NOT NULL
+                     OR NULLIF(TRIM(COALESCE(g.route_reason, '')), '') IS NOT NULL
+                   )
                )
              )
          ) bill
          LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(bill.model, ''))
-         GROUP BY bill.route_reason;"
+         GROUP BY bill.mode_key;"
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params![since], |row| {
@@ -1480,8 +1507,8 @@ pub fn list_route_mode_usage_stats(
     })?;
     let mut merged: HashMap<String, (i64, f64)> = HashMap::new();
     for row in rows {
-        let (reason, count, cost) = row?;
-        let Some(mode_id) = classify_route_reason_mode(&reason) else {
+        let (key, count, cost) = row?;
+        let Some(mode_id) = resolve_route_mode_id(&key) else {
             continue;
         };
         let entry = merged.entry(mode_id.to_string()).or_insert((0, 0.0));
@@ -1766,6 +1793,7 @@ mod tests {
                 0,
                 Some("claude.auto"),
                 Some("ag"),
+                Some("default"),
             )?;
             let inner = insert_proxy_log_with_source(
                 conn,

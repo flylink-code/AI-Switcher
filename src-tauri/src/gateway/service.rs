@@ -35,6 +35,7 @@ pub struct SmartGatewayStatus {
 
 struct ServiceRuntime {
     handle: JoinHandle<()>,
+    probe_handle: JoinHandle<()>,
     shutdown_tx: oneshot::Sender<()>,
     port: u16,
 }
@@ -193,6 +194,7 @@ fn port_in_use(port: u16) -> bool {
 }
 
 pub async fn start_service(db: Arc<Database>, port: Option<u16>) -> AppResult<SmartGatewayStatus> {
+    crate::gateway::inbound::load_from_db(&db);
     let bind_port = port.unwrap_or_else(|| saved_port(&db));
     {
         let mut slot = lock_manager();
@@ -229,6 +231,7 @@ pub async fn start_service(db: Arc<Database>, port: Option<u16>) -> AppResult<Sm
         }
     };
 
+    crate::gateway::inbound::load_from_db(&db);
     let app = crate::proxy::smart_gateway_router(Arc::clone(&db), bind_port);
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let server = axum::serve(listener, app).with_graceful_shutdown(async {
@@ -244,6 +247,7 @@ pub async fn start_service(db: Arc<Database>, port: Option<u16>) -> AppResult<Sm
             }
         }
     });
+    let probe_handle = tokio::spawn(crate::gateway::health::probe_loop(Arc::clone(&db)));
 
     {
         let mut slot = lock_manager();
@@ -252,11 +256,13 @@ pub async fn start_service(db: Arc<Database>, port: Option<u16>) -> AppResult<Sm
             .ok_or_else(|| AppError::Other("智能网关尚未初始化".into()))?;
         if let Some(previous) = manager.runtime.replace(ServiceRuntime {
             handle,
+            probe_handle,
             shutdown_tx,
             port: bind_port,
         }) {
             let _ = previous.shutdown_tx.send(());
             previous.handle.abort();
+            previous.probe_handle.abort();
         }
         manager.phase = "running".into();
         manager.last_error = None;
@@ -280,6 +286,7 @@ pub async fn stop_service() -> AppResult<SmartGatewayStatus> {
         manager.runtime.take()
     };
     if let Some(runtime) = runtime {
+        runtime.probe_handle.abort();
         let _ = runtime.shutdown_tx.send(());
         let abort = runtime.handle.abort_handle();
         match tokio::time::timeout(Duration::from_millis(1_500), runtime.handle).await {

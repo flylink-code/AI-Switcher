@@ -20,7 +20,7 @@ import type {
   ConnectionType,
   GatewayProfile,
   GatewayProfilePatch,
-  GatewayRouteLog,
+  PaginatedGatewayRouteLogs,
   GatewayUpstreamImportResult,
   GatewayUpstreamModelRow,
   GatewayUpstreamDiscoverItem,
@@ -30,6 +30,12 @@ import type {
   RouteModePatch,
   RouteRule,
   RouteModeUsageStat,
+  GatewayUpstreamHealth,
+  SmartGatewayInboundLimits,
+  SmartGatewayBudgetView,
+  SmartGatewayBudgetSettings,
+  SimulateGatewayRouteInput,
+  SimulateGatewayRouteResult,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -93,8 +99,13 @@ export async function updateGatewayProfile(
 export async function listGatewayRouteLogs(
   target?: ProviderTarget | null,
   limit = 20,
-): Promise<GatewayRouteLog[]> {
-  return call<GatewayRouteLog[]>("list_gateway_route_logs", { target: target ?? null, limit });
+  offset = 0,
+): Promise<PaginatedGatewayRouteLogs> {
+  return call<PaginatedGatewayRouteLogs>("list_gateway_route_logs", {
+    target: target ?? null,
+    limit,
+    offset,
+  });
 }
 
 export async function listGatewayUpstreams(): Promise<Provider[]> {
@@ -387,4 +398,42 @@ export async function deleteRouteRule(id: string): Promise<void> {
 
 export async function listRouteModeUsageStats(): Promise<RouteModeUsageStat[]> {
   return call("list_route_mode_usage_stats");
+}
+
+export async function simulateGatewayRoute(
+  input: SimulateGatewayRouteInput,
+): Promise<SimulateGatewayRouteResult> {
+  return call("simulate_gateway_route", { input });
+}
+
+export async function listGatewayUpstreamHealth(): Promise<GatewayUpstreamHealth[]> {
+  return call("list_gateway_upstream_health");
+}
+
+export async function getSmartGatewayInboundLimits(): Promise<SmartGatewayInboundLimits> {
+  return call("get_smart_gateway_inbound_limits");
+}
+
+export async function setSmartGatewayInboundLimits(
+  settings: SmartGatewayInboundLimits,
+): Promise<SmartGatewayInboundLimits> {
+  return call("set_smart_gateway_inbound_limits", { settings });
+}
+
+export async function getSmartGatewayBudget(): Promise<SmartGatewayBudgetView> {
+  return call("get_smart_gateway_budget");
+}
+
+export async function setSmartGatewayBudget(
+  settings: SmartGatewayBudgetSettings,
+): Promise<SmartGatewayBudgetView> {
+  return call("set_smart_gateway_budget", { settings });
+}
+
+export async function getSmartGatewayHealthProbeSecs(): Promise<number> {
+  return call("get_smart_gateway_health_probe_secs");
+}
+
+export async function setSmartGatewayHealthProbeSecs(secs: number): Promise<number> {
+  return call("set_smart_gateway_health_probe_secs", { secs });
 }

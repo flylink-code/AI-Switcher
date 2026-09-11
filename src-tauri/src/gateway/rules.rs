@@ -101,6 +101,27 @@ fn evaluate_condition(raw: &str, signals: &ModeSignals) -> bool {
 pub fn apply_rewrites(body: &mut Value, headers: &mut axum::http::HeaderMap, rewrites: &[Value]) {
     for rewrite in rewrites {
         let path = rewrite.get("path").and_then(Value::as_str).unwrap_or("").trim();
+        let op = rewrite
+            .get("op")
+            .and_then(Value::as_str)
+            .unwrap_or("set");
+        if op.eq_ignore_ascii_case("delete") {
+            if let Some(header_name) = path.strip_prefix("request.headers.") {
+                if is_protected_rewrite_header(header_name) {
+                    continue;
+                }
+                if let Ok(name) = axum::http::HeaderName::try_from(header_name) {
+                    headers.remove(name);
+                }
+                continue;
+            }
+            if let Some(body_path) = path.strip_prefix("request.body.") {
+                if let Some(object) = body.as_object_mut() {
+                    object.remove(body_path);
+                }
+            }
+            continue;
+        }
         let Some(value) = rewrite.get("value") else {
             continue;
         };

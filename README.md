@@ -1,10 +1,10 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.1**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.2**
 
-**本版**：智能网关上游池可显示供应商额度/余额。标题栏显示当前版本，点击检查更新。概览年热力图只拉趋势。规划 / 思考 / 改内容优先于长上下文。其余同 1.5.0。
+**本版**：智能网关页拆成服务与绑定 / 路由与规则 / 上游与限额 / 最近路由；提示可关，最近路由可翻页。上游显示健康度，可选入口限流与日花费上限。用量按路由模式计（Schema 32）。其余同 1.5.1。
 
-**升级注意**：资料库 Schema 28→31 单向。请先备份 `~/.claude-switcher`；升完后 1.4.12 无法打开同一份库。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 31。
+**升级注意**：资料库 Schema 31→32 单向。请先备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 32。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

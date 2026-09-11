@@ -5,6 +5,10 @@ import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 
 const STORAGE_KEY = "cs.pagePreferences";
 
+export type GatewaySection = "service" | "routing" | "upstreams" | "logs";
+
+const GATEWAY_SECTIONS: GatewaySection[] = ["service", "routing", "upstreams", "logs"];
+
 interface PersistedPagePreferences {
   /** Legacy global target; only read as a migration fallback for the
    * per-page targets below. Never written anymore. */
@@ -13,6 +17,8 @@ interface PersistedPagePreferences {
   /** Independent proxy-page target. */
   proxyTarget?: ProviderTarget;
   gatewayTab?: "smart" | "antigravity";
+  gatewaySection?: GatewaySection;
+  gatewaySnippetVisible?: boolean;
   usagePeriod?: UsagePeriod;
   /** Providers heatmap period; falls back to usagePeriod on first load. */
   heatmapPeriod?: UsagePeriod;
@@ -30,6 +36,8 @@ interface PagePreferencesState {
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   gatewayTab: "smart" | "antigravity";
+  gatewaySection: GatewaySection;
+  gatewaySnippetVisible: boolean;
   usagePeriod: UsagePeriod;
   heatmapPeriod: UsagePeriod;
   usageLogPage: number;
@@ -43,6 +51,8 @@ interface PagePreferencesState {
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setGatewayTab: (tab: "smart" | "antigravity") => void;
+  setGatewaySection: (section: GatewaySection) => void;
+  setGatewaySnippetVisible: (visible: boolean) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
   setHeatmapPeriod: (period: UsagePeriod) => void;
   setUsageLogPage: (page: number) => void;
@@ -60,6 +70,8 @@ const DEFAULTS: Pick<
   | "providersTarget"
   | "proxyTarget"
   | "gatewayTab"
+  | "gatewaySection"
+  | "gatewaySnippetVisible"
   | "usagePeriod"
   | "heatmapPeriod"
   | "usageLogTarget"
@@ -73,6 +85,8 @@ const DEFAULTS: Pick<
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
   gatewayTab: "smart",
+  gatewaySection: "service",
+  gatewaySnippetVisible: true,
   usagePeriod: 365,
   heatmapPeriod: 365,
   usageLogTarget: "all",
@@ -92,6 +106,10 @@ function isSessionProvider(value: unknown): value is SessionProvider {
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
   return USAGE_PERIOD_VALUES.some((period) => period === value);
+}
+
+function isGatewaySection(value: unknown): value is GatewaySection {
+  return GATEWAY_SECTIONS.some((section) => section === value);
 }
 
 function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
@@ -185,6 +203,12 @@ function initialState() {
 
   const gatewayTab: "smart" | "antigravity" =
     stored.gatewayTab === "antigravity" ? "antigravity" : "smart";
+  const gatewaySection = isGatewaySection(stored.gatewaySection)
+    ? stored.gatewaySection
+    : DEFAULTS.gatewaySection;
+  const gatewaySnippetVisible = stored.gatewaySnippetVisible === false
+    ? false
+    : DEFAULTS.gatewaySnippetVisible;
 
   return {
     visibleAgents,
@@ -192,6 +216,8 @@ function initialState() {
     providersTarget,
     proxyTarget,
     gatewayTab,
+    gatewaySection,
+    gatewaySnippetVisible,
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
     usageLogTarget,
@@ -210,6 +236,8 @@ function persistSlice(
     | "providersTarget"
     | "proxyTarget"
     | "gatewayTab"
+    | "gatewaySection"
+    | "gatewaySnippetVisible"
     | "usagePeriod"
     | "heatmapPeriod"
     | "usageLogTarget"
@@ -225,6 +253,8 @@ function persistSlice(
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     gatewayTab: state.gatewayTab,
+    gatewaySection: state.gatewaySection,
+    gatewaySnippetVisible: state.gatewaySnippetVisible,
     usagePeriod: state.usagePeriod,
     heatmapPeriod: state.heatmapPeriod,
     usageLogTarget: state.usageLogTarget,
@@ -280,6 +310,14 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setGatewayTab: (gatewayTab) => {
     set({ gatewayTab });
+    persistSlice(get());
+  },
+  setGatewaySection: (gatewaySection) => {
+    set({ gatewaySection });
+    persistSlice(get());
+  },
+  setGatewaySnippetVisible: (gatewaySnippetVisible) => {
+    set({ gatewaySnippetVisible });
     persistSlice(get());
   },
   setUsagePeriod: (usagePeriod) => {
