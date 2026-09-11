@@ -842,6 +842,7 @@
     "upstreamKeyKeep": "留空则保留已保存的密钥",
     "upstreamModel": "默认模型",
     "upstreamProtocol": "协议",
+    "upstreamQuota": "额度",
     "upstreamNotes": "备注",
     "upstreamActions": "操作",
     "upstreamEmpty": "还没有上游。先添加再配置 Auto 槽。",
@@ -1779,6 +1780,10 @@
         "用量按 correlation_id 只计最内层跳；按 (供应商, 模型) 计价，混合币种折 USD。隐藏上游模型后立即重写 OpenCode / Pi / DSH / Cline。",
         "Cline sidecar 写出全部供应商；绑定后 Auto 直连 15828，不再空占 15827。",
         "升级会把本机资料库迁到 Schema 31（单向）。请先备份 ~/.claude-switcher；升完后 1.4.12 无法打开同一份库。"
+      ],
+      "1_5_1": [
+        "智能网关上游池可显示供应商额度/余额（Kimi、智谱、MiniMax、DeepSeek、硅基流动、OpenRouter 等套餐与钱包，以及 sub2api），与供应商页同一套探测，点 Tag 刷新。",
+        "本机网关端口与 Antigravity :15830 不探测；AG 账号额度仍在反代网关页。"
       ]
     },
     "appName": "应用名称",

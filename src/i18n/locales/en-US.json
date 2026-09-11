@@ -842,6 +842,7 @@
     "upstreamKeyKeep": "Leave blank to keep the stored key",
     "upstreamModel": "Default model",
     "upstreamProtocol": "Protocol",
+    "upstreamQuota": "Quota",
     "upstreamNotes": "Notes",
     "upstreamActions": "Actions",
     "upstreamEmpty": "No upstreams yet. Add one before configuring Auto slots.",
@@ -1779,6 +1780,10 @@
         "Usage counts only the innermost hop of a correlation_id, prices by (provider, model), and converts mixed currencies to USD. Hiding an upstream model immediately rewrites OpenCode / Pi / DSH / Cline.",
         "The Cline sidecar writes every provider. Bound Auto talks to 15828 and no longer occupies unused port 15827.",
         "Upgrading migrates the local database to Schema 31 (one-way). Back up ~/.claude-switcher first; 1.4.12 cannot open that database afterwards."
+      ],
+      "1_5_1": [
+        "The smart gateway upstream pool now shows provider quotas and balances (Kimi, Zhipu, MiniMax, DeepSeek, SiliconFlow, OpenRouter, and sub2api), using the same probes as the Providers page. Click a tag to refresh.",
+        "Local gateway ports and Antigravity :15830 are not probed; AG account quotas stay on the reverse-proxy gateway page."
       ]
     },
     "appName": "App name",

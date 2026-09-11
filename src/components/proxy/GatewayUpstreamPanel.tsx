@@ -42,6 +42,7 @@ import {
   needsOpenAiV1Suffix,
   normalizeBaseUrl,
 } from "@/lib/providerUrl";
+import { ProviderQuotaView } from "@/components/ProviderQuotaView";
 import type { Provider, ProviderInput, ProviderTarget, ProtocolType } from "@/types/backend";
 
 const { Text } = Typography;
@@ -51,6 +52,22 @@ const PROTOCOL_OPTIONS: { value: ProtocolType; label: string }[] = [
   { value: "openai_chat", label: "OpenAI Chat" },
   { value: "openai_responses", label: "OpenAI Responses" },
 ];
+
+function canQueryUpstreamQuota(row: Provider): boolean {
+  if (!row.apiKeySet) return false;
+  switch (row.providerKind) {
+    case "antigravity":
+    case "smart_gateway":
+      return false;
+    case "standard":
+    case "codex_oauth":
+      return true;
+    default: {
+      const _exhaustive: never = row.providerKind;
+      return _exhaustive;
+    }
+  }
+}
 
 const UPSTREAM_PRESETS: ProviderPreset[] = PROVIDER_PRESETS.filter(
   (preset) => !isReservedListenerUrl(preset.baseUrl) && !preset.baseUrl.includes(":15830"),
@@ -412,6 +429,14 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
             title: t("proxy.upstreamProtocol"),
             dataIndex: "protocolType",
             width: 140,
+          },
+          {
+            title: t("proxy.upstreamQuota"),
+            width: 200,
+            render: (_, row: Provider) =>
+              canQueryUpstreamQuota(row) ? (
+                <ProviderQuotaView providerId={row.id} />
+              ) : null,
           },
           {
             title: t("proxy.upstreamActions"),
