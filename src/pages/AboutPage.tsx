@@ -13,18 +13,14 @@ import {
 import CloudDownloadOutlined from "@ant-design/icons/es/icons/CloudDownloadOutlined";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { getVersion } from "@tauri-apps/api/app";
 import {
   getUpdateMirrorSettings,
   restoreOnboardingTips,
   setUpdateMirrorSettings,
 } from "@/services/api";
-import {
-  checkForAppUpdate,
-  isAppUpdatePackagePendingError,
-  isNoAppUpdateAvailableError,
-} from "@/lib/appUpdater";
+import { runAppUpdateCheck, type AppUpdateCheckResult } from "@/lib/appUpdater";
 import { useAppUpdatePrompt } from "@/lib/appUpdateContext";
+import { useAppVersion } from "@/lib/useAppVersion";
 import type { UpdateMirrorSettings } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
 
@@ -54,15 +50,11 @@ export default function AboutPage() {
   const { message } = App.useApp();
   const { presentUpdate } = useAppUpdatePrompt();
   const queryClient = useQueryClient();
-  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const appVersion = useAppVersion();
   const [checkingApp, setCheckingApp] = useState(false);
   const [restoringTips, setRestoringTips] = useState(false);
   const [updateMirrorSettings, setUpdateMirrorSettingsState] = useState<UpdateMirrorSettings | null>(null);
   const [savingUpdateMirrorSettings, setSavingUpdateMirrorSettings] = useState(false);
-
-  useEffect(() => {
-    void getVersion().then(setAppVersion).catch(() => setAppVersion(null));
-  }, []);
 
   useEffect(() => {
     void getUpdateMirrorSettings().then(setUpdateMirrorSettingsState).catch((error) => {
@@ -73,26 +65,25 @@ export default function AboutPage() {
   const checkAppUpdate = async () => {
     setCheckingApp(true);
     try {
-      const update = await checkForAppUpdate(t("about.appUpdateTimedOut"));
-      if (!update) {
-        void message.info(t("about.appUpToDate"));
-        return;
+      const outcome: AppUpdateCheckResult = await runAppUpdateCheck(t("about.appUpdateTimedOut"));
+      switch (outcome.kind) {
+        case "available":
+          presentUpdate(outcome.update);
+          return;
+        case "upToDate":
+          void message.info(t("about.appUpToDate"));
+          return;
+        case "packagePending":
+          void message.warning(t("about.appUpdatePackagePending"));
+          return;
+        case "failed":
+          void message.error(t("about.appUpdateFailedDetail", { error: outcome.error }));
+          return;
+        default: {
+          const _exhaustive: never = outcome;
+          return _exhaustive;
+        }
       }
-      presentUpdate(update);
-    } catch (error) {
-      console.error("Application update check failed", error);
-      const raw = errMsg(error);
-      if (isNoAppUpdateAvailableError(raw)) {
-        void message.info(t("about.appUpToDate"));
-        return;
-      }
-      if (isAppUpdatePackagePendingError(raw)) {
-        void message.warning(t("about.appUpdatePackagePending"));
-        return;
-      }
-      void message.error(
-        t("about.appUpdateFailedDetail", { error: raw }),
-      );
     } finally {
       setCheckingApp(false);
     }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Badge, Select, Tooltip } from "antd";
+import { Select, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
@@ -16,6 +16,7 @@ import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { LayoutModeSwitcher } from "@/components/layout/LayoutModeSwitcher";
 import { WINDOW_CHROME_HEIGHT } from "@/components/layout/WindowChrome";
+import { TitlebarVersionButton } from "@/components/layout/TitlebarVersionButton";
 import { AppBrand } from "./AppBrand";
 import { TopNavigation } from "./TopNavigation";
 import { ContextHeader } from "@/components/layout/ContextHeader";
@@ -198,26 +199,7 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
             paddingRight: 0,
           }}
         >
-          {updateVersion ? (
-            <Badge dot offset={[-2, 4]}>
-              <button
-                type="button"
-                onClick={onOpenUpdate}
-                style={{
-                  fontSize: "12px",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
-                  border: "none",
-                  cursor: "pointer",
-                  background: isDark ? "rgba(59, 130, 246, 0.15)" : "#EFF6FF",
-                  color: "#3B82F6",
-                  fontWeight: 500,
-                }}
-              >
-                {t("about.appUpdateAvailable", { version: updateVersion })}
-              </button>
-            </Badge>
-          ) : null}
+          <TitlebarVersionButton updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
 
           <LayoutModeSwitcher />
 

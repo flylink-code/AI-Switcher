@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Checkbox, Select, message } from "antd";
+import { Checkbox, Select, Tag, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "@/stores/appStore";
@@ -9,6 +9,7 @@ import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwi
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
 import { autostartOptions, closeBehaviorOptions } from "@/lib/appQueries";
+import { useAppVersion } from "@/lib/useAppVersion";
 import { setAutostartConfig, setCloseBehavior } from "@/services/api";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import type { AutostartMode, CloseBehavior, ProviderTarget } from "@/types/backend";
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigatePage();
   const language = useAppStore((s) => s.language);
+  const appVersion = useAppVersion();
   const setLanguage = useAppStore((s) => s.setLanguage);
   const themeMode = useThemeStore((s) => s.mode);
   const setThemeMode = useThemeStore((s) => s.setMode);
@@ -212,6 +214,7 @@ export default function SettingsPage() {
         <SettingsRow
           title="AI-Switcher"
           description={t("settings.aboutHint", { defaultValue: "应用版本与更新信息" })}
+          control={appVersion ? <Tag style={{ margin: 0 }}>v{appVersion}</Tag> : null}
           onClick={() => navigate("about")}
         />
       </SettingsSection>

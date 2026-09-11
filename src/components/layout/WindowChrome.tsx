@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Badge, Select, theme, Tooltip } from "antd";
+import { Select, theme, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import BulbFilled from "@ant-design/icons/es/icons/BulbFilled";
 import BulbOutlined from "@ant-design/icons/es/icons/BulbOutlined";
@@ -14,6 +14,7 @@ import { languages } from "@/i18n";
 import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { LayoutModeSwitcher } from "./LayoutModeSwitcher";
+import { TitlebarVersionButton } from "./TitlebarVersionButton";
 
 const appWindow = getCurrentWindow();
 
@@ -104,26 +105,7 @@ export function WindowChrome({ updateVersion, onOpenUpdate, extraLeft }: WindowC
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px", paddingRight: "6px" }}>
-          {updateVersion ? (
-            <Badge dot offset={[-2, 4]}>
-              <button
-                type="button"
-                className="app-titlebar-update"
-                onClick={onOpenUpdate}
-                style={{
-                  fontSize: "12px",
-                  padding: "2px 8px",
-                  borderRadius: "4px",
-                  border: "none",
-                  cursor: "pointer",
-                  background: "var(--color-bg-subtle, rgba(0,0,0,0.04))",
-                  color: token.colorPrimary,
-                }}
-              >
-                {t("about.appUpdateAvailable", { version: updateVersion })}
-              </button>
-            </Badge>
-          ) : null}
+          <TitlebarVersionButton updateVersion={updateVersion} onOpenUpdate={onOpenUpdate} />
 
           <LayoutModeSwitcher />
 

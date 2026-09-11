@@ -40,6 +40,30 @@ export function isAppUpdatePackagePendingError(raw: string): boolean {
   return raw.includes("暂时无法获取安装包") || raw.toLowerCase().includes("package pending");
 }
 
+export type AppUpdateCheckResult =
+  | { kind: "available"; update: AppUpdate }
+  | { kind: "upToDate" }
+  | { kind: "packagePending" }
+  | { kind: "failed"; error: string };
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Check once and classify missing packages / empty catalogs as up to date. */
+export async function runAppUpdateCheck(timeoutMessage: string): Promise<AppUpdateCheckResult> {
+  try {
+    const update = await checkForAppUpdate(timeoutMessage);
+    if (!update) return { kind: "upToDate" };
+    return { kind: "available", update };
+  } catch (error) {
+    const raw = errorMessage(error);
+    if (isNoAppUpdateAvailableError(raw)) return { kind: "upToDate" };
+    if (isAppUpdatePackagePendingError(raw)) return { kind: "packagePending" };
+    return { kind: "failed", error: raw };
+  }
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {

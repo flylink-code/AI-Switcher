@@ -1783,12 +1783,15 @@
       ],
       "1_5_1": [
         "The smart gateway upstream pool now shows provider quotas and balances (Kimi, Zhipu, MiniMax, DeepSeek, SiliconFlow, OpenRouter, and sub2api), using the same probes as the Providers page. Click a tag to refresh.",
-        "Local gateway ports and Antigravity :15830 are not probed; AG account quotas stay on the reverse-proxy gateway page."
+        "Local gateway ports and Antigravity :15830 are not probed; AG account quotas stay on the reverse-proxy gateway page.",
+        "The title bar shows the current version and checks for updates on click; the Settings About row also shows the version."
       ]
     },
     "appName": "App name",
     "appVersion": "Version",
     "checkAppUpdate": "Check for updates",
+    "titlebarVersionTooltip": "v{{version}} — click to check for updates",
+    "titlebarVersionTooltipUnknown": "Click to check for updates",
     "updateMirrorTitle": "Update network",
     "useUpdateMirror": "Use GitHub mirror",
     "updateMirrorHint": "The mirror only delivers update metadata and installers; release signatures are still verified before installation. Disable it to use GitHub directly.",

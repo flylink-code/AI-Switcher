@@ -1783,12 +1783,15 @@
       ],
       "1_5_1": [
         "智能网关上游池可显示供应商额度/余额（Kimi、智谱、MiniMax、DeepSeek、硅基流动、OpenRouter 等套餐与钱包，以及 sub2api），与供应商页同一套探测，点 Tag 刷新。",
-        "本机网关端口与 Antigravity :15830 不探测；AG 账号额度仍在反代网关页。"
+        "本机网关端口与 Antigravity :15830 不探测；AG 账号额度仍在反代网关页。",
+        "标题栏显示当前版本，点击可检查更新；设置关于行也显示版本号。"
       ]
     },
     "appName": "应用名称",
     "appVersion": "版本号",
     "checkAppUpdate": "检查更新",
+    "titlebarVersionTooltip": "当前 v{{version}}，点击检查更新",
+    "titlebarVersionTooltipUnknown": "点击检查更新",
     "updateMirrorTitle": "更新网络",
     "useUpdateMirror": "使用 GitHub 镜像",
     "updateMirrorHint": "镜像仅用于下载更新元数据与安装包；安装前仍会验证发布签名。关闭后仅直连 GitHub。",

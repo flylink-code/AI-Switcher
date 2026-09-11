@@ -461,20 +461,48 @@ body {
 }
 
 .app-titlebar-update {
-  margin-left: 10px;
+  margin-left: 4px;
   border: none;
-  border-radius: 999px;
-  padding: 1px 10px;
+  border-radius: 6px;
+  padding: 2px 8px;
   background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 14%, transparent);
   color: var(--ant-color-primary, #3b82f6);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .app-titlebar-update:hover {
   background: color-mix(in srgb, var(--ant-color-primary, #3b82f6) 22%, transparent);
+}
+
+.app-titlebar-version {
+  margin-left: 4px;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--color-text-tertiary, #86868b);
+  font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-titlebar-version:hover:not(:disabled) {
+  background: var(--color-bg-subtle, rgba(0, 0, 0, 0.04));
+  color: var(--color-text-secondary, #64748b);
+}
+
+.app-titlebar-version:disabled {
+  cursor: wait;
+  opacity: 0.75;
 }
 
 /* ===== UI Optimization Guide v1.0 palette (light / dark via data-theme) ===== */
