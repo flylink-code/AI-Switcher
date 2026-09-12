@@ -14,13 +14,15 @@ pub mod inbound;
 pub mod budget;
 pub mod simulate;
 pub mod count_tokens;
+pub mod sticky;
 
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use ts_rs::TS;
 
 use crate::catalog::{
-    catalog_in_entries, normalize_client_request_with, resolve_request, CatalogEntry, CatalogStyle,
+    catalog_in_entries, is_explicit_catalog_passthrough, normalize_client_request_with,
+    resolve_request, CatalogEntry, CatalogStyle,
 };
 use crate::database::dao::gateway::{
     profile_allows_upstream, GatewayProfile, RouteMode, RouteRule,
@@ -460,9 +462,7 @@ pub fn resolve_gateway_route_with_modes(
         target: hints.target,
         path: hints.path.clone(),
     };
-    let in_catalog = catalog_in_entries(entries, requested_model)
-        && !force_subagent
-        && !is_auto_model_id(requested_model);
+    let in_catalog = is_explicit_catalog_passthrough(entries, requested_model);
     let mut thinking: Option<ThinkingConfig> = None;
     let mut rewrites = Vec::new();
     let mut extra_chain: Option<Vec<String>> = None;
@@ -547,7 +547,8 @@ pub fn resolve_gateway_route_with_modes(
         source,
         extra_chain.as_deref(),
     );
-    let is_subagent = matches!(source, RouteSource::RoleSubagent) || force_subagent;
+    let is_subagent = matches!(source, RouteSource::RoleSubagent)
+        || (force_subagent && !in_catalog);
     Some((provider, upstream, decision, plan, is_subagent))
 }
 
@@ -817,5 +818,197 @@ mod tests {
             }]
         });
         assert_eq!(estimate_request_tokens(&body), 1);
+    }
+
+    fn test_provider(id: &str, name: &str, model: &str) -> Provider {
+        use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderKind, ProviderTarget};
+        Provider {
+            id: id.into(),
+            name: name.into(),
+            base_url: "https://api.example.test/v1".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: model.into(),
+            model_context_window: Some(200_000),
+            auto_review_model_override: None,
+            web_search_enabled: Some(true),
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::OpenAiChat,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
+            target_app: ProviderTarget::ClaudeCode,
+            notes: String::new(),
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
+            hidden_models: Vec::new(),
+            thinking_config: None,
+            custom_headers: None,
+            is_current: false,
+            created_at: 0,
+            health_status: None,
+            health_checked_at: None,
+            health_latency_ms: None,
+        }
+    }
+
+    fn catalog_entry(public_id: &str, slug: &str, provider_id: &str, window: u64) -> CatalogEntry {
+        CatalogEntry {
+            public_id: public_id.into(),
+            display_name: public_id.into(),
+            upstream_slug: slug.into(),
+            provider_id: provider_id.into(),
+            context_window: window,
+            anthropic_upstream: false,
+            web_search_enabled: false,
+        }
+    }
+
+    fn route_mode(id: &str, model: &str, threshold: i64) -> RouteMode {
+        RouteMode {
+            id: id.into(),
+            profile_id: "gprof_shared".into(),
+            enabled: true,
+            model: model.into(),
+            thinking_config_json: "{}".into(),
+            fallback_models: vec![],
+            threshold,
+            sort_index: 0,
+        }
+    }
+
+    fn routing_fixture() -> (Vec<CatalogEntry>, Vec<Provider>, Vec<RouteMode>) {
+        let astra = test_provider("sub2api", "sub2api", "gpt-6-astra");
+        let ag = test_provider("ag", "Antigravity", "gemini-3.8-flash-high");
+        let providers = vec![astra, ag];
+        let entries = vec![
+            catalog_entry(
+                "claude.sub2api.gpt-6-astra",
+                "gpt-6-astra",
+                "sub2api",
+                200_000,
+            ),
+            catalog_entry(
+                "claude.ag.gemini-3.8-flash-high",
+                "gemini-3.8-flash-high",
+                "ag",
+                1_000_000,
+            ),
+            catalog_entry(
+                "claude.ag.gemini-3.8-flash-low",
+                "gemini-3.8-flash-low",
+                "ag",
+                1_000_000,
+            ),
+        ];
+        let modes = vec![
+            route_mode("default", "claude.ag.gemini-3.8-flash-high", 0),
+            route_mode(
+                "long_context",
+                "claude.ag.gemini-3.8-flash-high",
+                20_000,
+            ),
+            route_mode("background", "claude.ag.gemini-3.8-flash-low", 0),
+        ];
+        let entries =
+            crate::catalog::with_auto_entry_from_modes(CatalogStyle::Claude, entries, &modes);
+        (entries, providers, modes)
+    }
+
+    fn route(
+        requested: &str,
+        force_subagent: bool,
+        tokens: u32,
+    ) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
+        let (entries, providers, modes) = routing_fixture();
+        resolve_gateway_route_with_modes(
+            CatalogStyle::Claude,
+            &entries,
+            &providers,
+            requested,
+            force_subagent,
+            None,
+            &RouteHints {
+                token_count: tokens,
+                ..RouteHints::default()
+            },
+            &modes,
+            &[],
+        )
+    }
+
+    #[test]
+    fn explicit_catalog_id_skips_long_context_mode() {
+        let routed = route("claude.sub2api.gpt-6-astra", false, 42_611).unwrap();
+        assert_eq!(routed.1, "gpt-6-astra");
+        assert_eq!(routed.2.source, RouteSource::Explicit);
+        assert_eq!(routed.2.reason, "explicit_model");
+    }
+
+    #[test]
+    fn auto_over_threshold_hits_long_context() {
+        let routed = route("claude.auto", false, 42_611).unwrap();
+        assert_eq!(routed.1, "gemini-3.8-flash-high");
+        assert_eq!(routed.2.source, RouteSource::LongContext);
+        assert!(routed.2.reason.contains("长上下文"));
+    }
+
+    #[test]
+    fn injected_sonnet_role_without_sticky_still_uses_modes() {
+        let routed = route("claude-sonnet-5", false, 42_611).unwrap();
+        assert_eq!(routed.1, "gemini-3.8-flash-high");
+        assert_eq!(routed.2.source, RouteSource::LongContext);
+    }
+
+    #[test]
+    fn sticky_sonnet_role_stays_on_explicit_catalog_model() {
+        let _guard = sticky::test_lock();
+        sticky::reset_for_tests();
+        let (entries, providers, modes) = routing_fixture();
+        let rewritten = sticky::rewrite_requested(
+            crate::provider::ProviderTarget::ClaudeCode,
+            "claude.sub2api.gpt-6-astra",
+            &entries,
+        );
+        assert_eq!(rewritten, "claude.sub2api.gpt-6-astra");
+        let rewritten = sticky::rewrite_requested(
+            crate::provider::ProviderTarget::ClaudeCode,
+            "claude-sonnet-5",
+            &entries,
+        );
+        let routed = resolve_gateway_route_with_modes(
+            CatalogStyle::Claude,
+            &entries,
+            &providers,
+            &rewritten,
+            false,
+            None,
+            &RouteHints {
+                token_count: 42_611,
+                ..RouteHints::default()
+            },
+            &modes,
+            &[],
+        )
+        .unwrap();
+        assert_eq!(routed.1, "gpt-6-astra");
+        assert_eq!(routed.2.source, RouteSource::Explicit);
+        sticky::reset_for_tests();
+    }
+
+    #[test]
+    fn haiku_role_uses_background_slot() {
+        let routed = route("claude-haiku-4-5", true, 42_611).unwrap();
+        assert_eq!(routed.1, "gemini-3.8-flash-low");
+        assert_eq!(routed.2.source, RouteSource::RoleSubagent);
+        assert!(routed.4);
+    }
+
+    #[test]
+    fn subagent_header_does_not_steal_explicit_catalog_id() {
+        let routed = route("claude.sub2api.gpt-6-astra", true, 42_611).unwrap();
+        assert_eq!(routed.1, "gpt-6-astra");
+        assert_eq!(routed.2.source, RouteSource::Explicit);
+        assert!(!routed.4);
     }
 }

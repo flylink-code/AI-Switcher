@@ -57,19 +57,22 @@ pub fn sync_managed_cline_providers(entries: &[(Provider, Vec<String>)]) -> AppR
     sync_managed_cline_providers_to(&cline_config_dir(), entries)
 }
 
-fn cline_model_catalog(model: &str, models: &[String]) -> Map<String, Value> {
+fn cline_model_catalog(provider: &Provider, model: &str, models: &[String]) -> Map<String, Value> {
     let mut catalog = Map::new();
     for id in std::iter::once(model.to_string()).chain(models.iter().cloned()) {
         let id = id.trim();
         if id.is_empty() {
             continue;
         }
+        let window = crate::catalog::advertised_context_window(provider, id);
         catalog.insert(
             id.to_string(),
             json!({
                 "name": id,
                 "apiFormat": "openai-responses",
-                "capabilities": ["streaming", "tools", "reasoning"]
+                "capabilities": ["streaming", "tools", "reasoning"],
+                "contextWindow": window,
+                "max_input_tokens": window,
             }),
         );
     }
@@ -94,7 +97,7 @@ fn cline_provider_entry(provider: &Provider, models: &[String]) -> Value {
         "model": model,
         "protocol": "openai-responses",
         "baseUrl": provider.base_url,
-        "models": cline_model_catalog(model, models),
+        "models": cline_model_catalog(provider, model, models),
     })
 }
 
@@ -120,7 +123,7 @@ fn sync_managed_cline_providers_to(dir: &std::path::Path, entries: &[(Provider, 
         "model": model,
         "protocol": "openai-responses",
         "baseUrl": primary.base_url,
-        "models": cline_model_catalog(model, primary_models),
+        "models": cline_model_catalog(primary, model, primary_models),
         "providers": providers,
     });
     write_json_file(&dir.join("ai-switcher.json"), &settings)?;

@@ -150,7 +150,7 @@
     },
     "modesHelp": "Guide",
     "modesHelpTitle": "How route modes work",
-    "modesHelpIntro": "When the agent requests auto, the gateway picks a row from this request's signals. An explicit catalog model from /model skips every mode.",
+    "modesHelpIntro": "When the agent requests auto, the gateway picks a row from this request's signals. Picking a catalog model pins that model even if Claude Code later sends claude-sonnet-5. Official roles (sonnet/opus/fable/haiku) plus Auto advertise a context window on live GET /v1/models and GET /v1/models/{id}. Claude Code's on-disk cache only stores id/display_name — restart the agent so it re-fetches windows for the sidebar and auto-compact. Explore/Haiku still use the background slot.",
     "modesHelpOrderTitle": "Match order (first match wins)",
     "modesHelpOrderBody": "Explicit catalog model → route rules → background (subagent/Haiku only, exclusive) → image generation → web search → vision → plan → think → edit → long context → default. Disabled rows or rows without a model are skipped.",
     "modesHelpWhenTitle": "When each mode fires",
@@ -184,7 +184,7 @@
     "tutorialStep1": "In Bind apps, select the agents that should use the gateway. For Claude Code / Desktop / Codex, set the Smart Gateway Auto card as current on Providers. OpenCode / Pi / DSH / Cline only get an Auto entry appended — they are not switched. Custom agents do not bind; use the service card URL and public API key.",
     "tutorialStep2": "Add providers to the upstream pool. The mode table can only pick models from the pool, not provider cards that were never imported.",
     "tutorialStep3": "Enable Default and pick a model. A row with no model is the same as off.",
-    "tutorialStep4": "Keep the agent on auto (claude.auto for Claude Code / Desktop). Picking a specific catalog model skips the whole table of rules and modes.",
+    "tutorialStep4": "Keep the agent on auto (claude.auto for Claude Code / Desktop) to use the mode table. Picking a catalog model pins it. Live /v1/models includes context windows; restart Claude Code so it re-fetches them (the cache file still only stores names).",
     "tutorialStep5": "Send a request and check Recent routes at the bottom. Restart Claude Code / Desktop / Codex after catalog changes.",
     "tutorialRecipeMinimalTitle": "Example 1 · Minimal",
     "tutorialRecipeMinimalLead": "Enable Default only. Pick DeepSeek Chat or Gemini 3.8 Flash — not gpt-6-astra, which is the strongest model.",
@@ -1846,6 +1846,11 @@
         "The upstream pool shows runtime health and failovers by health. Optional inbound rate limits and a daily spend cap (off by default) return 429 when exceeded.",
         "Usage groups by route mode. Codex/OpenAI requests carry a correlation_id so Antigravity hops are not double-counted. count_tokens is forwarded or estimated locally and does not write usage logs.",
         "Upgrading migrates the local database to Schema 32 (one-way). Back up ~/.claude-switcher first."
+      ],
+      "1_5_3": [
+        "Picking a smart-gateway catalog model pins it. Later Claude Code claude-sonnet-5 requests no longer get stolen by long-context Gemini. Explore/Haiku still use the background slot.",
+        "Claude Code / Desktop /v1/models include context_window and support GET /v1/models/{id}. Official Auto/Sonnet/Opus/Fable/Haiku roles advertise windows so the sidebar and auto-compact can work; restart Claude Code afterwards.",
+        "Codex / Cline OpenAI /v1/models also include windows. Bound OpenCode / Pi / DSH Auto cards write per-model context and do not copy Auto's max window onto every upstream."
       ]
     },
     "appName": "App name",

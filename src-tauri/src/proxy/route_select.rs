@@ -52,7 +52,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
             style,
             &entries,
             &providers,
-            requested_model,
+            &crate::gateway::sticky::rewrite_requested(state.target, requested_model, &entries),
             force_catalog_subagent,
             profile.as_ref(),
             &hints,
@@ -366,6 +366,71 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
             Ok(None) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商"),
             Err(error) => {
                 log::error!("读取模型目录失败: {error}");
+                json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+            }
+        }
+    }
+}
+
+async fn model_retrieve_handler(
+    State(state): State<ProxyState>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    if let Err(error) = validate_listener_auth(&state, &headers) {
+        return gateway_auth_error(error);
+    }
+    if gateway_catalog_enabled(&state) || desktop_bound_smart_gateway(&state) {
+        let target = if gateway_catalog_enabled(&state) {
+            resolve_binding_target(&state, &headers).unwrap_or(state.target)
+        } else {
+            state.target
+        };
+        let style = crate::catalog::catalog_style_for(target);
+        match load_gateway_catalog(&state, style) {
+            Ok((_, entries)) if !entries.is_empty() => {
+                if let Some(entry) = find_catalog_entry(&entries, &id) {
+                    let payload = match style {
+                        CatalogStyle::Claude => claude_discovery_model(entry),
+                        CatalogStyle::Codex => crate::catalog::openai_discovery_model(entry),
+                    };
+                    axum::Json(payload).into_response()
+                } else {
+                    json_error(StatusCode::NOT_FOUND, format!("找不到模型: {id}"))
+                }
+            }
+            Ok(_) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有已配置的第三方供应商"),
+            Err(error) => {
+                log::error!("读取模型失败: {error}");
+                json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
+            }
+        }
+    } else {
+        match state
+            .db
+            .with_conn(|conn| get_current_provider(conn, state.target))
+        {
+            Ok(Some(provider)) => {
+                let list = crate::config::claude_desktop::model_list_response(&provider);
+                let found = list
+                    .get("data")
+                    .and_then(Value::as_array)
+                    .and_then(|rows| {
+                        rows.iter().find(|row| {
+                            row.get("id")
+                                .and_then(Value::as_str)
+                                .is_some_and(|item| item.eq_ignore_ascii_case(id.trim()))
+                        })
+                    })
+                    .cloned();
+                match found {
+                    Some(row) => axum::Json(row).into_response(),
+                    None => json_error(StatusCode::NOT_FOUND, format!("找不到模型: {id}")),
+                }
+            }
+            Ok(None) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有激活的第三方供应商"),
+            Err(error) => {
+                log::error!("读取模型失败: {error}");
                 json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录")
             }
         }

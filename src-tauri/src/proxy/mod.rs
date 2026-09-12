@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use std::convert::Infallible;
 
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
@@ -43,7 +43,10 @@ use crate::database::dao::providers::{get_current_provider, list_providers, reso
 use crate::database::dao::settings::get_setting;
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
-use crate::catalog::{claude_discovery_payload, openai_models_payload, rewrite_json_model, CatalogStyle};
+use crate::catalog::{
+    claude_discovery_model, claude_discovery_payload, find_catalog_entry, openai_models_payload,
+    rewrite_json_model, CatalogStyle,
+};
 use crate::provider::{
     api_endpoint_url, protocol_endpoint_path_for_provider, resolve_upstream_model, ProtocolType,
     Provider, ProviderTarget,

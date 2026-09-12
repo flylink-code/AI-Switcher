@@ -12,7 +12,7 @@ use crate::error::AppResult;
 use crate::gateway::modes::{self, ModeSignals};
 use crate::gateway::rules::match_rules;
 use crate::gateway::{
-    estimate_request_tokens, is_auto_model_id, request_has_web_search, resolve_gateway_route_with_modes,
+    estimate_request_tokens, request_has_web_search, resolve_gateway_route_with_modes,
     RouteDecision, RouteHints,
 };
 use crate::provider::ProviderTarget;
@@ -147,9 +147,7 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
         Ok((providers, entries, profile, modes, rules))
     })?;
 
-    let in_catalog = crate::catalog::catalog_in_entries(&entries, &requested)
-        && !signals.is_subagent
-        && !is_auto_model_id(&requested);
+    let in_catalog = crate::catalog::is_explicit_catalog_passthrough(&entries, &requested);
     let steps = explain_route(&requested, in_catalog, &signals, &modes, &rules);
     let hints = RouteHints {
         token_count: signals.token_count,

@@ -362,12 +362,27 @@ fn gateway_live_entry(
         pairs
     };
     let hide = catalog::hide_official(state.db.as_ref(), target);
-    let entries = build_catalog_with(catalog::catalog_style_for(target), &pairs, hide);
-    let extra: Vec<String> = catalog::with_auto_public_ids(
-        catalog::catalog_style_for(target),
-        entries.iter().map(|entry| entry.public_id.clone()).collect(),
+    let style = catalog::catalog_style_for(target);
+    let modes = state
+        .db
+        .with_conn(crate::gateway::modes::load_modes)
+        .unwrap_or_default();
+    let catalog = catalog::with_auto_entry_from_modes(
+        style,
+        build_catalog_with(style, &pairs, hide),
+        &modes,
     );
+    let extra: Vec<String> = catalog
+        .iter()
+        .map(|entry| entry.public_id.clone())
+        .collect();
     let mut live = template.clone();
+    if let Some(auto) = catalog
+        .iter()
+        .find(|entry| catalog::is_auto_public_id(&entry.public_id))
+    {
+        live.model_context_window = Some(auto.context_window);
+    }
     live.base_url = match live.protocol_type {
         ProtocolType::Anthropic => {
             if target == ProviderTarget::OpenCode {
@@ -658,7 +673,6 @@ fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<s
     }
     ids = provider.filter_hidden_models(ids);
 
-    let context_window = provider.model_context_window.unwrap_or(200_000);
     let openai_compatible = matches!(
         provider.protocol_type,
         crate::provider::ProtocolType::OpenAiChat
@@ -667,6 +681,7 @@ fn build_pi_model_entries(provider: &Provider, extra_models: &[String]) -> Vec<s
     );
     ids.into_iter()
         .map(|id| {
+            let context_window = catalog::advertised_context_window(provider, &id);
             let mut entry = json!({
                 "id": id,
                 "reasoning": true,

@@ -117,11 +117,9 @@ const OPENCODE_DEFAULT_OUTPUT_TOKENS: u64 = 32_000;
 
 fn opencode_model_context(provider: &Provider, model_id: &str) -> u64 {
     let inferred = crate::gateway::metadata::context_window_for(model_id);
-    provider
-        .model_context_window
-        .filter(|window| *window > 0)
-        .unwrap_or(OPENCODE_DEFAULT_CONTEXT_WINDOW)
+    crate::catalog::advertised_context_window(provider, model_id)
         .max(inferred)
+        .max(OPENCODE_DEFAULT_CONTEXT_WINDOW)
 }
 
 fn opencode_model_output(context: u64) -> u64 {

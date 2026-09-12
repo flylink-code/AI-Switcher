@@ -146,12 +146,15 @@ pub fn sync_managed_dsh_providers(entries: &[(Provider, Vec<String>)]) -> AppRes
         if !provider.model.trim().is_empty() {
             models_list.push(dsh_model_entry(
                 provider.model.trim(),
-                provider.model_context_window,
+                Some(crate::catalog::advertised_context_window(provider, provider.model.trim())),
             ));
         }
         for m in extra_models {
             if m.trim() != provider.model.trim() && !m.trim().is_empty() {
-                models_list.push(dsh_model_entry(m.trim(), provider.model_context_window));
+                models_list.push(dsh_model_entry(
+                    m.trim(),
+                    Some(crate::catalog::advertised_context_window(provider, m.trim())),
+                ));
             }
         }
 

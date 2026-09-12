@@ -122,6 +122,7 @@ impl ProxyManager {
             let mut app = Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(codex::codex_models_handler))
+                .route("/v1/models/:id", get(model_retrieve_handler))
                 .route("/v1/responses", any(codex::codex_proxy_handler))
                 .route("/v1/responses/compact", any(codex::codex_proxy_handler))
                 .route("/responses/compact", any(codex::codex_proxy_handler))
@@ -134,12 +135,17 @@ impl ProxyManager {
             let mut app = Router::new()
                 .route("/health", get(health_handler))
                 .route("/v1/models", get(models_handler))
+                .route("/v1/models/:id", get(model_retrieve_handler))
                 .route("/v1/messages", any(proxy_handler));
             if target == ProviderTarget::ClaudeDesktop {
                 app = app
                     .route(
                         &format!("{}/v1/models", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
                         get(models_handler),
+                    )
+                    .route(
+                        &format!("{}/v1/models/:id", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
+                        get(model_retrieve_handler),
                     )
                     .route(
                         &format!("{}/v1/messages", crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX),
@@ -306,6 +312,7 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
     Router::new()
         .route("/health", get(health_handler))
         .route("/v1/models", get(models_handler))
+        .route("/v1/models/:id", get(model_retrieve_handler))
         .route("/v1/messages", any(proxy_handler))
         .route("/v1/messages/count_tokens", any(count_tokens_handler))
         .route("/v1/chat/completions", any(smart_gateway_openai_handler))

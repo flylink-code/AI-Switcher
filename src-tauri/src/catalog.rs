@@ -407,7 +407,7 @@ pub fn with_auto_entry(style: CatalogStyle, entries: Vec<CatalogEntry>) -> Vec<C
     with_auto_entry_from_modes(style, entries, &[])
 }
 
-/// Insert Auto (and Claude Haiku role) using route-mode upstream windows.
+/// Insert Auto (and Claude official roles) using route-mode upstream windows.
 pub fn with_auto_entry_from_modes(
     style: CatalogStyle,
     mut entries: Vec<CatalogEntry>,
@@ -417,7 +417,7 @@ pub fn with_auto_entry_from_modes(
     entries.retain(|entry| !is_auto_public_id(&entry.public_id));
     entries.insert(0, auto_catalog_entry_with_window(style, auto_window));
     if style == CatalogStyle::Claude {
-        ensure_haiku_role_window(&mut entries, modes);
+        ensure_claude_role_windows(&mut entries, modes, auto_window);
     }
     entries
 }
@@ -477,24 +477,100 @@ fn background_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]
         .unwrap_or(DEFAULT_DISCOVERY_CONTEXT_WINDOW)
 }
 
-fn ensure_haiku_role_window(entries: &mut Vec<CatalogEntry>, modes: &[gateway::RouteMode]) {
-    let window = background_mode_window(modes, entries);
+fn ensure_claude_role_windows(
+    entries: &mut Vec<CatalogEntry>,
+    modes: &[gateway::RouteMode],
+    auto_window: u64,
+) {
+    let haiku_window = background_mode_window(modes, entries);
+    upsert_claude_role_entry(
+        entries,
+        CLAUDE_HAIKU_ROLE_ID,
+        "Haiku / subagent",
+        haiku_window,
+    );
+    upsert_claude_role_entry(entries, CLAUDE_SONNET_ROLE_ID, "Sonnet", auto_window);
+    upsert_claude_role_entry(entries, CLAUDE_OPUS_ROLE_ID, "Opus", auto_window);
+    upsert_claude_role_entry(entries, CLAUDE_FABLE_ROLE_ID, "Fable", auto_window);
+}
+
+fn upsert_claude_role_entry(
+    entries: &mut Vec<CatalogEntry>,
+    public_id: &str,
+    display_name: &str,
+    window: u64,
+) {
+    let window = window.max(1);
     if let Some(entry) = entries
         .iter_mut()
-        .find(|entry| entry.public_id.eq_ignore_ascii_case(CLAUDE_HAIKU_ROLE_ID))
+        .find(|entry| entry.public_id.eq_ignore_ascii_case(public_id))
     {
         entry.context_window = window;
         return;
     }
     entries.push(CatalogEntry {
-        public_id: CLAUDE_HAIKU_ROLE_ID.to_string(),
-        display_name: "Haiku / subagent".to_string(),
-        upstream_slug: CLAUDE_HAIKU_ROLE_ID.to_string(),
+        public_id: public_id.to_string(),
+        display_name: display_name.to_string(),
+        upstream_slug: public_id.to_string(),
         provider_id: String::new(),
         context_window: window,
         anthropic_upstream: false,
         web_search_enabled: false,
     });
+}
+
+fn claude_role_stem(id: &str) -> String {
+    let (stem, _) = crate::provider::split_model_window_label(id.trim());
+    stem.to_ascii_lowercase()
+}
+
+/// Official Claude Code role ids injected into `/v1/models` (with optional `[1m]`).
+pub fn is_injected_claude_role_id(id: &str) -> bool {
+    matches!(
+        claude_role_stem(id).as_str(),
+        CLAUDE_SONNET_ROLE_ID
+            | CLAUDE_OPUS_ROLE_ID
+            | CLAUDE_HAIKU_ROLE_ID
+            | CLAUDE_FABLE_ROLE_ID
+            | "sonnet"
+            | "opus"
+            | "haiku"
+            | "fable"
+    )
+}
+
+/// Sonnet / Opus / Fable roles that may inherit the last explicit catalog model.
+pub fn is_sticky_remap_role_id(id: &str) -> bool {
+    matches!(
+        claude_role_stem(id).as_str(),
+        CLAUDE_SONNET_ROLE_ID
+            | CLAUDE_OPUS_ROLE_ID
+            | CLAUDE_FABLE_ROLE_ID
+            | "sonnet"
+            | "opus"
+            | "fable"
+    )
+}
+
+fn is_haiku_or_subagent_slug(id: &str) -> bool {
+    let lower = id.trim().to_ascii_lowercase();
+    lower.contains("haiku") || lower.contains("subagent")
+}
+
+/// User-picked upstream catalog id — not Auto, not an injected official role.
+pub fn is_explicit_catalog_passthrough(entries: &[CatalogEntry], requested: &str) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty() || is_auto_public_id(requested) {
+        return false;
+    }
+    if is_injected_claude_role_id(requested) || is_haiku_or_subagent_slug(requested) {
+        return false;
+    }
+    entries.iter().any(|entry| {
+        !entry.provider_id.trim().is_empty()
+            && (entry.public_id.eq_ignore_ascii_case(requested)
+                || entry.upstream_slug.eq_ignore_ascii_case(requested))
+    })
 }
 
 pub fn with_auto_public_ids(style: CatalogStyle, mut ids: Vec<String>) -> Vec<String> {
@@ -521,7 +597,10 @@ pub fn resolve_request(
     }
     let upstream_hits: Vec<&CatalogEntry> = entries
         .iter()
-        .filter(|entry| entry.upstream_slug.eq_ignore_ascii_case(requested))
+        .filter(|entry| {
+            !entry.provider_id.trim().is_empty()
+                && entry.upstream_slug.eq_ignore_ascii_case(requested)
+        })
         .collect();
     if let Some(entry) = upstream_hits.first() {
         return Some((entry.provider_id.clone(), entry.upstream_slug.clone()));
@@ -548,26 +627,97 @@ pub fn resolve_request(
     Some((first.id.clone(), resolve_upstream_model(first, requested)))
 }
 
-pub fn claude_discovery_payload(entries: &[CatalogEntry]) -> Value {
+/// One Anthropic-style model row. Claude Code statusline / auto-compact read
+/// `context_window` (and `max_input_tokens`) from the live `/v1/models` fetch;
+/// `~/.claude/cache/gateway-models.json` only keeps `id` + `display_name`.
+pub fn claude_discovery_model(entry: &CatalogEntry) -> Value {
+    let slug = if entry.upstream_slug.trim().is_empty() {
+        entry.public_id.as_str()
+    } else {
+        entry.upstream_slug.as_str()
+    };
+    let max_output = crate::gateway::metadata::max_output_for(slug, entry.context_window);
     json!({
-        "data": entries.iter().map(|entry| json!({
-            "id": entry.public_id,
-            "display_name": entry.display_name,
-            "context_window": entry.context_window,
-            "max_input_tokens": entry.context_window,
-        })).collect::<Vec<_>>(),
+        "type": "model",
+        "id": entry.public_id,
+        "display_name": entry.display_name,
+        "created_at": "2025-01-01T00:00:00Z",
+        "context_window": entry.context_window,
+        "max_input_tokens": entry.context_window,
+        "max_output_tokens": max_output,
+        "max_tokens": max_output,
+    })
+}
+
+pub fn claude_discovery_payload(entries: &[CatalogEntry]) -> Value {
+    let first_id = entries.first().map(|entry| entry.public_id.as_str()).unwrap_or("");
+    let last_id = entries.last().map(|entry| entry.public_id.as_str()).unwrap_or("");
+    json!({
+        "object": "list",
+        "data": entries.iter().map(claude_discovery_model).collect::<Vec<_>>(),
         "has_more": false,
+        "first_id": first_id,
+        "last_id": last_id,
+    })
+}
+
+pub fn find_catalog_entry<'a>(
+    entries: &'a [CatalogEntry],
+    requested: &str,
+) -> Option<&'a CatalogEntry> {
+    let requested = requested.trim();
+    if requested.is_empty() {
+        return None;
+    }
+    let (stem, _) = crate::provider::split_model_window_label(requested);
+    entries.iter().find(|entry| {
+        entry.public_id.eq_ignore_ascii_case(requested)
+            || entry.upstream_slug.eq_ignore_ascii_case(requested)
+            || entry.public_id.eq_ignore_ascii_case(&stem)
+            || entry.upstream_slug.eq_ignore_ascii_case(&stem)
+    })
+}
+
+/// Window advertised to Agents. `[1m]` labels win; smart-gateway extra models
+/// use the id's inferred window so Auto's max slot does not inflate every row.
+pub fn advertised_context_window(provider: &Provider, model_id: &str) -> u64 {
+    let (stem, labeled) = crate::provider::split_model_window_label(model_id);
+    if let Some(window) = labeled {
+        return window.max(1);
+    }
+    let inferred = crate::gateway::metadata::context_window_for(&stem);
+    if provider.is_smart_gateway() && !is_auto_public_id(model_id) {
+        return inferred.max(1);
+    }
+    provider
+        .model_context_window
+        .filter(|window| *window > 0)
+        .unwrap_or(inferred)
+        .max(1)
+}
+
+pub fn openai_discovery_model(entry: &CatalogEntry) -> Value {
+    let slug = if entry.upstream_slug.trim().is_empty() {
+        entry.public_id.as_str()
+    } else {
+        entry.upstream_slug.as_str()
+    };
+    let max_output = crate::gateway::metadata::max_output_for(slug, entry.context_window);
+    json!({
+        "id": entry.public_id,
+        "object": "model",
+        "owned_by": "ai-switcher",
+        "context_window": entry.context_window,
+        "max_input_tokens": entry.context_window,
+        "max_output_tokens": max_output,
+        "max_tokens": max_output,
     })
 }
 
 pub fn openai_models_payload(entries: &[CatalogEntry]) -> Value {
     json!({
         "object": "list",
-        "data": entries.iter().map(|entry| json!({
-            "id": entry.public_id,
-            "object": "model",
-            "owned_by": "ai-switcher",
-        })).collect::<Vec<_>>(),
+        "data": entries.iter().map(openai_discovery_model).collect::<Vec<_>>(),
     })
 }
 
@@ -584,11 +734,6 @@ pub fn rewrite_json_model(body: &[u8], upstream: &str) -> Vec<u8> {
 /// Built-in ChatGPT/Codex picker slugs that are not user-saved catalog models.
 pub fn is_injected_official_model_slug(id: &str) -> bool {
     is_official_openai_builtin(catalog_model_stem(id))
-}
-
-fn is_haiku_or_subagent_slug(id: &str) -> bool {
-    let lower = id.trim().to_ascii_lowercase();
-    lower.contains("haiku") || lower.contains("subagent")
 }
 
 pub fn catalog_in_entries(entries: &[CatalogEntry], requested: &str) -> bool {
@@ -682,7 +827,7 @@ pub fn normalize_client_request_with(
         if !requested.is_empty()
             && !is_auto_public_id(requested)
             && !is_haiku_or_subagent_slug(requested)
-            && catalog_in_entries(entries, requested)
+            && is_explicit_catalog_passthrough(entries, requested)
         {
             return requested.to_string();
         }
@@ -1390,9 +1535,34 @@ mod tests {
         assert_eq!(ids[0], CLAUDE_AUTO_PUBLIC_ID);
         assert!(ids.iter().any(|id| *id == "claude.kimi.kimi-k2"));
         assert!(ids.iter().any(|id| *id == CLAUDE_HAIKU_ROLE_ID));
+        assert!(ids.iter().any(|id| *id == CLAUDE_SONNET_ROLE_ID));
+        assert!(ids.iter().any(|id| *id == CLAUDE_OPUS_ROLE_ID));
+        assert!(ids.iter().any(|id| *id == CLAUDE_FABLE_ROLE_ID));
         let auto = &payload["data"][0];
+        assert_eq!(payload["object"], "list");
+        assert_eq!(auto["type"], "model");
         assert_eq!(auto["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
         assert_eq!(auto["max_input_tokens"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+        assert!(auto["max_output_tokens"].as_u64().unwrap_or(0) > 0);
+        assert_eq!(auto["max_tokens"], auto["max_output_tokens"]);
+        let retrieved = find_catalog_entry(&catalog, CLAUDE_SONNET_ROLE_ID).expect("sonnet");
+        let row = claude_discovery_model(retrieved);
+        assert_eq!(row["id"], CLAUDE_SONNET_ROLE_ID);
+        assert_eq!(row["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+        for role in [
+            CLAUDE_SONNET_ROLE_ID,
+            CLAUDE_OPUS_ROLE_ID,
+            CLAUDE_FABLE_ROLE_ID,
+        ] {
+            let row = payload["data"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|item| item["id"].as_str() == Some(role))
+                .expect(role);
+            assert_eq!(row["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+            assert_eq!(row["max_input_tokens"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+        }
     }
 
     fn route_mode(id: &str, enabled: bool, model: &str) -> gateway::RouteMode {
@@ -1427,6 +1597,18 @@ mod tests {
             .expect("haiku role");
         assert_eq!(haiku.context_window, 1_000_000);
         assert!(passes_claude_discovery(&haiku.public_id));
+        for role in [
+            CLAUDE_SONNET_ROLE_ID,
+            CLAUDE_OPUS_ROLE_ID,
+            CLAUDE_FABLE_ROLE_ID,
+        ] {
+            let entry = catalog
+                .iter()
+                .find(|item| item.public_id == role)
+                .expect(role);
+            assert_eq!(entry.context_window, 1_000_000);
+            assert!(entry.provider_id.is_empty());
+        }
     }
 
     #[test]
@@ -1442,6 +1624,11 @@ mod tests {
             .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
             .expect("haiku role");
         assert_eq!(haiku.context_window, 200_000);
+        let sonnet = catalog
+            .iter()
+            .find(|entry| entry.public_id == CLAUDE_SONNET_ROLE_ID)
+            .expect("sonnet role");
+        assert_eq!(sonnet.context_window, 1_000_000);
     }
 
     #[test]
@@ -1483,10 +1670,79 @@ mod tests {
             build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
         );
         assert_eq!(catalog[0].public_id, AUTO_PUBLIC_ID);
-        assert!(catalog
-            .iter()
-            .all(|entry| entry.public_id != CLAUDE_HAIKU_ROLE_ID));
+        assert!(catalog.iter().all(|entry| {
+            entry.public_id != CLAUDE_HAIKU_ROLE_ID
+                && entry.public_id != CLAUDE_SONNET_ROLE_ID
+                && entry.public_id != CLAUDE_OPUS_ROLE_ID
+                && entry.public_id != CLAUDE_FABLE_ROLE_ID
+        }));
         let ids = with_auto_public_ids(CatalogStyle::Codex, vec!["deepseek-v3".into()]);
         assert_eq!(ids[0], AUTO_PUBLIC_ID);
+    }
+
+    #[test]
+    fn injected_claude_roles_are_not_explicit_passthrough() {
+        let kimi = provider("p1", "Kimi", "kimi-k2");
+        let catalog = with_auto_entry(
+            CatalogStyle::Claude,
+            build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]),
+        );
+        assert!(catalog_in_entries(&catalog, CLAUDE_SONNET_ROLE_ID));
+        assert!(!is_explicit_catalog_passthrough(
+            &catalog,
+            CLAUDE_SONNET_ROLE_ID
+        ));
+        assert!(!is_explicit_catalog_passthrough(
+            &catalog,
+            "claude-sonnet-5[1m]"
+        ));
+        assert!(!is_explicit_catalog_passthrough(&catalog, "claude.auto"));
+        assert!(is_explicit_catalog_passthrough(
+            &catalog,
+            "claude.kimi.kimi-k2"
+        ));
+        assert!(is_sticky_remap_role_id(CLAUDE_SONNET_ROLE_ID));
+        assert!(!is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
+        assert_eq!(
+            find_catalog_entry(&catalog, "claude-sonnet-5[1m]")
+                .map(|entry| entry.public_id.as_str()),
+            Some(CLAUDE_SONNET_ROLE_ID)
+        );
+    }
+
+    #[test]
+    fn openai_discovery_lists_windows() {
+        let first = provider("a", "Alpha", "gemini-3.8-flash-high");
+        let catalog = with_auto_entry(
+            CatalogStyle::Codex,
+            build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
+        );
+        let payload = openai_models_payload(&catalog);
+        assert_eq!(payload["object"], "list");
+        let auto = &payload["data"][0];
+        assert_eq!(auto["id"], AUTO_PUBLIC_ID);
+        assert_eq!(auto["object"], "model");
+        assert!(auto["context_window"].as_u64().unwrap_or(0) >= DEFAULT_DISCOVERY_CONTEXT_WINDOW);
+        assert_eq!(auto["max_input_tokens"], auto["context_window"]);
+        let retrieved = find_catalog_entry(&catalog, "gemini-3.8-flash-high").expect("gemini");
+        let row = openai_discovery_model(retrieved);
+        assert_eq!(row["id"], retrieved.public_id);
+        assert_eq!(row["context_window"], retrieved.context_window);
+        assert_eq!(row["max_input_tokens"], retrieved.context_window);
+        assert!(row["max_output_tokens"].as_u64().unwrap_or(0) > 0);
+        assert_eq!(row["max_tokens"], row["max_output_tokens"]);
+    }
+
+    #[test]
+    fn advertised_window_does_not_inflate_gateway_extra_models() {
+        let mut auto = provider("sg", "Auto", "auto");
+        auto.provider_kind = ProviderKind::SmartGateway;
+        auto.model_context_window = Some(1_000_000);
+        assert_eq!(advertised_context_window(&auto, "auto"), 1_000_000);
+        assert_eq!(advertised_context_window(&auto, "kimi-k2"), 200_000);
+        assert_eq!(
+            advertised_context_window(&auto, "gemini-3.8-flash-high"),
+            1_000_000
+        );
     }
 }

@@ -150,7 +150,7 @@
     },
     "modesHelp": "说明",
     "modesHelpTitle": "路由模式怎么配",
-    "modesHelpIntro": "Agent 请求 auto 时，网关按这次请求的特征选一行。你在 /model 里点了具体目录模型时，模式全部让路。",
+    "modesHelpIntro": "Agent 请求 auto 时按特征选一行。点了目录里的具体模型会粘住，即使 Claude Code 后段改发 claude-sonnet-5 也不走模式表。官方角色与 Auto 会在实时 GET /v1/models 和 GET /v1/models/{id} 带上窗口。磁盘缓存 gateway-models.json 仍只有 id/显示名——须重启 Agent 才会重新拉取窗口，侧栏占用和自动压缩才准。Explore/Haiku 仍走后台。",
     "modesHelpOrderTitle": "匹配顺序（先到先得）",
     "modesHelpOrderBody": "显式目录模型 → 条件规则 → 后台（仅子代理/Haiku，独占）→ 图像生成 → 联网 → 视觉 → 规划 → 思考 → 改内容 → 长上下文 → 默认。关掉或没选模型的行会被跳过。",
     "modesHelpWhenTitle": "各模式何时触发",
@@ -184,7 +184,7 @@
     "tutorialStep1": "「绑定应用」勾选要走网关的 Agent。Claude Code / Desktop / Codex 绑定后到供应商页把智能网关 Auto 卡设为当前。OpenCode / Pi / DSH / Cline 绑定只追加 Auto 入口、不切换。自定义 Agent 不必绑定，用服务卡上的地址和对外 API Key。",
     "tutorialStep2": "「上游池」加入供应商。模式表只能选池里的模型，不是供应商页上未入池的卡片。",
     "tutorialStep3": "至少启用「默认」并选一个模型。没选模型的行等于关掉。",
-    "tutorialStep4": "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）。点了目录里的具体模型会整表跳过规则和模式。",
+    "tutorialStep4": "Agent 里保持 auto（Claude Code / Desktop 为 claude.auto）才会走模式表。点了目录里的具体模型会粘住。实时 /v1/models 会带上下文窗口；须重启 Claude Code 才会重新拉取（磁盘缓存仍只存名称）。",
     "tutorialStep5": "发一条请求，看本页底部「最近路由」的模式与依据。Claude Code / Desktop / Codex 改完目录后需重启 Agent。",
     "tutorialRecipeMinimalTitle": "示例 1 · 最少配置",
     "tutorialRecipeMinimalLead": "只开默认，先打通。选 DeepSeek Chat 或 Gemini 3.8 Flash，不要把最强的 gpt-6-astra 放在默认。",
@@ -1846,6 +1846,11 @@
         "上游池显示运行时健康度并按健康度做故障切换；可选入口限流与日花费上限（默认全关），超限回 429。",
         "用量按路由模式分组；Codex/OpenAI 请求带 correlation_id，避免经反代网关双计。count_tokens 可透传或本地估算，不写用量日志。",
         "升级会把本机资料库迁到 Schema 32（单向）。请先备份 ~/.claude-switcher。"
+      ],
+      "1_5_3": [
+        "点了智能网关目录里的具体模型会粘住：Claude Code 后段即使改发 claude-sonnet-5，也不再被长上下文切到 Gemini。Explore/Haiku 仍走后台。",
+        "Claude Code / Desktop 的 /v1/models 带 context_window，并支持 GET /v1/models/{id}。官方角色 Auto/Sonnet/Opus/Fable/Haiku 会写入窗口，侧栏占用和自动压缩才能工作；须重启 Claude Code。",
+        "Codex / Cline 的 OpenAI /v1/models 同样带窗口。OpenCode / Pi / DSH 绑定 Auto 时按模型写上下文，不会把 Auto 的最大窗口套到每一条上游。"
       ]
     },
     "appName": "应用名称",
