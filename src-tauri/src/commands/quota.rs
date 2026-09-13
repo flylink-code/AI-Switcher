@@ -22,11 +22,10 @@ pub async fn get_provider_quota(
     provider_id: String,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<ProviderQuotaResult> {
-    let provider = state.db.with_conn(|conn| {
-        let mut provider = load_quota_provider(conn, &provider_id)?;
-        provider.api_key = dao::resolve_api_key(conn, &provider_id)?.unwrap_or_default();
-        Ok(provider)
-    })?;
+    let mut provider = state
+        .db
+        .with_read_conn(|conn| load_quota_provider(conn, &provider_id))?;
+    provider.api_key = dao::materialize_api_key(&provider.api_key)?.unwrap_or_default();
     Ok(query_provider_quota(&provider).await)
 }
 

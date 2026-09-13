@@ -493,7 +493,7 @@ pub(crate) fn next_failover_provider_ex(
     let enabled = if gateway_catalog_enabled(state) {
         let mode = state
             .db
-            .with_conn(|conn| {
+            .with_read_conn(|conn| {
                 Ok(crate::database::dao::gateway::current_profile(conn, state.target)?
                     .map(|profile| profile.fallback_mode)
                     .unwrap_or_else(|| "off".to_string()))
@@ -503,18 +503,18 @@ pub(crate) fn next_failover_provider_ex(
     } else {
         state
             .db
-            .with_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
+            .with_read_conn(|conn| get_setting(conn, PROXY_FAILOVER_ENABLED_KEY))?
             .as_deref()
             == Some("true")
     };
     if !enabled {
         return Ok(None);
     }
-    let mut candidates = state.db.with_conn(|conn| list_providers(conn, state.target))?;
+    let mut candidates = state.db.with_read_conn(|conn| list_providers(conn, state.target))?;
     if gateway_catalog_enabled(state) {
         if let Ok(Some(profile)) = state
             .db
-            .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
+            .with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         {
             candidates.retain(|candidate| {
                 crate::database::dao::gateway::profile_allows_upstream(&profile, &candidate.id)
@@ -552,7 +552,7 @@ pub(crate) fn next_failover_provider_ex(
             }
             continue;
         }
-        match state.db.with_conn(|conn| resolve_api_key(conn, &candidate.id)) {
+        match crate::database::dao::materialize_api_key(&candidate.api_key) {
             Ok(Some(key)) if !key.trim().is_empty() => {
                 candidate.api_key = key;
                 return Ok(Some(candidate));
@@ -567,7 +567,7 @@ pub(crate) fn load_gateway_catalog(
     state: &ProxyState,
     style: CatalogStyle,
 ) -> AppResult<(Vec<Provider>, Vec<crate::catalog::CatalogEntry>)> {
-    state.db.with_conn(|conn| {
+    state.db.with_read_conn(|conn| {
         let mut providers = crate::database::dao::gateway::list_upstream_providers(conn, false)?;
         providers.retain(|provider| !provider.is_smart_gateway());
         let profile = crate::database::dao::gateway::current_profile(conn, state.target)
@@ -647,7 +647,7 @@ pub(crate) fn gateway_catalog_enabled(state: &ProxyState) -> bool {
     state.listener_kind == ListenerKind::SmartGateway
 }
 
-pub(crate) fn hydrate_provider_credential(state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
+pub(crate) fn hydrate_provider_credential(_state: &ProxyState, mut provider: Provider) -> AppResult<Option<Provider>> {
     if provider.is_codex_oauth() {
         match crate::codex_oauth::manager().get_valid_token(Some(&provider.auth_binding)) {
             Ok((token, account_id)) => {
@@ -663,17 +663,15 @@ pub(crate) fn hydrate_provider_credential(state: &ProxyState, mut provider: Prov
             }
         }
     }
-    provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
+    provider.api_key = match crate::database::dao::materialize_api_key(&provider.api_key) {
         Ok(Some(key)) => key,
+        Ok(None) if provider.is_antigravity() => crate::antigravity::gateway::builtin_api_key(),
         Ok(None) => return Ok(None),
         Err(error) => {
             log::error!("代理读取供应商凭据失败: {error}");
             return Ok(None);
         }
     };
-    if provider.is_antigravity() && provider.api_key.trim().is_empty() {
-        provider.api_key = crate::antigravity::gateway::builtin_api_key();
-    }
     Ok(Some(provider))
 }
 

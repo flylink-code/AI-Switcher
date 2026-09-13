@@ -9,16 +9,16 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state
         .db
-        .with_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
+        .with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         .ok()
         .flatten();
     let modes = state
         .db
-        .with_conn(crate::gateway::modes::load_modes)
+        .with_read_conn(crate::gateway::modes::load_modes)
         .unwrap_or_default();
     let rules = state
         .db
-        .with_conn(|conn| {
+        .with_read_conn(|conn| {
             crate::database::dao::gateway::list_route_rules(
                 conn,
                 crate::database::dao::gateway::SHARED_PROFILE_ID,

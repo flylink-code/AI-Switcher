@@ -250,6 +250,37 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
     get_provider(conn, &id)?.ok_or_else(|| AppError::Config("插入后未能读回供应商".to_string()))
 }
 
+/// Turn a stored `api_key` column (`kr://…` or empty) into plaintext.
+///
+/// Does not touch SQLite, so callers can drop the DB lock before the OS
+/// credential store (which may block).
+pub fn materialize_api_key(stored: &str) -> AppResult<Option<String>> {
+    match stored.trim() {
+        "" => Ok(None),
+        value if secrets::is_keyring_ref(value) => {
+            let account = &value[secrets::KEYRING_REF_PREFIX.len()..];
+            secrets::load_key(account)
+        }
+        _ => Err(AppError::Config(
+            "检测到未迁移的明文 API Key，请重新启动以完成凭据迁移".to_string(),
+        )),
+    }
+}
+
+/// Plaintext key for an in-memory `Provider`.
+///
+/// Catalog/list rows still carry `kr://…`; request handlers may already have
+/// hydrated plaintext. Do not treat the latter as a failed migration.
+pub fn provider_runtime_api_key(stored_or_live: &str) -> AppResult<Option<String>> {
+    if stored_or_live.trim().is_empty() {
+        return Ok(None);
+    }
+    if secrets::is_keyring_ref(stored_or_live) {
+        return materialize_api_key(stored_or_live);
+    }
+    Ok(Some(stored_or_live.to_string()))
+}
+
 /// Resolve a provider's API key to plaintext at runtime.
 ///
 /// - `kr://<id>` reference → looked up in the OS credential store.
@@ -274,18 +305,7 @@ pub fn resolve_api_key(conn: &Connection, id: &str) -> AppResult<Option<String>>
             Err(error) => return Err(error.into()),
         }
     };
-    Ok(match stored.as_str() {
-        "" => None,
-        v if secrets::is_keyring_ref(v) => {
-            let account = &v[secrets::KEYRING_REF_PREFIX.len()..];
-            secrets::load_key(account)?
-        }
-        _ => {
-            return Err(AppError::Config(
-                "检测到未迁移的明文 API Key，请重新启动以完成凭据迁移".to_string(),
-            ))
-        }
-    })
+    materialize_api_key(&stored)
 }
 
 pub fn get_provider_model_cache(
@@ -492,6 +512,32 @@ fn parse_health_latency_ms(detail: Option<&str>) -> Option<u64> {
         .map(|offset| start + offset)
         .unwrap_or(detail.len());
     detail[start..end].parse().ok()
+}
+
+#[cfg(test)]
+mod api_key_materialize_tests {
+    use super::{materialize_api_key, provider_runtime_api_key};
+
+    #[test]
+    fn empty_stored_key_is_none() {
+        assert_eq!(materialize_api_key("").unwrap(), None);
+        assert_eq!(materialize_api_key("  ").unwrap(), None);
+    }
+
+    #[test]
+    fn leftover_plaintext_is_rejected() {
+        let err = materialize_api_key("sk-leftover").unwrap_err();
+        assert!(err.to_string().contains("未迁移"));
+    }
+
+    #[test]
+    fn runtime_key_keeps_already_hydrated_plaintext() {
+        assert_eq!(
+            provider_runtime_api_key("sk-live").unwrap(),
+            Some("sk-live".into())
+        );
+        assert_eq!(provider_runtime_api_key("").unwrap(), None);
+    }
 }
 
 #[cfg(test)]

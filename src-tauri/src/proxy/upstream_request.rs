@@ -70,7 +70,7 @@ async fn proxy_handler(
             }
         }
     } else {
-        provider.api_key = match state.db.with_conn(|conn| resolve_api_key(conn, &provider.id)) {
+        provider.api_key = match crate::database::dao::provider_runtime_api_key(&provider.api_key) {
         Ok(Some(key)) => key,
         Ok(None) => {
             log_request(&state, &provider, None, started.elapsed().as_millis() as i64, uri.path(), false, Some("credential"));

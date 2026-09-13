@@ -13,7 +13,7 @@ use futures_util::StreamExt;
 use serde_json::Value;
 
 use crate::catalog::{openai_models_payload, rewrite_json_model};
-use crate::database::dao::providers::{get_current_provider, get_provider_model_cache, resolve_api_key};
+use crate::database::dao::providers::{get_current_provider, get_provider_model_cache};
 use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
 use crate::provider::{api_endpoint_url, ProtocolType, Provider};
 
@@ -711,10 +711,7 @@ fn prepare_codex_upstream(
     force_chat: bool,
     is_catalog_subagent: bool,
 ) -> Result<PreparedCodexUpstream, Response> {
-    let api_key = match state
-        .db
-        .with_conn(|conn| resolve_api_key(conn, &provider.id))
-    {
+    let api_key = match crate::database::dao::provider_runtime_api_key(&provider.api_key) {
         Ok(Some(key)) if !key.trim().is_empty() => key,
         _ => {
             return Err(json_error(

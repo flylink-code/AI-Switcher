@@ -59,8 +59,11 @@ function healthLabel(
   row: GatewayUpstreamHealth | undefined,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ) {
-  if (!row || row.status === "unknown" || row.status === "ok") {
-    const latency = row?.lastLatencyMs != null
+  if (!row || row.status === "unknown") {
+    return <Tag>{t("proxy.healthUnknown", { defaultValue: "未检测" })}</Tag>;
+  }
+  if (row.status === "ok") {
+    const latency = row.lastLatencyMs != null
       ? t("proxy.healthLatency", { ms: row.lastLatencyMs, defaultValue: "{{ms}}ms" })
       : "";
     return (
@@ -182,6 +185,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
     await queryClient.invalidateQueries({ queryKey: ["gateway-upstream-health"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
+    await queryClient.invalidateQueries({ queryKey: ["provider-quota"] });
   };
 
   const openCreate = () => {

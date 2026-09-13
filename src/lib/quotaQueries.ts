@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getProviderQuota, getOfficialQuota } from "@/services/api";
 import type { ProviderQuotaResult, ProviderTarget } from "@/types/backend";
 
@@ -10,7 +10,9 @@ export function useProviderQuota(providerId: string, enabled = true) {
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 4_000),
+    placeholderData: keepPreviousData,
   });
 }
 

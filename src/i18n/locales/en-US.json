@@ -146,7 +146,9 @@
       "long_context": "Long context",
       "web_search": "Web search",
       "vision": "Vision",
-      "image_gen": "Image generation"
+      "image_gen": "Image generation",
+      "explicit_model": "Explicit",
+      "rule": "Rule"
     },
     "modesHelp": "Guide",
     "modesHelpTitle": "How route modes work",
@@ -896,6 +898,7 @@
     "healthOk": "OK",
     "healthCooling": "Cooling {{secs}}s",
     "healthFailing": "Failing",
+    "healthUnknown": "Not checked",
     "healthLatency": "{{ms}}ms",
     "upstreamNotes": "Notes",
     "upstreamActions": "Actions",

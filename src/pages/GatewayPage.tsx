@@ -96,11 +96,49 @@ function routeModeColor(mode?: string | null): string {
       return "magenta";
     case "image_gen":
       return "gold";
+    case "explicit_model":
+      return "processing";
+    case "rule":
+      return "lime";
     case "default":
       return "default";
     default:
       return "default";
   }
+}
+
+function classifyRouteReasonMode(reason: string): string | null {
+  if (reason === "explicit_model") return "explicit_model";
+  if (reason === "rule" || reason.startsWith("rule:")) return "rule";
+  if (reason.includes("规划") || reason === "plan") return "plan";
+  if (reason.includes("改内容") || reason === "edit") return "edit";
+  if (reason.includes("后台") || reason === "background" || reason === "role_subagent") {
+    return "background";
+  }
+  if (reason.includes("思考") || reason === "think") return "think";
+  if (reason.includes("长上下文") || reason === "long_context") return "long_context";
+  if (reason.includes("联网") || reason === "web_search") return "web_search";
+  if (reason.includes("视觉") || reason === "vision") return "vision";
+  if (reason.includes("图像") || reason === "image_gen") return "image_gen";
+  if (reason.includes("默认") || reason === "auto" || reason === "profile_default") {
+    return "default";
+  }
+  return null;
+}
+
+function routeLogModeKey(row: GatewayRouteLog): string {
+  const mode = row.routeMode?.trim();
+  if (mode) return mode;
+  return classifyRouteReasonMode(row.routeReason?.trim() ?? "") ?? "";
+}
+
+function EllipsisText({ value }: { value?: string | null }) {
+  const text = value?.trim() || "—";
+  return (
+    <Text ellipsis={{ tooltip: text }} style={{ maxWidth: "100%", margin: 0 }}>
+      {text}
+    </Text>
+  );
 }
 
 function modeCapabilityWarning(
@@ -819,10 +857,12 @@ export default function GatewayPage() {
       />
 
       {section === "logs" ? (
-      <Card size="small" title={t("proxy.recentRoutes")}>
+      <Card size="small" title={t("proxy.recentRoutes")} className="gateway-route-logs">
         <Table
           size="small"
           rowKey="id"
+          tableLayout="fixed"
+          scroll={{ x: 1080 }}
           dataSource={routesQuery.data?.data ?? []}
           loading={routesQuery.isPending && !routesQuery.data}
           pagination={{
@@ -836,24 +876,58 @@ export default function GatewayPage() {
             {
               title: t("gateway.time", { defaultValue: "时间" }),
               dataIndex: "createdAt",
-              width: 90,
+              width: 96,
               render: (value: number) => new Date(value).toLocaleTimeString(),
             },
             {
               title: t("gateway.reason", { defaultValue: "依据" }),
-              render: (_: unknown, row: GatewayRouteLog) => (
-                <Tag color={routeModeColor(row.routeMode)}>
-                  {row.routeReason ?? row.routeMode ?? "—"}
-                </Tag>
-              ),
+              width: 128,
+              ellipsis: true,
+              render: (_: unknown, row: GatewayRouteLog) => {
+                const modeKey = routeLogModeKey(row);
+                const label = modeKey
+                  ? t(`gateway.modes.${modeKey}`, { defaultValue: modeKey })
+                  : (row.routeReason?.trim() || "—");
+                const detail = row.routeReason?.trim() || label;
+                return (
+                  <div className="gateway-route-logs__reason">
+                    <Tooltip title={detail}>
+                      <Tag
+                        color={routeModeColor(row.routeMode || modeKey)}
+                        className="gateway-route-logs__tag"
+                      >
+                        {label}
+                      </Tag>
+                    </Tooltip>
+                  </div>
+                );
+              },
             },
-            { title: t("gateway.requested", { defaultValue: "请求" }), dataIndex: "requestedModel", ellipsis: true },
-            { title: t("gateway.model", { defaultValue: "模型" }), dataIndex: "model", ellipsis: true },
-            { title: t("gateway.upstream", { defaultValue: "上游" }), dataIndex: "providerName", ellipsis: true },
+            {
+              title: t("gateway.requested", { defaultValue: "请求" }),
+              dataIndex: "requestedModel",
+              ellipsis: true,
+              width: 180,
+              render: (value: string | null) => <EllipsisText value={value} />,
+            },
+            {
+              title: t("gateway.model", { defaultValue: "模型" }),
+              dataIndex: "model",
+              ellipsis: true,
+              width: 160,
+              render: (value: string | null) => <EllipsisText value={value} />,
+            },
+            {
+              title: t("gateway.upstream", { defaultValue: "上游" }),
+              dataIndex: "providerName",
+              ellipsis: true,
+              width: 140,
+              render: (value: string | null) => <EllipsisText value={value} />,
+            },
             {
               title: t("gateway.duration", { defaultValue: "耗时" }),
               dataIndex: "durationMs",
-              width: 80,
+              width: 88,
               render: (value: number) => `${value}ms`,
             },
             {
@@ -867,7 +941,7 @@ export default function GatewayPage() {
             {
               title: t("gateway.cost", { defaultValue: "费用" }),
               dataIndex: "estimatedCost",
-              width: 80,
+              width: 88,
               render: (value: number) => `$${Number(value ?? 0).toFixed(4)}`,
             },
             { title: "HTTP", dataIndex: "statusCode", width: 64 },

@@ -211,7 +211,7 @@ pub fn list_gateway_route_logs(
 pub fn list_gateway_upstreams(state: tauri::State<'_, AppState>) -> AppResult<Vec<Provider>> {
     state
         .db
-        .with_conn(|conn| list_upstream_providers(conn, true))
+        .with_read_conn(|conn| list_upstream_providers(conn, true))
 }
 
 #[tauri::command]

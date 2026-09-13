@@ -146,7 +146,9 @@
       "long_context": "长上下文",
       "web_search": "联网",
       "vision": "视觉",
-      "image_gen": "图像生成"
+      "image_gen": "图像生成",
+      "explicit_model": "显式模型",
+      "rule": "条件规则"
     },
     "modesHelp": "说明",
     "modesHelpTitle": "路由模式怎么配",
@@ -896,6 +898,7 @@
     "healthOk": "正常",
     "healthCooling": "冷却中 {{secs}}s",
     "healthFailing": "连续失败",
+    "healthUnknown": "未检测",
     "healthLatency": "{{ms}}ms",
     "upstreamActions": "操作",
     "upstreamNotes": "备注",
