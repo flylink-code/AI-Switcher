@@ -103,6 +103,10 @@ fn clear(target: ProviderTarget, session_key: &str) {
     lock_table().remove(&(target, normalize_session_key(session_key)));
 }
 
+pub fn clear_for_target(target: ProviderTarget) {
+    lock_table().retain(|(slot_target, _), _| *slot_target != target);
+}
+
 fn get(target: ProviderTarget, session_key: &str) -> Option<String> {
     let key = (target, normalize_session_key(session_key));
     let mut map = lock_table();

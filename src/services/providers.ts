@@ -96,6 +96,32 @@ export async function updateGatewayProfile(
   return call<GatewayProfile>("update_gateway_profile", { target, patch });
 }
 
+export async function listGatewayProfiles(): Promise<GatewayProfile[]> {
+  return call("list_gateway_profiles", {});
+}
+
+export async function createGatewayProfile(
+  name: string,
+  cloneFrom?: string | null,
+): Promise<GatewayProfile> {
+  return call("create_gateway_profile", { name, cloneFrom: cloneFrom ?? null });
+}
+
+export async function renameGatewayProfile(id: string, name: string): Promise<GatewayProfile> {
+  return call("rename_gateway_profile", { id, name });
+}
+
+export async function deleteGatewayProfile(id: string): Promise<void> {
+  await call("delete_gateway_profile", { id });
+}
+
+export async function setGatewayBindingProfile(
+  target: ProviderTarget,
+  profileId: string,
+): Promise<GatewayBinding> {
+  return call("set_gateway_binding_profile", { target, profileId });
+}
+
 export async function listGatewayRouteLogs(
   target?: ProviderTarget | null,
   limit = 20,
@@ -376,16 +402,20 @@ export async function unbindSmartGateway(target: ProviderTarget): Promise<void> 
   await call("unbind_smart_gateway", { target });
 }
 
-export async function listRouteModes(): Promise<RouteMode[]> {
-  return call("list_route_modes");
+export async function listRouteModes(profileId?: string | null): Promise<RouteMode[]> {
+  return call("list_route_modes", { profileId: profileId ?? null });
 }
 
-export async function updateRouteMode(id: string, patch: RouteModePatch): Promise<RouteMode> {
-  return call("update_route_mode", { id, patch });
+export async function updateRouteMode(
+  id: string,
+  patch: RouteModePatch,
+  profileId?: string | null,
+): Promise<RouteMode> {
+  return call("update_route_mode", { id, patch, profileId: profileId ?? null });
 }
 
-export async function listRouteRules(): Promise<RouteRule[]> {
-  return call("list_route_rules");
+export async function listRouteRules(profileId?: string | null): Promise<RouteRule[]> {
+  return call("list_route_rules", { profileId: profileId ?? null });
 }
 
 export async function upsertRouteRule(rule: RouteRule): Promise<RouteRule> {

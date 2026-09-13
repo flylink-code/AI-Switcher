@@ -1,5 +1,6 @@
 export * from "./ClaudeModelMapping";
 export * from "./CurrencyAmount";
+export * from "./GatewayBinding";
 export * from "./GatewayProfile";
 export * from "./ModelPricing";
 export * from "./PaginatedProxyLogs";

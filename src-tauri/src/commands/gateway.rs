@@ -9,8 +9,8 @@ use crate::database::dao::gateway::{
     current_connection_view, current_profile, delete_upstream, ensure_profile_for_target,
     import_providers_as_upstreams, list_profiles, list_upstream_models, list_upstream_providers,
     patch_profile, replace_upstream_models, set_current_connection_type, set_upstream_model_visible,
-    upsert_upstream, AgentConnectionView, ConnectionType, GatewayProfile, GatewayProfilePatch,
-    GatewayUpstreamImportResult, GatewayUpstreamModelRow,
+    upsert_upstream, AgentConnectionView, ConnectionType, GatewayBinding, GatewayProfile,
+    GatewayProfilePatch, GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
 use crate::error::{AppError, AppResult};
 use crate::provider::{
@@ -60,17 +60,101 @@ pub fn get_gateway_profile(
 
 #[tauri::command]
 pub fn list_gateway_profiles(
-    target: ProviderTarget,
+    target: Option<ProviderTarget>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayProfile>> {
-    let listed = state.db.with_read_conn(|conn| list_profiles(conn, target))?;
+    let _ = target;
+    let listed = state.db.with_read_conn(list_profiles)?;
     if !listed.is_empty() {
         return Ok(listed);
     }
     state.db.with_conn(|conn| {
-        ensure_profile_for_target(conn, target)?;
-        list_profiles(conn, target)
+        ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+        list_profiles(conn)
     })
+}
+
+#[tauri::command]
+pub fn create_gateway_profile(
+    name: String,
+    clone_from: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<GatewayProfile> {
+    let created = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::create_profile(conn, &name, clone_from.as_deref())
+    })?;
+    crate::catalog::invalidate_view_cache();
+    Ok(created)
+}
+
+#[tauri::command]
+pub fn rename_gateway_profile(
+    id: String,
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<GatewayProfile> {
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::rename_profile(conn, &id, &name))
+}
+
+#[tauri::command]
+pub async fn delete_gateway_profile(
+    id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::delete_profile(conn, &id))?;
+    crate::catalog::invalidate_view_cache();
+    for agent in ProviderTarget::ALL {
+        let gateway_on = state
+            .db
+            .with_read_conn(|conn| {
+                Ok(crate::database::dao::gateway::is_gateway_connection(conn, agent))
+            })
+            .unwrap_or(false);
+        if gateway_on {
+            crate::gateway::sticky::clear_for_target(agent);
+            crate::commands::providers::sync_live_after_connection_change(
+                agent, true, &app, &state,
+            )
+            .await?;
+        }
+    }
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    crate::gateway::service::emit_status(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_gateway_binding_profile(
+    target: ProviderTarget,
+    profile_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<GatewayBinding> {
+    let provider_id = crate::gateway::smart_gateway_provider_id(target);
+    let binding = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::set_binding_profile(conn, target, &profile_id, &provider_id)
+    })?;
+    let _ = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target);
+    crate::catalog::invalidate_view_cache();
+    crate::gateway::sticky::clear_for_target(target);
+    let gateway_on = state
+        .db
+        .with_read_conn(|conn| {
+            Ok(crate::database::dao::gateway::is_gateway_connection(conn, target))
+        })
+        .unwrap_or(false);
+    if gateway_on {
+        crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state)
+            .await?;
+    }
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    crate::gateway::service::emit_status(&app);
+    Ok(binding)
 }
 
 #[tauri::command]
@@ -504,23 +588,16 @@ pub async fn unbind_smart_gateway(
 
 #[tauri::command]
 pub fn list_route_modes(
+    profile_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::RouteMode>> {
-    let listed = state.db.with_read_conn(|conn| {
-        crate::database::dao::gateway::list_route_modes(
-            conn,
-            crate::database::dao::gateway::SHARED_PROFILE_ID,
-        )
-    })?;
-    if !listed.is_empty() {
-        return Ok(listed);
-    }
     state.db.with_conn(|conn| {
         crate::database::dao::gateway::ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-        crate::database::dao::gateway::list_route_modes(
-            conn,
-            crate::database::dao::gateway::SHARED_PROFILE_ID,
-        )
+        let id = crate::database::dao::gateway::resolve_profile_id(conn, profile_id.as_deref())?;
+        if let Some(profile) = crate::database::dao::gateway::get_profile(conn, &id)? {
+            crate::database::dao::gateway::seed_route_modes_from_profile(conn, &profile)?;
+        }
+        crate::database::dao::gateway::list_route_modes(conn, &id)
     })
 }
 
@@ -528,11 +605,12 @@ pub fn list_route_modes(
 pub async fn update_route_mode(
     id: String,
     patch: crate::database::dao::gateway::RouteModePatch,
+    profile_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<crate::database::dao::gateway::RouteMode> {
-    let mode = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::patch_route_mode(conn, &id, &patch))?;
+    let mode = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::patch_route_mode(conn, &id, &patch, profile_id.as_deref())
+    })?;
     crate::catalog::invalidate_view_cache();
     let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
     Ok(mode)
@@ -540,13 +618,12 @@ pub async fn update_route_mode(
 
 #[tauri::command]
 pub fn list_route_rules(
+    profile_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<crate::database::dao::gateway::RouteRule>> {
     state.db.with_read_conn(|conn| {
-        crate::database::dao::gateway::list_route_rules(
-            conn,
-            crate::database::dao::gateway::SHARED_PROFILE_ID,
-        )
+        let id = crate::database::dao::gateway::resolve_profile_id(conn, profile_id.as_deref())?;
+        crate::database::dao::gateway::list_route_rules(conn, &id)
     })
 }
 

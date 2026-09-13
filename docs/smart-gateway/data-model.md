@@ -1,12 +1,14 @@
-# 智能网关数据模型（Schema 31）
+# 智能网关数据模型（Schema 33）
 
-一套全局档案 `gprof_shared`。不再使用 `agent_connections`。
+一套或多套全局档案。默认档案 `gprof_shared` 不可删除。每个 Agent 通过 `gateway_bindings.profile_id` 选用其中一套；未绑定与自定义 Key（`sk-aisw-…`）回落 `gprof_shared`。不再按 Agent 建档。`agent_connections` 已删除。
 
 ## 新表
 
-- `gateway_bindings(target_app PK, entry_token, provider_id, created_at)`
+- `gateway_bindings(target_app PK, entry_token, provider_id, created_at, profile_id)` — Schema 33 增加 `profile_id TEXT NOT NULL DEFAULT 'gprof_shared'`
 - `route_modes(id, profile_id, enabled, model, thinking_config_json, fallback_models_json, threshold, sort_index)` — `id` 为 9 个模式名
 - `route_rules(id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model, thinking_config_json, rewrites_json)`
+
+克隆档案会复制 `hide_official` / allowlist / 9 个模式 / 规则，**不**复制 `entry_token`（令牌仍在 binding 上）。删除非默认档案时，绑了该档的 Agent 回落到 `gprof_shared`。
 
 ## 增列
 

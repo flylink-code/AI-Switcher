@@ -113,10 +113,12 @@ export function RouteRulesCard({
   rules,
   loading,
   modelOptions,
+  profileId,
 }: {
   rules: RouteRule[];
   loading: boolean;
   modelOptions: Array<{ value: string; label: string }>;
+  profileId: string;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -125,7 +127,7 @@ export function RouteRulesCard({
 
   const persist = async (rule: RouteRule) => {
     await upsertRouteRule(rule);
-    await queryClient.invalidateQueries({ queryKey: ["route-rules"] });
+    await queryClient.invalidateQueries({ queryKey: ["route-rules", profileId] });
   };
 
   const move = async (row: RouteRule, direction: -1 | 1) => {
@@ -148,7 +150,7 @@ export function RouteRulesCard({
           onClick={() => {
             const rule: RouteRule = {
               id: `rule_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
-              profileId: "gprof_shared",
+              profileId,
               enabled: true,
               sortIndex: rules.length,
               ruleType: "model-prefix",
@@ -292,7 +294,7 @@ export function RouteRulesCard({
                 danger
                 onClick={() => {
                   void deleteRouteRule(row.id).then(() => {
-                    void queryClient.invalidateQueries({ queryKey: ["route-rules"] });
+                    void queryClient.invalidateQueries({ queryKey: ["route-rules", profileId] });
                   });
                 }}
               >

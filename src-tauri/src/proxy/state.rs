@@ -581,11 +581,12 @@ pub(crate) fn load_gateway_catalog(
             }
         }
         let hide_official = crate::catalog::hide_official_for_conn(conn, state.target);
-        let modes = crate::database::dao::gateway::list_route_modes(
-            conn,
-            crate::database::dao::gateway::SHARED_PROFILE_ID,
-        )
-        .unwrap_or_default();
+        let profile_id = profile
+            .as_ref()
+            .map(|item| item.id.as_str())
+            .unwrap_or(crate::database::dao::gateway::SHARED_PROFILE_ID);
+        let modes = crate::database::dao::gateway::list_route_modes(conn, profile_id)
+            .unwrap_or_default();
         let mut pairs = Vec::with_capacity(providers.len());
         for provider in &providers {
             let cached =

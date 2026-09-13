@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Badge,
@@ -6,6 +6,8 @@ import {
   Card,
   Input,
   InputNumber,
+  Modal,
+  Popconfirm,
   Segmented,
   Select,
   Space,
@@ -23,6 +25,9 @@ import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
 import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import ExperimentOutlined from "@ant-design/icons/es/icons/ExperimentOutlined";
+import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
+import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
+import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -42,13 +47,18 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { listModelPricing } from "@/services/usage";
 import {
   bindSmartGateway,
+  createGatewayProfile,
+  deleteGatewayProfile,
   getSmartGatewayStatus,
   listGatewayCatalogEntries,
+  listGatewayProfiles,
   listGatewayRouteLogs,
   listRouteModeUsageStats,
   listRouteModes,
   listRouteRules,
   listSmartGatewayBindings,
+  renameGatewayProfile,
+  setGatewayBindingProfile,
   setSmartGatewayPort,
   setSmartGatewayApiKey,
   rotateSmartGatewayApiKey,
@@ -59,6 +69,8 @@ import {
 } from "@/services/providers";
 import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
+
+const SHARED_PROFILE_ID = "gprof_shared";
 
 const { Text, Paragraph } = Typography;
 
@@ -192,6 +204,8 @@ export default function GatewayPage() {
   const setTab = usePagePreferencesStore((state) => state.setGatewayTab);
   const section = usePagePreferencesStore((state) => state.gatewaySection);
   const setSection = usePagePreferencesStore((state) => state.setGatewaySection);
+  const profileId = usePagePreferencesStore((state) => state.gatewayProfileId);
+  const setProfileId = usePagePreferencesStore((state) => state.setGatewayProfileId);
   const snippetVisible = usePagePreferencesStore((state) => state.gatewaySnippetVisible);
   const setSnippetVisible = usePagePreferencesStore((state) => state.setGatewaySnippetVisible);
   const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
@@ -203,6 +217,11 @@ export default function GatewayPage() {
   const [modesHelpOpen, setModesHelpOpen] = useState(false);
   const [modesHelpTab, setModesHelpTab] = useState<RouteHelpTab>("guide");
   const [simulateOpen, setSimulateOpen] = useState(false);
+  const [profileModal, setProfileModal] = useState<{
+    mode: "create" | "clone" | "rename";
+    name: string;
+  } | null>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
 
   const smartTab = tab === "smart";
   const serviceSection = smartTab && section === "service";
@@ -220,14 +239,19 @@ export default function GatewayPage() {
     queryFn: listSmartGatewayBindings,
     enabled: serviceSection,
   });
+  const profilesQuery = useQuery({
+    queryKey: ["gateway-profiles"],
+    queryFn: listGatewayProfiles,
+    enabled: serviceSection || routingSection,
+  });
   const modesQuery = useQuery({
-    queryKey: ["route-modes"],
-    queryFn: listRouteModes,
+    queryKey: ["route-modes", profileId],
+    queryFn: () => listRouteModes(profileId),
     enabled: routingSection,
   });
   const rulesQuery = useQuery({
-    queryKey: ["route-rules"],
-    queryFn: listRouteRules,
+    queryKey: ["route-rules", profileId],
+    queryFn: () => listRouteRules(profileId),
     enabled: routingSection,
   });
   const routesQuery = useQuery({
@@ -299,6 +323,15 @@ export default function GatewayPage() {
     }
   };
   const bound = new Set((bindingsQuery.data ?? []).map((item) => item.targetApp));
+  const profiles = profilesQuery.data ?? [];
+  const profileOptions = profiles.map((profile) => ({
+    value: profile.id,
+    label: profile.id === SHARED_PROFILE_ID
+      ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
+      : profile.name,
+  }));
+  const editingProfile = profiles.find((profile) => profile.id === profileId)
+    ?? profiles.find((profile) => profile.id === SHARED_PROFILE_ID);
   const modelOptions = useMemo(() => {
     const pricing = new Map(
       (pricingQuery.data ?? []).map((row) => [row.model.toLowerCase(), row]),
@@ -392,6 +425,67 @@ export default function GatewayPage() {
       void message.error(errMsg(error));
     },
   });
+
+  useEffect(() => {
+    if (profiles.length === 0) return;
+    if (!profiles.some((profile) => profile.id === profileId)) {
+      setProfileId(SHARED_PROFILE_ID);
+    }
+  }, [profiles, profileId, setProfileId]);
+
+  const refreshProfiles = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["gateway-profiles"] });
+    await queryClient.invalidateQueries({ queryKey: ["route-modes"] });
+    await queryClient.invalidateQueries({ queryKey: ["route-rules"] });
+    await queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
+  };
+
+  const handleProfileModalOk = async () => {
+    if (!profileModal) return;
+    const name = profileModal.name.trim();
+    if (!name) {
+      void message.error(t("gateway.profileNameRequired", { defaultValue: "请填写档案名称" }));
+      return;
+    }
+    setProfileBusy(true);
+    try {
+      if (profileModal.mode === "rename") {
+        await renameGatewayProfile(profileId, name);
+      } else {
+        const created = await createGatewayProfile(
+          name,
+          profileModal.mode === "clone" ? profileId : SHARED_PROFILE_ID,
+        );
+        setProfileId(created.id);
+      }
+      setProfileModal(null);
+      await refreshProfiles();
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setProfileBusy(false);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (profileId === SHARED_PROFILE_ID) return;
+    setProfileBusy(true);
+    try {
+      await deleteGatewayProfile(profileId);
+      setProfileId(SHARED_PROFILE_ID);
+      await refreshProfiles();
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setProfileBusy(false);
+    }
+  };
+
+  const patchMode = (id: string, patch: Parameters<typeof updateRouteMode>[1]) => {
+    void updateRouteMode(id, patch, profileId).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["route-modes", profileId] });
+    });
+  };
 
   if (tab === "antigravity") {
     return (
@@ -607,23 +701,63 @@ export default function GatewayPage() {
           message={t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。自定义 Agent 用上方 API Key 即可，不必绑定。" })}
           style={{ marginBottom: 12 }}
         />
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-          {BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => {
-            const isBound = bound.has(target);
-            return (
-              <Button
-                key={target}
-                size="small"
-                icon={isBound ? <CheckOutlined /> : <LinkOutlined />}
-                loading={bindMutation.isPending && bindMutation.variables === target}
-                onClick={() => bindMutation.mutate(target)}
-              >
-                {t(`workspace.${target}`)}
-                {isBound ? <Tag color="green" style={{ marginLeft: 4, marginRight: 0 }}>{t("antigravity.bound")}</Tag> : null}
-              </Button>
-            );
-          })}
-        </div>
+        <Table
+          size="small"
+          pagination={false}
+          rowKey="target"
+          dataSource={BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => ({
+            target,
+            bound: bound.has(target),
+            profileId: (bindingsQuery.data ?? []).find((item) => item.targetApp === target)?.profileId
+              ?? SHARED_PROFILE_ID,
+          }))}
+          columns={[
+            {
+              title: t("gateway.bindAgent", { defaultValue: "应用" }),
+              dataIndex: "target",
+              render: (target: ProviderTarget) => t(`workspace.${target}`),
+            },
+            {
+              title: t("gateway.bound", { defaultValue: "绑定" }),
+              dataIndex: "bound",
+              width: 140,
+              render: (isBound: boolean, row: { target: ProviderTarget }) => (
+                <Button
+                  size="small"
+                  icon={isBound ? <CheckOutlined /> : <LinkOutlined />}
+                  loading={bindMutation.isPending && bindMutation.variables === row.target}
+                  onClick={() => bindMutation.mutate(row.target)}
+                >
+                  {isBound
+                    ? t("antigravity.bound", { defaultValue: "已绑定" })
+                    : t("gateway.bind", { defaultValue: "绑定" })}
+                </Button>
+              ),
+            },
+            {
+              title: t("gateway.currentProfile", { defaultValue: "当前档案" }),
+              dataIndex: "profileId",
+              render: (value: string, row: { target: ProviderTarget; bound: boolean }) => (
+                <Select
+                  size="small"
+                  style={{ minWidth: 160 }}
+                  disabled={!row.bound}
+                  value={row.bound ? value : undefined}
+                  placeholder={t("gateway.profileUnbound", { defaultValue: "未绑定" })}
+                  options={profileOptions}
+                  onChange={(next) => {
+                    void setGatewayBindingProfile(row.target, String(next)).then(() => {
+                      void queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
+                      void queryClient.invalidateQueries({ queryKey: ["providers"] });
+                    }).catch((error) => {
+                      void message.error(errMsg(error));
+                    });
+                  }}
+                />
+              ),
+            },
+          ]}
+        />
       </Card>
       </>
       ) : null}
@@ -638,6 +772,67 @@ export default function GatewayPage() {
 
       {section === "routing" ? (
       <>
+      <Card size="small">
+        <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
+          <Space wrap>
+            <Text type="secondary">{t("gateway.profileToolbar", { defaultValue: "正在编辑" })}</Text>
+            <Select
+              size="small"
+              style={{ minWidth: 180 }}
+              value={editingProfile?.id ?? profileId}
+              options={profileOptions}
+              onChange={(value) => setProfileId(String(value))}
+            />
+            <Button
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => setProfileModal({ mode: "create", name: "" })}
+            >
+              {t("gateway.profileCreate", { defaultValue: "新建" })}
+            </Button>
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => setProfileModal({
+                mode: "clone",
+                name: `${editingProfile?.name || t("gateway.profileDefault", { defaultValue: "默认" })} 副本`,
+              })}
+            >
+              {t("gateway.profileClone", { defaultValue: "复制" })}
+            </Button>
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => setProfileModal({
+                mode: "rename",
+                name: editingProfile?.name ?? "",
+              })}
+            >
+              {t("gateway.profileRename", { defaultValue: "重命名" })}
+            </Button>
+            <Popconfirm
+              title={t("gateway.profileDeleteConfirm", { defaultValue: "删除这套档案？已绑定的 Agent 会回到默认档案。" })}
+              disabled={profileId === SHARED_PROFILE_ID}
+              onConfirm={() => void handleDeleteProfile()}
+            >
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                disabled={profileId === SHARED_PROFILE_ID}
+                loading={profileBusy}
+              >
+                {t("gateway.profileDelete", { defaultValue: "删除" })}
+              </Button>
+            </Popconfirm>
+          </Space>
+        </Space>
+        <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
+          {t("gateway.profileToolbarHint", {
+            defaultValue: "这里改的是档案内容，和各 Agent Auto 卡选用哪一套无关。",
+          })}
+        </Text>
+      </Card>
       <Card
         size="small"
         title={t("gateway.routeModes", { defaultValue: "路由模式" })}
@@ -699,9 +894,7 @@ export default function GatewayPage() {
                 <Switch
                   checked={enabled}
                   onChange={(checked) => {
-                    void updateRouteMode(row.id, { enabled: checked }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                    });
+                    void patchMode(row.id, { enabled: checked });
                   }}
                 />
               ),
@@ -722,9 +915,7 @@ export default function GatewayPage() {
                     return left - right;
                   }}
                   onChange={(value) => {
-                    void updateRouteMode(row.id, { model: value ?? "" }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                    });
+                    void patchMode(row.id, { model: value ?? "" });
                   }}
                 />
               ),
@@ -759,9 +950,7 @@ export default function GatewayPage() {
                       const thinking = value === "off"
                         ? { mode: "disabled" }
                         : { mode: "effort", reasoningEffort: value };
-                      void updateRouteMode(row.id, { thinkingConfigJson: JSON.stringify(thinking) }).then(() => {
-                        void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                      });
+                      void patchMode(row.id, { thinkingConfigJson: JSON.stringify(thinking) });
                     }}
                   />
                 );
@@ -778,9 +967,7 @@ export default function GatewayPage() {
                   value={row.fallbackModels}
                   options={modelOptions}
                   onChange={(value) => {
-                    void updateRouteMode(row.id, { fallbackModels: value.slice(0, 3) }).then(() => {
-                      void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                    });
+                    void patchMode(row.id, { fallbackModels: value.slice(0, 3) });
                   }}
                 />
               ),
@@ -801,9 +988,7 @@ export default function GatewayPage() {
                       value={row.threshold}
                       addonAfter={t("gateway.thresholdUnit", { defaultValue: "token" })}
                       onChange={(value) => {
-                        void updateRouteMode(row.id, { threshold: value ?? 0 }).then(() => {
-                          void queryClient.invalidateQueries({ queryKey: ["route-modes"] });
-                        });
+                        void patchMode(row.id, { threshold: value ?? 0 });
                       }}
                     />
                   </Tooltip>
@@ -840,6 +1025,7 @@ export default function GatewayPage() {
         rules={rulesQuery.data ?? []}
         loading={rulesQuery.isLoading}
         modelOptions={modelOptions}
+        profileId={profileId}
       />
       </>
       ) : null}
@@ -854,7 +1040,31 @@ export default function GatewayPage() {
         open={simulateOpen}
         onClose={() => setSimulateOpen(false)}
         modelOptions={modelOptions}
+        profileId={profileId}
       />
+      <Modal
+        open={profileModal != null}
+        title={
+          profileModal?.mode === "rename"
+            ? t("gateway.profileRename", { defaultValue: "重命名" })
+            : profileModal?.mode === "clone"
+              ? t("gateway.profileClone", { defaultValue: "复制" })
+              : t("gateway.profileCreate", { defaultValue: "新建" })
+        }
+        confirmLoading={profileBusy}
+        onOk={() => void handleProfileModalOk()}
+        onCancel={() => setProfileModal(null)}
+      >
+        <Input
+          autoFocus
+          value={profileModal?.name ?? ""}
+          placeholder={t("gateway.profileNamePlaceholder", { defaultValue: "档案名称" })}
+          onChange={(event) => {
+            setProfileModal((current) => current ? { ...current, name: event.target.value } : current);
+          }}
+          onPressEnter={() => void handleProfileModalOk()}
+        />
+      </Modal>
 
       {section === "logs" ? (
       <Card size="small" title={t("proxy.recentRoutes")} className="gateway-route-logs">

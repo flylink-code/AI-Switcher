@@ -13,18 +13,17 @@ pub(crate) fn select_gateway_runtime_provider_with(
         .with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         .ok()
         .flatten();
+    let profile_id = profile
+        .as_ref()
+        .map(|item| item.id.clone())
+        .unwrap_or_else(|| crate::database::dao::gateway::SHARED_PROFILE_ID.to_string());
     let modes = state
         .db
-        .with_read_conn(crate::gateway::modes::load_modes)
+        .with_read_conn(|conn| crate::gateway::modes::load_modes(conn, &profile_id))
         .unwrap_or_default();
     let rules = state
         .db
-        .with_read_conn(|conn| {
-            crate::database::dao::gateway::list_route_rules(
-                conn,
-                crate::database::dao::gateway::SHARED_PROFILE_ID,
-            )
-        })
+        .with_read_conn(|conn| crate::database::dao::gateway::list_route_rules(conn, &profile_id))
         .unwrap_or_default();
     let tool_names = crate::gateway::modes::extract_tool_names(incoming);
     let recent_write_tool = crate::gateway::modes::extract_recent_write_tool(incoming);

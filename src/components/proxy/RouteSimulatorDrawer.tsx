@@ -37,10 +37,12 @@ export function RouteSimulatorDrawer({
   open,
   onClose,
   modelOptions,
+  profileId,
 }: {
   open: boolean;
   onClose: () => void;
   modelOptions: Array<{ value: string; label: string }>;
+  profileId?: string | null;
 }) {
   const { t } = useTranslation();
   const [requestedModel, setRequestedModel] = useState("auto");
@@ -74,6 +76,7 @@ export function RouteSimulatorDrawer({
           .filter(Boolean),
         bodyJson: bodyJson.trim() || null,
         path: isImageGen ? "/v1/images/generations" : "/v1/messages",
+        profileId: profileId ?? null,
       });
       setResult(next);
     } catch (error) {

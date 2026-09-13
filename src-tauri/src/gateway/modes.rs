@@ -3,7 +3,7 @@
 use serde_json::Value;
 
 use crate::database::dao::gateway::{
-    list_route_modes, repair_long_context_one_token_threshold, RouteMode, SHARED_PROFILE_ID,
+    list_route_modes, repair_long_context_one_token_threshold, RouteMode,
 };
 use crate::provider::ProviderTarget;
 
@@ -308,9 +308,9 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
     enabled(ModeId::Default).or_else(|| modes.iter().find(|mode| mode.id == "default"))
 }
 
-pub fn load_modes(conn: &rusqlite::Connection) -> crate::error::AppResult<Vec<RouteMode>> {
+pub fn load_modes(conn: &rusqlite::Connection, profile_id: &str) -> crate::error::AppResult<Vec<RouteMode>> {
     repair_long_context_one_token_threshold(conn)?;
-    list_route_modes(conn, SHARED_PROFILE_ID)
+    list_route_modes(conn, profile_id)
 }
 
 pub fn enabled_background_model(modes: &[RouteMode]) -> Option<String> {

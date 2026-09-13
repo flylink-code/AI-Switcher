@@ -11,3 +11,10 @@
 7. 删除 `agent_connections`。
 
 网关配置本次不做 ZIP / WebDAV 同步（绑定 token 是凭据）。迁移资料库后按本机重新绑定。
+
+# Schema 32 → 33
+
+1. `gateway_bindings` 增加 `profile_id TEXT NOT NULL DEFAULT 'gprof_shared'`。
+2. 允许多行 `gateway_profiles`；`gprof_shared` 仍为不可删默认档案。
+3. 新档案 `target_app` 写 `shared`，不再按 Agent 建档。
+4. 删除非默认档案时，绑了该档的 Agent 回落到 `gprof_shared`。

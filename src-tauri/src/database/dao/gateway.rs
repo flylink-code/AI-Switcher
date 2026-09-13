@@ -24,6 +24,8 @@ const CATALOG_EXECUTE_KEY: &str = "gateway_catalog_claude_code_execute";
 
 pub const DEFAULT_PROFILE_PREFIX: &str = "gprof_";
 pub const SHARED_PROFILE_ID: &str = "gprof_shared";
+/// New cloned profiles store this in `target_app` (not per-agent).
+pub const SHARED_PROFILE_TARGET: &str = "shared";
 /// New long-context rows and leftover `threshold = 1` (matches almost every request).
 pub const DEFAULT_LONG_CONTEXT_THRESHOLD: i64 = 60_000;
 
@@ -494,10 +496,31 @@ pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool 
         == Some("true")
 }
 
-pub fn current_profile(conn: &Connection, _target: ProviderTarget) -> AppResult<Option<GatewayProfile>> {
+pub fn current_profile(conn: &Connection, target: ProviderTarget) -> AppResult<Option<GatewayProfile>> {
     let now = chrono::Utc::now().timestamp_millis();
     ensure_shared_profile(conn, now)?;
-    get_profile(conn, SHARED_PROFILE_ID)
+    get_profile(conn, &profile_id_for_target(conn, target)?)
+}
+
+pub fn profile_id_for_target(conn: &Connection, target: ProviderTarget) -> AppResult<String> {
+    if let Some(binding) = binding_for_target(conn, target)? {
+        let id = binding.profile_id.trim();
+        if !id.is_empty() && get_profile(conn, id)?.is_some() {
+            return Ok(id.to_string());
+        }
+    }
+    Ok(SHARED_PROFILE_ID.to_string())
+}
+
+pub fn resolve_profile_id(conn: &Connection, profile_id: Option<&str>) -> AppResult<String> {
+    let now = chrono::Utc::now().timestamp_millis();
+    ensure_shared_profile(conn, now)?;
+    let id = profile_id.map(str::trim).filter(|value| !value.is_empty()).unwrap_or(SHARED_PROFILE_ID);
+    if get_profile(conn, id)?.is_some() {
+        Ok(id.to_string())
+    } else {
+        Ok(SHARED_PROFILE_ID.to_string())
+    }
 }
 
 pub fn get_profile(conn: &Connection, id: &str) -> AppResult<Option<GatewayProfile>> {
@@ -517,10 +540,204 @@ pub fn get_profile(conn: &Connection, id: &str) -> AppResult<Option<GatewayProfi
     }
 }
 
-pub fn list_profiles(conn: &Connection, _target: ProviderTarget) -> AppResult<Vec<GatewayProfile>> {
+pub fn list_profiles(conn: &Connection) -> AppResult<Vec<GatewayProfile>> {
     let now = chrono::Utc::now().timestamp_millis();
     ensure_shared_profile(conn, now)?;
-    Ok(get_profile(conn, SHARED_PROFILE_ID)?.into_iter().collect())
+    if !table_exists(conn, "gateway_profiles") {
+        return Ok(Vec::new());
+    }
+    let mut stmt = conn.prepare(
+        "SELECT id, name, target_app, default_model, plan_model, execute_model, subagent_model,
+                allowed_upstream_ids_json, role_routing_enabled, explicit_fallback_enabled,
+                fallback_mode, fallback_models_json, hide_official, entry_token,
+                plan_fallback_json, execute_fallback_json, subagent_fallback_json,
+                long_context_model, long_context_tokens, web_search_model,
+                created_at, updated_at
+         FROM gateway_profiles
+         ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, created_at ASC, name ASC;",
+    )?;
+    let rows = stmt.query_map(params![SHARED_PROFILE_ID], row_to_profile)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+pub fn create_profile(
+    conn: &Connection,
+    name: &str,
+    clone_from: Option<&str>,
+) -> AppResult<GatewayProfile> {
+    let now = chrono::Utc::now().timestamp_millis();
+    ensure_shared_profile(conn, now)?;
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Config("档案名称不能为空".into()));
+    }
+    let source_id = clone_from
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(SHARED_PROFILE_ID);
+    let source = get_profile(conn, source_id)?
+        .ok_or_else(|| AppError::Config(format!("网关档案不存在: {source_id}")))?;
+    let id = format!("{DEFAULT_PROFILE_PREFIX}{}", Uuid::new_v4().simple());
+    insert_cloned_profile(conn, &id, trimmed, &source, now)?;
+    copy_route_modes(conn, &source.id, &id)?;
+    copy_route_rules(conn, &source.id, &id)?;
+    let created = get_profile(conn, &id)?
+        .ok_or_else(|| AppError::Config("档案创建失败".into()))?;
+    seed_route_modes_from_profile(conn, &created)?;
+    get_profile(conn, &id)?.ok_or_else(|| AppError::Config("档案创建失败".into()))
+}
+
+pub fn rename_profile(conn: &Connection, id: &str, name: &str) -> AppResult<GatewayProfile> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(AppError::Config("档案名称不能为空".into()));
+    }
+    patch_profile(
+        conn,
+        id,
+        &GatewayProfilePatch {
+            name: Some(trimmed.to_string()),
+            ..GatewayProfilePatch::default()
+        },
+    )
+}
+
+pub fn delete_profile(conn: &Connection, id: &str) -> AppResult<()> {
+    if id == SHARED_PROFILE_ID {
+        return Err(AppError::Config("不能删除默认档案".into()));
+    }
+    if get_profile(conn, id)?.is_none() {
+        return Err(AppError::Config(format!("网关档案不存在: {id}")));
+    }
+    if table_exists(conn, "gateway_bindings") && bindings_have_profile_id(conn) {
+        conn.execute(
+            "UPDATE gateway_bindings SET profile_id = ? WHERE profile_id = ?;",
+            params![SHARED_PROFILE_ID, id],
+        )?;
+    }
+    if table_exists(conn, "route_modes") {
+        conn.execute("DELETE FROM route_modes WHERE profile_id = ?;", params![id])?;
+    }
+    if table_exists(conn, "route_rules") {
+        conn.execute("DELETE FROM route_rules WHERE profile_id = ?;", params![id])?;
+    }
+    conn.execute("DELETE FROM gateway_profiles WHERE id = ?;", params![id])?;
+    Ok(())
+}
+
+pub fn set_binding_profile(
+    conn: &Connection,
+    target: ProviderTarget,
+    profile_id: &str,
+    provider_id: &str,
+) -> AppResult<GatewayBinding> {
+    let requested = profile_id.trim();
+    if !requested.is_empty() && get_profile(conn, requested)?.is_none() {
+        return Err(AppError::Config(format!("网关档案不存在: {requested}")));
+    }
+    let resolved = resolve_profile_id(conn, Some(requested))?;
+    let _ = upsert_binding(conn, target, provider_id)?;
+    if bindings_have_profile_id(conn) {
+        conn.execute(
+            "UPDATE gateway_bindings SET profile_id = ? WHERE target_app = ?;",
+            params![resolved, target.as_str()],
+        )?;
+    }
+    binding_for_target(conn, target)?.ok_or_else(|| AppError::Config("绑定写入失败".into()))
+}
+
+fn insert_cloned_profile(
+    conn: &Connection,
+    id: &str,
+    name: &str,
+    source: &GatewayProfile,
+    now: i64,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO gateway_profiles (
+            id, name, target_app, default_model, plan_model, execute_model, subagent_model,
+            allowed_upstream_ids_json, role_routing_enabled, explicit_fallback_enabled,
+            fallback_mode, fallback_models_json, hide_official, entry_token,
+            plan_fallback_json, execute_fallback_json, subagent_fallback_json,
+            long_context_model, long_context_tokens, web_search_model,
+            created_at, updated_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?);",
+        params![
+            id,
+            name,
+            SHARED_PROFILE_TARGET,
+            source.default_model,
+            source.plan_model,
+            source.execute_model,
+            source.subagent_model,
+            serde_json::to_string(&source.allowed_upstream_ids).unwrap_or_else(|_| "[]".into()),
+            if source.explicit_fallback_enabled { 1 } else { 0 },
+            source.fallback_mode,
+            serde_json::to_string(&source.fallback_models).unwrap_or_else(|_| "[]".into()),
+            if source.hide_official { 1 } else { 0 },
+            serde_json::to_string(&source.plan_fallback).unwrap_or_else(|_| "[]".into()),
+            serde_json::to_string(&source.execute_fallback).unwrap_or_else(|_| "[]".into()),
+            serde_json::to_string(&source.subagent_fallback).unwrap_or_else(|_| "[]".into()),
+            source.long_context_model,
+            source.long_context_tokens,
+            source.web_search_model,
+            now,
+            now,
+        ],
+    )?;
+    Ok(())
+}
+
+fn copy_route_modes(conn: &Connection, from_id: &str, to_id: &str) -> AppResult<()> {
+    if !table_exists(conn, "route_modes") {
+        return Ok(());
+    }
+    for mode in list_route_modes(conn, from_id)? {
+        conn.execute(
+            "INSERT OR REPLACE INTO route_modes
+                (id, profile_id, enabled, model, thinking_config_json, fallback_models_json, threshold, sort_index)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+            params![
+                mode.id,
+                to_id,
+                if mode.enabled { 1 } else { 0 },
+                mode.model,
+                mode.thinking_config_json,
+                serde_json::to_string(&mode.fallback_models).unwrap_or_else(|_| "[]".into()),
+                mode.threshold,
+                mode.sort_index
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn copy_route_rules(conn: &Connection, from_id: &str, to_id: &str) -> AppResult<()> {
+    if !table_exists(conn, "route_rules") {
+        return Ok(());
+    }
+    for rule in list_route_rules(conn, from_id)? {
+        let new_id = format!("rule_{}", Uuid::new_v4().simple());
+        conn.execute(
+            "INSERT INTO route_rules
+                (id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model,
+                 thinking_config_json, rewrites_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+            params![
+                new_id,
+                to_id,
+                if rule.enabled { 1 } else { 0 },
+                rule.sort_index,
+                rule.rule_type,
+                rule.condition_json,
+                rule.pattern,
+                rule.target_model,
+                rule.thinking_config_json,
+                rule.rewrites_json
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 fn row_to_profile(row: &rusqlite::Row<'_>) -> rusqlite::Result<GatewayProfile> {
@@ -637,7 +854,7 @@ fn insert_shared_profile(conn: &Connection, source: Option<&GatewayProfile>, now
             plan_fallback_json, execute_fallback_json, subagent_fallback_json,
             long_context_model, long_context_tokens, web_search_model,
             created_at, updated_at
-         ) VALUES (?, '智能网关', 'claude_code', ?, '', '', ?, ?, 0, ?, ?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?, ?, ?);",
+         ) VALUES (?, '默认', 'shared', ?, '', '', ?, ?, 0, ?, ?, ?, ?, ?, '[]', '[]', ?, ?, ?, ?, ?, ?);",
         params![
             SHARED_PROFILE_ID,
             default_model,
@@ -1694,13 +1911,46 @@ fn table_exists(conn: &Connection, name: &str) -> bool {
         > 0
 }
 
+fn bindings_have_profile_id(conn: &Connection) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = 'profile_id';",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
+fn row_to_binding(row: &rusqlite::Row<'_>, has_profile: bool) -> rusqlite::Result<GatewayBinding> {
+    let token: String = row.get(1)?;
+    Ok(GatewayBinding {
+        target_app: ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?),
+        entry_token_set: !token.trim().is_empty(),
+        entry_token: token,
+        provider_id: row.get(2)?,
+        created_at: row.get(3)?,
+        profile_id: if has_profile {
+            row.get::<_, String>(4)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| SHARED_PROFILE_ID.to_string())
+        } else {
+            SHARED_PROFILE_ID.to_string()
+        },
+    })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct GatewayBinding {
     pub target_app: ProviderTarget,
+    #[cfg_attr(test, ts(skip))]
     pub entry_token: String,
     pub entry_token_set: bool,
     pub provider_id: String,
+    pub profile_id: String,
     pub created_at: i64,
 }
 
@@ -1756,7 +2006,7 @@ pub fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) -> AppResult<()> {
+pub(crate) fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) -> AppResult<()> {
     let long_context_threshold = if profile.long_context_tokens > 0 {
         profile.long_context_tokens
     } else {
@@ -1786,7 +2036,7 @@ fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) ->
              VALUES (?, ?, ?, ?, '{}', '[]', ?, ?);",
             params![
                 id,
-                SHARED_PROFILE_ID,
+                profile.id,
                 if enabled { 1 } else { 0 },
                 model,
                 threshold.max(0),
@@ -1799,10 +2049,13 @@ fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) ->
 }
 
 pub(crate) fn repair_long_context_one_token_threshold(conn: &Connection) -> AppResult<()> {
+    if !table_exists(conn, "route_modes") {
+        return Ok(());
+    }
     conn.execute(
         "UPDATE route_modes SET threshold = ?
-         WHERE profile_id = ? AND id = 'long_context' AND threshold = 1;",
-        params![DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID],
+         WHERE id = 'long_context' AND threshold = 1;",
+        params![DEFAULT_LONG_CONTEXT_THRESHOLD],
     )?;
     Ok(())
 }
@@ -1899,20 +2152,14 @@ pub fn list_bindings(conn: &Connection) -> AppResult<Vec<GatewayBinding>> {
     if !table_exists(conn, "gateway_bindings") {
         return Ok(Vec::new());
     }
-    let mut stmt = conn.prepare(
-        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings ORDER BY target_app;",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        let target = ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?);
-        let token: String = row.get(1)?;
-        Ok(GatewayBinding {
-            target_app: target,
-            entry_token_set: !token.trim().is_empty(),
-            entry_token: token,
-            provider_id: row.get(2)?,
-            created_at: row.get(3)?,
-        })
-    })?;
+    let has_profile = bindings_have_profile_id(conn);
+    let sql = if has_profile {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings ORDER BY target_app;"
+    } else {
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings ORDER BY target_app;"
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map([], |row| row_to_binding(row, has_profile))?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
@@ -1920,21 +2167,18 @@ pub fn binding_for_target(conn: &Connection, target: ProviderTarget) -> AppResul
     if !table_exists(conn, "gateway_bindings") {
         return Ok(None);
     }
-    let mut stmt = conn.prepare(
-        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE target_app = ?;",
-    )?;
+    let has_profile = bindings_have_profile_id(conn);
+    let sql = if has_profile {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings WHERE target_app = ?;"
+    } else {
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE target_app = ?;"
+    };
+    let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query(params![target.as_str()])?;
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    let token: String = row.get(1)?;
-    Ok(Some(GatewayBinding {
-        target_app: target,
-        entry_token_set: !token.trim().is_empty(),
-        entry_token: token,
-        provider_id: row.get(2)?,
-        created_at: row.get(3)?,
-    }))
+    Ok(Some(row_to_binding(row, has_profile)?))
 }
 
 pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<GatewayBinding>> {
@@ -1942,21 +2186,18 @@ pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<Gate
     if trimmed.is_empty() || !table_exists(conn, "gateway_bindings") {
         return Ok(None);
     }
-    let mut stmt = conn.prepare(
-        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE entry_token = ?;",
-    )?;
+    let has_profile = bindings_have_profile_id(conn);
+    let sql = if has_profile {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings WHERE entry_token = ?;"
+    } else {
+        "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE entry_token = ?;"
+    };
+    let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query(params![trimmed])?;
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    let target = ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?);
-    Ok(Some(GatewayBinding {
-        target_app: target,
-        entry_token_set: true,
-        entry_token: row.get(1)?,
-        provider_id: row.get(2)?,
-        created_at: row.get(3)?,
-    }))
+    Ok(Some(row_to_binding(row, has_profile)?))
 }
 
 fn binding_token(conn: &Connection, target: ProviderTarget) -> Option<String> {
@@ -1986,11 +2227,19 @@ pub fn upsert_binding(conn: &Connection, target: ProviderTarget, provider_id: &s
             .ok_or_else(|| AppError::Config("绑定写入失败".to_string()));
     }
     let token = format!("gwt_{}", Uuid::new_v4().simple());
-    conn.execute(
-        "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at)
-         VALUES (?, ?, ?, ?);",
-        params![target.as_str(), token, provider_id, now],
-    )?;
+    if bindings_have_profile_id(conn) {
+        conn.execute(
+            "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at, profile_id)
+             VALUES (?, ?, ?, ?, ?);",
+            params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at)
+             VALUES (?, ?, ?, ?);",
+            params![target.as_str(), token, provider_id, now],
+        )?;
+    }
     binding_for_target(conn, target)?.ok_or_else(|| AppError::Config("绑定写入失败".to_string()))
 }
 
@@ -2036,8 +2285,14 @@ pub fn list_route_modes(conn: &Connection, profile_id: &str) -> AppResult<Vec<Ro
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
-pub fn patch_route_mode(conn: &Connection, mode_id: &str, patch: &RouteModePatch) -> AppResult<RouteMode> {
-    let mut modes = list_route_modes(conn, SHARED_PROFILE_ID)?;
+pub fn patch_route_mode(
+    conn: &Connection,
+    mode_id: &str,
+    patch: &RouteModePatch,
+    profile_id: Option<&str>,
+) -> AppResult<RouteMode> {
+    let profile_id = resolve_profile_id(conn, profile_id)?;
+    let mut modes = list_route_modes(conn, &profile_id)?;
     let Some(mode) = modes.iter_mut().find(|item| item.id == mode_id) else {
         return Err(AppError::Config(format!("未知路由模式: {mode_id}")));
     };
@@ -2065,7 +2320,7 @@ pub fn patch_route_mode(conn: &Connection, mode_id: &str, patch: &RouteModePatch
             mode.thinking_config_json,
             serde_json::to_string(&mode.fallback_models).unwrap_or_else(|_| "[]".into()),
             mode.threshold,
-            SHARED_PROFILE_ID,
+            profile_id,
             mode_id
         ],
     )?;
@@ -2073,10 +2328,10 @@ pub fn patch_route_mode(conn: &Connection, mode_id: &str, patch: &RouteModePatch
         let now = chrono::Utc::now().timestamp_millis();
         conn.execute(
             "UPDATE gateway_profiles SET subagent_model = ?, updated_at = ? WHERE id = ?;",
-            params![mode.model, now, SHARED_PROFILE_ID],
+            params![mode.model, now, profile_id],
         )?;
     }
-    list_route_modes(conn, SHARED_PROFILE_ID)?
+    list_route_modes(conn, &profile_id)?
         .into_iter()
         .find(|item| item.id == mode_id)
         .ok_or_else(|| AppError::Config("路由模式写入失败".to_string()))
@@ -2109,12 +2364,14 @@ pub fn list_route_rules(conn: &Connection, profile_id: &str) -> AppResult<Vec<Ro
 }
 
 pub fn upsert_route_rule(conn: &Connection, rule: &RouteRule) -> AppResult<RouteRule> {
+    let profile_id = resolve_profile_id(conn, Some(rule.profile_id.as_str()))?;
     conn.execute(
         "INSERT INTO route_rules
             (id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model,
              thinking_config_json, rewrites_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
+            profile_id = excluded.profile_id,
             enabled = excluded.enabled,
             sort_index = excluded.sort_index,
             rule_type = excluded.rule_type,
@@ -2125,7 +2382,7 @@ pub fn upsert_route_rule(conn: &Connection, rule: &RouteRule) -> AppResult<Route
             rewrites_json = excluded.rewrites_json;",
         params![
             rule.id,
-            SHARED_PROFILE_ID,
+            profile_id,
             if rule.enabled { 1 } else { 0 },
             rule.sort_index,
             rule.rule_type,
@@ -2136,7 +2393,7 @@ pub fn upsert_route_rule(conn: &Connection, rule: &RouteRule) -> AppResult<Route
             rule.rewrites_json
         ],
     )?;
-    list_route_rules(conn, SHARED_PROFILE_ID)?
+    list_route_rules(conn, &profile_id)?
         .into_iter()
         .find(|item| item.id == rule.id)
         .ok_or_else(|| AppError::Config("规则写入失败".to_string()))
@@ -2150,8 +2407,10 @@ pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_profile_for_target, is_gateway_connection, list_route_modes,
-        repair_long_context_one_token_threshold, upsert_binding, upstream_endpoint_key,
+        binding_for_target, create_profile, current_profile, delete_profile, ensure_profile_for_target,
+        is_gateway_connection, list_profiles, list_route_modes, list_route_rules, patch_route_mode,
+        repair_long_context_one_token_threshold, set_binding_profile, upsert_binding,
+        upsert_route_rule, upstream_endpoint_key, RouteModePatch, RouteRule,
         DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID,
     };
     use crate::database::dao::{set_current_provider, upsert_provider};
@@ -2260,6 +2519,98 @@ mod tests {
             let modes = list_route_modes(conn, SHARED_PROFILE_ID)?;
             let long_context = modes.iter().find(|mode| mode.id == "long_context").unwrap();
             assert_eq!(long_context.threshold, DEFAULT_LONG_CONTEXT_THRESHOLD);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn list_profiles_returns_cloned_rows() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            let listed = list_profiles(conn)?;
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].id, SHARED_PROFILE_ID);
+            let cloned = create_profile(conn, "编程", Some(SHARED_PROFILE_ID))?;
+            assert_ne!(cloned.id, SHARED_PROFILE_ID);
+            assert!(cloned.entry_token.is_empty());
+            let listed = list_profiles(conn)?;
+            assert_eq!(listed.len(), 2);
+            assert_eq!(listed[0].id, SHARED_PROFILE_ID);
+            assert!(listed.iter().any(|profile| profile.id == cloned.id));
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn clone_profile_copies_modes_and_rules() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            patch_route_mode(
+                conn,
+                "default",
+                &RouteModePatch {
+                    model: Some("deepseek.chat".into()),
+                    enabled: Some(true),
+                    ..RouteModePatch::default()
+                },
+                Some(SHARED_PROFILE_ID),
+            )?;
+            upsert_route_rule(
+                conn,
+                &RouteRule {
+                    id: "rule_clone_src".into(),
+                    profile_id: SHARED_PROFILE_ID.into(),
+                    enabled: true,
+                    sort_index: 0,
+                    rule_type: "model-prefix".into(),
+                    condition_json: "{}".into(),
+                    pattern: "gpt-".into(),
+                    target_model: "deepseek.chat".into(),
+                    thinking_config_json: "{}".into(),
+                    rewrites_json: "[]".into(),
+                },
+            )?;
+            let cloned = create_profile(conn, "Astra", Some(SHARED_PROFILE_ID))?;
+            let modes = list_route_modes(conn, &cloned.id)?;
+            let default = modes.iter().find(|mode| mode.id == "default").unwrap();
+            assert_eq!(default.model, "deepseek.chat");
+            let rules = list_route_rules(conn, &cloned.id)?;
+            assert_eq!(rules.len(), 1);
+            assert_ne!(rules[0].id, "rule_clone_src");
+            assert_eq!(rules[0].pattern, "gpt-");
+            assert_eq!(rules[0].profile_id, cloned.id);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn current_profile_follows_binding_and_delete_falls_back() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            let cloned = create_profile(conn, "Astra", Some(SHARED_PROFILE_ID))?;
+            upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
+            set_binding_profile(
+                conn,
+                ProviderTarget::ClaudeCode,
+                &cloned.id,
+                "p_sg_claude_code",
+            )?;
+            let bound = current_profile(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(bound.id, cloned.id);
+            let unbound = current_profile(conn, ProviderTarget::Codex)?.unwrap();
+            assert_eq!(unbound.id, SHARED_PROFILE_ID);
+            delete_profile(conn, &cloned.id)?;
+            let after = current_profile(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(after.id, SHARED_PROFILE_ID);
+            let binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(binding.profile_id, SHARED_PROFILE_ID);
+            assert!(delete_profile(conn, SHARED_PROFILE_ID).is_err());
             Ok(())
         })
         .unwrap();

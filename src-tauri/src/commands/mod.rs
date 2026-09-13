@@ -142,6 +142,8 @@ pub use gateway::{
     import_gateway_upstreams_from_providers, list_gateway_profiles, list_gateway_route_logs,
     list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
     set_gateway_upstream_model_visible, update_gateway_profile, upsert_gateway_upstream,
+    create_gateway_profile, rename_gateway_profile, delete_gateway_profile,
+    set_gateway_binding_profile,
     get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
     list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,

@@ -60,9 +60,12 @@ import {
   getClaudeCodeDefaultPermissionMode,
   importGatewayUpstreamsFromProviders,
   listGatewayCatalogEntries,
+  listGatewayProfiles,
+  listSmartGatewayBindings,
   pollCodexOauthLogin,
   quarantineFailedProviders,
   setClaudeCodeDefaultPermissionMode,
+  setGatewayBindingProfile,
   startCodexOauthLogin,
   updatePiSettings,
   updateProvider,
@@ -94,6 +97,9 @@ export default function ProvidersPage() {
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
+  const setGatewayTab = usePagePreferencesStore((state) => state.setGatewayTab);
+  const setGatewaySection = usePagePreferencesStore((state) => state.setGatewaySection);
+  const setGatewayProfileId = usePagePreferencesStore((state) => state.setGatewayProfileId);
   const isNativeCatalog = target === "opencode" || target === "pi" || target === "dsh" || target === "cline";
 
   const [formOpen, setFormOpen] = useState(false);
@@ -133,6 +139,14 @@ export default function ProvidersPage() {
   const catalogEntriesQuery = useQuery({
     queryKey: ["gateway-catalog-entries", target],
     queryFn: () => listGatewayCatalogEntries(target),
+  });
+  const gatewayProfilesQuery = useQuery({
+    queryKey: ["gateway-profiles"],
+    queryFn: listGatewayProfiles,
+  });
+  const gatewayBindingsQuery = useQuery({
+    queryKey: ["smart-gateway-bindings"],
+    queryFn: listSmartGatewayBindings,
   });
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
@@ -262,6 +276,21 @@ export default function ProvidersPage() {
       });
       await store.load(target);
       void message.success(t("providers.autoModelSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setAutoModelSaving(false);
+    }
+  };
+
+  const handleAutoProfileChange = async (profileId: string) => {
+    setAutoModelSaving(true);
+    try {
+      await setGatewayBindingProfile(target, profileId);
+      await gatewayBindingsQuery.refetch();
+      await catalogEntriesQuery.refetch();
+      await store.load(target);
+      void message.success(t("providers.gatewayProfileSaved", { defaultValue: "已切换智能网关档案" }));
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -804,16 +833,35 @@ export default function ProvidersPage() {
 
                 <div className="cc-provider-card-meta">
                   {isAuto ? (
-                    <Select
-                      size="small"
-                      showSearch
-                      optionFilterProp="label"
-                      style={{ minWidth: 220 }}
-                      value={provider.model || "auto"}
-                      loading={autoModelSaving}
-                      options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
-                      onChange={(value) => void handleAutoModelChange(provider, String(value ?? "auto"))}
-                    />
+                    <>
+                      <Select
+                        size="small"
+                        showSearch
+                        optionFilterProp="label"
+                        style={{ minWidth: 220 }}
+                        value={provider.model || "auto"}
+                        loading={autoModelSaving}
+                        options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
+                        onChange={(value) => void handleAutoModelChange(provider, String(value ?? "auto"))}
+                      />
+                      <Select
+                        size="small"
+                        style={{ minWidth: 140 }}
+                        loading={autoModelSaving}
+                        value={
+                          gatewayBindingsQuery.data?.find((item) => item.targetApp === target)?.profileId
+                          ?? "gprof_shared"
+                        }
+                        options={(gatewayProfilesQuery.data ?? []).map((profile) => ({
+                          value: profile.id,
+                          label: profile.id === "gprof_shared"
+                            ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
+                            : profile.name,
+                        }))}
+                        onChange={(value) => void handleAutoProfileChange(String(value))}
+                        placeholder={t("providers.gatewayProfile", { defaultValue: "配置" })}
+                      />
+                    </>
                   ) : (
                     <Tag className="cc-provider-model-tag" title={provider.model || "Default"}>
                       Model: {provider.model || "Default"}
@@ -852,7 +900,13 @@ export default function ProvidersPage() {
                         type="link"
                         size="small"
                         onClick={() => {
+                          const selected =
+                            gatewayBindingsQuery.data?.find((item) => item.targetApp === target)?.profileId
+                            ?? "gprof_shared";
                           setProxyTarget(target);
+                          setGatewayTab("smart");
+                          setGatewaySection("routing");
+                          setGatewayProfileId(selected);
                           navigate("gateway");
                         }}
                       >

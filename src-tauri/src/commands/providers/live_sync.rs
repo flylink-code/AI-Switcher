@@ -363,9 +363,13 @@ fn gateway_live_entry(
     };
     let hide = catalog::hide_official(state.db.as_ref(), target);
     let style = catalog::catalog_style_for(target);
+    let profile_id = profile
+        .as_ref()
+        .map(|item| item.id.clone())
+        .unwrap_or_else(|| crate::database::dao::gateway::SHARED_PROFILE_ID.to_string());
     let modes = state
         .db
-        .with_conn(crate::gateway::modes::load_modes)
+        .with_conn(|conn| crate::gateway::modes::load_modes(conn, &profile_id))
         .unwrap_or_default();
     let catalog = catalog::with_auto_entry_from_modes(
         style,
@@ -976,11 +980,16 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     let modes = state
                         .db
                         .with_conn(|conn| {
-                            Ok(crate::database::dao::gateway::list_route_modes(
-                                conn,
-                                crate::database::dao::gateway::SHARED_PROFILE_ID,
-                            )
-                            .unwrap_or_default())
+                            let profile_id =
+                                crate::database::dao::gateway::profile_id_for_target(
+                                    conn,
+                                    ProviderTarget::Codex,
+                                )
+                                .unwrap_or_else(|_| {
+                                    crate::database::dao::gateway::SHARED_PROFILE_ID.to_string()
+                                });
+                            Ok(crate::database::dao::gateway::list_route_modes(conn, &profile_id)
+                                .unwrap_or_default())
                         })
                         .unwrap_or_default();
                     let catalog = catalog::with_auto_entry_from_modes(

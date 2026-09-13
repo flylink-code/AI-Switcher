@@ -18,6 +18,7 @@ interface PersistedPagePreferences {
   proxyTarget?: ProviderTarget;
   gatewayTab?: "smart" | "antigravity";
   gatewaySection?: GatewaySection;
+  gatewayProfileId?: string;
   gatewaySnippetVisible?: boolean;
   usagePeriod?: UsagePeriod;
   /** Providers heatmap period; falls back to usagePeriod on first load. */
@@ -37,6 +38,7 @@ interface PagePreferencesState {
   proxyTarget: ProviderTarget;
   gatewayTab: "smart" | "antigravity";
   gatewaySection: GatewaySection;
+  gatewayProfileId: string;
   gatewaySnippetVisible: boolean;
   usagePeriod: UsagePeriod;
   heatmapPeriod: UsagePeriod;
@@ -52,6 +54,7 @@ interface PagePreferencesState {
   setProxyTarget: (target: ProviderTarget) => void;
   setGatewayTab: (tab: "smart" | "antigravity") => void;
   setGatewaySection: (section: GatewaySection) => void;
+  setGatewayProfileId: (profileId: string) => void;
   setGatewaySnippetVisible: (visible: boolean) => void;
   setUsagePeriod: (period: UsagePeriod) => void;
   setHeatmapPeriod: (period: UsagePeriod) => void;
@@ -71,6 +74,7 @@ const DEFAULTS: Pick<
   | "proxyTarget"
   | "gatewayTab"
   | "gatewaySection"
+  | "gatewayProfileId"
   | "gatewaySnippetVisible"
   | "usagePeriod"
   | "heatmapPeriod"
@@ -86,6 +90,7 @@ const DEFAULTS: Pick<
   proxyTarget: "claude_code",
   gatewayTab: "smart",
   gatewaySection: "service",
+  gatewayProfileId: "gprof_shared",
   gatewaySnippetVisible: true,
   usagePeriod: 365,
   heatmapPeriod: 365,
@@ -209,6 +214,10 @@ function initialState() {
   const gatewaySnippetVisible = stored.gatewaySnippetVisible === false
     ? false
     : DEFAULTS.gatewaySnippetVisible;
+  const gatewayProfileId =
+    typeof stored.gatewayProfileId === "string" && stored.gatewayProfileId.trim()
+      ? stored.gatewayProfileId.trim()
+      : DEFAULTS.gatewayProfileId;
 
   return {
     visibleAgents,
@@ -217,6 +226,7 @@ function initialState() {
     proxyTarget,
     gatewayTab,
     gatewaySection,
+    gatewayProfileId,
     gatewaySnippetVisible,
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
@@ -237,6 +247,7 @@ function persistSlice(
     | "proxyTarget"
     | "gatewayTab"
     | "gatewaySection"
+    | "gatewayProfileId"
     | "gatewaySnippetVisible"
     | "usagePeriod"
     | "heatmapPeriod"
@@ -254,6 +265,7 @@ function persistSlice(
     proxyTarget: state.proxyTarget,
     gatewayTab: state.gatewayTab,
     gatewaySection: state.gatewaySection,
+    gatewayProfileId: state.gatewayProfileId,
     gatewaySnippetVisible: state.gatewaySnippetVisible,
     usagePeriod: state.usagePeriod,
     heatmapPeriod: state.heatmapPeriod,
@@ -314,6 +326,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setGatewaySection: (gatewaySection) => {
     set({ gatewaySection });
+    persistSlice(get());
+  },
+  setGatewayProfileId: (gatewayProfileId) => {
+    set({ gatewayProfileId });
     persistSlice(get());
   },
   setGatewaySnippetVisible: (gatewaySnippetVisible) => {

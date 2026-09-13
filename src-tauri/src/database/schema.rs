@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 32;
+pub const SCHEMA_VERSION: u32 = 33;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -245,7 +245,8 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
             target_app TEXT PRIMARY KEY,
             entry_token TEXT NOT NULL,
             provider_id TEXT NOT NULL DEFAULT '',
-            created_at INTEGER NOT NULL DEFAULT 0
+            created_at INTEGER NOT NULL DEFAULT 0,
+            profile_id TEXT NOT NULL DEFAULT 'gprof_shared'
         );
         CREATE TABLE IF NOT EXISTS route_modes (
             id TEXT NOT NULL,
@@ -425,6 +426,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 32 {
         migrate_v31_to_v32(conn)?;
+    }
+    if current < 33 {
+        migrate_v32_to_v33(conn)?;
     }
     Ok(())
 }
@@ -1196,6 +1200,37 @@ fn migrate_v31_to_v32(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 32)
 }
 
+fn migrate_v32_to_v33(conn: &Connection) -> AppResult<()> {
+    add_binding_profile_id_column(conn)?;
+    conn.execute(
+        "UPDATE gateway_profiles SET name = '默认' WHERE id = 'gprof_shared' AND name = '智能网关';",
+        [],
+    )?;
+    set_user_version(conn, 33)
+}
+
+fn add_binding_profile_id_column(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='gateway_bindings';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = 'profile_id';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has == 0 {
+        conn.execute_batch(
+            "ALTER TABLE gateway_bindings ADD COLUMN profile_id TEXT NOT NULL DEFAULT 'gprof_shared';",
+        )?;
+    }
+    Ok(())
+}
+
 fn add_proxy_log_route_mode_column(conn: &Connection) -> AppResult<()> {
     let table_exists: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
@@ -1395,6 +1430,12 @@ mod tests {
                 )?;
                 assert_eq!(has, 1, "missing log column {column}");
             }
+            let binding_profile: i64 = conn.query_row(
+                "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = 'profile_id';",
+                [],
+                |r| r.get(0),
+            )?;
+            assert_eq!(binding_profile, 1, "missing gateway_bindings.profile_id");
             for index in [
                 "idx_logs_correlation_hop",
                 "idx_logs_created_status",

@@ -125,6 +125,7 @@ export interface SimulateGatewayRouteInput {
   recentWriteTool?: string | null;
   path?: string | null;
   target?: ProviderTarget | null;
+  profileId?: string | null;
 }
 
 export interface SimulateRouteTraceStep {
@@ -297,12 +298,6 @@ export interface SmartGatewayStatus {
   checkedAt: number;
 }
 
-export interface GatewayBinding {
-  targetApp: ProviderTarget;
-  entryTokenSet: boolean;
-  providerId: string;
-  createdAt: number;
-}
 
 
 

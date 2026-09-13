@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::catalog::{catalog_style_for, CatalogStyle};
 use crate::database::dao::gateway::{
-    current_profile, list_route_rules, list_upstream_providers, list_visible_upstream_model_ids,
-    SHARED_PROFILE_ID,
+    current_profile, get_profile, list_route_rules, list_upstream_providers,
+    list_visible_upstream_model_ids, resolve_profile_id, SHARED_PROFILE_ID,
 };
 use crate::database::Database;
 use crate::error::AppResult;
@@ -32,6 +32,7 @@ pub struct SimulateRouteInput {
     pub recent_write_tool: Option<String>,
     pub path: Option<String>,
     pub target: Option<ProviderTarget>,
+    pub profile_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -122,7 +123,17 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
     let (providers, entries, profile, modes, rules) = db.with_conn(|conn| {
         let mut providers = list_upstream_providers(conn, false)?;
         providers.retain(|provider| !provider.is_smart_gateway());
-        let profile = current_profile(conn, target).ok().flatten();
+        let profile = if let Some(profile_id) = input
+            .profile_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            let resolved = resolve_profile_id(conn, Some(profile_id))?;
+            get_profile(conn, &resolved)?
+        } else {
+            current_profile(conn, target).ok().flatten()
+        };
         if let Some(profile) = profile.as_ref() {
             if !profile.allowed_upstream_ids.is_empty() {
                 providers.retain(|provider| {
@@ -130,8 +141,15 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
                 });
             }
         }
-        let hide_official = crate::catalog::hide_official_for_conn(conn, target);
-        let modes = crate::database::dao::gateway::list_route_modes(conn, SHARED_PROFILE_ID)
+        let hide_official = profile
+            .as_ref()
+            .map(|item| item.hide_official)
+            .unwrap_or_else(|| crate::catalog::hide_official_for_conn(conn, target));
+        let profile_id = profile
+            .as_ref()
+            .map(|item| item.id.as_str())
+            .unwrap_or(SHARED_PROFILE_ID);
+        let modes = crate::database::dao::gateway::list_route_modes(conn, profile_id)
             .unwrap_or_default();
         let mut pairs = Vec::with_capacity(providers.len());
         for provider in &providers {
@@ -143,7 +161,7 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
             crate::catalog::build_catalog_with(style, &pairs, hide_official),
             &modes,
         );
-        let rules = list_route_rules(conn, SHARED_PROFILE_ID).unwrap_or_default();
+        let rules = list_route_rules(conn, profile_id).unwrap_or_default();
         Ok((providers, entries, profile, modes, rules))
     })?;
 
