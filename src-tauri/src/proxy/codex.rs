@@ -31,9 +31,8 @@ use super::{
     json_error_with_retry_after, log_early_failure, log_request, log_request_with_diagnostic,
     next_failover_provider, next_failover_provider_ex, record_provider_failure,
     record_provider_success, select_gateway_runtime_provider_with, CS_SUBAGENT_HEADER,
-    load_gateway_attempt_provider, route_plan_followup_attempts, session_prompt_cache_hint,
-    should_failover_upstream_status_ex, should_try_route_plan_fallback, FAILOVER_MAX_HOPS,
-    ListenerKind, ProxyState,
+    session_prompt_cache_hint, should_failover_upstream_status_ex,
+    FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -122,7 +121,6 @@ pub async fn codex_proxy_handler(
     let catalog_mode = super::gateway_catalog_enabled(&state);
     let mut is_catalog_subagent = false;
     let mut route_decision = None;
-    let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
     let attempt_index: i64 = 0;
     let mut provider = if catalog_mode {
         match select_gateway_runtime_provider_with(
@@ -133,12 +131,10 @@ pub async fn codex_proxy_handler(
             uri.path(),
             &headers,
         ) {
-            Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
+            Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
-                requested_model = upstream;
                 is_catalog_subagent = routed_subagent;
                 route_decision = Some(decision);
-                route_plan = Some(plan);
                 selected
             }
             Ok(None) => {
@@ -300,80 +296,6 @@ pub async fn codex_proxy_handler(
     };
 
     let is_compact_route = codex_compact::is_responses_compact_route(&route);
-    if is_retryable_upstream_status(&state, upstream.status())
-        && should_try_route_plan_fallback(&provider, upstream.status())
-        && !is_compact_route
-    {
-        for attempt in route_plan_followup_attempts(route_plan.as_ref()) {
-            let next_model = attempt.model.trim().to_string();
-            if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
-                continue;
-            }
-            if let Some(upstream_id) = attempt.upstream_id.as_deref() {
-                if upstream_id != provider.id {
-                    match load_gateway_attempt_provider(&state, upstream_id, &next_model) {
-                        Ok(Some(next_provider)) => provider = next_provider,
-                        _ => {
-                            failover_trace.push(format!(
-                                "备用上游 {upstream_id} 模型 {next_model} 无法加载"
-                            ));
-                            continue;
-                        }
-                    }
-                } else {
-                    provider.model = next_model.clone();
-                }
-            } else {
-                provider.model = next_model.clone();
-            }
-            original_body = Bytes::from(rewrite_json_model(&original_body, &next_model));
-            requested_model = next_model.clone();
-            if let Ok(fallback_prepared) = prepare_codex_upstream(
-                &state,
-                &provider,
-                &route,
-                &headers,
-                &original_body,
-                false,
-                is_catalog_subagent,
-            ) {
-                match fallback_prepared
-                    .request
-                    .body(fallback_prepared.request_body)
-                    .send()
-                    .await
-                {
-                    Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
-                        failover_trace.push(format!("{} 模型 {next_model} 接管", provider.name));
-                        is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
-                        is_stream = fallback_prepared.is_stream;
-                        compact_fallback = fallback_prepared.compact_fallback;
-                        is_chat_bridge = fallback_prepared.is_chat_bridge;
-                        upstream = response;
-                        break;
-                    }
-                    Ok(response) => {
-                        failover_trace.push(format!(
-                            "{} 模型 {next_model} 状态码 {}",
-                            provider.name,
-                            response.status()
-                        ));
-                        is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
-                        is_stream = fallback_prepared.is_stream;
-                        compact_fallback = fallback_prepared.compact_fallback;
-                        is_chat_bridge = fallback_prepared.is_chat_bridge;
-                        upstream = response;
-                    }
-                    Err(error) => {
-                        failover_trace.push(format!(
-                            "{} 模型 {next_model} 失败: {error}",
-                            provider.name
-                        ));
-                    }
-                }
-            }
-        }
-    }
     if is_retryable_upstream_status(&state, upstream.status())
         && should_failover_upstream_status_ex(&provider, upstream.status(), catalog_mode)
         && !is_compact_route

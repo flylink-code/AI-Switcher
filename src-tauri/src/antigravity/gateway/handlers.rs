@@ -29,9 +29,7 @@ use crate::antigravity::map::responses::{
     gemini_to_responses_response, responses_compact_stub, responses_to_gemini_request,
     ResponsesStreamEncoder,
 };
-use crate::antigravity::map::models::{map_effort_to_suffix, map_model_id};
 use crate::antigravity::model_catalog;
-use crate::antigravity::quota::{quota_family_from_model, QuotaFamily};
 use crate::antigravity::upstream::{
     classify_rate_limit_body, unwrap_v1internal, wrap_v1internal, RateLimitKind,
 };
@@ -136,48 +134,7 @@ pub async fn anthropic_messages(
         ))
         .into_response();
     }
-    let original_model = payload
-        .get("model")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let mut payload = payload;
-    let mut extra_diagnostic = maybe_degrade_claude_payload(
-        &mut payload,
-        state
-            .pool
-            .family_exhausted_until(QuotaFamily::ClaudeGpt)
-            .is_some(),
-    );
-    let response =
-        anthropic_messages_mapped(&state, &headers, payload.clone(), extra_diagnostic.as_deref())
-            .await;
-    if response.status() == StatusCode::TOO_MANY_REQUESTS
-        && extra_diagnostic.is_none()
-        && mapped_model_is_claude(&original_model)
-    {
-        extra_diagnostic = maybe_degrade_claude_payload(&mut payload, true);
-        if extra_diagnostic.is_some() {
-            return anthropic_messages_mapped(
-                &state,
-                &headers,
-                payload,
-                extra_diagnostic.as_deref(),
-            )
-            .await;
-        }
-    }
-    response
-}
-
-async fn anthropic_messages_mapped(
-    state: &GatewayState,
-    headers: &HeaderMap,
-    payload: Value,
-    extra_diagnostic: Option<&str>,
-) -> Response {
-    let fast_path = crate::antigravity::fast_path::current_settings();
-    let session_key = session_key_from_headers(headers);
+    let session_key = session_key_from_headers(&headers);
     let sticky = session_key
         .as_deref()
         .and_then(crate::antigravity::session_effort::get);
@@ -199,13 +156,10 @@ async fn anthropic_messages_mapped(
     if let (Some(session), Some(level)) = (session_key.as_deref(), mapped.remember_effort) {
         crate::antigravity::session_effort::set(session, level);
     }
-    let mut diagnostic = effort_mapping_diagnostic(&payload, &mapped.model);
-    if let Some(prefix) = extra_diagnostic {
-        diagnostic = format!("{prefix}; {diagnostic}");
-    }
+    let diagnostic = effort_mapping_diagnostic(&payload, &mapped.model);
     dispatch_generation(
-        state,
-        headers,
+        &state,
+        &headers,
         mapped.model,
         mapped.request,
         mapped.stream,
@@ -225,27 +179,17 @@ pub async fn openai_chat_completions(
     if let Err(response) = authorize(&state, &headers) {
         return response;
     }
-    let mut payload: Value = match serde_json::from_slice(&body) {
+    let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
         Err(error) => {
             return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
         }
     };
-    let extra_diagnostic = maybe_degrade_claude_payload(
-        &mut payload,
-        state
-            .pool
-            .family_exhausted_until(QuotaFamily::ClaudeGpt)
-            .is_some(),
-    );
     let session_key = session_key_from_headers(&headers);
     let mapped = match openai_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
-    let diagnostic = extra_diagnostic.map(|prefix| {
-        format!("{prefix}; mapped={}", mapped.model)
-    });
     dispatch_generation(
         &state,
         &headers,
@@ -253,7 +197,7 @@ pub async fn openai_chat_completions(
         mapped.request,
         mapped.stream,
         WireProtocol::OpenAiChat,
-        diagnostic,
+        None,
         false,
         mapped.tool_params,
     )
@@ -268,27 +212,17 @@ pub async fn openai_responses(
     if let Err(response) = authorize(&state, &headers) {
         return response;
     }
-    let mut payload: Value = match serde_json::from_slice(&body) {
+    let payload: Value = match serde_json::from_slice(&body) {
         Ok(value) => value,
         Err(error) => {
             return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
         }
     };
-    let extra_diagnostic = maybe_degrade_claude_payload(
-        &mut payload,
-        state
-            .pool
-            .family_exhausted_until(QuotaFamily::ClaudeGpt)
-            .is_some(),
-    );
     let session_key = session_key_from_headers(&headers);
     let mapped = match responses_to_gemini_request(&payload, session_key.as_deref()) {
         Ok(value) => value,
         Err(error) => return error_json(StatusCode::BAD_REQUEST, &error),
     };
-    let diagnostic = extra_diagnostic.map(|prefix| {
-        format!("{prefix}; mapped={}", mapped.model)
-    });
     dispatch_generation(
         &state,
         &headers,
@@ -296,7 +230,7 @@ pub async fn openai_responses(
         mapped.request,
         mapped.stream,
         WireProtocol::OpenAiResponses,
-        diagnostic,
+        None,
         false,
         mapped.tool_params,
     )
@@ -762,14 +696,20 @@ async fn dispatch_generation(
                 if !should_try_model_fallback_on_429(kind) {
                     state.limiter.note_upstream_rate_limited(&account.id);
                     state.pool.clear_session(session_key.as_deref());
-                    stop_pool_walk = apply_family_or_rpm_429(
-                        &account,
-                        &last_attempted_model,
-                        retry_after,
-                        &last_error,
-                        hop,
-                        kind,
-                    );
+                    let cooldown = crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
+                    let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                    stop_pool_walk = should_stop_pool_walk_after_429(hop, false);
+                    if stop_pool_walk {
+                        log::warn!(
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; account/project RPM persisted on two accounts, stopping pool walk",
+                            kind.label()
+                        );
+                    } else {
+                        log::warn!(
+                            "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model}; skipping same-account model fallback and rotating once",
+                            kind.label()
+                        );
+                    }
                     break 'levels Err(());
                 }
 
@@ -787,14 +727,17 @@ async fn dispatch_generation(
                 }
                 state.limiter.note_upstream_rate_limited(&account.id);
                 state.pool.clear_session(session_key.as_deref());
-                stop_pool_walk = apply_family_or_rpm_429(
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
                     &account,
-                    &last_attempted_model,
-                    retry_after,
-                    &last_error,
-                    hop,
-                    kind,
+                    Some(crate::antigravity::quota::quota_family_from_model(&model)),
                 );
+                let cooldown = if rotate_pool {
+                    crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
+                } else {
+                    crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
+                };
+                let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                stop_pool_walk = should_stop_pool_walk_after_429(hop, rotate_pool);
                 break 'levels Err(());
             }
             break 'levels Ok(response);
@@ -857,16 +800,34 @@ async fn dispatch_generation(
                 state.limiter.note_upstream_rate_limited(&account.id);
                 state.pool.clear_session(session_key.as_deref());
                 let kind = classify_rate_limit_body(&text);
-                let stop = apply_family_or_rpm_429(
+                let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(
                     &account,
-                    &last_attempted_model,
-                    retry_after,
-                    &last_error,
-                    hop,
-                    kind,
+                    Some(crate::antigravity::quota::quota_family_from_model(&model)),
                 );
-                if stop {
+                let cooldown = if rotate_pool {
+                    crate::antigravity::pool::rate_limit_cooldown_secs(retry_after)
+                } else {
+                    crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after)
+                };
+                let _ = account_store().mark_cooldown(&account.id, cooldown, &last_error);
+                if rotate_pool {
+                    log::warn!(
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with empty quota snapshot; rotating",
+                        kind.label()
+                    );
+                } else if should_stop_pool_walk_after_429(hop, rotate_pool) {
+                    // Same-account model fallback already ran. One extra account
+                    // covers SKU capacity on another number; more hops cool the pool.
+                    log::warn!(
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with remaining quota; not walking the rest of the pool",
+                        kind.label()
+                    );
                     break;
+                } else {
+                    log::warn!(
+                        "Antigravity 429 class={} hop={hop} account={account_email} model={last_attempted_model} with remaining quota; trying one more account",
+                        kind.label()
+                    );
                 }
             } else if status.as_u16() == 403 {
                 let _ = account_store().mark_forbidden_403(&account.id, &last_error);
@@ -1025,20 +986,7 @@ async fn dispatch_generation(
         Some(&clipped_error),
         Some(headers),
     );
-    let retry_after = if status == StatusCode::TOO_MANY_REQUESTS {
-        let family = quota_family_from_model(&last_attempted_model);
-        state
-            .pool
-            .family_exhausted_until(family)
-            .map(|until| {
-                (until - chrono::Utc::now().timestamp())
-                    .max(1) as u64
-            })
-            .or(last_upstream_retry_after)
-    } else {
-        last_upstream_retry_after
-    };
-    error_json_with_retry_after(status, &clipped_error, retry_after)
+    error_json_with_retry_after(status, &clipped_error, last_upstream_retry_after)
 }
 
 async fn ensure_project_id(
@@ -1513,110 +1461,6 @@ fn should_try_model_fallback_on_429(kind: RateLimitKind) -> bool {
     matches!(kind, RateLimitKind::ModelQuotaExhausted)
 }
 
-/// Family-empty 429: mark the family locally exhausted, short cooldown, keep
-/// walking the pool. Remaining-quota RPM 429: 45s health cooldown and stop
-/// after two accounts.
-fn apply_family_or_rpm_429(
-    account: &crate::antigravity::account::AntigravityAccount,
-    model: &str,
-    retry_after: Option<u64>,
-    last_error: &str,
-    hop: usize,
-    kind: RateLimitKind,
-) -> bool {
-    let family = quota_family_from_model(model);
-    let rotate_pool = crate::antigravity::pool::should_rotate_pool_on_429(account, Some(family));
-    if rotate_pool {
-        let until = account
-            .quota
-            .as_ref()
-            .and_then(|quota| quota.family_reset_epoch(family));
-        let _ = account_store().mark_family_exhausted(&account.id, family, until);
-        let cooldown = crate::antigravity::pool::sku_rate_limit_cooldown_secs(retry_after);
-        let _ = account_store().mark_quota_cooldown(&account.id, cooldown);
-        log::warn!(
-            "Antigravity 429 class={} hop={hop} account={} model={model} family={} empty; rotating pool",
-            kind.label(),
-            account.email,
-            family.display_zh()
-        );
-        false
-    } else {
-        let cooldown = crate::antigravity::pool::rate_limit_cooldown_secs(retry_after);
-        let _ = account_store().mark_cooldown(&account.id, cooldown, last_error);
-        let stop = should_stop_pool_walk_after_429(hop, false);
-        if stop {
-            log::warn!(
-                "Antigravity 429 class={} hop={hop} account={} model={model}; account/project RPM persisted on two accounts, stopping pool walk",
-                kind.label(),
-                account.email
-            );
-        } else {
-            log::warn!(
-                "Antigravity 429 class={} hop={hop} account={} model={model}; skipping same-account model fallback and rotating once",
-                kind.label(),
-                account.email
-            );
-        }
-        stop
-    }
-}
-
-fn mapped_model_is_claude(requested: &str) -> bool {
-    let mapped = map_model_id(requested);
-    let lower = mapped.to_ascii_lowercase();
-    lower.starts_with("claude-")
-}
-
-fn claude_quota_degrade_model(payload: &Value) -> String {
-    let base = model_catalog::preferred_gemini_flash()
-        .unwrap_or_else(|| "gemini-3.8-flash-high".into());
-    let effort = payload
-        .get("output_config")
-        .and_then(|config| config.get("effort"))
-        .and_then(Value::as_str)
-        .or_else(|| payload.get("effort").and_then(Value::as_str))
-        .or_else(|| {
-            payload
-                .get("thinking")
-                .and_then(|thinking| thinking.get("effort"))
-                .and_then(Value::as_str)
-        });
-    let thinking_kind = payload
-        .get("thinking")
-        .and_then(|thinking| thinking.get("type"))
-        .and_then(Value::as_str)
-        .map(str::to_ascii_lowercase);
-    let suffix = effort
-        .and_then(map_effort_to_suffix)
-        .or_else(|| {
-            matches!(thinking_kind.as_deref(), Some("enabled") | Some("adaptive"))
-                .then_some("high")
-        })
-        .unwrap_or("high");
-    model_catalog::with_forced_level(&base, suffix)
-}
-
-fn maybe_degrade_claude_payload(payload: &mut Value, exhausted: bool) -> Option<String> {
-    if !exhausted {
-        return None;
-    }
-    let requested = payload
-        .get("model")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    if !mapped_model_is_claude(&requested) {
-        return None;
-    }
-    let target = claude_quota_degrade_model(payload);
-    if target.eq_ignore_ascii_case(&requested) {
-        return None;
-    }
-    payload["model"] = json!(target);
-    Some(format!("claude_quota_degrade: {requested} → {target}"))
-}
-
 fn should_stop_pool_walk_after_429(hop: usize, quota_exhausted: bool) -> bool {
     !quota_exhausted && hop + 1 >= MAX_SKU_RATE_LIMIT_ACCOUNT_HOPS
 }
@@ -2014,48 +1858,5 @@ mod tests {
         );
         assert_ne!(corrupted, text);
         assert!(corrupted.contains('\u{FFFD}'));
-    }
-
-    #[test]
-    fn claude_quota_degrade_rewrites_opus_to_gemini() {
-        let mut payload = json!({
-            "model": "claude-opus-4-6-thinking",
-            "thinking": { "type": "enabled" },
-            "messages": [{ "role": "user", "content": "hi" }]
-        });
-        let diagnostic = maybe_degrade_claude_payload(&mut payload, true).expect("degrade");
-        let mapped = payload.get("model").and_then(Value::as_str).unwrap();
-        assert!(mapped.starts_with("gemini-"), "got {mapped}");
-        assert!(mapped.ends_with("-high") || mapped.contains("flash"));
-        assert!(diagnostic.contains("claude_quota_degrade"));
-        let parts = anthropic_to_gemini_request(&payload, None, None).expect("map");
-        assert!(parts.model.starts_with("gemini-"), "got {}", parts.model);
-        assert!(
-            parts
-                .request
-                .pointer("/generationConfig/thinkingConfig/thinkingLevel")
-                .is_none()
-        );
-    }
-
-    #[test]
-    fn claude_quota_degrade_skips_gemini_and_when_not_exhausted() {
-        let mut gemini = json!({ "model": "gemini-3.8-flash-high" });
-        assert!(maybe_degrade_claude_payload(&mut gemini, true).is_none());
-        let mut claude = json!({ "model": "claude-sonnet-4-6" });
-        assert!(maybe_degrade_claude_payload(&mut claude, false).is_none());
-        assert_eq!(
-            claude.get("model").and_then(Value::as_str),
-            Some("claude-sonnet-4-6")
-        );
-    }
-
-    #[test]
-    fn generic_resource_exhausted_is_account_rpm_without_host() {
-        let body = r#"{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}"#;
-        assert_eq!(
-            classify_rate_limit_body(body),
-            RateLimitKind::AccountRateLimit
-        );
     }
 }

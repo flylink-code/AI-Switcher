@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::antigravity::quota::{QuotaFamily, QuotaSnapshot};
+use crate::antigravity::quota::QuotaSnapshot;
 use crate::config;
 use crate::error::{AppError, AppResult};
 
@@ -23,14 +23,6 @@ pub(crate) const OAUTH_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const REFRESH_SKEW_SECS: i64 = 300;
 const ACCOUNTS_FILE: &str = "antigravity_accounts.json";
-const DEFAULT_FAMILY_BLOCK_SECS: i64 = 900;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QuotaBlock {
-    pub family: String,
-    pub until: i64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,9 +69,6 @@ pub struct AntigravityAccount {
     /// Latest Cloud Code quota snapshot (5h / weekly + per-model).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota: Option<QuotaSnapshot>,
-    /// Local per-family exhaustion, independent of `disabled` / health_score.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub quota_blocks: Vec<QuotaBlock>,
 }
 
 fn default_health() -> f32 {
@@ -122,8 +111,6 @@ pub struct AntigravityAccountPublic {
     pub quota_forbidden: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quota: Option<QuotaSnapshot>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub quota_blocks: Vec<QuotaBlock>,
 }
 
 impl From<&AntigravityAccount> for AntigravityAccountPublic {
@@ -157,23 +144,7 @@ impl From<&AntigravityAccount> for AntigravityAccountPublic {
             quota_updated_at: quota.map(|q| q.last_updated),
             quota_forbidden: quota.is_some_and(|q| q.is_forbidden),
             quota: account.quota.clone(),
-            quota_blocks: account.quota_blocks.clone(),
         }
-    }
-}
-
-impl AntigravityAccount {
-    pub(crate) fn family_block_until(&self, family: QuotaFamily, now: i64) -> Option<i64> {
-        self.quota_blocks
-            .iter()
-            .find(|block| {
-                QuotaFamily::parse(&block.family) == Some(family) && block.until > now
-            })
-            .map(|block| block.until)
-    }
-
-    pub(crate) fn is_family_blocked(&self, family: QuotaFamily, now: i64) -> bool {
-        self.family_block_until(family, now).is_some()
     }
 }
 
@@ -359,50 +330,6 @@ impl AccountStore {
         Ok(())
     }
 
-    /// Cooldown after a family quota 429: skip the account briefly without
-    /// treating a Cloud Code bar as a health failure.
-    pub fn mark_quota_cooldown(&self, account_id: &str, seconds: i64) -> AppResult<()> {
-        let mut guard = self.lock_accounts();
-        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
-            return Ok(());
-        };
-        account.cooldown_until = Some(Utc::now().timestamp() + seconds.max(1));
-        persist(&guard)?;
-        Ok(())
-    }
-
-    /// Pin a family as locally exhausted until `until` (5h reset) or 15 minutes.
-    /// Does not decay `health_score` — empty 5h/7d is not an account fault.
-    pub fn mark_family_exhausted(
-        &self,
-        account_id: &str,
-        family: QuotaFamily,
-        until: Option<i64>,
-    ) -> AppResult<()> {
-        let mut guard = self.lock_accounts();
-        let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
-            return Ok(());
-        };
-        let now = Utc::now().timestamp();
-        let until = until
-            .filter(|epoch| *epoch > now)
-            .unwrap_or(now + DEFAULT_FAMILY_BLOCK_SECS);
-        if let Some(existing) = account
-            .quota_blocks
-            .iter_mut()
-            .find(|block| QuotaFamily::parse(&block.family) == Some(family))
-        {
-            existing.until = existing.until.max(until);
-        } else {
-            account.quota_blocks.push(QuotaBlock {
-                family: family.as_str().to_string(),
-                until,
-            });
-        }
-        persist(&guard)?;
-        Ok(())
-    }
-
     /// Persist OAuth revocation so stale quota rows cannot look healthy.
     pub fn mark_reauthorization_required(&self, account_id: &str, reason: &str) -> AppResult<()> {
         let mut guard = self.lock_accounts();
@@ -502,14 +429,10 @@ impl AccountStore {
         if quota.is_forbidden {
             account.health_score = (account.health_score * 0.5).max(0.05);
         }
-        crate::antigravity::model_catalog::update_from_quota_models(&quota.models);
-        account.quota_blocks.retain(|block| {
-            let Some(family) = QuotaFamily::parse(&block.family) else {
-                return true;
-            };
-            !quota.has_usable_quota_for_family(family)
-        });
         account.quota = Some(quota);
+        if let Some(snapshot) = account.quota.as_ref() {
+            crate::antigravity::model_catalog::update_from_quota_models(&snapshot.models);
+        }
         let public = AntigravityAccountPublic::from(&*account);
         persist(&guard)?;
         Ok(public)
@@ -796,7 +719,6 @@ fn parse_one_account(item: &Value, now: i64) -> Option<AntigravityAccount> {
         cooldown_until: None,
         remaining_quota: None,
         quota: None,
-        quota_blocks: Vec::new(),
     })
 }
 
@@ -820,72 +742,6 @@ mod tests {
         assert_eq!(accounts[0].email, "user@example.com");
         assert_eq!(accounts[0].token.refresh_token, "1//refresh");
         assert_eq!(accounts[0].token.project_id.as_deref(), Some("proj-1"));
-    }
-
-    #[test]
-    fn recovered_family_quota_clears_matching_block() {
-        let mut blocks = vec![
-            QuotaBlock {
-                family: "claude_gpt".into(),
-                until: 9_999,
-            },
-            QuotaBlock {
-                family: "gemini".into(),
-                until: 9_999,
-            },
-        ];
-        let quota = QuotaSnapshot {
-            last_updated: 1,
-            groups: vec![
-                crate::antigravity::quota::QuotaGroup {
-                    display_name: "Gemini Models".into(),
-                    buckets: vec![
-                        crate::antigravity::quota::QuotaBucket {
-                            bucket_id: "gemini-5h".into(),
-                            window: "5h".into(),
-                            remaining_fraction: 0.0,
-                            reset_time: String::new(),
-                            display_name: None,
-                        },
-                        crate::antigravity::quota::QuotaBucket {
-                            bucket_id: "gemini-weekly".into(),
-                            window: "weekly".into(),
-                            remaining_fraction: 0.8,
-                            reset_time: String::new(),
-                            display_name: None,
-                        },
-                    ],
-                },
-                crate::antigravity::quota::QuotaGroup {
-                    display_name: "Claude + GPT".into(),
-                    buckets: vec![
-                        crate::antigravity::quota::QuotaBucket {
-                            bucket_id: "3p-5h".into(),
-                            window: "5h".into(),
-                            remaining_fraction: 0.5,
-                            reset_time: String::new(),
-                            display_name: None,
-                        },
-                        crate::antigravity::quota::QuotaBucket {
-                            bucket_id: "3p-weekly".into(),
-                            window: "weekly".into(),
-                            remaining_fraction: 0.8,
-                            reset_time: String::new(),
-                            display_name: None,
-                        },
-                    ],
-                },
-            ],
-            ..QuotaSnapshot::default()
-        };
-        blocks.retain(|block| {
-            let Some(family) = QuotaFamily::parse(&block.family) else {
-                return true;
-            };
-            !quota.has_usable_quota_for_family(family)
-        });
-        assert_eq!(blocks.len(), 1);
-        assert_eq!(blocks[0].family, "gemini");
     }
 
     #[test]

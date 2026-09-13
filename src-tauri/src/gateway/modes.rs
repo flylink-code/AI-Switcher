@@ -2,7 +2,9 @@
 
 use serde_json::Value;
 
-use crate::database::dao::gateway::{list_route_modes, RouteMode, SHARED_PROFILE_ID};
+use crate::database::dao::gateway::{
+    list_route_modes, repair_long_context_one_token_threshold, RouteMode, SHARED_PROFILE_ID,
+};
 use crate::provider::ProviderTarget;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -307,8 +309,7 @@ pub fn select_mode<'a>(modes: &'a [RouteMode], signals: &ModeSignals) -> Option<
 }
 
 pub fn load_modes(conn: &rusqlite::Connection) -> crate::error::AppResult<Vec<RouteMode>> {
-    // Read-only pool sets `query_only`; threshold repair belongs on write/migrate
-    // paths (see `repair_long_context_one_token_threshold` callers).
+    repair_long_context_one_token_threshold(conn)?;
     list_route_modes(conn, SHARED_PROFILE_ID)
 }
 

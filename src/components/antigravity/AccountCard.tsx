@@ -94,26 +94,6 @@ export function AccountCard({
             {cooling && (
               <StatusBadge status="warning" label={t("antigravity.cooling")} />
             )}
-            {account.quotaBlocks
-              ?.filter((block) => block.until * 1000 > Date.now())
-              .map((block) => {
-                const date = new Date(block.until * 1000);
-                const pad = (n: number) => String(n).padStart(2, "0");
-                const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-                const family =
-                  block.family === "claude_gpt"
-                    ? "Claude"
-                    : block.family === "gemini"
-                      ? "Gemini"
-                      : block.family;
-                return (
-                  <StatusBadge
-                    key={`${block.family}-${block.until}`}
-                    status="warning"
-                    label={t("antigravity.familyPaused", { family, time })}
-                  />
-                );
-              })}
             {account.quotaForbidden && (
               <StatusBadge status="error" label={t("antigravity.forbidden")} />
             )}

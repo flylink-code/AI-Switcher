@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.4**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.3**
 
-**本版**：反代网关按 Claude / Gemini 家族硬约束选号，整池 Claude 空时降级 Gemini。智能网关模式「备用」始终生效，主模型 429 可跨上游切换。其余同 1.5.3。
+**本版**：点了目录里的具体模型会粘住，不再被 Claude Code 后段的 `claude-sonnet-5` / 长上下文抢走。`/v1/models` 带窗口并支持按 id 查询，Codex / Cline / Desktop 同源；OpenCode / Pi / DSH 绑定 Auto 时按模型写窗口。其余同 1.5.2。
 
 **升级注意**：资料库仍为 Schema 32。请先备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 32。
 

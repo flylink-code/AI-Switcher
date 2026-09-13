@@ -367,7 +367,7 @@ pub fn build_execution_plan_with_chain(
     source: RouteSource,
     extra_chain: Option<&[String]>,
 ) -> RouteExecutionPlan {
-    let mut fallback_mode = profile
+    let fallback_mode = profile
         .map(|profile| profile.fallback_mode.as_str())
         .unwrap_or("off");
     let mut attempts = vec![RouteAttemptPlan {
@@ -375,7 +375,7 @@ pub fn build_execution_plan_with_chain(
         model: primary_model.to_string(),
         upstream_id: primary_upstream_id.map(str::to_string),
     }];
-    if fallback_mode == "model_chain" || extra_chain.is_some_and(|items| !items.is_empty()) {
+    if fallback_mode == "model_chain" {
         let chain: Vec<String> = extra_chain
             .map(|items| items.to_vec())
             .or_else(|| {
@@ -395,9 +395,6 @@ pub fn build_execution_plan_with_chain(
                 model: model.to_string(),
                 upstream_id: None,
             });
-        }
-        if extra_chain.is_some_and(|items| !items.is_empty()) {
-            fallback_mode = "model_chain";
         }
     }
     RouteExecutionPlan {
@@ -523,13 +520,6 @@ pub fn resolve_gateway_route_with_modes(
     } else {
         auto_slot_rewrite(requested_model, force_subagent, profile, hints)
     };
-    if extra_chain.as_ref().is_none_or(|items| items.is_empty()) {
-        extra_chain = modes
-            .iter()
-            .find(|mode| mode.id == "default")
-            .map(|mode| mode.fallback_models.clone())
-            .filter(|items| !items.is_empty());
-    }
     let normalized = normalize_client_request_with(
         style,
         entries,
@@ -559,28 +549,9 @@ pub fn resolve_gateway_route_with_modes(
         source = RouteSource::Explicit;
         reason = source.as_reason().to_string();
     }
-    let mut diagnostics = profile
+    let diagnostics = profile
         .map(|profile| slot_diagnostics(profile, entries))
         .unwrap_or_default();
-    let mut attempts = vec![RouteAttemptPlan {
-        index: 0,
-        model: upstream.clone(),
-        upstream_id: Some(provider_id.clone()),
-    }];
-    if let Some(chain) = extra_chain.as_deref() {
-        append_resolved_fallback_attempts(
-            &mut attempts,
-            &mut diagnostics,
-            chain,
-            style,
-            entries,
-            providers,
-            hide_official,
-            subagent.as_deref(),
-            force_subagent,
-            profile,
-        );
-    }
     let decision = RouteDecision {
         requested_model: requested_model.to_string(),
         normalized_model: normalized.clone(),
@@ -593,87 +564,16 @@ pub fn resolve_gateway_route_with_modes(
         rewrites,
         mode_id: source.mode_id().map(str::to_string),
     };
-    let plan = RouteExecutionPlan {
-        fallback_mode: if attempts.len() > 1 {
-            "model_chain".into()
-        } else {
-            profile
-                .map(|profile| profile.fallback_mode.clone())
-                .unwrap_or_else(|| "off".into())
-        },
-        primary_model: upstream.clone(),
-        attempts,
-    };
+    let plan = build_execution_plan_with_chain(
+        profile,
+        &upstream,
+        Some(&provider_id),
+        source,
+        extra_chain.as_deref(),
+    );
     let is_subagent = matches!(source, RouteSource::RoleSubagent)
         || (force_subagent && !in_catalog);
     Some((provider, upstream, decision, plan, is_subagent))
-}
-
-fn append_resolved_fallback_attempts(
-    attempts: &mut Vec<RouteAttemptPlan>,
-    diagnostics: &mut Vec<String>,
-    chain: &[String],
-    style: CatalogStyle,
-    entries: &[CatalogEntry],
-    providers: &[Provider],
-    hide_official: bool,
-    subagent: Option<&str>,
-    _force_subagent: bool,
-    profile: Option<&GatewayProfile>,
-) {
-    for catalog_id in chain {
-        if attempts.len() >= 3 {
-            break;
-        }
-        let catalog_id = catalog_id.trim();
-        if catalog_id.is_empty() {
-            continue;
-        }
-        let normalized = normalize_client_request_with(
-            style,
-            entries,
-            providers,
-            catalog_id,
-            hide_official,
-            subagent,
-            false,
-            None,
-            None,
-            false,
-        );
-        if !catalog_in_entries(entries, catalog_id) && !catalog_in_entries(entries, &normalized) {
-            diagnostics.push(format!("备用模型 {catalog_id} 不在目录中"));
-            continue;
-        }
-        let Some((provider_id, upstream)) = resolve_request(entries, providers, &normalized) else {
-            diagnostics.push(format!("备用模型 {catalog_id} 不在目录中"));
-            continue;
-        };
-        if let Some(profile) = profile {
-            if !profile_allows_upstream(profile, &provider_id) {
-                diagnostics.push(format!("备用模型 {catalog_id} 不在允许的上游列表中"));
-                continue;
-            }
-        }
-        if !providers
-            .iter()
-            .any(|provider| provider.id == provider_id && !provider.is_smart_gateway())
-        {
-            diagnostics.push(format!("备用模型 {catalog_id} 找不到上游 {provider_id}"));
-            continue;
-        }
-        if attempts.iter().any(|attempt| {
-            attempt.model.eq_ignore_ascii_case(&upstream)
-                && attempt.upstream_id.as_deref() == Some(provider_id.as_str())
-        }) {
-            continue;
-        }
-        attempts.push(RouteAttemptPlan {
-            index: attempts.len(),
-            model: upstream,
-            upstream_id: Some(provider_id),
-        });
-    }
 }
 
 fn mode_reason(mode_id: &str, signals: &modes::ModeSignals) -> String {
@@ -1147,97 +1047,5 @@ mod tests {
         assert_eq!(routed.1, "gpt-6-astra");
         assert_eq!(routed.2.source, RouteSource::Explicit);
         assert!(!routed.4);
-    }
-
-    #[test]
-    fn extra_chain_expands_when_profile_fallback_is_off() {
-        let profile = GatewayProfile {
-            id: "gprof_claude_code".into(),
-            name: "t".into(),
-            target_app: crate::provider::ProviderTarget::ClaudeCode,
-            default_model: String::new(),
-            plan_model: String::new(),
-            execute_model: String::new(),
-            subagent_model: String::new(),
-            allowed_upstream_ids: vec![],
-            role_routing_enabled: false,
-            explicit_fallback_enabled: false,
-            fallback_mode: "off".into(),
-            fallback_models: vec![],
-            hide_official: false,
-            entry_token: String::new(),
-            entry_token_set: false,
-            plan_fallback: vec![],
-            execute_fallback: vec![],
-            subagent_fallback: vec![],
-            long_context_model: String::new(),
-            long_context_tokens: 0,
-            web_search_model: String::new(),
-            created_at: 0,
-            updated_at: 0,
-        };
-        let plan = build_execution_plan_with_chain(
-            Some(&profile),
-            "gemini-3.8-flash-high",
-            Some("ag"),
-            RouteSource::Auto,
-            Some(&["claude.sub2api.gpt-6-astra".into()]),
-        );
-        assert_eq!(plan.attempts.len(), 2);
-        assert_eq!(plan.fallback_mode, "model_chain");
-        assert_eq!(plan.attempts[1].model, "claude.sub2api.gpt-6-astra");
-    }
-
-    #[test]
-    fn resolved_mode_fallback_uses_other_upstream() {
-        let (entries, providers, mut modes) = routing_fixture();
-        modes[0].fallback_models = vec!["claude.sub2api.gpt-6-astra".into()];
-        let routed = resolve_gateway_route_with_modes(
-            CatalogStyle::Claude,
-            &entries,
-            &providers,
-            "claude.auto",
-            false,
-            None,
-            &RouteHints {
-                token_count: 10,
-                ..RouteHints::default()
-            },
-            &modes,
-            &[],
-        )
-        .unwrap();
-        assert_eq!(routed.1, "gemini-3.8-flash-high");
-        assert_eq!(routed.3.attempts.len(), 2);
-        assert_eq!(routed.3.attempts[1].model, "gpt-6-astra");
-        assert_eq!(routed.3.attempts[1].upstream_id.as_deref(), Some("sub2api"));
-        assert_eq!(routed.3.fallback_mode, "model_chain");
-    }
-
-    #[test]
-    fn unknown_mode_fallback_is_dropped_with_diagnostic() {
-        let (entries, providers, mut modes) = routing_fixture();
-        modes[0].fallback_models = vec!["claude.missing.nope".into()];
-        let routed = resolve_gateway_route_with_modes(
-            CatalogStyle::Claude,
-            &entries,
-            &providers,
-            "claude.auto",
-            false,
-            None,
-            &RouteHints {
-                token_count: 10,
-                ..RouteHints::default()
-            },
-            &modes,
-            &[],
-        )
-        .unwrap();
-        assert_eq!(routed.3.attempts.len(), 1);
-        assert!(routed
-            .2
-            .diagnostics
-            .iter()
-            .any(|item| item.contains("claude.missing.nope") && item.contains("不在目录中")));
     }
 }

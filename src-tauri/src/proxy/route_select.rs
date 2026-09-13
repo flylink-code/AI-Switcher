@@ -13,13 +13,10 @@ pub(crate) fn select_gateway_runtime_provider_with(
         .with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
         .ok()
         .flatten();
-    let modes = match state.db.with_read_conn(crate::gateway::modes::load_modes) {
-        Ok(modes) => modes,
-        Err(error) => {
-            log::warn!("failed to load route_modes: {error}");
-            Vec::new()
-        }
-    };
+    let modes = state
+        .db
+        .with_read_conn(crate::gateway::modes::load_modes)
+        .unwrap_or_default();
     let rules = state
         .db
         .with_read_conn(|conn| {
@@ -205,42 +202,6 @@ pub(crate) fn should_failover_upstream_status_ex(
         return true;
     }
     !(provider.is_antigravity() && status == StatusCode::TOO_MANY_REQUESTS)
-}
-
-/// Explicit mode backup chain may switch on AG 429/504; generic vendor walk
-/// still uses [`should_failover_upstream_status`].
-pub(crate) fn should_try_route_plan_fallback(_provider: &Provider, status: StatusCode) -> bool {
-    status == StatusCode::TOO_MANY_REQUESTS
-        || status == StatusCode::GATEWAY_TIMEOUT
-        || default_retryable_status_codes().contains(&status.as_u16())
-}
-
-pub(crate) fn route_plan_followup_attempts(
-    plan: Option<&crate::gateway::RouteExecutionPlan>,
-) -> Vec<crate::gateway::RouteAttemptPlan> {
-    plan.filter(|plan| plan.attempts.len() > 1)
-        .map(|plan| plan.attempts.iter().skip(1).cloned().collect())
-        .unwrap_or_default()
-}
-
-pub(crate) fn load_gateway_attempt_provider(
-    state: &ProxyState,
-    upstream_id: &str,
-    model: &str,
-) -> AppResult<Option<Provider>> {
-    let style = crate::catalog::catalog_style_for(state.target);
-    let (providers, _) = load_gateway_catalog(state, style)?;
-    let Some(provider) = providers
-        .into_iter()
-        .find(|provider| provider.id == upstream_id && !provider.is_smart_gateway())
-    else {
-        return Ok(None);
-    };
-    let Some(mut provider) = hydrate_provider_credential(state, provider)? else {
-        return Ok(None);
-    };
-    provider.model = model.to_string();
-    Ok(Some(provider))
 }
 
 pub fn default_retryable_status_codes() -> Vec<u16> {
@@ -497,65 +458,5 @@ fn desktop_bound_smart_gateway(state: &ProxyState) -> bool {
                 .is_some_and(|provider| provider.is_smart_gateway()))
         })
         .unwrap_or(false)
-}
-
-#[cfg(test)]
-mod route_plan_fallback_tests {
-    use super::*;
-    use crate::provider::{
-        ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget,
-    };
-
-    fn sample_provider(kind: ProviderKind) -> Provider {
-        Provider {
-            id: "p1".into(),
-            name: "t".into(),
-            base_url: "https://api.example.test/v1".into(),
-            api_key: String::new(),
-            api_key_set: false,
-            model: "gemini-3.8-flash-high".into(),
-            model_context_window: Some(200_000),
-            auto_review_model_override: None,
-            web_search_enabled: Some(true),
-            model_mapping: ClaudeModelMapping::default(),
-            protocol_type: ProtocolType::OpenAiChat,
-            provider_kind: kind,
-            auth_binding: String::new(),
-            target_app: ProviderTarget::ClaudeCode,
-            notes: String::new(),
-            sort_index: 0,
-            failover_group: 0,
-            failover_models: Vec::new(),
-            hidden_models: Vec::new(),
-            thinking_config: None,
-            custom_headers: None,
-            is_current: false,
-            created_at: 0,
-            health_status: None,
-            health_checked_at: None,
-            health_latency_ms: None,
-        }
-    }
-
-    #[test]
-    fn plan_fallback_allows_antigravity_429_while_generic_failover_does_not() {
-        let provider = sample_provider(ProviderKind::Antigravity);
-        assert!(should_try_route_plan_fallback(
-            &provider,
-            StatusCode::TOO_MANY_REQUESTS
-        ));
-        assert!(should_try_route_plan_fallback(
-            &provider,
-            StatusCode::GATEWAY_TIMEOUT
-        ));
-        assert!(!should_failover_upstream_status(
-            &provider,
-            StatusCode::TOO_MANY_REQUESTS
-        ));
-        assert!(!should_failover_upstream_status(
-            &provider,
-            StatusCode::GATEWAY_TIMEOUT
-        ));
-    }
 }
 

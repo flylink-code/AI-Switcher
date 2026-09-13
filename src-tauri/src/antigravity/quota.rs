@@ -219,7 +219,6 @@ impl QuotaSnapshot {
     /// 7d first, then 5h. Weekly empty waits for the weekly reset; weekly
     /// remaining with 5h empty skips this family until 5h recovers. Unknown
     /// bars still allow the account until a 429. The other family is ignored.
-    /// Per-model `percentage` is display-only and is not a scheduling gate.
     pub fn has_usable_quota_for_family(&self, family: QuotaFamily) -> bool {
         if self.is_forbidden {
             return false;
@@ -232,39 +231,6 @@ impl QuotaSnapshot {
             (Some(a), None) => a > 0,
             (None, Some(b)) => b > 0,
         }
-    }
-
-    /// Earliest 5h (else weekly) reset for this family, as a Unix epoch.
-    pub(crate) fn family_reset_epoch(&self, family: QuotaFamily) -> Option<i64> {
-        self.family_bucket_reset_epoch(family, "5h")
-            .or_else(|| self.family_bucket_reset_epoch(family, "weekly"))
-    }
-
-    fn family_bucket_reset_epoch(&self, family: QuotaFamily, window: &str) -> Option<i64> {
-        self.groups
-            .iter()
-            .flat_map(|group| {
-                let group_is_gemini = group_looks_gemini(&group.display_name);
-                group.buckets.iter().filter_map(move |bucket| {
-                    if !bucket_window_matches(bucket, window) {
-                        return None;
-                    }
-                    let matches_family = match family {
-                        QuotaFamily::Gemini => {
-                            bucket_looks_gemini(&bucket.bucket_id) || group_is_gemini
-                        }
-                        QuotaFamily::ClaudeGpt => {
-                            bucket_looks_claude_gpt(&bucket.bucket_id)
-                                || (!group_is_gemini && !bucket_looks_gemini(&bucket.bucket_id))
-                        }
-                    };
-                    if !matches_family {
-                        return None;
-                    }
-                    parse_reset_epoch(&bucket.reset_time)
-                })
-            })
-            .min()
     }
 
     /// `fetchAvailableModels` has no 5h/weekly groups. If summary is empty or
@@ -552,40 +518,6 @@ async fn onboard_user_project(
 pub(crate) enum QuotaFamily {
     Gemini,
     ClaudeGpt,
-}
-
-impl QuotaFamily {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Gemini => "gemini",
-            Self::ClaudeGpt => "claude_gpt",
-        }
-    }
-
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "gemini" => Some(Self::Gemini),
-            "claude_gpt" | "claude" | "claudegpt" => Some(Self::ClaudeGpt),
-            _ => None,
-        }
-    }
-
-    pub(crate) fn display_zh(self) -> &'static str {
-        match self {
-            Self::Gemini => "Gemini",
-            Self::ClaudeGpt => "Claude",
-        }
-    }
-}
-
-fn parse_reset_epoch(value: &str) -> Option<i64> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    chrono::DateTime::parse_from_rfc3339(trimmed)
-        .ok()
-        .map(|dt| dt.timestamp())
 }
 
 pub(crate) fn quota_family_from_model(model: &str) -> QuotaFamily {
@@ -1513,32 +1445,5 @@ mod tests {
             ..QuotaSnapshot::default()
         };
         assert!(!week_only.has_usable_quota_for_family(QuotaFamily::Gemini));
-    }
-
-    #[test]
-    fn family_reset_epoch_prefers_five_hour_rfc3339() {
-        let mut snap = family_bars(0.0, 0.66, 0.0, 0.8);
-        snap.groups[1].buckets[0].reset_time = "2026-09-13T10:34:41Z".into();
-        snap.groups[1].buckets[1].reset_time = "2026-09-17T13:27:57Z".into();
-        snap.groups[0].buckets[0].reset_time = "2026-09-13T07:40:31Z".into();
-        let claude = snap
-            .family_reset_epoch(QuotaFamily::ClaudeGpt)
-            .expect("claude reset");
-        let gemini = snap
-            .family_reset_epoch(QuotaFamily::Gemini)
-            .expect("gemini reset");
-        assert_eq!(
-            claude,
-            chrono::DateTime::parse_from_rfc3339("2026-09-13T10:34:41Z")
-                .unwrap()
-                .timestamp()
-        );
-        assert_eq!(
-            gemini,
-            chrono::DateTime::parse_from_rfc3339("2026-09-13T07:40:31Z")
-                .unwrap()
-                .timestamp()
-        );
-        assert!(claude > gemini);
     }
 }

@@ -23,8 +23,6 @@ const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
 /// A missing response is transient and must not pin the preferred account for
 /// the normal 20-second server-error cooldown.
 const UPSTREAM_TIMEOUT_COOLDOWN_SECS: i64 = 5;
-/// Borrow a family-healthy account that is only blocked by a short cooldown.
-const SOFT_COOL_MAX_REMAINING_SECS: i64 = 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -111,7 +109,7 @@ impl AccountPool {
         let family = requested_family(requested_model);
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
-        let mut candidates = collect_schedulable(&accounts, now, family);
+        let mut candidates = collect_schedulable_with_family_fallback(&accounts, now, family);
         if candidates.is_empty() {
             // Desktop health probes + short upstream blips can cool every account
             // at once. Prefer a soft retry over hard-failing with "no accounts".
@@ -123,7 +121,7 @@ impl AccountPool {
                 let _ = store().clear_cooldown(&soft.id);
                 candidates.push(soft);
             } else {
-                return Err(AppError::Other(explain_unavailable(&accounts, now, family)));
+                return Err(AppError::Other(explain_unavailable(&accounts, now)));
             }
         }
 
@@ -142,7 +140,7 @@ impl AccountPool {
             self.limiter.as_deref(),
             family,
         ) else {
-            return Err(AppError::Other(explain_unavailable(&accounts, now, family)));
+            return Err(AppError::Other(explain_unavailable(&accounts, now)));
         };
         log::info!(
             "Antigravity pool select {} via {}",
@@ -207,7 +205,7 @@ impl AccountPool {
             .filter(|account| !exclude.contains(&account.id))
             .cloned()
             .collect();
-        let mut candidates = collect_schedulable(&remaining, now, family);
+        let mut candidates = collect_schedulable_with_family_fallback(&remaining, now, family);
         if candidates.is_empty() {
             if remaining.is_empty() {
                 return Err(AppError::Other(
@@ -222,7 +220,7 @@ impl AccountPool {
                 let _ = store().clear_cooldown(&soft.id);
                 candidates.push(soft);
             } else {
-                return Err(AppError::Other(explain_unavailable(&remaining, now, family)));
+                return Err(AppError::Other(explain_unavailable(&remaining, now)));
             }
         }
         sort_candidates_best_first(&mut candidates, family);
@@ -234,14 +232,6 @@ impl AccountPool {
 
     pub fn note_success(&self, account_id: &str) {
         let _ = store().mark_success(account_id);
-    }
-
-    /// When every enabled account lacks remaining 5h+7d for `family`, the
-    /// earliest reset (or local block) epoch. `None` if at least one account
-    /// still has that family remaining (even if it is only cooling).
-    pub(crate) fn family_exhausted_until(&self, family: QuotaFamily) -> Option<i64> {
-        let accounts = store().list_accounts().ok()?;
-        family_exhausted_until_from(&accounts, Utc::now().timestamp(), family)
     }
 
     /// Recommends the highest scored account currently schedulable in the pool.
@@ -376,6 +366,22 @@ fn collect_schedulable(
         .collect()
 }
 
+fn collect_schedulable_with_family_fallback(
+    accounts: &[AntigravityAccount],
+    now: i64,
+    family: Option<QuotaFamily>,
+) -> Vec<AntigravityAccount> {
+    let mut candidates = collect_schedulable(accounts, now, family);
+    if candidates.is_empty() && family.is_some() {
+        log::warn!(
+            "Antigravity pool: no accounts with {:?} remaining; soft-fallback to any schedulable account",
+            family
+        );
+        candidates = collect_schedulable(accounts, now, None);
+    }
+    candidates
+}
+
 fn account_is_schedulable(
     account: &AntigravityAccount,
     now: i64,
@@ -387,102 +393,40 @@ fn account_is_schedulable(
     if account.cooldown_until.is_some_and(|until| until > now) {
         return false;
     }
-    if let Some(family) = family {
-        if account.is_family_blocked(family, now) {
-            return false;
-        }
-    }
     quota_usable(account, family)
 }
 
-/// When no family-healthy account is ready, borrow one that is only blocked by
-/// a short cooldown (≤60s) so a 429 on the empty-bar account does not stick.
+/// When every otherwise-healthy account is only blocked by cooldown, pick the
+/// one that cools down soonest so Desktop probes are not bricked for a full window.
 fn soft_select_cooled_account(
     accounts: &[AntigravityAccount],
     now: i64,
     family: Option<QuotaFamily>,
 ) -> Option<AntigravityAccount> {
-    if accounts
-        .iter()
-        .any(|account| account_is_schedulable(account, now, family))
-    {
-        return None;
-    }
-    let mut cooled: Vec<&AntigravityAccount> = accounts
+    let non_disabled: Vec<&AntigravityAccount> = accounts
         .iter()
         .filter(|account| !account.disabled)
-        .filter(|account| {
-            account.cooldown_until.is_some_and(|until| {
-                until > now && until - now <= SOFT_COOL_MAX_REMAINING_SECS
-            })
-        })
-        .filter(|account| {
-            family
-                .map(|family| !account.is_family_blocked(family, now))
-                .unwrap_or(true)
-        })
-        .filter(|account| quota_usable(account, family))
         .collect();
-    if cooled.is_empty() {
+    if non_disabled.is_empty() {
         return None;
     }
+    let all_cooling = non_disabled.iter().all(|account| {
+        account.cooldown_until.is_some_and(|until| until > now) && quota_usable(account, family)
+    });
+    if !all_cooling {
+        return None;
+    }
+    let mut cooled: Vec<&AntigravityAccount> = non_disabled
+        .into_iter()
+        .filter(|account| quota_usable(account, family))
+        .collect();
     cooled.sort_by_key(|account| account.cooldown_until.unwrap_or(0));
     cooled.first().map(|account| (*account).clone())
 }
 
-fn family_exhausted_until_from(
-    accounts: &[AntigravityAccount],
-    now: i64,
-    family: QuotaFamily,
-) -> Option<i64> {
-    let live: Vec<&AntigravityAccount> = accounts
-        .iter()
-        .filter(|account| !account.disabled)
-        .collect();
-    if live.is_empty() {
-        return None;
-    }
-    let any_family_remaining = live.iter().any(|account| {
-        !account.is_family_blocked(family, now)
-            && account_has_family_remaining(account, Some(family))
-    });
-    if any_family_remaining {
-        return None;
-    }
-    let mut untils = Vec::new();
-    for account in live {
-        if let Some(epoch) = account
-            .quota
-            .as_ref()
-            .and_then(|quota| quota.family_reset_epoch(family))
-            .filter(|epoch| *epoch > now)
-        {
-            untils.push(epoch);
-        }
-        if let Some(block) = account.family_block_until(family, now) {
-            untils.push(block);
-        }
-    }
-    Some(untils.into_iter().min().unwrap_or(now + 900))
-}
-
-fn explain_unavailable(
-    accounts: &[AntigravityAccount],
-    now: i64,
-    family: Option<QuotaFamily>,
-) -> String {
+fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
     if accounts.is_empty() {
         return "没有可用的 Antigravity 账号（请先在网关页登录或导入）".into();
-    }
-    if let Some(family) = family {
-        if let Some(until) = family_exhausted_until_from(accounts, now, family) {
-            let wait = (until - now).max(0);
-            let minutes = (wait + 59) / 60;
-            return format!(
-                "Antigravity {} 家族 5h 额度已用完，约 {minutes} 分钟后重置",
-                family.display_zh()
-            );
-        }
     }
     let disabled = accounts.iter().filter(|account| account.disabled).count();
     let cooling = accounts
@@ -498,10 +442,7 @@ fn explain_unavailable(
                 && account
                     .quota
                     .as_ref()
-                    .is_some_and(|quota| match family {
-                        Some(family) => !quota.has_usable_quota_for_family(family),
-                        None => !quota.has_usable_quota(),
-                    })
+                    .is_some_and(|quota| !quota.has_usable_quota())
         })
         .count();
     let max_cool_rem = accounts
@@ -719,7 +660,6 @@ mod tests {
                 last_updated: Utc::now().timestamp(),
                 ..QuotaSnapshot::default()
             }),
-            quota_blocks: Vec::new(),
         }
     }
 
@@ -1027,98 +967,5 @@ mod tests {
             &gemini_5h_empty,
             Some(QuotaFamily::ClaudeGpt)
         ));
-    }
-
-    fn pick_strict(accounts: &[AntigravityAccount], model: &str, now: i64) -> Option<String> {
-        let family = Some(quota_family_from_model(model));
-        let mut candidates = collect_schedulable(accounts, now, family);
-        if candidates.is_empty() {
-            if let Some(soft) = soft_select_cooled_account(accounts, now, family) {
-                candidates.push(soft);
-            }
-        }
-        let chosen = choose_candidate(&candidates, None, None, None, family)?;
-        Some(chosen.id.clone())
-    }
-
-    #[test]
-    fn claude_request_does_not_fall_back_to_gemini_only_account() {
-        let mut empty_claude = sample("empty", None);
-        let mut cooling_claude = sample("cooling", Some(10));
-        empty_claude.quota = Some(family_quota(0.98, 0.80, 0.0, 0.66));
-        cooling_claude.quota = Some(family_quota(1.0, 0.83, 0.95, 0.98));
-        assert_eq!(
-            pick_strict(&[empty_claude, cooling_claude], "claude-opus-4-6", 0)
-                .as_deref(),
-            Some("cooling")
-        );
-    }
-
-    #[test]
-    fn does_not_borrow_cooled_account_past_sixty_seconds() {
-        let mut empty_claude = sample("empty", None);
-        let mut long_cool = sample("long", Some(90));
-        empty_claude.quota = Some(family_quota(0.98, 0.80, 0.0, 0.66));
-        long_cool.quota = Some(family_quota(1.0, 0.83, 0.95, 0.98));
-        assert!(pick_strict(&[empty_claude, long_cool], "claude-opus-4-6", 0).is_none());
-    }
-
-    #[test]
-    fn family_exhausted_when_every_claude_bar_is_empty() {
-        let mut a1 = sample("a1", None);
-        let mut a2 = sample("a2", None);
-        a1.quota = Some(family_quota(0.9, 0.9, 0.0, 0.5));
-        a2.quota = Some(family_quota(1.0, 1.0, 0.0, 0.8));
-        a1.quota.as_mut().unwrap().groups[1].buckets[0].reset_time =
-            "2026-09-13T10:34:41Z".into();
-        a2.quota.as_mut().unwrap().groups[1].buckets[0].reset_time =
-            "2026-09-13T12:00:00Z".into();
-        let until = family_exhausted_until_from(&[a1, a2], 0, QuotaFamily::ClaudeGpt)
-            .expect("exhausted");
-        assert_eq!(
-            until,
-            chrono::DateTime::parse_from_rfc3339("2026-09-13T10:34:41Z")
-                .unwrap()
-                .timestamp()
-        );
-    }
-
-    #[test]
-    fn family_not_exhausted_when_another_account_still_has_claude() {
-        let mut a1 = sample("a1", None);
-        let mut a2 = sample("a2", Some(30));
-        a1.quota = Some(family_quota(0.9, 0.9, 0.0, 0.5));
-        a2.quota = Some(family_quota(1.0, 1.0, 0.95, 0.98));
-        assert!(family_exhausted_until_from(&[a1, a2], 0, QuotaFamily::ClaudeGpt).is_none());
-    }
-
-    #[test]
-    fn quota_block_skips_account_until_expiry() {
-        let mut blocked = sample("blocked", None);
-        let mut ready = sample("ready", None);
-        blocked.quota = Some(family_quota(0.9, 0.9, 0.8, 0.8));
-        ready.quota = Some(family_quota(0.5, 0.5, 0.4, 0.4));
-        blocked.quota_blocks.push(crate::antigravity::account::QuotaBlock {
-            family: "claude_gpt".into(),
-            until: 100,
-        });
-        assert_eq!(
-            pick_strict(&[blocked, ready], "claude-opus-4-6", 0).as_deref(),
-            Some("ready")
-        );
-    }
-
-    #[test]
-    fn expired_quota_block_does_not_skip_account() {
-        let mut blocked = sample("blocked", None);
-        blocked.quota = Some(family_quota(0.9, 0.9, 0.8, 0.8));
-        blocked.quota_blocks.push(crate::antigravity::account::QuotaBlock {
-            family: "claude_gpt".into(),
-            until: 0,
-        });
-        assert_eq!(
-            pick_strict(&[blocked], "claude-opus-4-6", 10).as_deref(),
-            Some("blocked")
-        );
     }
 }
