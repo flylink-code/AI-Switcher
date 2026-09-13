@@ -148,7 +148,16 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
     })?;
 
     let in_catalog = crate::catalog::is_explicit_catalog_passthrough(&entries, &requested);
-    let steps = explain_route(&requested, in_catalog, &signals, &modes, &rules);
+    let role_explicit = !signals.is_subagent
+        && crate::catalog::is_sticky_remap_role_id(&requested);
+    let steps = explain_route(
+        &requested,
+        in_catalog,
+        role_explicit,
+        &signals,
+        &modes,
+        &rules,
+    );
     let hints = RouteHints {
         token_count: signals.token_count,
         has_web_search: signals.has_web_search,
@@ -206,22 +215,26 @@ pub fn simulate(db: &Database, input: SimulateRouteInput) -> AppResult<SimulateR
 fn explain_route(
     requested_model: &str,
     in_catalog: bool,
+    role_explicit: bool,
     signals: &ModeSignals,
     modes: &[crate::database::dao::gateway::RouteMode],
     rules: &[crate::database::dao::gateway::RouteRule],
 ) -> Vec<RouteTraceStep> {
     let mut steps = Vec::new();
+    let skip_modes = in_catalog || role_explicit;
     steps.push(RouteTraceStep {
         stage: "explicit".into(),
         id: requested_model.to_string(),
-        matched: in_catalog,
+        matched: skip_modes,
         detail: if in_catalog {
             "目录中的显式模型，模式与规则让路".into()
+        } else if role_explicit {
+            "官方角色（Sonnet/Opus/Fable），跳过模式检测，落到默认模型".into()
         } else {
             "不是目录里的显式模型（或 auto / 子代理）".into()
         },
     });
-    if in_catalog {
+    if skip_modes {
         return steps;
     }
     let mut ranked = rules.to_vec();

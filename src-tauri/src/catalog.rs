@@ -407,13 +407,15 @@ pub fn with_auto_entry(style: CatalogStyle, entries: Vec<CatalogEntry>) -> Vec<C
     with_auto_entry_from_modes(style, entries, &[])
 }
 
-/// Insert Auto (and Claude official roles) using route-mode upstream windows.
+/// Insert Auto (and Claude official roles) using the smallest enabled slot window
+/// so Claude Code occupancy / auto-compact never assume a larger context than
+/// the cheapest route-mode model can actually serve.
 pub fn with_auto_entry_from_modes(
     style: CatalogStyle,
     mut entries: Vec<CatalogEntry>,
     modes: &[gateway::RouteMode],
 ) -> Vec<CatalogEntry> {
-    let auto_window = max_enabled_mode_window(modes, &entries);
+    let auto_window = min_enabled_mode_window(modes, &entries);
     entries.retain(|entry| !is_auto_public_id(&entry.public_id));
     entries.insert(0, auto_catalog_entry_with_window(style, auto_window));
     if style == CatalogStyle::Claude {
@@ -422,8 +424,8 @@ pub fn with_auto_entry_from_modes(
     entries
 }
 
-fn max_enabled_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
-    let mut max_window = 0u64;
+fn min_enabled_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
+    let mut min_window: Option<u64> = None;
     for mode in modes {
         if !AUTO_WINDOW_MODE_IDS.contains(&mode.id.as_str()) {
             continue;
@@ -431,18 +433,21 @@ fn max_enabled_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry
         if !mode.enabled || mode.model.trim().is_empty() {
             continue;
         }
-        max_window = max_window.max(window_for_mode_model(entries, &mode.model));
+        let window = window_for_mode_model(entries, &mode.model);
+        if window > 0 {
+            min_window = Some(min_window.map_or(window, |current| current.min(window)));
+        }
         for fallback in &mode.fallback_models {
-            if !fallback.trim().is_empty() {
-                max_window = max_window.max(window_for_mode_model(entries, fallback));
+            if fallback.trim().is_empty() {
+                continue;
+            }
+            let window = window_for_mode_model(entries, fallback);
+            if window > 0 {
+                min_window = Some(min_window.map_or(window, |current| current.min(window)));
             }
         }
     }
-    if max_window == 0 {
-        DEFAULT_DISCOVERY_CONTEXT_WINDOW
-    } else {
-        max_window
-    }
+    min_window.unwrap_or(DEFAULT_DISCOVERY_CONTEXT_WINDOW)
 }
 
 fn window_for_mode_model(entries: &[CatalogEntry], model: &str) -> u64 {
@@ -1579,7 +1584,7 @@ mod tests {
     }
 
     #[test]
-    fn auto_window_follows_max_gemini_mode_slot() {
+    fn auto_window_follows_min_enabled_mode_slot() {
         let modes = vec![
             route_mode("default", true, "claude.ag.gemini-3.8-flash-high"),
             route_mode("background", true, "claude.ag.gemini-3.8-flash-low"),
@@ -1587,10 +1592,10 @@ mod tests {
         ];
         let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
         assert_eq!(catalog[0].public_id, CLAUDE_AUTO_PUBLIC_ID);
-        assert_eq!(catalog[0].context_window, 1_000_000);
+        assert_eq!(catalog[0].context_window, 200_000);
         let payload = claude_discovery_payload(&catalog);
-        assert_eq!(payload["data"][0]["context_window"], 1_000_000);
-        assert_eq!(payload["data"][0]["max_input_tokens"], 1_000_000);
+        assert_eq!(payload["data"][0]["context_window"], 200_000);
+        assert_eq!(payload["data"][0]["max_input_tokens"], 200_000);
         let haiku = catalog
             .iter()
             .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
@@ -1606,29 +1611,29 @@ mod tests {
                 .iter()
                 .find(|item| item.public_id == role)
                 .expect(role);
-            assert_eq!(entry.context_window, 1_000_000);
+            assert_eq!(entry.context_window, 200_000);
             assert!(entry.provider_id.is_empty());
         }
     }
 
     #[test]
-    fn haiku_window_uses_background_slot_not_auto_max() {
+    fn haiku_window_uses_background_slot_not_auto_min() {
         let modes = vec![
-            route_mode("default", true, "gemini-3.8-flash-high"),
-            route_mode("background", true, "kimi-k2"),
+            route_mode("default", true, "gpt-6-astra"),
+            route_mode("background", true, "gemini-3.8-flash-high"),
         ];
         let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
-        assert_eq!(catalog[0].context_window, 1_000_000);
+        assert_eq!(catalog[0].context_window, 200_000);
         let haiku = catalog
             .iter()
             .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
             .expect("haiku role");
-        assert_eq!(haiku.context_window, 200_000);
+        assert_eq!(haiku.context_window, 1_000_000);
         let sonnet = catalog
             .iter()
             .find(|entry| entry.public_id == CLAUDE_SONNET_ROLE_ID)
             .expect("sonnet role");
-        assert_eq!(sonnet.context_window, 1_000_000);
+        assert_eq!(sonnet.context_window, 200_000);
     }
 
     #[test]

@@ -21,8 +21,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::catalog::{
-    catalog_in_entries, is_explicit_catalog_passthrough, normalize_client_request_with,
-    resolve_request, CatalogEntry, CatalogStyle,
+    catalog_in_entries, is_explicit_catalog_passthrough, is_sticky_remap_role_id,
+    normalize_client_request_with, resolve_request, CatalogEntry, CatalogStyle,
 };
 use crate::database::dao::gateway::{
     profile_allows_upstream, GatewayProfile, RouteMode, RouteRule,
@@ -430,6 +430,21 @@ pub fn slot_diagnostics(profile: &GatewayProfile, entries: &[CatalogEntry]) -> V
     diagnostics
 }
 
+fn default_mode_lookup(
+    modes: &[RouteMode],
+    profile: Option<&GatewayProfile>,
+) -> Option<String> {
+    modes
+        .iter()
+        .find(|mode| mode.id == "default" && mode.enabled && !mode.model.trim().is_empty())
+        .map(|mode| mode.model.clone())
+        .or_else(|| {
+            profile
+                .map(|profile| profile.default_model.clone())
+                .filter(|value| !value.trim().is_empty())
+        })
+}
+
 pub fn resolve_gateway_route_with_modes(
     style: CatalogStyle,
     entries: &[CatalogEntry],
@@ -463,6 +478,7 @@ pub fn resolve_gateway_route_with_modes(
         path: hints.path.clone(),
     };
     let in_catalog = is_explicit_catalog_passthrough(entries, requested_model);
+    let role_explicit = !force_subagent && is_sticky_remap_role_id(requested_model);
     let mut thinking: Option<ThinkingConfig> = None;
     let mut rewrites = Vec::new();
     let mut extra_chain: Option<Vec<String>> = None;
@@ -471,6 +487,14 @@ pub fn resolve_gateway_route_with_modes(
             requested_model.to_string(),
             RouteSource::Explicit,
             RouteSource::Explicit.as_reason().to_string(),
+        )
+    } else if role_explicit {
+        let lookup = default_mode_lookup(modes, profile)
+            .unwrap_or_else(|| requested_model.to_string());
+        (
+            lookup.clone(),
+            RouteSource::Explicit,
+            format!("显式模型（角色 {requested_model} → {lookup}）"),
         )
     } else if let Some(hit) = rules::match_rules(rules, requested_model, &signals) {
         thinking = hit.thinking;
@@ -954,10 +978,21 @@ mod tests {
     }
 
     #[test]
-    fn injected_sonnet_role_without_sticky_still_uses_modes() {
+    fn injected_sonnet_role_without_sticky_skips_modes() {
         let routed = route("claude-sonnet-5", false, 42_611).unwrap();
         assert_eq!(routed.1, "gemini-3.8-flash-high");
-        assert_eq!(routed.2.source, RouteSource::LongContext);
+        assert_eq!(routed.2.source, RouteSource::Explicit);
+        assert!(routed.2.reason.contains("显式模型"));
+        assert!(routed.2.reason.contains("claude-sonnet-5"));
+        assert_ne!(routed.2.source, RouteSource::LongContext);
+    }
+
+    #[test]
+    fn subagent_header_on_sonnet_role_still_uses_background() {
+        let routed = route("claude-sonnet-5", true, 42_611).unwrap();
+        assert_eq!(routed.1, "gemini-3.8-flash-low");
+        assert_eq!(routed.2.source, RouteSource::RoleSubagent);
+        assert!(routed.4);
     }
 
     #[test]
@@ -969,12 +1004,14 @@ mod tests {
             crate::provider::ProviderTarget::ClaudeCode,
             "claude.sub2api.gpt-6-astra",
             &entries,
+            "sess-b",
         );
         assert_eq!(rewritten, "claude.sub2api.gpt-6-astra");
         let rewritten = sticky::rewrite_requested(
             crate::provider::ProviderTarget::ClaudeCode,
             "claude-sonnet-5",
             &entries,
+            "sess-b",
         );
         let routed = resolve_gateway_route_with_modes(
             CatalogStyle::Claude,

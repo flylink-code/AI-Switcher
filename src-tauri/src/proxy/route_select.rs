@@ -4,6 +4,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
     force_catalog_subagent: bool,
     incoming: &Value,
     request_path: &str,
+    headers: &HeaderMap,
 ) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
@@ -47,12 +48,21 @@ pub(crate) fn select_gateway_runtime_provider_with(
         path: request_path.to_string(),
         target: Some(state.target),
     };
+    let session_key = crate::gateway::sticky::session_key_from(
+        incoming,
+        session_prompt_cache_hint(headers).as_deref(),
+    );
     let Some((provider, upstream, decision, plan, is_catalog_subagent)) =
         crate::gateway::resolve_gateway_route_with_modes(
             style,
             &entries,
             &providers,
-            &crate::gateway::sticky::rewrite_requested(state.target, requested_model, &entries),
+            &crate::gateway::sticky::rewrite_requested(
+                state.target,
+                requested_model,
+                &entries,
+                &session_key,
+            ),
             force_catalog_subagent,
             profile.as_ref(),
             &hints,

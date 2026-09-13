@@ -129,6 +129,7 @@ pub async fn codex_proxy_handler(
             has_subagent_header(&headers),
             &incoming,
             uri.path(),
+            &headers,
         ) {
             Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
                 original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));

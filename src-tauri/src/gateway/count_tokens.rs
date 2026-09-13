@@ -26,6 +26,7 @@ pub async fn handle(state: ProxyState, headers: HeaderMap, body: Bytes) -> Respo
         false,
         &incoming,
         "/v1/messages/count_tokens",
+        &headers,
     ) {
         Ok(Some((provider, _, _, _, _))) => provider,
         Ok(None) => return json_error(StatusCode::BAD_GATEWAY, "没有可路由的上游"),

@@ -133,7 +133,7 @@ async fn proxy_handler(
     let mut attempt_index: i64 = 0;
     if gateway_catalog_enabled(&state) {
         let force_subagent = is_claude_code_subagent_request(&headers, &requested_model);
-        match select_gateway_runtime_provider_with(&state, &requested_model, force_subagent, &incoming, uri.path()) {
+        match select_gateway_runtime_provider_with(&state, &requested_model, force_subagent, &incoming, uri.path(), &headers) {
             Ok(Some((selected, upstream, routed_subagent, decision, plan))) => {
                 provider = selected;
                 requested_model = upstream.clone();
