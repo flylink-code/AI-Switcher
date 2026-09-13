@@ -1358,6 +1358,12 @@ export interface AntigravityAccountPublic {
   quotaUpdatedAt?: number | null;
   quotaForbidden?: boolean;
   quota?: AntigravityQuotaSnapshot | null;
+  quotaBlocks?: AntigravityQuotaBlock[];
+}
+
+export interface AntigravityQuotaBlock {
+  family: string;
+  until: number;
 }
 
 export interface AntigravityGatewayStatus {

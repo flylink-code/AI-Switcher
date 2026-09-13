@@ -75,6 +75,7 @@
     "thinkingMedium": "中",
     "thinkingHigh": "高",
     "fallback": "备用",
+    "fallbackHint": "主模型失败（含上游 429）时按顺序切换，最多 3 跳；已开始输出正文后不再切换，无需额外开关。",
     "threshold": "阈值",
     "thresholdUnit": "token",
     "weekUsage": "近 7 天",
@@ -1854,6 +1855,11 @@
         "点了智能网关目录里的具体模型会粘住：Claude Code 后段即使改发 claude-sonnet-5，也不再被长上下文切到 Gemini。Explore/Haiku 仍走后台。",
         "Claude Code / Desktop 的 /v1/models 带 context_window，并支持 GET /v1/models/{id}。官方角色 Auto/Sonnet/Opus/Fable/Haiku 会写入窗口，侧栏占用和自动压缩才能工作；须重启 Claude Code。",
         "Codex / Cline 的 OpenAI /v1/models 同样带窗口。OpenCode / Pi / DSH 绑定 Auto 时按模型写上下文，不会把 Auto 的最大窗口套到每一条上游。"
+      ],
+      "1_5_4": [
+        "反代网关账号池按 Claude / Gemini 家族硬约束选号：先看 7 天再看 5 小时。Claude 条空时不会再拿 Gemini 满额的号去打 Claude。额度类 429 不再降低健康分，该家族会本地暂停到重置。",
+        "整池 Claude 额度用尽时自动降级 Gemini，并按 5 小时重置返回 Retry-After。通用 RESOURCE_EXHAUSTED 按家族条决定是否换号。",
+        "智能网关路由模式「备用」始终生效：主模型 429/504 时按顺序切到备用（可跨上游），最多 3 跳，已开始输出正文后不再切换；Codex 同样支持。"
       ]
     },
     "appName": "应用名称",
@@ -2141,6 +2147,7 @@
     "refreshQuota": "刷新额度",
     "quotaRefreshed": "额度已刷新",
     "cooling": "冷却中",
+    "familyPaused": "{{family}} 家族本地暂停至 {{time}}",
     "forbidden": "受限",
     "activeAccount": "活跃账号",
     "availableAccounts": "可用账号",

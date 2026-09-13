@@ -75,6 +75,7 @@
     "thinkingMedium": "Medium",
     "thinkingHigh": "High",
     "fallback": "Fallback",
+    "fallbackHint": "Tried in order when the primary model fails (including upstream 429), up to 3 hops. No switch after the body has started streaming. No extra toggle required.",
     "threshold": "Threshold",
     "thresholdUnit": "tokens",
     "weekUsage": "Last 7 days",
@@ -1854,6 +1855,11 @@
         "Picking a smart-gateway catalog model pins it. Later Claude Code claude-sonnet-5 requests no longer get stolen by long-context Gemini. Explore/Haiku still use the background slot.",
         "Claude Code / Desktop /v1/models include context_window and support GET /v1/models/{id}. Official Auto/Sonnet/Opus/Fable/Haiku roles advertise windows so the sidebar and auto-compact can work; restart Claude Code afterwards.",
         "Codex / Cline OpenAI /v1/models also include windows. Bound OpenCode / Pi / DSH Auto cards write per-model context and do not copy Auto's max window onto every upstream."
+      ],
+      "1_5_4": [
+        "The Antigravity account pool treats Claude and Gemini as hard families: 7-day first, then 5-hour. An account with empty Claude bars is no longer picked for Claude just because Gemini still has quota. Quota 429s no longer decay health; that family is paused locally until reset.",
+        "When every account is empty for Claude, requests degrade to Gemini and Retry-After follows the 5-hour reset. Generic RESOURCE_EXHAUSTED still walks the pool only when that family's bars are empty.",
+        "Smart-gateway mode fallbacks always apply. A primary 429/504 walks the backup chain (including another upstream), up to 3 hops, and does not switch after the body starts streaming. Codex uses the same plan."
       ]
     },
     "appName": "App name",
@@ -2141,6 +2147,7 @@
     "refreshQuota": "Refresh quota",
     "quotaRefreshed": "Quota refreshed",
     "cooling": "Cooling down",
+    "familyPaused": "{{family}} family paused locally until {{time}}",
     "forbidden": "Restricted",
     "activeAccount": "Active Account",
     "availableAccounts": "Available Accounts",

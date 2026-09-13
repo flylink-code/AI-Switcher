@@ -768,7 +768,16 @@ export default function GatewayPage() {
               },
             },
             {
-              title: t("gateway.fallback", { defaultValue: "备用" }),
+              title: (
+                <Tooltip
+                  title={t("gateway.fallbackHint", {
+                    defaultValue:
+                      "主模型失败（含上游 429）时按顺序切换，最多 3 跳；已开始输出正文后不再切换，无需额外开关。",
+                  })}
+                >
+                  <span>{t("gateway.fallback", { defaultValue: "备用" })}</span>
+                </Tooltip>
+              ),
               render: (_: unknown, row: RouteMode) => (
                 <Select
                   mode="multiple"

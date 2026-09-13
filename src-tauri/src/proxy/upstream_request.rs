@@ -283,72 +283,139 @@ async fn proxy_handler(
     };
 
     if is_retryable_upstream_status(&state, upstream_resp.status())
-        && should_failover_upstream_status(&provider, upstream_resp.status())
+        && should_try_route_plan_fallback(&provider, upstream_resp.status())
     {
-        // Ordered model fallback on the same provider before walking other vendors.
-        // Only used before any client bytes are written.
-        let plan_models: Vec<String> = route_plan
-            .as_ref()
-            .filter(|plan| plan.fallback_mode == "model_chain")
-            .map(|plan| {
-                plan.attempts
-                    .iter()
-                    .skip(1)
-                    .map(|attempt| attempt.model.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-        let model_chain = if plan_models.is_empty() {
-            provider.failover_models.clone()
-        } else {
-            plan_models
-        };
-        for next_model in model_chain {
-            let next_model = next_model.trim().to_string();
-            if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
-                continue;
-            }
-            if let Some(object) = incoming.as_object_mut() {
-                object.insert("model".to_string(), Value::String(next_model.clone()));
-            }
-            body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &next_model));
-            requested_model = next_model.clone();
-            let Ok(fallback_prepared) = prepare_upstream_request(
-                &state,
-                &mut provider,
-                &method,
-                &headers,
-                &incoming,
-                &body_bytes,
-                incoming_stream,
-            ) else {
-                continue;
-            };
-            translated = fallback_prepared.translated;
-            retry_without_stream_options =
-                compatible_stream_retry(&provider, &fallback_prepared, incoming_stream);
-            match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
-                .body(fallback_prepared.outgoing_body)
-                .send()
-                .await
-            {
-                Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
-                    failover_trace.push(format!("{} 模型 {} 接管", provider.name, next_model));
-                    attempt_index = attempt_index.saturating_add(1);
-                    upstream_resp = response;
-                    break;
+        let plan_attempts = route_plan_followup_attempts(route_plan.as_ref());
+        if !plan_attempts.is_empty() {
+            for attempt in plan_attempts {
+                let next_model = attempt.model.trim().to_string();
+                if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
+                    continue;
                 }
-                Ok(response) => {
-                    failover_trace.push(format!(
-                        "{} 模型 {} 状态码 {}",
-                        provider.name,
-                        next_model,
-                        response.status()
-                    ));
-                    upstream_resp = response;
+                if let Some(upstream_id) = attempt.upstream_id.as_deref() {
+                    if upstream_id != provider.id {
+                        match load_gateway_attempt_provider(&state, upstream_id, &next_model) {
+                            Ok(Some(next_provider)) => provider = next_provider,
+                            Ok(None) => {
+                                failover_trace.push(format!(
+                                    "备用上游 {upstream_id} 模型 {next_model} 无法加载"
+                                ));
+                                continue;
+                            }
+                            Err(error) => {
+                                failover_trace.push(format!(
+                                    "备用上游 {upstream_id} 模型 {next_model} 失败: {error}"
+                                ));
+                                continue;
+                            }
+                        }
+                    } else {
+                        provider.model = next_model.clone();
+                    }
+                } else {
+                    provider.model = next_model.clone();
                 }
-                Err(error) => {
-                    failover_trace.push(format!("{} 模型 {} 失败: {error}", provider.name, next_model));
+                if let Some(object) = incoming.as_object_mut() {
+                    object.insert("model".to_string(), Value::String(next_model.clone()));
+                }
+                body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &next_model));
+                requested_model = next_model.clone();
+                let Ok(fallback_prepared) = prepare_upstream_request(
+                    &state,
+                    &mut provider,
+                    &method,
+                    &headers,
+                    &incoming,
+                    &body_bytes,
+                    incoming_stream,
+                ) else {
+                    continue;
+                };
+                translated = fallback_prepared.translated;
+                retry_without_stream_options =
+                    compatible_stream_retry(&provider, &fallback_prepared, incoming_stream);
+                match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
+                    .body(fallback_prepared.outgoing_body)
+                    .send()
+                    .await
+                {
+                    Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
+                        failover_trace.push(format!(
+                            "{} 模型 {} 接管",
+                            provider.name, next_model
+                        ));
+                        attempt_index = attempt_index.saturating_add(1);
+                        upstream_resp = response;
+                        break;
+                    }
+                    Ok(response) => {
+                        failover_trace.push(format!(
+                            "{} 模型 {} 状态码 {}",
+                            provider.name,
+                            next_model,
+                            response.status()
+                        ));
+                        upstream_resp = response;
+                    }
+                    Err(error) => {
+                        failover_trace.push(format!(
+                            "{} 模型 {} 失败: {error}",
+                            provider.name, next_model
+                        ));
+                    }
+                }
+            }
+        } else if should_failover_upstream_status(&provider, upstream_resp.status()) {
+            for next_model in provider.failover_models.clone() {
+                let next_model = next_model.trim().to_string();
+                if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
+                    continue;
+                }
+                if let Some(object) = incoming.as_object_mut() {
+                    object.insert("model".to_string(), Value::String(next_model.clone()));
+                }
+                body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &next_model));
+                requested_model = next_model.clone();
+                let Ok(fallback_prepared) = prepare_upstream_request(
+                    &state,
+                    &mut provider,
+                    &method,
+                    &headers,
+                    &incoming,
+                    &body_bytes,
+                    incoming_stream,
+                ) else {
+                    continue;
+                };
+                translated = fallback_prepared.translated;
+                retry_without_stream_options =
+                    compatible_stream_retry(&provider, &fallback_prepared, incoming_stream);
+                match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
+                    .body(fallback_prepared.outgoing_body)
+                    .send()
+                    .await
+                {
+                    Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
+                        failover_trace.push(format!("{} 模型 {} 接管", provider.name, next_model));
+                        attempt_index = attempt_index.saturating_add(1);
+                        upstream_resp = response;
+                        break;
+                    }
+                    Ok(response) => {
+                        failover_trace.push(format!(
+                            "{} 模型 {} 状态码 {}",
+                            provider.name,
+                            next_model,
+                            response.status()
+                        ));
+                        upstream_resp = response;
+                    }
+                    Err(error) => {
+                        failover_trace.push(format!(
+                            "{} 模型 {} 失败: {error}",
+                            provider.name, next_model
+                        ));
+                    }
                 }
             }
         }
