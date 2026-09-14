@@ -1882,6 +1882,7 @@
         "Fix the profile picker showing internal ids and failing to switch to a newly created profile.",
         "Fix the read-only hot path emptying route modes so requests fell through to the first catalog model (often gpt-6).",
         "Fix editing gateway rules rewriting Claude Code / Desktop / Codex back onto the smart gateway after switching to an independent provider.",
+        "Picking a routing profile requires an existing smart-gateway bind and no longer creates one.",
         "Routing shows whether any bound Agent is using the profile being edited.",
         "Upgrading migrates the local database to Schema 33 (one-way). Back up ~/.claude-switcher first."
       ]
