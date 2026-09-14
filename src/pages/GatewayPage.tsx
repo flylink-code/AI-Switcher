@@ -72,6 +72,12 @@ import { formatCompactNumber } from "@/utils/formatCompact";
 
 const SHARED_PROFILE_ID = "gprof_shared";
 
+type GatewayBindRow = {
+  target: ProviderTarget;
+  bound: boolean;
+  profileId: string;
+};
+
 const { Text, Paragraph } = Typography;
 
 type SnippetKind = "sdk" | "openai" | "anthropic" | "responses";
@@ -701,7 +707,7 @@ export default function GatewayPage() {
           message={t("gateway.bindAppsHint", { defaultValue: "绑定后写入指向 127.0.0.1:15828 的供应商卡，并设为当前。自定义 Agent 用上方 API Key 即可，不必绑定。" })}
           style={{ marginBottom: 12 }}
         />
-        <Table
+        <Table<GatewayBindRow>
           size="small"
           pagination={false}
           rowKey="target"
@@ -721,7 +727,7 @@ export default function GatewayPage() {
               title: t("gateway.bound", { defaultValue: "绑定" }),
               dataIndex: "bound",
               width: 140,
-              render: (isBound: boolean, row: { target: ProviderTarget }) => (
+              render: (isBound: boolean, row: GatewayBindRow) => (
                 <Button
                   size="small"
                   icon={isBound ? <CheckOutlined /> : <LinkOutlined />}
@@ -737,7 +743,7 @@ export default function GatewayPage() {
             {
               title: t("gateway.currentProfile", { defaultValue: "当前档案" }),
               dataIndex: "profileId",
-              render: (value: string, row: { target: ProviderTarget; bound: boolean }) => (
+              render: (value: string, row: GatewayBindRow) => (
                 <Select
                   size="small"
                   style={{ minWidth: 160 }}
