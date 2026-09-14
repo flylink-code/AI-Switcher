@@ -455,6 +455,12 @@ fn apply_native_gateway_entry(state: &AppState, target: ProviderTarget) -> AppRe
     sync_catalog_target(state, target)
 }
 
+/// Refresh live catalog files for agents that are actually using the smart gateway.
+///
+/// OpenCode / Pi / DSH / Cline keep Auto as an extra catalog entry, so a binding
+/// is enough. Code / Desktop / Codex are exclusive: a leftover binding plus an
+/// independent current provider must not rewrite `settings.json` back to :15828
+/// when the user only edits gateway rules or picks a profile on the Auto card.
 pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<()> {
     let bindings = state
         .db
@@ -467,9 +473,27 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
             | ProviderTarget::Cline => {
                 let _ = apply_native_gateway_entry(state, binding.target_app);
             }
-            _ => {
+            target => {
+                let live = state
+                    .db
+                    .with_read_conn(|conn| {
+                        Ok(crate::database::dao::gateway::is_gateway_connection(conn, target))
+                    })
+                    .unwrap_or(false);
+                if !live {
+                    match target {
+                        ProviderTarget::ClaudeCode => {
+                            let _ = repair_current_code_model_fields(state).await;
+                        }
+                        ProviderTarget::Codex => {
+                            let _ = repair_codex_managed_proxy_endpoint(state).await;
+                        }
+                        _ => {}
+                    }
+                    continue;
+                }
                 if let Ok(Some(provider)) = state.db.with_conn(|conn| {
-                    Ok(dao::list_providers(conn, binding.target_app)?
+                    Ok(dao::list_providers(conn, target)?
                         .into_iter()
                         .find(|item| item.is_smart_gateway()))
                 }) {

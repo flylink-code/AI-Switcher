@@ -55,6 +55,8 @@
     "profileUnbound": "未绑定",
     "profileToolbar": "正在编辑",
     "profileToolbarHint": "这里改的是档案内容，和各 Agent Auto 卡选用哪一套无关。",
+    "profileToolbarUsers": "已绑定并选用：{{agents}}",
+    "profileToolbarUnused": "没有任何已绑定 Agent 选用这套档案。未绑定的请求走默认档案，不会因为这里「正在编辑」而切换。",
     "profileDefault": "默认",
     "profileCreate": "新建",
     "profileClone": "复制",
@@ -1877,6 +1879,9 @@
         "网关页「路由与规则」可新建、复制、重命名、删除档案；服务与绑定表显示当前档案。",
         "未绑定与自定义 API Key 仍走默认档案；删除档案后已绑定的 Agent 回落到默认。",
         "修复新建档案后下拉显示内部 id、无法切到新档案的问题。",
+        "修复只读热路径把路由模式读空，请求落到目录第一项（常见 gpt-6）。",
+        "修复已切到独立供应商后改网关规则，仍把 Claude Code / Desktop / Codex 写回智能网关。",
+        "路由页标明正在编辑的档案有没有被 Agent 选用。",
         "升级会把本机资料库迁到 Schema 33（单向）。请先备份 ~/.claude-switcher。"
       ]
     },

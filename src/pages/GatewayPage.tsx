@@ -243,7 +243,7 @@ export default function GatewayPage() {
   const bindingsQuery = useQuery({
     queryKey: ["smart-gateway-bindings"],
     queryFn: listSmartGatewayBindings,
-    enabled: serviceSection,
+    enabled: serviceSection || routingSection,
   });
   const profilesQuery = useQuery({
     queryKey: ["gateway-profiles"],
@@ -329,6 +329,9 @@ export default function GatewayPage() {
     }
   };
   const bound = new Set((bindingsQuery.data ?? []).map((item) => item.targetApp));
+  const profileUsers = (bindingsQuery.data ?? [])
+    .filter((item) => (item.profileId || SHARED_PROFILE_ID) === profileId)
+    .map((item) => t(`workspace.${item.targetApp}`));
   const profiles = profilesQuery.data ?? [];
   const profileOptions = profiles.map((profile) => ({
     value: profile.id,
@@ -845,6 +848,23 @@ export default function GatewayPage() {
             defaultValue: "这里改的是档案内容，和各 Agent Auto 卡选用哪一套无关。",
           })}
         </Text>
+        {profileUsers.length > 0 ? (
+          <Text type="secondary" style={{ display: "block", marginTop: 4 }}>
+            {t("gateway.profileToolbarUsers", {
+              agents: profileUsers.join("、"),
+              defaultValue: "已绑定并选用：{{agents}}",
+            })}
+          </Text>
+        ) : bindingsQuery.isSuccess ? (
+          <Alert
+            style={{ marginTop: 8 }}
+            type="warning"
+            showIcon
+            message={t("gateway.profileToolbarUnused", {
+              defaultValue: "没有任何已绑定 Agent 选用这套档案。未绑定的请求走默认档案，不会因为这里「正在编辑」而切换。",
+            })}
+          />
+        ) : null}
       </Card>
       <Card
         size="small"

@@ -751,6 +751,20 @@ mod tests {
     }
 
     #[test]
+    fn switching_off_catalog_clears_smart_gateway_env() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        apply_provider_to_settings_via_proxy_at(&sample_provider(), 15_828, &path, true, None)
+            .unwrap();
+        apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let env = written["env"].as_object().unwrap();
+        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert!(!env.contains_key("CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"));
+        assert_ne!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
+    }
+
+    #[test]
     fn catalog_proxy_clears_leftover_opusplan_and_writes_auto_model() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");

@@ -55,6 +55,8 @@
     "profileUnbound": "Not bound",
     "profileToolbar": "Editing",
     "profileToolbarHint": "This edits the profile itself, not which profile each Agent Auto card uses.",
+    "profileToolbarUsers": "Bound and selected by: {{agents}}",
+    "profileToolbarUnused": "No bound Agent is using this profile. Unbound traffic uses the default profile; switching the editor above does not attach it.",
     "profileDefault": "Default",
     "profileCreate": "New",
     "profileClone": "Duplicate",
@@ -1877,6 +1879,9 @@
         "Gateway Routing & rules can create, duplicate, rename, and delete profiles. Service & bind shows the current profile.",
         "Unbound apps and custom API keys still use the default profile. Deleting a profile falls bound agents back to default.",
         "Fix the profile picker showing internal ids and failing to switch to a newly created profile.",
+        "Fix the read-only hot path emptying route modes so requests fell through to the first catalog model (often gpt-6).",
+        "Fix editing gateway rules rewriting Claude Code / Desktop / Codex back onto the smart gateway after switching to an independent provider.",
+        "Routing shows whether any bound Agent is using the profile being edited.",
         "Upgrading migrates the local database to Schema 33 (one-way). Back up ~/.claude-switcher first."
       ]
     },

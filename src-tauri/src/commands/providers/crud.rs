@@ -162,6 +162,11 @@ pub async fn switch_provider_for_target<R: tauri::Runtime>(
         provider = ensure_smart_gateway_provider_row(state, target)?;
     }
     if provider.is_current {
+        if target == ProviderTarget::ClaudeCode {
+            let _ = repair_current_code_model_fields(state).await;
+        } else if target == ProviderTarget::Codex {
+            let _ = repair_codex_managed_proxy_endpoint(state).await;
+        }
         let needs_proxy = target_starts_agent_proxy(
             target,
             live_uses_gateway_catalog(state, &provider),

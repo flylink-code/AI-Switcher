@@ -497,8 +497,6 @@ pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool 
 }
 
 pub fn current_profile(conn: &Connection, target: ProviderTarget) -> AppResult<Option<GatewayProfile>> {
-    let now = chrono::Utc::now().timestamp_millis();
-    ensure_shared_profile(conn, now)?;
     get_profile(conn, &profile_id_for_target(conn, target)?)
 }
 
@@ -2507,6 +2505,39 @@ mod tests {
     }
 
     #[test]
+    fn bound_independent_code_must_not_look_like_live_gateway() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            let independent = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_indep"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.example.test",
+                    "gpt-5.6-terra",
+                ),
+            )?;
+            set_current_provider(conn, &independent.id)?;
+            upsert_binding(conn, ProviderTarget::ClaudeCode, "sgw_claude_code")?;
+            set_binding_profile(
+                conn,
+                ProviderTarget::ClaudeCode,
+                SHARED_PROFILE_ID,
+                "sgw_claude_code",
+            )?;
+            assert!(
+                !is_gateway_connection(conn, ProviderTarget::ClaudeCode),
+                "editing gateway rules / picking a profile must not treat this as live gateway"
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
     fn long_context_threshold_one_is_repaired_to_20000() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
@@ -2566,6 +2597,42 @@ mod tests {
                 listed.iter().find(|profile| profile.id == cloned.id).unwrap().name,
                 "gpt"
             );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn current_profile_and_modes_are_read_only() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
+            upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
+            set_binding_profile(
+                conn,
+                ProviderTarget::ClaudeCode,
+                &cloned.id,
+                "p_sg_claude_code",
+            )?;
+            patch_route_mode(
+                conn,
+                "default",
+                &RouteModePatch {
+                    model: Some("claude.sub2api.gpt-5.6-terra".into()),
+                    enabled: Some(true),
+                    ..RouteModePatch::default()
+                },
+                Some(&cloned.id),
+            )?;
+            conn.execute_batch("PRAGMA query_only = ON;")?;
+            let bound = current_profile(conn, ProviderTarget::ClaudeCode)?.expect("bound profile");
+            assert_eq!(bound.id, cloned.id);
+            let modes = list_route_modes(conn, &cloned.id)?;
+            let default = modes.iter().find(|mode| mode.id == "default").expect("default");
+            assert_eq!(default.model, "claude.sub2api.gpt-5.6-terra");
+            let unbound = current_profile(conn, ProviderTarget::Codex)?.expect("shared");
+            assert_eq!(unbound.id, SHARED_PROFILE_ID);
             Ok(())
         })
         .unwrap();
