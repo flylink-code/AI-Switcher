@@ -20,7 +20,9 @@
     "build:exe": "scripts\\build-exe.bat",
     "build:exe:debug": "scripts\\build-exe.bat debug",
     "build:exe:bundle": "scripts\\build-exe.bat bundle",
-    "release:notes": "node scripts/render-release-notes.mjs -"
+    "release:notes": "node scripts/render-release-notes.mjs -",
+    "system:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/system-test/run.ps1",
+    "system:test:rust": "cargo test --lib system_test --manifest-path src-tauri/Cargo.toml -- --test-threads=1 --nocapture"
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.5",

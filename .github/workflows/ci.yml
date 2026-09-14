@@ -95,4 +95,8 @@ jobs:
 
       - name: Run library tests
         working-directory: src-tauri
-        run: cargo test --lib
+        run: cargo test --lib -- --skip system_test::
+
+      - name: Run L1 system scenarios
+        working-directory: src-tauri
+        run: cargo test --lib system_test -- --test-threads=1 --nocapture

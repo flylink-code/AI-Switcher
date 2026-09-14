@@ -623,18 +623,24 @@ pub fn delete_profile(conn: &Connection, id: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Repoint an existing binding at another profile. Picking a profile must never
+/// create the binding itself: a fresh row makes catalog agents look connected
+/// and pushes the Auto entry into their live config.
 pub fn set_binding_profile(
     conn: &Connection,
     target: ProviderTarget,
     profile_id: &str,
-    provider_id: &str,
 ) -> AppResult<GatewayBinding> {
     let requested = profile_id.trim();
     if !requested.is_empty() && get_profile(conn, requested)?.is_none() {
         return Err(AppError::Config(format!("网关档案不存在: {requested}")));
     }
+    if binding_for_target(conn, target)?.is_none() {
+        return Err(AppError::Config(
+            "请先绑定智能网关，再选择路由档案".to_string(),
+        ));
+    }
     let resolved = resolve_profile_id(conn, Some(requested))?;
-    let _ = upsert_binding(conn, target, provider_id)?;
     if bindings_have_profile_id(conn) {
         conn.execute(
             "UPDATE gateway_bindings SET profile_id = ? WHERE target_app = ?;",
@@ -2522,12 +2528,7 @@ mod tests {
             )?;
             set_current_provider(conn, &independent.id)?;
             upsert_binding(conn, ProviderTarget::ClaudeCode, "sgw_claude_code")?;
-            set_binding_profile(
-                conn,
-                ProviderTarget::ClaudeCode,
-                SHARED_PROFILE_ID,
-                "sgw_claude_code",
-            )?;
+            set_binding_profile(conn, ProviderTarget::ClaudeCode, SHARED_PROFILE_ID)?;
             assert!(
                 !is_gateway_connection(conn, ProviderTarget::ClaudeCode),
                 "editing gateway rules / picking a profile must not treat this as live gateway"
@@ -2609,12 +2610,7 @@ mod tests {
             ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
             let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
             upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
-            set_binding_profile(
-                conn,
-                ProviderTarget::ClaudeCode,
-                &cloned.id,
-                "p_sg_claude_code",
-            )?;
+            set_binding_profile(conn, ProviderTarget::ClaudeCode, &cloned.id)?;
             patch_route_mode(
                 conn,
                 "default",
@@ -2689,12 +2685,7 @@ mod tests {
             ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
             let cloned = create_profile(conn, "Astra", Some(SHARED_PROFILE_ID))?;
             upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
-            set_binding_profile(
-                conn,
-                ProviderTarget::ClaudeCode,
-                &cloned.id,
-                "p_sg_claude_code",
-            )?;
+            set_binding_profile(conn, ProviderTarget::ClaudeCode, &cloned.id)?;
             let bound = current_profile(conn, ProviderTarget::ClaudeCode)?.unwrap();
             assert_eq!(bound.id, cloned.id);
             let unbound = current_profile(conn, ProviderTarget::Codex)?.unwrap();
@@ -2705,6 +2696,26 @@ mod tests {
             let binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
             assert_eq!(binding.profile_id, SHARED_PROFILE_ID);
             assert!(delete_profile(conn, SHARED_PROFILE_ID).is_err());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn picking_a_profile_must_not_create_a_binding() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
+            assert!(set_binding_profile(conn, ProviderTarget::OpenCode, &cloned.id).is_err());
+            assert!(binding_for_target(conn, ProviderTarget::OpenCode)?.is_none());
+            assert!(!is_gateway_connection(conn, ProviderTarget::OpenCode));
+            let rows: i64 = conn.query_row(
+                "SELECT count(*) FROM gateway_bindings WHERE target_app = ?;",
+                [ProviderTarget::OpenCode.as_str()],
+                |row| row.get(0),
+            )?;
+            assert_eq!(rows, 0);
             Ok(())
         })
         .unwrap();

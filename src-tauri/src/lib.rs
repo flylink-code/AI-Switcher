@@ -83,6 +83,9 @@ mod wsl_direct;
 #[cfg(test)]
 mod ts_bindings;
 
+#[cfg(test)]
+mod system_test;
+
 #[cfg(windows)]
 mod autostart_windows;
 
@@ -647,8 +650,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         "Database initialization completed: duration_ms={}",
         setup_started.elapsed().as_millis()
     );
-    if let Err(error) = commands::system::migrate_autostart_registration(app.handle(), &db) {
-        log::warn!("开机自启注册迁移失败: {error}");
+    if let Err(error) = commands::system::apply_test_isolation_settings(&db) {
+        log::warn!("test isolation port overrides failed: {error}");
+    }
+    if !config::paths::test_isolation_enabled() {
+        if let Err(error) = commands::system::migrate_autostart_registration(app.handle(), &db) {
+            log::warn!("开机自启注册迁移失败: {error}");
+        }
+    } else {
+        log::info!("test isolation: skipping autostart registration");
     }
 
     // First-run seeding + live-config import. Non-fatal: a seeding failure should

@@ -83,6 +83,7 @@ winreg = "0.55"
 tempfile = "3"
 filetime = "0.2"
 ts-rs = { version = "10", features = ["serde-compat"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

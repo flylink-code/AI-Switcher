@@ -148,6 +148,7 @@ export default function ProvidersPage() {
     queryKey: ["smart-gateway-bindings"],
     queryFn: listSmartGatewayBindings,
   });
+  const autoBinding = gatewayBindingsQuery.data?.find((item) => item.targetApp === target);
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
     queryFn: getClaudeCodeDefaultPermissionMode,
@@ -844,23 +845,33 @@ export default function ProvidersPage() {
                         options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
                         onChange={(value) => void handleAutoModelChange(provider, String(value ?? "auto"))}
                       />
-                      <Select
-                        size="small"
-                        style={{ minWidth: 140 }}
-                        loading={autoModelSaving}
-                        value={
-                          gatewayBindingsQuery.data?.find((item) => item.targetApp === target)?.profileId
-                          ?? "gprof_shared"
+                      <Tooltip
+                        title={
+                          autoBinding
+                            ? undefined
+                            : t("providers.gatewayProfileBindFirst", {
+                                defaultValue: "请先绑定智能网关，再选择路由档案",
+                              })
                         }
-                        options={(gatewayProfilesQuery.data ?? []).map((profile) => ({
-                          value: profile.id,
-                          label: profile.id === "gprof_shared"
-                            ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
-                            : (profile.name.trim() || profile.id),
-                        }))}
-                        onChange={(value) => void handleAutoProfileChange(String(value))}
-                        placeholder={t("providers.gatewayProfile", { defaultValue: "配置" })}
-                      />
+                      >
+                        <span>
+                          <Select
+                            size="small"
+                            style={{ minWidth: 140 }}
+                            loading={autoModelSaving}
+                            disabled={!autoBinding}
+                            value={autoBinding?.profileId ?? "gprof_shared"}
+                            options={(gatewayProfilesQuery.data ?? []).map((profile) => ({
+                              value: profile.id,
+                              label: profile.id === "gprof_shared"
+                                ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
+                                : (profile.name.trim() || profile.id),
+                            }))}
+                            onChange={(value) => void handleAutoProfileChange(String(value))}
+                            placeholder={t("providers.gatewayProfile", { defaultValue: "配置" })}
+                          />
+                        </span>
+                      </Tooltip>
                     </>
                   ) : (
                     <Tag className="cc-provider-model-tag" title={provider.model || "Default"}>
@@ -900,9 +911,7 @@ export default function ProvidersPage() {
                         type="link"
                         size="small"
                         onClick={() => {
-                          const selected =
-                            gatewayBindingsQuery.data?.find((item) => item.targetApp === target)?.profileId
-                            ?? "gprof_shared";
+                          const selected = autoBinding?.profileId ?? "gprof_shared";
                           setProxyTarget(target);
                           setGatewayTab("smart");
                           setGatewaySection("routing");

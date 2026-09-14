@@ -17,6 +17,17 @@ pub const APP_DB_NAME: &str = "app.db";
 /// Backup subdirectory name.
 pub const BACKUP_DIR_NAME: &str = "backups";
 const DATA_ROOT_CONFIG_FILE: &str = "data-root.json";
+/// Isolated home for system tests. Ignored in production unless
+/// [`ALLOW_TEST_HOME_ENV`] is `1`.
+pub const TEST_HOME_ENV: &str = "AISW_TEST_HOME";
+/// Must be `1` for [`TEST_HOME_ENV`] to take effect outside `cfg(test)`.
+pub const ALLOW_TEST_HOME_ENV: &str = "AISW_ALLOW_TEST_HOME";
+/// Optional L2 listener port for the smart gateway. Honored only when
+/// [`test_isolation_enabled`] is true.
+pub const SMART_GATEWAY_PORT_ENV: &str = "AISW_SMART_GATEWAY_PORT";
+/// Optional L2 base for per-Agent local-proxy ports (`base`, `base+1`, …).
+/// Honored only when [`test_isolation_enabled`] is true.
+pub const PROXY_PORT_BASE_ENV: &str = "AISW_PROXY_PORT_BASE";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,16 +36,141 @@ pub struct DataRootConfig {
     pub data_root: String,
 }
 
+/// True when `AISW_TEST_HOME` / test port env vars may rewrite profile paths.
+pub fn test_isolation_enabled() -> bool {
+    cfg!(test)
+        || std::env::var_os(ALLOW_TEST_HOME_ENV).is_some_and(|value| value == "1")
+}
+
+fn test_home_override_allowed() -> bool {
+    test_isolation_enabled()
+}
+
+fn env_u16(name: &str) -> Option<u16> {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|port| *port >= 1024)
+}
+
+/// Isolated smart-gateway listen port, if the L2 harness set one.
+pub fn isolated_smart_gateway_port() -> Option<u16> {
+    if !test_isolation_enabled() {
+        return None;
+    }
+    env_u16(SMART_GATEWAY_PORT_ENV)
+}
+
+/// Isolated local-proxy port base, if the L2 harness set one.
+pub fn isolated_proxy_port_base() -> Option<u16> {
+    if !test_isolation_enabled() {
+        return None;
+    }
+    env_u16(PROXY_PORT_BASE_ENV)
+}
+
+fn test_home_dir() -> Option<PathBuf> {
+    if !test_home_override_allowed() {
+        return None;
+    }
+    std::env::var_os(TEST_HOME_ENV)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
 /// Resolve the user home directory with a last-resort fallback.
 ///
 /// Windows: `dirs::home_dir()` calls `SHGetKnownFolderPath(FOLDERID_Profile)`,
 /// yielding the real profile path (e.g. `C:\Users\Alice`). We deliberately avoid
 /// reading `HOME` directly because Git Bash / MSYS export their own `HOME`.
+/// System tests may override this via [`TEST_HOME_ENV`].
 pub fn get_home_dir() -> PathBuf {
+    if let Some(home) = test_home_dir() {
+        return home;
+    }
     dirs::home_dir().unwrap_or_else(|| {
         log::warn!("无法获取用户主目录，回退到当前工作目录");
         PathBuf::from(".")
     })
+}
+
+/// Serialize tests that redirect the profile root. The env var is process-wide.
+#[cfg(test)]
+pub struct IsolatedHomeGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+    previous_home: Option<std::ffi::OsString>,
+    previous_allow: Option<std::ffi::OsString>,
+    previous_extra: Vec<(&'static str, Option<std::ffi::OsString>)>,
+}
+
+#[cfg(test)]
+impl Drop for IsolatedHomeGuard {
+    fn drop(&mut self) {
+        match self.previous_home.take() {
+            Some(value) => std::env::set_var(TEST_HOME_ENV, value),
+            None => std::env::remove_var(TEST_HOME_ENV),
+        }
+        match self.previous_allow.take() {
+            Some(value) => std::env::set_var(ALLOW_TEST_HOME_ENV, value),
+            None => std::env::remove_var(ALLOW_TEST_HOME_ENV),
+        }
+        for (key, previous) in self.previous_extra.drain(..).rev() {
+            match previous {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+fn home_override_lock() -> &'static std::sync::Mutex<()> {
+    use std::sync::{Mutex, OnceLock};
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// Hold an isolated home for async system tests. Drop restores the previous env.
+#[cfg(test)]
+pub fn enter_isolated_home(home: &Path) -> IsolatedHomeGuard {
+    let lock = home_override_lock()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let previous_home = std::env::var_os(TEST_HOME_ENV);
+    let previous_allow = std::env::var_os(ALLOW_TEST_HOME_ENV);
+    std::env::set_var(TEST_HOME_ENV, home);
+    std::env::set_var(ALLOW_TEST_HOME_ENV, "1");
+    let _ = fs::create_dir_all(home);
+    let extra = [
+        ("CODEX_HOME", home.join(".codex")),
+        ("OPENCODE_CONFIG", home.join(".config").join("opencode").join("opencode.json")),
+        ("OPENCODE_DB", home.join(".local").join("share").join("opencode").join("opencode.db")),
+        ("DSH_HOME", home.join(".dsh")),
+        ("PI_CODING_AGENT_DIR", home.join(".pi").join("agent")),
+        ("XDG_DATA_HOME", home.join(".local").join("share")),
+    ];
+    let mut previous_extra = Vec::with_capacity(extra.len());
+    for (key, path) in extra {
+        previous_extra.push((key, std::env::var_os(key)));
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        } else {
+            let _ = fs::create_dir_all(&path);
+        }
+        std::env::set_var(key, &path);
+    }
+    IsolatedHomeGuard {
+        _lock: lock,
+        previous_home,
+        previous_allow,
+        previous_extra,
+    }
+}
+
+#[cfg(test)]
+pub fn with_isolated_home<R>(home: &Path, body: impl FnOnce() -> R) -> R {
+    let _guard = enter_isolated_home(home);
+    body()
 }
 
 /// `~/.claude` — the Claude Code config directory.
@@ -359,6 +495,9 @@ mod tests {
 
     #[test]
     fn app_paths_are_nested_under_home() {
+        let _lock = home_override_lock()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let home = get_home_dir();
         assert_eq!(get_legacy_app_config_dir(), home.join(APP_DIR_NAME));
         assert_eq!(
@@ -366,6 +505,46 @@ mod tests {
             home.join(APP_DIR_NAME).join(APP_DB_NAME)
         );
         assert_eq!(get_claude_settings_path(), home.join(".claude").join("settings.json"));
+    }
+
+    #[test]
+    fn isolated_test_home_rewrites_app_and_claude_paths() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        with_isolated_home(temp.path(), || {
+            assert_eq!(get_home_dir(), temp.path());
+            assert_eq!(get_legacy_app_config_dir(), temp.path().join(APP_DIR_NAME));
+            assert_eq!(
+                get_claude_settings_path(),
+                temp.path().join(".claude").join("settings.json")
+            );
+            assert_eq!(
+                get_app_db_path(),
+                temp.path().join(APP_DIR_NAME).join(APP_DB_NAME)
+            );
+            assert_eq!(get_codex_config_dir(), temp.path().join(".codex"));
+            assert_eq!(
+                get_opencode_config_path(),
+                temp.path()
+                    .join(".config")
+                    .join("opencode")
+                    .join("opencode.json")
+            );
+            assert_eq!(get_dsh_config_dir(), temp.path().join(".dsh"));
+        });
+    }
+
+    #[test]
+    fn isolated_port_env_requires_allow_flag_outside_override_helpers() {
+        let previous = std::env::var_os(SMART_GATEWAY_PORT_ENV);
+        std::env::set_var(SMART_GATEWAY_PORT_ENV, "16828");
+        assert_eq!(isolated_smart_gateway_port(), Some(16828));
+        std::env::set_var(PROXY_PORT_BASE_ENV, "16821");
+        assert_eq!(isolated_proxy_port_base(), Some(16821));
+        match previous {
+            Some(value) => std::env::set_var(SMART_GATEWAY_PORT_ENV, value),
+            None => std::env::remove_var(SMART_GATEWAY_PORT_ENV),
+        }
+        std::env::remove_var(PROXY_PORT_BASE_ENV);
     }
 
     #[test]

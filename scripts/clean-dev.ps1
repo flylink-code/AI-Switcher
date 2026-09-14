@@ -170,12 +170,13 @@ function Get-InstalledAiSwitcherExe {
         }
     }
 
-    foreach ($wellKnown in @(
-            (Join-Path $env:LOCALAPPDATA "AI-Switcher\AISwitcher.exe"),
-            (Join-Path ${env:ProgramFiles} "AI-Switcher\AISwitcher.exe"),
-            (Join-Path ${env:ProgramFiles(x86)} "AI-Switcher\AISwitcher.exe")
+    foreach ($root in @(
+            $env:LOCALAPPDATA,
+            $env:ProgramFiles,
+            ${env:ProgramFiles(x86)}
         )) {
-        $candidates.Add($wellKnown)
+        if ([string]::IsNullOrWhiteSpace($root)) { continue }
+        $candidates.Add((Join-Path $root "AI-Switcher\AISwitcher.exe"))
     }
 
     foreach ($path in ($candidates | Select-Object -Unique)) {

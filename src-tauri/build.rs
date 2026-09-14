@@ -29,5 +29,23 @@ fn load_dotenv() {
 
 fn main() {
     load_dotenv();
+    embed_windows_common_controls_manifest();
     tauri_build::build()
+}
+
+/// Cargo's `--lib` test harness is a console EXE without Tauri's `resource.lib`.
+/// tao/wry import `TaskDialogIndirect` (comctl32 v6). Adding a second
+/// `MANIFESTINPUT` to bins duplicates Tauri's RT_MANIFEST (CVT1100 / LNK1123).
+/// `MANIFESTDEPENDENCY` is a linker flag (not a second resource) so it applies
+/// to the `--lib` harness without colliding with the app binary.
+fn embed_windows_common_controls_manifest() {
+    if env::var("CARGO_CFG_TARGET_OS").ok().as_deref() != Some("windows") {
+        return;
+    }
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");
+    let manifest = Path::new(&manifest_dir).join("windows-common-controls.manifest");
+    println!("cargo:rerun-if-changed={}", manifest.display());
+    println!(
+        "cargo:rustc-link-arg=/MANIFESTDEPENDENCY:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'"
+    );
 }

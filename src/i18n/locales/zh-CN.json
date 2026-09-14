@@ -632,6 +632,7 @@
     "configureGateway": "配置路由",
     "gatewayProfile": "配置",
     "gatewayProfileSaved": "已切换智能网关档案",
+    "gatewayProfileBindFirst": "请先绑定智能网关，再选择路由档案",
     "enableSmartGateway": "启用智能网关",
     "enableGatewayHint": "点托管 Auto 卡「启用智能网关」，或到智能网关页一键启用当前 Agent。",
     "importToGateway": "导入到智能网关",

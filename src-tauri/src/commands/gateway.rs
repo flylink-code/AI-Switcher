@@ -134,9 +134,8 @@ pub async fn set_gateway_binding_profile(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<GatewayBinding> {
-    let provider_id = crate::gateway::smart_gateway_provider_id(target);
     let binding = state.db.with_conn(|conn| {
-        crate::database::dao::gateway::set_binding_profile(conn, target, &profile_id, &provider_id)
+        crate::database::dao::gateway::set_binding_profile(conn, target, &profile_id)
     })?;
     let _ = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target);
     crate::catalog::invalidate_view_cache();

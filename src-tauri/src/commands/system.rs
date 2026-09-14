@@ -462,6 +462,33 @@ fn set_setting_value(db: &Database, key: &str, value: &str) -> AppResult<()> {
     db.with_conn(|conn| set_setting(conn, key, value))
 }
 
+/// L2 / isolated launches remap listener ports so they never steal 15821–15828.
+pub fn apply_test_isolation_settings(db: &Database) -> AppResult<()> {
+    if !crate::config::paths::test_isolation_enabled() {
+        return Ok(());
+    }
+    if let Some(port) = crate::config::paths::isolated_smart_gateway_port() {
+        set_setting_value(db, crate::gateway::service::PORT_SETTING, &port.to_string())?;
+        log::info!("test isolation: smart_gateway_port={port}");
+    }
+    if let Some(base) = crate::config::paths::isolated_proxy_port_base() {
+        let assignments = [
+            ("proxy_port_claude_code", 0u16),
+            ("proxy_port_claude_desktop", 1),
+            ("proxy_port_codex", 2),
+            ("proxy_port_opencode", 3),
+            ("proxy_port_pi", 4),
+            ("proxy_port_dsh", 5),
+            ("proxy_port_cline", 6),
+        ];
+        for (key, offset) in assignments {
+            set_setting_value(db, key, &(base + offset).to_string())?;
+        }
+        log::info!("test isolation: proxy_port_base={base}");
+    }
+    Ok(())
+}
+
 pub fn is_silent_autostart(db: &Database) -> bool {
     should_launch_silently(
         std::env::args().any(|arg| arg == "--autostart"),

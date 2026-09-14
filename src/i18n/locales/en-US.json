@@ -632,6 +632,7 @@
     "configureGateway": "Configure routing",
     "gatewayProfile": "Profile",
     "gatewayProfileSaved": "Smart gateway profile updated",
+    "gatewayProfileBindFirst": "Bind the smart gateway first, then pick a routing profile",
     "enableSmartGateway": "Enable Smart Gateway",
     "enableGatewayHint": "Use Enable Smart Gateway on the managed Auto card, or enable this Agent from the Smart Gateway page.",
     "importToGateway": "Import to Smart Gateway",

@@ -51,5 +51,10 @@ ui-test.html
 docs/**
 !docs/smart-gateway/
 !docs/smart-gateway/**
+!docs/testing.md
 .cursor/
 1-examples-2-ccswitch-cached-tide.md
+
+# L2 failure dumps (keep the folder, not the contents)
+scripts/system-test/artifacts/*
+!scripts/system-test/artifacts/.gitignore
