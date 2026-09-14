@@ -856,7 +856,7 @@ export default function ProvidersPage() {
                           value: profile.id,
                           label: profile.id === "gprof_shared"
                             ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
-                            : profile.name,
+                            : (profile.name.trim() || profile.id),
                         }))}
                         onChange={(value) => void handleAutoProfileChange(String(value))}
                         placeholder={t("providers.gatewayProfile", { defaultValue: "配置" })}

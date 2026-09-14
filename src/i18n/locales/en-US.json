@@ -1876,6 +1876,7 @@
         "Smart gateway supports multiple global profiles. Each Agent Auto card can pick a different set (for example Code “coding”, Codex “Astra”).",
         "Gateway Routing & rules can create, duplicate, rename, and delete profiles. Service & bind shows the current profile.",
         "Unbound apps and custom API keys still use the default profile. Deleting a profile falls bound agents back to default.",
+        "Fix the profile picker showing internal ids and failing to switch to a newly created profile.",
         "Upgrading migrates the local database to Schema 33 (one-way). Back up ~/.claude-switcher first."
       ]
     },

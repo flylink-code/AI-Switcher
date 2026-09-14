@@ -67,7 +67,7 @@ import {
   unbindSmartGateway,
   updateRouteMode,
 } from "@/services/providers";
-import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog } from "@/types/backend";
+import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog, GatewayProfile } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
 
 const SHARED_PROFILE_ID = "gprof_shared";
@@ -334,7 +334,7 @@ export default function GatewayPage() {
     value: profile.id,
     label: profile.id === SHARED_PROFILE_ID
       ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
-      : profile.name,
+      : (profile.name.trim() || profile.id),
   }));
   const editingProfile = profiles.find((profile) => profile.id === profileId)
     ?? profiles.find((profile) => profile.id === SHARED_PROFILE_ID);
@@ -462,6 +462,13 @@ export default function GatewayPage() {
           name,
           profileModal.mode === "clone" ? profileId : SHARED_PROFILE_ID,
         );
+        queryClient.setQueryData<GatewayProfile[]>(["gateway-profiles"], (current) => {
+          const rows = current ?? [];
+          if (rows.some((profile) => profile.id === created.id)) {
+            return rows;
+          }
+          return [...rows, created];
+        });
         setProfileId(created.id);
       }
       setProfileModal(null);
@@ -785,7 +792,7 @@ export default function GatewayPage() {
             <Select
               size="small"
               style={{ minWidth: 180 }}
-              value={editingProfile?.id ?? profileId}
+              value={profileId}
               options={profileOptions}
               onChange={(value) => setProfileId(String(value))}
             />

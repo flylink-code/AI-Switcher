@@ -2,7 +2,7 @@
 
 Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.4**
 
-**This release:** The smart gateway supports multiple global profiles. Each Agent Auto card can pick a different set (for example Code “coding”, Codex “Astra”). Create / duplicate / rename profiles on the gateway page. Unbound apps and custom keys still use the default profile. Otherwise same as 1.5.3.
+**This release:** The smart gateway supports multiple global profiles. Each Agent Auto card can pick a different set (for example Code “coding”, Codex “Astra”). Create / duplicate / rename profiles on the gateway page. Unbound apps and custom keys still use the default profile. The profile picker no longer shows internal ids or fails to switch after creating a profile. Otherwise same as 1.5.3.
 
 **Upgrade note:** Schema migrates to 33 (one-way). Back up `~/.claude-switcher` first. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 

@@ -513,8 +513,6 @@ pub fn profile_id_for_target(conn: &Connection, target: ProviderTarget) -> AppRe
 }
 
 pub fn resolve_profile_id(conn: &Connection, profile_id: Option<&str>) -> AppResult<String> {
-    let now = chrono::Utc::now().timestamp_millis();
-    ensure_shared_profile(conn, now)?;
     let id = profile_id.map(str::trim).filter(|value| !value.is_empty()).unwrap_or(SHARED_PROFILE_ID);
     if get_profile(conn, id)?.is_some() {
         Ok(id.to_string())
@@ -541,8 +539,6 @@ pub fn get_profile(conn: &Connection, id: &str) -> AppResult<Option<GatewayProfi
 }
 
 pub fn list_profiles(conn: &Connection) -> AppResult<Vec<GatewayProfile>> {
-    let now = chrono::Utc::now().timestamp_millis();
-    ensure_shared_profile(conn, now)?;
     if !table_exists(conn, "gateway_profiles") {
         return Ok(Vec::new());
     }
@@ -554,9 +550,13 @@ pub fn list_profiles(conn: &Connection) -> AppResult<Vec<GatewayProfile>> {
                 long_context_model, long_context_tokens, web_search_model,
                 created_at, updated_at
          FROM gateway_profiles
+         WHERE id = ? OR target_app = ?
          ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, created_at ASC, name ASC;",
     )?;
-    let rows = stmt.query_map(params![SHARED_PROFILE_ID], row_to_profile)?;
+    let rows = stmt.query_map(
+        params![SHARED_PROFILE_ID, SHARED_PROFILE_TARGET, SHARED_PROFILE_ID],
+        row_to_profile,
+    )?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
@@ -2534,11 +2534,38 @@ mod tests {
             assert_eq!(listed[0].id, SHARED_PROFILE_ID);
             let cloned = create_profile(conn, "编程", Some(SHARED_PROFILE_ID))?;
             assert_ne!(cloned.id, SHARED_PROFILE_ID);
+            assert_eq!(cloned.name, "编程");
             assert!(cloned.entry_token.is_empty());
             let listed = list_profiles(conn)?;
             assert_eq!(listed.len(), 2);
             assert_eq!(listed[0].id, SHARED_PROFILE_ID);
-            assert!(listed.iter().any(|profile| profile.id == cloned.id));
+            let cloned_row = listed.iter().find(|profile| profile.id == cloned.id).expect("cloned");
+            assert_eq!(cloned_row.name, "编程");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn list_profiles_is_read_only_and_hides_legacy_agent_rows() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            conn.execute(
+                "INSERT INTO gateway_profiles (id, name, target_app, created_at, updated_at)
+                 VALUES ('gprof_codex', 'Codex 默认档案', 'codex', 1, 1);",
+                [],
+            )?;
+            let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
+            conn.execute_batch("PRAGMA query_only = ON;")?;
+            let listed = list_profiles(conn)?;
+            assert!(listed.iter().all(|profile| {
+                profile.id == SHARED_PROFILE_ID || profile.id == cloned.id
+            }));
+            assert_eq!(
+                listed.iter().find(|profile| profile.id == cloned.id).unwrap().name,
+                "gpt"
+            );
             Ok(())
         })
         .unwrap();

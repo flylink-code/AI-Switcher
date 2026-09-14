@@ -64,14 +64,13 @@ pub fn list_gateway_profiles(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayProfile>> {
     let _ = target;
-    let listed = state.db.with_read_conn(list_profiles)?;
-    if !listed.is_empty() {
-        return Ok(listed);
+    match state.db.with_read_conn(list_profiles) {
+        Ok(listed) if !listed.is_empty() => Ok(listed),
+        _ => state.db.with_conn(|conn| {
+            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            list_profiles(conn)
+        }),
     }
-    state.db.with_conn(|conn| {
-        ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-        list_profiles(conn)
-    })
 }
 
 #[tauri::command]
