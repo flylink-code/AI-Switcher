@@ -9,7 +9,7 @@ pub(crate) mod convert;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;
-mod codex_chat;
+pub(crate) mod codex_chat;
 mod codex_compact;
 mod codex_history;
 mod codex_moonshot_schema;

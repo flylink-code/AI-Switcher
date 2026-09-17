@@ -1,10 +1,10 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.4**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.5**
 
-**This release:** The smart gateway supports multiple global profiles. Each Agent Auto card can pick a different set (for example Code “coding”, Codex “Astra”). Create / duplicate / rename profiles on the gateway page. Unbound apps and custom keys still use the default profile. The profile picker no longer shows internal ids or fails to switch after creating a profile. Also fixes empty route modes falling through to gpt-6, and editing gateway rules rewriting exclusive agents back to :15828 after switching away. Otherwise same as 1.5.3.
+**This release:** Improves protocol stability and request observability. Same-turn commentary and tool calls stay in one assistant message for Responses bridges, while mid-session system / developer directives keep their position as `<system-reminder>` content. Gemini thought signatures use an independent L1 memory + L2 SQLite cache so historical tool signatures survive clean restarts without entering library migration or backups. Usage logs and recent gateway routes now show average output `Token/s`. Prompt files for Claude Code and other Agents now accept UTF-8 BOM, BOM-marked UTF-16 LE/BE, and Windows GBK/ANSI encodings instead of failing reads or workspace snapshots on non-UTF-8 content.
 
-**Upgrade note:** Schema migrates to 33 (one-way). Back up `~/.claude-switcher` first. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
+**Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 
 [中文](README.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

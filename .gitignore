@@ -1,5 +1,6 @@
 # Reference examples (vendored, not part of our source)
 .zcode/
+.claude/
 
 # Dependencies
 node_modules/

@@ -351,13 +351,7 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                         }));
                     }
                     Some("function_call_output") => {
-                        if !pending_tool_calls.is_empty() {
-                            messages.push(json!({
-                                "role": "assistant",
-                                "content": null,
-                                "tool_calls": std::mem::take(&mut pending_tool_calls),
-                            }));
-                        }
+                        flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
                         messages.push(json!({
                             "role": "tool",
                             "tool_call_id": item.get("call_id").and_then(Value::as_str).unwrap_or("call_tool"),
@@ -366,42 +360,95 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                     }
                     Some("reasoning") | Some("computer_call") | Some("computer_call_output") => {}
                     _ if item.get("role").is_some() => {
-                        if !pending_tool_calls.is_empty() {
-                            messages.push(json!({
-                                "role": "assistant",
-                                "content": null,
-                                "tool_calls": std::mem::take(&mut pending_tool_calls),
-                            }));
-                        }
                         let role = match item.get("role").and_then(Value::as_str).unwrap_or("user") {
                             "assistant" => "assistant",
                             "system" | "developer" => "system",
                             _ => "user",
                         };
                         let content = convert_responses_content(item.get("content").unwrap_or(&Value::Null));
-                        if !content_is_empty(&content) {
-                            messages.push(json!({ "role": role, "content": content }));
+                        if role == "assistant" {
+                            append_assistant_message(&mut messages, &mut pending_tool_calls, content);
+                        } else {
+                            flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
+                            if !content_is_empty(&content) {
+                                messages.push(json!({ "role": role, "content": content }));
+                            }
                         }
                     }
                     _ => {
                         let text = output_text(item);
                         if !text.is_empty() {
+                            flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
                             messages.push(json!({ "role": "user", "content": text }));
                         }
                     }
                 }
             }
-            if !pending_tool_calls.is_empty() {
-                messages.push(json!({
-                    "role": "assistant",
-                    "content": null,
-                    "tool_calls": pending_tool_calls,
-                }));
-            }
+            flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
             Ok(messages)
         }
         _ => Err("Responses input 必须是字符串或数组".into()),
     }
+}
+
+/// 仅将待处理调用合并到紧邻且尚无调用的 assistant，不合并独立文本轮次。
+pub(crate) fn append_assistant_message(
+    messages: &mut Vec<Value>,
+    pending_tool_calls: &mut Vec<Value>,
+    content: Value,
+) {
+    if content_is_empty(&content) && pending_tool_calls.is_empty() {
+        return;
+    }
+    if !pending_tool_calls.is_empty() {
+        if let Some(last) = messages.last_mut().filter(|last| {
+            last.get("role").and_then(Value::as_str) == Some("assistant")
+                && last.get("tool_calls").and_then(Value::as_array).is_none_or(Vec::is_empty)
+        }) {
+            merge_assistant_content(last, content);
+            last["tool_calls"] = Value::Array(std::mem::take(pending_tool_calls));
+            return;
+        }
+    }
+    let mut message = json!({
+        "role": "assistant",
+        "content": if content_is_empty(&content) { Value::Null } else { content },
+    });
+    if !pending_tool_calls.is_empty() {
+        message["tool_calls"] = Value::Array(std::mem::take(pending_tool_calls));
+    }
+    messages.push(message);
+}
+
+pub(crate) fn flush_pending_tool_calls(messages: &mut Vec<Value>, calls: &mut Vec<Value>) {
+    if !calls.is_empty() {
+        append_assistant_message(messages, calls, Value::Null);
+    }
+}
+
+fn merge_assistant_content(last: &mut Value, content: Value) {
+    if content_is_empty(&content) {
+        return;
+    }
+    let previous = last.get("content").cloned().unwrap_or(Value::Null);
+    last["content"] = if content_is_empty(&previous) {
+        content
+    } else {
+        match (previous, content) {
+            (Value::String(a), Value::String(b)) => Value::String(format!("{a}\n{b}")),
+            (a, b) => {
+                let mut parts = match a {
+                    Value::Array(parts) => parts,
+                    other => vec![json!({ "type": "text", "text": other })],
+                };
+                match b {
+                    Value::Array(next) => parts.extend(next),
+                    other => parts.push(json!({ "type": "text", "text": other })),
+                }
+                Value::Array(parts)
+            }
+        }
+    };
 }
 
 fn convert_responses_content(content: &Value) -> Value {
@@ -430,6 +477,7 @@ fn convert_responses_content(content: &Value) -> Value {
             }
             Value::Array(parts)
         }
+        Value::Object(map) => map.get("text").filter(|text| text.is_string()).cloned().unwrap_or(Value::Null),
         _ => Value::String(String::new()),
     }
 }
@@ -505,4 +553,159 @@ mod tests {
         ));
         assert!(!is_unsupported_content_type_error(br#"{"error":{"message":"rate limit"}}"#));
     }
+    #[test]
+    fn responses_assistant_text_and_function_call_merged_in_same_turn() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "stream": false,
+            "input": [
+                { "role": "user", "content": "hi" },
+                { "type": "message", "role": "assistant", "content": [{ "type": "output_text", "text": "I will check the file." }] },
+                { "type": "function_call", "call_id": "call_1", "name": "read_file", "arguments": "{\"path\":\"a.txt\"}" },
+                { "type": "function_call_output", "call_id": "call_1", "output": "hello file" }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        let msgs = chat["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 3);
+        assert_eq!(msgs[0]["role"], "user");
+        assert_eq!(msgs[0]["content"], "hi");
+
+        assert_eq!(msgs[1]["role"], "assistant");
+        assert_eq!(msgs[1]["content"], "I will check the file.");
+        let tool_calls = msgs[1]["tool_calls"].as_array().unwrap();
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0]["id"], "call_1");
+        assert_eq!(tool_calls[0]["function"]["name"], "read_file");
+        assert_eq!(
+            tool_calls[0]["function"]["arguments"],
+            "{\"path\":\"a.txt\"}"
+        );
+
+        assert_eq!(msgs[2]["role"], "tool");
+        assert_eq!(msgs[2]["tool_call_id"], "call_1");
+        assert_eq!(msgs[2]["content"], "hello file");
+    }
+
+    #[test]
+    fn responses_function_call_before_assistant_text_merged_in_same_turn() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "input": [
+                { "role": "user", "content": "hi" },
+                { "type": "function_call", "call_id": "call_1", "name": "read_file", "arguments": "{}" },
+                { "role": "assistant", "content": "I am reading the file." },
+                { "type": "function_call_output", "call_id": "call_1", "output": "content" }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        let msgs = chat["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 3);
+        assert_eq!(msgs[1]["role"], "assistant");
+        assert_eq!(msgs[1]["content"], "I am reading the file.");
+        assert_eq!(msgs[1]["tool_calls"][0]["id"], "call_1");
+        assert_eq!(msgs[2]["role"], "tool");
+    }
+
+    #[test]
+    fn responses_does_not_merge_across_role_boundaries() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "input": [
+                { "role": "user", "content": "question 1" },
+                { "role": "assistant", "content": "answer 1" },
+                { "role": "user", "content": "question 2" },
+                { "type": "function_call", "call_id": "call_2", "name": "search", "arguments": "{}" },
+                { "type": "function_call_output", "call_id": "call_2", "output": "results" }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        let msgs = chat["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 5);
+        assert_eq!(msgs[0]["role"], "user");
+        assert_eq!(msgs[0]["content"], "question 1");
+
+        assert_eq!(msgs[1]["role"], "assistant");
+        assert_eq!(msgs[1]["content"], "answer 1");
+        assert!(msgs[1].get("tool_calls").is_none());
+
+        assert_eq!(msgs[2]["role"], "user");
+        assert_eq!(msgs[2]["content"], "question 2");
+
+        assert_eq!(msgs[3]["role"], "assistant");
+        assert_eq!(msgs[3]["content"], Value::Null);
+        assert_eq!(msgs[3]["tool_calls"][0]["id"], "call_2");
+
+        assert_eq!(msgs[4]["role"], "tool");
+        assert_eq!(msgs[4]["tool_call_id"], "call_2");
+    }
+
+    #[test]
+    fn responses_adjacent_assistant_messages_remain_distinct_turns() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "input": [
+                { "role": "user", "content": "start" },
+                { "role": "assistant", "content": "first turn" },
+                { "role": "assistant", "content": "second turn" }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        let messages = chat["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[1]["content"], "first turn");
+        assert_eq!(messages[2]["content"], "second turn");
+    }
+
+    #[test]
+    fn responses_second_tool_batch_does_not_extend_completed_assistant() {
+        let mut messages = vec![json!({
+            "role": "assistant", "content": "completed batch",
+            "tool_calls": [{ "id": "call_1", "type": "function", "function": { "name": "first", "arguments": "{}" } }]
+        })];
+        let mut calls = vec![json!({ "id": "call_2", "type": "function", "function": { "name": "second", "arguments": "{}" } })];
+        flush_pending_tool_calls(&mut messages, &mut calls);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["tool_calls"].as_array().unwrap().len(), 1);
+        assert_eq!(messages[1]["tool_calls"][0]["id"], "call_2");
+        assert!(calls.is_empty());
+    }
+
+    #[test]
+    fn responses_system_and_tool_output_boundaries_stay_separate() {
+        for role in ["system", "developer", "user"] {
+            let messages = responses_input_to_chat_messages(&json!([
+                { "role": "assistant", "content": "before boundary" },
+                { "role": role, "content": { "text": "boundary" } },
+                { "type": "function_call", "call_id": "next", "name": "read", "arguments": "{}" },
+                { "type": "function_call_output", "call_id": "next", "output": "result" },
+                { "role": "assistant", "content": "after output" }
+            ])).unwrap();
+            assert_eq!(messages.len(), 5);
+            assert!(messages[0].get("tool_calls").is_none());
+            assert_eq!(messages[1]["content"], "boundary");
+            assert_eq!(messages[2]["tool_calls"][0]["id"], "next");
+            assert_eq!(messages[3]["role"], "tool");
+            assert!(messages[4].get("tool_calls").is_none());
+        }
+    }
+
+    #[test]
+    fn responses_trailing_tool_calls_merged_with_assistant_text() {
+        let body = json!({
+            "model": "gpt-5.6-luna",
+            "input": [
+                { "role": "user", "content": "start" },
+                { "role": "assistant", "content": "starting tools" },
+                { "type": "function_call", "call_id": "call_trail", "name": "init", "arguments": "{}" }
+            ]
+        });
+        let chat = responses_to_chat_completions_body(&body).unwrap();
+        let msgs = chat["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[1]["role"], "assistant");
+        assert_eq!(msgs[1]["content"], "starting tools");
+        assert_eq!(msgs[1]["tool_calls"][0]["id"], "call_trail");
+    }
+
 }

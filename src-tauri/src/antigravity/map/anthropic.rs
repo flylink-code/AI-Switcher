@@ -126,18 +126,22 @@ pub fn anthropic_to_gemini_request(
             }
         }
     }
+    let mut seen_conversation_message = false;
     for message in messages {
         let role = message
             .get("role")
             .and_then(Value::as_str)
             .unwrap_or("user");
         if role == "system" {
-            push_system_parts(
-                message.get("content").unwrap_or(&Value::Null),
-                &mut system_parts,
-            );
+            let content = message.get("content").unwrap_or(&Value::Null);
+            if seen_conversation_message {
+                super::push_system_reminder(&mut contents, content);
+            } else {
+                push_system_parts(content, &mut system_parts);
+            }
             continue;
         }
+        seen_conversation_message = true;
         let gemini_role = if role == "assistant" { "model" } else { "user" };
         let parts = content_to_parts(
             message.get("content").unwrap_or(&Value::Null),
@@ -663,7 +667,8 @@ fn content_to_parts(
                                 .get("media_type")
                                 .and_then(Value::as_str)
                                 .unwrap_or("image/png");
-                            if !data.is_empty() && super::history_media::is_plausible_image_base64(data)
+                            if !data.is_empty()
+                                && super::history_media::is_plausible_image_base64(data)
                             {
                                 parts.push(json!({
                                     "inlineData": { "mimeType": mime, "data": data }
@@ -1094,6 +1099,46 @@ mod tests {
 
     fn no_params() -> ToolParamKeys {
         ToolParamKeys::new()
+    }
+
+    #[test]
+    fn top_level_and_leading_system_stay_system_while_mid_session_is_reminder() {
+        let body = json!({
+            "model": "gemini-3.8-flash",
+            "max_tokens": 128,
+            "system": [{ "type": "text", "text": "top level" }],
+            "messages": [
+                { "role": "system", "content": { "type": "text", "text": "leading" } },
+                { "role": "user", "content": "question" },
+                { "role": "system", "content": [
+                    { "type": "text", "text": "mid one" },
+                    { "type": "text", "text": "mid two" }
+                ] },
+                { "role": "assistant", "content": "answer" },
+                { "role": "system", "content": "later" }
+            ]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let system_parts = parts.request["systemInstruction"]["parts"]
+            .as_array()
+            .unwrap();
+        assert_eq!(system_parts.len(), 2);
+        assert_eq!(system_parts[0]["text"], "top level");
+        assert_eq!(system_parts[1]["text"], "leading");
+
+        let contents = parts.request["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 3);
+        assert_eq!(contents[0]["role"], "user");
+        assert_eq!(
+            contents[0]["parts"][1]["text"],
+            "<system-reminder>\nmid one\nmid two\n</system-reminder>"
+        );
+        assert_eq!(contents[1]["role"], "model");
+        assert_eq!(contents[2]["role"], "user");
+        assert_eq!(
+            contents[2]["parts"][0]["text"],
+            "<system-reminder>\nlater\n</system-reminder>"
+        );
     }
 
     #[test]

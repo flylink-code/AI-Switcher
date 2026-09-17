@@ -71,6 +71,7 @@ import {
 } from "@/services/providers";
 import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog, GatewayProfile } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
+import { formatTokenRate } from "@/utils/usageRate";
 import { catalogModelView } from "@/utils/catalogModelLabel";
 
 const SHARED_PROFILE_ID = "gprof_shared";
@@ -1125,7 +1126,7 @@ export default function GatewayPage() {
           size="small"
           rowKey="id"
           tableLayout="fixed"
-          scroll={{ x: 1080 }}
+          scroll={{ x: 1180 }}
           dataSource={routesQuery.data?.data ?? []}
           loading={routesQuery.isPending && !routesQuery.data}
           pagination={{
@@ -1192,6 +1193,17 @@ export default function GatewayPage() {
               dataIndex: "durationMs",
               width: 88,
               render: (value: number) => `${value}ms`,
+            },
+            {
+              title: (
+                <Tooltip title={t("gateway.rateTooltip", { defaultValue: "平均输出速率（包含首 Token 等待，非纯解码速率）" })}>
+                  <span style={{ cursor: "help", borderBottom: "1px dotted var(--color-text-tertiary)" }}>
+                    {t("gateway.rate", { defaultValue: "速率" })}
+                  </span>
+                </Tooltip>
+              ),
+              width: 105,
+              render: (_: unknown, row: GatewayRouteLog) => formatTokenRate(row),
             },
             {
               title: "Token",

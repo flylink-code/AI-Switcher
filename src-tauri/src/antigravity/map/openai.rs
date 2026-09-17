@@ -78,6 +78,7 @@ pub fn openai_to_gemini_request(
             }
         }
     }
+    let mut seen_conversation_message = false;
     for message in messages {
         let role = message
             .get("role")
@@ -85,12 +86,15 @@ pub fn openai_to_gemini_request(
             .unwrap_or("user");
         match role {
             "system" | "developer" => {
-                push_text_content(
-                    message.get("content").unwrap_or(&Value::Null),
-                    &mut system_parts,
-                );
+                let content = message.get("content").unwrap_or(&Value::Null);
+                if seen_conversation_message {
+                    super::push_system_reminder(&mut contents, content);
+                } else {
+                    push_text_content(content, &mut system_parts);
+                }
             }
             "assistant" => {
+                seen_conversation_message = true;
                 let mut parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
                 if let Some(tool_calls) = message.get("tool_calls").and_then(Value::as_array) {
                     for call in tool_calls {
@@ -130,6 +134,7 @@ pub fn openai_to_gemini_request(
                 }
             }
             "tool" => {
+                seen_conversation_message = true;
                 let tool_call_id = message
                     .get("tool_call_id")
                     .and_then(Value::as_str)
@@ -163,6 +168,7 @@ pub fn openai_to_gemini_request(
                 }));
             }
             _ => {
+                seen_conversation_message = true;
                 let parts = content_to_parts(message.get("content").unwrap_or(&Value::Null));
                 if !parts.is_empty() {
                     contents.push(json!({ "role": "user", "parts": parts }));
@@ -531,6 +537,58 @@ mod tests {
         let parts = openai_to_gemini_request(&body, None).unwrap();
         assert_eq!(parts.model, "claude-sonnet-4-6");
         assert!(parts.request.get("systemInstruction").is_some());
+    }
+
+    #[test]
+    fn keeps_leading_system_and_demotes_mid_session_directives() {
+        let body = json!({
+            "model": "gpt-4o",
+            "messages": [
+                { "role": "system", "content": "leading system" },
+                { "role": "developer", "content": [{ "type": "text", "text": "leading developer" }] },
+                { "role": "user", "content": "first question" },
+                { "role": "developer", "content": [{ "text": "mid developer" }, { "text": "second line" }] },
+                { "role": "assistant", "content": "answer" },
+                { "role": "system", "content": { "type": "text", "text": "mid system" } }
+            ]
+        });
+        let parts = openai_to_gemini_request(&body, None).unwrap();
+        let system_parts = parts.request["systemInstruction"]["parts"]
+            .as_array()
+            .unwrap();
+        assert_eq!(system_parts.len(), 2);
+        assert_eq!(system_parts[0]["text"], "leading system");
+        assert_eq!(system_parts[1]["text"], "leading developer");
+
+        let contents = parts.request["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 3);
+        assert_eq!(contents[0]["role"], "user");
+        assert_eq!(contents[0]["parts"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            contents[0]["parts"][1]["text"],
+            "<system-reminder>\nmid developer\nsecond line\n</system-reminder>"
+        );
+        assert_eq!(contents[1]["role"], "model");
+        assert_eq!(contents[2]["role"], "user");
+        assert_eq!(
+            contents[2]["parts"][0]["text"],
+            "<system-reminder>\nmid system\n</system-reminder>"
+        );
+    }
+
+    #[test]
+    fn empty_mid_session_directive_does_not_add_a_turn() {
+        let body = json!({
+            "model": "gpt-4o",
+            "messages": [
+                { "role": "user", "content": "question" },
+                { "role": "developer", "content": [{ "text": "  " }] },
+                { "role": "assistant", "content": "answer" }
+            ]
+        });
+        let parts = openai_to_gemini_request(&body, None).unwrap();
+        assert_eq!(parts.request["contents"].as_array().unwrap().len(), 2);
+        assert!(parts.request.get("systemInstruction").is_none());
     }
 
     #[test]

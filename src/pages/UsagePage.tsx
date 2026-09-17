@@ -16,6 +16,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
   theme,
@@ -75,6 +76,7 @@ import { UsageBreakdownCard } from "@/components/UsageBreakdownCard";
 import { UsageMetricStrip, UsageToolbar } from "@/components/usage";
 import { Stack } from "@/components/ui";
 import { formatCompactNumber } from "@/utils/formatCompact";
+import { formatTokenRate } from "@/utils/usageRate";
 import { usagePeriodGranularity, usagePeriodHourKeys, trendBucketLabel } from "@/utils/usagePeriod";
 import type { UsagePeriod } from "@/utils/usagePeriod";
 
@@ -709,6 +711,17 @@ export default function UsagePage() {
               dataIndex: "durationMs",
               width: 90,
               render: (v: number) => `${v}ms`,
+            },
+            {
+              title: (
+                <Tooltip title={t("usage.logRateTooltip", { defaultValue: "平均输出速率（包含首 Token 等待，非纯解码速率）" })}>
+                  <span style={{ cursor: "help", borderBottom: "1px dotted var(--color-text-tertiary)" }}>
+                    {t("usage.logRate", { defaultValue: "速率" })}
+                  </span>
+                </Tooltip>
+              ),
+              width: 105,
+              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => formatTokenRate(row),
             },
             {
               title: t("usage.logStream"),

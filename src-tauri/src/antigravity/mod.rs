@@ -20,6 +20,7 @@ pub mod retry_info;
 pub mod session_effort;
 pub mod thinking;
 pub mod thought_sig;
+pub(crate) mod thought_sig_store;
 pub mod upstream;
 pub mod usage_log;
 

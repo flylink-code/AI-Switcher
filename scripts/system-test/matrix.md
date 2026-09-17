@@ -1,6 +1,6 @@
 # System-test coverage matrix
 
-IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acceptance.md) plus the 1.5.4 live-config regressions.
+IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acceptance.md) plus the 1.5.4 live-config regressions and the 1.5.5 Responses bridge regression.
 
 | ID | Layer | What it asserts |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acc
 | `SG-p0-simulate-default-mode` | L1+L2 | `simulate_gateway_route` (`claude.auto`) uses the default mode, not `gpt-6-astra` |
 | `SG-p0-catalog-bind-appends-auto` | L1+L2 | OpenCode bind appends Auto and keeps the independent provider |
 | `SG-p0-agent-proxy-hop` | L1 (+ L2 optional CLI) | Same `correlation_id` keeps innermost hop; live L2 checks `agent_proxy` when a request exists |
+| `SG-p0-protocol-responses-bridge` | L1 | Responses→Chat unified assistant (text+tool_calls un-split) to loopback mock; AG Responses→Gemini single model content + mid-session reminder |
 | `SG-A-bind-code` | L2 (via auto-current) | `bind_smart_gateway` for Claude Code |
 | optional `claude -p --bare` | L2 `-ClaudeCode` | Real CLI against isolated URL; hop is `agent_proxy` or `smart_gateway` |
 

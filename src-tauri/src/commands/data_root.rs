@@ -164,8 +164,18 @@ fn list_files_recursive_except_database(root: &Path, current: &Path, files: &mut
 }
 
 fn is_database_file(relative: &Path) -> bool {
-    relative.components().count() == 1
-        && matches!(relative.to_string_lossy().as_ref(), "app.db" | "app.db-wal" | "app.db-shm")
+    if relative.components().count() != 1 {
+        return false;
+    }
+    let name = relative.to_string_lossy();
+    matches!(name.as_ref(), "app.db" | "app.db-wal" | "app.db-shm")
+        || matches!(
+            name.as_ref(),
+            "thought-signatures.db"
+                | "thought-signatures.db-wal"
+                | "thought-signatures.db-shm"
+        )
+        || (name.starts_with("thought-signatures.db") && name.contains(".corrupt"))
 }
 
 fn sha256_file(path: &Path) -> AppResult<String> {
@@ -200,6 +210,28 @@ mod tests {
         verify_directory_copy_except_database(source.path(), target.path()).unwrap();
         fs::write(target.path().join("nested/item.txt"), b"changed").unwrap();
         assert!(verify_directory_copy_except_database(source.path(), target.path()).is_err());
+    }
+
+    #[test]
+    fn disposable_signature_cache_is_not_migrated() {
+        let source = tempdir().unwrap();
+        let target = tempdir().unwrap();
+        for name in [
+            "thought-signatures.db",
+            "thought-signatures.db-wal",
+            "thought-signatures.db-shm",
+            "thought-signatures.db.corrupt-123",
+            "thought-signatures.db-wal.corrupt.123",
+            "thought-signatures.db-shm.corrupt.123",
+        ] {
+            fs::write(source.path().join(name), b"cache").unwrap();
+        }
+        fs::write(source.path().join("metadata.json"), b"{}").unwrap();
+        copy_directory_except_database(source.path(), target.path(), source.path()).unwrap();
+        verify_directory_copy_except_database(source.path(), target.path()).unwrap();
+        assert!(target.path().join("metadata.json").is_file());
+        assert_eq!(fs::read_dir(target.path()).unwrap().count(), 1);
+        assert!(!is_database_file(Path::new("nested/thought-signatures.db")));
     }
 
     #[test]

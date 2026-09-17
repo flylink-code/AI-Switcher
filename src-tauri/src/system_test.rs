@@ -3,8 +3,15 @@
 
 use std::fs;
 use std::sync::Arc;
+use std::time::Duration;
+
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::routing::post;
+use axum::Router;
 
 use serde_json::{json, Value};
+use tokio::net::TcpListener;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::config::paths::{self, IsolatedHomeGuard};
@@ -414,6 +421,293 @@ pub async fn sg_p0_catalog_bind_appends_auto(h: &Harness) -> AppResult<()> {
     Ok(())
 }
 
+pub async fn sg_p0_protocol_responses_translation_roundtrip(_h: &Harness) -> AppResult<()> {
+    let responses_body = json!({
+        "model": "gpt-5.6-luna",
+        "instructions": "You are a helpful coding assistant.",
+        "input": [
+            {
+                "role": "user",
+                "content": "Inspect the repository files."
+            },
+            {
+                "role": "assistant",
+                "content": "I will inspect the workspace files now."
+            },
+            {
+                "type": "function_call",
+                "call_id": "call_1",
+                "name": "read_file",
+                "arguments": "{\"path\":\"README.md\"}"
+            },
+            {
+                "type": "function_call",
+                "call_id": "call_2",
+                "name": "read_file",
+                "arguments": "{\"path\":\"Cargo.toml\"}"
+            },
+            {
+                "type": "function_call_output",
+                "call_id": "call_1",
+                "output": "README contents"
+            },
+            {
+                "type": "function_call_output",
+                "call_id": "call_2",
+                "output": "Cargo.toml contents"
+            },
+            {
+                "role": "developer",
+                "content": "Keep responses concise."
+            },
+            {
+                "role": "user",
+                "content": "What did you find?"
+            }
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "name": "read_file",
+                "description": "Read file contents",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string" }
+                    },
+                    "required": ["path"]
+                }
+            }
+        ]
+    });
+
+    let chat_body = crate::proxy::codex_chat::responses_to_chat_completions_body(&responses_body)
+        .map_err(|error| {
+        crate::error::AppError::Other(format!(
+            "responses_to_chat_completions_body failed: {error}"
+        ))
+    })?;
+
+    let recorded_body = Arc::new(tokio::sync::Mutex::new(None::<Value>));
+    let payload_sink = Arc::clone(&recorded_body);
+
+    let mock_app = Router::new()
+        .route(
+            "/v1/chat/completions",
+            post(
+                |State(sink): State<Arc<tokio::sync::Mutex<Option<Value>>>>,
+                 axum::Json(body): axum::Json<Value>| async move {
+                    let assistants: Vec<&Value> = body["messages"].as_array()
+                        .into_iter().flatten()
+                        .filter(|message| message["role"] == "assistant")
+                        .collect();
+                    let valid = assistants.len() == 1
+                        && assistants[0]["content"] == "I will inspect the workspace files now."
+                        && assistants[0]["tool_calls"].as_array().is_some_and(|calls| {
+                            calls.len() == 2 && calls[0]["id"] == "call_1" && calls[1]["id"] == "call_2"
+                        });
+                    if !valid {
+                        return (StatusCode::BAD_REQUEST, axum::Json(json!({
+                            "error": "assistant commentary and tool_calls must share one turn"
+                        })));
+                    }
+                    let mut guard = sink.lock().await;
+                    *guard = Some(body);
+                    (
+                        StatusCode::OK,
+                        axum::Json(json!({
+                            "id": "chatcmpl_mock_protocol",
+                            "object": "chat.completion",
+                            "created": 1700000000,
+                            "model": "gpt-5.6-luna",
+                            "choices": [{
+                                "index": 0,
+                                "message": {
+                                    "role": "assistant",
+                                    "content": "Mock completion response"
+                                },
+                                "finish_reason": "stop"
+                            }],
+                            "usage": {
+                                "prompt_tokens": 20,
+                                "completion_tokens": 8,
+                                "total_tokens": 28
+                            }
+                        })),
+                    )
+                },
+            ),
+        )
+        .with_state(payload_sink);
+
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .map_err(|e| crate::error::AppError::Io(format!("bind mock chat server: {e}")))?;
+    let port = listener
+        .local_addr()
+        .map_err(|e| crate::error::AppError::Io(format!("read local addr: {e}")))?
+        .port();
+
+    let server_handle = tokio::spawn(async move {
+        let _ = axum::serve(listener, mock_app).await;
+    });
+
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|error| crate::error::AppError::Other(format!("mock client: {error}")))?;
+    let url = format!("http://127.0.0.1:{port}/v1/chat/completions");
+    let send_future = client.post(&url).json(&chat_body).send();
+    let response = match tokio::time::timeout(Duration::from_secs(5), send_future).await {
+        Ok(Ok(res)) => res,
+        Ok(Err(e)) => {
+            server_handle.abort();
+            return Err(crate::error::AppError::Other(format!(
+                "POST to local mock failed: {e}"
+            )));
+        }
+        Err(_) => {
+            server_handle.abort();
+            return Err(crate::error::AppError::Other(
+                "POST to local mock timed out after 5s".into(),
+            ));
+        }
+    };
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "local mock chat completions must respond 200 OK"
+    );
+
+    server_handle.abort();
+
+    let captured = recorded_body
+        .lock()
+        .await
+        .clone()
+        .expect("mock server must have captured chat completions payload");
+
+    let messages = captured
+        .get("messages")
+        .and_then(Value::as_array)
+        .expect("captured chat completions payload must have messages");
+
+    let assistant_messages: Vec<&Value> = messages
+        .iter()
+        .filter(|m| m.get("role").and_then(Value::as_str) == Some("assistant"))
+        .collect();
+
+    assert!(
+        !assistant_messages.is_empty(),
+        "chat completions payload must have at least one assistant message"
+    );
+
+    let unified_assistant = assistant_messages.iter().find(|m| {
+        let has_text = match m.get("content") {
+            Some(Value::String(s)) => !s.trim().is_empty(),
+            Some(Value::Array(arr)) => !arr.is_empty(),
+            _ => false,
+        };
+        let call_count = m
+            .get("tool_calls")
+            .and_then(Value::as_array)
+            .map_or(0, |calls| calls.len());
+        has_text && call_count >= 2
+    });
+
+    assert!(
+        unified_assistant.is_some(),
+        "expected single assistant message containing commentary text and multiple tool_calls: {assistant_messages:?}"
+    );
+    assert_eq!(
+        assistant_messages.len(),
+        1,
+        "must not split assistant commentary and tool_calls into separate assistant turns"
+    );
+
+    let gemini_parts =
+        crate::antigravity::map::responses::responses_to_gemini_request(&responses_body, None)
+            .map_err(|error| {
+                crate::error::AppError::Other(format!(
+                    "responses_to_gemini_request failed: {error}"
+                ))
+            })?;
+    let gemini_req = &gemini_parts.request;
+
+    let system_text = gemini_req
+        .get("systemInstruction")
+        .expect("gemini request must contain systemInstruction")
+        .to_string();
+    assert!(system_text.contains("You are a helpful coding assistant."));
+
+    let gemini_contents = gemini_req
+        .get("contents")
+        .and_then(Value::as_array)
+        .expect("gemini request must have contents array");
+
+    let model_contents: Vec<&Value> = gemini_contents
+        .iter()
+        .filter(|content| content.get("role").and_then(Value::as_str) == Some("model"))
+        .collect();
+    assert_eq!(model_contents.len(), 1);
+    let model_parts = model_contents[0]["parts"]
+        .as_array()
+        .expect("model content must have parts");
+    assert!(model_parts.iter().any(|part| {
+        part.get("text")
+            .and_then(Value::as_str)
+            .is_some_and(|text| text.contains("inspect the workspace"))
+    }));
+    assert_eq!(
+        model_parts
+            .iter()
+            .filter(|part| part.get("functionCall").is_some())
+            .count(),
+        2
+    );
+
+    let response_content_idx = gemini_contents
+        .iter()
+        .position(|content| {
+            content
+                .get("parts")
+                .and_then(Value::as_array)
+                .is_some_and(|parts| {
+                    parts
+                        .iter()
+                        .any(|part| part.get("functionResponse").is_some())
+                })
+        })
+        .expect("tool responses must be preserved");
+    let reminder_content_idx = gemini_contents
+        .iter()
+        .position(|content| {
+            content
+                .get("parts")
+                .and_then(Value::as_array)
+                .is_some_and(|parts| {
+                    parts.iter().any(|part| {
+                        part.get("text").and_then(Value::as_str).is_some_and(|text| {
+                            text == "<system-reminder>\nKeep responses concise.\n</system-reminder>"
+                        })
+                    })
+                })
+        })
+        .expect("mid-session developer message must become a reminder");
+    assert!(response_content_idx <= reminder_content_idx);
+
+    let follow_up_idx = gemini_contents
+        .iter()
+        .position(|content| content.to_string().contains("What did you find?"))
+        .expect("follow-up user message must be preserved");
+    assert!(response_content_idx < follow_up_idx);
+    assert!(!system_text.contains("Keep responses concise."));
+
+    Ok(())
+}
+
 fn fail(error: impl std::fmt::Display) -> ! {
     panic!("{error}");
 }
@@ -462,6 +756,14 @@ async fn sg_p0_usage_counts_innermost_hop() {
 async fn sg_p0_opencode_bind_appends_auto() {
     let harness = Harness::new().unwrap_or_else(|error| fail(error));
     sg_p0_catalog_bind_appends_auto(&harness)
+        .await
+        .unwrap_or_else(|error| fail(error));
+}
+
+#[tokio::test]
+async fn sg_p0_protocol_responses_roundtrip() {
+    let harness = Harness::new().unwrap_or_else(|error| fail(error));
+    sg_p0_protocol_responses_translation_roundtrip(&harness)
         .await
         .unwrap_or_else(|error| fail(error));
 }

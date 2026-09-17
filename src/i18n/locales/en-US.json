@@ -108,6 +108,8 @@
     "upstream": "Upstream",
     "time": "Time",
     "duration": "Duration",
+    "rate": "Rate",
+    "rateTooltip": "Average output rate (includes initial token wait, not pure decoding speed)",
     "cost": "Cost",
     "thresholdHint": "Estimator: about 1 token per CJK character, 4 ASCII characters per token. New rows default to 60000; existing thresholds are not rewritten. Use the simulator to recalibrate.",
     "simulate": "Simulate",
@@ -1254,6 +1256,8 @@
     "errorSource": "Error source",
     "logTokens": "Tokens (in/out)",
     "logDuration": "Duration",
+    "logRate": "Rate",
+    "logRateTooltip": "Average output rate (includes initial token wait, not pure decoding speed)",
     "logStream": "Stream",
     "streamMidstreamError": "Midstream error",
     "streamCancelled": "Cancelled",
@@ -1885,6 +1889,14 @@
         "Picking a routing profile requires an existing smart-gateway bind and no longer creates one.",
         "Routing shows whether any bound Agent is using the profile being edited.",
         "Upgrading migrates the local database to Schema 33 (one-way). Back up ~/.claude-switcher first."
+      ],
+      "1_5_5": [
+        "Fix Codex / OpenAI Responses history splitting commentary and same-turn tool calls into separate assistant messages, which strict Chat relays could reject.",
+        "Mid-session system / developer messages now keep their position as <system-reminder> content instead of being promoted to top-level system instructions.",
+        "Gemini thought signatures now use an independent L1 memory + L2 SQLite cache so historical tool signatures survive clean restarts. The disposable cache is excluded from library migration and backups.",
+        "Usage logs and recent smart-gateway routes now show average output Token/s, calculated over the full request duration including first-token wait.",
+        "The main database remains on Schema 33; no database migration is required.",
+        "Prompt files now accept UTF-8 BOM, BOM-marked UTF-16 LE/BE, and Windows GBK/ANSI encodings instead of failing reads or workspace snapshots on non-UTF-8 content."
       ]
     },
     "appName": "App name",

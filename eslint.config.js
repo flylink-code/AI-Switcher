@@ -6,6 +6,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
+      ".claude/**",
       "dist/**",
       "src-tauri/**",
       "node_modules/**",

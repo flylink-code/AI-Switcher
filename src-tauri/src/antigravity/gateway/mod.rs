@@ -415,6 +415,7 @@ pub async fn stop_gateway() -> AppResult<AntigravityGatewayStatus> {
             Err(_) => log::warn!("Antigravity gateway shutdown timed out"),
         }
     }
+    let _ = tokio::task::spawn_blocking(super::thought_sig::flush_thought_signatures).await;
     gateway_status()
 }
 

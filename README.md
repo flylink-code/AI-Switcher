@@ -1,10 +1,10 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.4**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.5**
 
-**本版**：智能网关支持多套全局档案，每个 Agent 的 Auto 卡可选用不同配置（例如 Code「编程」、Codex「Astra」）。网关页可新建/复制/重命名档案；未绑定与自定义 Key 仍走默认档案。修复新建档案后下拉显示内部 id、切不过去的问题。修复路由模式被读空落到 gpt-6，以及已切到独立供应商后改网关规则仍写回 15828。其余同 1.5.3。
+**本版**：增强协议稳定性与链路观测。Responses 中同轮说明文本与工具调用会保持在一条 assistant 消息；会话中途的 system / developer 指令按原时序转为 `<system-reminder>`。Gemini thought signature 使用独立的 L1 内存 + L2 SQLite 缓存，正常重启后仍可恢复历史工具签名，且不进入资料库迁移或备份。用量日志与网关最近路由新增平均输出 `Token/s`。Claude Code 等 Agent 的提示词文件兼容 UTF-8 BOM、带 BOM 的 UTF-16 LE/BE 与 Windows GBK/ANSI 编码，不再因非 UTF-8 文件导致读取或配置快照失败。
 
-**升级注意**：资料库迁到 Schema 33（单向）。请先备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
+**升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 

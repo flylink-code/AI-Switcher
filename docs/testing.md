@@ -15,6 +15,7 @@ L2  pnpm system:test          debug exe + CDP IPC (not in CI)
 - L2 also sets `CODEX_HOME`, `OPENCODE_CONFIG`, `DSH_HOME`, `PI_CODING_AGENT_DIR`, `AISW_SMART_GATEWAY_PORT`, `AISW_PROXY_PORT_BASE` so listeners stay off 15821–15828.
 - Isolated launches skip HKCU autostart migration.
 - Windows `--lib` test EXEs embed `src-tauri/windows-common-controls.manifest` (comctl32 v6). Without it, tao's `TaskDialogIndirect` import fails at process start (`STATUS_ENTRYPOINT_NOT_FOUND`).
+- L1 protocol scenarios (`sg_p0_protocol_responses_roundtrip`) run against ephemeral local loopback mock servers (`127.0.0.1:0`) with isolated HOME and zero real upstream network access, strictly validating Responses ↔ Chat Completions / Gemini turn unification (commentary + multiple tool calls) and mid-session reminders.
 
 ## Commands
 

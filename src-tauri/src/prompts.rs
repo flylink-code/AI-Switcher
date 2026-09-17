@@ -9,8 +9,9 @@
 //! Storage is file-based (not SQLite) so presets stay greppable / copyable.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use encoding_rs::{GBK, UTF_16BE, UTF_16LE};
 use serde::Serialize;
 
 use crate::backup::backup_file_named;
@@ -127,6 +128,32 @@ fn validate_name(name: &str) -> AppResult<()> {
 
 // ---- CRUD -------------------------------------------------------------------
 
+fn decode_prompt_bytes(bytes: &[u8]) -> String {
+    if let Some(bytes) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    if let Some(bytes) = bytes.strip_prefix(&[0xFF, 0xFE]) {
+        let (text, _, _) = UTF_16LE.decode(bytes);
+        return text.into_owned();
+    }
+    if let Some(bytes) = bytes.strip_prefix(&[0xFE, 0xFF]) {
+        let (text, _, _) = UTF_16BE.decode(bytes);
+        return text.into_owned();
+    }
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_string();
+    }
+
+    // Windows 上的历史 Prompt 可能由 ANSI/GBK 编辑器写入。GBK 也涵盖
+    // ASCII，因此在 UTF-8 校验失败后用它解码比直接插入替代字符更可用。
+    let (text, _, _) = GBK.decode(bytes);
+    text.into_owned()
+}
+
+fn read_prompt_text(path: &Path) -> AppResult<String> {
+    Ok(decode_prompt_bytes(&fs::read(path)?))
+}
+
 /// List all presets sorted by name.
 pub fn list_prompts(target: PromptTarget) -> AppResult<Vec<PromptInfo>> {
     let dir = prompts_dir(target);
@@ -158,7 +185,7 @@ pub fn read_prompt(target: PromptTarget, name: &str) -> AppResult<PromptDetail> 
     if !path.exists() {
         return Err(AppError::Config(format!("Prompt 不存在: {name}")));
     }
-    let content = fs::read_to_string(&path)?;
+    let content = read_prompt_text(&path)?;
     Ok(PromptDetail {
         name: name.to_string(),
         content,
@@ -230,7 +257,7 @@ pub fn read_live_prompt(target: PromptTarget) -> AppResult<Option<LivePrompt>> {
     if !live.exists() {
         return Ok(None);
     }
-    let content = fs::read_to_string(&live)?;
+    let content = read_prompt_text(&live)?;
     Ok(Some(LivePrompt {
         path: live.to_string_lossy().into_owned(),
         content,
@@ -269,6 +296,48 @@ mod tests {
         assert!(validate_name("a/b").is_err());
         assert!(validate_name("..\\evil").is_err());
         assert!(validate_name("x".repeat(81).as_str()).is_err());
+    }
+
+    #[test]
+    fn decodes_utf8_bom_utf16_and_gbk_prompts() {
+        assert_eq!(decode_prompt_bytes(b"\xef\xbb\xbf# UTF-8"), "# UTF-8");
+        assert_eq!(
+            decode_prompt_bytes(&[0xff, 0xfe, b'#', 0, b' ', 0, 0x2d, 0x4e]),
+            "# 中"
+        );
+        assert_eq!(
+            decode_prompt_bytes(&[0xfe, 0xff, 0x00, b'#', 0x00, b' ', 0x4e, 0x2d]),
+            "# 中"
+        );
+        assert_eq!(decode_prompt_bytes(&[0xd6, 0xd0, 0xce, 0xc4]), "中文");
+    }
+
+    #[test]
+    fn reads_non_utf8_live_and_preset_prompts() {
+        let root = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(root.path(), || {
+            let live = live_prompt_path(PromptTarget::ClaudeCode);
+            fs::create_dir_all(live.parent().unwrap()).unwrap();
+            fs::write(&live, [0xd6, 0xd0, 0xce, 0xc4]).unwrap();
+
+            let preset = preset_path(PromptTarget::ClaudeCode, "gbk").unwrap();
+            fs::create_dir_all(preset.parent().unwrap()).unwrap();
+            fs::write(&preset, [0xd6, 0xd0, 0xce, 0xc4]).unwrap();
+
+            assert_eq!(
+                read_live_prompt(PromptTarget::ClaudeCode)
+                    .unwrap()
+                    .unwrap()
+                    .content,
+                "中文"
+            );
+            assert_eq!(
+                read_prompt(PromptTarget::ClaudeCode, "gbk")
+                    .unwrap()
+                    .content,
+                "中文"
+            );
+        });
     }
 
     #[test]

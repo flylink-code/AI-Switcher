@@ -497,31 +497,73 @@ mod tests {
 
     #[test]
     fn snapshot_shape_uses_null_scopes() {
-        let scopes = ProfileSnapshotScopes {
-            claude_code: true,
-            claude_desktop: false,
-            codex: false,
-        };
-        let db = Arc::new(crate::database::Database::memory().unwrap());
-        db.with_conn(|conn| {
-            create_tables(conn)?;
-            migrate(conn)?;
-            Ok(())
-        })
-        .unwrap();
-        let (lifecycle_tx, _lifecycle_rx) = unbounded_channel();
-        let state = AppState {
-            db: Arc::clone(&db),
-            proxy: tokio::sync::Mutex::new(crate::proxy::ProxyManager::new(db, lifecycle_tx)),
-            proxy_status: tokio::sync::RwLock::new(std::collections::HashMap::new()),
-        };
-        let payload = snapshot_current(&state, scopes).unwrap();
-        assert!(payload.claude_code.is_some());
-        assert!(payload.claude_desktop.is_none());
-        assert!(payload.codex.is_none());
-        let scope = payload.claude_code.unwrap();
-        assert!(scope.mcp_ids.is_empty());
-        assert!(scope.provider_id.is_none());
+        let root = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(root.path(), || {
+            let scopes = ProfileSnapshotScopes {
+                claude_code: true,
+                claude_desktop: false,
+                codex: false,
+            };
+            let db = Arc::new(crate::database::Database::memory().unwrap());
+            db.with_conn(|conn| {
+                create_tables(conn)?;
+                migrate(conn)?;
+                Ok(())
+            })
+            .unwrap();
+            let (lifecycle_tx, _lifecycle_rx) = unbounded_channel();
+            let state = AppState {
+                db: Arc::clone(&db),
+                proxy: tokio::sync::Mutex::new(crate::proxy::ProxyManager::new(db, lifecycle_tx)),
+                proxy_status: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            };
+            let payload = snapshot_current(&state, scopes).unwrap();
+            assert!(payload.claude_code.is_some());
+            assert!(payload.claude_desktop.is_none());
+            assert!(payload.codex.is_none());
+            let scope = payload.claude_code.unwrap();
+            assert!(scope.mcp_ids.is_empty());
+            assert!(scope.skill_ids.is_empty());
+            assert!(scope.agent_ids.is_empty());
+            assert!(scope.provider_id.is_none());
+            assert!(scope.prompt_id.is_none());
+        });
+    }
+
+    #[test]
+    fn snapshot_accepts_non_utf8_live_prompt() {
+        let root = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(root.path(), || {
+            let live = crate::prompts::live_prompt_path(PromptTarget::ClaudeCode);
+            std::fs::create_dir_all(live.parent().unwrap()).unwrap();
+            std::fs::write(live, [0xd6, 0xd0, 0xce, 0xc4]).unwrap();
+
+            let db = Arc::new(crate::database::Database::memory().unwrap());
+            db.with_conn(|conn| {
+                create_tables(conn)?;
+                migrate(conn)?;
+                Ok(())
+            })
+            .unwrap();
+            let (lifecycle_tx, _lifecycle_rx) = unbounded_channel();
+            let state = AppState {
+                db: Arc::clone(&db),
+                proxy: tokio::sync::Mutex::new(crate::proxy::ProxyManager::new(db, lifecycle_tx)),
+                proxy_status: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+            };
+
+            let payload = snapshot_current(
+                &state,
+                ProfileSnapshotScopes {
+                    claude_code: true,
+                    claude_desktop: false,
+                    codex: false,
+                },
+            )
+            .unwrap();
+            assert!(payload.claude_code.is_some());
+            assert!(payload.claude_code.unwrap().prompt_id.is_none());
+        });
     }
 
     #[test]

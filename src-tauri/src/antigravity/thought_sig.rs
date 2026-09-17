@@ -4,119 +4,114 @@
 //! thought_signature，缺失会被上游 400 拒绝
 //! （"Function call is missing a thought_signature in functionCall parts"）。
 //! Claude 客户端看不到、也不会回传该字段，因此网关在响应侧捕获，
-//! 按 tool_use_id 与会话两级缓存，请求侧转换历史消息时回注
-//! （对照 Antigravity-Manager proxy/signature_cache.rs）。
+//! 按 tool_use_id、(session_key, index) 与同会话三级缓存，请求侧转换历史消息时回注。
+//!
+//! v1.5.5 起引入独立 L1/L2 混合存储架构：
+//! - 运行读仅访问 L1 内存缓存（tool 1024 / session 256 / session_index 2048），热路径零磁盘 I/O 阻塞；
+//! - 读取命中带节流 Touch 异步提交，L2 持久缓存（`thought-signatures.db`）滑动 TTL（15天）跨进程重启不丢失；
+//! - 后台有界队列异步批写，异常/损坏自动平滑降级纯内存；
+//! - 启动时在 init 中有界预热并隔离修复真实损坏文件；
+//! - 支持运行时 shutdown，并在应用 setup 阶段提供 `init_early()` 异步提前唤醒预热。
 
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
+
+use super::thought_sig_store::{StoreConfig, ThoughtSigStore};
+pub use super::thought_sig_store::{
+    DEFAULT_L1_SESSION_CAP, DEFAULT_L1_SESSION_INDEX_CAP, DEFAULT_L1_TOOL_CAP, DEFAULT_L2_CAPACITY,
+    DEFAULT_TTL_SECS,
+};
 
 /// 无真实签名时的哨兵值：让 Gemini 跳过签名校验（仅 Vertex AI 拒绝该值，
 /// 本网关走 Cloud Code 上游，可用；对照参考实现 FIX #2167）。
 pub const SKIP_VALIDATOR_SENTINEL: &str = "skip_thought_signature_validator";
 
-const MAX_TOOL_SIGS: usize = 1024;
-const MAX_SESSION_SIGS: usize = 256;
-const MAX_SESSION_INDEX_SIGS: usize = 2048;
+static STORE: RwLock<Option<Arc<ThoughtSigStore>>> = RwLock::new(None);
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
-#[derive(Default)]
-struct Cache {
-    /// tool_use_id → signature（最精确，随客户端回放的 tool_use 块命中）。
-    tool: HashMap<String, String>,
-    /// session_key → 最近一次签名（同会话兜底）。
-    session: HashMap<String, String>,
-    /// (session_key, message_index) → signature for remapped tool ids.
-    session_index: HashMap<(String, usize), String>,
+fn store() -> Option<Arc<ThoughtSigStore>> {
+    if SHUTTING_DOWN.load(Ordering::Acquire) {
+        return None;
+    }
+    if let Ok(guard) = STORE.read() {
+        if let Some(s) = guard.as_ref() {
+            return Some(Arc::clone(s));
+        }
+    }
+    let mut guard = match STORE.write() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    if SHUTTING_DOWN.load(Ordering::Acquire) {
+        return None;
+    }
+    if let Some(s) = guard.as_ref() {
+        return Some(Arc::clone(s));
+    }
+    let new_store = Arc::new(ThoughtSigStore::init(StoreConfig::default()));
+    *guard = Some(Arc::clone(&new_store));
+    Some(new_store)
 }
 
-fn store() -> &'static Mutex<Cache> {
-    static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(Cache::default()))
+/// 在应用 setup 阶段异步提前初始化存储与预热，避免首次请求时发生冷启动。
+pub fn init_early() {
+    let _ = store();
 }
 
-fn lock() -> std::sync::MutexGuard<'static, Cache> {
-    match store().lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
+/// 正常退出、服务停止或路径迁移时的尽力刷盘。
+pub fn flush() {
+    if let Ok(guard) = STORE.read() {
+        if let Some(s) = guard.as_ref() {
+            s.flush();
+        }
     }
 }
 
-fn usable(signature: &str) -> bool {
-    !signature.trim().is_empty() && signature != SKIP_VALIDATOR_SENTINEL
+/// 兼容别名。
+pub fn flush_thought_signatures() {
+    flush();
+}
+
+/// 关闭持久化并安全释放数据库句柄（在退出时调用）。
+pub fn shutdown() {
+    SHUTTING_DOWN.store(true, Ordering::Release);
+    let mut guard = match STORE.write() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    if let Some(s) = guard.take() {
+        s.shutdown();
+    }
 }
 
 pub fn cache_tool_signature(tool_use_id: &str, signature: &str) {
-    let id = tool_use_id.trim();
-    if id.is_empty() || !usable(signature) {
-        return;
+    if let Some(store) = store() {
+        store.cache_tool(tool_use_id, signature);
     }
-    let mut guard = lock();
-    if guard.tool.len() >= MAX_TOOL_SIGS && !guard.tool.contains_key(id) {
-        if let Some(evict) = guard.tool.keys().next().cloned() {
-            guard.tool.remove(&evict);
-        }
-    }
-    guard.tool.insert(id.to_string(), signature.to_string());
 }
 
 pub fn get_tool_signature(tool_use_id: &str) -> Option<String> {
-    let id = tool_use_id.trim();
-    if id.is_empty() {
-        return None;
-    }
-    lock().tool.get(id).cloned()
+    store()?.get_tool(tool_use_id)
 }
 
 pub fn cache_session_signature(session_key: &str, signature: &str) {
-    let key = session_key.trim();
-    if key.is_empty() || !usable(signature) {
-        return;
+    if let Some(store) = store() {
+        store.cache_session(session_key, signature);
     }
-    let mut guard = lock();
-    // 只接受不短于已存值的新签名，避免流式截断的短签名覆盖完整签名。
-    if let Some(existing) = guard.session.get(key) {
-        if signature.len() < existing.len() {
-            return;
-        }
-    }
-    if guard.session.len() >= MAX_SESSION_SIGS && !guard.session.contains_key(key) {
-        if let Some(evict) = guard.session.keys().next().cloned() {
-            guard.session.remove(&evict);
-        }
-    }
-    guard.session.insert(key.to_string(), signature.to_string());
 }
 
 pub fn get_session_signature(session_key: &str) -> Option<String> {
-    let key = session_key.trim();
-    if key.is_empty() {
-        return None;
-    }
-    lock().session.get(key).cloned()
+    store()?.get_session(session_key)
 }
 
 pub fn cache_session_index_signature(session_key: &str, index: usize, signature: &str) {
-    let key = session_key.trim();
-    if key.is_empty() || !usable(signature) {
-        return;
+    if let Some(store) = store() {
+        store.cache_session_index(session_key, index, signature);
     }
-    let mut guard = lock();
-    let map_key = (key.to_string(), index);
-    if guard.session_index.len() >= MAX_SESSION_INDEX_SIGS
-        && !guard.session_index.contains_key(&map_key)
-    {
-        if let Some(evict) = guard.session_index.keys().next().cloned() {
-            guard.session_index.remove(&evict);
-        }
-    }
-    guard.session_index.insert(map_key, signature.to_string());
 }
 
 pub fn get_session_index_signature(session_key: &str, index: usize) -> Option<String> {
-    let key = session_key.trim();
-    if key.is_empty() {
-        return None;
-    }
-    lock().session_index.get(&(key.to_string(), index)).cloned()
+    store()?.get_session_index(session_key, index)
 }
 
 pub fn resolve_function_call_signature(
@@ -124,29 +119,14 @@ pub fn resolve_function_call_signature(
     session_key: Option<&str>,
     message_index: Option<usize>,
 ) -> String {
-    if let Some(id) = tool_use_id {
-        if let Some(signature) = get_tool_signature(id) {
-            return signature;
-        }
-    }
-    if let (Some(session), Some(index)) = (session_key, message_index) {
-        if let Some(signature) = get_session_index_signature(session, index) {
-            return signature;
-        }
-    }
-    if let Some(session) = session_key {
-        if let Some(signature) = get_session_signature(session) {
-            return signature;
-        }
-    }
-    SKIP_VALIDATOR_SENTINEL.to_string()
+    store()
+        .map(|store| store.resolve(tool_use_id, session_key, message_index))
+        .unwrap_or_else(|| SKIP_VALIDATOR_SENTINEL.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // 缓存全局共享且测试并行：一律用唯一键，不要 clear_all。
 
     #[test]
     fn tool_and_session_cache_roundtrip() {

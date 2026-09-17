@@ -108,6 +108,8 @@
     "upstream": "上游",
     "time": "时间",
     "duration": "耗时",
+    "rate": "速率",
+    "rateTooltip": "平均输出速率（包含首 Token 等待，非纯解码速率）",
     "cost": "费用",
     "thresholdHint": "估算口径：CJK 约 1 token/字，ASCII 约 4 字符/token。新行默认 60000，不自动改写已有阈值。可用试跑器对照实时估算。",
     "simulate": "试跑",
@@ -1254,6 +1256,8 @@
     "errorSource": "错误来源",
     "logTokens": "Token（入/出）",
     "logDuration": "耗时",
+    "logRate": "速率",
+    "logRateTooltip": "平均输出速率（包含首 Token 等待，非纯解码速率）",
     "logStream": "流式",
     "streamMidstreamError": "中途异常",
     "streamCancelled": "已中断",
@@ -1885,6 +1889,14 @@
         "未绑定智能网关时不能选档案，也不会再误建绑定。",
         "路由页标明正在编辑的档案有没有被 Agent 选用。",
         "升级会把本机资料库迁到 Schema 33（单向）。请先备份 ~/.claude-switcher。"
+      ],
+      "1_5_5": [
+        "修复 Codex / OpenAI Responses 历史中说明文本与同轮工具调用被拆成两条 assistant 消息的问题，严格 Chat 中转不再拒绝该轮次。",
+        "会话中途出现的 system / developer 消息按原时序降级为 <system-reminder>，不再提升为顶层系统指令。",
+        "Gemini thought signature 增加独立的 L1 内存 + L2 SQLite 持久缓存，正常重启后仍可回注历史工具签名；缓存可丢弃且不进入资料库迁移或备份。",
+        "用量日志与智能网关最近路由新增平均输出 Token/s，按整条请求耗时计算并包含首 Token 等待。",
+        "主资料库 Schema 保持 33，无需数据库迁移。",
+        "提示词文件兼容 UTF-8 BOM、带 BOM 的 UTF-16 LE/BE 与 Windows GBK/ANSI 编码，不再因非 UTF-8 内容导致读取或配置快照失败。"
       ]
     },
     "appName": "应用名称",

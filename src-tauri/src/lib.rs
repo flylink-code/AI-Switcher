@@ -588,8 +588,13 @@ pub fn run() {
             apply_profile,
         ]);
     let builder = add_single_instance(builder);
-    if let Err(error) = builder.run(tauri::generate_context!()) {
-        report_startup_failure(&error.to_string());
+    match builder.build(tauri::generate_context!()) {
+        Ok(app) => app.run(|_, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                antigravity::thought_sig::shutdown();
+            }
+        }),
+        Err(error) => report_startup_failure(&error.to_string()),
     }
 }
 
@@ -643,6 +648,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(config::get_backup_dir())?;
     log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
     usage_events::init(app.handle().clone());
+    tauri::async_runtime::spawn_blocking(antigravity::thought_sig::init_early);
 
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
