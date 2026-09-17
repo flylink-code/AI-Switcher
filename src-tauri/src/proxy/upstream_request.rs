@@ -112,6 +112,48 @@ async fn proxy_handler(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+
+    // Claude Desktop 1.49585.0+ introduces a hard 10-second client-side health probe
+    // (max_tokens: 1, single user message with content ".") on start / profile load.
+    // Flaky upstream / sub2api latencies frequently breach 10s, triggering an unwanted
+    // "Gateway was unreachable" modal. If credentials and base URL are valid, fast-respond
+    // to the probe locally with an Anthropic message structure.
+    if is_claude_desktop_inference_probe(state.target, uri.path(), &incoming, incoming_stream) {
+        let probe_model = if requested_model.is_empty() {
+            "claude-haiku-4-5".to_string()
+        } else {
+            requested_model
+        };
+        log::info!("Claude Desktop 推理探活快速响应: model={probe_model}");
+        let probe_response = serde_json::json!({
+            "id": format!("msg_probe_{}", uuid::Uuid::new_v4().simple()),
+            "type": "message",
+            "role": "assistant",
+            "model": probe_model,
+            "content": [
+                {
+                    "type": "text",
+                    "text": "."
+                }
+            ],
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1
+            }
+        });
+        log_request(
+            &state,
+            &provider,
+            Some(200),
+            started.elapsed().as_millis() as i64,
+            uri.path(),
+            false,
+            None,
+        );
+        return axum::Json(probe_response).into_response();
+    }
     if state.listener_kind == ListenerKind::SmartGateway {
         if let Err((message, retry_after)) =
             crate::gateway::budget::apply_to_request(&state.db, &mut requested_model)
@@ -976,4 +1018,102 @@ async fn proxy_handler(
     resp_builder
         .body(body)
         .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")))
+}
+
+fn is_claude_desktop_inference_probe(
+    target: ProviderTarget,
+    uri_path: &str,
+    incoming: &Value,
+    incoming_stream: bool,
+) -> bool {
+    let is_desktop = target == ProviderTarget::ClaudeDesktop
+        || uri_path.starts_with(crate::config::claude_desktop::CLAUDE_DESKTOP_PROXY_PREFIX);
+    if !is_desktop || incoming_stream {
+        return false;
+    }
+    let max_tokens = incoming.get("max_tokens").and_then(Value::as_i64).unwrap_or(0);
+    if max_tokens != 1 {
+        return false;
+    }
+    let Some(messages) = incoming.get("messages").and_then(Value::as_array) else {
+        return false;
+    };
+    if messages.len() != 1 {
+        return false;
+    }
+    let Some(first_msg) = messages.first() else {
+        return false;
+    };
+    if first_msg.get("role").and_then(Value::as_str) != Some("user") {
+        return false;
+    }
+    let content = first_msg.get("content");
+    let is_dot_str = content.and_then(Value::as_str) == Some(".");
+    let is_dot_array = content.and_then(Value::as_array).is_some_and(|blocks| {
+        blocks.len() == 1
+            && blocks[0].get("text").and_then(Value::as_str) == Some(".")
+    });
+    is_dot_str || is_dot_array
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+
+    #[test]
+    fn detects_claude_desktop_probe_request() {
+        let probe_json = serde_json::json!({
+            "model": "claude-haiku-4-5",
+            "max_tokens": 1,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "."
+                }
+            ]
+        });
+        assert!(is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &probe_json,
+            false
+        ));
+        assert!(is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/claude-desktop/v1/messages",
+            &probe_json,
+            false
+        ));
+        // Stream should not be treated as probe
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &probe_json,
+            true
+        ));
+        // Claude Code target should not trigger desktop probe
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeCode,
+            "/v1/messages",
+            &probe_json,
+            false
+        ));
+        // Real user query should not trigger probe
+        let normal_chat = serde_json::json!({
+            "model": "claude-sonnet-5",
+            "max_tokens": 4096,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello world"
+                }
+            ]
+        });
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &normal_chat,
+            false
+        ));
+    }
 }

@@ -38,6 +38,8 @@ import {
   RouteModesTutorialButton,
   RouteRulesCard,
   RouteSimulatorDrawer,
+  catalogModelSelectProps,
+  toCatalogModelSelectOption,
   type RouteHelpTab,
 } from "@/components/proxy";
 import AntigravityPage from "@/pages/AntigravityPage";
@@ -69,6 +71,7 @@ import {
 } from "@/services/providers";
 import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog, GatewayProfile } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
+import { catalogModelView } from "@/utils/catalogModelLabel";
 
 const SHARED_PROFILE_ID = "gprof_shared";
 
@@ -155,6 +158,23 @@ function EllipsisText({ value }: { value?: string | null }) {
   return (
     <Text ellipsis={{ tooltip: text }} style={{ maxWidth: "100%", margin: 0 }}>
       {text}
+    </Text>
+  );
+}
+
+function ModelIdText({ value }: { value?: string | null }) {
+  const raw = value?.trim() || "";
+  if (!raw) {
+    return (
+      <Text ellipsis style={{ maxWidth: "100%", margin: 0 }}>
+        —
+      </Text>
+    );
+  }
+  const short = catalogModelView({ publicId: raw }).short;
+  return (
+    <Text ellipsis={{ tooltip: raw }} style={{ maxWidth: "100%", margin: 0 }}>
+      {short}
     </Text>
   );
 }
@@ -349,11 +369,10 @@ export default function GatewayPage() {
       const price = pricing.get(entry.publicId.toLowerCase())
         ?? pricing.get(entry.publicId.split(".").pop()?.toLowerCase() ?? "");
       const extra = price
-        ? `  ${price.inputPricePerMillion}/${price.outputPricePerMillion}`
+        ? `${price.inputPricePerMillion}/${price.outputPricePerMillion}`
         : "";
       return {
-        value: entry.publicId,
-        label: `${entry.displayName || entry.publicId}${extra}`,
+        ...toCatalogModelSelectOption(entry, extra),
         inputPrice: price?.inputPricePerMillion ?? Number.POSITIVE_INFINITY,
         contextWindow: entry.contextWindow ?? 0,
         webSearchEnabled: entry.webSearchEnabled ?? false,
@@ -937,9 +956,9 @@ export default function GatewayPage() {
               dataIndex: "model",
               render: (model: string, row: RouteMode) => (
                 <Select
-                  showSearch
+                  {...catalogModelSelectProps}
                   allowClear
-                  style={{ minWidth: 260 }}
+                  style={{ minWidth: 200 }}
                   value={model || undefined}
                   options={modelOptions}
                   filterSort={(a, b) => {
@@ -993,6 +1012,7 @@ export default function GatewayPage() {
               title: t("gateway.fallback", { defaultValue: "备用" }),
               render: (_: unknown, row: RouteMode) => (
                 <Select
+                  {...catalogModelSelectProps}
                   mode="multiple"
                   allowClear
                   maxTagCount={1}
@@ -1151,14 +1171,14 @@ export default function GatewayPage() {
               dataIndex: "requestedModel",
               ellipsis: true,
               width: 180,
-              render: (value: string | null) => <EllipsisText value={value} />,
+              render: (value: string | null) => <ModelIdText value={value} />,
             },
             {
               title: t("gateway.model", { defaultValue: "模型" }),
               dataIndex: "model",
               ellipsis: true,
               width: 160,
-              render: (value: string | null) => <EllipsisText value={value} />,
+              render: (value: string | null) => <ModelIdText value={value} />,
             },
             {
               title: t("gateway.upstream", { defaultValue: "上游" }),

@@ -4,6 +4,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { SettingsRow } from "@/components/settings";
 import {
+  catalogModelSelectProps,
+  type CatalogModelSelectOption,
+} from "./CatalogModelOptionContent";
+import {
   getSmartGatewayBudget,
   getSmartGatewayHealthProbeSecs,
   getSmartGatewayInboundLimits,
@@ -18,7 +22,7 @@ const { Text } = Typography;
 export function GatewayLimitsCard({
   modelOptions,
 }: {
-  modelOptions: Array<{ value: string; label: string }>;
+  modelOptions: CatalogModelSelectOption[];
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -183,7 +187,7 @@ export function GatewayLimitsCard({
               />
               {action === "fallback" ? (
                 <Select
-                  showSearch
+                  {...catalogModelSelectProps}
                   allowClear
                   style={{ minWidth: 220 }}
                   value={fallbackModel || undefined}

@@ -19,6 +19,11 @@ import type {
   ProviderTarget,
   SimulateGatewayRouteResult,
 } from "@/types/backend";
+import { catalogModelView } from "@/utils/catalogModelLabel";
+import {
+  catalogModelSelectProps,
+  type CatalogModelSelectOption,
+} from "./CatalogModelOptionContent";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -33,6 +38,19 @@ const TARGETS: ProviderTarget[] = [
   "cline",
 ];
 
+function SimulatedModelText({ value }: { value?: string | null }) {
+  const full = value?.trim() || "";
+  if (!full) {
+    return <>{"—"}</>;
+  }
+  const short = catalogModelView({ publicId: full }).short;
+  return (
+    <Text ellipsis={{ tooltip: full }} style={{ margin: 0 }}>
+      {short}
+    </Text>
+  );
+}
+
 export function RouteSimulatorDrawer({
   open,
   onClose,
@@ -41,7 +59,7 @@ export function RouteSimulatorDrawer({
 }: {
   open: boolean;
   onClose: () => void;
-  modelOptions: Array<{ value: string; label: string }>;
+  modelOptions: CatalogModelSelectOption[];
   profileId?: string | null;
 }) {
   const { t } = useTranslation();
@@ -110,10 +128,10 @@ export function RouteSimulatorDrawer({
         <Text type="secondary">{catalogHint}</Text>
         <Space wrap>
           <Select
-            showSearch
+            {...catalogModelSelectProps}
             style={{ minWidth: 220 }}
             value={requestedModel}
-            options={[{ value: "auto", label: "auto" }, ...modelOptions]}
+            options={[{ value: "auto", label: "auto", searchText: "auto", title: "auto" }, ...modelOptions]}
             onChange={setRequestedModel}
           />
           <Select
@@ -167,7 +185,7 @@ export function RouteSimulatorDrawer({
                 {result.estimatedTokens}
               </Descriptions.Item>
               <Descriptions.Item label={t("gateway.model", { defaultValue: "模型" })}>
-                {result.upstreamModel ?? result.decision?.normalizedModel ?? "—"}
+                <SimulatedModelText value={result.upstreamModel ?? result.decision?.normalizedModel} />
               </Descriptions.Item>
               <Descriptions.Item label={t("gateway.upstream", { defaultValue: "上游" })}>
                 {result.providerName ?? result.providerId ?? "—"}

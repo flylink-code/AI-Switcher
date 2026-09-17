@@ -5,3 +5,4 @@ export * from "./RouteModesHelp";
 export * from "./RouteSimulatorDrawer";
 export * from "./GatewayLimitsCard";
 export * from "./RouteRulesCard";
+export * from "./CatalogModelOptionContent";

@@ -162,11 +162,15 @@ fn windows_msix_claude_dirs(local_app_data: &Path, threep: bool) -> Vec<PathBuf>
         let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
             continue;
         };
-        // Official package id looks like Claude_pzs8sxrjxfjjc; keep the prefix
-        // loose so publisher suffixes still match.
-        let is_claude_package = name.starts_with("Claude_") || name.starts_with("Claude-");
-        let is_threep_package = name.to_ascii_lowercase().contains("3p");
-        if !is_claude_package || is_threep_package != threep {
+        // Official package id looks like Claude_pzs8sxrjxfjjc or AnthropicPBC.Claude_*;
+        // do not check whether the package name contains "3p" because the official
+        // package name is always "Claude_pzs8sxrjxfjjc" regardless of 1p/3p mode.
+        let name_lower = name.to_ascii_lowercase();
+        let is_claude_package = name.starts_with("Claude_")
+            || name.starts_with("Claude-")
+            || name_lower.starts_with("anthropicpbc.claude")
+            || (name_lower.contains("claude") && name_lower.contains("pzs8sxrjxfjjc"));
+        if !is_claude_package {
             continue;
         }
         dirs.push(
@@ -176,6 +180,23 @@ fn windows_msix_claude_dirs(local_app_data: &Path, threep: bool) -> Vec<PathBuf>
         );
     }
     dirs.sort();
+    dirs
+}
+
+#[cfg(windows)]
+fn all_windows_claude_dirs(threep: bool) -> Vec<PathBuf> {
+    let local_app_data = windows_local_app_data_dir();
+    let roaming_app_data = windows_roaming_app_data_dir();
+    let exact_name = if threep { "Claude-3p" } else { "Claude" };
+    let mut dirs = Vec::new();
+    dirs.push(local_app_data.join(exact_name));
+    dirs.push(roaming_app_data.join(exact_name));
+    dirs.extend(windows_msix_claude_dirs(&local_app_data, threep));
+    if let Some(fuzzy) = windows_fuzzy_local_claude_dirs(&local_app_data, threep) {
+        dirs.extend(fuzzy);
+    }
+    let mut seen = std::collections::HashSet::new();
+    dirs.retain(|p| seen.insert(normalize_windows_path_key(p)));
     dirs
 }
 
@@ -321,6 +342,8 @@ pub fn apply_provider(provider: &Provider, proxy_port: u16, catalog_models: &[St
     if legacy_profile_path.exists() {
         std::fs::remove_file(&legacy_profile_path)?;
     }
+    #[cfg(windows)]
+    sync_windows_3p_profile_copies(&profile, config_library);
     Ok(())
 }
 
@@ -356,7 +379,64 @@ pub fn clear_provider() -> AppResult<()> {
     }
 
     write_meta(&meta_path, None, Some(PROFILE_NAME))?;
+    #[cfg(windows)]
+    clear_windows_3p_copies(&config_library);
     Ok(())
+}
+
+#[cfg(windows)]
+fn sync_windows_3p_profile_copies(profile: &Value, primary_config_lib: &Path) {
+    let target_dirs = all_windows_claude_dirs(true);
+    for dir in target_dirs {
+        let config_lib = dir.join(CONFIG_LIBRARY_DIR);
+        if config_lib == primary_config_lib {
+            continue;
+        }
+        if let Some(parent) = dir.parent() {
+            if parent.exists() {
+                let _ = std::fs::create_dir_all(&config_lib);
+                let _ = write_deployment_mode(&dir.join(CONFIG_FILE), "3p");
+                let profile_path = config_lib.join(format!("{PROFILE_ID}.json"));
+                let _ = write_json_file(&profile_path, profile);
+                let meta_path = config_lib.join(META_FILE);
+                let _ = write_meta(&meta_path, Some(PROFILE_ID), Some(PROFILE_NAME));
+                let legacy_path = config_lib.join(format!("{LEGACY_PROFILE_ID}.json"));
+                if legacy_path.exists() {
+                    let _ = std::fs::remove_file(legacy_path);
+                }
+            }
+        }
+    }
+    for dir in all_windows_claude_dirs(false) {
+        if dir.exists() {
+            let _ = write_deployment_mode(&dir.join(CONFIG_FILE), "3p");
+        }
+    }
+}
+
+#[cfg(windows)]
+fn clear_windows_3p_copies(primary_config_lib: &Path) {
+    for dir in all_windows_claude_dirs(true) {
+        if dir.exists() {
+            let _ = write_deployment_mode(&dir.join(CONFIG_FILE), "1p");
+            let config_lib = dir.join(CONFIG_LIBRARY_DIR);
+            if config_lib != primary_config_lib && config_lib.exists() {
+                for id in [PROFILE_ID, LEGACY_PROFILE_ID] {
+                    let profile_path = config_lib.join(format!("{id}.json"));
+                    if profile_path.exists() {
+                        let _ = std::fs::remove_file(profile_path);
+                    }
+                }
+                let meta_path = config_lib.join(META_FILE);
+                let _ = write_meta(&meta_path, None, Some(PROFILE_NAME));
+            }
+        }
+    }
+    for dir in all_windows_claude_dirs(false) {
+        if dir.exists() {
+            let _ = write_deployment_mode(&dir.join(CONFIG_FILE), "1p");
+        }
+    }
 }
 
 pub fn clear_provider_restoring_applied_id(previous: Option<String>) -> AppResult<()> {
@@ -992,6 +1072,23 @@ mod tests {
 
         let picked = pick_windows_claude_dir(&local, &roaming, false).unwrap();
         assert_eq!(picked, local_claude);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_msix_dirs_matches_official_package_for_both_1p_and_3p() {
+        let root = tempfile::tempdir().unwrap();
+        let local = root.path().join("Local");
+        let pkg = local.join("Packages").join("Claude_pzs8sxrjxfjjc");
+        std::fs::create_dir_all(&pkg).unwrap();
+
+        let dirs_1p = windows_msix_claude_dirs(&local, false);
+        assert_eq!(dirs_1p.len(), 1);
+        assert!(dirs_1p[0].ends_with(Path::new("LocalCache").join("Roaming").join("Claude")));
+
+        let dirs_3p = windows_msix_claude_dirs(&local, true);
+        assert_eq!(dirs_3p.len(), 1);
+        assert!(dirs_3p[0].ends_with(Path::new("LocalCache").join("Roaming").join("Claude-3p")));
     }
 
     #[test]

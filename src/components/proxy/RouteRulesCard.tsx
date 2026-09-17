@@ -18,6 +18,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { deleteRouteRule, upsertRouteRule } from "@/services/providers";
 import type { RouteRule } from "@/types/backend";
+import {
+  catalogModelSelectProps,
+  type CatalogModelSelectOption,
+} from "./CatalogModelOptionContent";
 
 const { Text } = Typography;
 
@@ -117,7 +121,7 @@ export function RouteRulesCard({
 }: {
   rules: RouteRule[];
   loading: boolean;
-  modelOptions: Array<{ value: string; label: string }>;
+  modelOptions: CatalogModelSelectOption[];
   profileId: string;
 }) {
   const { t } = useTranslation();
@@ -240,7 +244,7 @@ export function RouteRulesCard({
             title: t("gateway.targetModel", { defaultValue: "目标模型" }),
             render: (_: unknown, row: RouteRule) => (
               <Select
-                showSearch
+                {...catalogModelSelectProps}
                 allowClear
                 style={{ minWidth: 180 }}
                 value={row.targetModel || undefined}

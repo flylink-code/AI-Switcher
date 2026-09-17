@@ -33,6 +33,7 @@ import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { CodexOauthDeviceStart, GatewayCatalogModelOption, Provider, ProviderDoctorReport, ProviderTarget } from "@/types/backend";
+import { catalogModelView } from "@/utils/catalogModelLabel";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { ProviderForm } from "@/components/ProviderForm";
@@ -74,11 +75,17 @@ import {
 const { Text } = Typography;
 
 function groupedCatalogOptions(entries: GatewayCatalogModelOption[]) {
-  const groups = new Map<string, { label: string; value: string }[]>();
+  const groups = new Map<string, { label: string; value: string; searchText: string; title: string }[]>();
   for (const entry of entries) {
-    const name = entry.providerName.trim() || entry.displayName;
+    const view = catalogModelView(entry);
+    const name = entry.providerName.trim() || view.provider || entry.displayName;
     const list = groups.get(name) ?? [];
-    list.push({ label: entry.displayName, value: entry.publicId });
+    list.push({
+      label: view.short,
+      value: entry.publicId,
+      searchText: view.searchText,
+      title: view.title,
+    });
     groups.set(name, list);
   }
   return [...groups.entries()].map(([label, options]) => ({ label, options }));
@@ -838,8 +845,8 @@ export default function ProvidersPage() {
                       <Select
                         size="small"
                         showSearch
-                        optionFilterProp="label"
-                        style={{ minWidth: 220 }}
+                        optionFilterProp="searchText"
+                        style={{ minWidth: 180 }}
                         value={provider.model || "auto"}
                         loading={autoModelSaving}
                         options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
