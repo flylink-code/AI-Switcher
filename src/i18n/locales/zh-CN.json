@@ -1897,6 +1897,11 @@
         "用量日志与智能网关最近路由新增平均输出 Token/s，按整条请求耗时计算并包含首 Token 等待。",
         "主资料库 Schema 保持 33，无需数据库迁移。",
         "提示词文件兼容 UTF-8 BOM、带 BOM 的 UTF-16 LE/BE 与 Windows GBK/ANSI 编码，不再因非 UTF-8 内容导致读取或配置快照失败。"
+      ],
+      "1_5_6": [
+        "反代网关恢复 Gemini 3.1 Pro：目录与 /v1/models 提供 gemini-3.1-pro-high / -low。",
+        "裸名 gemini-3.1-pro 合成 -high，不再改写成 3.8 Flash；3.1 Flash 仍退役。",
+        "主资料库 Schema 保持 33，无需数据库迁移。"
       ]
     },
     "appName": "应用名称",

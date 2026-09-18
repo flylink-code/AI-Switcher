@@ -1897,6 +1897,11 @@
         "Usage logs and recent smart-gateway routes now show average output Token/s, calculated over the full request duration including first-token wait.",
         "The main database remains on Schema 33; no database migration is required.",
         "Prompt files now accept UTF-8 BOM, BOM-marked UTF-16 LE/BE, and Windows GBK/ANSI encodings instead of failing reads or workspace snapshots on non-UTF-8 content."
+      ],
+      "1_5_6": [
+        "Restore Gemini 3.1 Pro on the reverse-proxy gateway: the catalog and /v1/models now expose gemini-3.1-pro-high / -low.",
+        "The bare gemini-3.1-pro name composes to -high instead of being rewritten to 3.8 Flash. Gemini 3.1 Flash stays retired.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

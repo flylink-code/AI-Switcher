@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.5**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.6**
 
-**This release:** Improves protocol stability and request observability. Same-turn commentary and tool calls stay in one assistant message for Responses bridges, while mid-session system / developer directives keep their position as `<system-reminder>` content. Gemini thought signatures use an independent L1 memory + L2 SQLite cache so historical tool signatures survive clean restarts without entering library migration or backups. Usage logs and recent gateway routes now show average output `Token/s`. Prompt files for Claude Code and other Agents now accept UTF-8 BOM, BOM-marked UTF-16 LE/BE, and Windows GBK/ANSI encodings instead of failing reads or workspace snapshots on non-UTF-8 content.
+**This release:** Restores Gemini 3.1 Pro on the reverse-proxy gateway. `/v1/models` and the Antigravity catalog expose `gemini-3.1-pro-high` / `-low`; the bare name composes to `-high` instead of being rewritten to 3.8 Flash. Gemini 3.1 Flash stays retired.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 

@@ -16,7 +16,10 @@ const FALLBACK_IDS: &[&str] = &[
     "gemini-3.8-flash-high",
     "gemini-3.7-flash-high",
     "gemini-3.6-flash-high",
+    "gemini-3.1-pro-high",
+    "gemini-3.1-pro-low",
 ];
+const GEMINI_31_PRO_TIERS: [&str; 2] = ["gemini-3.1-pro-high", "gemini-3.1-pro-low"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +49,20 @@ const LEVEL_SUFFIXES: [&str; 3] = ["high", "medium", "low"];
 /// targets and are needed for client-side effort controls.
 fn has_adjustable_flash_levels(base: &str) -> bool {
     matches!(base, "gemini-3.7-flash" | "gemini-3.8-flash")
+}
+
+/// Cloud Code still serves Gemini 3.1 Pro as `-high` / `-low` only. The bare
+/// id 404s, and there is no `-medium` SKU.
+fn is_gemini_31_pro_base(base: &str) -> bool {
+    base.eq_ignore_ascii_case("gemini-3.1-pro")
+}
+
+fn gemini_31_pro_level(level: &str) -> &'static str {
+    if level.eq_ignore_ascii_case("low") {
+        "low"
+    } else {
+        "high"
+    }
 }
 
 /// Split a model id into (base, explicit level suffix) when it ends with
@@ -83,6 +100,14 @@ pub fn with_reasoning_level(id: &str) -> String {
         return trimmed.to_string();
     }
     let (base, explicit) = split_level_suffix(&lower);
+    if is_gemini_31_pro_base(base) {
+        // Bare `gemini-3.1-pro` 404s on Cloud Code; medium does not exist.
+        return match explicit {
+            Some("low") => trimmed.to_string(),
+            Some("high") => trimmed.to_string(),
+            _ => format!("{base}-high"),
+        };
+    }
     if explicit.is_some() {
         return trimmed.to_string();
     }
@@ -123,6 +148,9 @@ pub fn with_forced_level(id: &str, level: &str) -> String {
         // to high merely because the quota snapshot omitted a sibling.
         return format!("{base}-{level}");
     }
+    if is_gemini_31_pro_base(base) {
+        return format!("{base}-{}", gemini_31_pro_level(level));
+    }
     let ids = list_model_ids();
     let candidate = format!("{base}-{level}");
     if ids
@@ -154,6 +182,16 @@ pub fn gemini_level_fallback_chain(id: &str) -> Vec<String> {
         return vec![trimmed];
     }
     let (base, suffix) = split_level_suffix(&lower);
+    if is_gemini_31_pro_base(base) {
+        let mut out = vec![trimmed];
+        let other = if suffix == Some("low") {
+            "gemini-3.1-pro-high"
+        } else {
+            "gemini-3.1-pro-low"
+        };
+        out.push(other.to_string());
+        return out;
+    }
     let rest: &[&str] = match suffix {
         Some("high") => &["medium", "low"],
         Some("medium") => &["low"],
@@ -254,10 +292,11 @@ pub fn is_retired_model(id: &str) -> bool {
     if lower.is_empty() {
         return true;
     }
-    // Gemini 2.5 / 3.1 / 3.5 generations no longer work on Cloud Code.
+    // Gemini 2.5 / 3.5 generations no longer work on Cloud Code.
+    // 3.1 Pro is still served as `-high` / `-low`; 3.1 Flash stays retired.
     if lower.starts_with("gemini-2.5-")
-        || lower.starts_with("gemini-3.1-")
         || lower.starts_with("gemini-3.5-")
+        || (lower.starts_with("gemini-3.1-") && !lower.starts_with("gemini-3.1-pro"))
     {
         return true;
     }
@@ -282,18 +321,19 @@ pub fn is_retired_model(id: &str) -> bool {
 
 fn is_live_gemini_family(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
-    lower.starts_with("gemini-3.6")
+    lower.starts_with("gemini-3.1-pro")
+        || lower.starts_with("gemini-3.6")
         || lower.starts_with("gemini-3.7")
         || lower.starts_with("gemini-3.8")
 }
 
-/// Hide Gemini ids that Cloud Code no longer serves. 3.6 and 3.7 both stay.
+/// Hide Gemini ids that Cloud Code no longer serves. 3.1 Pro and 3.6+ stay.
 fn is_superseded_gemini(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
     lower.starts_with("gemini-") && !is_live_gemini_family(&lower)
 }
 
-/// Remap retired Gemini ids (2.5 / 3 / 3.1 / 3.5). 3.6 and 3.7 pass through.
+/// Remap retired Gemini ids (2.5 / 3 / 3.5). 3.1 Pro and 3.6+ pass through.
 pub fn should_remap_legacy_gemini(id: &str) -> bool {
     let lower = id.trim().to_ascii_lowercase();
     if !lower.starts_with("gemini-") || is_live_gemini_family(&lower) {
@@ -306,11 +346,31 @@ pub fn should_remap_legacy_gemini(id: &str) -> bool {
 pub fn prune_catalog_models(mut models: Vec<CatalogModel>) -> Vec<CatalogModel> {
     models.retain(|model| {
         let lower = model.id.to_ascii_lowercase();
-        is_agent_facing_model(&lower) && !is_retired_model(&lower) && !is_superseded_gemini(&lower)
+        // Bare `gemini-3.1-pro` 404s; keep only the `-high` / `-low` SKUs.
+        !lower.eq_ignore_ascii_case("gemini-3.1-pro")
+            && is_agent_facing_model(&lower)
+            && !is_retired_model(&lower)
+            && !is_superseded_gemini(&lower)
     });
     models.sort_by(|left, right| left.id.cmp(&right.id));
     models.dedup_by(|left, right| left.id == right.id);
     models
+}
+
+fn ensure_gemini_31_pro_tiers(models: &mut Vec<CatalogModel>) {
+    for id in GEMINI_31_PRO_TIERS {
+        if !models
+            .iter()
+            .any(|model| model.id.eq_ignore_ascii_case(id))
+        {
+            models.push(CatalogModel {
+                id: id.to_string(),
+                display_name: None,
+            });
+        }
+    }
+    models.retain(|model| !model.id.eq_ignore_ascii_case("gemini-3.1-pro"));
+    models.sort_by(|left, right| left.id.cmp(&right.id));
 }
 
 /// Whether this Cloud Code model id is useful for Claude Code / Codex agents.
@@ -451,7 +511,9 @@ pub fn list_catalog_models() -> Vec<CatalogModel> {
     } else {
         guard.models.clone()
     };
-    prune_catalog_models(raw)
+    let mut models = prune_catalog_models(raw);
+    ensure_gemini_31_pro_tiers(&mut models);
+    models
 }
 
 /// Catalog exposed to local clients and the Antigravity settings page.
@@ -485,6 +547,13 @@ pub fn list_exposed_catalog_models() -> Vec<CatalogModel> {
                 display_name: None,
             });
         }
+    }
+    by_id.remove("gemini-3.1-pro");
+    for id in GEMINI_31_PRO_TIERS {
+        by_id.entry(id.to_string()).or_insert_with(|| CatalogModel {
+            id: id.to_string(),
+            display_name: None,
+        });
     }
     by_id.into_values().collect()
 }
@@ -609,10 +678,16 @@ pub fn preferred_claude_opus() -> Option<String> {
 
 pub fn preferred_gemini_pro() -> Option<String> {
     let ids = list_model_ids();
-    let is_pro = |id: &&String| id.contains("pro") && id.starts_with("gemini-3.6-");
+    let is_36_pro = |id: &&String| id.contains("pro") && id.starts_with("gemini-3.6-");
     ids.iter()
-        .find(|id| id.as_str() == "gemini-3.6-pro-high")
-        .or_else(|| ids.iter().find(is_pro))
+        .find(|id| id.as_str() == "gemini-3.1-pro-high")
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.1-pro-low"))
+        .or_else(|| {
+            ids.iter()
+                .find(|id| id.starts_with("gemini-3.1-pro") && id.contains("pro"))
+        })
+        .or_else(|| ids.iter().find(|id| id.as_str() == "gemini-3.6-pro-high"))
+        .or_else(|| ids.iter().find(is_36_pro))
         .cloned()
         .or_else(preferred_gemini_flash)
 }
@@ -663,7 +738,8 @@ mod tests {
     fn filters_retired_models() {
         assert!(is_retired_model("gemini-2.5-flash"));
         assert!(is_retired_model("gemini-2.5-pro"));
-        assert!(is_retired_model("gemini-3.1-pro-high"));
+        assert!(!is_retired_model("gemini-3.1-pro-high"));
+        assert!(!is_retired_model("gemini-3.1-pro-low"));
         assert!(is_retired_model("gemini-3.5-flash-low"));
         assert!(is_retired_model("gemini-3-flash-agent"));
         assert!(is_retired_model("gemini-3.1-flash-lite"));
@@ -692,6 +768,14 @@ mod tests {
                 display_name: None,
             },
             CatalogModel {
+                id: "gemini-3.1-pro".into(),
+                display_name: None,
+            },
+            CatalogModel {
+                id: "gemini-3.1-flash-lite".into(),
+                display_name: None,
+            },
+            CatalogModel {
                 id: "gemini-2.5-flash".into(),
                 display_name: None,
             },
@@ -708,8 +792,10 @@ mod tests {
         assert!(ids.contains(&"gemini-3.7-flash"));
         assert!(ids.contains(&"gemini-3.6-flash-high"));
         assert!(ids.contains(&"claude-sonnet-4-6"));
+        assert!(ids.contains(&"gemini-3.1-pro-high"));
+        assert!(!ids.contains(&"gemini-3.1-pro"));
+        assert!(!ids.contains(&"gemini-3.1-flash-lite"));
         assert!(!ids.contains(&"gemini-3-flash"));
-        assert!(!ids.contains(&"gemini-3.1-pro-high"));
         assert!(!ids.contains(&"gemini-2.5-flash"));
         assert!(!ids.contains(&"gemini-3.5-flash-low"));
     }
@@ -733,6 +819,18 @@ mod tests {
             with_reasoning_level("gemini-3.7-flash"),
             "gemini-3.7-flash-high"
         );
+        assert_eq!(
+            with_reasoning_level("gemini-3.1-pro"),
+            "gemini-3.1-pro-high"
+        );
+        assert_eq!(
+            with_reasoning_level("gemini-3.1-pro-low"),
+            "gemini-3.1-pro-low"
+        );
+        assert_eq!(
+            with_reasoning_level("gemini-3.1-pro-medium"),
+            "gemini-3.1-pro-high"
+        );
         assert_eq!(with_reasoning_level("gemini-9.9-flash"), "gemini-9.9-flash");
     }
 
@@ -742,13 +840,20 @@ mod tests {
         assert!(ids.iter().any(|id| id == "gemini-3.8-flash-high"));
         assert!(ids.iter().any(|id| id == "gemini-3.7-flash-high"));
         assert!(ids.iter().any(|id| id == "gemini-3.6-flash-high"));
-        assert!(!ids.iter().any(|id| id == "gemini-3.1-pro-high"));
+        assert!(ids.iter().any(|id| id == "gemini-3.1-pro-high"));
+        assert!(ids.iter().any(|id| id == "gemini-3.1-pro-low"));
+        assert!(!ids.iter().any(|id| id == "gemini-3.1-pro"));
         assert!(!should_remap_legacy_gemini("gemini-3.6-flash"));
         assert!(!should_remap_legacy_gemini("gemini-3.6-flash-high"));
         assert!(!should_remap_legacy_gemini("gemini-3.7-flash"));
         assert!(!should_remap_legacy_gemini("gemini-3.8-flash"));
-        assert!(should_remap_legacy_gemini("gemini-3.1-pro"));
+        assert!(!should_remap_legacy_gemini("gemini-3.1-pro"));
+        assert!(!should_remap_legacy_gemini("gemini-3.1-pro-high"));
         assert!(should_remap_legacy_gemini("gemini-3-flash"));
+        assert_eq!(
+            preferred_gemini_pro().as_deref(),
+            Some("gemini-3.1-pro-high")
+        );
         assert_eq!(
             preferred_gemini_flash().as_deref(),
             Some("gemini-3.8-flash-high")
@@ -787,6 +892,18 @@ mod tests {
             "gemini-3.7-flash-high"
         );
         assert_eq!(
+            with_forced_level("gemini-3.1-pro", "low"),
+            "gemini-3.1-pro-low"
+        );
+        assert_eq!(
+            with_forced_level("gemini-3.1-pro-high", "low"),
+            "gemini-3.1-pro-low"
+        );
+        assert_eq!(
+            with_forced_level("gemini-3.1-pro", "medium"),
+            "gemini-3.1-pro-high"
+        );
+        assert_eq!(
             with_forced_level("claude-sonnet-4-6", "low"),
             "claude-sonnet-4-6"
         );
@@ -815,6 +932,9 @@ mod tests {
             .collect();
         assert!(api_ids.contains(&"gemini-3.8-flash-low"));
         assert!(api_ids.contains(&"gemini-3.8-flash-medium"));
+        assert!(api_ids.contains(&"gemini-3.1-pro-high"));
+        assert!(api_ids.contains(&"gemini-3.1-pro-low"));
+        assert!(!api_ids.contains(&"gemini-3.1-pro"));
     }
 
     #[test]
@@ -889,6 +1009,20 @@ mod tests {
         );
         assert!(chain_37_low.len() >= 3);
         let chain_37_high = gemini_level_fallback_chain("gemini-3.7-flash-high");
+        let chain_31 = gemini_level_fallback_chain("gemini-3.1-pro-high");
+        assert_eq!(
+            chain_31,
+            vec!["gemini-3.1-pro-high".to_string(), "gemini-3.1-pro-low".to_string()]
+        );
+        let chain_31_low = gemini_level_fallback_chain("gemini-3.1-pro-low");
+        assert_eq!(
+            chain_31_low,
+            vec!["gemini-3.1-pro-low".to_string(), "gemini-3.1-pro-high".to_string()]
+        );
+        assert!(
+            chain_31.iter().all(|id| !id.contains("medium")),
+            "3.1 Pro has no medium SKU: {chain_31:?}"
+        );
         let mut seen = std::collections::HashSet::new();
         for id in &chain_37_high {
             assert!(
