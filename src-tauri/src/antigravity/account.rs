@@ -23,6 +23,8 @@ pub(crate) const OAUTH_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const REFRESH_SKEW_SECS: i64 = 300;
 const ACCOUNTS_FILE: &str = "antigravity_accounts.json";
+/// Shown on the account card when Google rejects the refresh token.
+pub const REAUTH_REASON: &str = "Google 授权已失效，请重新用浏览器登录此账号";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -450,11 +452,14 @@ impl AccountStore {
                 .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?
         };
         if snapshot.disabled {
-            return Err(AppError::Config(format!(
-                "账号 {} 已禁用: {}",
-                snapshot.email,
-                snapshot.disabled_reason.as_deref().unwrap_or("unknown")
-            )));
+            return Err(auth_error(
+                "disabled",
+                &format!(
+                    "账号 {} 已禁用: {}",
+                    snapshot.email,
+                    snapshot.disabled_reason.as_deref().unwrap_or("unknown")
+                ),
+            ));
         }
         let now = Utc::now().timestamp();
         if snapshot.token.expiry_timestamp - REFRESH_SKEW_SECS > now
@@ -481,7 +486,15 @@ impl AccountStore {
                 .map(|account| account.token.refresh_token.clone())
                 .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?
         };
-        let refreshed = self.refresh_token(&refresh_token)?;
+        let refreshed = match self.refresh_token(&refresh_token) {
+            Ok(value) => value,
+            Err(error) => {
+                if requires_reauthorization(&error.to_string()) {
+                    let _ = self.mark_reauthorization_required(account_id, REAUTH_REASON);
+                }
+                return Err(error);
+            }
+        };
         let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
             return Err(AppError::Config("Antigravity 账号不存在".into()));
@@ -503,25 +516,55 @@ impl AccountStore {
         // Google OAuth is reachable directly in this environment while the
         // configured Clash SOCKS endpoint can hang indefinitely. Prefer a
         // bounded direct refresh; fall back to the configured route for users
-        // whose network requires it.
-        let direct = Client::builder()
-            .connect_timeout(std::time::Duration::from_secs(10))
-            .timeout(std::time::Duration::from_secs(20))
-            .no_proxy()
-            .build()
-            .map_err(|error| {
-                AppError::Other(format!("创建直连 Google Token 客户端失败: {error}"))
-            })?;
+        // whose network requires it. Both legs share the same connect/timeout
+        // caps so a hung proxy cannot wash into a 10s 502.
+        let direct = crate::antigravity::outbound::build_blocking_token_refresh_client(true)?;
         match refresh_token_with_client(&direct, refresh_token) {
             Ok(response) => Ok(response),
             Err(direct_error) => {
                 log::warn!(
                     "Antigravity Google token refresh direct failed: {direct_error}; retrying configured proxy"
                 );
-                let client = self.lock_http_client().clone();
+                let client =
+                    crate::antigravity::outbound::build_blocking_token_refresh_client(false)?;
                 refresh_token_with_client(&client, refresh_token)
             }
         }
+    }
+}
+
+/// True when the message is a Google/Cloud Code credential failure, not a
+/// generic upstream 5xx. Used so generate does not wash auth into HTTP 502.
+pub fn is_auth_failure(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.starts_with("auth/")
+        || lower.contains("invalid_grant")
+        || lower.contains("unauthorized_client")
+        || lower.contains("unauthenticated")
+        || lower.contains("授权已失效")
+        || lower.contains("revoked")
+}
+
+/// Refresh-token rejections that mean the account must sign in again.
+pub fn requires_reauthorization(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("invalid_grant") || lower.contains("revoked")
+}
+
+pub fn auth_error(kind: &str, detail: &str) -> AppError {
+    AppError::Other(format!("auth/{kind}: {detail}"))
+}
+
+fn oauth_error_kind(message: &str, status: reqwest::StatusCode) -> &'static str {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("invalid_grant") {
+        "invalid_grant"
+    } else if lower.contains("revoked") {
+        "revoked"
+    } else if status.as_u16() == 401 {
+        "unauthorized"
+    } else {
+        "token_refresh"
     }
 }
 
@@ -565,9 +608,7 @@ fn refresh_token_with_client(
             .or_else(|| body.get("error"))
             .and_then(Value::as_str)
             .unwrap_or("token refresh failed");
-        return Err(AppError::Other(format!(
-            "刷新 Google Token 失败: {message}"
-        )));
+        return Err(auth_error(oauth_error_kind(message, status), message));
     }
     let access_token = body
         .get("access_token")
@@ -756,5 +797,28 @@ mod tests {
         let accounts = parse_import_payload(&raw).unwrap();
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].token.refresh_token, "r1");
+    }
+
+    #[test]
+    fn auth_failure_classifies_oauth_and_cloud_code_rejections() {
+        assert!(is_auth_failure(
+            "auth/invalid_grant: Token has been expired or revoked."
+        ));
+        assert!(is_auth_failure("invalid_grant"));
+        assert!(is_auth_failure("upstream 401: unauthenticated"));
+        assert!(is_auth_failure("账号 x 的 Google 授权已失效，请重新登录"));
+        assert!(requires_reauthorization(
+            "auth/invalid_grant: Token has been expired or revoked."
+        ));
+        assert!(requires_reauthorization("refresh token revoked"));
+        assert!(!is_auth_failure("upstream 502: backend unavailable"));
+        assert!(!is_auth_failure(
+            "network/timeout: google token refresh failed"
+        ));
+        assert!(!requires_reauthorization(
+            "auth/token_refresh: temporarily unavailable"
+        ));
+        let error = auth_error("invalid_grant", "Token has been expired or revoked.");
+        assert!(error.to_string().starts_with("auth/invalid_grant:"));
     }
 }

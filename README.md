@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.6**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.7**
 
-**本版**：反代网关恢复 Gemini 3.1 Pro。目录与 `/v1/models` 提供 `gemini-3.1-pro-high` / `-low`；裸名合成 `-high`，不再改写成 3.8 Flash。3.1 Flash 仍退役。
+**本版**：反代网关识别 Antigravity 账号授权失效。Cloud Code 401 会先刷新 Token；`invalid_grant` / `revoked` 标记需重新登录，回 401 而不再洗成 502。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 

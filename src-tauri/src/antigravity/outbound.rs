@@ -281,9 +281,42 @@ pub fn build_async_client(connect_secs: u64, timeout_secs: u64) -> reqwest::Clie
             .build()
     })
     .unwrap_or_else(|error| {
-        log::error!("Antigravity async client fallback also failed ({error}); using reqwest defaults");
+        log::error!(
+            "Antigravity async client fallback also failed ({error}); using reqwest defaults"
+        );
         reqwest::Client::new()
     })
+}
+
+/// Bounded client for Google OAuth token refresh. Never falls back to an
+/// unbounded `Client::new()` — Clash SOCKS can hang indefinitely without
+/// connect/timeout caps.
+pub fn build_blocking_token_refresh_client(direct: bool) -> AppResult<reqwest::blocking::Client> {
+    const CONNECT_SECS: u64 = 5;
+    const TIMEOUT_SECS: u64 = 10;
+    let builder = reqwest::blocking::Client::builder()
+        .connect_timeout(Duration::from_secs(CONNECT_SECS))
+        .timeout(Duration::from_secs(TIMEOUT_SECS))
+        .user_agent("ai-switcher-antigravity");
+    let builder = if direct {
+        builder.no_proxy()
+    } else {
+        apply_cached_to_blocking(builder)
+    };
+    builder
+        .build()
+        .or_else(|error| {
+            log::error!(
+                "Antigravity token-refresh client build failed ({error}); falling back to direct"
+            );
+            reqwest::blocking::Client::builder()
+                .connect_timeout(Duration::from_secs(CONNECT_SECS))
+                .timeout(Duration::from_secs(TIMEOUT_SECS))
+                .no_proxy()
+                .user_agent("ai-switcher-antigravity")
+                .build()
+        })
+        .map_err(|error| AppError::Other(format!("创建 Google Token 客户端失败: {error}")))
 }
 
 pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
@@ -304,7 +337,9 @@ pub fn build_blocking_client(timeout_secs: u64) -> reqwest::blocking::Client {
             .build()
     })
     .unwrap_or_else(|error| {
-        log::error!("Antigravity blocking client fallback also failed ({error}); using reqwest defaults");
+        log::error!(
+            "Antigravity blocking client fallback also failed ({error}); using reqwest defaults"
+        );
         reqwest::blocking::Client::new()
     })
 }

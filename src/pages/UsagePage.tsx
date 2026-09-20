@@ -692,12 +692,18 @@ export default function UsagePage() {
               title: t("usage.errorSource"),
               dataIndex: "errorCategory",
               width: 105,
-              render: (value: string | null) =>
-                value ? (
+              render: (value: string | null) => {
+                if (!value) return "—";
+                const label =
+                  value === "auth"
+                    ? t("usage.errorCategoryAuth", { defaultValue: "账号授权" })
+                    : value;
+                return (
                   <Tag color={value === "upstream" || value === "upstream_429" ? "orange" : "red"}>
-                    {value}
+                    {label}
                   </Tag>
-                ) : "—",
+                );
+              },
             },
             {
               title: t("usage.logTokens"),

@@ -14,7 +14,7 @@ use futures_util::StreamExt;
 use serde_json::{json, Value};
 
 use super::GatewayState;
-use crate::antigravity::account::store as account_store;
+use crate::antigravity::account::{is_auth_failure, store as account_store, REAUTH_REASON};
 use crate::antigravity::limiter::{AcquireOutcome, LimiterPermit};
 use crate::antigravity::map::anthropic::{
     anthropic_to_gemini_request, effort_mapping_diagnostic, gemini_to_anthropic_response,
@@ -431,11 +431,27 @@ async fn dispatch_generation(
             mark_retry_budget_exhausted(&mut last_error, &mut last_fail_status, upstream_calls);
             break;
         }
+        let Some(select_budget) = remaining_until(retry_deadline) else {
+            mark_retry_budget_exhausted(&mut last_error, &mut last_fail_status, upstream_calls);
+            break;
+        };
         let selected = if hop == 0 {
-            state
-                .pool
-                .select_async(None, session_key.as_deref(), Some(&model))
-                .await
+            match tokio::time::timeout(
+                select_budget,
+                state
+                    .pool
+                    .select_async(None, session_key.as_deref(), Some(&model)),
+            )
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    last_error =
+                        "network/timeout: google token refresh exceeded retry budget".into();
+                    last_fail_status = 504;
+                    break;
+                }
+            }
         } else {
             let failed = exclude.last().cloned().unwrap_or_default();
             if failed.is_empty() {
@@ -446,32 +462,46 @@ async fn dispatch_generation(
             } else {
                 last_fail_status
             };
-            state
-                .pool
-                .rotate_after_failure_async(
+            match tokio::time::timeout(
+                select_budget,
+                state.pool.rotate_after_failure_async(
                     &failed,
                     status,
                     session_key.as_deref(),
                     &exclude,
                     Some(&model),
-                )
-                .await
+                ),
+            )
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    last_error =
+                        "network/timeout: google token refresh exceeded retry budget".into();
+                    last_fail_status = 504;
+                    break;
+                }
+            }
         };
-        let (access_token, account) = match selected {
+        let (mut access_token, mut account) = match selected {
             Ok(value) => value,
             Err(error) => {
                 let message = error.to_string();
-                // Keep the real upstream/token error when failover only ran out of accounts.
+                let mapped = fail_status_from_message(&message);
                 if hop == 0 || last_error == "upstream failed" {
                     last_error = message;
+                    last_fail_status = mapped;
                 } else {
                     last_error = format!("{last_error}；{message}");
+                    if last_fail_status == 0 {
+                        last_fail_status = mapped;
+                    }
                 }
                 break;
             }
         };
         exclude.push(account.id.clone());
-        let account_email = if account.email.trim().is_empty() {
+        let mut account_email = if account.email.trim().is_empty() {
             account.id.clone()
         } else {
             account.email.clone()
@@ -538,6 +568,7 @@ async fn dispatch_generation(
         let mut model_idx = 0usize;
         let mut budget_rectified = false;
         let mut in_place_retries = 0u32;
+        let mut token_renewed = false;
         let upstream = 'levels: loop {
             if past_retry_deadline(retry_deadline) {
                 mark_retry_budget_exhausted(&mut last_error, &mut last_fail_status, upstream_calls);
@@ -616,18 +647,17 @@ async fn dispatch_generation(
                 }
                 Err(GenerateAttemptError::Upstream(error)) => {
                     last_error = error.to_string();
-                    last_fail_status = if last_error.starts_with("network/") {
-                        504
-                    } else {
-                        502
-                    };
+                    last_fail_status = fail_status_from_message(&last_error);
                     if !should_cool_account_on_generate_error(&error) {
                         log::warn!(
                             "Antigravity generate network error on {account_email}; not cooling account: {last_error}"
                         );
                         break 'levels Err(());
                     }
-                    if last_fail_status == 502 {
+                    if last_fail_status == 401 {
+                        let _ = account_store()
+                            .mark_reauthorization_required(&account.id, REAUTH_REASON);
+                    } else if last_fail_status == 502 {
                         let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
                     }
                     break 'levels Err(());
@@ -740,6 +770,64 @@ async fn dispatch_generation(
                 stop_pool_walk = should_stop_pool_walk_after_429(hop, rotate_pool);
                 break 'levels Err(());
             }
+            if response.status().as_u16() == 401 {
+                let text = response.text().await.unwrap_or_default();
+                let detail = text.trim();
+                last_fail_status = 401;
+                last_error = if detail.is_empty() {
+                    "upstream 401".into()
+                } else {
+                    format!(
+                        "upstream 401: {}",
+                        detail.chars().take(240).collect::<String>()
+                    )
+                };
+                if token_renewed {
+                    let _ =
+                        account_store().mark_reauthorization_required(&account.id, REAUTH_REASON);
+                    log::warn!(
+                        "Antigravity still 401 after token refresh on {account_email} model={last_attempted_model}; requiring reauthorization"
+                    );
+                    break 'levels Err(());
+                }
+                token_renewed = true;
+                let retry_id = account.id.clone();
+                match tokio::task::spawn_blocking(move || {
+                    account_store().force_refresh_access_token(&retry_id)
+                })
+                .await
+                {
+                    Ok(Ok((new_token, refreshed))) => {
+                        access_token = new_token;
+                        account = refreshed;
+                        account_email = if account.email.trim().is_empty() {
+                            account.id.clone()
+                        } else {
+                            account.email.clone()
+                        };
+                        log::info!(
+                            "Antigravity Cloud Code 401; renewed token for {account_email} and retrying generate"
+                        );
+                        continue 'levels;
+                    }
+                    Ok(Err(error)) => {
+                        last_error = error.to_string();
+                        last_fail_status = fail_status_from_message(&last_error);
+                        log::warn!(
+                            "Antigravity token refresh after 401 failed on {account_email}: {last_error}"
+                        );
+                        break 'levels Err(());
+                    }
+                    Err(join_error) => {
+                        last_error = format!("auth/refresh_task: {join_error}");
+                        last_fail_status = 401;
+                        log::warn!(
+                            "Antigravity token refresh task failed on {account_email}: {join_error}"
+                        );
+                        break 'levels Err(());
+                    }
+                }
+            }
             break 'levels Ok(response);
         };
         let upstream = match upstream {
@@ -832,7 +920,7 @@ async fn dispatch_generation(
             } else if status.as_u16() == 403 {
                 let _ = account_store().mark_forbidden_403(&account.id, &last_error);
             } else {
-                let _ = account_store().mark_cooldown(&account.id, 180, &last_error);
+                let _ = account_store().mark_reauthorization_required(&account.id, REAUTH_REASON);
             }
             continue;
         }
@@ -969,6 +1057,13 @@ async fn dispatch_generation(
     } else if error_category == "network" {
         log::warn!(
             "Antigravity dispatch failed network after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]: {clipped_error}",
+            started.elapsed().as_millis(),
+            exclude_labels.join(","),
+            models_tried.join(",")
+        );
+    } else if error_category == "auth" {
+        log::warn!(
+            "Antigravity dispatch failed auth after {upstream_calls} upstream calls in {}ms; accounts=[{}] models=[{}]: {clipped_error}",
             started.elapsed().as_millis(),
             exclude_labels.join(","),
             models_tried.join(",")
@@ -1444,7 +1539,9 @@ fn should_cool_account_on_generate_error(error: &AppError) -> bool {
 }
 
 fn dispatch_error_category(last_fail_status: u16, last_error: &str) -> &'static str {
-    if last_fail_status == 504 && last_error.starts_with("network/") {
+    if is_auth_failure(last_error) || last_fail_status == 401 {
+        "auth"
+    } else if last_fail_status == 504 && last_error.starts_with("network/") {
         "network"
     } else if last_fail_status == 504 {
         "upstream_timeout"
@@ -1454,6 +1551,16 @@ fn dispatch_error_category(last_fail_status: u16, last_error: &str) -> &'static 
         "upstream_429"
     } else {
         "upstream"
+    }
+}
+
+fn fail_status_from_message(message: &str) -> u16 {
+    if is_auth_failure(message) {
+        401
+    } else if message.starts_with("network/") {
+        504
+    } else {
+        502
     }
 }
 
@@ -1473,7 +1580,10 @@ fn client_status_from_dispatch(last_fail_status: u16, last_error: &str) -> Statu
     if last_error.starts_with("network/") || last_fail_status == 504 {
         return StatusCode::GATEWAY_TIMEOUT;
     }
-    if matches!(last_fail_status, 400 | 401 | 403 | 422) {
+    if is_auth_failure(last_error) || last_fail_status == 401 {
+        return StatusCode::UNAUTHORIZED;
+    }
+    if matches!(last_fail_status, 400 | 403 | 422) {
         return StatusCode::from_u16(last_fail_status).unwrap_or(from_error);
     }
     from_error
@@ -1485,7 +1595,7 @@ fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
         StatusCode::TOO_MANY_REQUESTS
     } else if lower.starts_with("network/") {
         StatusCode::GATEWAY_TIMEOUT
-    } else if looks_like_http_status(&lower, 401) || lower.contains("unauthenticated") {
+    } else if is_auth_failure(last_error) || looks_like_http_status(&lower, 401) {
         StatusCode::UNAUTHORIZED
     } else if looks_like_http_status(&lower, 403)
         || lower.contains("forbidden")
@@ -1816,6 +1926,55 @@ mod tests {
         assert!(is_request_body_status(400));
         assert!(is_request_body_status(422));
         assert!(!is_request_body_status(502));
+    }
+
+    #[test]
+    fn auth_failures_are_not_washed_into_502() {
+        assert_eq!(
+            client_status_from_upstream_error(
+                "auth/invalid_grant: Token has been expired or revoked."
+            ),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            client_status_from_dispatch(
+                0,
+                "auth/invalid_grant: Token has been expired or revoked."
+            ),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            client_status_from_dispatch(401, "upstream 401: unauthenticated"),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            dispatch_error_category(401, "upstream 401: unauthenticated"),
+            "auth"
+        );
+        assert_eq!(
+            dispatch_error_category(502, "auth/invalid_grant: revoked"),
+            "auth"
+        );
+        assert_eq!(fail_status_from_message("auth/invalid_grant: revoked"), 401);
+        assert_eq!(
+            fail_status_from_message("network/timeout: google token refresh failed"),
+            504
+        );
+        assert_eq!(
+            client_status_from_dispatch(
+                504,
+                "network/timeout: google token refresh exceeded retry budget"
+            ),
+            StatusCode::GATEWAY_TIMEOUT
+        );
+        assert_eq!(
+            retry_after_header(StatusCode::UNAUTHORIZED, "auth/invalid_grant"),
+            None
+        );
+        assert_eq!(
+            error_type_for_status(StatusCode::UNAUTHORIZED),
+            "authentication_error"
+        );
     }
 
     #[test]

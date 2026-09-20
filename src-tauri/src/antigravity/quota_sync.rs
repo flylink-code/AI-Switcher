@@ -79,7 +79,7 @@ pub async fn refresh_one_account_quota(account_id: &str) -> AppResult<Antigravit
                     if detail.contains("invalid_grant") || detail.contains("revoked") {
                         account_store().mark_reauthorization_required(
                             account_id,
-                            "Google 授权已失效，请重新用浏览器登录此账号",
+                            crate::antigravity::account::REAUTH_REASON,
                         )?;
                         return Err(AppError::Config(format!(
                             "账号 {} 的 Google 授权已失效，请重新用浏览器登录后刷新额度",

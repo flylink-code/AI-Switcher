@@ -33,18 +33,16 @@ pub(crate) fn log_request_with_diagnostic(
         )
     }) {
         Ok(id) => {
-            let hop = state
-                .correlation
-                .as_ref()
-                .map(|item| item.hop)
-                .unwrap_or(match state.listener_kind {
+            let hop = state.correlation.as_ref().map(|item| item.hop).unwrap_or(
+                match state.listener_kind {
                     ListenerKind::SmartGateway => crate::gateway::correlation::HOP_SMART_GATEWAY,
                     ListenerKind::Agent => crate::gateway::correlation::HOP_AGENT_PROXY,
-                });
+                },
+            );
             let correlation_id = state.correlation.as_ref().map(|item| item.id.as_str());
-            let _ = state.db.with_conn(|conn| {
-                update_proxy_log_hop(conn, &id, correlation_id, Some(hop))
-            });
+            let _ = state
+                .db
+                .with_conn(|conn| update_proxy_log_hop(conn, &id, correlation_id, Some(hop)));
             crate::usage_events::notify_log_recorded();
             Some(id)
         }
@@ -205,6 +203,7 @@ fn error_diagnostic(category: &str) -> &'static str {
         "network" => "upstream connection failed",
         "upstream" => "upstream returned an error status",
         "upstream_429" => "upstream rate limited the request",
+        "auth" => "account authorization failed",
         "conversion" => "upstream response conversion failed",
         "provider" => "no active provider",
         _ => "proxy request failed",
@@ -219,18 +218,14 @@ fn upstream_error_category(status: StatusCode) -> &'static str {
     }
 }
 
-fn update_log_diagnostic(
-    state: &ProxyState,
-    id: Option<&str>,
-    category: &str,
-    diagnostic: &str,
-) {
+fn update_log_diagnostic(state: &ProxyState, id: Option<&str>, category: &str, diagnostic: &str) {
     let Some(id) = id else {
         return;
     };
-    if let Err(error) = state.db.with_conn(|conn| {
-        update_proxy_log_diagnostic(conn, id, category, diagnostic)
-    }) {
+    if let Err(error) = state
+        .db
+        .with_conn(|conn| update_proxy_log_diagnostic(conn, id, category, diagnostic))
+    {
         log::error!("更新代理错误诊断失败: {error}");
     }
 }
@@ -244,7 +239,10 @@ fn sanitized_upstream_diagnostic(status: StatusCode, bytes: &[u8]) -> String {
         for (label, candidate) in [
             ("type", error.get("type")),
             ("code", error.get("code")),
-            ("message", error.get("message").or_else(|| value.get("message"))),
+            (
+                "message",
+                error.get("message").or_else(|| value.get("message")),
+            ),
             (
                 "request_id",
                 value
@@ -264,7 +262,10 @@ fn sanitized_upstream_diagnostic(status: StatusCode, bytes: &[u8]) -> String {
         }
     }
     if fields.is_empty() {
-        format!("上游返回 HTTP {}，未提供可安全展示的错误摘要", status.as_u16())
+        format!(
+            "上游返回 HTTP {}，未提供可安全展示的错误摘要",
+            status.as_u16()
+        )
     } else {
         format!("上游 HTTP {}；{}", status.as_u16(), fields.join("；"))
     }
@@ -329,7 +330,9 @@ pub(crate) fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
 }
 
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
-    let usage = value.get("usage").or_else(|| value.pointer("/response/usage"))?;
+    let usage = value
+        .get("usage")
+        .or_else(|| value.pointer("/response/usage"))?;
     let input_tokens_field = usage.get("input_tokens").and_then(Value::as_i64);
     let prompt_tokens = usage.get("prompt_tokens").and_then(Value::as_i64);
     let reported_input = input_tokens_field.or(prompt_tokens)?;
@@ -341,13 +344,11 @@ fn usage_from_value(value: &Value) -> Option<UsageCounts> {
         .or_else(|| usage.pointer("/prompt_tokens_details/cached_tokens"))
         .or_else(|| usage.get("cached_tokens"))
         .and_then(Value::as_i64);
-    let cache_read = anthropic_style_cache
-        .or(details_cache)
-        .unwrap_or(0)
-        .max(0);
+    let cache_read = anthropic_style_cache.or(details_cache).unwrap_or(0).max(0);
     let fresh_input = if anthropic_style_cache.is_some() {
         // Anthropic: `input_tokens` is already non-cached / fresh.
-        input_tokens_field.unwrap_or_else(|| reported_input.saturating_sub(cache_read.min(reported_input)))
+        input_tokens_field
+            .unwrap_or_else(|| reported_input.saturating_sub(cache_read.min(reported_input)))
     } else {
         // Chat Completions / Responses: reported input is total (fresh + cached).
         let cache = cache_read.min(reported_input);
@@ -365,7 +366,8 @@ fn usage_from_value(value: &Value) -> Option<UsageCounts> {
             .get("cache_creation_input_tokens")
             .and_then(Value::as_i64)
             .unwrap_or(0),
-        output_tokens: usage.get("output_tokens")
+        output_tokens: usage
+            .get("output_tokens")
             .or_else(|| usage.get("completion_tokens"))
             .and_then(Value::as_i64)
             .unwrap_or(0),
@@ -510,7 +512,10 @@ mod tests {
             &ag,
             StatusCode::GATEWAY_TIMEOUT
         ));
-        assert!(should_failover_upstream_status(&ag, StatusCode::BAD_GATEWAY));
+        assert!(should_failover_upstream_status(
+            &ag,
+            StatusCode::BAD_GATEWAY
+        ));
         assert!(should_failover_upstream_status(
             &standard,
             StatusCode::TOO_MANY_REQUESTS
@@ -657,23 +662,23 @@ mod tests {
         .expect("catalog failover ignores model whitelist");
         assert_eq!(ignored.name, "Group1");
 
-        let matched = next_failover_provider(
-            &state,
-            &[current_id, group0_id],
-            "gpt-4o-mini",
-        )
-        .unwrap()
-        .expect("group1 whitelist match");
+        let matched = next_failover_provider(&state, &[current_id, group0_id], "gpt-4o-mini")
+            .unwrap()
+            .expect("group1 whitelist match");
         assert_eq!(matched.name, "Group1");
     }
 
     #[test]
     fn upstream_sse_decoder_reassembles_split_json_frames() {
         let mut decoder = UpstreamSseDecoder::default();
-        assert!(decoder.push(b"data: {\"type\":\"response.output_text").is_empty());
+        assert!(decoder
+            .push(b"data: {\"type\":\"response.output_text")
+            .is_empty());
         let events = decoder.push(b".delta\",\"delta\":\"hi\"}\n\n");
         assert_eq!(events.len(), 1);
-        let UpstreamSseItem::Json(event) = &events[0] else { panic!("expected JSON SSE event"); };
+        let UpstreamSseItem::Json(event) = &events[0] else {
+            panic!("expected JSON SSE event");
+        };
         assert_eq!(event["type"], "response.output_text.delta");
         assert_eq!(event["delta"], "hi");
     }
@@ -707,8 +712,13 @@ mod tests {
                 ProtocolType::OpenAiResponses,
             ] {
                 let provider = provider(protocol);
-                let (body, _) =
-                    encode_upstream_request(&provider, &incoming, &original, false, &HeaderMap::new());
+                let (body, _) = encode_upstream_request(
+                    &provider,
+                    &incoming,
+                    &original,
+                    false,
+                    &HeaderMap::new(),
+                );
                 let value: Value = serde_json::from_slice(&body).unwrap();
                 assert_eq!(
                     value["model"], "opus-upstream",
@@ -754,10 +764,7 @@ mod tests {
             upstream_error_category(StatusCode::TOO_MANY_REQUESTS),
             "upstream_429"
         );
-        assert_eq!(
-            upstream_error_category(StatusCode::BAD_GATEWAY),
-            "upstream"
-        );
+        assert_eq!(upstream_error_category(StatusCode::BAD_GATEWAY), "upstream");
     }
 
     #[test]
@@ -834,7 +841,8 @@ mod tests {
 
     #[test]
     fn kimi_anthropic_usage_and_final_stream_frame_are_preserved() {
-        let kimi = br#"{"usage":{"input_tokens":321,"cache_read_input_tokens":12,"output_tokens":45}}"#;
+        let kimi =
+            br#"{"usage":{"input_tokens":321,"cache_read_input_tokens":12,"output_tokens":45}}"#;
         let parsed = extract_usage_from_json(kimi).expect("Kimi Anthropic usage");
         assert_eq!(parsed.input_tokens, 321);
         assert_eq!(parsed.cache_read_input_tokens, 12);

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use super::account::{store, AntigravityAccount};
+use super::account::{is_auth_failure, store, AntigravityAccount};
 use super::limiter::AccountLimiter;
 use super::quota::{quota_family_from_model, QuotaFamily};
 use crate::error::{AppError, AppResult};
@@ -147,7 +147,7 @@ impl AccountPool {
             chosen.email,
             selection_reason(chosen, preferred_account_id, sticky_id.as_deref())
         );
-        let selected = store().ensure_access_token(&chosen.id)?;
+        let selected = ensure_token_skipping_auth_failures(&candidates, &chosen.id)?;
         self.bind_session(session_key, &selected.1.id);
         Ok(selected)
     }
@@ -224,8 +224,12 @@ impl AccountPool {
             }
         }
         sort_candidates_best_first(&mut candidates, family);
-        let account = &candidates[0];
-        let selected = store().ensure_access_token(&account.id)?;
+        let selected = match candidates.first() {
+            Some(first) => ensure_token_skipping_auth_failures(&candidates, &first.id)?,
+            None => {
+                return Err(AppError::Other(explain_unavailable(&remaining, now)));
+            }
+        };
         self.bind_session(session_key, &selected.1.id);
         Ok(selected)
     }
@@ -464,6 +468,42 @@ fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
         return "Antigravity 账号均已禁用（请重新登录）".into();
     }
     "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into()
+}
+
+/// Try the preferred account first, then the rest. Auth failures disable that
+/// number (inside `force_refresh_access_token`) so the next pick can proceed.
+fn ensure_token_skipping_auth_failures(
+    candidates: &[AntigravityAccount],
+    preferred_id: &str,
+) -> AppResult<(String, AntigravityAccount)> {
+    let mut ordered: Vec<&AntigravityAccount> = Vec::with_capacity(candidates.len());
+    if let Some(preferred) = candidates.iter().find(|account| account.id == preferred_id) {
+        ordered.push(preferred);
+    }
+    for account in candidates {
+        if account.id != preferred_id {
+            ordered.push(account);
+        }
+    }
+    let mut last_auth: Option<AppError> = None;
+    for account in ordered {
+        match store().ensure_access_token(&account.id) {
+            Ok(selected) => return Ok(selected),
+            Err(error) if is_auth_failure(&error.to_string()) => {
+                log::warn!(
+                    "Antigravity skip {} after auth failure: {error}",
+                    account.email
+                );
+                last_auth = Some(error);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last_auth.unwrap_or_else(|| {
+        AppError::Other(
+            "没有可用的 Antigravity 账号（请导入账号、等待冷却结束，或刷新额度）".into(),
+        )
+    }))
 }
 
 /// Prefer an explicit account, then the user-marked active account (soft when
@@ -707,6 +747,16 @@ mod tests {
         let chosen = choose_candidate(&candidates, None, Some("a2"), None, None).expect("chosen");
         assert_eq!(chosen.id, "a1");
         assert_eq!(selection_reason(chosen, None, Some("a2")), "active");
+    }
+
+    #[test]
+    fn explain_unavailable_asks_relogin_when_all_disabled() {
+        let mut a1 = sample("a1", None);
+        let mut a2 = sample("a2", None);
+        a1.disabled = true;
+        a2.disabled = true;
+        let message = explain_unavailable(&[a1, a2], Utc::now().timestamp());
+        assert!(message.contains("重新登录"));
     }
 
     #[test]

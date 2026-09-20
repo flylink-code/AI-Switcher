@@ -1254,6 +1254,7 @@
     "usageUnavailable": "上游未提供",
     "logStatus": "状态码",
     "errorSource": "错误来源",
+    "errorCategoryAuth": "账号授权",
     "logTokens": "Token（入/出）",
     "logDuration": "耗时",
     "logRate": "速率",
@@ -1901,6 +1902,12 @@
       "1_5_6": [
         "反代网关恢复 Gemini 3.1 Pro：目录与 /v1/models 提供 gemini-3.1-pro-high / -low。",
         "裸名 gemini-3.1-pro 合成 -high，不再改写成 3.8 Flash；3.1 Flash 仍退役。",
+        "主资料库 Schema 保持 33，无需数据库迁移。"
+      ],
+      "1_5_7": [
+        "反代网关识别 Antigravity 账号授权失效：Cloud Code 401 会先刷新 Token，invalid_grant / revoked 标记需重新登录。",
+        "授权失败回 401（authentication_error），用量记为账号授权，不再洗成 502 导致客户端约 10 秒一轮重试。",
+        "Google Token 刷新直连与代理回退均限制 connect 5s / 总 10s，避免 SOCKS 挂起。",
         "主资料库 Schema 保持 33，无需数据库迁移。"
       ]
     },

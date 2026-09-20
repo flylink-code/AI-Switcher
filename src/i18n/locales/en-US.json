@@ -1254,6 +1254,7 @@
     "usageUnavailable": "Not provided by upstream",
     "logStatus": "Status",
     "errorSource": "Error source",
+    "errorCategoryAuth": "Account auth",
     "logTokens": "Tokens (in/out)",
     "logDuration": "Duration",
     "logRate": "Rate",
@@ -1901,6 +1902,12 @@
       "1_5_6": [
         "Restore Gemini 3.1 Pro on the reverse-proxy gateway: the catalog and /v1/models now expose gemini-3.1-pro-high / -low.",
         "The bare gemini-3.1-pro name composes to -high instead of being rewritten to 3.8 Flash. Gemini 3.1 Flash stays retired.",
+        "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_7": [
+        "The reverse-proxy gateway now detects Antigravity authorization failure: Cloud Code 401 forces a token refresh, and invalid_grant / revoked marks the account for re-login.",
+        "Auth failures return HTTP 401 (authentication_error) with usage category Account auth instead of a washed 502 that made clients retry about every 10 seconds.",
+        "Google token refresh uses a 5s connect / 10s total timeout on both the direct and proxy legs so a hung SOCKS proxy cannot stall the request.",
         "The main database remains on Schema 33; no database migration is required."
       ]
     },

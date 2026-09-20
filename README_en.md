@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.6**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.7**
 
-**This release:** Restores Gemini 3.1 Pro on the reverse-proxy gateway. `/v1/models` and the Antigravity catalog expose `gemini-3.1-pro-high` / `-low`; the bare name composes to `-high` instead of being rewritten to 3.8 Flash. Gemini 3.1 Flash stays retired.
+**This release:** The reverse-proxy gateway detects Antigravity authorization failure. Cloud Code 401 forces a token refresh; `invalid_grant` / `revoked` marks the account for re-login and returns 401 instead of a washed 502.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 
