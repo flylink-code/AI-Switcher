@@ -1909,6 +1909,11 @@
         "授权失败回 401（authentication_error），用量记为账号授权，不再洗成 502 导致客户端约 10 秒一轮重试。",
         "Google Token 刷新直连与代理回退均限制 connect 5s / 总 10s，避免 SOCKS 挂起。",
         "主资料库 Schema 保持 33，无需数据库迁移。"
+      ],
+      "1_5_8": [
+        "智能网关与本地代理在上游中途断流后补发 Anthropic message_stop，Claude Code 不再停在 creating / accomplishing 转圈。",
+        "OpenAI 转译先闭合未结束的 thinking/text 块再发 error；Anthropic 透传不再把连接 RST 打进 HTTP 体。",
+        "主资料库 Schema 保持 33，无需数据库迁移。"
       ]
     },
     "appName": "应用名称",

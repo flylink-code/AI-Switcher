@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.7**
+本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.8**
 
-**本版**：反代网关识别 Antigravity 账号授权失效。Cloud Code 401 会先刷新 Token；`invalid_grant` / `revoked` 标记需重新登录，回 401 而不再洗成 502。
+**本版**：上游中途断流后补发 Anthropic `message_stop`，Claude Code 不再停在 creating / accomplishing 转圈。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 

@@ -1909,6 +1909,11 @@
         "Auth failures return HTTP 401 (authentication_error) with usage category Account auth instead of a washed 502 that made clients retry about every 10 seconds.",
         "Google token refresh uses a 5s connect / 10s total timeout on both the direct and proxy legs so a hung SOCKS proxy cannot stall the request.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_8": [
+        "The smart gateway and local proxy now emit Anthropic message_stop when an upstream stream drops mid-response, so Claude Code no longer stays on creating / accomplishing.",
+        "OpenAI translation finishes open thinking/text blocks before the error event; Anthropic passthrough no longer forwards a connection RST as the HTTP body.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

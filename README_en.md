@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.7**
+Local configuration and provider manager for **Claude Code**, **Claude Desktop**, **Codex**, **OpenCode**, **Pi**, **DSH**, and **Cline**. **v1.5.8**
 
-**This release:** The reverse-proxy gateway detects Antigravity authorization failure. Cloud Code 401 forces a token refresh; `invalid_grant` / `revoked` marks the account for re-login and returns 401 instead of a washed 502.
+**This release:** When an upstream stream drops mid-response, the proxy now emits Anthropic `message_stop` so Claude Code no longer stays on creating / accomplishing.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 

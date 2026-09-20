@@ -952,8 +952,8 @@ async fn proxy_handler(
     let upstream_stream = upstream_resp.bytes_stream();
     let stream_log_id = log_id.clone();
     let stream = futures_util::stream::unfold(
-        (upstream_stream, sse_buffer, false),
-        move |(mut upstream_stream, mut sse_buffer, done)| {
+        (upstream_stream, sse_buffer, false, false, false),
+        move |(mut upstream_stream, mut sse_buffer, done, mut saw_message_start, mut saw_message_stop)| {
             let db = Arc::clone(&db);
             let target_app = target_app.clone();
             let provider_id = provider_id.clone();
@@ -964,49 +964,104 @@ async fn proxy_handler(
                 }
                 match tokio::time::timeout(idle, upstream_stream.next()).await {
                     Ok(Some(Ok(bytes))) => {
-                        if let Some(id) = stream_log_id.as_deref() {
-                            sse_buffer.extend_from_slice(&bytes);
-                            while let Some(end) =
-                                sse_buffer.windows(2).position(|window| window == b"\n\n")
-                            {
-                                let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
-                                if let Some(usage) = extract_usage_from_sse(&event) {
-                                    if let Err(e) = db.with_conn(|conn| {
-                                        update_proxy_log_usage_idempotent(
-                                            conn,
-                                            id,
-                                            Some(target_app.as_str()),
-                                            Some(provider_id.as_str()),
-                                            usage.envelope_id.as_deref(),
-                                            usage.input_tokens,
-                                            usage.cache_read_input_tokens,
-                                            usage.cache_creation_input_tokens,
-                                            usage.output_tokens,
-                                        )
-                                    }) {
-                                        log::error!("更新代理请求 Token 用量失败: {e}");
-                                    } else {
-                                        crate::usage_events::notify_log_recorded();
-                                    }
-                                }
+                        sse_buffer.extend_from_slice(&bytes);
+                        while let Some(end) =
+                            sse_buffer.windows(2).position(|window| window == b"\n\n")
+                        {
+                            let event = sse_buffer.drain(..end + 2).collect::<Vec<_>>();
+                            if sse_frame_is_event(&event, "message_start") {
+                                saw_message_start = true;
+                            }
+                            if sse_frame_is_event(&event, "message_stop") {
+                                saw_message_stop = true;
+                            }
+                            let Some(id) = stream_log_id.as_deref() else {
+                                continue;
+                            };
+                            let Some(usage) = extract_usage_from_sse(&event) else {
+                                continue;
+                            };
+                            if let Err(e) = db.with_conn(|conn| {
+                                update_proxy_log_usage_idempotent(
+                                    conn,
+                                    id,
+                                    Some(target_app.as_str()),
+                                    Some(provider_id.as_str()),
+                                    usage.envelope_id.as_deref(),
+                                    usage.input_tokens,
+                                    usage.cache_read_input_tokens,
+                                    usage.cache_creation_input_tokens,
+                                    usage.output_tokens,
+                                )
+                            }) {
+                                log::error!("更新代理请求 Token 用量失败: {e}");
+                            } else {
+                                crate::usage_events::notify_log_recorded();
                             }
                         }
                         Some((
-                            Ok::<Bytes, reqwest::Error>(bytes),
-                            (upstream_stream, sse_buffer, false),
+                            Ok::<Bytes, Infallible>(bytes),
+                            (
+                                upstream_stream,
+                                sse_buffer,
+                                false,
+                                saw_message_start,
+                                saw_message_stop,
+                            ),
                         ))
                     }
-                    Ok(Some(Err(error))) => Some((Err(error), (upstream_stream, sse_buffer, true))),
-                    Ok(None) => None,
-                    Err(_) => {
-                        let message = convert::OpenAiSseConverter::new(
-                            convert::OpenAiStreamProtocol::Chat,
-                            "proxy",
-                        )
-                        .error_event("流式响应空闲超时");
+                    Ok(Some(Err(_))) => {
+                        if saw_message_stop {
+                            return None;
+                        }
+                        mark_passthrough_midstream_error(
+                            &db,
+                            stream_log_id.as_deref(),
+                            "midstream_error",
+                            "上游流式响应中途中断",
+                        );
                         Some((
-                            Ok(Bytes::from(message)),
-                            (upstream_stream, sse_buffer, true),
+                            Ok(Bytes::from(convert::anthropic_sse_abort(
+                                "上游流式响应中断",
+                                saw_message_start,
+                            ))),
+                            (upstream_stream, sse_buffer, true, saw_message_start, true),
+                        ))
+                    }
+                    Ok(None) => {
+                        if saw_message_stop {
+                            return None;
+                        }
+                        mark_passthrough_midstream_error(
+                            &db,
+                            stream_log_id.as_deref(),
+                            "midstream_error",
+                            "上游流式响应中途中断",
+                        );
+                        Some((
+                            Ok(Bytes::from(convert::anthropic_sse_abort(
+                                "上游流式响应中断",
+                                saw_message_start,
+                            ))),
+                            (upstream_stream, sse_buffer, true, saw_message_start, true),
+                        ))
+                    }
+                    Err(_) => {
+                        if saw_message_stop {
+                            return None;
+                        }
+                        mark_passthrough_midstream_error(
+                            &db,
+                            stream_log_id.as_deref(),
+                            "timeout",
+                            "流式响应空闲超时",
+                        );
+                        Some((
+                            Ok(Bytes::from(convert::anthropic_sse_abort(
+                                "流式响应空闲超时",
+                                saw_message_start,
+                            ))),
+                            (upstream_stream, sse_buffer, true, saw_message_start, true),
                         ))
                     }
                 }
@@ -1018,6 +1073,38 @@ async fn proxy_handler(
     resp_builder
         .body(body)
         .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")))
+}
+
+fn sse_frame_is_event(frame: &[u8], name: &str) -> bool {
+    let Ok(text) = std::str::from_utf8(frame) else {
+        return false;
+    };
+    text.lines().any(|line| {
+        line.strip_prefix("event:")
+            .map(str::trim)
+            == Some(name)
+    })
+}
+
+fn mark_passthrough_midstream_error(
+    db: &Database,
+    log_id: Option<&str>,
+    error_category: &str,
+    diagnostic: &str,
+) {
+    let Some(id) = log_id else {
+        return;
+    };
+    let _ = db.with_conn(|conn| {
+        update_proxy_log_stream_outcome(
+            conn,
+            id,
+            "midstream_error",
+            None,
+            Some(error_category),
+            Some(diagnostic),
+        )
+    });
 }
 
 fn is_claude_desktop_inference_probe(
@@ -1114,6 +1201,22 @@ mod probe_tests {
             "/v1/messages",
             &normal_chat,
             false
+        ));
+    }
+
+    #[test]
+    fn sse_frame_is_event_reads_event_line() {
+        assert!(sse_frame_is_event(
+            b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+            "message_stop"
+        ));
+        assert!(sse_frame_is_event(
+            b"event:message_start\ndata: {}\n\n",
+            "message_start"
+        ));
+        assert!(!sse_frame_is_event(
+            b"event: message_delta\ndata: {}\n\n",
+            "message_stop"
         ));
     }
 }
