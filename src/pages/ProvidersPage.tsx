@@ -5,6 +5,7 @@ import {
   Badge,
   Button,
   Card,
+  Collapse,
   Dropdown,
   Modal,
   Popconfirm,
@@ -691,36 +692,6 @@ export default function ProvidersPage() {
             </Space>
             <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
               <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                <span>{t("providers.autoModeServer")}</span>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.autoModeServerHint")}
-                </Text>
-              </Space>
-              <Switch
-                checked={agentSettingsQuery.data?.autoModeServer ?? true}
-                loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
-                onChange={(checked) =>
-                  void handleAgentSettingsChange(
-                    { autoModeServer: checked },
-                    "providers.autoModeServerSaved",
-                  )
-                }
-              />
-            </Space>
-          </Space>
-        </Card>
-      )}
-      {target === "claude_code" && (
-        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-          <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            <Space direction="vertical" size={0}>
-              <strong>{t("providers.agentTeamsTitle")}</strong>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("providers.agentTeamsHint")}
-              </Text>
-            </Space>
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
                 <span>{t("providers.agentTeamsEnable")}</span>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {t("providers.agentTeamsEnableHint")}
@@ -732,51 +703,6 @@ export default function ProvidersPage() {
                 onChange={(checked) => void handleAgentSettingsChange({ teamsEnabled: checked })}
               />
             </Space>
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <span>{t("providers.agentTeamsMode")}</span>
-              <Select
-                value={
-                  agentSettingsQuery.data?.teammateMode === "tmux" && !agentSettingsQuery.data.tmuxSupported
-                    ? "in-process"
-                    : (agentSettingsQuery.data?.teammateMode ?? "auto")
-                }
-                loading={agentSettingsQuery.isLoading}
-                disabled={!agentSettingsQuery.data?.teamsEnabled || agentSettingsQuery.isFetching}
-                style={{ minWidth: 280 }}
-                onChange={(value) => void handleAgentSettingsChange({ teammateMode: String(value) })}
-                options={[
-                  { value: "auto", label: t("providers.agentTeamsModeAuto") },
-                  { value: "in-process", label: t("providers.agentTeamsModeInProcess") },
-                  {
-                    value: "tmux",
-                    label: t("providers.agentTeamsModeTmux"),
-                    disabled: !agentSettingsQuery.data?.tmuxSupported,
-                  },
-                ]}
-              />
-            </Space>
-            {!agentSettingsQuery.data?.tmuxSupported && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("providers.agentTeamsModeTmuxDisabled")}
-              </Text>
-            )}
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                <span>{t("providers.agentTeamsForceModel")}</span>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.agentTeamsForceModelHint")}
-                </Text>
-              </Space>
-              <Switch
-                checked={agentSettingsQuery.data?.subagentModelForce ?? false}
-                loading={agentSettingsQuery.isFetching}
-                disabled={!agentSettingsQuery.data?.teamsEnabled}
-                onChange={(checked) => void handleAgentSettingsChange({ subagentModelForce: checked })}
-              />
-            </Space>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {t("providers.agentTeamsGatewayNote")}
-            </Text>
             {agentSettingsQuery.data?.teamsEnabled
               && livePromptBlocksAgentTeams(livePromptQuery.data?.content) && (
               <Alert
@@ -790,6 +716,85 @@ export default function ProvidersPage() {
                 }
               />
             )}
+            <Collapse
+              ghost
+              items={[
+                {
+                  key: "advanced",
+                  label: t("providers.claudeCodeAdvanced"),
+                  children: (
+                    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                        <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                          <span>{t("providers.autoModeServer")}</span>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {t("providers.autoModeServerHint")}
+                          </Text>
+                        </Space>
+                        <Switch
+                          checked={agentSettingsQuery.data?.autoModeServer ?? true}
+                          loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
+                          onChange={(checked) =>
+                            void handleAgentSettingsChange(
+                              { autoModeServer: checked },
+                              "providers.autoModeServerSaved",
+                            )
+                          }
+                        />
+                      </Space>
+                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                        <span>{t("providers.agentTeamsMode")}</span>
+                        <Select
+                          value={
+                            agentSettingsQuery.data?.teammateMode === "tmux"
+                              && !agentSettingsQuery.data.tmuxSupported
+                              ? "in-process"
+                              : (agentSettingsQuery.data?.teammateMode ?? "auto")
+                          }
+                          loading={agentSettingsQuery.isLoading}
+                          disabled={!agentSettingsQuery.data?.teamsEnabled || agentSettingsQuery.isFetching}
+                          style={{ minWidth: 280 }}
+                          onChange={(value) => void handleAgentSettingsChange({ teammateMode: String(value) })}
+                          options={[
+                            { value: "auto", label: t("providers.agentTeamsModeAuto") },
+                            { value: "in-process", label: t("providers.agentTeamsModeInProcess") },
+                            {
+                              value: "tmux",
+                              label: t("providers.agentTeamsModeTmux"),
+                              disabled: !agentSettingsQuery.data?.tmuxSupported,
+                            },
+                          ]}
+                        />
+                      </Space>
+                      {!agentSettingsQuery.data?.tmuxSupported && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {t("providers.agentTeamsModeTmuxDisabled")}
+                        </Text>
+                      )}
+                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                        <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                          <span>{t("providers.agentTeamsForceModel")}</span>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {t("providers.agentTeamsForceModelHint")}
+                          </Text>
+                        </Space>
+                        <Switch
+                          checked={agentSettingsQuery.data?.subagentModelForce ?? false}
+                          loading={agentSettingsQuery.isFetching}
+                          disabled={!agentSettingsQuery.data?.teamsEnabled}
+                          onChange={(checked) =>
+                            void handleAgentSettingsChange({ subagentModelForce: checked })
+                          }
+                        />
+                      </Space>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t("providers.agentTeamsGatewayNote")}
+                      </Text>
+                    </Space>
+                  ),
+                },
+              ]}
+            />
           </Space>
         </Card>
       )}

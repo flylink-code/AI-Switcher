@@ -199,7 +199,7 @@ pub fn openai_to_gemini_request(
     }
     let gemini_target = model.to_ascii_lowercase().starts_with("gemini-");
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
-    if !(gemini_target && model_catalog::uses_thinking_level(&model)) {
+    if !(gemini_target && model_catalog::is_gemini_31_pro(&model)) {
         if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
             generation["temperature"] = json!(temperature);
         }
@@ -211,8 +211,11 @@ pub fn openai_to_gemini_request(
         generation["thinkingConfig"] = json!({ "thinkingLevel": level });
     }
     if gemini_target {
-        if let Some(level) = model_catalog::thinking_level_wire(&model) {
-            crate::antigravity::thinking::apply_thinking_level(&mut generation, level, true);
+        if let Some(budget) = model_catalog::thinking_budget_for(&model) {
+            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+            generation["maxOutputTokens"] =
+                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+            crate::antigravity::thinking::apply_thinking_budget(&mut generation, budget, true);
         } else if let Some(budget) =
             crate::antigravity::thinking::resolve_thinking_budget(body, &model)
         {
@@ -667,7 +670,7 @@ mod tests {
     }
 
     #[test]
-    fn gemini_31_pro_writes_thinking_level_not_budget() {
+    fn gemini_31_pro_writes_thinking_budget_not_level() {
         let parts = openai_to_gemini_request(
             &json!({
                 "model": "gemini-3.1-pro-high",
@@ -682,16 +685,17 @@ mod tests {
         .unwrap();
         assert_eq!(parts.model, "gemini-3.1-pro-high");
         let config = &parts.request["generationConfig"]["thinkingConfig"];
-        assert_eq!(config["thinkingLevel"], json!("HIGH"));
+        assert_eq!(config["thinkingBudget"], json!(10001));
         assert_eq!(config["includeThoughts"], json!(true));
-        assert!(config.get("thinkingBudget").is_none());
+        assert!(config.get("thinkingLevel").is_none());
         let generation = &parts.request["generationConfig"];
         assert!(generation.get("temperature").is_none());
         assert!(generation.get("topP").is_none());
+        assert_eq!(generation["maxOutputTokens"], json!(10002));
     }
 
     #[test]
-    fn gemini_31_pro_low_openai_writes_low_thinking_level() {
+    fn gemini_31_pro_low_openai_writes_low_thinking_budget() {
         let parts = openai_to_gemini_request(
             &json!({
                 "model": "gemini-3.1-pro-low",
@@ -703,11 +707,11 @@ mod tests {
         .unwrap();
         assert_eq!(parts.model, "gemini-3.1-pro-low");
         assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
-            json!("LOW")
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            json!(1001)
         );
         assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingBudget")
+            .get("thinkingLevel")
             .is_none());
     }
 

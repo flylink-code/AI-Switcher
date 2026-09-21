@@ -637,6 +637,7 @@
     "gatewayProfileBindFirst": "请先绑定智能网关，再选择路由档案",
     "enableSmartGateway": "启用智能网关",
     "enableGatewayHint": "点托管 Auto 卡「启用智能网关」，或到智能网关页一键启用当前 Agent。",
+    "claudeCodeAdvanced": "高级设置",
     "importToGateway": "导入到智能网关",
     "defaultPermissionModeTitle": "新对话默认工作模式",
     "defaultPermissionModeHint": "写入 ~/.claude/settings.json 的 permissions.defaultMode，对应 Shift+Tab（Manual / Plan / Accept edits / Auto）。仅对新开对话生效；某文件夹里手动选过的模式可能盖过此项。Windows 上 Plan 偶发需开局再按一次切换。",
@@ -1957,7 +1958,8 @@
         "供应商页可关闭官方 Auto 分类器（CLAUDE_CODE_AUTO_MODE_SERVER=0），经 15821 / 第三方时用本机分类器、不再弹免计费检查提示。",
         "OpenCode 供应商页可写 permission[\"*\"]=allow，工具默认自动放行（无官方分类器）。",
         "产品界面隐藏 Claude Desktop 与 DSH：设置不可再勾选；后端、资料库卡片与端口保留。",
-        "反代网关 Gemini 3.1 Pro 改走 thinkingLevel（HIGH/LOW），不再写 thinkingBudget / temperature / topP，避免 Cloud Code 笼统 400。",
+        "反代网关 Gemini 3.1 Pro High 出网改写 gemini-pro-agent + thinkingBudget 10001，Low 原样 + 1001；不再写 thinkingLevel。公开目录仍用 gemini-3.1-pro-high / -low。",
+        "Claude Code 供应商常用项保持展开，少用项收进默认折叠的「高级设置」。",
         "反代网关账号卡可钉死该账号发 hello 对话测试，用来判断掉线、限流还是仍可用。",
         "主资料库 Schema 保持 33，无需数据库迁移。"
       ]

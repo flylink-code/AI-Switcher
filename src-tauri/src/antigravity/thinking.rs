@@ -28,7 +28,7 @@ pub fn thinking_kind(body: &Value) -> Option<String> {
 }
 
 pub fn resolve_thinking_budget(body: &Value, model: &str) -> Option<u32> {
-    if crate::antigravity::model_catalog::uses_thinking_level(model) {
+    if crate::antigravity::model_catalog::is_gemini_31_pro(model) {
         return None;
     }
     let kind = thinking_kind(body);
@@ -53,24 +53,15 @@ pub fn pad_max_tokens(max_tokens: Option<u64>, budget: u32) -> u64 {
 
 pub fn apply_thinking_budget(generation: &mut Value, budget: u32, include_thoughts: bool) {
     generation["thinkingConfig"]["thinkingBudget"] = json!(budget);
-    if include_thoughts {
-        generation["thinkingConfig"]["includeThoughts"] = json!(true);
+    if let Some(config) = generation
+        .get_mut("thinkingConfig")
+        .and_then(Value::as_object_mut)
+    {
+        config.remove("thinkingLevel");
+        if include_thoughts {
+            config.insert("includeThoughts".into(), json!(true));
+        }
     }
-}
-
-/// Gemini 3.1 Pro: `thinkingLevel` only. Never emit `thinkingBudget`.
-pub fn apply_thinking_level(generation: &mut Value, level: &str, include_thoughts: bool) {
-    let mut config = generation
-        .get("thinkingConfig")
-        .and_then(Value::as_object)
-        .cloned()
-        .unwrap_or_default();
-    config.insert("thinkingLevel".into(), json!(level));
-    config.remove("thinkingBudget");
-    if include_thoughts {
-        config.insert("includeThoughts".into(), json!(true));
-    }
-    generation["thinkingConfig"] = Value::Object(config);
 }
 
 pub fn is_budget_constraint_error(body: &str) -> bool {
@@ -86,24 +77,29 @@ pub fn is_budget_constraint_error(body: &str) -> bool {
             || lower.contains("exceed"))
 }
 
-pub fn rectify_generate_request(request: &mut Value) {
+pub fn rectify_generate_request(request: &mut Value, model: &str) {
+    let budget =
+        crate::antigravity::model_catalog::thinking_budget_for(model).unwrap_or(RECTIFY_BUDGET);
+    let min_max = u64::from(budget)
+        .saturating_add(1)
+        .max(u64::from(RECTIFY_MIN_MAX_TOKENS));
     let generation = request
         .get_mut("generationConfig")
         .filter(|value| value.is_object());
     let Some(generation) = generation else {
         request["generationConfig"] = json!({
-            "thinkingConfig": { "thinkingBudget": RECTIFY_BUDGET, "includeThoughts": true },
-            "maxOutputTokens": RECTIFY_MIN_MAX_TOKENS,
+            "thinkingConfig": { "thinkingBudget": budget, "includeThoughts": true },
+            "maxOutputTokens": min_max,
         });
         return;
     };
-    generation["thinkingConfig"]["thinkingBudget"] = json!(RECTIFY_BUDGET);
+    apply_thinking_budget(generation, budget, true);
     let max = generation
         .get("maxOutputTokens")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    if max <= u64::from(RECTIFY_BUDGET) {
-        generation["maxOutputTokens"] = json!(RECTIFY_MIN_MAX_TOKENS);
+    if max <= u64::from(budget) {
+        generation["maxOutputTokens"] = json!(min_max);
     }
 }
 
@@ -157,13 +153,38 @@ mod tests {
     }
 
     #[test]
-    fn apply_thinking_level_drops_budget() {
+    fn apply_thinking_budget_strips_thinking_level() {
         let mut generation = json!({
-            "thinkingConfig": { "thinkingBudget": 8192 }
+            "thinkingConfig": { "thinkingLevel": "HIGH", "thinkingBudget": 8192 }
         });
-        apply_thinking_level(&mut generation, "HIGH", true);
-        assert_eq!(generation["thinkingConfig"]["thinkingLevel"], json!("HIGH"));
+        apply_thinking_budget(&mut generation, 10_001, true);
+        assert_eq!(
+            generation["thinkingConfig"]["thinkingBudget"],
+            json!(10_001)
+        );
         assert_eq!(generation["thinkingConfig"]["includeThoughts"], json!(true));
-        assert!(generation["thinkingConfig"].get("thinkingBudget").is_none());
+        assert!(generation["thinkingConfig"].get("thinkingLevel").is_none());
+    }
+
+    #[test]
+    fn rectify_uses_31_pro_budget_not_generic_8192() {
+        let mut request = json!({
+            "generationConfig": {
+                "thinkingConfig": { "thinkingLevel": "HIGH" },
+                "maxOutputTokens": 64
+            }
+        });
+        rectify_generate_request(&mut request, "gemini-3.1-pro-high");
+        assert_eq!(
+            request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            json!(10_001)
+        );
+        assert!(request["generationConfig"]["thinkingConfig"]
+            .get("thinkingLevel")
+            .is_none());
+        assert_eq!(
+            request["generationConfig"]["maxOutputTokens"],
+            json!(16_384)
+        );
     }
 }

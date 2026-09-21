@@ -637,6 +637,7 @@
     "gatewayProfileBindFirst": "Bind the smart gateway first, then pick a routing profile",
     "enableSmartGateway": "Enable Smart Gateway",
     "enableGatewayHint": "Use Enable Smart Gateway on the managed Auto card, or enable this Agent from the Smart Gateway page.",
+    "claudeCodeAdvanced": "Advanced",
     "importToGateway": "Import to Smart Gateway",
     "defaultPermissionModeTitle": "Default mode for new conversations",
     "defaultPermissionModeHint": "Writes permissions.defaultMode in ~/.claude/settings.json (Shift+Tab: Manual / Plan / Accept edits / Auto). Applies to new conversations only; a folder-remembered mode may override this. On Windows, Plan sometimes needs one extra toggle at session start.",
@@ -1957,7 +1958,8 @@
         "The Providers page can turn off the official Auto classifier (CLAUDE_CODE_AUTO_MODE_SERVER=0) so 15821 / third-party hosts use the local classifier and stop the billing-check notice.",
         "OpenCode providers can write permission[\"*\"]=allow so tools auto-run by default (there is no official classifier).",
         "Claude Desktop and DSH are hidden from the product UI and cannot be re-checked in Settings; backend, existing cards, and ports remain.",
-        "The reverse-proxy gateway now sends thinkingLevel (HIGH/LOW) for Gemini 3.1 Pro instead of thinkingBudget, temperature, or topP, which Cloud Code rejected with a generic 400.",
+        "The reverse-proxy gateway now rewrites Gemini 3.1 Pro High to gemini-pro-agent with thinkingBudget 10001; Low stays gemini-3.1-pro-low with 1001. thinkingLevel is not sent. Public catalog ids remain gemini-3.1-pro-high / -low.",
+        "Claude Code provider settings keep common controls visible and tuck the rest into a collapsed Advanced section.",
         "Reverse-proxy account cards can pin that account and send a hello chat test to tell auth-dead from rate-limited from still-usable.",
         "The main database remains on Schema 33; no database migration is required."
       ]

@@ -9,9 +9,7 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::antigravity::account::{
-    is_auth_failure, store as account_store, REAUTH_REASON,
-};
+use crate::antigravity::account::{is_auth_failure, store as account_store, REAUTH_REASON};
 use crate::antigravity::map::anthropic::anthropic_to_gemini_request;
 use crate::antigravity::map::models::map_model_id;
 use crate::antigravity::model_catalog;
@@ -38,8 +36,7 @@ pub struct AntigravityAccountTestResult {
 pub fn resolve_probe_model(requested: Option<&str>) -> String {
     let trimmed = requested.map(str::trim).unwrap_or("");
     if trimmed.is_empty() {
-        model_catalog::preferred_gemini_flash()
-            .unwrap_or_else(|| "gemini-3.8-flash-high".into())
+        model_catalog::preferred_gemini_flash().unwrap_or_else(|| "gemini-3.8-flash-high".into())
     } else {
         map_model_id(trimmed)
     }
@@ -70,31 +67,24 @@ pub fn build_probe_gemini_request(model: &str, prompt: &str) -> Result<(String, 
 }
 
 fn sanitize_probe_generation(model: &str, request: &mut Value) {
-    if !model_catalog::uses_thinking_level(model) {
-        return;
-    }
-    let Some(level) = model_catalog::thinking_level_wire(model) else {
+    let Some(budget) = model_catalog::thinking_budget_for(model) else {
         return;
     };
-    let generation = request
-        .as_object_mut()
-        .map(|root| {
-            root.entry("generationConfig".to_string())
-                .or_insert_with(|| Value::Object(serde_json::Map::new()))
-        })
-        .and_then(Value::as_object_mut);
+    let generation = request.as_object_mut().map(|root| {
+        root.entry("generationConfig".to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()))
+    });
     let Some(generation) = generation else {
         return;
     };
-    generation.remove("temperature");
-    generation.remove("topP");
-    let config = generation
-        .entry("thinkingConfig".to_string())
-        .or_insert_with(|| Value::Object(serde_json::Map::new()));
-    if let Some(cfg) = config.as_object_mut() {
-        cfg.remove("thinkingBudget");
-        cfg.insert("thinkingLevel".into(), json!(level));
+    if let Some(obj) = generation.as_object_mut() {
+        obj.remove("temperature");
+        obj.remove("topP");
     }
+    let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+    generation["maxOutputTokens"] =
+        json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+    crate::antigravity::thinking::apply_thinking_budget(generation, budget, true);
 }
 
 pub fn extract_reply_text(unwrapped: &Value) -> Option<String> {
@@ -249,7 +239,12 @@ pub async fn test_account(
         }
     };
 
-    let project_id = match account.token.project_id.as_deref().filter(|id| !id.trim().is_empty()) {
+    let project_id = match account
+        .token
+        .project_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+    {
         Some(id) => id.to_string(),
         None => {
             let upstream = UpstreamClient::new();
@@ -333,11 +328,7 @@ pub async fn test_account(
                     upstream_model,
                     started.elapsed().as_millis() as u64,
                     reply,
-                    if category == "ok" {
-                        None
-                    } else {
-                        Some(body)
-                    },
+                    if category == "ok" { None } else { Some(body) },
                 ));
             }
             Err(AppError::Network(message)) => {
@@ -357,7 +348,8 @@ pub async fn test_account(
                 if category == "auth"
                     && crate::antigravity::account::requires_reauthorization(&message)
                 {
-                    let _ = account_store().mark_reauthorization_required(account_id, REAUTH_REASON);
+                    let _ =
+                        account_store().mark_reauthorization_required(account_id, REAUTH_REASON);
                 }
                 return Ok(result_for(
                     false,
@@ -394,16 +386,20 @@ mod tests {
         let (model, request) =
             build_probe_gemini_request("gemini-3.8-flash-high", "hello").expect("build");
         assert_eq!(model, "gemini-3.8-flash-high");
-        let text = request.pointer("/contents/0/parts/0/text").and_then(Value::as_str);
+        let text = request
+            .pointer("/contents/0/parts/0/text")
+            .and_then(Value::as_str);
         assert_eq!(text, Some("hello"));
         assert_eq!(
-            request.pointer("/generationConfig/maxOutputTokens").and_then(Value::as_u64),
+            request
+                .pointer("/generationConfig/maxOutputTokens")
+                .and_then(Value::as_u64),
             Some(64)
         );
     }
 
     #[test]
-    fn gemini_31_pro_uses_thinking_level_not_budget() {
+    fn gemini_31_pro_probe_uses_thinking_budget_not_level() {
         let (model, request) =
             build_probe_gemini_request("gemini-3.1-pro-high", "hello").expect("build");
         assert_eq!(model, "gemini-3.1-pro-high");
@@ -411,8 +407,15 @@ mod tests {
         assert!(gen.get("temperature").is_none());
         assert!(gen.get("topP").is_none());
         let thinking = gen.get("thinkingConfig").expect("thinkingConfig");
-        assert_eq!(thinking.get("thinkingLevel").and_then(Value::as_str), Some("HIGH"));
-        assert!(thinking.get("thinkingBudget").is_none());
+        assert_eq!(
+            thinking.get("thinkingBudget").and_then(Value::as_u64),
+            Some(10001)
+        );
+        assert!(thinking.get("thinkingLevel").is_none());
+        assert_eq!(
+            gen.get("maxOutputTokens").and_then(Value::as_u64),
+            Some(10002)
+        );
     }
 
     #[test]

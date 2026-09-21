@@ -173,7 +173,7 @@ pub fn anthropic_to_gemini_request(
         generation["maxOutputTokens"] = json!(max_tokens);
     }
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
-    let skip_sampling = gemini_target && model_catalog::uses_thinking_level(&model);
+    let skip_sampling = gemini_target && model_catalog::is_gemini_31_pro(&model);
     if !skip_sampling {
         if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
             generation["temperature"] = json!(temperature);
@@ -192,11 +192,13 @@ pub fn anthropic_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(level) = model_catalog::thinking_level_wire(&model) {
-            // 3.1 Pro cannot disable thinking and 400s on thinkingBudget.
-            crate::antigravity::thinking::apply_thinking_level(
+        if let Some(budget) = model_catalog::thinking_budget_for(&model) {
+            let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
+            generation["maxOutputTokens"] =
+                json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
+            crate::antigravity::thinking::apply_thinking_budget(
                 &mut generation,
-                level,
+                budget,
                 thoughts_allowed,
             );
         } else if let Some(budget) =
@@ -2007,7 +2009,7 @@ mod tests {
     }
 
     #[test]
-    fn gemini_31_pro_writes_thinking_level_not_budget() {
+    fn gemini_31_pro_writes_thinking_budget_not_level() {
         let body = json!({
             "model": "gemini-3.1-pro-high",
             "max_tokens": 100,
@@ -2021,17 +2023,17 @@ mod tests {
         assert_eq!(parts.model, "gemini-3.1-pro-high");
         assert!(parts.thoughts_allowed);
         let config = &parts.request["generationConfig"]["thinkingConfig"];
-        assert_eq!(config["thinkingLevel"], json!("HIGH"));
+        assert_eq!(config["thinkingBudget"], json!(10001));
         assert_eq!(config["includeThoughts"], json!(true));
-        assert!(config.get("thinkingBudget").is_none());
+        assert!(config.get("thinkingLevel").is_none());
         let generation = &parts.request["generationConfig"];
         assert!(generation.get("temperature").is_none());
         assert!(generation.get("topP").is_none());
-        assert_eq!(generation["maxOutputTokens"], json!(100));
+        assert_eq!(generation["maxOutputTokens"], json!(10002));
     }
 
     #[test]
-    fn gemini_31_pro_low_writes_low_thinking_level() {
+    fn gemini_31_pro_low_writes_low_thinking_budget() {
         let body = json!({
             "model": "gemini-3.1-pro-low",
             "max_tokens": 128,
@@ -2041,16 +2043,20 @@ mod tests {
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert_eq!(parts.model, "gemini-3.1-pro-low");
         assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
-            json!("LOW")
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            json!(1001)
         );
         assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingBudget")
+            .get("thinkingLevel")
             .is_none());
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(1002)
+        );
     }
 
     #[test]
-    fn gemini_31_pro_keeps_thinking_level_when_client_disables_thinking() {
+    fn gemini_31_pro_keeps_budget_when_client_disables_thinking() {
         let body = json!({
             "model": "gemini-3.1-pro-high",
             "max_tokens": 64,
@@ -2060,15 +2066,19 @@ mod tests {
         let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
         assert!(!parts.thoughts_allowed);
         assert_eq!(
-            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
-            json!("HIGH")
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+            json!(10001)
         );
         assert!(parts.request["generationConfig"]["thinkingConfig"]
             .get("includeThoughts")
             .is_none());
         assert!(parts.request["generationConfig"]["thinkingConfig"]
-            .get("thinkingBudget")
+            .get("thinkingLevel")
             .is_none());
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(10002)
+        );
     }
 
     #[test]
