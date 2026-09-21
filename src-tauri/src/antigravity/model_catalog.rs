@@ -65,6 +65,26 @@ fn gemini_31_pro_level(level: &str) -> &'static str {
     }
 }
 
+/// Gemini 3.1 Pro rejects `thinkingBudget` (and `thinkingBudget`+`thinkingLevel`
+/// together) with a bare 400 `INVALID_ARGUMENT`. Flash families still use budget.
+pub fn uses_thinking_level(id: &str) -> bool {
+    let lower = id.trim().to_ascii_lowercase();
+    let (base, _) = split_level_suffix(&lower);
+    is_gemini_31_pro_base(base)
+}
+
+/// Cloud Code / Gemini API wire value for 3.1 Pro `thinkingConfig.thinkingLevel`.
+/// Suffix `-low` → `LOW`; everything else (including bare / `-high`) → `HIGH`.
+/// Returns `None` for models that still use `thinkingBudget`.
+pub fn thinking_level_wire(id: &str) -> Option<&'static str> {
+    if !uses_thinking_level(id) {
+        return None;
+    }
+    let lower = id.trim().to_ascii_lowercase();
+    let (_, suffix) = split_level_suffix(&lower);
+    Some(if suffix == Some("low") { "LOW" } else { "HIGH" })
+}
+
 /// Split a model id into (base, explicit level suffix) when it ends with
 /// `-low` / `-medium` / `-high`.
 fn split_level_suffix(id: &str) -> (&str, Option<&str>) {
@@ -907,6 +927,20 @@ mod tests {
             with_forced_level("claude-sonnet-4-6", "low"),
             "claude-sonnet-4-6"
         );
+    }
+
+    #[test]
+    fn gemini_31_pro_uses_thinking_level_not_budget() {
+        assert!(uses_thinking_level("gemini-3.1-pro"));
+        assert!(uses_thinking_level("gemini-3.1-pro-high"));
+        assert!(uses_thinking_level("gemini-3.1-pro-low"));
+        assert!(!uses_thinking_level("gemini-3.8-flash-high"));
+        assert!(!uses_thinking_level("gemini-3.7-flash"));
+        assert!(!uses_thinking_level("claude-sonnet-4-6"));
+        assert_eq!(thinking_level_wire("gemini-3.1-pro-high"), Some("HIGH"));
+        assert_eq!(thinking_level_wire("gemini-3.1-pro"), Some("HIGH"));
+        assert_eq!(thinking_level_wire("gemini-3.1-pro-low"), Some("LOW"));
+        assert_eq!(thinking_level_wire("gemini-3.8-flash-high"), None);
     }
 
     #[test]

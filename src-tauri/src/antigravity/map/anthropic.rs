@@ -172,11 +172,15 @@ pub fn anthropic_to_gemini_request(
     if let Some(max_tokens) = body.get("max_tokens").and_then(Value::as_u64) {
         generation["maxOutputTokens"] = json!(max_tokens);
     }
-    if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
-        generation["temperature"] = json!(temperature);
-    }
-    if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
-        generation["topP"] = json!(top_p);
+    // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
+    let skip_sampling = gemini_target && model_catalog::uses_thinking_level(&model);
+    if !skip_sampling {
+        if let Some(temperature) = body.get("temperature").and_then(Value::as_f64) {
+            generation["temperature"] = json!(temperature);
+        }
+        if let Some(top_p) = body.get("top_p").and_then(Value::as_f64) {
+            generation["topP"] = json!(top_p);
+        }
     }
     if gemini_target && thoughts_allowed {
         generation["thinkingConfig"] = json!({ "includeThoughts": true });
@@ -188,7 +192,16 @@ pub fn anthropic_to_gemini_request(
         }
     }
     if gemini_target {
-        if let Some(budget) = crate::antigravity::thinking::resolve_thinking_budget(body, &model) {
+        if let Some(level) = model_catalog::thinking_level_wire(&model) {
+            // 3.1 Pro cannot disable thinking and 400s on thinkingBudget.
+            crate::antigravity::thinking::apply_thinking_level(
+                &mut generation,
+                level,
+                thoughts_allowed,
+            );
+        } else if let Some(budget) =
+            crate::antigravity::thinking::resolve_thinking_budget(body, &model)
+        {
             let max = generation.get("maxOutputTokens").and_then(Value::as_u64);
             generation["maxOutputTokens"] =
                 json!(crate::antigravity::thinking::pad_max_tokens(max, budget));
@@ -1988,6 +2001,74 @@ mod tests {
             parts.request["generationConfig"]["maxOutputTokens"],
             json!(8193)
         );
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("thinkingLevel")
+            .is_none());
+    }
+
+    #[test]
+    fn gemini_31_pro_writes_thinking_level_not_budget() {
+        let body = json!({
+            "model": "gemini-3.1-pro-high",
+            "max_tokens": 100,
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "thinking": { "type": "enabled", "budget_tokens": 8192 },
+            "thinkingConfig": { "thinkingBudget": 16384 },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(parts.model, "gemini-3.1-pro-high");
+        assert!(parts.thoughts_allowed);
+        let config = &parts.request["generationConfig"]["thinkingConfig"];
+        assert_eq!(config["thinkingLevel"], json!("HIGH"));
+        assert_eq!(config["includeThoughts"], json!(true));
+        assert!(config.get("thinkingBudget").is_none());
+        let generation = &parts.request["generationConfig"];
+        assert!(generation.get("temperature").is_none());
+        assert!(generation.get("topP").is_none());
+        assert_eq!(generation["maxOutputTokens"], json!(100));
+    }
+
+    #[test]
+    fn gemini_31_pro_low_writes_low_thinking_level() {
+        let body = json!({
+            "model": "gemini-3.1-pro-low",
+            "max_tokens": 128,
+            "thinking": { "type": "adaptive" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(parts.model, "gemini-3.1-pro-low");
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("LOW")
+        );
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("thinkingBudget")
+            .is_none());
+    }
+
+    #[test]
+    fn gemini_31_pro_keeps_thinking_level_when_client_disables_thinking() {
+        let body = json!({
+            "model": "gemini-3.1-pro-high",
+            "max_tokens": 64,
+            "thinking": { "type": "disabled" },
+            "messages": [{"role": "user", "content": "classify"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert!(!parts.thoughts_allowed);
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("HIGH")
+        );
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("includeThoughts")
+            .is_none());
+        assert!(parts.request["generationConfig"]["thinkingConfig"]
+            .get("thinkingBudget")
+            .is_none());
     }
 
     #[test]

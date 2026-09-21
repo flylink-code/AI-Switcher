@@ -1949,6 +1949,7 @@
         "Claude Code 供应商可配置子代理与 Agent Teams（写入 settings.json 的 env 与 teammateMode）；工作区 Agent 页保留未知 frontmatter。",
         "工作区提示词内置「并行协作」预设；live CLAUDE.md 禁止 Teams 时会提示先激活。",
         "产品界面隐藏 Claude Desktop 与 DSH：设置不可再勾选；后端、资料库卡片与端口保留。",
+        "反代网关 Gemini 3.1 Pro 改走 thinkingLevel（HIGH/LOW），不再写 thinkingBudget / temperature / topP，避免 Cloud Code 笼统 400。",
         "主资料库 Schema 保持 33，无需数据库迁移。"
       ]
     },

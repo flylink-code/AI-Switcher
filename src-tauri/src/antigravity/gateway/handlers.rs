@@ -666,7 +666,9 @@ async fn dispatch_generation(
             if matches!(response.status().as_u16(), 400 | 422) && !budget_rectified {
                 let status = response.status();
                 let text = response.text().await.unwrap_or_default();
-                if crate::antigravity::thinking::is_budget_constraint_error(&text) {
+                if crate::antigravity::thinking::is_budget_constraint_error(&text)
+                    && !crate::antigravity::model_catalog::uses_thinking_level(&current_model)
+                {
                     budget_rectified = true;
                     crate::antigravity::thinking::rectify_generate_request(&mut request);
                     log::warn!(

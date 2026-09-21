@@ -1949,6 +1949,7 @@
         "Claude Code providers can configure subagents and Agent Teams (env plus teammateMode in settings.json); the workspace Agents page keeps unknown frontmatter.",
         "Workspace prompts now include a Parallel collaboration preset; if live CLAUDE.md forbids Teams, the UI asks you to activate it first.",
         "Claude Desktop and DSH are hidden from the product UI and cannot be re-checked in Settings; backend, existing cards, and ports remain.",
+        "The reverse-proxy gateway now sends thinkingLevel (HIGH/LOW) for Gemini 3.1 Pro instead of thinkingBudget, temperature, or topP, which Cloud Code rejected with a generic 400.",
         "The main database remains on Schema 33; no database migration is required."
       ]
     },

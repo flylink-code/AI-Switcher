@@ -28,6 +28,9 @@ pub fn thinking_kind(body: &Value) -> Option<String> {
 }
 
 pub fn resolve_thinking_budget(body: &Value, model: &str) -> Option<u32> {
+    if crate::antigravity::model_catalog::uses_thinking_level(model) {
+        return None;
+    }
     let kind = thinking_kind(body);
     if kind.as_deref() == Some("disabled") {
         return None;
@@ -53,6 +56,21 @@ pub fn apply_thinking_budget(generation: &mut Value, budget: u32, include_though
     if include_thoughts {
         generation["thinkingConfig"]["includeThoughts"] = json!(true);
     }
+}
+
+/// Gemini 3.1 Pro: `thinkingLevel` only. Never emit `thinkingBudget`.
+pub fn apply_thinking_level(generation: &mut Value, level: &str, include_thoughts: bool) {
+    let mut config = generation
+        .get("thinkingConfig")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    config.insert("thinkingLevel".into(), json!(level));
+    config.remove("thinkingBudget");
+    if include_thoughts {
+        config.insert("includeThoughts".into(), json!(true));
+    }
+    generation["thinkingConfig"] = Value::Object(config);
 }
 
 pub fn is_budget_constraint_error(body: &str) -> bool {
@@ -126,5 +144,26 @@ mod tests {
             "Invalid thinkingBudget: must be less than maxOutputTokens"
         ));
         assert!(!is_budget_constraint_error("missing thought_signature"));
+    }
+
+    #[test]
+    fn gemini_31_pro_does_not_resolve_thinking_budget() {
+        let body = json!({
+            "thinking": { "type": "enabled", "budget_tokens": 8192 },
+            "thinkingConfig": { "thinkingBudget": 16384 }
+        });
+        assert_eq!(resolve_thinking_budget(&body, "gemini-3.1-pro-high"), None);
+        assert_eq!(resolve_thinking_budget(&body, "gemini-3.1-pro-low"), None);
+    }
+
+    #[test]
+    fn apply_thinking_level_drops_budget() {
+        let mut generation = json!({
+            "thinkingConfig": { "thinkingBudget": 8192 }
+        });
+        apply_thinking_level(&mut generation, "HIGH", true);
+        assert_eq!(generation["thinkingConfig"]["thinkingLevel"], json!("HIGH"));
+        assert_eq!(generation["thinkingConfig"]["includeThoughts"], json!(true));
+        assert!(generation["thinkingConfig"].get("thinkingBudget").is_none());
     }
 }
