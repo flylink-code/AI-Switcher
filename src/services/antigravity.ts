@@ -1,6 +1,7 @@
 import { call, getInvoke } from "./ipc";
 import type {
   AntigravityAccountPublic,
+  AntigravityAccountTestResult,
   AntigravityCatalogModel,
   AntigravityDefaults,
   AntigravityFastPathSettings,
@@ -13,6 +14,7 @@ import type {
 
 export type {
   AntigravityAccountPublic,
+  AntigravityAccountTestResult,
   AntigravityCatalogModel,
   AntigravityDefaults,
   AntigravityFastPathSettings,
@@ -121,6 +123,18 @@ export async function refreshAntigravityAccountQuota(
 
 export async function refreshAntigravityQuotas(): Promise<AntigravityAccountPublic[]> {
   return call<AntigravityAccountPublic[]>("refresh_antigravity_quotas");
+}
+
+export async function testAntigravityAccount(
+  accountId: string,
+  model?: string,
+  prompt?: string,
+): Promise<AntigravityAccountTestResult> {
+  return call<AntigravityAccountTestResult>("test_antigravity_account", {
+    accountId,
+    model: model ?? null,
+    prompt: prompt ?? null,
+  });
 }
 
 export async function ensureAntigravityProvider(

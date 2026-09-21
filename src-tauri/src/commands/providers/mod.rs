@@ -381,6 +381,16 @@ pub fn set_claude_code_agent_settings(
 }
 
 #[tauri::command]
+pub fn get_opencode_permission_mode() -> AppResult<String> {
+    opencode::read_permission_mode()
+}
+
+#[tauri::command]
+pub fn set_opencode_permission_mode(mode: String) -> AppResult<String> {
+    opencode::apply_permission_mode(&mode)
+}
+
+#[tauri::command]
 pub fn list_gateway_catalog_models(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,

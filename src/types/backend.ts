@@ -758,6 +758,7 @@ export interface ClaudeCodeAgentSettings {
   teamsEnabled: boolean;
   teammateMode: string;
   subagentModelForce: boolean;
+  autoModeServer: boolean;
   tmuxSupported: boolean;
 }
 
@@ -1351,6 +1352,24 @@ export interface AntigravityQuotaSnapshot {
   isForbidden: boolean;
   forbiddenReason?: string | null;
   subscriptionTier?: string | null;
+}
+
+export type AntigravityAccountTestCategory =
+  | "ok"
+  | "auth"
+  | "rate_limit"
+  | "quota"
+  | "network"
+  | "error";
+
+export interface AntigravityAccountTestResult {
+  ok: boolean;
+  category: AntigravityAccountTestCategory;
+  status?: number | null;
+  model: string;
+  latencyMs: number;
+  reply?: string | null;
+  error?: string | null;
 }
 
 export interface AntigravityAccountPublic {

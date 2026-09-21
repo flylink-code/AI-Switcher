@@ -5,8 +5,8 @@ use crate::antigravity::{
     import_accounts_json, list_accounts, login_with_browser, refresh_all_account_quotas,
     refresh_one_account_quota, remove_account, set_active_account, set_fast_path_settings,
     set_gateway_api_key, set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway,
-    stop_gateway, AntigravityAccountPublic, AntigravityGatewayStatus, FastPathSettings,
-    DEFAULT_CLASH_PROXY_URL, DEFAULT_GATEWAY_PORT,
+    stop_gateway, AntigravityAccountPublic, AntigravityAccountTestResult, AntigravityGatewayStatus,
+    FastPathSettings, DEFAULT_CLASH_PROXY_URL, DEFAULT_GATEWAY_PORT,
 };
 use crate::database::dao;
 use crate::error::{AppError, AppResult};
@@ -108,6 +108,15 @@ pub async fn refresh_antigravity_account_quota(
     account_id: String,
 ) -> AppResult<AntigravityAccountPublic> {
     refresh_one_account_quota(&account_id).await
+}
+
+#[tauri::command]
+pub async fn test_antigravity_account(
+    account_id: String,
+    model: Option<String>,
+    prompt: Option<String>,
+) -> AppResult<AntigravityAccountTestResult> {
+    crate::antigravity::account_test::test_account(&account_id, model, prompt).await
 }
 
 #[tauri::command]

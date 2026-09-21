@@ -6,6 +6,7 @@
 //! CC-BY-NC-SA source is vendored here.
 
 pub mod account;
+pub mod account_test;
 pub mod fast_path;
 pub mod gateway;
 pub mod limiter;
@@ -44,3 +45,4 @@ pub use quota_sync::{
     refresh_all_account_quotas, refresh_one_account_quota, try_refresh_all_quotas,
     QUOTA_REFRESH_EVENT, QUOTA_REFRESH_INTERVAL_SECS,
 };
+pub use account_test::AntigravityAccountTestResult;

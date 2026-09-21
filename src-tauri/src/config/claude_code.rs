@@ -384,18 +384,28 @@ pub fn apply_permission_default_mode_at(path: &Path, mode: &str) -> AppResult<St
 pub const TEAMMATE_MODES: [&str; 3] = ["auto", "in-process", "tmux"];
 const ENV_AGENT_TEAMS: &str = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
 const ENV_SUBAGENT_MODEL_FORCE: &str = "CLAUDE_CODE_SUBAGENT_MODEL_FORCE";
+const ENV_AUTO_MODE_SERVER: &str = "CLAUDE_CODE_AUTO_MODE_SERVER";
 const KEY_TEAMMATE_MODE: &str = "teammateMode";
+
+fn default_true() -> bool {
+    true
+}
 
 /// Session-level Claude Code agent-team / subagent preference.
 ///
 /// These env keys are **not** in [`MANAGED_ENV_KEYS`]: switching a provider
-/// must not wipe the teams flag or the force-subagent-model flag.
+/// must not wipe the teams flag, the force-subagent-model flag, or the
+/// auto-mode server classifier opt-out.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeCodeAgentSettings {
     pub teams_enabled: bool,
     pub teammate_mode: String,
     pub subagent_model_force: bool,
+    /// When false, write `CLAUDE_CODE_AUTO_MODE_SERVER=0` so Claude Code
+    /// uses its local classifier behind a gateway. When true, omit the key.
+    #[serde(default = "default_true")]
+    pub auto_mode_server: bool,
     /// Computed; ignored on write. False on Windows.
     #[serde(default)]
     pub tmux_supported: bool,
@@ -432,6 +442,7 @@ pub fn read_agent_settings_at(path: &Path) -> AppResult<ClaudeCodeAgentSettings>
     let env = settings.get("env").and_then(Value::as_object);
     let teams_enabled = env.is_some_and(|env| env_flag_enabled(env, ENV_AGENT_TEAMS));
     let subagent_model_force = env.is_some_and(|env| env_flag_enabled(env, ENV_SUBAGENT_MODEL_FORCE));
+    let auto_mode_server = auto_mode_server_enabled(env);
     let teammate_mode = settings
         .get(KEY_TEAMMATE_MODE)
         .and_then(Value::as_str)
@@ -443,6 +454,7 @@ pub fn read_agent_settings_at(path: &Path) -> AppResult<ClaudeCodeAgentSettings>
         teams_enabled,
         teammate_mode,
         subagent_model_force,
+        auto_mode_server,
         tmux_supported: false,
     }
     .with_platform())
@@ -463,6 +475,7 @@ pub fn apply_agent_settings_at(
         let env = ensure_env_object(&mut settings)?;
         set_env_flag(env, ENV_AGENT_TEAMS, input.teams_enabled);
         set_env_flag(env, ENV_SUBAGENT_MODEL_FORCE, input.subagent_model_force);
+        set_auto_mode_server(env, input.auto_mode_server);
     }
     if teammate_mode == "auto" {
         if let Some(obj) = settings.as_object_mut() {
@@ -479,9 +492,39 @@ pub fn apply_agent_settings_at(
         teams_enabled: input.teams_enabled,
         teammate_mode,
         subagent_model_force: input.subagent_model_force,
+        auto_mode_server: input.auto_mode_server,
         tmux_supported: false,
     }
     .with_platform())
+}
+
+fn auto_mode_server_enabled(env: Option<&Map<String, Value>>) -> bool {
+    let Some(env) = env else {
+        return true;
+    };
+    match env.get(ENV_AUTO_MODE_SERVER) {
+        None => true,
+        Some(Value::String(value)) => {
+            !matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "0" | "false" | "off" | "no"
+            )
+        }
+        Some(Value::Bool(false)) => false,
+        Some(Value::Number(n)) => n.as_i64() != Some(0),
+        _ => true,
+    }
+}
+
+fn set_auto_mode_server(env: &mut Map<String, Value>, enabled: bool) {
+    if enabled {
+        env.remove(ENV_AUTO_MODE_SERVER);
+    } else {
+        env.insert(
+            ENV_AUTO_MODE_SERVER.to_string(),
+            Value::String("0".to_string()),
+        );
+    }
 }
 
 fn env_flag_enabled(env: &Map<String, Value>, key: &str) -> bool {
@@ -1044,6 +1087,7 @@ mod tests {
                 teams_enabled: true,
                 teammate_mode: "in-process".into(),
                 subagent_model_force: true,
+                auto_mode_server: true,
                 tmux_supported: false,
             },
         )
@@ -1051,6 +1095,7 @@ mod tests {
         assert!(written.teams_enabled);
         assert_eq!(written.teammate_mode, "in-process");
         assert!(written.subagent_model_force);
+        assert!(written.auto_mode_server);
 
         let settings: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(settings["env"][ENV_AGENT_TEAMS], "1");
@@ -1060,6 +1105,10 @@ mod tests {
         assert_eq!(settings["permissions"]["defaultMode"], "plan");
         assert_eq!(settings["permissions"]["allow"][0], "Edit");
         assert_eq!(settings["model"], "default");
+        assert!(!settings["env"]
+            .as_object()
+            .unwrap()
+            .contains_key(ENV_AUTO_MODE_SERVER));
 
         apply_agent_settings_at(
             &path,
@@ -1067,6 +1116,7 @@ mod tests {
                 teams_enabled: false,
                 teammate_mode: "auto".into(),
                 subagent_model_force: false,
+                auto_mode_server: true,
                 tmux_supported: false,
             },
         )
@@ -1082,6 +1132,52 @@ mod tests {
     }
 
     #[test]
+    fn apply_agent_settings_writes_auto_mode_server_zero_then_removes_key() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(&path, json!({ "env": { "ENABLE_TOOL_SEARCH": "true" } }).to_string()).unwrap();
+
+        let off = apply_agent_settings_at(
+            &path,
+            &ClaudeCodeAgentSettings {
+                teams_enabled: false,
+                teammate_mode: "auto".into(),
+                subagent_model_force: false,
+                auto_mode_server: false,
+                tmux_supported: false,
+            },
+        )
+        .unwrap();
+        assert!(!off.auto_mode_server);
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(written["env"][ENV_AUTO_MODE_SERVER], "0");
+        assert_eq!(
+            read_agent_settings_at(&path).unwrap().auto_mode_server,
+            false
+        );
+
+        let on = apply_agent_settings_at(
+            &path,
+            &ClaudeCodeAgentSettings {
+                teams_enabled: false,
+                teammate_mode: "auto".into(),
+                subagent_model_force: false,
+                auto_mode_server: true,
+                tmux_supported: false,
+            },
+        )
+        .unwrap();
+        assert!(on.auto_mode_server);
+        let restored: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(!restored["env"]
+            .as_object()
+            .unwrap()
+            .contains_key(ENV_AUTO_MODE_SERVER));
+        assert!(read_agent_settings_at(&path).unwrap().auto_mode_server);
+        assert_eq!(restored["env"]["ENABLE_TOOL_SEARCH"], "true");
+    }
+
+    #[test]
     fn apply_provider_preserves_agent_team_env_keys() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("settings.json");
@@ -1091,7 +1187,8 @@ mod tests {
                 "teammateMode": "in-process",
                 "env": {
                     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-                    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
+                    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1",
+                    "CLAUDE_CODE_AUTO_MODE_SERVER": "0"
                 }
             })
             .to_string(),
@@ -1103,10 +1200,12 @@ mod tests {
         let env = written["env"].as_object().unwrap();
         assert_eq!(env[ENV_AGENT_TEAMS], "1");
         assert_eq!(env[ENV_SUBAGENT_MODEL_FORCE], "1");
+        assert_eq!(env[ENV_AUTO_MODE_SERVER], "0");
         assert_eq!(written[KEY_TEAMMATE_MODE], "in-process");
         assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
         assert!(!MANAGED_ENV_KEYS.contains(&ENV_AGENT_TEAMS));
         assert!(!MANAGED_ENV_KEYS.contains(&ENV_SUBAGENT_MODEL_FORCE));
+        assert!(!MANAGED_ENV_KEYS.contains(&ENV_AUTO_MODE_SERVER));
     }
 
     #[test]

@@ -61,6 +61,7 @@ import {
   getPiSettings,
   getClaudeCodeDefaultPermissionMode,
   getClaudeCodeAgentSettings,
+  getOpenCodePermissionMode,
   importGatewayUpstreamsFromProviders,
   listGatewayCatalogEntries,
   listGatewayProfiles,
@@ -69,6 +70,7 @@ import {
   quarantineFailedProviders,
   setClaudeCodeDefaultPermissionMode,
   setClaudeCodeAgentSettings,
+  setOpenCodePermissionMode,
   setGatewayBindingProfile,
   startCodexOauthLogin,
   updatePiSettings,
@@ -174,6 +176,11 @@ export default function ProvidersPage() {
     queryKey: ["claude-code-agent-settings"],
     queryFn: getClaudeCodeAgentSettings,
     enabled: target === "claude_code",
+  });
+  const opencodePermissionQuery = useQuery({
+    queryKey: ["opencode-permission-mode"],
+    queryFn: getOpenCodePermissionMode,
+    enabled: target === "opencode",
   });
   const livePromptQuery = useQuery({
     queryKey: ["claude-code-live-prompt"],
@@ -335,7 +342,10 @@ export default function ProvidersPage() {
     }
   };
 
-  const handleAgentSettingsChange = async (patch: Partial<ClaudeCodeAgentSettings>) => {
+  const handleAgentSettingsChange = async (
+    patch: Partial<ClaudeCodeAgentSettings>,
+    savedKey = "providers.agentTeamsSaved",
+  ) => {
     const current = agentSettingsQuery.data;
     if (!current) return;
     const next: ClaudeCodeAgentSettings = { ...current, ...patch };
@@ -345,7 +355,17 @@ export default function ProvidersPage() {
     try {
       await setClaudeCodeAgentSettings(next);
       await agentSettingsQuery.refetch();
-      void message.success(t("providers.agentTeamsSaved"));
+      void message.success(t(savedKey));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const handleOpenCodePermissionChange = async (allow: boolean) => {
+    try {
+      await setOpenCodePermissionMode(allow ? "allow" : "ask");
+      await opencodePermissionQuery.refetch();
+      void message.success(t("providers.opencodePermissionSaved"));
     } catch (error) {
       void message.error(errMsg(error));
     }
@@ -647,26 +667,46 @@ export default function ProvidersPage() {
       )}
       {target === "claude_code" && (
         <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-            <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-              <strong>{t("providers.defaultPermissionModeTitle")}</strong>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("providers.defaultPermissionModeHint")}
-              </Text>
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <strong>{t("providers.defaultPermissionModeTitle")}</strong>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.defaultPermissionModeHint")}
+                </Text>
+              </Space>
+              <Select
+                value={defaultPermissionModeQuery.data ?? "default"}
+                loading={defaultPermissionModeQuery.isLoading}
+                disabled={defaultPermissionModeQuery.isFetching}
+                style={{ minWidth: 200 }}
+                onChange={(value) => void handleDefaultPermissionModeChange(String(value))}
+                options={[
+                  { value: "default", label: t("providers.defaultPermissionModeDefault") },
+                  { value: "plan", label: t("providers.defaultPermissionModePlan") },
+                  { value: "acceptEdits", label: t("providers.defaultPermissionModeAcceptEdits") },
+                  { value: "auto", label: t("providers.defaultPermissionModeAuto") },
+                ]}
+              />
             </Space>
-            <Select
-              value={defaultPermissionModeQuery.data ?? "default"}
-              loading={defaultPermissionModeQuery.isLoading}
-              disabled={defaultPermissionModeQuery.isFetching}
-              style={{ minWidth: 200 }}
-              onChange={(value) => void handleDefaultPermissionModeChange(String(value))}
-              options={[
-                { value: "default", label: t("providers.defaultPermissionModeDefault") },
-                { value: "plan", label: t("providers.defaultPermissionModePlan") },
-                { value: "acceptEdits", label: t("providers.defaultPermissionModeAcceptEdits") },
-                { value: "auto", label: t("providers.defaultPermissionModeAuto") },
-              ]}
-            />
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <span>{t("providers.autoModeServer")}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.autoModeServerHint")}
+                </Text>
+              </Space>
+              <Switch
+                checked={agentSettingsQuery.data?.autoModeServer ?? true}
+                loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
+                onChange={(checked) =>
+                  void handleAgentSettingsChange(
+                    { autoModeServer: checked },
+                    "providers.autoModeServerSaved",
+                  )
+                }
+              />
+            </Space>
           </Space>
         </Card>
       )}
@@ -764,6 +804,23 @@ export default function ProvidersPage() {
             </span>
           }
         />
+      )}
+      {target === "opencode" && (
+        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
+          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+            <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+              <strong>{t("providers.opencodePermissionTitle")}</strong>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("providers.opencodePermissionHint")}
+              </Text>
+            </Space>
+            <Switch
+              checked={opencodePermissionQuery.data === "allow"}
+              loading={opencodePermissionQuery.isLoading || opencodePermissionQuery.isFetching}
+              onChange={(checked) => void handleOpenCodePermissionChange(checked)}
+            />
+          </Space>
+        </Card>
       )}
       {target === "pi" && (
         <>

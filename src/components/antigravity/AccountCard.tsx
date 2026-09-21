@@ -1,9 +1,17 @@
-import { Button, Card, Popconfirm, Space, Tag, Typography } from "antd";
+import { useState } from "react";
+import { Alert, Button, Card, Input, Modal, Popconfirm, Select, Space, Tag, Typography } from "antd";
 import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
+import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
 import { useTranslation } from "react-i18next";
-import type { AntigravityAccountPublic } from "@/services/api";
+import type {
+  AntigravityAccountPublic,
+  AntigravityAccountTestCategory,
+  AntigravityAccountTestResult,
+  AntigravityCatalogModel,
+} from "@/types/backend";
+import { testAntigravityAccount } from "@/services/api";
 import {
   QuotaMiniBar,
   accountQuotaSummary,
@@ -13,7 +21,8 @@ import {
 } from "@/components/AntigravityQuotaBars";
 import { StatusBadge } from "@/components/ui";
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
+const DEFAULT_PROMPT = "hello";
 
 interface AccountCardProps {
   account: AntigravityAccountPublic;
@@ -21,6 +30,45 @@ interface AccountCardProps {
   onRemove: (id: string) => void;
   isPending?: boolean;
   quotaViewMode?: "all" | "5h" | "7d";
+  models?: AntigravityCatalogModel[];
+}
+
+function defaultProbeModel(models: AntigravityCatalogModel[]): string {
+  const ids = models.map((model) => model.id);
+  return (
+    ids.find((id) => id === "gemini-3.8-flash-high")
+    ?? ids.find((id) => id.startsWith("gemini-3.8-flash"))
+    ?? ids.find((id) => id.includes("flash") && id.startsWith("gemini-"))
+    ?? ids[0]
+    ?? "gemini-3.8-flash-high"
+  );
+}
+
+function testChatAlertType(
+  category: AntigravityAccountTestCategory,
+): "success" | "info" | "warning" | "error" {
+  switch (category) {
+    case "ok":
+      return "success";
+    case "rate_limit":
+      return "warning";
+    case "network":
+      return "info";
+    case "auth":
+    case "quota":
+    case "error":
+      return "error";
+    default: {
+      const _exhaustive: never = category;
+      return _exhaustive;
+    }
+  }
+}
+
+function errMsg(error: unknown): string {
+  if (typeof error === "string" && error.trim()) return error;
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return String(error ?? "");
 }
 
 export function AccountCard({
@@ -29,8 +77,14 @@ export function AccountCard({
   onRemove,
   isPending = false,
   quotaViewMode = "all",
+  models = [],
 }: AccountCardProps) {
   const { t } = useTranslation();
+  const [testOpen, setTestOpen] = useState(false);
+  const [testModel, setTestModel] = useState(() => defaultProbeModel(models));
+  const [testPrompt, setTestPrompt] = useState(DEFAULT_PROMPT);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<AntigravityAccountTestResult | null>(null);
 
   const tier = formatTierLabel(account.subscriptionTier);
   const cooling =
@@ -47,6 +101,35 @@ export function AccountCard({
     quotaUpdatedAt,
   } = accountQuotaSummary(account);
   const quotaUpdated = formatQuotaUpdatedAt(quotaUpdatedAt);
+
+  const openTest = () => {
+    setTestModel(defaultProbeModel(models));
+    setTestPrompt(DEFAULT_PROMPT);
+    setTestResult(null);
+    setTestOpen(true);
+  };
+
+  const runTest = async () => {
+    setTestBusy(true);
+    try {
+      const result = await testAntigravityAccount(
+        account.id,
+        testModel.trim() || undefined,
+        testPrompt.trim() || DEFAULT_PROMPT,
+      );
+      setTestResult(result);
+    } catch (error) {
+      setTestResult({
+        ok: false,
+        category: "error",
+        model: testModel,
+        latencyMs: 0,
+        error: errMsg(error),
+      });
+    } finally {
+      setTestBusy(false);
+    }
+  };
 
   return (
     <Card
@@ -148,15 +231,7 @@ export function AccountCard({
           )}
         </div>
 
-        {/* Footer: meta row + actions row — same structure whether active or not */}
-        <div
-          style={{
-            marginTop: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
           <div
             style={{
               display: "flex",
@@ -193,6 +268,9 @@ export function AccountCard({
               minHeight: 24,
             }}
           >
+            <Button size="small" icon={<MessageOutlined />} onClick={openTest}>
+              {t("antigravity.testChat")}
+            </Button>
             {!account.isActive && !account.disabled ? (
               <Button
                 size="small"
@@ -218,6 +296,72 @@ export function AccountCard({
           </div>
         </div>
       </div>
+
+      <Modal
+        title={t("antigravity.testChatTitle", { email: account.email })}
+        open={testOpen}
+        onCancel={() => setTestOpen(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("antigravity.testChatHint")}
+          </Text>
+          <div>
+            <Text style={{ fontSize: 12 }}>{t("antigravity.testChatModel")}</Text>
+            <Select
+              showSearch
+              value={testModel}
+              onChange={(value) => setTestModel(String(value))}
+              style={{ width: "100%", marginTop: 4 }}
+              optionFilterProp="label"
+              options={(models.length > 0 ? models : [{ id: testModel, displayName: testModel }]).map(
+                (model) => ({
+                  value: model.id,
+                  label: model.displayName?.trim() ? `${model.displayName} (${model.id})` : model.id,
+                }),
+              )}
+            />
+          </div>
+          <div>
+            <Text style={{ fontSize: 12 }}>{t("antigravity.testChatPrompt")}</Text>
+            <Input
+              value={testPrompt}
+              onChange={(event) => setTestPrompt(event.target.value)}
+              onPressEnter={() => void runTest()}
+              style={{ marginTop: 4 }}
+            />
+          </div>
+          <Button type="primary" loading={testBusy} onClick={() => void runTest()} block>
+            {t("antigravity.testChatSend")}
+          </Button>
+          {testResult ? (
+            <Alert
+              type={testChatAlertType(testResult.category)}
+              showIcon
+              message={t(`antigravity.testChatResult.${testResult.category}`, {
+                ms: testResult.latencyMs,
+                model: testResult.model,
+              })}
+              description={
+                <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                  {testResult.reply ? (
+                    <Paragraph style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                      {testResult.reply}
+                    </Paragraph>
+                  ) : null}
+                  {testResult.error ? (
+                    <Text type="secondary" style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
+                      {testResult.error}
+                    </Text>
+                  ) : null}
+                </Space>
+              }
+            />
+          ) : null}
+        </Space>
+      </Modal>
     </Card>
   );
 }

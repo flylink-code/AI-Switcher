@@ -558,6 +558,7 @@ function AntigravityContent({
                 onRemove={handleRemoveAccount}
                 isPending={actionAccountId === account.id}
                 quotaViewMode={agQuotaViewMode}
+                models={models}
               />
             ))}
           </div>

@@ -287,6 +287,14 @@ export async function setClaudeCodeAgentSettings(
   return call<ClaudeCodeAgentSettings>("set_claude_code_agent_settings", { settings });
 }
 
+export async function getOpenCodePermissionMode(): Promise<string> {
+  return call<string>("get_opencode_permission_mode");
+}
+
+export async function setOpenCodePermissionMode(mode: string): Promise<string> {
+  return call<string>("set_opencode_permission_mode", { mode });
+}
+
 export async function createProvider(input: ProviderInput): Promise<Provider> {
   return call<Provider>("create_provider", { input });
 }

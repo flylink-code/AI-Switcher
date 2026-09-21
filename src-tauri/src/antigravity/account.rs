@@ -451,7 +451,34 @@ impl AccountStore {
                 .cloned()
                 .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?
         };
-        if snapshot.disabled {
+        self.ensure_access_token_inner(account_id, snapshot, false)
+    }
+
+    /// Like [`Self::ensure_access_token`], but still tries a disabled account so
+    /// a chat probe can tell auth-dead from merely marked disabled.
+    pub fn ensure_access_token_for_probe(
+        &self,
+        account_id: &str,
+    ) -> AppResult<(String, AntigravityAccount)> {
+        let snapshot = {
+            let guard = self.lock_accounts();
+            guard
+                .accounts
+                .iter()
+                .find(|account| account.id == account_id)
+                .cloned()
+                .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?
+        };
+        self.ensure_access_token_inner(account_id, snapshot, true)
+    }
+
+    fn ensure_access_token_inner(
+        &self,
+        account_id: &str,
+        snapshot: AntigravityAccount,
+        allow_disabled: bool,
+    ) -> AppResult<(String, AntigravityAccount)> {
+        if snapshot.disabled && !allow_disabled {
             return Err(auth_error(
                 "disabled",
                 &format!(

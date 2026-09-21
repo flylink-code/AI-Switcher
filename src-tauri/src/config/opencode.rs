@@ -506,6 +506,69 @@ pub fn read_live_providers() -> AppResult<Vec<OpenCodeLiveProvider>> {
     Ok(providers)
 }
 
+const OPENCODE_PERMISSION_WILDCARD: &str = "*";
+const OPENCODE_PERMISSION_ALLOW: &str = "allow";
+const OPENCODE_PERMISSION_ASK: &str = "ask";
+
+/// Read the global OpenCode permission wildcard. Missing or non-allow → `ask`.
+pub fn read_permission_mode() -> AppResult<String> {
+    read_permission_mode_at(&get_opencode_config_path())
+}
+
+pub fn read_permission_mode_at(path: &Path) -> AppResult<String> {
+    let config = read_opencode_config_at(path)?;
+    let mode = config
+        .get("permission")
+        .and_then(Value::as_object)
+        .and_then(|obj| obj.get(OPENCODE_PERMISSION_WILDCARD))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if mode.eq_ignore_ascii_case(OPENCODE_PERMISSION_ALLOW) {
+        Ok(OPENCODE_PERMISSION_ALLOW.to_string())
+    } else {
+        Ok(OPENCODE_PERMISSION_ASK.to_string())
+    }
+}
+
+/// Set `permission["*"]` to `allow` or `ask` without dropping other permission rules.
+pub fn apply_permission_mode(mode: &str) -> AppResult<String> {
+    apply_permission_mode_at(&get_opencode_config_path(), mode)
+}
+
+pub fn apply_permission_mode_at(path: &Path, mode: &str) -> AppResult<String> {
+    let normalized = parse_opencode_permission_mode(mode)?;
+    let _guard = lock_opencode_config()?;
+    let mut config = read_opencode_config_at(path)?;
+    let root = config.as_object_mut().ok_or_else(|| {
+        AppError::Config("OpenCode 配置文件根节点必须是 JSON 对象".into())
+    })?;
+    let permission = root
+        .entry("permission".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !permission.is_object() {
+        *permission = Value::Object(Map::new());
+    }
+    if let Some(obj) = permission.as_object_mut() {
+        obj.insert(
+            OPENCODE_PERMISSION_WILDCARD.to_string(),
+            Value::String(normalized.to_string()),
+        );
+    }
+    write_opencode_config_at(path, &config)?;
+    Ok(normalized.to_string())
+}
+
+fn parse_opencode_permission_mode(mode: &str) -> AppResult<&'static str> {
+    match mode.trim().to_ascii_lowercase().as_str() {
+        "allow" => Ok(OPENCODE_PERMISSION_ALLOW),
+        "ask" => Ok(OPENCODE_PERMISSION_ASK),
+        other => Err(AppError::Config(format!(
+            "不支持的 OpenCode 权限模式: {other}"
+        ))),
+    }
+}
+
 // ---- MCP 服务器同步 ---------------------------------------------------------
 //
 // OpenCode 的 MCP 配置在 `mcp` 段，格式与 Claude 不同：
@@ -846,6 +909,46 @@ mod tests {
         assert!(config["provider"]["my-own"].is_object(), "用户自有 provider 必须保留");
         assert!(config["provider"][managed_key()].is_object());
         assert_eq!(config["model"], "my-own/model-x");
+    }
+
+    #[test]
+    fn apply_permission_mode_writes_wildcard_and_preserves_rules() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("opencode.json");
+        std::fs::write(
+            &path,
+            r#"{ "permission": { "bash": "ask", "edit": "deny" }, "theme": "dark" }"#,
+        )
+        .expect("seed");
+
+        assert_eq!(read_permission_mode_at(&path).unwrap(), "ask");
+        assert_eq!(apply_permission_mode_at(&path, "allow").unwrap(), "allow");
+        let allowed = read_opencode_config_at(&path).expect("reload");
+        assert_eq!(allowed["permission"]["*"], "allow");
+        assert_eq!(allowed["permission"]["bash"], "ask");
+        assert_eq!(allowed["permission"]["edit"], "deny");
+        assert_eq!(allowed["theme"], "dark");
+        assert_eq!(read_permission_mode_at(&path).unwrap(), "allow");
+
+        assert_eq!(apply_permission_mode_at(&path, "ask").unwrap(), "ask");
+        let asked = read_opencode_config_at(&path).expect("reload");
+        assert_eq!(asked["permission"]["*"], "ask");
+        assert_eq!(asked["permission"]["bash"], "ask");
+        assert_eq!(asked["permission"]["edit"], "deny");
+        assert_eq!(read_permission_mode_at(&path).unwrap(), "ask");
+    }
+
+    #[test]
+    fn apply_all_preserves_permission_wildcard() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let path = temp.path().join("opencode.json");
+        apply_permission_mode_at(&path, "allow").expect("allow");
+        apply_all_providers_at(&path, &[(test_provider(ProtocolType::Anthropic), vec![])])
+            .expect("apply");
+
+        let config = read_opencode_config_at(&path).expect("reload");
+        assert_eq!(config["permission"]["*"], "allow");
+        assert!(config["provider"][managed_key()].is_object());
     }
 
     #[test]
