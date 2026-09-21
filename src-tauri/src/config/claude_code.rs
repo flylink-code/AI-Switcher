@@ -10,6 +10,7 @@
 
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::backup::backup_file_named;
@@ -376,6 +377,128 @@ pub fn apply_permission_default_mode_at(path: &Path, mode: &str) -> AppResult<St
         .insert("defaultMode".to_string(), Value::String(normalized.clone()));
     write_settings(path, &settings)?;
     Ok(normalized)
+}
+
+/// Claude Code `teammateMode` values. `tmux` is rejected on Windows because
+/// split panes need tmux or iTerm2 (not Windows Terminal / VS Code).
+pub const TEAMMATE_MODES: [&str; 3] = ["auto", "in-process", "tmux"];
+const ENV_AGENT_TEAMS: &str = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS";
+const ENV_SUBAGENT_MODEL_FORCE: &str = "CLAUDE_CODE_SUBAGENT_MODEL_FORCE";
+const KEY_TEAMMATE_MODE: &str = "teammateMode";
+
+/// Session-level Claude Code agent-team / subagent preference.
+///
+/// These env keys are **not** in [`MANAGED_ENV_KEYS`]: switching a provider
+/// must not wipe the teams flag or the force-subagent-model flag.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeCodeAgentSettings {
+    pub teams_enabled: bool,
+    pub teammate_mode: String,
+    pub subagent_model_force: bool,
+    /// Computed; ignored on write. False on Windows.
+    #[serde(default)]
+    pub tmux_supported: bool,
+}
+
+impl ClaudeCodeAgentSettings {
+    fn with_platform(mut self) -> Self {
+        self.tmux_supported = !cfg!(windows);
+        self
+    }
+}
+
+pub fn parse_teammate_mode(mode: &str) -> AppResult<&str> {
+    let trimmed = mode.trim();
+    let matched = TEAMMATE_MODES
+        .iter()
+        .copied()
+        .find(|allowed| *allowed == trimmed)
+        .ok_or_else(|| AppError::Config(format!("不支持的 teammateMode: {trimmed}")))?;
+    if matched == "tmux" && cfg!(windows) {
+        return Err(AppError::Config(
+            "Windows 不支持 teammateMode=tmux（需要 tmux 或 iTerm2）".to_string(),
+        ));
+    }
+    Ok(matched)
+}
+
+pub fn read_agent_settings() -> AppResult<ClaudeCodeAgentSettings> {
+    read_agent_settings_at(&get_claude_settings_path())
+}
+
+pub fn read_agent_settings_at(path: &Path) -> AppResult<ClaudeCodeAgentSettings> {
+    let settings = read_or_init_settings_at(path)?;
+    let env = settings.get("env").and_then(Value::as_object);
+    let teams_enabled = env.is_some_and(|env| env_flag_enabled(env, ENV_AGENT_TEAMS));
+    let subagent_model_force = env.is_some_and(|env| env_flag_enabled(env, ENV_SUBAGENT_MODEL_FORCE));
+    let teammate_mode = settings
+        .get(KEY_TEAMMATE_MODE)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|mode| TEAMMATE_MODES.contains(mode))
+        .unwrap_or("auto")
+        .to_string();
+    Ok(ClaudeCodeAgentSettings {
+        teams_enabled,
+        teammate_mode,
+        subagent_model_force,
+        tmux_supported: false,
+    }
+    .with_platform())
+}
+
+pub fn apply_agent_settings(input: &ClaudeCodeAgentSettings) -> AppResult<ClaudeCodeAgentSettings> {
+    apply_agent_settings_at(&get_claude_settings_path(), input)
+}
+
+pub fn apply_agent_settings_at(
+    path: &Path,
+    input: &ClaudeCodeAgentSettings,
+) -> AppResult<ClaudeCodeAgentSettings> {
+    let teammate_mode = parse_teammate_mode(&input.teammate_mode)?.to_string();
+    let mut settings = read_or_init_settings_at(path)?;
+    backup_settings(path)?;
+    {
+        let env = ensure_env_object(&mut settings)?;
+        set_env_flag(env, ENV_AGENT_TEAMS, input.teams_enabled);
+        set_env_flag(env, ENV_SUBAGENT_MODEL_FORCE, input.subagent_model_force);
+    }
+    if teammate_mode == "auto" {
+        if let Some(obj) = settings.as_object_mut() {
+            obj.remove(KEY_TEAMMATE_MODE);
+        }
+    } else if let Some(obj) = settings.as_object_mut() {
+        obj.insert(
+            KEY_TEAMMATE_MODE.to_string(),
+            Value::String(teammate_mode.clone()),
+        );
+    }
+    write_settings(path, &settings)?;
+    Ok(ClaudeCodeAgentSettings {
+        teams_enabled: input.teams_enabled,
+        teammate_mode,
+        subagent_model_force: input.subagent_model_force,
+        tmux_supported: false,
+    }
+    .with_platform())
+}
+
+fn env_flag_enabled(env: &Map<String, Value>, key: &str) -> bool {
+    match env.get(key) {
+        Some(Value::String(value)) => matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"),
+        Some(Value::Bool(true)) => true,
+        Some(Value::Number(n)) => n.as_i64() == Some(1),
+        _ => false,
+    }
+}
+
+fn set_env_flag(env: &mut Map<String, Value>, key: &str, enabled: bool) {
+    if enabled {
+        env.insert(key.to_string(), Value::String("1".to_string()));
+    } else {
+        env.remove(key);
+    }
 }
 
 // ---- internals -------------------------------------------------------------
@@ -898,5 +1021,104 @@ mod tests {
         )
         .unwrap();
         assert_eq!(read_permission_default_mode_at(&path).unwrap(), "default");
+    }
+
+    #[test]
+    fn apply_agent_settings_merges_env_and_preserves_permissions() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({
+                "model": "default",
+                "permissions": { "allow": ["Edit"], "defaultMode": "plan" },
+                "env": { "ENABLE_TOOL_SEARCH": "true" }
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let written = apply_agent_settings_at(
+            &path,
+            &ClaudeCodeAgentSettings {
+                teams_enabled: true,
+                teammate_mode: "in-process".into(),
+                subagent_model_force: true,
+                tmux_supported: false,
+            },
+        )
+        .unwrap();
+        assert!(written.teams_enabled);
+        assert_eq!(written.teammate_mode, "in-process");
+        assert!(written.subagent_model_force);
+
+        let settings: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(settings["env"][ENV_AGENT_TEAMS], "1");
+        assert_eq!(settings["env"][ENV_SUBAGENT_MODEL_FORCE], "1");
+        assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "true");
+        assert_eq!(settings[KEY_TEAMMATE_MODE], "in-process");
+        assert_eq!(settings["permissions"]["defaultMode"], "plan");
+        assert_eq!(settings["permissions"]["allow"][0], "Edit");
+        assert_eq!(settings["model"], "default");
+
+        apply_agent_settings_at(
+            &path,
+            &ClaudeCodeAgentSettings {
+                teams_enabled: false,
+                teammate_mode: "auto".into(),
+                subagent_model_force: false,
+                tmux_supported: false,
+            },
+        )
+        .unwrap();
+        let cleared: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(!cleared["env"].as_object().unwrap().contains_key(ENV_AGENT_TEAMS));
+        assert!(!cleared["env"]
+            .as_object()
+            .unwrap()
+            .contains_key(ENV_SUBAGENT_MODEL_FORCE));
+        assert!(cleared.get(KEY_TEAMMATE_MODE).is_none());
+        assert_eq!(cleared["env"]["ENABLE_TOOL_SEARCH"], "true");
+    }
+
+    #[test]
+    fn apply_provider_preserves_agent_team_env_keys() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        fs::write(
+            &path,
+            json!({
+                "teammateMode": "in-process",
+                "env": {
+                    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+                    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        apply_provider_to_settings_at(&sample_provider(), &path).unwrap();
+        let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let env = written["env"].as_object().unwrap();
+        assert_eq!(env[ENV_AGENT_TEAMS], "1");
+        assert_eq!(env[ENV_SUBAGENT_MODEL_FORCE], "1");
+        assert_eq!(written[KEY_TEAMMATE_MODE], "in-process");
+        assert_eq!(env["ANTHROPIC_BASE_URL"], "https://api.deepseek.com/anthropic");
+        assert!(!MANAGED_ENV_KEYS.contains(&ENV_AGENT_TEAMS));
+        assert!(!MANAGED_ENV_KEYS.contains(&ENV_SUBAGENT_MODEL_FORCE));
+    }
+
+    #[test]
+    fn parse_teammate_mode_rejects_unknown() {
+        assert!(parse_teammate_mode("split").is_err());
+        assert!(parse_teammate_mode("").is_err());
+        assert_eq!(parse_teammate_mode("  auto  ").unwrap(), "auto");
+        assert_eq!(parse_teammate_mode("in-process").unwrap(), "in-process");
+        if cfg!(windows) {
+            assert!(parse_teammate_mode("tmux").is_err());
+        } else {
+            assert_eq!(parse_teammate_mode("tmux").unwrap(), "tmux");
+        }
     }
 }

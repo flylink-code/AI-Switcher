@@ -729,12 +729,36 @@ export interface Agent {
   path: string;
   enabled: boolean;
   description: string;
+  body?: string;
+  model?: string | null;
+  tools?: string[];
+  disallowedTools?: string[];
+  permissionMode?: string | null;
+  maxTurns?: number | null;
+  skills?: string[];
+  memory?: string | null;
+  isolation?: string | null;
 }
 
 export interface AgentDraft {
   name: string;
   description: string;
   body?: string;
+  model?: string | null;
+  tools?: string[];
+  disallowedTools?: string[];
+  permissionMode?: string | null;
+  maxTurns?: number | null;
+  skills?: string[];
+  memory?: string | null;
+  isolation?: string | null;
+}
+
+export interface ClaudeCodeAgentSettings {
+  teamsEnabled: boolean;
+  teammateMode: string;
+  subagentModelForce: boolean;
+  tmuxSupported: boolean;
 }
 
 export interface CodexPlugin {

@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ProviderTarget } from "@/types/backend";
+import { isAgentUiEnabled } from "@/lib/agentVisibility";
 
 export type UsageSourceFilter = ProviderTarget | "all" | "antigravity";
 
@@ -197,7 +198,14 @@ export function usageSourceSegmentLabel(
   );
 }
 
-export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
+function isVisibleUsageSource(value: UsageSourceFilter): boolean {
+  if (value === "all" || value === "antigravity") {
+    return true;
+  }
+  return isAgentUiEnabled(value);
+}
+
+const ALL_USAGE_SOURCE_FILTER_OPTIONS: Array<{
   value: UsageSourceFilter;
   labelKey: string;
 }> = [
@@ -211,6 +219,10 @@ export const USAGE_SOURCE_FILTER_OPTIONS: Array<{
   { value: "cline", labelKey: "workspace.cline" },
   { value: "antigravity", labelKey: "usage.sourceAntigravity" },
 ];
+
+export const USAGE_SOURCE_FILTER_OPTIONS = ALL_USAGE_SOURCE_FILTER_OPTIONS.filter((option) =>
+  isVisibleUsageSource(option.value),
+);
 
 export function isUsageSourceFilter(value: string): value is UsageSourceFilter {
   return USAGE_SOURCE_FILTER_OPTIONS.some((option) => option.value === value);

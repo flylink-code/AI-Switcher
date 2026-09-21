@@ -11,6 +11,7 @@ import {
   Segmented,
   Select,
   Space,
+  Switch,
   Tag,
   Tooltip,
   Typography,
@@ -32,7 +33,7 @@ import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CodexOauthDeviceStart, GatewayCatalogModelOption, Provider, ProviderDoctorReport, ProviderTarget } from "@/types/backend";
+import type { CodexOauthDeviceStart, GatewayCatalogModelOption, Provider, ProviderDoctorReport, ProviderTarget, ClaudeCodeAgentSettings } from "@/types/backend";
 import { catalogModelView } from "@/utils/catalogModelLabel";
 import { useProvidersStore } from "@/stores/providersStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -46,6 +47,7 @@ import { AgentTargetSwitcher, LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/comp
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
 import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQueries";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { useNavigatePage } from "@/lib/navigation";
 import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
@@ -54,11 +56,11 @@ import {
   ensureSmartGatewayProvider,
   bindSmartGateway,
   getAntigravityGatewayStatus,
-  startDshWeb,
   getCodexAuthStatus,
   getPaths,
   getPiSettings,
   getClaudeCodeDefaultPermissionMode,
+  getClaudeCodeAgentSettings,
   importGatewayUpstreamsFromProviders,
   listGatewayCatalogEntries,
   listGatewayProfiles,
@@ -66,10 +68,12 @@ import {
   pollCodexOauthLogin,
   quarantineFailedProviders,
   setClaudeCodeDefaultPermissionMode,
+  setClaudeCodeAgentSettings,
   setGatewayBindingProfile,
   startCodexOauthLogin,
   updatePiSettings,
   updateProvider,
+  readLivePrompt,
 } from "@/services/api";
 
 const { Text } = Typography;
@@ -91,6 +95,11 @@ function groupedCatalogOptions(entries: GatewayCatalogModelOption[]) {
   return [...groups.entries()].map(([label, options]) => ({ label, options }));
 }
 
+function livePromptBlocksAgentTeams(content: string | undefined | null): boolean {
+  if (!content) return false;
+  return /不创建\s*Agent Teams|不使用多级代理编排|do not create Agent Teams/i.test(content);
+}
+
 /**
  * Providers page — classic cc-switch card list layout: a header row with the
  * page-local Agent switcher + runtime status tags + primary actions, then
@@ -103,6 +112,7 @@ export default function ProvidersPage() {
   const store = useProvidersStore();
   const target = usePagePreferencesStore((state) => state.providersTarget);
   const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
+  const setWorkspaceTarget = usePagePreferencesStore((state) => state.setWorkspaceTarget);
   const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
   const setGatewayTab = usePagePreferencesStore((state) => state.setGatewayTab);
   const setGatewaySection = usePagePreferencesStore((state) => state.setGatewaySection);
@@ -124,7 +134,6 @@ export default function ProvidersPage() {
   const [doctorReports, setDoctorReports] = useState<ProviderDoctorReport[]>([]);
   const [quarantining, setQuarantining] = useState(false);
   const [piThinkingLevel, setPiThinkingLevel] = useState<string>("medium");
-  const [startingDsh, setStartingDsh] = useState(false);
   const [autoModelSaving, setAutoModelSaving] = useState(false);
 
   const piSettingsQuery = useQuery({
@@ -159,6 +168,16 @@ export default function ProvidersPage() {
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
     queryFn: getClaudeCodeDefaultPermissionMode,
+    enabled: target === "claude_code",
+  });
+  const agentSettingsQuery = useQuery({
+    queryKey: ["claude-code-agent-settings"],
+    queryFn: getClaudeCodeAgentSettings,
+    enabled: target === "claude_code",
+  });
+  const livePromptQuery = useQuery({
+    queryKey: ["claude-code-live-prompt"],
+    queryFn: () => readLivePrompt("claude_code"),
     enabled: target === "claude_code",
   });
 
@@ -316,6 +335,30 @@ export default function ProvidersPage() {
     }
   };
 
+  const handleAgentSettingsChange = async (patch: Partial<ClaudeCodeAgentSettings>) => {
+    const current = agentSettingsQuery.data;
+    if (!current) return;
+    const next: ClaudeCodeAgentSettings = { ...current, ...patch };
+    if (!next.tmuxSupported && next.teammateMode === "tmux") {
+      next.teammateMode = "in-process";
+    }
+    try {
+      await setClaudeCodeAgentSettings(next);
+      await agentSettingsQuery.refetch();
+      void message.success(t("providers.agentTeamsSaved"));
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
+  const openWorkspacePrompts = () => {
+    setWorkspaceTarget("claude_code");
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("cs.workspaceTab", "prompts");
+    }
+    navigate("workspace");
+  };
+
   const handleImportToGateway = async (provider: Provider) => {
     try {
       const result = await importGatewayUpstreamsFromProviders(target, [provider.id], target);
@@ -408,18 +451,6 @@ export default function ProvidersPage() {
       await revealItemInDir(paths.opencodeConfigPath);
     } catch (error) {
       void message.error(errMsg(error));
-    }
-  };
-
-  const handleStartDshWeb = async () => {
-    setStartingDsh(true);
-    try {
-      const url = await startDshWeb();
-      await openUrl(url);
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setStartingDsh(false);
     }
   };
 
@@ -639,6 +670,89 @@ export default function ProvidersPage() {
           </Space>
         </Card>
       )}
+      {target === "claude_code" && (
+        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
+          <Space direction="vertical" size={12} style={{ width: "100%" }}>
+            <Space direction="vertical" size={0}>
+              <strong>{t("providers.agentTeamsTitle")}</strong>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("providers.agentTeamsHint")}
+              </Text>
+            </Space>
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <span>{t("providers.agentTeamsEnable")}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.agentTeamsEnableHint")}
+                </Text>
+              </Space>
+              <Switch
+                checked={agentSettingsQuery.data?.teamsEnabled ?? false}
+                loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
+                onChange={(checked) => void handleAgentSettingsChange({ teamsEnabled: checked })}
+              />
+            </Space>
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <span>{t("providers.agentTeamsMode")}</span>
+              <Select
+                value={
+                  agentSettingsQuery.data?.teammateMode === "tmux" && !agentSettingsQuery.data.tmuxSupported
+                    ? "in-process"
+                    : (agentSettingsQuery.data?.teammateMode ?? "auto")
+                }
+                loading={agentSettingsQuery.isLoading}
+                disabled={!agentSettingsQuery.data?.teamsEnabled || agentSettingsQuery.isFetching}
+                style={{ minWidth: 280 }}
+                onChange={(value) => void handleAgentSettingsChange({ teammateMode: String(value) })}
+                options={[
+                  { value: "auto", label: t("providers.agentTeamsModeAuto") },
+                  { value: "in-process", label: t("providers.agentTeamsModeInProcess") },
+                  {
+                    value: "tmux",
+                    label: t("providers.agentTeamsModeTmux"),
+                    disabled: !agentSettingsQuery.data?.tmuxSupported,
+                  },
+                ]}
+              />
+            </Space>
+            {!agentSettingsQuery.data?.tmuxSupported && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {t("providers.agentTeamsModeTmuxDisabled")}
+              </Text>
+            )}
+            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                <span>{t("providers.agentTeamsForceModel")}</span>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {t("providers.agentTeamsForceModelHint")}
+                </Text>
+              </Space>
+              <Switch
+                checked={agentSettingsQuery.data?.subagentModelForce ?? false}
+                loading={agentSettingsQuery.isFetching}
+                disabled={!agentSettingsQuery.data?.teamsEnabled}
+                onChange={(checked) => void handleAgentSettingsChange({ subagentModelForce: checked })}
+              />
+            </Space>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t("providers.agentTeamsGatewayNote")}
+            </Text>
+            {agentSettingsQuery.data?.teamsEnabled
+              && livePromptBlocksAgentTeams(livePromptQuery.data?.content) && (
+              <Alert
+                type="warning"
+                showIcon
+                message={t("providers.agentTeamsPromptConflict")}
+                action={
+                  <Button size="small" onClick={openWorkspacePrompts}>
+                    {t("providers.agentTeamsOpenPrompts")}
+                  </Button>
+                }
+              />
+            )}
+          </Space>
+        </Card>
+      )}
       {target === "opencode" && (
         <Alert
           type="info"
@@ -687,23 +801,6 @@ export default function ProvidersPage() {
             </Space>
           </Card>
         </>
-      )}
-      {target === "dsh" && (
-        <Space direction="vertical" size="small" style={{ width: "100%" }}>
-          <Alert
-            type="info"
-            showIcon
-            style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-            message={
-              <span style={{ fontSize: "12.5px" }}>
-                <strong>{t("providers.dshNoSwitchTitle")}</strong> — {t("providers.dshNoSwitchDescription")}
-              </span>
-            }
-          />
-          <Button type="primary" icon={<NodeIndexOutlined />} loading={startingDsh} onClick={() => void handleStartDshWeb()}>
-            {t("providers.startDshWeb")}
-          </Button>
-        </Space>
       )}
       {target === "cline" && (
         <Alert
@@ -959,7 +1056,7 @@ export default function ProvidersPage() {
                         <Dropdown
                           trigger={["click"]}
                           menu={{
-                            items: PROVIDER_TARGET_OPTIONS.filter((option) => option !== target).map((option) => ({
+                            items: filterUiAgents(PROVIDER_TARGET_OPTIONS).filter((option) => option !== target).map((option) => ({
                               key: option,
                               label: t(LABEL_KEYS[option]),
                               disabled: !canCopyProviderTo(provider, option),

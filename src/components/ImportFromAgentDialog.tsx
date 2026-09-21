@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { Provider, ProviderKind, ProviderTarget } from "@/types/backend";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { providerListOptions } from "@/lib/appQueries";
 
 export function canCopyProviderTo(provider: Provider, dest: ProviderTarget): boolean {
@@ -44,7 +45,7 @@ export function ImportFromAgentDialog({
 }: ImportFromAgentDialogProps) {
   const { t } = useTranslation();
   const sourceOptions = useMemo(
-    () => PROVIDER_TARGET_OPTIONS.filter((option) => option !== dest),
+    () => filterUiAgents(PROVIDER_TARGET_OPTIONS).filter((option) => option !== dest),
     [dest],
   );
   const [source, setSource] = useState<ProviderTarget>(sourceOptions[0] ?? "claude_code");

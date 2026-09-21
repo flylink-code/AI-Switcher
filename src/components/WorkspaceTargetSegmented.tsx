@@ -4,9 +4,10 @@ import {
   type UsageSourceFilter,
 } from "@/components/UsageSourceIcons";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import type { ProviderTarget } from "@/types/backend";
 
-const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"];
+const TARGET_OPTIONS: ProviderTarget[] = filterUiAgents(["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"]);
 
 const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",

@@ -6,6 +6,7 @@ import { useAppStore } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { languages } from "@/i18n";
 import { useNavigatePage } from "@/lib/navigation";
 import { autostartOptions, closeBehaviorOptions } from "@/lib/appQueries";
@@ -160,7 +161,7 @@ export default function SettingsPage() {
           })}
           control={
             <Checkbox.Group
-              options={PROVIDER_TARGET_OPTIONS.map((target) => ({
+              options={filterUiAgents(PROVIDER_TARGET_OPTIONS).map((target) => ({
                 label: t(LABEL_KEYS[target]),
                 value: target,
               }))}

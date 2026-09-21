@@ -3,6 +3,7 @@ import { queryClient } from "@/lib/queryClient";
 import { getProxyStatus } from "@/services/api";
 import { getSmartGatewayStatus } from "@/services/providers";
 import type { ProviderTarget, ProxyStatusUpdated, SmartGatewayStatus } from "@/types/backend";
+import { filterUiAgents } from "@/lib/agentVisibility";
 
 let initialized = false;
 
@@ -30,11 +31,11 @@ export function initializeProxyStatusEvents(): void {
 }
 
 async function synchronizeProxySnapshots(): Promise<void> {
-  for (const target of [
+  for (const target of filterUiAgents([
     "claude_code",
     "claude_desktop",
     "codex",
-  ] satisfies ProviderTarget[]) {
+  ] satisfies ProviderTarget[])) {
     try {
       const status = await getProxyStatus(target);
       queryClient.setQueryData(["proxy-status", target], status);

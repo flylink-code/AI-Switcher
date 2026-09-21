@@ -2,11 +2,22 @@ import React from "react";
 import { Segmented, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 import { usageSourceIcon, usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
-export const TARGET_OPTIONS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi"];
-export const PROVIDER_TARGET_OPTIONS: ProviderTarget[] = [...TARGET_OPTIONS, "dsh", "cline"];
+export const TARGET_OPTIONS: ProviderTarget[] = filterUiAgents([
+  "claude_code",
+  "claude_desktop",
+  "codex",
+  "opencode",
+  "pi",
+]);
+export const PROVIDER_TARGET_OPTIONS: ProviderTarget[] = filterUiAgents([
+  ...TARGET_OPTIONS,
+  "dsh",
+  "cline",
+]);
 
 export const LABEL_KEYS: Record<ProviderTarget, string> = {
   claude_code: "workspace.claude_code",

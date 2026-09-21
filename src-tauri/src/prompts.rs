@@ -154,8 +154,28 @@ fn read_prompt_text(path: &Path) -> AppResult<String> {
     Ok(decode_prompt_bytes(&fs::read(path)?))
 }
 
+/// Bundled Claude Code preset for Agent Teams / parallel subagents.
+const PARALLEL_PROMPT_NAME: &str = "并行协作";
+const PARALLEL_PROMPT_TEMPLATE: &str =
+    include_str!("../../docs/templates/prompts/claude-code-parallel.md");
+
+fn ensure_bundled_claude_code_prompts() -> AppResult<()> {
+    let path = preset_path(PromptTarget::ClaudeCode, PARALLEL_PROMPT_NAME)?;
+    if path.exists() {
+        return Ok(());
+    }
+    save_prompt(
+        PromptTarget::ClaudeCode,
+        PARALLEL_PROMPT_NAME,
+        PARALLEL_PROMPT_TEMPLATE,
+    )
+}
+
 /// List all presets sorted by name.
 pub fn list_prompts(target: PromptTarget) -> AppResult<Vec<PromptInfo>> {
+    if target == PromptTarget::ClaudeCode && !cfg!(test) {
+        let _ = ensure_bundled_claude_code_prompts();
+    }
     let dir = prompts_dir(target);
     if !dir.exists() {
         return Ok(Vec::new());
@@ -353,5 +373,30 @@ mod tests {
         fs::rename(&from, dir.join("new.md")).unwrap();
         assert!(dir.join("new.md").is_file());
         assert!(!dir.join("old.md").exists());
+    }
+
+    #[test]
+    fn seeds_parallel_collaboration_preset_once() {
+        let root = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(root.path(), || {
+            ensure_bundled_claude_code_prompts().unwrap();
+            let listed = list_prompts(PromptTarget::ClaudeCode).unwrap();
+            assert!(listed.iter().any(|item| item.name == PARALLEL_PROMPT_NAME));
+            let detail = read_prompt(PromptTarget::ClaudeCode, PARALLEL_PROMPT_NAME).unwrap();
+            assert!(detail.content.contains("允许创建 Agent Teams"));
+            save_prompt(
+                PromptTarget::ClaudeCode,
+                PARALLEL_PROMPT_NAME,
+                "user edited",
+            )
+            .unwrap();
+            ensure_bundled_claude_code_prompts().unwrap();
+            assert_eq!(
+                read_prompt(PromptTarget::ClaudeCode, PARALLEL_PROMPT_NAME)
+                    .unwrap()
+                    .content,
+                "user edited"
+            );
+        });
     }
 }

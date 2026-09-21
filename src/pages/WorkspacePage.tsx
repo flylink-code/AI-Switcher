@@ -1,7 +1,5 @@
 import { useEffect, useState, type ComponentType } from "react";
-import { App, Button, Segmented, Space, Spin } from "antd";
-import PlayCircleOutlined from "@ant-design/icons/es/icons/PlayCircleOutlined";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { Segmented, Space, Spin } from "antd";
 import { useTranslation } from "react-i18next";
 import {
   getLoadedPage,
@@ -11,7 +9,6 @@ import {
 import { AgentTargetSwitcher, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
-import { startDshWeb } from "@/services/api";
 
 /**
  * Workspace resource pages supported per agent.
@@ -22,7 +19,7 @@ const AGENT_SUPPORTED_TABS: Record<ProviderTarget, PageKey[]> = {
   codex: ["mcp", "prompts", "skills", "agents", "plugins"],
   opencode: ["mcp", "prompts"],
   pi: ["mcp", "prompts", "skills"],
-  dsh: ["mcp", "prompts"],
+  dsh: [],
   cline: ["mcp", "prompts", "skills"],
 };
 
@@ -67,7 +64,6 @@ const NAV_FALLBACKS: Record<string, string> = {
  */
 export default function WorkspacePage() {
   const { t } = useTranslation();
-  const { message } = App.useApp();
   const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
   const setWorkspaceTarget = usePagePreferencesStore((s) => s.setWorkspaceTarget);
 
@@ -80,18 +76,6 @@ export default function WorkspacePage() {
     }
     return supportedTabs[0] ?? "mcp";
   });
-  const [startingDsh, setStartingDsh] = useState(false);
-
-  const runDsh = async () => {
-    setStartingDsh(true);
-    try {
-      await openUrl(await startDshWeb());
-    } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
-    } finally {
-      setStartingDsh(false);
-    }
-  };
 
   useEffect(() => {
     if (!supportedTabs.includes(activeTab)) {
@@ -121,16 +105,6 @@ export default function WorkspacePage() {
             onChange={setWorkspaceTarget}
             targets={PROVIDER_TARGET_OPTIONS}
           />
-          {workspaceTarget === "dsh" && (
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              loading={startingDsh}
-              onClick={() => void runDsh()}
-            >
-              {t("workspace.runDsh", { defaultValue: "运行 DSH" })}
-            </Button>
-          )}
         </Space>
         {supportedTabs.length > 0 && (
         <div>

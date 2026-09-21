@@ -17,6 +17,7 @@ import type {
   SwitchProviderResult,
   GatewayCatalogModelOption,
   AgentConnectionView,
+  ClaudeCodeAgentSettings,
   ConnectionType,
   GatewayProfile,
   GatewayProfilePatch,
@@ -274,6 +275,16 @@ export async function getClaudeCodeDefaultPermissionMode(): Promise<string> {
 
 export async function setClaudeCodeDefaultPermissionMode(mode: string): Promise<string> {
   return call<string>("set_claude_code_default_permission_mode", { mode });
+}
+
+export async function getClaudeCodeAgentSettings(): Promise<ClaudeCodeAgentSettings> {
+  return call<ClaudeCodeAgentSettings>("get_claude_code_agent_settings");
+}
+
+export async function setClaudeCodeAgentSettings(
+  settings: ClaudeCodeAgentSettings,
+): Promise<ClaudeCodeAgentSettings> {
+  return call<ClaudeCodeAgentSettings>("set_claude_code_agent_settings", { settings });
 }
 
 export async function createProvider(input: ProviderInput): Promise<Provider> {

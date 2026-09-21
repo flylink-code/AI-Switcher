@@ -47,13 +47,11 @@ export default function WorkbenchPage() {
   const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
   const proxyQueries = [
     useQuery(proxyStatusOptions("claude_code")),
-    useQuery(proxyStatusOptions("claude_desktop")),
     useQuery(proxyStatusOptions("codex")),
     useQuery(proxyStatusOptions("opencode")),
   ];
   const providerQueries = [
     useQuery(providerListOptions("claude_code")),
-    useQuery(providerListOptions("claude_desktop")),
     useQuery(providerListOptions("codex")),
     useQuery(providerListOptions("opencode")),
   ];
@@ -67,13 +65,13 @@ export default function WorkbenchPage() {
   const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   // ----- Aggregate status strip -----
-  const proxyTargets: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode"];
+  const proxyTargets: ProviderTarget[] = ["claude_code", "codex", "opencode"];
   const proxyRunningCount = proxyQueries.filter((q) => q.data?.running).length;
   const providerCount = providerQueries.reduce((sum, q) => sum + (q.data?.length ?? 0), 0);
   const providersLoaded = providerQueries.every((q) => q.data !== undefined);
   const appStatus = runtimeQuery.data;
   const agentRunningCount = appStatus
-    ? [appStatus.claudeCode, appStatus.claudeDesktop, appStatus.codex, appStatus.opencode].filter(Boolean)
+    ? [appStatus.claudeCode, appStatus.codex, appStatus.opencode].filter(Boolean)
         .length
     : null;
 

@@ -367,6 +367,20 @@ pub fn set_claude_code_default_permission_mode(mode: String) -> AppResult<String
 }
 
 #[tauri::command]
+pub fn get_claude_code_agent_settings() -> AppResult<claude_code::ClaudeCodeAgentSettings> {
+    claude_code::read_agent_settings()
+}
+
+#[tauri::command]
+pub fn set_claude_code_agent_settings(
+    settings: claude_code::ClaudeCodeAgentSettings,
+) -> AppResult<claude_code::ClaudeCodeAgentSettings> {
+    let written = claude_code::apply_agent_settings(&settings)?;
+    let _ = crate::wsl_direct::sync_claude_codex_files();
+    Ok(written)
+}
+
+#[tauri::command]
 pub fn list_gateway_catalog_models(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Claude Desktop**、**Codex**、**OpenCode**、**Pi**、**DSH**、**Cline**。**v1.5.8**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.9**
 
-**本版**：上游中途断流后补发 Anthropic `message_stop`，Claude Code 不再停在 creating / accomplishing 转圈。
+**本版**：产品界面隐藏 Claude Desktop 与 DSH；Claude Code 可配置 Agent Teams。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 
@@ -23,23 +23,23 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 
 ## 功能
 
-- **供应商**：各 Agent 选择 **外部供应商连接** 或 **网关档案连接**。网关聚合目录、规划/执行/辅助分工与观测；卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi / DSH 在外部连接时仍多供应商并存；网关连接只写一条本机入口。
+- **供应商**：各 Agent 选择 **外部供应商连接** 或 **网关档案连接**。网关聚合目录、规划/执行/辅助分工与观测；卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi 在外部连接时仍多供应商并存；网关连接只写一条本机入口。
 - **智能网关**：独立本机服务 `127.0.0.1:15828`，模式路由、推理挡位、模型范围与条件规则。绑定 Agent 后写入指向该端口的 Auto 卡。用量按请求链路只计最内层花费。入口在主导航「网关」。
 - **Antigravity 网关**：`127.0.0.1:15830`，把 Cloud Code 接到 Anthropic Messages / OpenAI Chat / Responses。浏览器登录账号池、按额度调度。个人自用，请自行评估上游条款。
 - **工作区**：MCP、Prompts、Skills、Agents、插件、项目快照；按当前 Agent 只显示其支持的 Tab。
-- **会话与用量**：浏览、搜索、备份本地会话；合并代理日志与会话事件估算费用。不解析 Claude Desktop 私有历史。
-- **工具与汉化**：安装/更新各 Agent CLI；Claude Code、VS Code/Cursor、Desktop 中文包（对照 GitHub latest，可装可卸）。
+- **会话与用量**：浏览、搜索、备份本地会话；合并代理日志与会话事件估算费用。
+- **工具与汉化**：安装/更新各 Agent CLI；Claude Code、VS Code/Cursor 中文包（对照 GitHub latest，可装可卸）。
 
 ## 路径
 
 | | |
 | --- | --- |
 | Claude Code | `~/.claude/` |
-| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\`（Windows） |
+| Claude Desktop | `%LOCALAPPDATA%\Claude-3p\`（Windows）；**已从界面隐藏**，后端与资料库卡片仍保留 |
 | Codex | `$CODEX_HOME` 或 `~/.codex/` |
 | OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
 | Pi | `~/.pi/agent/` |
-| DSH | `~/.dsh/` |
+| DSH | `~/.dsh/`；**已从界面隐藏**，后端与资料库卡片仍保留 |
 | Cline | `~/.cline/`（sidecar `ai-switcher.json`；绑定 Auto 走 `:15828`，独立卡可走 `:15827`） |
 | 本应用 | `~/.claude-switcher/`（可迁移；库名保持兼容旧用户） |
 

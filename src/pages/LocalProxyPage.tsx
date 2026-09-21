@@ -19,13 +19,14 @@ import {
 import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 import type { ProviderTarget } from "@/types/backend";
 
 const { Text } = Typography;
 
-const PROXY_TARGETS: ProviderTarget[] = [
+const PROXY_TARGETS: ProviderTarget[] = filterUiAgents([
   "claude_code",
   "claude_desktop",
   "codex",
@@ -33,7 +34,7 @@ const PROXY_TARGETS: ProviderTarget[] = [
   "pi",
   "dsh",
   "cline",
-];
+]);
 
 export default function LocalProxyPage() {
   const { t } = useTranslation();

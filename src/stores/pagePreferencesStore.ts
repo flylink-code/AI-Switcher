@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ProviderTarget, SessionProvider } from "@/types/backend";
 import type { UsageSourceFilter } from "@/components/UsageSourceIcons";
+import { coerceUiAgent, filterUiAgents, isAgentUiEnabled } from "@/lib/agentVisibility";
 import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 
 const STORAGE_KEY = "cs.pagePreferences";
@@ -84,7 +85,7 @@ const DEFAULTS: Pick<
   | "workbenchView"
   | "agQuotaViewMode"
 > = {
-  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"],
+  visibleAgents: ["claude_code", "codex", "opencode", "pi", "cline"],
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
@@ -119,6 +120,19 @@ function isGatewaySection(value: unknown): value is GatewaySection {
 
 function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
   return value === "all" || value === "antigravity" || isProviderTarget(value);
+}
+
+function coerceUsageFilter(
+  value: UsageSourceFilter,
+  visible: readonly ProviderTarget[],
+): UsageSourceFilter {
+  if (value === "all" || value === "antigravity") {
+    return value;
+  }
+  if (!isAgentUiEnabled(value) || !visible.includes(value)) {
+    return coerceUiAgent("claude_code", visible);
+  }
+  return value;
 }
 
 function sessionProviderFor(target: ProviderTarget): SessionProvider {
@@ -163,36 +177,34 @@ function initialState() {
   const rawVisible = Array.isArray(stored.visibleAgents)
     ? stored.visibleAgents.filter(isProviderTarget)
     : null;
-  const visibleAgents = rawVisible && rawVisible.length > 0 ? rawVisible : DEFAULTS.visibleAgents;
+  const filteredVisible = filterUiAgents(
+    rawVisible && rawVisible.length > 0 ? rawVisible : DEFAULTS.visibleAgents,
+  );
+  const visibleAgents = filteredVisible.length > 0 ? filteredVisible : [...DEFAULTS.visibleAgents];
 
   const usagePeriod = isUsagePeriod(stored.usagePeriod) ? stored.usagePeriod : DEFAULTS.usagePeriod;
-  const usageLogTarget = isUsageLogTarget(stored.usageLogTarget)
-    ? stored.usageLogTarget
-    : DEFAULTS.usageLogTarget;
+  const usageLogTarget = coerceUsageFilter(
+    isUsageLogTarget(stored.usageLogTarget) ? stored.usageLogTarget : DEFAULTS.usageLogTarget,
+    visibleAgents,
+  );
   let providersTarget = isProviderTarget(stored.providersTarget)
     ? stored.providersTarget
     : isProviderTarget(stored.workspaceTarget)
       ? stored.workspaceTarget
       : DEFAULTS.providersTarget;
-  if (!visibleAgents.includes(providersTarget)) {
-    providersTarget = visibleAgents[0];
-  }
+  providersTarget = coerceUiAgent(providersTarget, visibleAgents);
 
   let workspaceTarget = isProviderTarget(stored.workspaceTarget)
     ? stored.workspaceTarget
     : providersTarget;
-  if (!visibleAgents.includes(workspaceTarget)) {
-    workspaceTarget = visibleAgents[0];
-  }
+  workspaceTarget = coerceUiAgent(workspaceTarget, visibleAgents);
 
   let proxyTarget = isProviderTarget(stored.proxyTarget)
     ? stored.proxyTarget
     : isProviderTarget(stored.workspaceTarget)
       ? stored.workspaceTarget
       : providersTarget;
-  if (!visibleAgents.includes(proxyTarget)) {
-    proxyTarget = visibleAgents[0];
-  }
+  proxyTarget = coerceUiAgent(proxyTarget, visibleAgents);
 
   let sessionsProvider = isSessionProvider(stored.sessionsProvider)
     ? stored.sessionsProvider
@@ -231,7 +243,10 @@ function initialState() {
     usagePeriod,
     heatmapPeriod: isUsagePeriod(stored.heatmapPeriod) ? stored.heatmapPeriod : usagePeriod,
     usageLogTarget,
-    heatmapSource: isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
+    heatmapSource: coerceUsageFilter(
+      isUsageLogTarget(stored.heatmapSource) ? stored.heatmapSource : usageLogTarget,
+      visibleAgents,
+    ),
     sessionsProvider,
     workbenchView: (stored.workbenchView === "usage" ? "usage" : "providers") as "providers" | "usage",
     agQuotaViewMode,
@@ -281,43 +296,40 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   ...initialState(),
   usageLogPage: 0,
   setVisibleAgents: (visibleAgents) => {
-    if (!visibleAgents || visibleAgents.length === 0) return;
+    const nextVisible = filterUiAgents(visibleAgents);
+    if (nextVisible.length === 0) return;
     const current = get();
-    let workspaceTarget = current.workspaceTarget;
-    if (!visibleAgents.includes(workspaceTarget)) {
-      workspaceTarget = visibleAgents[0];
-    }
-    let providersTarget = current.providersTarget;
-    if (!visibleAgents.includes(providersTarget)) {
-      providersTarget = visibleAgents[0];
-    }
-    let proxyTarget = current.proxyTarget;
-    if (!visibleAgents.includes(proxyTarget)) {
-      proxyTarget = visibleAgents[0];
-    }
+    const workspaceTarget = coerceUiAgent(current.workspaceTarget, nextVisible);
+    const providersTarget = coerceUiAgent(current.providersTarget, nextVisible);
+    const proxyTarget = coerceUiAgent(current.proxyTarget, nextVisible);
     let sessionsProvider = current.sessionsProvider;
-    if (!visibleAgents.includes(sessionsProvider as ProviderTarget)) {
-      sessionsProvider = (visibleAgents.find(isSessionProvider) ?? visibleAgents[0]) as SessionProvider;
+    if (!nextVisible.includes(sessionsProvider as ProviderTarget)) {
+      sessionsProvider = (nextVisible.find(isSessionProvider) ?? nextVisible[0]) as SessionProvider;
     }
     set({
-      visibleAgents,
+      visibleAgents: nextVisible,
       workspaceTarget,
       providersTarget,
       proxyTarget,
       sessionsProvider,
+      usageLogTarget: coerceUsageFilter(current.usageLogTarget, nextVisible),
+      heatmapSource: coerceUsageFilter(current.heatmapSource, nextVisible),
     });
     persistSlice(get());
   },
   setWorkspaceTarget: (workspaceTarget) => {
-    set({ workspaceTarget });
+    const visible = get().visibleAgents;
+    set({ workspaceTarget: coerceUiAgent(workspaceTarget, visible) });
     persistSlice(get());
   },
   setProvidersTarget: (providersTarget) => {
-    set({ providersTarget });
+    const visible = get().visibleAgents;
+    set({ providersTarget: coerceUiAgent(providersTarget, visible) });
     persistSlice(get());
   },
   setProxyTarget: (proxyTarget) => {
-    set({ proxyTarget });
+    const visible = get().visibleAgents;
+    set({ proxyTarget: coerceUiAgent(proxyTarget, visible) });
     persistSlice(get());
   },
   setGatewayTab: (gatewayTab) => {
@@ -346,11 +358,11 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setUsageLogPage: (usageLogPage) => set({ usageLogPage }),
   setUsageLogTarget: (usageLogTarget) => {
-    set({ usageLogTarget });
+    set({ usageLogTarget: coerceUsageFilter(usageLogTarget, get().visibleAgents) });
     persistSlice(get());
   },
   setHeatmapSource: (heatmapSource) => {
-    set({ heatmapSource });
+    set({ heatmapSource: coerceUsageFilter(heatmapSource, get().visibleAgents) });
     persistSlice(get());
   },
   setSessionsProvider: (sessionsProvider) => {

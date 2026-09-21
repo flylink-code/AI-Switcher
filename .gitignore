@@ -43,8 +43,9 @@ Thumbs.db
 .claude-switcher/
 
 photo
-CLAUDE.md
+# Local AI handoff: AGENTS.md only (CLAUDE.md retired, keep ignored if recreated)
 AGENTS.md
+CLAUDE.md
 ui-test.html
 
 # Local secrets (never commit; use .env.example as template)
@@ -53,6 +54,9 @@ docs/**
 !docs/smart-gateway/
 !docs/smart-gateway/**
 !docs/testing.md
+!docs/templates/
+!docs/templates/prompts/
+!docs/templates/prompts/**
 .cursor/
 1-examples-2-ccswitch-cached-tide.md
 

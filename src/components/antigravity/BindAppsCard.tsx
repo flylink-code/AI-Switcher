@@ -3,11 +3,12 @@ import LinkOutlined from "@ant-design/icons/es/icons/LinkOutlined";
 import CheckOutlined from "@ant-design/icons/es/icons/CheckOutlined";
 import { useTranslation } from "react-i18next";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import type { ProviderTarget } from "@/types/backend";
 
 const { Text } = Typography;
 
-export const BIND_TARGETS: ProviderTarget[] = [
+export const BIND_TARGETS: ProviderTarget[] = filterUiAgents([
   "claude_code",
   "claude_desktop",
   "codex",
@@ -15,7 +16,7 @@ export const BIND_TARGETS: ProviderTarget[] = [
   "pi",
   "dsh",
   "cline",
-];
+]);
 
 interface BindAppsCardProps {
   boundMap?: Map<ProviderTarget, boolean>;

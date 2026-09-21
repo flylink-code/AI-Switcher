@@ -78,13 +78,13 @@ export default function ProfilesPage() {
   };
 
   const handleCreate = async (values: CreateFormValues) => {
-    if (!values.claudeCode && !values.claudeDesktop && !values.codex) {
+    if (!values.claudeCode && !values.codex) {
       message.warning(t("profiles.selectScope"));
       return;
     }
     const scopes: ProfileSnapshotScopes = {
       claudeCode: values.claudeCode,
-      claudeDesktop: values.claudeDesktop,
+      claudeDesktop: false,
       codex: values.codex,
     };
     try {
@@ -281,9 +281,6 @@ export default function ProfilesPage() {
             <Space direction="vertical">
               <Form.Item name="claudeCode" valuePropName="checked" noStyle>
                 <Checkbox>{t("profiles.scopeCode")}</Checkbox>
-              </Form.Item>
-              <Form.Item name="claudeDesktop" valuePropName="checked" noStyle>
-                <Checkbox>{t("profiles.scopeDesktop")}</Checkbox>
               </Form.Item>
               <Form.Item name="codex" valuePropName="checked" noStyle>
                 <Checkbox>{t("profiles.scopeCodex")}</Checkbox>

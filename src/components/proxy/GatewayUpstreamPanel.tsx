@@ -36,6 +36,7 @@ import {
   upsertGatewayUpstream,
 } from "@/services/providers";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { PROVIDER_PRESETS, type ProviderPreset } from "@/lib/providerPresets";
 import {
   buildEndpointPreview,
@@ -649,7 +650,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
                 setImportTarget(value);
                 setImportIds([]);
               }}
-              options={PROVIDER_TARGET_OPTIONS.map((item) => ({
+              options={filterUiAgents(PROVIDER_TARGET_OPTIONS).map((item) => ({
                 value: item,
                 label: t(LABEL_KEYS[item]),
               }))}

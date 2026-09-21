@@ -3,7 +3,7 @@ import {
   autostartOptions,
   environmentOptions,
   localClaudeVersionOptions,
-  localizationOptions,
+  localizationHubOptions,
   mcpServersOptions,
   promptsOverviewOptions,
   providerListOptions,
@@ -31,16 +31,8 @@ const criticalTasks: StartupTask[] = [
     run: () => queryClient.fetchQuery(providerListOptions("claude_code")),
   },
   {
-    id: "desktopProviders",
-    run: () => queryClient.fetchQuery(providerListOptions("claude_desktop")),
-  },
-  {
     id: "codeProxy",
     run: () => queryClient.fetchQuery(proxyStatusOptions("claude_code")),
-  },
-  {
-    id: "desktopProxy",
-    run: () => queryClient.fetchQuery(proxyStatusOptions("claude_desktop")),
   },
 ];
 
@@ -55,7 +47,7 @@ const localDataTasks: StartupTask[] = [
 const slowTasks: StartupTask[] = [
   {
     id: "localizationData",
-    run: () => queryClient.fetchQuery(localizationOptions),
+    run: () => queryClient.fetchQuery(localizationHubOptions),
   },
   {
     id: "versionData",

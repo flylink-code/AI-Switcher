@@ -20,6 +20,7 @@ import type {
   SimulateGatewayRouteResult,
 } from "@/types/backend";
 import { catalogModelView } from "@/utils/catalogModelLabel";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import {
   catalogModelSelectProps,
   type CatalogModelSelectOption,
@@ -28,7 +29,7 @@ import {
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const TARGETS: ProviderTarget[] = [
+const TARGETS: ProviderTarget[] = filterUiAgents([
   "claude_code",
   "claude_desktop",
   "codex",
@@ -36,7 +37,7 @@ const TARGETS: ProviderTarget[] = [
   "pi",
   "dsh",
   "cline",
-];
+]);
 
 function SimulatedModelText({ value }: { value?: string | null }) {
   const full = value?.trim() || "";

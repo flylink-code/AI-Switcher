@@ -51,6 +51,7 @@ import type {
 } from "@/types/backend";
 import { WorkspaceTargetSegmented } from "@/components/WorkspaceTargetSegmented";
 import { SessionBackupModal } from "@/components/sessions/SessionBackupModal";
+import { filterUiAgents } from "@/lib/agentVisibility";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 
 type DirectoryFilter = "all" | "yes" | "no";
@@ -554,7 +555,7 @@ export default function SessionsPage() {
         value={provider}
         onChange={setSessionsProvider}
         t={t}
-        targets={["claude_code", "codex", "opencode", "pi", "dsh", "cline"]}
+        targets={filterUiAgents(["claude_code", "codex", "opencode", "pi", "dsh", "cline"])}
       />
 
       <Card size="small" className="page-surface">

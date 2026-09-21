@@ -2,6 +2,8 @@ import { Button, Collapse, Drawer, Table, Tabs, Typography } from "antd";
 import BookOutlined from "@ant-design/icons/es/icons/BookOutlined";
 import QuestionCircleOutlined from "@ant-design/icons/es/icons/QuestionCircleOutlined";
 import { useTranslation } from "react-i18next";
+import { filterUiAgents } from "@/lib/agentVisibility";
+import type { ProviderTarget } from "@/types/backend";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -65,13 +67,15 @@ const RECIPE_MIX: RecipeRow[] = [
 ];
 
 const TUTORIAL_AGENTS = [
-  "claude_code",
-  "claude_desktop",
-  "codex",
-  "opencode",
-  "pi",
-  "dsh",
-  "cline",
+  ...filterUiAgents([
+    "claude_code",
+    "claude_desktop",
+    "codex",
+    "opencode",
+    "pi",
+    "dsh",
+    "cline",
+  ] satisfies ProviderTarget[]),
   "custom",
 ] as const;
 

@@ -1,4 +1,5 @@
 import type { ClaudeModelMapping, ProviderTarget, ProtocolType } from "@/types/backend";
+import { filterUiAgents } from "@/lib/agentVisibility";
 
 export interface ProviderPreset {
   id: string;
@@ -16,9 +17,9 @@ export interface ProviderPreset {
   targets: ProviderTarget[];
 }
 
-const CODE_DESKTOP: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "pi", "dsh"];
-const CLAUDE_OPENCODE: ProviderTarget[] = ["claude_code", "claude_desktop", "opencode", "dsh"];
-const ALL_TARGETS: ProviderTarget[] = ["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"];
+const CODE_DESKTOP: ProviderTarget[] = filterUiAgents(["claude_code", "claude_desktop", "opencode", "pi", "dsh"]);
+const CLAUDE_OPENCODE: ProviderTarget[] = filterUiAgents(["claude_code", "claude_desktop", "opencode", "dsh"]);
+const ALL_TARGETS: ProviderTarget[] = filterUiAgents(["claude_code", "claude_desktop", "codex", "opencode", "pi", "dsh", "cline"]);
 
 /** Built-in quick-fill presets for common third-party gateways. */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -102,7 +103,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     notes:
       "Baidu Qianfan Token Plan (Personal) Anthropic-compatible gateway (deepseek-v4-pro default)",
-    targets: ["claude_code", "claude_desktop"],
+    targets: filterUiAgents(["claude_code", "claude_desktop"]),
   },
   {
     id: "qianfan-tokenplan-openai",
@@ -119,7 +120,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     notes:
       "Baidu Qianfan Token Plan (Personal) OpenAI-compatible Chat API",
-    targets: ["opencode", "pi", "dsh", "cline"],
+    targets: filterUiAgents(["opencode", "pi", "dsh", "cline"]),
   },
   {
     id: "qianfan-tokenplan-codex",
@@ -346,7 +347,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     modelContextWindow: 200_000,
     notes: "External Antigravity-Manager gateway for DSH (anthropic-messages). Start AG Manager and fill its API key.",
-    targets: ["dsh"],
+    targets: filterUiAgents(["dsh"]),
   },
   {
     id: "antigravity-builtin-dsh",
@@ -364,7 +365,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     ],
     modelContextWindow: 200_000,
     notes: "Built-in Antigravity gateway for DSH (anthropic-messages; no Claude role mapping).",
-    targets: ["dsh"],
+    targets: filterUiAgents(["dsh"]),
   },
 ];
 

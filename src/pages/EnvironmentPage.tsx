@@ -563,17 +563,6 @@ export default function EnvironmentPage() {
       ]
     : [];
 
-  const desktopRows: PathRow[] = paths
-    ? [
-        { key: "claudeDesktopBase", value: paths.claudeDesktopBase },
-        { key: "claudeDesktopThreepBase", value: paths.claudeDesktopThreepBase },
-        { key: "claudeDesktopConfigLibrary", value: paths.claudeDesktopConfigLibrary },
-        { key: "claudeDesktopMetaPath", value: paths.claudeDesktopMetaPath },
-        { key: "claudeDesktopNormalConfigPath", value: paths.claudeDesktopNormalConfigPath },
-        { key: "claudeDesktopThreepConfigPath", value: paths.claudeDesktopThreepConfigPath },
-      ]
-    : [];
-
   const codexRows: PathRow[] = paths
     ? [
         { key: "codexConfigDir", value: paths.codexConfigDir },
@@ -808,7 +797,6 @@ export default function EnvironmentPage() {
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Card size="small" className="page-surface" title={t("env.sections.recovery")} extra={<Space>
           <Button size="small" onClick={() => { setBackupTarget("claude_code"); void loadConfigBackups("claude_code"); }}>{t("providers.claudeCode")}</Button>
-          <Button size="small" onClick={() => { setBackupTarget("claude_desktop"); void loadConfigBackups("claude_desktop"); }}>{t("providers.claudeDesktop")}</Button>
           <Button size="small" onClick={() => { setBackupTarget("codex"); void loadConfigBackups("codex"); }}>Codex</Button>
         </Space>}>
           <Space wrap style={{ marginBottom: 8 }}>
@@ -1171,17 +1159,6 @@ export default function EnvironmentPage() {
               <Card size="small" className="page-surface" title={t("env.sections.claude")}>
                 <Descriptions column={1} size="small" bordered>
                   {claudeRows.map((r) => (
-                    <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
-                      <PathValue value={r.value} />
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
-              </Card>
-            )}
-            {visibleAgents.includes("claude_desktop") && (
-              <Card size="small" className="page-surface" title={t("env.sections.claudeDesktop")}>
-                <Descriptions column={1} size="small" bordered>
-                  {desktopRows.map((r) => (
                     <Descriptions.Item key={r.key} label={t(`env.fields.${r.key}`)}>
                       <PathValue value={r.value} />
                     </Descriptions.Item>
