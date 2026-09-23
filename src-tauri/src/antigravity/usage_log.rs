@@ -5,7 +5,9 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use crate::database::dao::proxy_logs::{insert_proxy_log, update_proxy_log_hop, update_proxy_log_usage_idempotent};
+use crate::database::dao::proxy_logs::{
+    insert_proxy_log, update_proxy_log_hop, update_proxy_log_usage_idempotent,
+};
 use crate::database::Database;
 use axum::http::HeaderMap;
 

@@ -4,6 +4,9 @@ import type {
   AntigravityAccountTestResult,
   AntigravityCatalogModel,
   AntigravityDefaults,
+  AntigravityExitLatencyResult,
+  AntigravityExitProbeResult,
+  AntigravityExitProxyInput,
   AntigravityFastPathSettings,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
@@ -17,6 +20,10 @@ export type {
   AntigravityAccountTestResult,
   AntigravityCatalogModel,
   AntigravityDefaults,
+  AntigravityExitLatencyResult,
+  AntigravityExitProbeResult,
+  AntigravityExitProxy,
+  AntigravityExitProxyInput,
   AntigravityFastPathSettings,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
@@ -75,6 +82,26 @@ export async function setAntigravityOutboundProxy(
     mode,
     proxyUrl: proxyUrl ?? null,
   });
+}
+
+export async function setAntigravityExitProxy(
+  entries: AntigravityExitProxyInput[],
+): Promise<AntigravityGatewayStatus> {
+  return call<AntigravityGatewayStatus>("set_antigravity_exit_proxy", { entries });
+}
+
+export async function probeAntigravityExitProxy(
+  id: string,
+  proxyUrl: string,
+): Promise<AntigravityExitProbeResult> {
+  return call<AntigravityExitProbeResult>("probe_antigravity_exit_proxy", { id, proxyUrl });
+}
+
+export async function probeAntigravityExitLatency(
+  id: string,
+  proxyUrl: string,
+): Promise<AntigravityExitLatencyResult> {
+  return call<AntigravityExitLatencyResult>("probe_antigravity_exit_latency", { id, proxyUrl });
 }
 
 export async function getAntigravityLimiterSettings(): Promise<AntigravityLimiterSettings> {

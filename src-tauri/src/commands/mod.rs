@@ -46,7 +46,9 @@ pub use antigravity::{
     set_antigravity_active_account, set_antigravity_gateway_api_key, set_antigravity_gateway_port,
     set_antigravity_limiter_settings, get_antigravity_limiter_settings,
     get_antigravity_fast_path_settings, set_antigravity_fast_path_settings,
-    set_antigravity_outbound_proxy, start_antigravity_gateway,
+    set_antigravity_outbound_proxy, set_antigravity_exit_proxy, probe_antigravity_exit_proxy,
+    probe_antigravity_exit_latency,
+    start_antigravity_gateway,
     start_antigravity_oauth_login, stop_antigravity_gateway, test_antigravity_account,
 };
 pub use claude_plugins::{

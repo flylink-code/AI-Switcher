@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -91,6 +91,14 @@ function invalidateUsageQueries(queryClient: ReturnType<typeof useQueryClient>) 
   ]);
 }
 
+function requestLogHeaderCell() {
+  return { style: { whiteSpace: "nowrap" } };
+}
+
+const REQUEST_LOG_WIDE_WIDTH = 1280;
+const REQUEST_LOG_NARROW_SCROLL_X = 880;
+const REQUEST_LOG_WIDE_SCROLL_X = 1275;
+
 export default function UsagePage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -119,6 +127,21 @@ export default function UsagePage() {
   const [trendExpanded, setTrendExpanded] = useState(false);
   const [onlyFailures, setOnlyFailures] = useState(false);
   const [onlyGateway, setOnlyGateway] = useState(false);
+  const requestLogHostRef = useRef<HTMLDivElement>(null);
+  const [requestLogsWide, setRequestLogsWide] = useState(false);
+
+  useLayoutEffect(() => {
+    const host = requestLogHostRef.current;
+    if (!host) return;
+    const measure = () => {
+      const wide = host.clientWidth >= REQUEST_LOG_WIDE_WIDTH;
+      setRequestLogsWide((current) => (current === wide ? current : wide));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
 
   const logRefreshTimerRef = useRef<number | null>(null);
   const lastLogRefreshAtRef = useRef(0);
@@ -605,6 +628,7 @@ export default function UsagePage() {
           </Space>
         }
       >
+        <div ref={requestLogHostRef}>
         {isCodexOnly && (
           <Alert
             type="info"
@@ -617,6 +641,7 @@ export default function UsagePage() {
           size="small"
           rowKey="id"
           locale={{ emptyText: t("usage.noData") }}
+          scroll={{ x: requestLogsWide ? REQUEST_LOG_WIDE_SCROLL_X : REQUEST_LOG_NARROW_SCROLL_X }}
           dataSource={requestLogs?.data ?? []}
           loading={logsQuery.isPending && !logsQuery.data}
           pagination={{
@@ -637,18 +662,23 @@ export default function UsagePage() {
               title: t("usage.logTime"),
               dataIndex: "createdAt",
               width: 170,
+              onHeaderCell: requestLogHeaderCell,
               render: (v: number) => new Date(v).toLocaleString(),
             },
             {
               title: t("usage.logApp"),
               dataIndex: "targetApp",
-              width: 120,
+              width: 110,
+              onHeaderCell: requestLogHeaderCell,
               render: (v: string | null) => v ?? "—",
             },
             {
               title: t("usage.logProvider"),
               dataIndex: "providerName",
+              width: 180,
               ellipsis: true,
+              onHeaderCell: requestLogHeaderCell,
+              onCell: () => ({ style: { maxWidth: 180, overflow: "hidden" } }),
               render: (v: string | null, row: PaginatedProxyLogs["data"][number]) => {
                 if (row.dataSource === "codex_session") return t("usage.codexSessionSource");
                 if (row.dataSource === "opencode_session") return t("usage.opencodeSessionSource");
@@ -662,26 +692,39 @@ export default function UsagePage() {
                   label = v ?? "—";
                 }
                 return (
-                  <Space size={4} wrap>
-                    <span>{label}</span>
-                    {viaGateway ? <Tag color="blue">{t("usage.viaSmartGateway")}</Tag> : null}
-                    {row.usageCounted === false ? (
-                      <Tag color="default">{t("usage.transitHop", { defaultValue: "中转" })}</Tag>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4, width: "100%", minWidth: 0 }}>
+                    <Tooltip title={label}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: "0 1 auto" }}>
+                        {label}
+                      </span>
+                    </Tooltip>
+                    {viaGateway ? (
+                      <Tag color="blue" style={{ flexShrink: 0, marginInlineEnd: 0 }}>
+                        {t("usage.viaSmartGateway")}
+                      </Tag>
                     ) : null}
-                  </Space>
+                    {row.usageCounted === false ? (
+                      <Tag color="default" style={{ flexShrink: 0, marginInlineEnd: 0 }}>
+                        {t("usage.transitHop", { defaultValue: "中转" })}
+                      </Tag>
+                    ) : null}
+                  </span>
                 );
               },
             },
             {
               title: t("usage.model"),
               dataIndex: "model",
+              width: 200,
               ellipsis: true,
+              onHeaderCell: requestLogHeaderCell,
               render: (v: string | null) => v ?? "—",
             },
             {
               title: t("usage.logStatus"),
               dataIndex: "statusCode",
               width: 80,
+              onHeaderCell: requestLogHeaderCell,
               render: (v: number | null) => {
                 if (v === null) return "—";
                 if (v >= 200 && v < 300) return <Text type="secondary">{v}</Text>;
@@ -689,65 +732,85 @@ export default function UsagePage() {
               },
             },
             {
-              title: t("usage.errorSource"),
-              dataIndex: "errorCategory",
-              width: 105,
-              render: (value: string | null) => {
-                if (!value) return "—";
-                const label =
-                  value === "auth"
-                    ? t("usage.errorCategoryAuth", { defaultValue: "账号授权" })
-                    : value;
+              title: t("usage.logTokens"),
+              width: 140,
+              onHeaderCell: requestLogHeaderCell,
+              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => {
+                if (!row.usageAvailable) {
+                  return <Text type="secondary">{t("usage.usageUnavailable")}</Text>;
+                }
+                const label = `${formatCompactNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatCompactNumber(row.outputTokens)}`;
+                const text = <span style={{ whiteSpace: "nowrap" }}>{label}</span>;
+                if (!row.cacheReadInputTokens) return text;
                 return (
-                  <Tag color={value === "upstream" || value === "upstream_429" ? "orange" : "red"}>
-                    {label}
-                  </Tag>
+                  <Tooltip title={`${t("usage.cached")}: ${formatCompactNumber(row.cacheReadInputTokens)}`}>
+                    {text}
+                  </Tooltip>
                 );
               },
             },
-            {
-              title: t("usage.logTokens"),
-              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) =>
-                row.usageAvailable
-                  ? `${formatCompactNumber(row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens)} / ${formatCompactNumber(row.outputTokens)}${row.cacheReadInputTokens ? ` (${t("usage.cached")}: ${formatCompactNumber(row.cacheReadInputTokens)})` : ""}`
-                  : <Text type="secondary">{t("usage.usageUnavailable")}</Text>,
-            },
-            {
-              title: t("usage.logDuration"),
-              dataIndex: "durationMs",
-              width: 90,
-              render: (v: number) => `${v}ms`,
-            },
-            {
-              title: (
-                <Tooltip title={t("usage.logRateTooltip", { defaultValue: "平均输出速率（包含首 Token 等待，非纯解码速率）" })}>
-                  <span style={{ cursor: "help", borderBottom: "1px dotted var(--color-text-tertiary)" }}>
-                    {t("usage.logRate", { defaultValue: "速率" })}
-                  </span>
-                </Tooltip>
-              ),
-              width: 105,
-              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => formatTokenRate(row),
-            },
-            {
-              title: t("usage.logStream"),
-              width: 95,
-              render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => {
-                if (!row.isStream) return "—";
-                if (row.streamOutcome === "midstream_error") {
-                  return <Tag color="error">{t("usage.streamMidstreamError")}</Tag>;
-                }
-                if (row.streamOutcome === "cancelled") {
-                  return <Tag color="warning">{t("usage.streamCancelled")}</Tag>;
-                }
-                if (row.streamOutcome === "complete") {
-                  return <Tag color="success">{t("usage.streamComplete")}</Tag>;
-                }
-                return <Tag>{t("common.enabled")}</Tag>;
-              },
-            },
+            ...(requestLogsWide
+              ? [
+                  {
+                    title: t("usage.errorSource"),
+                    dataIndex: "errorCategory",
+                    width: 105,
+                    onHeaderCell: requestLogHeaderCell,
+                    render: (value: string | null) => {
+                      if (!value) return "—";
+                      const label =
+                        value === "auth"
+                          ? t("usage.errorCategoryAuth", { defaultValue: "账号授权" })
+                          : value;
+                      return (
+                        <Tag color={value === "upstream" || value === "upstream_429" ? "orange" : "red"}>
+                          {label}
+                        </Tag>
+                      );
+                    },
+                  },
+                  {
+                    title: t("usage.logDuration"),
+                    dataIndex: "durationMs",
+                    width: 90,
+                    onHeaderCell: requestLogHeaderCell,
+                    render: (v: number) => `${v}ms`,
+                  },
+                  {
+                    title: (
+                      <Tooltip title={t("usage.logRateTooltip", { defaultValue: "平均输出速率（包含首 Token 等待，非纯解码速率）" })}>
+                        <span style={{ cursor: "help", borderBottom: "1px dotted var(--color-text-tertiary)" }}>
+                          {t("usage.logRate", { defaultValue: "速率" })}
+                        </span>
+                      </Tooltip>
+                    ),
+                    width: 105,
+                    onHeaderCell: requestLogHeaderCell,
+                    render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => formatTokenRate(row),
+                  },
+                  {
+                    title: t("usage.logStream"),
+                    width: 95,
+                    onHeaderCell: requestLogHeaderCell,
+                    render: (_: unknown, row: PaginatedProxyLogs["data"][number]) => {
+                      if (!row.isStream) return "—";
+                      if (row.streamOutcome === "midstream_error") {
+                        return <Tag color="error">{t("usage.streamMidstreamError")}</Tag>;
+                      }
+                      if (row.streamOutcome === "cancelled") {
+                        return <Tag color="warning">{t("usage.streamCancelled")}</Tag>;
+                      }
+                      if (row.streamOutcome === "complete") {
+                        return <Tag color="success">{t("usage.streamComplete")}</Tag>;
+                      }
+                      return <Tag>{t("common.enabled")}</Tag>;
+                    },
+                  },
+                ]
+              : []),
           ]}
         />
+        </div>
       </Card>
 
       {/* Modals & Drawers */}

@@ -540,6 +540,12 @@ impl AccountStore {
     }
 
     fn refresh_token(&self, refresh_token: &str) -> AppResult<TokenRefreshResponse> {
+        // A residential exit must not be skipped: a direct token refresh would
+        // present this machine's address instead of the configured home IP.
+        if crate::antigravity::outbound::exit_hop_active() {
+            let client = crate::antigravity::outbound::build_blocking_token_refresh_client(false)?;
+            return refresh_token_with_client(&client, refresh_token);
+        }
         // Google OAuth is reachable directly in this environment while the
         // configured Clash SOCKS endpoint can hang indefinitely. Prefer a
         // bounded direct refresh; fall back to the configured route for users
@@ -616,7 +622,7 @@ fn refresh_token_with_client(
             } else {
                 "transport"
             };
-            let proxy = crate::system_proxy::outbound_proxy_url()
+            let proxy = crate::antigravity::outbound::diagnostic_route()
                 .map(|url| format!(" via {url}"))
                 .unwrap_or_default();
             AppError::Network(format!(

@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.9**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.10**
 
-**This release:** Claude Desktop and DSH are hidden from the product UI. Claude Code can configure Agent Teams.
+**This release:** The reverse-proxy gateway can chain a second exit IP. Usage request logs stay readable in a narrow window.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 

@@ -226,7 +226,7 @@ async fn exchange_code(code: &str, redirect_uri: &str) -> AppResult<ExchangedTok
         .send()
         .await
         .map_err(|error| {
-            let proxy = crate::antigravity::outbound::current_effective_proxy()
+            let proxy = crate::antigravity::outbound::diagnostic_route()
                 .or_else(crate::system_proxy::outbound_proxy_url)
                 .unwrap_or_else(|| "未配置".into());
             AppError::Other(format!(

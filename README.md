@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.9**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.10**
 
-**本版**：产品界面隐藏 Claude Desktop 与 DSH；Claude Code 可配置 Agent Teams。
+**本版**：反代网关支持链式代理出口 IP；用量请求记录在窄窗口保持常用列可读。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 

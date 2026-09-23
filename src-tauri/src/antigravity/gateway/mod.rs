@@ -17,6 +17,9 @@ use super::limiter::{AccountLimiter, LimiterSettings};
 use super::pool::AccountPool;
 use super::upstream::UpstreamClient;
 use crate::antigravity::fast_path::FastPathSettings;
+use crate::antigravity::outbound::{
+    ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult, ExitProxyView,
+};
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
@@ -49,6 +52,12 @@ pub struct AntigravityGatewayStatus {
     pub outbound_mode: String,
     pub outbound_proxy_url: String,
     pub effective_outbound_proxy: Option<String>,
+    #[serde(default)]
+    pub exit_proxies: Vec<ExitProxyView>,
+    #[serde(default)]
+    pub exit_chain_label: String,
+    #[serde(default)]
+    pub exit_error: Option<String>,
     pub limiter_settings: LimiterSettings,
     #[serde(default)]
     pub fast_path: FastPathSettings,
@@ -159,6 +168,9 @@ pub fn gateway_status() -> AppResult<AntigravityGatewayStatus> {
             outbound_mode: outbound.mode.as_str().to_string(),
             outbound_proxy_url: outbound.proxy_url,
             effective_outbound_proxy: outbound.effective_proxy_url,
+            exit_proxies: outbound.exit_proxies,
+            exit_chain_label: outbound.exit_chain_label,
+            exit_error: outbound.exit_error,
             limiter_settings: manager.limiter.current_settings(),
             fast_path: crate::antigravity::fast_path::current_settings(),
         })
@@ -241,6 +253,39 @@ pub fn set_outbound_proxy(mode: &str, proxy_url: &str) -> AppResult<AntigravityG
         Ok(())
     })?;
     gateway_status()
+}
+
+pub fn set_exit_proxies(entries: Vec<ExitProxyEntry>) -> AppResult<AntigravityGatewayStatus> {
+    with_manager(|manager| {
+        let settings = crate::antigravity::outbound::save_exit_proxies(&manager.db, entries)?;
+        manager.upstream.reload();
+        super::account::store().reload_http_client();
+        log::info!(
+            "Antigravity chain exit proxies reloaded: count={} chain={}",
+            settings.exit_proxies.len(),
+            settings.exit_chain_label
+        );
+        Ok(())
+    })?;
+    gateway_status()
+}
+
+pub async fn probe_exit_proxy(id: String, proxy_url: String) -> AppResult<ExitProxyProbeResult> {
+    let probe = crate::antigravity::outbound::probe_exit_proxy(&id, &proxy_url).await?;
+    log::info!("Antigravity chain exit probe {}: {}", probe.id, probe.message);
+    Ok(probe)
+}
+
+pub async fn probe_exit_latency(
+    id: String,
+    proxy_url: String,
+) -> AppResult<ExitProxyLatencyResult> {
+    let latency = crate::antigravity::outbound::probe_exit_latency(&id, &proxy_url).await?;
+    log::info!(
+        "Antigravity chain exit latency {}: {}",
+        latency.id, latency.message
+    );
+    Ok(latency)
 }
 
 pub fn set_gateway_port(port: u16) -> AppResult<()> {

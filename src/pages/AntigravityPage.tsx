@@ -33,6 +33,9 @@ import {
   setAntigravityLimiterSettings,
   setAntigravityFastPathSettings,
   setAntigravityOutboundProxy,
+  setAntigravityExitProxy,
+  probeAntigravityExitLatency,
+  probeAntigravityExitProxy,
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
@@ -41,6 +44,9 @@ import {
 import type {
   AntigravityAccountPublic,
   AntigravityCatalogModel,
+  AntigravityExitLatencyResult,
+  AntigravityExitProbeResult,
+  AntigravityExitProxyInput,
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
   AntigravityFastPathSettings,
@@ -251,6 +257,49 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
+  const exitMutation = useMutation({
+    mutationFn: (entries: AntigravityExitProxyInput[]) => setAntigravityExitProxy(entries),
+    onSuccess: async () => {
+      message.success(t("antigravity.exitSaved", { defaultValue: "链式代理出口IP已保存并立即生效" }));
+      await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
+  const exitProbeMutation = useMutation({
+    mutationFn: ({ id, url }: { id: string; url: string }) => probeAntigravityExitProxy(id, url),
+    onSuccess: (result: AntigravityExitProbeResult) => {
+      if (result.ok && result.ip) {
+        message.success(
+          t("antigravity.exitProbeOk", {
+            defaultValue: "出口 IP：{{ip}}",
+            ip: result.ip,
+          }),
+        );
+      } else if (result.message) {
+        message.warning(result.message, 10);
+      }
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
+  const exitLatencyMutation = useMutation({
+    mutationFn: ({ id, url }: { id: string; url: string }) => probeAntigravityExitLatency(id, url),
+    onSuccess: (result: AntigravityExitLatencyResult) => {
+      if (result.ok && result.millis != null) {
+        message.success(
+          t("antigravity.exitLatencyOk", {
+            defaultValue: "延迟 {{ms}} ms",
+            ms: result.millis,
+          }),
+        );
+      } else if (result.message) {
+        message.warning(result.message, 10);
+      }
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
   const limiterMutation = useMutation({
     mutationFn: (settings: AntigravityLimiterSettings) => setAntigravityLimiterSettings(settings),
     onSuccess: async () => {
@@ -366,6 +415,9 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
           startMutation={startMutation}
           stopMutation={stopMutation}
           outboundMutation={outboundMutation}
+          exitMutation={exitMutation}
+          exitProbeMutation={exitProbeMutation}
+          exitLatencyMutation={exitLatencyMutation}
           limiterMutation={limiterMutation}
           fastPathMutation={fastPathMutation}
           ensureMutation={ensureMutation}
@@ -396,6 +448,9 @@ interface AntigravityContentProps {
   startMutation: { isPending: boolean; mutateAsync: (args: { port: number; apiKey: string; outboundMode: string; outboundUrl: string }) => Promise<unknown> };
   stopMutation: { isPending: boolean; mutateAsync: () => Promise<unknown> };
   outboundMutation: { isPending: boolean; mutateAsync: (args: { mode: "direct" | "system" | "custom"; url: string }) => Promise<unknown> };
+  exitMutation: { isPending: boolean; mutateAsync: (entries: AntigravityExitProxyInput[]) => Promise<unknown> };
+  exitProbeMutation: { isPending: boolean; mutateAsync: (args: { id: string; url: string }) => Promise<AntigravityExitProbeResult> };
+  exitLatencyMutation: { isPending: boolean; mutateAsync: (args: { id: string; url: string }) => Promise<AntigravityExitLatencyResult> };
   limiterMutation: { isPending: boolean; mutateAsync: (settings: AntigravityLimiterSettings) => Promise<unknown> };
   fastPathMutation: { isPending: boolean; mutateAsync: (settings: AntigravityFastPathSettings) => Promise<unknown> };
   ensureMutation: { mutate: (target: ProviderTarget) => void };
@@ -422,6 +477,9 @@ function AntigravityContent({
   startMutation,
   stopMutation,
   outboundMutation,
+  exitMutation,
+  exitProbeMutation,
+  exitLatencyMutation,
   limiterMutation,
   fastPathMutation,
   ensureMutation,
@@ -578,6 +636,11 @@ function AntigravityContent({
         onSaveOutbound={async (mode, url) => {
           await outboundMutation.mutateAsync({ mode, url });
         }}
+        onSaveExit={async (entries) => {
+          await exitMutation.mutateAsync(entries);
+        }}
+        onProbeExit={async (id, url) => exitProbeMutation.mutateAsync({ id, url })}
+        onProbeLatency={async (id, url) => exitLatencyMutation.mutateAsync({ id, url })}
         onSaveLimiter={async (settings) => {
           await limiterMutation.mutateAsync(settings);
         }}
@@ -588,6 +651,7 @@ function AntigravityContent({
         isStarting={startMutation.isPending}
         isStopping={stopMutation.isPending}
         isSavingOutbound={outboundMutation.isPending}
+        isSavingExit={exitMutation.isPending}
         isSavingLimiter={limiterMutation.isPending}
         isSavingFastPath={fastPathMutation.isPending}
       />

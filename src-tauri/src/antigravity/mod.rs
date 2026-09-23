@@ -7,6 +7,7 @@
 
 pub mod account;
 pub mod account_test;
+mod exit_hop;
 pub mod fast_path;
 pub mod gateway;
 pub mod limiter;
@@ -29,20 +30,23 @@ pub use account::{
     import_accounts_json, list_accounts, remove_account, set_active_account,
     AntigravityAccountPublic,
 };
+pub use account_test::AntigravityAccountTestResult;
 pub use fast_path::FastPathSettings;
 pub use gateway::{
     clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings,
-    pool_instance, set_fast_path_settings, set_gateway_api_key,
+    pool_instance, probe_exit_latency, probe_exit_proxy, set_exit_proxies, set_fast_path_settings,
+    set_gateway_api_key,
     set_gateway_port, set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
     AntigravityGatewayStatus, DEFAULT_GATEWAY_PORT,
 };
 pub use limiter::LimiterSettings;
 pub use model_catalog::{list_model_ids, CatalogModel};
 pub use oauth::login_with_browser;
-pub use outbound::DEFAULT_CLASH_PROXY_URL;
+pub use outbound::{
+    ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult, DEFAULT_CLASH_PROXY_URL,
+};
 pub use pool::AccountPool;
 pub use quota_sync::{
     refresh_all_account_quotas, refresh_one_account_quota, try_refresh_all_quotas,
     QUOTA_REFRESH_EVENT, QUOTA_REFRESH_INTERVAL_SECS,
 };
-pub use account_test::AntigravityAccountTestResult;

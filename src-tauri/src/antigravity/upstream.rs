@@ -148,7 +148,7 @@ fn classify_reqwest_error(error: &reqwest::Error) -> String {
 }
 
 fn format_network_error(kind: &str, hosts_tried: u32, elapsed: Duration) -> String {
-    let proxy = crate::antigravity::outbound::current_effective_proxy()
+    let proxy = crate::antigravity::outbound::diagnostic_route()
         .or_else(crate::system_proxy::outbound_proxy_url)
         .map(|url| format!(" via {url}"))
         .unwrap_or_default();

@@ -31,12 +31,11 @@ pub fn map_model_id(requested: &str) -> String {
         | "gemini-3-flash-preview"
         | "gemini-3.5-flash" => model_catalog::preferred_gemini_flash()
             .unwrap_or_else(|| "gemini-3.8-flash-high".into()),
-        "gemini-pro"
-        | "gemini-2.5-pro"
-        | "gemini-3-pro"
-        | "gemini-3-pro-high" => model_catalog::preferred_gemini_pro()
-            .or(model_catalog::preferred_gemini_flash())
-            .unwrap_or_else(|| "gemini-3.8-flash-high".into()),
+        "gemini-pro" | "gemini-2.5-pro" | "gemini-3-pro" | "gemini-3-pro-high" => {
+            model_catalog::preferred_gemini_pro()
+                .or(model_catalog::preferred_gemini_flash())
+                .unwrap_or_else(|| "gemini-3.8-flash-high".into())
+        }
         "gpt-4o" | "gpt-4.1" | "gpt-5" | "o3" | "o4-mini" => {
             model_catalog::preferred_default_model()
         }

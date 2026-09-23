@@ -147,11 +147,19 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                         }));
                     }
                     Some("function_call_output") => {
-                        let output_id = item.get("call_id").and_then(Value::as_str).unwrap_or("call_tool");
+                        let output_id = item
+                            .get("call_id")
+                            .and_then(Value::as_str)
+                            .unwrap_or("call_tool");
                         let has_call = messages.iter().any(|message| {
-                            message.get("tool_calls").and_then(Value::as_array).is_some_and(|calls| {
-                                calls.iter().any(|call| call.get("id").and_then(Value::as_str) == Some(output_id))
-                            })
+                            message
+                                .get("tool_calls")
+                                .and_then(Value::as_array)
+                                .is_some_and(|calls| {
+                                    calls.iter().any(|call| {
+                                        call.get("id").and_then(Value::as_str) == Some(output_id)
+                                    })
+                                })
                         });
                         if pending_tool_calls.is_empty() && !has_call {
                             let tool_call_id = item
@@ -190,7 +198,11 @@ fn responses_input_to_chat_messages(input: &Value) -> Result<Vec<Value>, String>
                         let content =
                             convert_responses_content(item.get("content").unwrap_or(&Value::Null));
                         if chat_role == "assistant" {
-                            append_assistant_message(&mut messages, &mut pending_tool_calls, content);
+                            append_assistant_message(
+                                &mut messages,
+                                &mut pending_tool_calls,
+                                content,
+                            );
                         } else {
                             flush_pending_tool_calls(&mut messages, &mut pending_tool_calls);
                             if !content_is_empty(&content) {
@@ -289,7 +301,11 @@ fn convert_responses_content(content: &Value) -> Value {
             }
             Value::Array(out)
         }
-        Value::Object(map) => map.get("text").filter(|text| text.is_string()).cloned().unwrap_or(Value::Null),
+        Value::Object(map) => map
+            .get("text")
+            .filter(|text| text.is_string())
+            .cloned()
+            .unwrap_or(Value::Null),
         _ => Value::Null,
     }
 }
@@ -824,13 +840,26 @@ mod tests {
         assert_eq!(messages[2]["tool_calls"].as_array().unwrap().len(), 2);
         let parts = responses_to_gemini_request(&body, None).unwrap();
         let contents = parts.request["contents"].as_array().unwrap();
-        let model = contents.iter().find(|content| content["role"] == "model").unwrap();
+        let model = contents
+            .iter()
+            .find(|content| content["role"] == "model")
+            .unwrap();
         let model_parts = model["parts"].as_array().unwrap();
-        assert!(model_parts.iter().any(|part| part["text"] == "Checking files"));
-        assert_eq!(model_parts.iter().filter(|part| part.get("functionCall").is_some()).count(), 2);
+        assert!(model_parts
+            .iter()
+            .any(|part| part["text"] == "Checking files"));
+        assert_eq!(
+            model_parts
+                .iter()
+                .filter(|part| part.get("functionCall").is_some())
+                .count(),
+            2
+        );
         let wire = parts.request.to_string();
         assert!(wire.contains("<system-reminder>\\nKeep responses concise.\\n</system-reminder>"));
-        assert!(!parts.request["systemInstruction"].to_string().contains("Keep responses concise."));
+        assert!(!parts.request["systemInstruction"]
+            .to_string()
+            .contains("Keep responses concise."));
     }
 
     #[test]
@@ -839,7 +868,8 @@ mod tests {
             { "role": "assistant", "content": "Earlier answer" },
             { "role": "user", "content": "Next question" },
             { "type": "function_call", "call_id": "boundary", "name": "read", "arguments": "{}" }
-        ])).unwrap();
+        ]))
+        .unwrap();
         assert_eq!(messages.len(), 3);
         assert!(messages[0].get("tool_calls").is_none());
         assert_eq!(messages[2]["role"], "assistant");
@@ -851,7 +881,8 @@ mod tests {
         let messages = responses_input_to_chat_messages(&json!([
             { "role": "user", "content": "Question" },
             { "role": "assistant", "content": "Partial answer" }
-        ])).unwrap();
+        ]))
+        .unwrap();
         assert_eq!(messages[1]["role"], "user");
         assert_eq!(messages[1]["content"], "Partial answer");
     }
@@ -860,7 +891,8 @@ mod tests {
     fn responses_isolated_output_behavior_preserved() {
         let messages = responses_input_to_chat_messages(&json!([
             { "type": "function_call_output", "call_id": "isolated", "output": "result" }
-        ])).unwrap();
+        ]))
+        .unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0]["tool_calls"][0]["id"], "isolated");
         assert_eq!(messages[1]["tool_call_id"], "isolated");

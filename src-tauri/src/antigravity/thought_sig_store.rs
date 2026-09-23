@@ -440,9 +440,7 @@ fn check_and_recover_db(path: &Path, busy_timeout_ms: u32) -> Result<(), ()> {
         match rusqlite::Connection::open(path) {
             Ok(conn) => {
                 let _ = conn.busy_timeout(Duration::from_millis(busy_timeout_ms as u64));
-                match conn.query_row("PRAGMA quick_check(1);", [], |row| {
-                    row.get::<_, String>(0)
-                }) {
+                match conn.query_row("PRAGMA quick_check(1);", [], |row| row.get::<_, String>(0)) {
                     Ok(res) => {
                         if res == "ok" {
                             Ok(())
@@ -477,7 +475,9 @@ fn check_and_recover_db(path: &Path, busy_timeout_ms: u32) -> Result<(), ()> {
             Ok(())
         }
         Err(false) => {
-            log::warn!("Thought signature database is busy or inaccessible; degrading to in-memory mode");
+            log::warn!(
+                "Thought signature database is busy or inaccessible; degrading to in-memory mode"
+            );
             Err(())
         }
     }
@@ -524,9 +524,15 @@ fn bounded_prewarm_l1(conn: &rusqlite::Connection, l1: &mut L1Cache, config: &St
              WHERE kind = 0 AND updated_at >= ?1
              ORDER BY updated_at DESC LIMIT ?2;",
         ) {
-            if let Ok(rows) = stmt.query_map(rusqlite::params![cutoff, config.max_l1_tool as i64], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
-            }) {
+            if let Ok(rows) =
+                stmt.query_map(rusqlite::params![cutoff, config.max_l1_tool as i64], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, i64>(2)?,
+                    ))
+                })
+            {
                 let mut items: Vec<_> = rows.flatten().collect();
                 items.reverse();
                 for item in items {
@@ -556,9 +562,16 @@ fn bounded_prewarm_l1(conn: &rusqlite::Connection, l1: &mut L1Cache, config: &St
              WHERE kind = 1 AND updated_at >= ?1
              ORDER BY updated_at DESC LIMIT ?2;",
         ) {
-            if let Ok(rows) = stmt.query_map(rusqlite::params![cutoff, config.max_l1_session as i64], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
-            }) {
+            if let Ok(rows) = stmt.query_map(
+                rusqlite::params![cutoff, config.max_l1_session as i64],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, i64>(2)?,
+                    ))
+                },
+            ) {
                 let mut items: Vec<_> = rows.flatten().collect();
                 items.reverse();
                 for item in items {
@@ -588,9 +601,17 @@ fn bounded_prewarm_l1(conn: &rusqlite::Connection, l1: &mut L1Cache, config: &St
              WHERE kind = 2 AND key_secondary >= 0 AND updated_at >= ?1
              ORDER BY updated_at DESC LIMIT ?2;",
         ) {
-            if let Ok(rows) = stmt.query_map(rusqlite::params![cutoff, config.max_l1_session_index as i64], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?))
-            }) {
+            if let Ok(rows) = stmt.query_map(
+                rusqlite::params![cutoff, config.max_l1_session_index as i64],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                    ))
+                },
+            ) {
                 let mut items: Vec<_> = rows.flatten().collect();
                 items.reverse();
                 for item in items {
@@ -647,7 +668,7 @@ fn execute_write_batch(
         let mut touch_stmt = tx.prepare_cached(
             "UPDATE thought_signatures SET updated_at = ?5
              WHERE kind = ?1 AND key_primary = ?2 AND key_secondary = ?3
-               AND signature = ?4;"
+               AND signature = ?4;",
         )?;
 
         for op in batch {
@@ -714,11 +735,9 @@ fn perform_maintenance(
         rusqlite::params![cutoff],
     )?;
 
-    let count: usize = conn.query_row(
-        "SELECT COUNT(*) FROM thought_signatures;",
-        [],
-        |row| row.get(0),
-    )?;
+    let count: usize = conn.query_row("SELECT COUNT(*) FROM thought_signatures;", [], |row| {
+        row.get(0)
+    })?;
 
     if count > max_capacity {
         let excess = count - max_capacity;
@@ -845,7 +864,9 @@ impl ThoughtSigStore {
 
         if let Some(parent) = config.path.parent() {
             if std::fs::create_dir_all(parent).is_err() {
-                log::warn!("Failed to create thought signatures directory, degrading to in-memory mode");
+                log::warn!(
+                    "Failed to create thought signatures directory, degrading to in-memory mode"
+                );
                 degraded.store(true, Ordering::Release);
                 return Self {
                     config,
@@ -858,7 +879,9 @@ impl ThoughtSigStore {
         }
 
         if check_and_recover_db(&config.path, config.busy_timeout_ms).is_err() {
-            log::warn!("Failed during thought signature database recovery, degrading to in-memory mode");
+            log::warn!(
+                "Failed during thought signature database recovery, degrading to in-memory mode"
+            );
             degraded.store(true, Ordering::Release);
             return Self {
                 config,
@@ -872,7 +895,9 @@ impl ThoughtSigStore {
         let init_conn = match open_connection(&config.path, config.busy_timeout_ms) {
             Ok(conn) => {
                 if ensure_schema(&conn).is_err() {
-                    log::warn!("Failed to create thought signatures schema, degrading to in-memory mode");
+                    log::warn!(
+                        "Failed to create thought signatures schema, degrading to in-memory mode"
+                    );
                     degraded.store(true, Ordering::Release);
                     return Self {
                         config,
@@ -936,7 +961,9 @@ impl ThoughtSigStore {
         let (writer_tx, writer_handle) = match handle {
             Ok(h) => (Some(tx), Some(h)),
             Err(_) => {
-                log::warn!("Failed to spawn thought signature writer thread, degrading to in-memory mode");
+                log::warn!(
+                    "Failed to spawn thought signature writer thread, degrading to in-memory mode"
+                );
                 degraded.store(true, Ordering::Release);
                 (None, None)
             }
@@ -1469,10 +1496,9 @@ mod tests {
         let shm_path = temp.path().join("thought-signatures.db-shm");
 
         for i in 0..7 {
-            let old_quarantine = temp.path().join(format!(
-                "thought-signatures.db.corrupt.{}",
-                1000 + i
-            ));
+            let old_quarantine = temp
+                .path()
+                .join(format!("thought-signatures.db.corrupt.{}", 1000 + i));
             std::fs::write(&old_quarantine, b"old").unwrap();
         }
 
@@ -1637,8 +1663,14 @@ mod tests {
         conn.execute_batch("BEGIN EXCLUSIVE;").unwrap();
         assert!(check_and_recover_db(&config.path, 10).is_err());
         assert!(config.path.exists());
-        assert_eq!(std::fs::read_dir(temp.path()).unwrap().filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupt.")).count(), 0);
+        assert_eq!(
+            std::fs::read_dir(temp.path())
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().contains(".corrupt."))
+                .count(),
+            0
+        );
         conn.execute_batch("ROLLBACK;").unwrap();
     }
 
@@ -1650,11 +1682,18 @@ mod tests {
         ensure_schema(&conn).unwrap();
         let now = ThoughtSigStore::now_secs();
         for (key, timestamp) in [("expired", now - 100), ("old", now - 2), ("new", now)] {
-            conn.execute("INSERT INTO thought_signatures VALUES (0, ?1, 0, 'signature', ?2)",
-                rusqlite::params![key, timestamp]).unwrap();
+            conn.execute(
+                "INSERT INTO thought_signatures VALUES (0, ?1, 0, 'signature', ?2)",
+                rusqlite::params![key, timestamp],
+            )
+            .unwrap();
         }
         perform_maintenance(&mut conn, 10, 1).unwrap();
-        let key: String = conn.query_row("SELECT key_primary FROM thought_signatures", [], |row| row.get(0)).unwrap();
+        let key: String = conn
+            .query_row("SELECT key_primary FROM thought_signatures", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
         assert_eq!(key, "new");
     }
 

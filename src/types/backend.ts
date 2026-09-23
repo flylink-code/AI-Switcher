@@ -1407,8 +1407,49 @@ export interface AntigravityGatewayStatus {
   outboundMode?: string;
   outboundProxyUrl?: string;
   effectiveOutboundProxy?: string | null;
+  exitProxies?: AntigravityExitProxy[];
+  exitChainLabel?: string;
+  exitError?: string | null;
   limiterSettings?: AntigravityLimiterSettings;
   fastPath?: AntigravityFastPathSettings;
+}
+
+export interface AntigravityExitProxy {
+  id: string;
+  name: string;
+  enabled: boolean;
+  proxyUrl: string;
+  proxyRedacted?: string;
+  probeOk?: boolean | null;
+  probeIp?: string | null;
+  probeHop?: string | null;
+  probeMessage?: string | null;
+  latencyOk?: boolean | null;
+  latencyMs?: number | null;
+  latencyMessage?: string | null;
+}
+
+export interface AntigravityExitProxyInput {
+  id: string;
+  name: string;
+  enabled: boolean;
+  proxyUrl: string;
+}
+
+export interface AntigravityExitProbeResult {
+  id: string;
+  ok: boolean;
+  ip?: string | null;
+  hop?: string | null;
+  message: string;
+}
+
+export interface AntigravityExitLatencyResult {
+  id: string;
+  ok: boolean;
+  millis?: number | null;
+  hop?: string | null;
+  message: string;
 }
 
 export interface AntigravityLimiterSettings {

@@ -12,7 +12,7 @@ use crate::error::AppResult;
 /// third party service and only inserts models that are not already present.
 /// Updating an application therefore cannot overwrite a user-modified price.
 /// Anthropic cache_write uses the 5-minute cache-write rate; cache_read is hit rate.
-pub(crate) const CATALOG_VERSION: &str = "2026-09-04";
+pub(crate) const CATALOG_VERSION: &str = "2026-09-23";
 
 struct DefaultPricing {
     provider: &'static str,
@@ -52,6 +52,55 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
         batch_output: 0.0,
         currency: "USD",
         source_url: "https://developers.openai.com/api/docs/pricing/",
+    },
+    // GPT-6 Sol / Luna checked 2026-09-23. Fast is 2x standard. Batch is 50%.
+    DefaultPricing {
+        provider: "OpenAI",
+        model: "gpt-6-sol",
+        input: 2.0,
+        cache_read: 0.2,
+        cache_write: 2.5,
+        output: 10.0,
+        batch_input: 1.0,
+        batch_output: 5.0,
+        currency: "USD",
+        source_url: "https://developers.openai.com/api/docs/models/gpt-6-sol",
+    },
+    DefaultPricing {
+        provider: "OpenAI",
+        model: "gpt-6-sol-fast",
+        input: 4.0,
+        cache_read: 0.4,
+        cache_write: 5.0,
+        output: 20.0,
+        batch_input: 0.0,
+        batch_output: 0.0,
+        currency: "USD",
+        source_url: "https://developers.openai.com/api/docs/models/gpt-6-sol",
+    },
+    DefaultPricing {
+        provider: "OpenAI",
+        model: "gpt-6-luna",
+        input: 0.1,
+        cache_read: 0.01,
+        cache_write: 0.125,
+        output: 0.5,
+        batch_input: 0.05,
+        batch_output: 0.25,
+        currency: "USD",
+        source_url: "https://developers.openai.com/api/docs/models/gpt-6-luna",
+    },
+    DefaultPricing {
+        provider: "OpenAI",
+        model: "gpt-6-luna-fast",
+        input: 0.2,
+        cache_read: 0.02,
+        cache_write: 0.25,
+        output: 1.0,
+        batch_input: 0.0,
+        batch_output: 0.0,
+        currency: "USD",
+        source_url: "https://developers.openai.com/api/docs/models/gpt-6-luna",
     },
     DefaultPricing {
         provider: "OpenAI",
@@ -243,6 +292,32 @@ const DEFAULT_PRICING: &[DefaultPricing] = &[
         cache_read: 1.0,
         cache_write: 12.5,
         output: 50.0,
+        batch_input: 0.0,
+        batch_output: 0.0,
+        currency: "USD",
+        source_url: "https://platform.claude.com/docs/en/about-claude/pricing",
+    },
+    // Opus 5.5 checked 2026-09-23. Cache read is 5% of input, not the usual 10%.
+    // Cache write is the 5-minute rate. Fast is 2x standard.
+    DefaultPricing {
+        provider: "Anthropic",
+        model: "claude-opus-5-5",
+        input: 4.0,
+        cache_read: 0.2,
+        cache_write: 5.0,
+        output: 20.0,
+        batch_input: 2.0,
+        batch_output: 10.0,
+        currency: "USD",
+        source_url: "https://platform.claude.com/docs/en/about-claude/pricing",
+    },
+    DefaultPricing {
+        provider: "Anthropic",
+        model: "claude-opus-5-5-fast",
+        input: 8.0,
+        cache_read: 0.4,
+        cache_write: 10.0,
+        output: 40.0,
         batch_input: 0.0,
         batch_output: 0.0,
         currency: "USD",
@@ -989,6 +1064,36 @@ mod tests {
             )
             .unwrap();
         assert_eq!(fable_51, (10.0, 0.25, 50.0));
+        let sol: (f64, f64, f64, f64) = conn
+            .query_row(
+                "SELECT input_price_per_million, cache_read_price_per_million,
+                        cache_write_price_per_million, output_price_per_million
+                 FROM model_pricing WHERE model = 'gpt-6-sol'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(sol, (2.0, 0.2, 2.5, 10.0));
+        let luna: (f64, f64, f64, f64) = conn
+            .query_row(
+                "SELECT input_price_per_million, cache_read_price_per_million,
+                        cache_write_price_per_million, output_price_per_million
+                 FROM model_pricing WHERE model = 'gpt-6-luna'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(luna, (0.1, 0.01, 0.125, 0.5));
+        let opus_55: (f64, f64, f64, f64) = conn
+            .query_row(
+                "SELECT input_price_per_million, cache_read_price_per_million,
+                        cache_write_price_per_million, output_price_per_million
+                 FROM model_pricing WHERE model = 'claude-opus-5-5'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(opus_55, (4.0, 0.2, 5.0, 20.0));
 
         let latest_rows: i64 = conn
             .query_row(
