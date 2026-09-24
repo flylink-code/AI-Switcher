@@ -384,14 +384,14 @@ async fn install_or_update_editor_helper(
     // Try the gallery first for VS Code, then always fall back to the GitHub .vsix.
     if editor == "vscode" && install_helper_from_gallery(&cli).is_ok() {
         return Ok(format!(
-            "{} 中文补丁助手已安装；请在编辑器命令面板运行 Apply Patch 并重载窗口",
+            "{} 中文补丁助手已安装；请先完全退出该编辑器的所有窗口，再重新打开，在命令面板运行 Apply Patch 并重载窗口",
             status.label
         ));
     }
     let vsix = download_helper_vsix(&state).await?;
     install_helper_from_vsix(&cli, &vsix)?;
     Ok(format!(
-        "{} 中文补丁助手已从 GitHub 安装；请在编辑器命令面板运行 Apply Patch 并重载窗口",
+        "{} 中文补丁助手已从 GitHub 安装；请先完全退出该编辑器的所有窗口，再重新打开，在命令面板运行 Apply Patch 并重载窗口",
         status.label
     ))
 }

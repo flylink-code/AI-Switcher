@@ -340,7 +340,10 @@ export default function DesktopLocalizationPage() {
           <Skeleton active paragraph={{ rows: 4 }} />
         ) : (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <Text type="secondary">{t("env.localization.applyPatchHint")}</Text>
+            <Space direction="vertical" size={4}>
+              <Text type="secondary">{t("env.localization.applyPatchHint")}</Text>
+              <Text type="secondary">{t("env.localization.applyPatchFileLockHint")}</Text>
+            </Space>
             {hub?.editors.map((editor) => (
               <EditorLocalizationCard
                 key={editor.id}
