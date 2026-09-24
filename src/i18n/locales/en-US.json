@@ -1970,6 +1970,11 @@
         "Long provider names ellipsize inside the column instead of covering the model name.",
         "Default pricing now includes GPT-6 Sol, GPT-6 Luna, and Claude Opus 5.5. Prices you already edited are left alone.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_11": [
+        "The smart gateway echoes the catalog model id you selected, instead of writing the upstream short name back to Claude Code. A pinned model no longer becomes Auto when a chat resumes.",
+        "Antigravity Anthropic responses echo the same client id. Outbound requests still use the upstream model name.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

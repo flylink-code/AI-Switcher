@@ -112,6 +112,9 @@ async fn proxy_handler(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    // Echo this id on the Anthropic envelope. Routing may replace the body
+    // with an upstream slug; Claude Code must still see the id it sent.
+    let client_model = requested_model.clone();
 
     // Claude Desktop 1.49585.0+ introduces a hard 10-second client-side health probe
     // (max_tokens: 1, single user message with content ".") on start / profile load.
@@ -210,7 +213,7 @@ async fn proxy_handler(
             }
         }
     }
-    let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream) {
+    let prepared = match prepare_upstream_request(&state, &mut provider, &method, &headers, &incoming, &body_bytes, incoming_stream, &client_model) {
         Ok(request) => request,
         Err(error) => {
             log_request(
@@ -262,6 +265,7 @@ async fn proxy_handler(
                     &incoming,
                     &body_bytes,
                     incoming_stream,
+                    &client_model,
                 ) else {
                     continue;
                 };
@@ -363,6 +367,7 @@ async fn proxy_handler(
                 &incoming,
                 &body_bytes,
                 incoming_stream,
+                &client_model,
             ) else {
                 continue;
             };
@@ -425,6 +430,7 @@ async fn proxy_handler(
                 &incoming,
                 &body_bytes,
                 incoming_stream,
+                &client_model,
             ) else {
                 continue;
             };
@@ -577,7 +583,7 @@ async fn proxy_handler(
             };
             let db = Arc::clone(&state.db);
             let decoder = UpstreamSseDecoder::default();
-            let converter = convert::OpenAiSseConverter::new(protocol, provider.model.trim());
+            let converter = convert::OpenAiSseConverter::new(protocol, client_model.trim());
             let stream_log_id = log_id.clone();
             let target_app = state.target.as_str().to_string();
             let provider_id = provider.id.clone();
@@ -769,6 +775,7 @@ async fn proxy_handler(
                         &incoming,
                         &body_bytes,
                         incoming_stream,
+                        &client_model,
                     ) else {
                         continue;
                     };
@@ -806,12 +813,12 @@ async fn proxy_handler(
                                 ProtocolType::OpenAiResponses => {
                                     convert::openai_responses_to_anthropic(
                                         &fallback_json,
-                                        provider.model.trim(),
+                                        client_model.trim(),
                                     )
                                 }
                                 _ => convert::openai_chat_to_anthropic(
                                     &fallback_json,
-                                    provider.model.trim(),
+                                    client_model.trim(),
                                 ),
                             };
                             record_provider_success(&state, &provider.id);
@@ -860,8 +867,8 @@ async fn proxy_handler(
             }
         }
         let anthropic = match provider.protocol_type {
-            ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, provider.model.trim()),
-            _ => convert::openai_chat_to_anthropic(&upstream, provider.model.trim()),
+            ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, client_model.trim()),
+            _ => convert::openai_chat_to_anthropic(&upstream, client_model.trim()),
         };
         let mut anthropic = anthropic;
         let _ = web_tools::materialize_web_tool_uses(&mut anthropic);

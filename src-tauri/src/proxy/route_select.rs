@@ -95,6 +95,7 @@ fn prepare_upstream_request(
     incoming: &Value,
     body_bytes: &Bytes,
     incoming_stream: bool,
+    client_model: &str,
 ) -> AppResult<PreparedUpstreamRequest> {
     let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("");
     provider.model = resolve_upstream_model(provider, requested_model);
@@ -120,10 +121,19 @@ fn prepare_upstream_request(
                 || name_str.eq_ignore_ascii_case("content-type")
                 || name_str.eq_ignore_ascii_case("authorization")
                 || name_str.eq_ignore_ascii_case("x-api-key")
+                || name_str.eq_ignore_ascii_case(crate::gateway::correlation::CLIENT_MODEL_HEADER)
             {
                 continue;
             }
             builder = builder.header(name, value);
+        }
+    }
+    if provider.is_antigravity() {
+        let trimmed = client_model.trim();
+        if !trimmed.is_empty() {
+            if let Ok(value) = axum::http::HeaderValue::from_str(trimmed) {
+                builder = builder.header(crate::gateway::correlation::CLIENT_MODEL_HEADER, value);
+            }
         }
     }
     if let Some(correlation) = state.correlation.as_ref() {

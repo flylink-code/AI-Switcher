@@ -5,6 +5,10 @@ use uuid::Uuid;
 
 pub const REQUEST_ID_HEADER: &str = "x-aisw-request-id";
 pub const TARGET_APP_HEADER: &str = "x-aisw-target-app";
+/// Original model id the client sent, before upstream slug rewrite.
+/// Antigravity echoes this on the Anthropic envelope so Claude Code does not
+/// adopt a short name that is absent from `/v1/models`.
+pub const CLIENT_MODEL_HEADER: &str = "x-aisw-client-model";
 
 pub const HOP_AGENT_PROXY: &str = "agent_proxy";
 pub const HOP_SMART_GATEWAY: &str = "smart_gateway";

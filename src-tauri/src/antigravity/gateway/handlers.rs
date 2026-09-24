@@ -90,12 +90,14 @@ pub async fn anthropic_messages(
             return error_json(StatusCode::BAD_REQUEST, &format!("invalid json: {error}"))
         }
     };
+    let client_model = anthropic_client_model(&headers, &payload);
     let fast_path = crate::antigravity::fast_path::current_settings();
     if let Some(reply) = crate::antigravity::fast_path::try_short_circuit(&payload, &fast_path) {
-        let model = payload
-            .get("model")
-            .and_then(Value::as_str)
-            .unwrap_or("claude-haiku-4-5");
+        let model = if client_model.is_empty() {
+            "claude-haiku-4-5"
+        } else {
+            client_model.as_str()
+        };
         let _ = usage_log::insert_request(
             &state.db,
             None,
@@ -157,10 +159,12 @@ pub async fn anthropic_messages(
         crate::antigravity::session_effort::set(session, level);
     }
     let diagnostic = effort_mapping_diagnostic(&payload, &mapped.model);
+    let response_model = (!client_model.is_empty()).then_some(client_model);
     dispatch_generation(
         &state,
         &headers,
         mapped.model,
+        response_model,
         mapped.request,
         mapped.stream,
         WireProtocol::Anthropic,
@@ -169,6 +173,37 @@ pub async fn anthropic_messages(
         mapped.tool_params,
     )
     .await
+}
+
+/// Model id to write on the Anthropic envelope. The smart gateway sends the
+/// original client id in `x-aisw-client-model` after rewriting the body to an
+/// upstream slug. Direct callers keep the id they put in the request.
+fn anthropic_envelope_model<'a>(
+    protocol: WireProtocol,
+    response_model: Option<&'a str>,
+    upstream_model: &'a str,
+) -> &'a str {
+    if protocol != WireProtocol::Anthropic {
+        return upstream_model;
+    }
+    response_model
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(upstream_model)
+}
+
+fn anthropic_client_model(headers: &HeaderMap, payload: &Value) -> String {
+    if let Some(from_header) =
+        crate::gateway::correlation::header_value(headers, crate::gateway::correlation::CLIENT_MODEL_HEADER)
+    {
+        return from_header;
+    }
+    payload
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string()
 }
 
 pub async fn openai_chat_completions(
@@ -194,6 +229,7 @@ pub async fn openai_chat_completions(
         &state,
         &headers,
         mapped.model,
+        None,
         mapped.request,
         mapped.stream,
         WireProtocol::OpenAiChat,
@@ -227,6 +263,7 @@ pub async fn openai_responses(
         &state,
         &headers,
         mapped.model,
+        None,
         mapped.request,
         mapped.stream,
         WireProtocol::OpenAiResponses,
@@ -396,6 +433,7 @@ async fn dispatch_generation(
     state: &GatewayState,
     headers: &HeaderMap,
     model: String,
+    response_model: Option<String>,
     mut request: Value,
     stream: bool,
     protocol: WireProtocol,
@@ -982,9 +1020,12 @@ async fn dispatch_generation(
             Some(headers),
         );
         if stream {
+            let shown_model =
+                anthropic_envelope_model(protocol, response_model.as_deref(), &current_model)
+                    .to_string();
             return stream_response(
                 upstream,
-                current_model.clone(),
+                shown_model,
                 protocol,
                 state.db.clone(),
                 log_id,
@@ -1010,7 +1051,7 @@ async fn dispatch_generation(
                 }
                 match protocol {
                     WireProtocol::Anthropic => Json(gemini_to_anthropic_response(
-                        &current_model,
+                        &anthropic_envelope_model(protocol, response_model.as_deref(), &current_model),
                         &gemini,
                         session_key.as_deref(),
                         thoughts_allowed,
@@ -1702,6 +1743,38 @@ fn error_json_with_retry_after(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn anthropic_envelope_prefers_client_model_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            crate::gateway::correlation::CLIENT_MODEL_HEADER,
+            HeaderValue::from_static("claude.auto"),
+        );
+        let payload = json!({"model": "gemini-3.8-flash-high"});
+        assert_eq!(anthropic_client_model(&headers, &payload), "claude.auto");
+        assert_eq!(
+            anthropic_envelope_model(
+                WireProtocol::Anthropic,
+                Some("claude.antigravity--built-in.gemini-3.8-flash"),
+                "gemini-3.8-flash-high"
+            ),
+            "claude.antigravity--built-in.gemini-3.8-flash"
+        );
+        assert_eq!(
+            anthropic_envelope_model(WireProtocol::OpenAiChat, Some("claude.auto"), "gemini-3.8-flash-high"),
+            "gemini-3.8-flash-high"
+        );
+    }
+
+    #[test]
+    fn direct_anthropic_request_keeps_payload_model() {
+        let payload = json!({"model": "gemini-3.8-flash-high"});
+        assert_eq!(
+            anthropic_client_model(&HeaderMap::new(), &payload),
+            "gemini-3.8-flash-high"
+        );
+    }
 
     #[test]
     fn anthropic_sse_includes_event_field_for_pi() {

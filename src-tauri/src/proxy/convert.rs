@@ -276,6 +276,16 @@ pub fn sanitize_codex_responses_body(value: &mut Value) {
     object.remove("auto_review");
 }
 
+/// Model id written back to the client. A non-empty client id always wins so
+/// Claude Code keeps the catalog id it requested instead of an upstream slug.
+pub(crate) fn client_facing_model<'a>(client_model: &'a str, upstream_model: Option<&'a str>) -> &'a str {
+    let client = client_model.trim();
+    if !client.is_empty() {
+        return client;
+    }
+    upstream_model.unwrap_or("").trim()
+}
+
 pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
     let choice = value.get("choices").and_then(Value::as_array).and_then(|items| items.first());
     let message = choice.and_then(|choice| choice.get("message")).cloned().unwrap_or_else(|| json!({}));
@@ -343,7 +353,7 @@ pub fn openai_chat_to_anthropic(value: &Value, fallback_model: &str) -> Value {
         "id": value.get("id").and_then(Value::as_str).unwrap_or("msg_proxy"),
         "type": "message",
         "role": "assistant",
-        "model": value.get("model").and_then(Value::as_str).unwrap_or(fallback_model),
+        "model": client_facing_model(fallback_model, value.get("model").and_then(Value::as_str)),
         "content": content,
         "stop_reason": match finish {
             Some("tool_calls") | Some("function_call") => "tool_use",
@@ -413,7 +423,7 @@ pub fn openai_responses_to_anthropic(value: &Value, fallback_model: &str) -> Val
         "id": value.get("id").and_then(Value::as_str).unwrap_or("msg_proxy"),
         "type": "message",
         "role": "assistant",
-        "model": value.get("model").and_then(Value::as_str).unwrap_or(fallback_model),
+        "model": client_facing_model(fallback_model, value.get("model").and_then(Value::as_str)),
         "content": content,
         "stop_reason": stop_reason,
         "stop_sequence": Value::Null,
@@ -734,8 +744,16 @@ impl OpenAiSseConverter {
         if let Some(id) = response.get("id").and_then(Value::as_str) {
             self.message_id = id.to_string();
         }
-        if let Some(model) = response.get("model").and_then(Value::as_str) {
-            self.model = model.to_string();
+        // Keep the id the client requested. Copying the upstream slug
+        // (`gpt-5.6-sol`) makes Claude Code drop the catalog id and fall
+        // back to `claude.auto` on the next resume.
+        if self.fallback_model.trim().is_empty() {
+            if let Some(model) = response.get("model").and_then(Value::as_str) {
+                let model = model.trim();
+                if !model.is_empty() {
+                    self.model = model.to_string();
+                }
+            }
         }
         let usage = response.get("usage").or_else(|| event.get("usage"));
         if let Some(usage) = usage {
@@ -1529,6 +1547,55 @@ mod tests {
         let chat = anthropic_to_openai_chat(&request, "deepseek-chat", false, Some(&provider));
         let system = chat["messages"][0]["content"].as_str().unwrap();
         assert!(system.contains("Think step by step"));
+    }
+
+    #[test]
+    fn client_catalog_id_wins_over_upstream_slug() {
+        let client = "claude.sub2api.gpt-5.6-sol";
+        let chat = json!({
+            "id": "chatcmpl_sol",
+            "model": "gpt-5.6-sol",
+            "choices": [{"finish_reason": "stop", "message": {"content": "ok"}}]
+        });
+        assert_eq!(openai_chat_to_anthropic(&chat, client)["model"], client);
+
+        let responses = json!({
+            "id": "resp_sol",
+            "model": "gpt-5.6-sol",
+            "status": "completed",
+            "output": [{"type": "message", "content": [{"type": "output_text", "text": "ok"}]}]
+        });
+        assert_eq!(openai_responses_to_anthropic(&responses, client)["model"], client);
+
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, client);
+        let start = String::from_utf8(converter.push_event(&json!({
+            "type": "response.created",
+            "response": {"id": "resp_sol", "model": "gpt-5.6-sol", "status": "in_progress"}
+        }))).unwrap();
+        let more = String::from_utf8(converter.push_event(&json!({
+            "type": "response.output_text.delta",
+            "delta": "ok"
+        }))).unwrap();
+        let combined = format!("{start}{more}");
+        assert!(combined.contains("\"model\":\"claude.sub2api.gpt-5.6-sol\""));
+        assert!(!combined.contains("\"model\":\"gpt-5.6-sol\""));
+    }
+
+    #[test]
+    fn empty_client_model_still_uses_upstream_slug() {
+        assert_eq!(
+            client_facing_model("", Some("gpt-5.6-sol")),
+            "gpt-5.6-sol"
+        );
+        let message = openai_chat_to_anthropic(
+            &json!({
+                "id": "chatcmpl_1",
+                "model": "gpt-test",
+                "choices": [{"finish_reason": "stop", "message": {"content": "ok"}}]
+            }),
+            "",
+        );
+        assert_eq!(message["model"], "gpt-test");
     }
 
     #[test]
