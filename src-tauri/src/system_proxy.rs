@@ -7,7 +7,8 @@ use log::{info, warn};
 use reqwest::Proxy;
 
 /// Best-effort proxy URL for outbound HTTPS (e.g. `http://127.0.0.1:17891`).
-/// Result is re-detected on each call so Clash toggling is picked up.
+/// Each call re-reads the environment and OS settings. Rebuilding the cached
+/// Antigravity HTTP client after a change is the gateway watch task's job.
 pub fn outbound_proxy_url() -> Option<String> {
     detect_outbound_proxy()
 }

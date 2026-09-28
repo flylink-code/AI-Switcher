@@ -18,7 +18,9 @@ use super::pool::AccountPool;
 use super::upstream::UpstreamClient;
 use crate::antigravity::fast_path::FastPathSettings;
 use crate::antigravity::outbound::{
-    ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult, ExitProxyView,
+    cached_outbound_mode, exit_hop_active, sync_system_proxy_forwarder, system_proxy_watch_action,
+    ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult, ExitProxyView, OutboundProxyMode,
+    SystemProxyWatchAction,
 };
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
@@ -63,8 +65,11 @@ pub struct AntigravityGatewayStatus {
     pub fast_path: FastPathSettings,
 }
 
+const SYSTEM_PROXY_WATCH_SECS: u64 = 10;
+
 struct GatewayRuntime {
     handle: JoinHandle<()>,
+    watch_abort: tokio::task::AbortHandle,
     shutdown_tx: oneshot::Sender<()>,
     port: u16,
 }
@@ -316,6 +321,101 @@ pub fn set_gateway_api_key(api_key: String) -> AppResult<()> {
     })
 }
 
+enum TrackedSystemProxy {
+    Inactive,
+    Applied(Option<String>),
+}
+
+fn proxy_label(url: Option<&str>) -> &str {
+    url.unwrap_or("direct")
+}
+
+/// Re-read the OS proxy while the gateway is up and rebuild clients only when it changes.
+async fn watch_system_proxy(upstream: Arc<UpstreamClient>) {
+    let mut ticker = tokio::time::interval(Duration::from_secs(SYSTEM_PROXY_WATCH_SECS));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    // Interval's first tick is immediate. Drop it so the client from start_gateway
+    // is left alone until a real interval has passed.
+    ticker.tick().await;
+    let mut tracked = if cached_outbound_mode() == OutboundProxyMode::System {
+        TrackedSystemProxy::Applied(crate::system_proxy::outbound_proxy_url())
+    } else {
+        TrackedSystemProxy::Inactive
+    };
+    let mut warned_missing = false;
+    loop {
+        ticker.tick().await;
+        poll_system_proxy(&upstream, &mut tracked, &mut warned_missing).await;
+    }
+}
+
+async fn poll_system_proxy(
+    upstream: &Arc<UpstreamClient>,
+    tracked: &mut TrackedSystemProxy,
+    warned_missing: &mut bool,
+) {
+    let mode = cached_outbound_mode();
+    if mode != OutboundProxyMode::System {
+        *tracked = TrackedSystemProxy::Inactive;
+        *warned_missing = false;
+        return;
+    }
+    let detected = crate::system_proxy::outbound_proxy_url();
+    // Inactive means the last tick was not system mode, so this client was not
+    // built from a system-proxy URL we still know. Treat that as "no proxy yet"
+    // and let a real URL fall through to Apply.
+    let previous = match tracked {
+        TrackedSystemProxy::Inactive => None,
+        TrackedSystemProxy::Applied(url) => url.clone(),
+    };
+    match system_proxy_watch_action(
+        mode,
+        exit_hop_active(),
+        previous.as_deref(),
+        detected.as_deref(),
+    ) {
+        SystemProxyWatchAction::Ignore => {
+            if detected.is_some() {
+                *warned_missing = false;
+            }
+        }
+        SystemProxyWatchAction::KeepLastHop => {
+            if !*warned_missing {
+                log::warn!("Antigravity system proxy missing; keeping the last chain-exit hop");
+                *warned_missing = true;
+            }
+        }
+        SystemProxyWatchAction::Apply => {
+            *warned_missing = false;
+            let sync_result = tokio::task::spawn_blocking(sync_system_proxy_forwarder).await;
+            match sync_result {
+                Ok(Ok(true)) => {
+                    log::info!(
+                        "Antigravity system proxy updated: {} -> {}",
+                        proxy_label(previous.as_deref()),
+                        proxy_label(detected.as_deref()),
+                    );
+                    upstream.reload();
+                    let _ = tokio::task::spawn_blocking(|| {
+                        super::account::store().reload_http_client();
+                    })
+                    .await;
+                    *tracked = TrackedSystemProxy::Applied(detected);
+                }
+                Ok(Ok(false)) => {
+                    *tracked = TrackedSystemProxy::Inactive;
+                }
+                Ok(Err(error)) => {
+                    log::warn!("Antigravity system proxy change not applied: {error}");
+                }
+                Err(error) => {
+                    log::warn!("Antigravity system proxy watch task failed: {error}");
+                }
+            }
+        }
+    }
+}
+
 pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewayStatus> {
     // Prepare bind/config without holding the manager lock across await points.
     let (state, bind_port, db) = {
@@ -329,7 +429,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
             .as_ref()
             .is_some_and(|runtime| runtime.handle.is_finished())
         {
-            manager.runtime = None;
+            if let Some(runtime) = manager.runtime.take() {
+                runtime.watch_abort.abort();
+            }
         }
         if manager
             .runtime
@@ -385,6 +487,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .local_addr()
         .map(|addr| addr.port())
         .unwrap_or(bind_port);
+    let upstream = state.upstream.clone();
 
     let app = Router::new()
         .route("/health", get(handlers::health))
@@ -418,6 +521,9 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         .layer(CorsLayer::permissive());
 
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
+    let watch_handle = tokio::spawn(watch_system_proxy(upstream));
+    let watch_abort = watch_handle.abort_handle();
+    let server_watch_abort = watch_abort.clone();
     let handle = tokio::spawn(async move {
         let server = axum::serve(listener, app).with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
@@ -425,6 +531,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         if let Err(error) = server.await {
             log::error!("Antigravity gateway stopped with error: {error}");
         }
+        server_watch_abort.abort();
     });
 
     {
@@ -432,6 +539,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
         if let Some(manager) = slot.as_mut() {
             manager.runtime = Some(GatewayRuntime {
                 handle,
+                watch_abort,
                 shutdown_tx,
                 port: actual_port,
             });
@@ -452,6 +560,7 @@ pub async fn stop_gateway() -> AppResult<AntigravityGatewayStatus> {
         Ok(manager.runtime.take())
     })?;
     if let Some(runtime) = runtime {
+        runtime.watch_abort.abort();
         let _ = runtime.shutdown_tx.send(());
         // Detach join so Drop does not run a nested runtime teardown on this task.
         match tokio::time::timeout(Duration::from_secs(2), runtime.handle).await {

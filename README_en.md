@@ -1,6 +1,6 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.11**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.12**
 
 **This release:** The smart gateway echoes the catalog model you selected, so a pinned model no longer becomes Auto mid-chat.
 

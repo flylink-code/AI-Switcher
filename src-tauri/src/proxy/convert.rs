@@ -469,7 +469,7 @@ fn anthropic_usage_from_openai_responses(value: &Value) -> Value {
 }
 
 /// Upstream protocol used by [`OpenAiSseConverter`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpenAiStreamProtocol {
     Chat,
     Responses,
@@ -492,6 +492,11 @@ pub struct OpenAiSseConverter {
     tool_arguments_sent: BTreeMap<usize, String>,
     open_blocks: Vec<usize>,
     thinking_block: Option<usize>,
+    /// True after a user-visible text delta. Midstream close adds an error
+    /// text block only when this is still false.
+    emitted_body: bool,
+    /// Set when `error_event` closed the message. Callers stop the upstream.
+    terminal_error: bool,
     input_tokens: i64,
     cache_read_input_tokens: i64,
     cache_creation_input_tokens: i64,
@@ -514,6 +519,8 @@ impl OpenAiSseConverter {
             tool_arguments_sent: BTreeMap::new(),
             open_blocks: Vec::new(),
             thinking_block: None,
+            emitted_body: false,
+            terminal_error: false,
             input_tokens: 0,
             cache_read_input_tokens: 0,
             cache_creation_input_tokens: 0,
@@ -523,6 +530,14 @@ impl OpenAiSseConverter {
     }
 
     pub fn push_event(&mut self, event: &Value) -> Vec<u8> {
+        if self.completed {
+            return Vec::new();
+        }
+        if self.protocol == OpenAiStreamProtocol::Chat {
+            if let Some(message) = chat_upstream_error_message(event) {
+                return self.error_event(&message);
+            }
+        }
         let mut output = String::new();
         self.observe_response(event);
         match self.protocol {
@@ -540,23 +555,52 @@ impl OpenAiSseConverter {
         output.into_bytes()
     }
 
-    /// Convert a transport or upstream event error to Anthropic SSE without
-    /// exposing upstream headers, credentials, or raw response bodies.
+    /// Close a broken stream as a normal assistant message.
     ///
-    /// Always closes the message (`message_stop`) first so Claude Code does not
-    /// keep spinning on creating/accomplishing after a midstream drop.
+    /// Claude Code stays on the current turn when it sees `event: error` or an
+    /// empty `message_stop`. Open blocks are stopped, a text block carries the
+    /// error when nothing visible was streamed, and `stop_reason` is `end_turn`.
     pub fn error_event(&mut self, message: &str) -> Vec<u8> {
+        if self.completed {
+            return Vec::new();
+        }
+        self.terminal_error = true;
         let mut output = String::new();
-        self.finish(&mut output);
+        self.ensure_started(&mut output);
+        self.thinking_block = None;
+        for index in self.open_blocks.drain(..) {
+            push_event(
+                &mut output,
+                "content_block_stop",
+                json!({"type":"content_block_stop", "index":index}),
+            );
+        }
+        if !self.emitted_body {
+            push_error_text_block(&mut output, self.next_block_index, message);
+            self.next_block_index += 1;
+        }
+        self.stop_reason = "end_turn".to_string();
         push_event(
             &mut output,
-            "error",
+            "message_delta",
             json!({
-                "type": "error",
-                "error": {"type": "api_error", "message": message}
+                "type":"message_delta",
+                "delta":{"stop_reason":"end_turn","stop_sequence":Value::Null},
+                "usage":{
+                    "input_tokens":self.input_tokens,
+                    "cache_read_input_tokens":self.cache_read_input_tokens,
+                    "cache_creation_input_tokens":self.cache_creation_input_tokens,
+                    "output_tokens":self.output_tokens
+                }
             }),
         );
+        push_event(&mut output, "message_stop", json!({"type":"message_stop"}));
+        self.completed = true;
         output.into_bytes()
+    }
+
+    pub fn took_terminal_error(&self) -> bool {
+        self.terminal_error
     }
 
     pub fn usage(&self) -> Option<super::UsageCounts> {
@@ -587,6 +631,7 @@ impl OpenAiSseConverter {
             }));
         }
         if let Some(text) = delta.get("content").and_then(Value::as_str).filter(|text| !text.is_empty()) {
+            self.emitted_body = true;
             if let Some(t_idx) = self.thinking_block.take() {
                 if let Some(pos) = self.open_blocks.iter().position(|&x| x == t_idx) {
                     self.open_blocks.remove(pos);
@@ -671,6 +716,7 @@ impl OpenAiSseConverter {
             );
             let index = self.ensure_text_block(key, output);
             if let Some(delta) = event.get("delta").and_then(Value::as_str).filter(|value| !value.is_empty()) {
+                self.emitted_body = true;
                 push_event(output, "content_block_delta", json!({
                     "type":"content_block_delta", "index":index,
                     "delta":{"type":"text_delta", "text":delta}
@@ -864,10 +910,23 @@ impl OpenAiSseConverter {
 }
 
 /// Abort an Anthropic Messages SSE that was forwarded without a converter.
-/// Used when the upstream RST / idle-timeouts after HTTP 200 so Claude Code
-/// still receives `message_stop` instead of spinning forever.
-pub fn anthropic_sse_abort(message: &str, saw_message_start: bool) -> Vec<u8> {
+///
+/// `model` is the catalog id the client sent. The result is a normal assistant
+/// message (`message_stop`, no `event: error`) so Claude Code can leave the turn.
+pub fn anthropic_sse_abort(
+    message: &str,
+    model: &str,
+    saw_message_start: bool,
+    open_blocks: &[usize],
+    next_block_index: usize,
+    emitted_body: bool,
+) -> Vec<u8> {
     let mut output = String::new();
+    let model = if model.trim().is_empty() {
+        "claude"
+    } else {
+        model.trim()
+    };
     if !saw_message_start {
         push_event(
             &mut output,
@@ -879,13 +938,30 @@ pub fn anthropic_sse_abort(message: &str, saw_message_start: bool) -> Vec<u8> {
                     "type":"message",
                     "role":"assistant",
                     "content":[],
-                    "model":"proxy",
+                    "model": model,
                     "stop_reason":Value::Null,
                     "stop_sequence":Value::Null,
                     "usage":{"input_tokens":0,"output_tokens":0}
                 }
             }),
         );
+    }
+    for index in open_blocks {
+        push_event(
+            &mut output,
+            "content_block_stop",
+            json!({"type":"content_block_stop", "index": index}),
+        );
+    }
+    if !emitted_body {
+        let index = open_blocks
+            .iter()
+            .copied()
+            .max()
+            .map(|open| open.saturating_add(1))
+            .unwrap_or(0)
+            .max(next_block_index);
+        push_error_text_block(&mut output, index, message);
     }
     push_event(
         &mut output,
@@ -897,15 +973,54 @@ pub fn anthropic_sse_abort(message: &str, saw_message_start: bool) -> Vec<u8> {
         }),
     );
     push_event(&mut output, "message_stop", json!({"type":"message_stop"}));
+    output.into_bytes()
+}
+
+fn push_error_text_block(output: &mut String, index: usize, message: &str) {
     push_event(
-        &mut output,
-        "error",
+        output,
+        "content_block_start",
         json!({
-            "type": "error",
-            "error": {"type": "api_error", "message": message}
+            "type":"content_block_start",
+            "index": index,
+            "content_block":{"type":"text", "text":""}
         }),
     );
-    output.into_bytes()
+    push_event(
+        output,
+        "content_block_delta",
+        json!({
+            "type":"content_block_delta",
+            "index": index,
+            "delta":{"type":"text_delta", "text": message}
+        }),
+    );
+    push_event(
+        output,
+        "content_block_stop",
+        json!({"type":"content_block_stop", "index": index}),
+    );
+}
+
+fn chat_upstream_error_message(event: &Value) -> Option<String> {
+    if event
+        .get("choices")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty())
+    {
+        return None;
+    }
+    let error = event.get("error")?;
+    let message = error
+        .get("message")
+        .and_then(Value::as_str)
+        .or_else(|| error.as_str())
+        .unwrap_or("上游服务返回流式错误");
+    if message.is_empty() {
+        None
+    } else {
+        Some(message.to_string())
+    }
 }
 
 fn anthropic_messages_to_responses_input(request: &Value) -> Vec<Value> {
@@ -1418,15 +1533,34 @@ mod tests {
 
     #[test]
     fn stream_errors_are_anthropic_error_events() {
-        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "fallback");
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Responses, "gpt-5.6-sol");
         let output = String::from_utf8(converter.error_event("上游流式响应中断")).unwrap();
-        assert!(output.contains("event: error"));
+        assert!(converter.took_terminal_error());
         assert!(output.contains("event: message_stop"));
-        assert!(output.contains("\"type\":\"api_error\""));
+        assert!(output.contains("上游流式响应中断"));
+        assert!(output.contains("gpt-5.6-sol"));
+        assert!(output.contains("\"stop_reason\":\"end_turn\""));
+        assert!(!output.contains("event: error"));
         assert!(!output.contains("Bearer"));
+        let text = output.find("上游流式响应中断").unwrap();
         let stop = output.find("event: message_stop").unwrap();
-        let error = output.find("event: error").unwrap();
-        assert!(stop < error);
+        assert!(text < stop);
+    }
+
+    #[test]
+    fn chat_error_frame_finishes_with_catalog_model_text() {
+        let mut converter = OpenAiSseConverter::new(OpenAiStreamProtocol::Chat, "gpt-5.6-sol");
+        let output = String::from_utf8(converter.push_event(&json!({
+            "error": {"message": "model not found", "type": "invalid_request_error"}
+        }))).unwrap();
+        assert!(converter.took_terminal_error());
+        assert!(output.contains("gpt-5.6-sol"));
+        assert!(output.contains("model not found"));
+        assert!(output.contains("event: message_stop"));
+        assert!(!output.contains("event: error"));
+        let text = output.find("model not found").unwrap();
+        let stop = output.find("event: message_stop").unwrap();
+        assert!(text < stop);
     }
 
     #[test]
@@ -1439,12 +1573,13 @@ mod tests {
         assert!(output.contains("event: content_block_stop"));
         assert!(output.contains("event: message_delta"));
         assert!(output.contains("event: message_stop"));
-        assert!(output.contains("event: error"));
+        assert!(output.contains("上游流式响应中断"));
+        assert!(!output.contains("event: error"));
         let block_stop = output.find("event: content_block_stop").unwrap();
+        let text = output.find("上游流式响应中断").unwrap();
         let stop = output.find("event: message_stop").unwrap();
-        let error = output.find("event: error").unwrap();
-        assert!(block_stop < stop);
-        assert!(stop < error);
+        assert!(block_stop < text);
+        assert!(text < stop);
     }
 
     #[test]
@@ -1458,21 +1593,48 @@ mod tests {
 
     #[test]
     fn anthropic_sse_abort_injects_message_start_when_missing() {
-        let sse = String::from_utf8(anthropic_sse_abort("上游流式响应中断", false)).unwrap();
+        let sse = String::from_utf8(anthropic_sse_abort(
+            "上游流式响应中断",
+            "gpt-5.6-sol",
+            false,
+            &[],
+            0,
+            false,
+        ))
+        .unwrap();
         assert!(sse.contains("event: message_start"));
+        assert!(sse.contains("\"model\":\"gpt-5.6-sol\""));
+        assert!(!sse.contains("\"model\":\"proxy\""));
         assert!(sse.contains("event: message_delta"));
         assert!(sse.contains("event: message_stop"));
-        assert!(sse.contains("event: error"));
+        assert!(!sse.contains("event: error"));
         assert!(sse.contains("上游流式响应中断"));
+        let text = sse.find("上游流式响应中断").unwrap();
+        let stop = sse.find("event: message_stop").unwrap();
+        assert!(text < stop);
     }
 
     #[test]
     fn anthropic_sse_abort_skips_message_start_when_already_seen() {
-        let sse = String::from_utf8(anthropic_sse_abort("流式响应空闲超时", true)).unwrap();
+        let sse = String::from_utf8(anthropic_sse_abort(
+            "流式响应空闲超时",
+            "gpt-5.6-sol",
+            true,
+            &[0],
+            1,
+            false,
+        ))
+        .unwrap();
         assert!(!sse.contains("event: message_start"));
+        assert!(sse.contains("\"index\":0"));
         assert!(sse.contains("event: message_stop"));
-        assert!(sse.contains("event: error"));
+        assert!(!sse.contains("event: error"));
         assert!(sse.contains("流式响应空闲超时"));
+        let closed = sse.find("\"index\":0").unwrap();
+        let text = sse.find("流式响应空闲超时").unwrap();
+        let stop = sse.find("event: message_stop").unwrap();
+        assert!(closed < text);
+        assert!(text < stop);
     }
 
     #[test]

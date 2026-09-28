@@ -577,6 +577,56 @@ pub fn current_effective_proxy() -> Option<String> {
     resolve_effective(cached.mode, &cached.proxy_url)
 }
 
+/// Mode last saved into the outbound cache. Does not touch the OS proxy settings.
+pub fn cached_outbound_mode() -> OutboundProxyMode {
+    read_cache().mode
+}
+
+/// What the gateway's system-proxy watch should do after one poll.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SystemProxyWatchAction {
+    /// Mode is not system, or the detected URL matches the client already in use.
+    Ignore,
+    /// System proxy disappeared while a chain exit is on. Leave the last first hop.
+    KeepLastHop,
+    /// URL appeared, changed, or disappeared with no chain. Sync, then rebuild clients.
+    Apply,
+}
+
+pub fn system_proxy_watch_action(
+    mode: OutboundProxyMode,
+    exit_hop_active: bool,
+    previous: Option<&str>,
+    detected: Option<&str>,
+) -> SystemProxyWatchAction {
+    if mode != OutboundProxyMode::System {
+        return SystemProxyWatchAction::Ignore;
+    }
+    if previous == detected {
+        return SystemProxyWatchAction::Ignore;
+    }
+    if detected.is_none() && exit_hop_active {
+        return SystemProxyWatchAction::KeepLastHop;
+    }
+    SystemProxyWatchAction::Apply
+}
+
+/// Point the exit forwarder at the system proxy just detected.
+///
+/// `Ok(true)` means the caller should rebuild HTTP clients. `Ok(false)` means
+/// outbound mode is no longer system, so the caller must not replace the client
+/// a settings save just installed. `Err` leaves the previous hop in place.
+pub fn sync_system_proxy_forwarder() -> AppResult<bool> {
+    let cached = read_cache();
+    if cached.mode != OutboundProxyMode::System {
+        return Ok(false);
+    }
+    if active_exit(&cached.exits).is_some() {
+        sync_exit_forwarder(&cached)?;
+    }
+    Ok(true)
+}
+
 fn resolve_effective(mode: OutboundProxyMode, proxy_url: &str) -> Option<String> {
     match mode {
         OutboundProxyMode::Direct => None,
@@ -914,5 +964,92 @@ mod tests {
         let (again, migrated_again) = parse_exit_entries(Some("[]"), Some("1"), Some("socks5://old"));
         assert!(!migrated_again);
         assert!(again.is_empty());
+    }
+
+    #[test]
+    fn system_proxy_watch_ignores_unchanged_url() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::System,
+                false,
+                Some("http://127.0.0.1:7890"),
+                Some("http://127.0.0.1:7890"),
+            ),
+            SystemProxyWatchAction::Ignore,
+        );
+    }
+
+    #[test]
+    fn system_proxy_watch_applies_when_url_changes() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::System,
+                false,
+                Some("http://127.0.0.1:7890"),
+                Some("http://127.0.0.1:7897"),
+            ),
+            SystemProxyWatchAction::Apply,
+        );
+    }
+
+    #[test]
+    fn system_proxy_watch_applies_when_proxy_appears() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::System,
+                false,
+                None,
+                Some("http://127.0.0.1:7890"),
+            ),
+            SystemProxyWatchAction::Apply,
+        );
+    }
+
+    #[test]
+    fn system_proxy_watch_applies_direct_when_proxy_disappears_without_exit() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::System,
+                false,
+                Some("http://127.0.0.1:7890"),
+                None,
+            ),
+            SystemProxyWatchAction::Apply,
+        );
+    }
+
+    #[test]
+    fn system_proxy_watch_keeps_last_hop_when_proxy_disappears_with_exit() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::System,
+                true,
+                Some("http://127.0.0.1:7890"),
+                None,
+            ),
+            SystemProxyWatchAction::KeepLastHop,
+        );
+    }
+
+    #[test]
+    fn system_proxy_watch_ignores_direct_and_custom() {
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::Direct,
+                false,
+                None,
+                Some("http://127.0.0.1:7890"),
+            ),
+            SystemProxyWatchAction::Ignore,
+        );
+        assert_eq!(
+            system_proxy_watch_action(
+                OutboundProxyMode::Custom,
+                true,
+                Some("socks5://127.0.0.1:17891"),
+                Some("http://127.0.0.1:7890"),
+            ),
+            SystemProxyWatchAction::Ignore,
+        );
     }
 }

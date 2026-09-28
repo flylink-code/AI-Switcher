@@ -1975,6 +1975,11 @@
         "The smart gateway echoes the catalog model id you selected, instead of writing the upstream short name back to Claude Code. A pinned model no longer becomes Auto when a chat resumes.",
         "Antigravity Anthropic responses echo the same client id. Outbound requests still use the upstream model name.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_12": [
+        "When a pinned model drops mid-stream, the smart gateway finishes the turn as a normal assistant message that includes the error text. Claude Code no longer stays stuck on that turn, and later requests can go out.",
+        "With Follow system proxy, the reverse-proxy gateway re-reads the system proxy about every 10 seconds while it is running, and switches the outbound client only when the address or port changes.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

@@ -1,6 +1,6 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.11**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.12**
 
 **本版**：智能网关回显你选中的目录模型，钉住的模型不会在对话中途变成 Auto。
 
