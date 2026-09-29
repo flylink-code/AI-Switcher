@@ -193,9 +193,10 @@ fn anthropic_envelope_model<'a>(
 }
 
 fn anthropic_client_model(headers: &HeaderMap, payload: &Value) -> String {
-    if let Some(from_header) =
-        crate::gateway::correlation::header_value(headers, crate::gateway::correlation::CLIENT_MODEL_HEADER)
-    {
+    if let Some(from_header) = crate::gateway::correlation::header_value(
+        headers,
+        crate::gateway::correlation::CLIENT_MODEL_HEADER,
+    ) {
         return from_header;
     }
     payload
@@ -590,14 +591,16 @@ async fn dispatch_generation(
             Ok(value) => value,
             Err(error) => {
                 last_error = error.to_string();
-                last_fail_status = 500;
+                last_fail_status = fail_status_from_message(&last_error);
                 if !should_cool_account_on_generate_error(&error) {
                     log::warn!(
                         "Antigravity project lookup network error on {account_email}; not cooling account: {last_error}"
                     );
                     break;
                 }
-                let _ = account_store().mark_cooldown(&account.id, 45, &last_error);
+                log::warn!(
+                    "Antigravity project lookup failed on {account_email}; rotating without cooldown: {last_error}"
+                );
                 continue;
             }
         };
@@ -673,13 +676,8 @@ async fn dispatch_generation(
                         format!("upstream attempt timeout after {}ms", timeout.as_millis());
                     last_fail_status = 504;
                     state.pool.clear_session(session_key.as_deref());
-                    let _ = account_store().mark_cooldown(
-                        &account.id,
-                        crate::antigravity::pool::timeout_cooldown_secs(),
-                        &last_error,
-                    );
                     log::warn!(
-                        "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model}; rotating account"
+                        "Antigravity upstream attempt timeout on {account_email} model={last_attempted_model}; rotating account without cooldown"
                     );
                     break 'levels Err(());
                 }
@@ -695,8 +693,6 @@ async fn dispatch_generation(
                     if last_fail_status == 401 {
                         let _ = account_store()
                             .mark_reauthorization_required(&account.id, REAUTH_REASON);
-                    } else if last_fail_status == 502 {
-                        let _ = account_store().mark_cooldown(&account.id, 20, &last_error);
                     }
                     break 'levels Err(());
                 }
@@ -996,7 +992,9 @@ async fn dispatch_generation(
             let text = upstream.text().await.unwrap_or_default();
             last_error = format!("upstream {status}: {text}");
             last_fail_status = status.as_u16();
-            let _ = account_store().mark_cooldown(&account.id, 15, &last_error);
+            log::warn!(
+                "Antigravity upstream {status} on {account_email} model={last_attempted_model}; rotating without cooldown"
+            );
             continue;
         }
 
@@ -1051,7 +1049,11 @@ async fn dispatch_generation(
                 }
                 match protocol {
                     WireProtocol::Anthropic => Json(gemini_to_anthropic_response(
-                        &anthropic_envelope_model(protocol, response_model.as_deref(), &current_model),
+                        &anthropic_envelope_model(
+                            protocol,
+                            response_model.as_deref(),
+                            &current_model,
+                        ),
                         &gemini,
                         session_key.as_deref(),
                         thoughts_allowed,
@@ -1575,7 +1577,7 @@ fn authorize(state: &GatewayState, headers: &HeaderMap) -> Result<(), Response> 
 /// (1–3s), which turns a Cloud Code 429 into a request storm. Preserve 429 so
 /// the client (and local proxy) can back off.
 fn is_request_body_status(status: u16) -> bool {
-    matches!(status, 400 | 422)
+    matches!(status, 400 | 404 | 422)
 }
 
 fn should_cool_account_on_generate_error(error: &AppError) -> bool {
@@ -1627,7 +1629,7 @@ fn client_status_from_dispatch(last_fail_status: u16, last_error: &str) -> Statu
     if is_auth_failure(last_error) || last_fail_status == 401 {
         return StatusCode::UNAUTHORIZED;
     }
-    if matches!(last_fail_status, 400 | 403 | 422) {
+    if matches!(last_fail_status, 400 | 403 | 404 | 422) {
         return StatusCode::from_u16(last_fail_status).unwrap_or(from_error);
     }
     from_error
@@ -1646,6 +1648,8 @@ fn client_status_from_upstream_error(last_error: &str) -> StatusCode {
         || lower.contains("permission denied")
     {
         StatusCode::FORBIDDEN
+    } else if looks_like_http_status(&lower, 404) || lower.contains("model_not_found") {
+        StatusCode::NOT_FOUND
     } else if looks_like_http_status(&lower, 400)
         || looks_like_http_status(&lower, 422)
         || lower.contains("thought_signature")
@@ -1689,6 +1693,7 @@ fn error_type_for_status(status: StatusCode) -> &'static str {
         429 => "rate_limit_error",
         401 => "authentication_error",
         403 => "permission_error",
+        404 => "not_found_error",
         400 | 422 => "invalid_request_error",
         504 => "timeout_error",
         _ => "antigravity_gateway_error",
@@ -1762,7 +1767,11 @@ mod tests {
             "claude.antigravity--built-in.gemini-3.8-flash"
         );
         assert_eq!(
-            anthropic_envelope_model(WireProtocol::OpenAiChat, Some("claude.auto"), "gemini-3.8-flash-high"),
+            anthropic_envelope_model(
+                WireProtocol::OpenAiChat,
+                Some("claude.auto"),
+                "gemini-3.8-flash-high"
+            ),
             "gemini-3.8-flash-high"
         );
     }
@@ -2000,7 +2009,12 @@ mod tests {
             "upstream"
         );
         assert!(is_request_body_status(400));
+        assert!(is_request_body_status(404));
         assert!(is_request_body_status(422));
+        assert_eq!(
+            client_status_from_dispatch(404, "upstream 404: model not found"),
+            StatusCode::NOT_FOUND
+        );
         assert!(!is_request_body_status(502));
     }
 

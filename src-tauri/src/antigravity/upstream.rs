@@ -10,8 +10,8 @@ use crate::error::{AppError, AppResult};
 
 const UPSTREAM_FALLBACKS: [&str; 3] = [
     "https://daily-cloudcode-pa.googleapis.com/v1internal",
-    "https://cloudcode-pa.googleapis.com/v1internal",
     "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal",
+    "https://cloudcode-pa.googleapis.com/v1internal",
 ];
 const GENERATE_CONNECT_SECS: u64 = 5;
 const GENERATE_TIMEOUT_SECS: u64 = 600;
@@ -30,7 +30,7 @@ const ANTHROPIC_BETA_CLAUDE_CODE: &str = "claude-code-20250219";
 /// How a Cloud Code 429 should be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateLimitKind {
-    /// Daily-cluster node RPM; a single failover to production may help.
+    /// Daily URL/RPM 限流，可尝试回退到 Sandbox。
     UrlLevel,
     /// Account/project RPM on a SKU; same-host backoff only.
     AccountRateLimit,
@@ -49,7 +49,7 @@ impl RateLimitKind {
 }
 
 /// Classify a 429 response body. `host_index` is the index into
-/// [`UPSTREAM_FALLBACKS`] (0 = daily, 1 = prod, 2 = sandbox).
+/// [`UPSTREAM_FALLBACKS`]（0 = Daily，1 = Sandbox，2 = Prod）。
 pub fn classify_rate_limit_429(body: &str, host_index: usize) -> RateLimitKind {
     let lower = body.to_ascii_lowercase();
     if lower.contains("capacity on this model")
@@ -64,8 +64,8 @@ pub fn classify_rate_limit_429(body: &str, host_index: usize) -> RateLimitKind {
     if !generic {
         return RateLimitKind::AccountRateLimit;
     }
-    // Generic "resource exhausted" on the daily host is often URL-level; on
-    // production it is usually account/project RPM and must not fan out to sandbox.
+    // 泛化 RESOURCE_EXHAUSTED 仅在 Daily 主机可视为 URL 级限流；
+    // Sandbox/Prod 仍视为账号或项目限流，不再跨主机扩散。
     if host_index == 0 {
         RateLimitKind::UrlLevel
     } else {
@@ -78,8 +78,7 @@ pub fn classify_rate_limit_body(body: &str) -> RateLimitKind {
     classify_rate_limit_429(body, usize::MAX)
 }
 
-/// Helper to detect URL/node-level rate limits (e.g. "Resource has been exhausted" on daily cluster)
-/// where failing over to production cloudcode-pa endpoint can succeed (mirrors sub2api).
+/// 判断 Daily 的 URL/节点限流，允许向 Sandbox 回退。
 pub fn is_url_level_rate_limit(body: &str) -> bool {
     matches!(classify_rate_limit_429(body, 0), RateLimitKind::UrlLevel)
 }
@@ -128,6 +127,20 @@ fn rebuild_status_response(status: reqwest::StatusCode, text: String) -> reqwest
         .body(text)
         .unwrap_or_else(|_| http::Response::new(String::new()));
     reqwest::Response::from(http_response)
+}
+
+fn looks_like_model_not_found(body: &str) -> bool {
+    let lower = body.to_ascii_lowercase();
+    [
+        "model not found",
+        "model_not_found",
+        "unknown model",
+        "unsupported model",
+        "model is not available",
+        "no such model",
+    ]
+    .iter()
+    .any(|cue| lower.contains(cue))
 }
 
 fn classify_reqwest_error(error: &reqwest::Error) -> String {
@@ -245,16 +258,11 @@ impl UpstreamClient {
         let client = self.http();
         let mut url_fallback_used = false;
         let mut hosts_tried = 0u32;
+        let mut last_response = None;
         for (idx, base) in UPSTREAM_FALLBACKS.iter().enumerate() {
             if idx == 0 && self.daily_host_limited() {
                 log::debug!("Antigravity skipping daily host (recent URL-level 429)");
                 continue;
-            }
-            if idx == 2 && last_was_network {
-                log::warn!(
-                    "Antigravity skipping sandbox host after network failure on earlier Cloud Code hosts"
-                );
-                break;
             }
             let url = match query {
                 Some(q) => format!("{base}:{method}?{q}"),
@@ -281,9 +289,12 @@ impl UpstreamClient {
                 match request.send().await {
                     Ok(response) => {
                         let status = response.status();
+                        last_was_network = false;
                         if status.is_success() {
                             log::info!("Antigravity generate {method} {url} → {status}");
-                            self.clear_daily_limited();
+                            if idx == 0 {
+                                self.clear_daily_limited();
+                            }
                             return Ok(response);
                         }
                         if status.as_u16() == 429 {
@@ -339,10 +350,8 @@ impl UpstreamClient {
                         if status.as_u16() == 401 {
                             return Ok(response);
                         }
-                        // Request-body errors will fail the same way on every host.
-                        // Returning them as-is keeps the real 400 from being laundered
-                        // into a later 429 / 502 after endpoint failover.
-                        if matches!(status.as_u16(), 400 | 422) {
+                        // 请求体或模型错误对所有端点都相同，原样返回以免洗成其他状态。
+                        if matches!(status.as_u16(), 400 | 404 | 422) {
                             let text = response.text().await.unwrap_or_default();
                             log::warn!(
                                 "Antigravity generate {method} {url} → {status}: {}",
@@ -357,13 +366,20 @@ impl UpstreamClient {
                             server_error_attempt += 1;
                             continue;
                         }
-                        // Endpoint-specific 403/404/5xx should try the next Cloud Code host
-                        // (sandbox often 403s while production still works).
+                        // 上游明确表示模型不存在时，不能在其他端点上重复请求。
                         let text = response.text().await.unwrap_or_default();
+                        if looks_like_model_not_found(&text) {
+                            return Ok(rebuild_status_response(status, text));
+                        }
+                        if !matches!(status.as_u16(), 403 | 408 | 500..=599) {
+                            return Ok(rebuild_status_response(status, text));
+                        }
+                        // 仅对可能与端点有关的故障回退，同时保留真实状态与响应正文。
                         last_error = format!("upstream {status}: {text}");
+                        last_response = Some(rebuild_status_response(status, text));
                         log::warn!(
                             "Antigravity generate {method} {url} → {status}: {}",
-                            text.chars().take(180).collect::<String>()
+                            last_error.chars().take(180).collect::<String>()
                         );
                         break;
                     }
@@ -384,6 +400,8 @@ impl UpstreamClient {
                 hosts_tried,
                 started.elapsed(),
             )))
+        } else if let Some(response) = last_response {
+            Ok(response)
         } else {
             Err(AppError::Other(last_error))
         }
@@ -486,6 +504,20 @@ mod tests {
             classify_rate_limit_body("model capacity exhausted on this SKU"),
             RateLimitKind::ModelQuotaExhausted
         );
+    }
+
+    #[test]
+    fn fallback_prefers_sandbox_before_production() {
+        assert!(UPSTREAM_FALLBACKS[0].starts_with("https://daily-cloudcode-pa.googleapis.com/"));
+        assert!(UPSTREAM_FALLBACKS[1].contains(".sandbox.googleapis.com/"));
+        assert!(UPSTREAM_FALLBACKS[2].starts_with("https://cloudcode-pa.googleapis.com/"));
+    }
+
+    #[test]
+    fn model_error_text_does_not_trigger_host_fallback() {
+        assert!(looks_like_model_not_found("MODEL_NOT_FOUND: unknown model"));
+        assert!(looks_like_model_not_found("unsupported model name"));
+        assert!(!looks_like_model_not_found("Resource has been exhausted"));
     }
 
     #[test]

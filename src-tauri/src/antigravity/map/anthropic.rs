@@ -120,7 +120,10 @@ pub fn anthropic_to_gemini_request(
                         block.get("id").and_then(Value::as_str),
                         block.get("name").and_then(Value::as_str),
                     ) {
-                        tool_names.insert(id.to_string(), name.to_string());
+                        tool_names.insert(
+                            thought_sig::normalize_tool_id(id).into_owned(),
+                            name.to_string(),
+                        );
                     }
                 }
             }
@@ -637,7 +640,7 @@ fn content_to_parts(
                         let args = block.get("input").cloned().unwrap_or(json!({}));
                         let mut fc = json!({ "name": name, "args": args });
                         if let Some(id) = id {
-                            fc["id"] = json!(id);
+                            fc["id"] = json!(thought_sig::normalize_tool_id(id).as_ref());
                         }
                         let mut part = json!({ "functionCall": fc });
                         if gemini_target {
@@ -657,13 +660,16 @@ fn content_to_parts(
                             .get("tool_use_id")
                             .and_then(Value::as_str)
                             .unwrap_or("");
-                        let name = tool_names.get(tool_use_id).cloned().unwrap_or_else(|| {
-                            if tool_use_id.is_empty() {
-                                "tool".to_string()
-                            } else {
-                                tool_use_id.to_string()
-                            }
-                        });
+                        let name = tool_names
+                            .get(thought_sig::normalize_tool_id(tool_use_id).as_ref())
+                            .cloned()
+                            .unwrap_or_else(|| {
+                                if tool_use_id.is_empty() {
+                                    "tool".to_string()
+                                } else {
+                                    tool_use_id.to_string()
+                                }
+                            });
                         let result = tool_result_text(block.get("content").unwrap_or(&Value::Null));
                         let mut function_response =
                             json!({ "name": name, "response": { "result": result } });
@@ -671,7 +677,8 @@ fn content_to_parts(
                         // models; without `id` it emits tool_result without
                         // tool_use_id and upstream 400s ("Field required").
                         if !tool_use_id.is_empty() {
-                            function_response["id"] = json!(tool_use_id);
+                            function_response["id"] =
+                                json!(thought_sig::normalize_tool_id(tool_use_id).as_ref());
                         }
                         parts.push(json!({ "functionResponse": function_response }));
                     }
@@ -1795,6 +1802,31 @@ mod tests {
         assert_eq!(response["response"]["result"], json!("[package]"));
         let call = &parts.request["contents"][1]["parts"][0]["functionCall"];
         assert_eq!(call["id"], json!("toolu_1"));
+    }
+
+    #[test]
+    fn stripped_tool_id_preserves_anthropic_tool_result() {
+        thought_sig::cache_tool_signature("call_573077", "signed-tool");
+        let body = json!({
+            "model": "gemini-3.8-flash-high",
+            "max_tokens": 128,
+            "messages": [
+                { "role": "user", "content": "read file" },
+                { "role": "assistant", "content": [
+                    { "type": "tool_use", "id": "call_573077", "name": "read_file", "input": {} }
+                ]},
+                { "role": "user", "content": [
+                    { "type": "tool_result", "tool_use_id": "call573077", "content": "ok" }
+                ]}
+            ]
+        });
+        let mapped = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let call = &mapped.request["contents"][1]["parts"][0];
+        assert_eq!(call["functionCall"]["id"], "call_573077");
+        assert_eq!(call["thoughtSignature"], "signed-tool");
+        let result = &mapped.request["contents"][2]["parts"][0]["functionResponse"];
+        assert_eq!(result["id"], "call_573077");
+        assert_eq!(result["name"], "read_file");
     }
 
     #[test]

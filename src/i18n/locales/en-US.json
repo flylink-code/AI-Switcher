@@ -1980,6 +1980,12 @@
         "When a pinned model drops mid-stream, the smart gateway finishes the turn as a normal assistant message that includes the error text. Claude Code no longer stays stuck on that turn, and later requests can go out.",
         "With Follow system proxy, the reverse-proxy gateway re-reads the system proxy about every 10 seconds while it is running, and switches the outbound client only when the address or port changes.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_13": [
+        "The reverse-proxy gateway treats a tool call id that lost its underscore (such as call573077) as the same thought signature as call_573077, so replayed history is not rejected by Cloud Code.",
+        "A missing model or HTTP 404 is returned unchanged, instead of trying another Cloud Code host and turning the error into 429 or 502.",
+        "A Daily rate limit falls back to Sandbox before production. Timeouts, 502s, and other upstream failures that are not sign-in or rate-limit errors rotate accounts without cooling them.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

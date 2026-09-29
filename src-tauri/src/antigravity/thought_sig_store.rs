@@ -1044,7 +1044,8 @@ impl ThoughtSigStore {
     }
 
     pub(crate) fn cache_tool(&self, id: &str, sig: &str) {
-        let id_clean = id.trim();
+        let id_clean = super::thought_sig::normalize_tool_id(id);
+        let id_clean = id_clean.as_ref();
         if id_clean.is_empty() || !usable(sig) {
             return;
         }
@@ -1066,30 +1067,53 @@ impl ThoughtSigStore {
     }
 
     pub(crate) fn get_tool(&self, id: &str) -> Option<String> {
-        let id_clean = id.trim();
+        let normalized = super::thought_sig::normalize_tool_id(id);
+        let id_clean = normalized.as_ref();
         if id_clean.is_empty() {
             return None;
         }
         let now = Self::now_secs();
-        let (sig, should_touch) = {
+        let (sig, should_touch, key) = {
             let mut l1 = match self.l1.lock() {
                 Ok(g) => g,
                 Err(p) => p.into_inner(),
             };
-            l1.get_tool(
+            let (mut sig, mut should_touch) = l1.get_tool(
                 id_clean,
                 now,
                 self.config.ttl_secs,
                 self.config.touch_throttle_secs,
-            )
+            );
+            let mut key = id_clean.to_string();
+            // 兼容旧版缓存中使用的原始工具 ID，保持现有持久记录可读。
+            if sig.is_none() && id.trim() != id_clean {
+                key = id.trim().to_string();
+                (sig, should_touch) = l1.get_tool(
+                    &key,
+                    now,
+                    self.config.ttl_secs,
+                    self.config.touch_throttle_secs,
+                );
+            }
+            if sig.is_none() {
+                if let Some(rest) = id_clean.strip_prefix("call_") {
+                    let legacy = format!("call{rest}");
+                    if super::thought_sig::normalize_tool_id(&legacy).as_ref() == id_clean {
+                        key = legacy;
+                        (sig, should_touch) = l1.get_tool(
+                            &key,
+                            now,
+                            self.config.ttl_secs,
+                            self.config.touch_throttle_secs,
+                        );
+                    }
+                }
+            }
+            (sig, should_touch, key)
         };
         if should_touch {
             if let Some(signature) = sig.as_ref() {
-                self.send_touch(
-                    SignatureKey::Tool(id_clean.to_string()),
-                    signature.clone(),
-                    now,
-                );
+                self.send_touch(SignatureKey::Tool(key), signature.clone(), now);
             }
         }
         sig
@@ -1290,6 +1314,44 @@ mod tests {
             busy_timeout_ms: 250,
             touch_throttle_secs: 60,
         }
+    }
+
+    #[test]
+    fn test_tool_id_normalization_survives_restart() {
+        let temp = tempfile::tempdir().unwrap();
+        let config = temp_config(temp.path());
+        {
+            let store = ThoughtSigStore::init(config.clone());
+            store.cache_tool("call_573077", "sig-normalized");
+            assert_eq!(
+                store.get_tool("call573077").as_deref(),
+                Some("sig-normalized")
+            );
+            store.flush();
+        }
+        let store = ThoughtSigStore::init(config);
+        assert_eq!(
+            store.get_tool("call573077").as_deref(),
+            Some("sig-normalized")
+        );
+    }
+
+    #[test]
+    fn test_legacy_tool_id_remains_readable() {
+        let temp = tempfile::tempdir().unwrap();
+        let config = temp_config(temp.path());
+        let conn = rusqlite::Connection::open(&config.path).unwrap();
+        ensure_schema(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO thought_signatures (kind, key_primary, key_secondary, signature, updated_at)
+             VALUES (0, 'call573077', 0, 'legacy-sig', ?1);",
+            rusqlite::params![ThoughtSigStore::now_secs()],
+        )
+        .unwrap();
+        drop(conn);
+        let store = ThoughtSigStore::init(config);
+        assert_eq!(store.get_tool("call_573077").as_deref(), Some("legacy-sig"));
+        assert_eq!(store.get_tool("call573077").as_deref(), Some("legacy-sig"));
     }
 
     #[test]

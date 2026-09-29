@@ -73,7 +73,10 @@ pub fn openai_to_gemini_request(
                         .and_then(|f| f.get("name"))
                         .and_then(Value::as_str),
                 ) {
-                    tool_names.insert(id.to_string(), name.to_string());
+                    tool_names.insert(
+                        crate::antigravity::thought_sig::normalize_tool_id(id).into_owned(),
+                        name.to_string(),
+                    );
                 }
             }
         }
@@ -113,7 +116,10 @@ pub fn openai_to_gemini_request(
                         let mut fc = json!({ "name": name, "args": args });
                         let id = call.get("id").and_then(Value::as_str);
                         if let Some(id) = id {
-                            fc["id"] = json!(id);
+                            fc["id"] = json!(crate::antigravity::thought_sig::normalize_tool_id(
+                                id
+                            )
+                            .as_ref());
                         }
                         let mut part = json!({ "functionCall": fc });
                         // Gemini 3 要求历史 functionCall 携带 thought_signature。
@@ -143,7 +149,14 @@ pub fn openai_to_gemini_request(
                     .get("name")
                     .and_then(Value::as_str)
                     .map(str::to_string)
-                    .or_else(|| tool_names.get(tool_call_id).cloned())
+                    .or_else(|| {
+                        tool_names
+                            .get(
+                                crate::antigravity::thought_sig::normalize_tool_id(tool_call_id)
+                                    .as_ref(),
+                            )
+                            .cloned()
+                    })
                     .unwrap_or_else(|| {
                         if tool_call_id.is_empty() {
                             "tool".to_string()
@@ -160,7 +173,9 @@ pub fn openai_to_gemini_request(
                 // models; without `id` it emits tool_result without
                 // tool_use_id and upstream 400s ("Field required").
                 if !tool_call_id.is_empty() {
-                    function_response["id"] = json!(tool_call_id);
+                    function_response["id"] = json!(
+                        crate::antigravity::thought_sig::normalize_tool_id(tool_call_id).as_ref()
+                    );
                 }
                 contents.push(json!({
                     "role": "user",
@@ -845,6 +860,38 @@ mod tests {
         assert_eq!(
             parts.request["contents"][1]["parts"][0]["thoughtSignature"],
             json!("real-tool-sig")
+        );
+    }
+
+    #[test]
+    fn stripped_tool_id_preserves_name_signature_and_response_id() {
+        crate::antigravity::thought_sig::cache_tool_signature("call_573077", "real-signature");
+        let body = json!({
+            "model": "gemini-3.8-flash-high",
+            "messages": [
+                { "role": "user", "content": "run" },
+                { "role": "assistant", "content": null, "tool_calls": [
+                    { "id": "call_573077", "type": "function", "function": { "name": "read_file", "arguments": "{}" } }
+                ]},
+                { "role": "tool", "tool_call_id": "call573077", "content": "ok" }
+            ]
+        });
+        let mapped = openai_to_gemini_request(&body, None).unwrap();
+        assert_eq!(
+            mapped.request["contents"][1]["parts"][0]["functionCall"]["id"],
+            "call_573077"
+        );
+        assert_eq!(
+            mapped.request["contents"][1]["parts"][0]["thoughtSignature"],
+            "real-signature"
+        );
+        assert_eq!(
+            mapped.request["contents"][2]["parts"][0]["functionResponse"]["id"],
+            "call_573077"
+        );
+        assert_eq!(
+            mapped.request["contents"][2]["parts"][0]["functionResponse"]["name"],
+            "read_file"
         );
     }
 

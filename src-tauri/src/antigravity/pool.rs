@@ -11,7 +11,6 @@ use super::limiter::AccountLimiter;
 use super::quota::{quota_family_from_model, QuotaFamily};
 use crate::error::{AppError, AppResult};
 
-const DEFAULT_COOLDOWN_SECS: i64 = 20;
 const RATE_LIMIT_COOLDOWN_SECS: i64 = 45;
 const AUTH_COOLDOWN_SECS: i64 = 180;
 /// Cloud Code sometimes sends a huge Retry-After (hourly/daily reset). Capping
@@ -20,9 +19,6 @@ const MAX_RATE_LIMIT_COOLDOWN_SECS: i64 = 120;
 /// SKU/RPM 429 while 5h/7d bars still have remaining. Short so another account
 /// can pick up the same request without parking the first number for 45s+.
 const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
-/// A missing response is transient and must not pin the preferred account for
-/// the normal 20-second server-error cooldown.
-const UPSTREAM_TIMEOUT_COOLDOWN_SECS: i64 = 5;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -180,15 +176,11 @@ impl AccountPool {
         let family = requested_family(requested_model);
         if status == 403 {
             let _ = store().mark_forbidden_403(failed_account_id, "上游返回 403 权限受限/账号异常");
-        } else {
+        } else if matches!(status, 401 | 429) {
             let cooldown = if status == 401 {
                 AUTH_COOLDOWN_SECS
-            } else if status == 429 {
-                RATE_LIMIT_COOLDOWN_SECS
-            } else if status == 504 {
-                timeout_cooldown_secs()
             } else {
-                DEFAULT_COOLDOWN_SECS
+                RATE_LIMIT_COOLDOWN_SECS
             };
             let _ = store().mark_cooldown(
                 failed_account_id,
@@ -663,10 +655,6 @@ pub(crate) fn sku_rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
     }
 }
 
-pub(crate) fn timeout_cooldown_secs() -> i64 {
-    UPSTREAM_TIMEOUT_COOLDOWN_SECS
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -722,12 +710,6 @@ mod tests {
         let sticky = pool.sticky.lock().unwrap();
         assert!(!sticky.contains_key("session-a"));
         assert_eq!(sticky.get("session-b").map(String::as_str), Some("a2"));
-    }
-
-    #[test]
-    fn timeout_cooldown_is_shorter_than_generic_failure_cooldown() {
-        assert_eq!(timeout_cooldown_secs(), UPSTREAM_TIMEOUT_COOLDOWN_SECS);
-        assert!(timeout_cooldown_secs() < DEFAULT_COOLDOWN_SECS);
     }
 
     #[test]

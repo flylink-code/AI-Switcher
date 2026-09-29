@@ -13,6 +13,7 @@
 //! - 启动时在 init 中有界预热并隔离修复真实损坏文件；
 //! - 支持运行时 shutdown，并在应用 setup 阶段提供 `init_early()` 异步提前唤醒预热。
 
+use std::borrow::Cow;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -25,6 +26,20 @@ pub use super::thought_sig_store::{
 /// 无真实签名时的哨兵值：让 Gemini 跳过签名校验（仅 Vertex AI 拒绝该值，
 /// 本网关走 Cloud Code 上游，可用；对照参考实现 FIX #2167）。
 pub const SKIP_VALIDATOR_SENTINEL: &str = "skip_thought_signature_validator";
+
+/// 兼容客户端回传时丢失 `call_` 中下划线的工具调用 ID。
+pub(crate) fn normalize_tool_id(id: &str) -> Cow<'_, str> {
+    let id = id.trim();
+    if let Some(rest) = id.strip_prefix("call") {
+        if !rest.starts_with('_')
+            && (rest.starts_with(|ch: char| ch.is_ascii_digit())
+                || (rest.len() >= 6 && rest.chars().all(|ch| ch.is_ascii_hexdigit())))
+        {
+            return Cow::Owned(format!("call_{rest}"));
+        }
+    }
+    Cow::Borrowed(id)
+}
 
 static STORE: RwLock<Option<Arc<ThoughtSigStore>>> = RwLock::new(None);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
@@ -127,6 +142,34 @@ pub fn resolve_function_call_signature(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn normalizes_only_supported_call_ids() {
+        assert_eq!(normalize_tool_id("call573077"), "call_573077");
+        assert_eq!(normalize_tool_id("calld4e5f6a1"), "call_d4e5f6a1");
+        assert_eq!(normalize_tool_id("call_573077"), "call_573077");
+        assert_eq!(normalize_tool_id("call_read_root_0"), "call_read_root_0");
+        assert_eq!(normalize_tool_id("toolu_1234"), "toolu_1234");
+        assert_eq!(normalize_tool_id("callback"), "callback");
+    }
+
+    #[test]
+    fn tool_id_variants_share_a_signature() {
+        cache_tool_signature("call_573077", "sig-normalized");
+        assert_eq!(
+            get_tool_signature("call573077").as_deref(),
+            Some("sig-normalized")
+        );
+        assert_eq!(
+            resolve_function_call_signature(Some("call573077"), None, None),
+            "sig-normalized"
+        );
+        cache_tool_signature("call998877", "sig-reversed");
+        assert_eq!(
+            get_tool_signature("call_998877").as_deref(),
+            Some("sig-reversed")
+        );
+    }
 
     #[test]
     fn tool_and_session_cache_roundtrip() {
