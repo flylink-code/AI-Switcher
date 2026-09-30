@@ -367,6 +367,60 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     notes: "Built-in Antigravity gateway for DSH (anthropic-messages; no Claude role mapping).",
     targets: filterUiAgents(["dsh"]),
   },
+  {
+    id: "kiro-builtin",
+    name: "Kiro (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15831",
+    model: "claude-sonnet-4.6",
+    failoverModels: ["claude-opus-4.6", "claude-haiku-4.5"],
+    notes: "内建 Kiro 反代。Claude Code 的 Haiku / 子代理映射到 claude-haiku-4.5，Opus 映射到 claude-opus-4.6。",
+    targets: CLAUDE_OPENCODE,
+  },
+  {
+    id: "kiro-builtin-codex",
+    name: "Kiro (Built-in)",
+    protocolType: "openai_responses",
+    baseUrl: "http://127.0.0.1:15831/v1",
+    model: "claude-sonnet-4.6",
+    failoverModels: ["claude-opus-4.6", "claude-haiku-4.5"],
+    modelContextWindow: 200_000,
+    notes: "内建 Kiro 反代（OpenAI Responses）给 Codex，wire_api=responses。",
+    targets: ["codex"],
+  },
+  {
+    id: "kiro-builtin-cline",
+    name: "Kiro (Built-in)",
+    protocolType: "openai_responses",
+    baseUrl: "http://127.0.0.1:15831/v1",
+    model: "claude-sonnet-4.6",
+    failoverModels: ["claude-opus-4.6", "claude-haiku-4.5"],
+    modelContextWindow: 200_000,
+    notes: "内建 Kiro 反代（OpenAI Responses）给 Cline，基址带 /v1。",
+    targets: ["cline"],
+  },
+  {
+    id: "kiro-builtin-pi",
+    name: "Kiro (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15831",
+    model: "claude-sonnet-4.6",
+    failoverModels: ["claude-opus-4.6", "claude-haiku-4.5"],
+    modelContextWindow: 200_000,
+    notes: "内建 Kiro 反代。Pi 写入 ~/.pi/agent/models.json（api: anthropic-messages，baseUrl 为网关根地址）。",
+    targets: ["pi"],
+  },
+  {
+    id: "kiro-builtin-dsh",
+    name: "Kiro (Built-in)",
+    protocolType: "anthropic",
+    baseUrl: "http://127.0.0.1:15831",
+    model: "claude-sonnet-4.6",
+    failoverModels: ["claude-opus-4.6", "claude-haiku-4.5"],
+    modelContextWindow: 200_000,
+    notes: "内建 Kiro 反代给 DSH（anthropic-messages，无 Claude 角色映射）。",
+    targets: filterUiAgents(["dsh"]),
+  },
 ];
 
 export function presetsForTarget(target: ProviderTarget): ProviderPreset[] {
@@ -388,6 +442,20 @@ export function mappingFromAntigravityPreset(
     haiku: sonnet,
     fable: sonnet,
     subagent: target === "claude_code" ? sonnet : "",
+  };
+}
+
+export function mappingFromKiroPreset(
+  defaultModel: string,
+  target: ProviderTarget,
+): ClaudeModelMapping {
+  const sonnet = defaultModel.trim() || "claude-sonnet-4.6";
+  return {
+    sonnet,
+    opus: "claude-opus-4.6",
+    haiku: "claude-haiku-4.5",
+    fable: sonnet,
+    subagent: target === "claude_code" ? "claude-haiku-4.5" : "",
   };
 }
 

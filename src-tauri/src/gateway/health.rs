@@ -226,6 +226,9 @@ async fn probe_provider(provider: crate::provider::Provider) {
     if provider.is_antigravity() && key.trim().is_empty() {
         key = crate::antigravity::gateway::builtin_api_key();
     }
+    if provider.is_kiro() && key.trim().is_empty() {
+        key = crate::kiro::gateway::builtin_api_key();
+    }
     let client = probe_http_client(&url);
     let mut request = client.get(&url);
     if !key.is_empty() {

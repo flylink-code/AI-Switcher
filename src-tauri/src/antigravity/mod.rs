@@ -7,7 +7,7 @@
 
 pub mod account;
 pub mod account_test;
-mod exit_hop;
+pub(crate) mod exit_hop;
 pub mod fast_path;
 pub mod gateway;
 pub mod limiter;

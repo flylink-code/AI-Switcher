@@ -419,6 +419,9 @@ fn hydrate_catalog_runtime(
     if runtime.is_antigravity() && runtime.api_key.trim().is_empty() {
         runtime.api_key = crate::antigravity::gateway::builtin_api_key();
     }
+    if runtime.is_kiro() && runtime.api_key.trim().is_empty() {
+        runtime.api_key = crate::kiro::gateway::builtin_api_key();
+    }
     let extra_models = match provider.target_app {
         ProviderTarget::Pi => state
             .db
@@ -747,6 +750,9 @@ fn extra_models_for_ag_catalog_apply(provider: &Provider, mut extra_models: Vec<
                 && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
         });
     }
+    if uses_kiro_model_catalog(provider) {
+        extend_unique_models(&mut extra_models, kiro_catalog_model_ids());
+    }
     provider.filter_hidden_models(extra_models)
 }
 
@@ -846,6 +852,48 @@ async fn apply_target_provider<R: tauri::Runtime>(
             runtime_provider.base_url = gateway.base_url;
         }
     }
+    if runtime_provider.is_kiro() {
+        crate::commands::kiro::ensure_gateway_running_for_provider(&runtime_provider).await?;
+        let gateway = crate::kiro::gateway_status()?;
+        if runtime_provider.api_key.trim().is_empty()
+            || state
+                .db
+                .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+                .ok()
+                .flatten()
+                .is_none()
+        {
+            let _ = state.db.with_conn(|conn| {
+                dao::upsert_provider(
+                    conn,
+                    &ProviderInput {
+                        id: Some(provider.id.clone()),
+                        name: provider.name.clone(),
+                        base_url: gateway.base_url.clone(),
+                        api_key: gateway.api_key.clone(),
+                        clear_api_key: false,
+                        model: provider.model.clone(),
+                        model_context_window: provider.model_context_window,
+                        auto_review_model_override: provider.auto_review_model_override.clone(),
+                        web_search_enabled: provider.web_search_enabled,
+                        model_mapping: provider.model_mapping.clone(),
+                        protocol_type: provider.protocol_type,
+                        provider_kind: provider.provider_kind,
+                        auth_binding: provider.auth_binding.clone(),
+                        target_app: provider.target_app,
+                        notes: provider.notes.clone(),
+                        failover_group: provider.failover_group,
+                        failover_models: provider.failover_models.clone(),
+                        hidden_models: provider.hidden_models.clone(),
+                        thinking_config: provider.thinking_config.clone(),
+                        custom_headers: provider.custom_headers.clone(),
+                    },
+                )
+            });
+            runtime_provider.base_url = gateway.base_url;
+            runtime_provider.api_key = gateway.api_key;
+        }
+    }
     runtime_provider.api_key = if provider.is_codex_oauth() {
         "PROXY_MANAGED".to_string()
     } else if provider.is_antigravity() {
@@ -856,6 +904,14 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .flatten()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| crate::antigravity::gateway::builtin_api_key())
+    } else if provider.is_kiro() {
+        state
+            .db
+            .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
+            .ok()
+            .flatten()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| crate::kiro::gateway::builtin_api_key())
     } else if gateway_catalog_on(state, provider.target_app) {
         state
             .db

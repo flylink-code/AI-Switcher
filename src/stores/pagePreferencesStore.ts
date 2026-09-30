@@ -18,6 +18,7 @@ interface PersistedPagePreferences {
   /** Independent proxy-page target. */
   proxyTarget?: ProviderTarget;
   gatewayTab?: "smart" | "antigravity";
+  gatewayReverseTab?: "antigravity" | "kiro";
   gatewaySection?: GatewaySection;
   gatewayProfileId?: string;
   gatewaySnippetVisible?: boolean;
@@ -38,6 +39,7 @@ interface PagePreferencesState {
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
   gatewayTab: "smart" | "antigravity";
+  gatewayReverseTab: "antigravity" | "kiro";
   gatewaySection: GatewaySection;
   gatewayProfileId: string;
   gatewaySnippetVisible: boolean;
@@ -54,6 +56,7 @@ interface PagePreferencesState {
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
   setGatewayTab: (tab: "smart" | "antigravity") => void;
+  setGatewayReverseTab: (tab: "antigravity" | "kiro") => void;
   setGatewaySection: (section: GatewaySection) => void;
   setGatewayProfileId: (profileId: string) => void;
   setGatewaySnippetVisible: (visible: boolean) => void;
@@ -74,6 +77,7 @@ const DEFAULTS: Pick<
   | "providersTarget"
   | "proxyTarget"
   | "gatewayTab"
+  | "gatewayReverseTab"
   | "gatewaySection"
   | "gatewayProfileId"
   | "gatewaySnippetVisible"
@@ -90,6 +94,7 @@ const DEFAULTS: Pick<
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
   gatewayTab: "smart",
+  gatewayReverseTab: "antigravity",
   gatewaySection: "service",
   gatewayProfileId: "gprof_shared",
   gatewaySnippetVisible: true,
@@ -220,6 +225,8 @@ function initialState() {
 
   const gatewayTab: "smart" | "antigravity" =
     stored.gatewayTab === "antigravity" ? "antigravity" : "smart";
+  const gatewayReverseTab: "antigravity" | "kiro" =
+    stored.gatewayReverseTab === "kiro" ? "kiro" : "antigravity";
   const gatewaySection = isGatewaySection(stored.gatewaySection)
     ? stored.gatewaySection
     : DEFAULTS.gatewaySection;
@@ -237,6 +244,7 @@ function initialState() {
     providersTarget,
     proxyTarget,
     gatewayTab,
+    gatewayReverseTab,
     gatewaySection,
     gatewayProfileId,
     gatewaySnippetVisible,
@@ -261,6 +269,7 @@ function persistSlice(
     | "providersTarget"
     | "proxyTarget"
     | "gatewayTab"
+    | "gatewayReverseTab"
     | "gatewaySection"
     | "gatewayProfileId"
     | "gatewaySnippetVisible"
@@ -279,6 +288,7 @@ function persistSlice(
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
     gatewayTab: state.gatewayTab,
+    gatewayReverseTab: state.gatewayReverseTab,
     gatewaySection: state.gatewaySection,
     gatewayProfileId: state.gatewayProfileId,
     gatewaySnippetVisible: state.gatewaySnippetVisible,
@@ -334,6 +344,10 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
   },
   setGatewayTab: (gatewayTab) => {
     set({ gatewayTab });
+    persistSlice(get());
+  },
+  setGatewayReverseTab: (gatewayReverseTab) => {
+    set({ gatewayReverseTab });
     persistSlice(get());
   },
   setGatewaySection: (gatewaySection) => {

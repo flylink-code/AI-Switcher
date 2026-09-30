@@ -14,7 +14,7 @@ use crate::quota::types::*;
 /// Local listeners and managed gateway cards cannot be probed as vendor APIs.
 fn quota_probe_skip_reason(provider: &Provider) -> Option<String> {
     match provider.provider_kind {
-        ProviderKind::Antigravity | ProviderKind::SmartGateway => {
+        ProviderKind::Antigravity | ProviderKind::Kiro | ProviderKind::SmartGateway => {
             Some("本地网关不支持供应商额度查询".to_string())
         }
         _ if is_self_referential_upstream(&provider.base_url, &reserved_listener_ports()) => {

@@ -11,6 +11,7 @@ export * from "./system";
 export * from "./config";
 export * from "./providers";
 export * from "./antigravity";
+export * from "./kiro";
 export * from "./proxy";
 export * from "./mcp";
 export * from "./prompts";

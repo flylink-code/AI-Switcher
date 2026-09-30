@@ -43,6 +43,7 @@ import {
   type RouteHelpTab,
 } from "@/components/proxy";
 import AntigravityPage from "@/pages/AntigravityPage";
+import KiroPage from "@/pages/KiroPage";
 import { BIND_TARGETS } from "@/components/antigravity";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -224,11 +225,28 @@ function errMsg(error: unknown): string {
   return String(error ?? "未知错误");
 }
 
+type ReverseGatewayTab = "antigravity" | "kiro";
+
+function ReverseGatewayBody({ tab }: { tab: ReverseGatewayTab }) {
+  switch (tab) {
+    case "antigravity":
+      return <AntigravityPage embedded />;
+    case "kiro":
+      return <KiroPage />;
+    default: {
+      const _exhaustive: never = tab;
+      return _exhaustive;
+    }
+  }
+}
+
 export default function GatewayPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const tab = usePagePreferencesStore((state) => state.gatewayTab);
   const setTab = usePagePreferencesStore((state) => state.setGatewayTab);
+  const reverseTab = usePagePreferencesStore((state) => state.gatewayReverseTab);
+  const setReverseTab = usePagePreferencesStore((state) => state.setGatewayReverseTab);
   const section = usePagePreferencesStore((state) => state.gatewaySection);
   const setSection = usePagePreferencesStore((state) => state.setGatewaySection);
   const profileId = usePagePreferencesStore((state) => state.gatewayProfileId);
@@ -535,7 +553,18 @@ export default function GatewayPage() {
             { value: "antigravity", label: t("gateway.tabAntigravity", { defaultValue: "反代网关" }) },
           ]}
         />
-        <AntigravityPage embedded />
+        <Segmented
+          size="small"
+          value={reverseTab}
+          onChange={(value) => {
+            if (value === "antigravity" || value === "kiro") setReverseTab(value);
+          }}
+          options={[
+            { value: "antigravity", label: t("gateway.reverseAntigravity") },
+            { value: "kiro", label: t("gateway.reverseKiro") },
+          ]}
+        />
+        <ReverseGatewayBody tab={reverseTab} />
       </Space>
     );
   }

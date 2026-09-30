@@ -11,7 +11,7 @@ pub async fn discover_provider_models(
     })?;
     let key = state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id))?;
     let Some(key) = key else {
-        if uses_antigravity_model_catalog(&provider) {
+        if uses_antigravity_model_catalog(&provider) || uses_kiro_model_catalog(&provider) {
             return discover_provider_models_with_key(&provider, String::new(), &state, true).await;
         }
         return cached_or_empty_model_result(
@@ -97,6 +97,24 @@ pub(crate) async fn discover_provider_models_with_key(
         });
     }
 
+    if uses_kiro_model_catalog(provider) {
+        let models = kiro_catalog_model_ids();
+        if cache_result {
+            state.db.with_conn(|conn| {
+                dao::save_provider_model_cache(conn, &provider.id, &models, checked_at)
+            })?;
+        }
+        return Ok(ModelDiscoveryResult {
+            models,
+            message: "已从 Kiro 目录加载模型".to_string(),
+            checked_at,
+            source: "kiro".to_string(),
+            stale: false,
+            expires_at: cache_result.then_some(checked_at + MODEL_CACHE_TTL_MS),
+            error: None,
+        });
+    }
+
     if provider.is_codex_oauth() {
         let account_id = provider.auth_binding.clone();
         let token_account = tauri::async_runtime::spawn_blocking(move || {
@@ -173,6 +191,33 @@ pub(crate) async fn discover_provider_models_with_key(
 
 fn uses_antigravity_model_catalog(provider: &Provider) -> bool {
     provider.is_antigravity() || is_antigravity_gateway_base_url(&provider.base_url)
+}
+
+fn uses_kiro_model_catalog(provider: &Provider) -> bool {
+    provider.is_kiro() || is_kiro_gateway_base_url(&provider.base_url)
+}
+
+fn is_kiro_gateway_base_url(base_url: &str) -> bool {
+    let Ok(normalized) = normalize_base_url(base_url) else {
+        return false;
+    };
+    let lower = normalized.to_ascii_lowercase();
+    let without_scheme = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .unwrap_or(lower.as_str());
+    let host_port = without_scheme.split('/').next().unwrap_or("");
+    matches!(
+        host_port,
+        "127.0.0.1:15831" | "localhost:15831" | "[::1]:15831"
+    )
+}
+
+fn kiro_catalog_model_ids() -> Vec<String> {
+    crate::kiro::models::catalog_ids()
+        .iter()
+        .map(|id| (*id).to_string())
+        .collect()
 }
 
 fn is_antigravity_gateway_base_url(base_url: &str) -> bool {

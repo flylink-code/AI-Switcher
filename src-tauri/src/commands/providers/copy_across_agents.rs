@@ -66,6 +66,11 @@ mod tests {
         assert!(is_antigravity_gateway_base_url("http://localhost:15830/v1"));
         assert!(is_antigravity_gateway_base_url("http://127.0.0.1:8045"));
         assert!(!is_antigravity_gateway_base_url("https://api.anthropic.com"));
+        assert!(is_kiro_gateway_base_url("http://127.0.0.1:15831"));
+        assert!(is_kiro_gateway_base_url("http://127.0.0.1:15831/"));
+        assert!(is_kiro_gateway_base_url("http://localhost:15831/v1"));
+        assert!(!is_kiro_gateway_base_url("http://127.0.0.1:15830"));
+        assert!(!is_antigravity_gateway_base_url("http://127.0.0.1:15831"));
         assert!(url_targets_loopback("http://127.0.0.1:15830/v1/models"));
         assert!(!url_targets_loopback("https://api.deepseek.com/v1/models"));
     }

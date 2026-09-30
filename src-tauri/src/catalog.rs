@@ -312,6 +312,14 @@ pub fn collect_provider_slugs_with(
                 && !crate::antigravity::model_catalog::should_remap_legacy_gemini(trimmed)
         });
     }
+    if uses_kiro_catalog(provider) {
+        extend_unique(
+            &mut ids,
+            crate::kiro::models::catalog_ids()
+                .iter()
+                .map(|id| (*id).to_string()),
+        );
+    }
     if hide_official {
         ids.retain(|id| {
             !is_injected_official_model_slug(id)
@@ -1031,6 +1039,22 @@ fn uses_antigravity_catalog(provider: &Provider) -> bool {
     )
 }
 
+fn uses_kiro_catalog(provider: &Provider) -> bool {
+    if provider.is_kiro() {
+        return true;
+    }
+    let lower = provider.base_url.trim().to_ascii_lowercase();
+    let without_scheme = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .unwrap_or(lower.as_str());
+    let host_port = without_scheme.split('/').next().unwrap_or("");
+    matches!(
+        host_port,
+        "127.0.0.1:15831" | "localhost:15831" | "[::1]:15831"
+    )
+}
+
 fn extend_unique(ids: &mut Vec<String>, extra: impl IntoIterator<Item = String>) {
     for model in extra {
         let model = model.trim();
@@ -1084,6 +1108,23 @@ mod tests {
         assert!(passes_claude_discovery(&catalog[0].public_id));
         assert_eq!(catalog[0].upstream_slug, "kimi-k2");
         assert_eq!(catalog[0].display_name, "Kimi · kimi-k2");
+    }
+
+    #[test]
+    fn kiro_gateway_uses_local_catalog_not_gemini() {
+        let mut kiro = provider("k", "Kiro", "claude-sonnet-4.6");
+        kiro.provider_kind = ProviderKind::Kiro;
+        kiro.base_url = "http://127.0.0.1:15831".into();
+        let ids = collect_provider_slugs(&kiro, &[]);
+        assert!(ids.iter().any(|id| id == "claude-sonnet-4.6"));
+        assert!(ids.iter().any(|id| id == "claude-haiku-4.5"));
+        assert!(!ids.iter().any(|id| id.contains("gemini")));
+
+        let mut by_url = provider("u", "Loop", "claude-sonnet-4.6");
+        by_url.base_url = "http://127.0.0.1:15831/v1".into();
+        let url_ids = collect_provider_slugs(&by_url, &[]);
+        assert!(url_ids.iter().any(|id| id == "claude-opus-4.6"));
+        assert!(!url_ids.iter().any(|id| id.contains("gemini")));
     }
 
     #[test]

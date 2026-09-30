@@ -166,8 +166,8 @@ pub fn default_gateway_ports() -> [u16; 8] {
 
 pub const SMART_GATEWAY_PORT: u16 = 15828;
 
-pub fn reserved_listener_ports() -> [u16; 9] {
-    [15821, 15822, 15823, 15824, 15825, 15826, 15827, SMART_GATEWAY_PORT, 15830]
+pub fn reserved_listener_ports() -> [u16; 10] {
+    [15821, 15822, 15823, 15824, 15825, 15826, 15827, SMART_GATEWAY_PORT, 15830, 15831]
 }
 
 pub fn assert_not_self_referential(url: &str) -> crate::error::AppResult<()> {

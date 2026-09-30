@@ -667,6 +667,7 @@ pub(crate) fn hydrate_provider_credential(_state: &ProxyState, mut provider: Pro
     provider.api_key = match crate::database::dao::materialize_api_key(&provider.api_key) {
         Ok(Some(key)) => key,
         Ok(None) if provider.is_antigravity() => crate::antigravity::gateway::builtin_api_key(),
+        Ok(None) if provider.is_kiro() => crate::kiro::gateway::builtin_api_key(),
         Ok(None) => return Ok(None),
         Err(error) => {
             log::error!("代理读取供应商凭据失败: {error}");

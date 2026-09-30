@@ -50,6 +50,7 @@ mod agents;
 mod catalog;
 mod gateway;
 mod antigravity;
+mod kiro;
 mod claude_plugins;
 mod coding;
 mod codex_oauth;
@@ -126,6 +127,13 @@ use crate::commands::{
     get_gateway_profile, list_gateway_profiles, update_gateway_profile, list_gateway_route_logs,
     create_gateway_profile, rename_gateway_profile, delete_gateway_profile, set_gateway_binding_profile,
     list_gateway_upstreams, upsert_gateway_upstream, delete_gateway_upstream, add_antigravity_gateway_upstream,
+    add_kiro_gateway_upstream,
+    list_kiro_accounts, import_kiro_accounts, remove_kiro_account,
+    start_kiro_builder_id_login, start_kiro_social_login,
+    get_kiro_gateway_status, set_kiro_gateway_port, set_kiro_gateway_api_key,
+    set_kiro_outbound_proxy, set_kiro_exit_proxy, probe_kiro_exit_proxy, probe_kiro_exit_latency,
+    refresh_kiro_account_quota, refresh_kiro_quotas, test_kiro_account,
+    start_kiro_gateway, stop_kiro_gateway, ensure_kiro_provider,
     import_gateway_upstreams_from_providers, list_gateway_upstream_models, set_gateway_upstream_model_visible,
     discover_gateway_upstream_models, discover_gateway_upstream_models_batch,
     ensure_smart_gateway_provider,
@@ -473,6 +481,25 @@ pub fn run() {
             get_antigravity_defaults,
             get_antigravity_pool_warning,
             get_antigravity_recommended_account,
+            list_kiro_accounts,
+            import_kiro_accounts,
+            remove_kiro_account,
+            start_kiro_builder_id_login,
+            start_kiro_social_login,
+            get_kiro_gateway_status,
+            set_kiro_gateway_port,
+            set_kiro_gateway_api_key,
+            set_kiro_outbound_proxy,
+            set_kiro_exit_proxy,
+            probe_kiro_exit_proxy,
+            probe_kiro_exit_latency,
+            refresh_kiro_account_quota,
+            refresh_kiro_quotas,
+            test_kiro_account,
+            start_kiro_gateway,
+            stop_kiro_gateway,
+            ensure_kiro_provider,
+            add_kiro_gateway_upstream,
             list_skills,
             list_agents,
             save_agent,
@@ -696,6 +723,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         proxy_status: tokio::sync::RwLock::new(initial_proxy_status),
     });
     crate::antigravity::gateway::init_gateway(Arc::clone(&db));
+    crate::kiro::gateway::init_gateway(Arc::clone(&db));
     crate::gateway::service::init_service(Arc::clone(&db));
     commands::proxy::spawn_proxy_lifecycle_listener(
         app.handle().clone(),
@@ -739,6 +767,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             background_started.elapsed().as_millis()
         );
         crate::antigravity::gateway::restore_gateway_if_enabled().await;
+        crate::kiro::gateway::restore_gateway_if_enabled().await;
         crate::gateway::service::restore_if_enabled(Arc::clone(&state.db)).await;
         crate::gateway::service::emit_status(&app_handle);
         // Post-update NSIS relaunch can still leave ports busy after the first

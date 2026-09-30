@@ -479,6 +479,63 @@ pub fn add_antigravity_gateway_upstream(state: tauri::State<'_, AppState>) -> Ap
 }
 
 #[tauri::command]
+pub fn add_kiro_gateway_upstream(state: tauri::State<'_, AppState>) -> AppResult<Provider> {
+    let (base_url, api_key) = match crate::kiro::gateway_status() {
+        Ok(status) => {
+            let port = if status.port == 0 {
+                crate::kiro::gateway::DEFAULT_GATEWAY_PORT
+            } else {
+                status.port
+            };
+            let base_url = if status.base_url.trim().is_empty() {
+                format!("http://127.0.0.1:{port}")
+            } else {
+                status.base_url.trim_end_matches('/').to_string()
+            };
+            let api_key = if status.api_key.trim().is_empty() {
+                crate::kiro::gateway::builtin_api_key()
+            } else {
+                status.api_key
+            };
+            (base_url, api_key)
+        }
+        Err(_) => (
+            format!(
+                "http://127.0.0.1:{}",
+                crate::kiro::gateway::DEFAULT_GATEWAY_PORT
+            ),
+            crate::kiro::gateway::builtin_api_key(),
+        ),
+    };
+    let input = ProviderInput {
+        id: Some("up_kiro_15831".to_string()),
+        name: "Kiro".to_string(),
+        base_url,
+        api_key,
+        clear_api_key: false,
+        model: crate::kiro::models::preferred_default_model(),
+        model_context_window: None,
+        auto_review_model_override: None,
+        web_search_enabled: None,
+        model_mapping: crate::provider::ClaudeModelMapping::default(),
+        protocol_type: ProtocolType::Anthropic,
+        provider_kind: ProviderKind::Kiro,
+        auth_binding: String::new(),
+        target_app: ProviderTarget::ClaudeCode,
+        notes: "内建 Kiro 反代 :15831".to_string(),
+        failover_group: 0,
+        failover_models: vec![
+            crate::kiro::models::preferred_opus(),
+            crate::kiro::models::preferred_haiku(),
+        ],
+        hidden_models: Vec::new(),
+        thinking_config: None,
+        custom_headers: None,
+    };
+    state.db.with_conn(|conn| upsert_upstream(conn, &input))
+}
+
+#[tauri::command]
 pub fn get_smart_gateway_status() -> AppResult<crate::gateway::service::SmartGatewayStatus> {
     Ok(crate::gateway::service::current_status())
 }

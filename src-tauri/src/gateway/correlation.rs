@@ -13,6 +13,7 @@ pub const CLIENT_MODEL_HEADER: &str = "x-aisw-client-model";
 pub const HOP_AGENT_PROXY: &str = "agent_proxy";
 pub const HOP_SMART_GATEWAY: &str = "smart_gateway";
 pub const HOP_ANTIGRAVITY: &str = "antigravity";
+pub const HOP_KIRO: &str = "kiro";
 
 #[derive(Debug, Clone)]
 pub struct Correlation {

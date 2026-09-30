@@ -18,6 +18,7 @@ function canCopyProviderKindTo(kind: ProviderKind, dest: ProviderTarget): boolea
       return dest === "claude_code" || dest === "claude_desktop";
     case "standard":
     case "antigravity":
+    case "kiro":
       return true;
     case "smart_gateway":
       return false;

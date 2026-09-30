@@ -6,6 +6,7 @@
 //! sent to the proxy that should resolve them (SOCKS5 domain ATYP / HTTP
 //! CONNECT), so DNS for Google does not leak to the local resolver.
 
+use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -203,27 +204,52 @@ struct ForwarderSlot {
     apply_error: Option<String>,
 }
 
-fn slot() -> &'static Mutex<ForwarderSlot> {
-    static SLOT: OnceLock<Mutex<ForwarderSlot>> = OnceLock::new();
-    SLOT.get_or_init(|| {
-        Mutex::new(ForwarderSlot {
+impl ForwarderSlot {
+    fn empty() -> Self {
+        Self {
             applied: None,
             runtime: None,
             probe: None,
             apply_error: None,
-        })
-    })
+        }
+    }
 }
 
-fn lock_slot() -> std::sync::MutexGuard<'static, ForwarderSlot> {
-    match slot().lock() {
+/// Antigravity and Kiro each keep their own localhost CONNECT forwarder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HopOwner {
+    Antigravity,
+    Kiro,
+}
+
+impl HopOwner {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Antigravity => "Antigravity",
+            Self::Kiro => "Kiro",
+        }
+    }
+}
+
+fn slots() -> &'static Mutex<HashMap<HopOwner, ForwarderSlot>> {
+    static SLOTS: OnceLock<Mutex<HashMap<HopOwner, ForwarderSlot>>> = OnceLock::new();
+    SLOTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn lock_slots() -> std::sync::MutexGuard<'static, HashMap<HopOwner, ForwarderSlot>> {
+    match slots().lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
     }
 }
 
 pub fn apply_chain(next: Option<ChainConfig>) -> AppResult<()> {
-    let mut guard = lock_slot();
+    apply_owned(HopOwner::Antigravity, next)
+}
+
+pub fn apply_owned(owner: HopOwner, next: Option<ChainConfig>) -> AppResult<()> {
+    let mut slots = lock_slots();
+    let guard = slots.entry(owner).or_insert_with(ForwarderSlot::empty);
     if guard.applied == next
         && (next.is_none() || guard.runtime.is_some())
         && guard.apply_error.is_none()
@@ -242,7 +268,8 @@ pub fn apply_chain(next: Option<ChainConfig>) -> AppResult<()> {
             }
         };
         info!(
-            "Antigravity exit hop listening on {} ({label})",
+            "{} exit hop listening on {} ({label})",
+            owner.name(),
             runtime.local_url()
         );
         guard.runtime = Some(runtime);
@@ -259,7 +286,13 @@ pub fn apply_chain(next: Option<ChainConfig>) -> AppResult<()> {
 }
 
 pub fn local_forwarder_url() -> Option<String> {
-    lock_slot().runtime.as_ref().map(ExitRuntime::local_url)
+    local_forwarder_url_for(HopOwner::Antigravity)
+}
+
+pub fn local_forwarder_url_for(owner: HopOwner) -> Option<String> {
+    lock_slots()
+        .get(&owner)
+        .and_then(|slot| slot.runtime.as_ref().map(ExitRuntime::local_url))
 }
 
 pub fn fail_closed_proxy_url() -> &'static str {
@@ -267,42 +300,60 @@ pub fn fail_closed_proxy_url() -> &'static str {
 }
 
 pub fn current_label() -> Option<String> {
-    lock_slot()
-        .applied
-        .as_ref()
-        .map(ChainConfig::redacted_label)
+    current_label_for(HopOwner::Antigravity)
+}
+
+pub fn current_label_for(owner: HopOwner) -> Option<String> {
+    lock_slots()
+        .get(&owner)
+        .and_then(|slot| slot.applied.as_ref().map(ChainConfig::redacted_label))
 }
 
 pub fn note_apply_error(message: String) {
-    lock_slot().apply_error = Some(message);
+    note_apply_error_for(HopOwner::Antigravity, message);
+}
+
+pub fn note_apply_error_for(owner: HopOwner, message: String) {
+    lock_slots()
+        .entry(owner)
+        .or_insert_with(ForwarderSlot::empty)
+        .apply_error = Some(message);
 }
 
 pub fn apply_error() -> Option<String> {
-    lock_slot().apply_error.clone()
+    apply_error_for(HopOwner::Antigravity)
+}
+
+pub fn apply_error_for(owner: HopOwner) -> Option<String> {
+    lock_slots()
+        .get(&owner)
+        .and_then(|slot| slot.apply_error.clone())
 }
 
 pub fn last_probe() -> Option<ExitProbe> {
-    lock_slot().probe.clone()
+    lock_slots()
+        .get(&HopOwner::Antigravity)
+        .and_then(|slot| slot.probe.clone())
 }
 
 pub async fn probe_current() -> AppResult<ExitProbe> {
     let (cfg, local) = {
-        let guard = lock_slot();
+        let slots = lock_slots();
+        let guard = slots.get(&HopOwner::Antigravity);
         let cfg = guard
-            .applied
-            .clone()
+            .and_then(|slot| slot.applied.clone())
             .ok_or_else(|| AppError::Config("链式代理出口IP未启用".into()))?;
         let local = guard
-            .runtime
-            .as_ref()
-            .map(ExitRuntime::local_url)
+            .and_then(|slot| slot.runtime.as_ref().map(ExitRuntime::local_url))
             .ok_or_else(|| AppError::Config("链式代理出口IP转发器未在监听".into()))?;
         (cfg, local)
     };
     let probe = run_probe(&cfg, &local).await;
     {
-        let mut guard = lock_slot();
-        guard.probe = Some(probe.clone());
+        lock_slots()
+            .entry(HopOwner::Antigravity)
+            .or_insert_with(ForwarderSlot::empty)
+            .probe = Some(probe.clone());
     }
     Ok(probe)
 }
@@ -924,6 +975,29 @@ async fn read_http_header(stream: &mut TcpStream) -> Result<String, String> {
 mod tests {
     use super::*;
     use std::sync::Arc;
+
+    #[test]
+    fn kiro_forwarder_does_not_replace_antigravity() {
+        let cfg = ChainConfig {
+            first: FirstHop::Direct,
+            exit: ProxyEndpoint {
+                kind: ProxyKind::Http,
+                host: "127.0.0.1".into(),
+                port: 9,
+                username: String::new(),
+                password: String::new(),
+            },
+        };
+        apply_owned(HopOwner::Antigravity, Some(cfg.clone())).unwrap();
+        apply_owned(HopOwner::Kiro, Some(cfg)).unwrap();
+        let antigravity = local_forwarder_url().unwrap();
+        let kiro = local_forwarder_url_for(HopOwner::Kiro).unwrap();
+        assert_ne!(antigravity, kiro);
+        apply_owned(HopOwner::Kiro, None).unwrap();
+        assert_eq!(local_forwarder_url().as_deref(), Some(antigravity.as_str()));
+        assert!(local_forwarder_url_for(HopOwner::Kiro).is_none());
+        apply_chain(None).unwrap();
+    }
 
     #[test]
     fn parses_and_redacts_proxy_urls() {

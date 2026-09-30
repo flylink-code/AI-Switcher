@@ -24,6 +24,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   addAntigravityGatewayUpstream,
+  addKiroGatewayUpstream,
   deleteGatewayUpstream,
   discoverGatewayUpstreamModels,
   discoverGatewayUpstreamModelsBatch,
@@ -96,6 +97,7 @@ function canQueryUpstreamQuota(row: Provider): boolean {
   if (!row.apiKeySet) return false;
   switch (row.providerKind) {
     case "antigravity":
+    case "kiro":
     case "smart_gateway":
       return false;
     case "standard":
@@ -109,7 +111,10 @@ function canQueryUpstreamQuota(row: Provider): boolean {
 }
 
 const UPSTREAM_PRESETS: ProviderPreset[] = PROVIDER_PRESETS.filter(
-  (preset) => !isReservedListenerUrl(preset.baseUrl) && !preset.baseUrl.includes(":15830"),
+  (preset) =>
+    !isReservedListenerUrl(preset.baseUrl) &&
+    !preset.baseUrl.includes(":15830") &&
+    !preset.baseUrl.includes(":15831"),
 );
 
 export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: ProviderTarget }) {
@@ -120,6 +125,7 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
   const [editing, setEditing] = useState<Provider | null>(null);
   const [saving, setSaving] = useState(false);
   const [addingAg, setAddingAg] = useState(false);
+  const [addingKiro, setAddingKiro] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -292,7 +298,10 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
         notes: values.notes ?? "",
         targetApp: "claude_code",
         modelMapping: { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" },
-        providerKind: editing?.providerKind === "antigravity" ? "antigravity" : "standard",
+        providerKind:
+          editing?.providerKind === "antigravity" || editing?.providerKind === "kiro"
+            ? editing.providerKind
+            : "standard",
       });
       await invalidatePool();
       setOpen(false);
@@ -325,6 +334,19 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
       void message.error(error instanceof Error ? error.message : String(error));
     } finally {
       setAddingAg(false);
+    }
+  };
+
+  const handleAddKiro = async () => {
+    setAddingKiro(true);
+    try {
+      await addKiroGatewayUpstream();
+      await invalidatePool();
+      void message.success(t("proxy.upstreamKiroAdded"));
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAddingKiro(false);
     }
   };
 
@@ -446,6 +468,9 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
           </Button>
           <Button size="small" loading={addingAg} onClick={() => void handleAddAg()}>
             {t("proxy.addAgUpstream")}
+          </Button>
+          <Button size="small" loading={addingKiro} onClick={() => void handleAddKiro()}>
+            {t("proxy.addKiroUpstream")}
           </Button>
           <Button size="small" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t("proxy.addUpstream")}

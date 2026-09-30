@@ -156,6 +156,8 @@ pub enum ProviderKind {
     CodexOauth,
     /// Built-in Antigravity Google-account gateway.
     Antigravity,
+    /// Built-in Kiro / Amazon Q account gateway.
+    Kiro,
     /// Managed Smart Gateway Auto card (local listener, not an upstream).
     SmartGateway,
 }
@@ -166,6 +168,7 @@ impl ProviderKind {
             ProviderKind::Standard => "standard",
             ProviderKind::CodexOauth => "codex_oauth",
             ProviderKind::Antigravity => "antigravity",
+            ProviderKind::Kiro => "kiro",
             ProviderKind::SmartGateway => "smart_gateway",
         }
     }
@@ -174,6 +177,7 @@ impl ProviderKind {
         match value {
             "codex_oauth" => ProviderKind::CodexOauth,
             "antigravity" => ProviderKind::Antigravity,
+            "kiro" => ProviderKind::Kiro,
             "smart_gateway" => ProviderKind::SmartGateway,
             _ => ProviderKind::Standard,
         }
@@ -1030,6 +1034,10 @@ impl Provider {
         self.provider_kind == ProviderKind::Antigravity
     }
 
+    pub fn is_kiro(&self) -> bool {
+        self.provider_kind == ProviderKind::Kiro
+    }
+
     pub fn is_smart_gateway(&self) -> bool {
         self.provider_kind == ProviderKind::SmartGateway
     }
@@ -1044,7 +1052,7 @@ impl Provider {
         // Built-in Antigravity gateway already speaks Anthropic/OpenAI; Code/Codex
         // can point at it directly. Desktop may still need the local proxy for
         // role-based model rewriting.
-        if self.is_antigravity() {
+        if self.is_antigravity() || self.is_kiro() {
             return self.target_app == ProviderTarget::ClaudeDesktop;
         }
         // Codex speaks OpenAI wire APIs natively. Keep OpenAI-compatible Codex

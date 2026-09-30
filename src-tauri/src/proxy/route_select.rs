@@ -128,7 +128,7 @@ fn prepare_upstream_request(
             builder = builder.header(name, value);
         }
     }
-    if provider.is_antigravity() {
+    if provider.is_antigravity() || provider.is_kiro() {
         let trimmed = client_model.trim();
         if !trimmed.is_empty() {
             if let Ok(value) = axum::http::HeaderValue::from_str(trimmed) {
@@ -204,13 +204,13 @@ pub(crate) fn should_failover_upstream_status_ex(
     status: StatusCode,
     catalog_cross_provider_429: bool,
 ) -> bool {
-    if provider.is_antigravity() && status == StatusCode::GATEWAY_TIMEOUT {
+    if (provider.is_antigravity() || provider.is_kiro()) && status == StatusCode::GATEWAY_TIMEOUT {
         return false;
     }
     if catalog_cross_provider_429 {
         return true;
     }
-    !(provider.is_antigravity() && status == StatusCode::TOO_MANY_REQUESTS)
+    !((provider.is_antigravity() || provider.is_kiro()) && status == StatusCode::TOO_MANY_REQUESTS)
 }
 
 pub fn default_retryable_status_codes() -> Vec<u16> {

@@ -31,15 +31,18 @@ import {
   getAntigravityDefaults,
   getAntigravityGatewayStatus,
   getCachedProviderModels,
+  getKiroGatewayStatus,
   testProviderInput,
 } from "@/services/api";
 import {
   mappingFromAntigravityPreset,
+  mappingFromKiroPreset,
   mappingFromModel,
   presetsForTarget,
   syncMappingOnDefaultChange,
   type ProviderPreset,
 } from "@/lib/providerPresets";
+import { KIRO_CATALOG } from "@/components/kiro/models";
 import {
   buildEndpointPreview,
   ensureOpenAiV1Suffix,
@@ -461,6 +464,13 @@ export function ProviderForm({
       preset.id === "antigravity-builtin-codex" ||
       preset.id === "antigravity-builtin-pi" ||
       preset.id === "antigravity-builtin-dsh";
+    const isBuiltinKiro =
+      preset.id === "kiro-builtin" ||
+      preset.id === "kiro-builtin-codex" ||
+      preset.id === "kiro-builtin-cline" ||
+      preset.id === "kiro-builtin-pi" ||
+      preset.id === "kiro-builtin-dsh";
+    const kiroModelIds = KIRO_CATALOG.map((model) => model.id);
     form.setFieldsValue({
       name: preset.name,
       protocolType: preset.protocolType,
@@ -469,7 +479,7 @@ export function ProviderForm({
       modelContextWindow: preset.modelContextWindow,
       failoverModels: preset.failoverModels ?? [],
       webSearchEnabled: true,
-      providerKind: isBuiltinAg ? "antigravity" : "standard",
+      providerKind: isBuiltinAg ? "antigravity" : isBuiltinKiro ? "kiro" : "standard",
       authBinding: "",
       notes: preset.notes ?? "",
       targetApp: target,
@@ -477,11 +487,19 @@ export function ProviderForm({
         ? { ...EMPTY_MODEL_MAPPING }
         : isAgPreset
           ? mappingFromAntigravityPreset(preset.model, target)
-          : mappingFromModel(preset.model, target),
+          : isBuiltinKiro
+            ? mappingFromKiroPreset(preset.model, target)
+            : mappingFromModel(preset.model, target),
     });
     // Seed the suggestion list with the preset's own models so the user can
     // switch between e.g. deepseek-v4-flash / deepseek-v4-pro immediately.
-    setModels([...new Set([preset.model, ...(preset.failoverModels ?? [])])]);
+    setModels([
+      ...new Set([
+        preset.model,
+        ...(preset.failoverModels ?? []),
+        ...(isBuiltinKiro ? kiroModelIds : []),
+      ]),
+    ]);
     setModelResult(null);
 
     if (isBuiltinAg || isAgPreset) {
@@ -531,6 +549,25 @@ export function ProviderForm({
                 // Keep preset defaults when gateway status is unavailable.
               });
           }
+        });
+    }
+
+    if (isBuiltinKiro) {
+      void getKiroGatewayStatus()
+        .then((status) => {
+          const liveRoot = status.baseUrl.replace(/\/$/, "");
+          const needsV1 =
+            preset.id === "kiro-builtin-codex" ||
+            preset.id === "kiro-builtin-cline" ||
+            target === "opencode";
+          form.setFieldsValue({
+            baseUrl: needsV1 ? `${liveRoot}/v1` : liveRoot,
+            apiKey: status.apiKey,
+            providerKind: "kiro",
+          });
+        })
+        .catch(() => {
+          // Keep preset defaults when the Kiro gateway status is unavailable.
         });
     }
   };

@@ -65,6 +65,7 @@ const USAGE_COUNTED_SQL: &str = "
         OR l.hop IS NULL OR trim(l.hop) = ''
         OR l.hop = (
           SELECT CASE
+            WHEN SUM(CASE WHEN hop = 'kiro' THEN 1 ELSE 0 END) > 0 THEN 'kiro'
             WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
             WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
             ELSE MAX(hop)
@@ -111,6 +112,7 @@ pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
     OR l.hop IS NULL OR trim(l.hop) = ''
     OR l.hop = (
       SELECT CASE
+        WHEN SUM(CASE WHEN hop = 'kiro' THEN 1 ELSE 0 END) > 0 THEN 'kiro'
         WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
         WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
         ELSE MAX(hop)
@@ -1442,6 +1444,7 @@ pub fn list_route_mode_usage_stats(
          + COALESCE(l.cache_creation_input_tokens, 0)) > 0";
     const INNERMOST_HOP: &str = "\
         (SELECT CASE
+           WHEN SUM(CASE WHEN hop = 'kiro' THEN 1 ELSE 0 END) > 0 THEN 'kiro'
            WHEN SUM(CASE WHEN hop = 'antigravity' THEN 1 ELSE 0 END) > 0 THEN 'antigravity'
            WHEN SUM(CASE WHEN hop = 'smart_gateway' THEN 1 ELSE 0 END) > 0 THEN 'smart_gateway'
            ELSE MAX(hop)
@@ -1624,6 +1627,53 @@ mod tests {
                 .find(|row| !row.usage_counted)
                 .and_then(|row| row.hop.as_deref());
             assert_eq!(transit, Some("agent_proxy"));
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn correlation_keeps_kiro_over_smart_gateway() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let outer = insert_proxy_log(
+                conn,
+                Some("sg"),
+                Some("Smart Gateway"),
+                Some("claude-sonnet-4.6"),
+                Some(200),
+                10,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &outer, Some("req_kiro"), Some("smart_gateway"))?;
+            let inner = insert_proxy_log(
+                conn,
+                Some("kiro1"),
+                Some("Kiro"),
+                Some("claude-sonnet-4.6"),
+                Some(200),
+                20,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner, Some("req_kiro"), Some("kiro"))?;
+            let hop: String = conn.query_row(
+                &format!(
+                    "SELECT hop FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
+                ),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(hop, "kiro");
             Ok(())
         })
         .unwrap();

@@ -151,6 +151,10 @@ export async function addAntigravityGatewayUpstream(): Promise<Provider> {
   return call<Provider>("add_antigravity_gateway_upstream");
 }
 
+export async function addKiroGatewayUpstream(): Promise<Provider> {
+  return call<Provider>("add_kiro_gateway_upstream");
+}
+
 export async function importGatewayUpstreamsFromProviders(
   sourceTarget: ProviderTarget,
   providerIds: string[],

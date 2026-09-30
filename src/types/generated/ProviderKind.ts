@@ -3,4 +3,4 @@
 /**
  * How a provider authenticates / routes upstream.
  */
-export type ProviderKind = "standard" | "codex_oauth" | "antigravity" | "smart_gateway";
+export type ProviderKind = "standard" | "codex_oauth" | "antigravity" | "kiro" | "smart_gateway";
