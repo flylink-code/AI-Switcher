@@ -54,6 +54,16 @@ const SESSION_DEDUP_FILTER: &str = "
           OR lower(COALESCE(p.model, '')) IN ('', 'unknown')
           OR lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, '')) || '-fast'
           OR lower(COALESCE(l.model, '')) = lower(COALESCE(p.model, '')) || '-fast'
+          OR (
+            lower(COALESCE(l.model, '')) LIKE 'claude%'
+            AND lower(COALESCE(p.model, '')) NOT LIKE 'claude%'
+            AND lower(COALESCE(p.model, '')) NOT IN ('', 'unknown')
+          )
+          OR (
+            lower(COALESCE(p.model, '')) LIKE 'claude%'
+            AND lower(COALESCE(l.model, '')) NOT LIKE 'claude%'
+            AND lower(COALESCE(l.model, '')) NOT IN ('', 'unknown')
+          )
         )
     )
   )
@@ -104,6 +114,16 @@ pub(crate) const EFFECTIVE_USAGE_FILTER: &str = "
           OR lower(COALESCE(p.model, '')) IN ('', 'unknown')
           OR lower(COALESCE(p.model, '')) = lower(COALESCE(l.model, '')) || '-fast'
           OR lower(COALESCE(l.model, '')) = lower(COALESCE(p.model, '')) || '-fast'
+          OR (
+            lower(COALESCE(l.model, '')) LIKE 'claude%'
+            AND lower(COALESCE(p.model, '')) NOT LIKE 'claude%'
+            AND lower(COALESCE(p.model, '')) NOT IN ('', 'unknown')
+          )
+          OR (
+            lower(COALESCE(p.model, '')) LIKE 'claude%'
+            AND lower(COALESCE(l.model, '')) NOT LIKE 'claude%'
+            AND lower(COALESCE(l.model, '')) NOT IN ('', 'unknown')
+          )
         )
     )
   )
@@ -490,6 +510,16 @@ fn should_skip_session_insert_for_target(
              OR lower(?) IN ('', 'unknown')
              OR lower(COALESCE(model, '')) = lower(?) || '-fast'
              OR lower(?) = lower(COALESCE(model, '')) || '-fast'
+             OR (
+               lower(?) LIKE 'claude%'
+               AND lower(COALESCE(model, '')) NOT LIKE 'claude%'
+               AND lower(COALESCE(model, '')) NOT IN ('', 'unknown')
+             )
+             OR (
+               lower(COALESCE(model, '')) LIKE 'claude%'
+               AND lower(?) NOT LIKE 'claude%'
+               AND lower(?) NOT IN ('', 'unknown')
+             )
            );",
         params![
             target_app,
@@ -498,6 +528,9 @@ fn should_skip_session_insert_for_target(
             input_tokens,
             output_tokens,
             cache_read_input_tokens,
+            model,
+            model,
+            model,
             model,
             model,
             model,
@@ -1875,6 +1908,124 @@ mod tests {
             assert_eq!(stats[0].mode_id, "default");
             assert_eq!(stats[0].request_count, 1);
             assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn mapped_claude_session_matches_non_claude_proxy_model() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            insert_proxy_log_with_source(
+                conn,
+                Some("proxy-sol"),
+                now,
+                Some("sub2api"),
+                Some("sub2api"),
+                Some("gpt-6.1-sol"),
+                Some(200),
+                175_000,
+                0,
+                0,
+                554,
+                true,
+                6_084,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            insert_proxy_log_with_source(
+                conn,
+                Some("session-matched"),
+                now + 48_000,
+                Some(CLAUDE_CODE_SESSION_PROVIDER_ID),
+                Some("Claude Code local sessions"),
+                Some("claude-opus-5"),
+                Some(200),
+                175_000,
+                0,
+                0,
+                554,
+                true,
+                0,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("assistant"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_CLAUDE_CODE_SESSION,
+                None,
+            )?;
+            insert_proxy_log_with_source(
+                conn,
+                Some("session-output-differs"),
+                now + 60_000,
+                Some(CLAUDE_CODE_SESSION_PROVIDER_ID),
+                Some("Claude Code local sessions"),
+                Some("claude-opus-5"),
+                Some(200),
+                174_000,
+                0,
+                0,
+                118,
+                true,
+                0,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("assistant"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_CLAUDE_CODE_SESSION,
+                None,
+            )?;
+
+            let listed = list_proxy_request_logs(conn, &ProxyLogFilters::default(), 0, 20)?;
+            assert_eq!(listed.total, 2);
+            assert!(listed
+                .data
+                .iter()
+                .any(|row| row.model.as_deref() == Some("gpt-6.1-sol")));
+            assert!(listed.data.iter().any(|row| {
+                row.model.as_deref() == Some("claude-opus-5") && row.output_tokens == 118
+            }));
+            assert!(!listed.data.iter().any(|row| {
+                row.model.as_deref() == Some("claude-opus-5") && row.output_tokens == 554
+            }));
+
+            let counted: i64 = conn.query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM proxy_request_logs l WHERE 1=1 {EFFECTIVE_USAGE_FILTER}"
+                ),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(counted, 2);
+
+            assert!(should_skip_claude_code_session_insert(
+                conn,
+                now,
+                Some("claude-opus-5"),
+                175_000,
+                0,
+                554,
+            )?);
+            assert!(!should_skip_claude_code_session_insert(
+                conn,
+                now,
+                Some("claude-opus-5"),
+                174_000,
+                0,
+                118,
+            )?);
             Ok(())
         })
         .unwrap();
