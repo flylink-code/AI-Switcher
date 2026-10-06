@@ -95,7 +95,14 @@ function Test-ViteHttpReady([int]$ListenPort) {
 
 function Stop-PidTree([int]$ProcessId) {
     if ($ProcessId -le 4) { return }
-    & taskkill.exe /F /T /PID $ProcessId 2>$null | Out-Null
+    try {
+        & taskkill.exe /F /T /PID $ProcessId *> $null
+        if ($LASTEXITCODE -ne 0) {
+            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    } catch {
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-DevUrlPortFromConf([string]$ConfPath) {
@@ -117,6 +124,28 @@ function Set-DevUrlPort([string]$ConfPath, [int]$ListenPort) {
         throw "Could not update devUrl in $ConfPath"
     }
     [System.IO.File]::WriteAllText($ConfPath, $updated)
+}
+
+# --- portable toolchains ---
+# Prefer the repository user's portable toolchain location when it exists.
+# This keeps dev-hot usable in restricted shells where the user PATH cannot be
+# updated persistently.
+$portableToolsRoot = "D:\tools"
+$portableCargoHome = Join-Path $portableToolsRoot "cargo"
+$portableCargoBin = Join-Path $portableCargoHome "bin"
+$portableRustupHome = Join-Path $portableToolsRoot "rustup"
+$portableCorepackHome = Join-Path $portableToolsRoot "corepack"
+
+if (Test-Path (Join-Path $portableCargoBin "cargo.exe")) {
+    if (-not $env:CARGO_HOME) { $env:CARGO_HOME = $portableCargoHome }
+    if (-not $env:RUSTUP_HOME) { $env:RUSTUP_HOME = $portableRustupHome }
+    if (-not (($env:Path -split ';') -contains $portableCargoBin)) {
+        $env:Path = "$portableCargoBin;$env:Path"
+    }
+    Write-Host "[dev-hot] Using portable Rust toolchain: $portableCargoBin"
+}
+if ((Test-Path (Join-Path $portableCorepackHome "pnpm.cmd")) -and (-not $env:COREPACK_HOME)) {
+    $env:COREPACK_HOME = $portableCorepackHome
 }
 
 # --- toolchains ---

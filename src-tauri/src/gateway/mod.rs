@@ -22,7 +22,8 @@ use ts_rs::TS;
 
 use crate::catalog::{
     catalog_in_entries, is_explicit_catalog_passthrough, is_sticky_remap_role_id,
-    normalize_client_request_with, resolve_request, CatalogEntry, CatalogStyle,
+    normalize_client_request_with, resolve_request_strict, CatalogEntry, CatalogRequestError,
+    CatalogStyle,
 };
 use crate::database::dao::gateway::{
     profile_allows_upstream, GatewayProfile, RouteMode, RouteRule,
@@ -133,6 +134,8 @@ pub struct RouteExecutionPlan {
     pub attempts: Vec<RouteAttemptPlan>,
     pub fallback_mode: String,
     pub primary_model: String,
+    #[serde(default)]
+    pub explicit_pinned: bool,
 }
 
 /// Loopback URLs that point at this app's gateway listeners, not Antigravity (15830).
@@ -401,6 +404,10 @@ pub fn build_execution_plan_with_chain(
         attempts,
         fallback_mode: fallback_mode.to_string(),
         primary_model: primary_model.to_string(),
+        explicit_pinned: matches!(source, RouteSource::Explicit)
+            && profile
+                .map(|profile| !profile.explicit_fallback_enabled)
+                .unwrap_or(true),
     }
 }
 
@@ -445,7 +452,22 @@ fn default_mode_lookup(
         })
 }
 
-pub fn resolve_gateway_route_with_modes(
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CatalogRouteError {
+    InvalidModel(CatalogRequestError),
+}
+
+impl std::fmt::Display for CatalogRouteError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidModel(error) => error.fmt(f),
+        }
+    }
+}
+
+/// Resolve a route while preserving an explicit catalog model's ownership.
+/// `None` remains reserved for an unavailable provider/allowlist result.
+pub fn resolve_gateway_route_with_modes_strict(
     style: CatalogStyle,
     entries: &[CatalogEntry],
     providers: &[Provider],
@@ -455,16 +477,13 @@ pub fn resolve_gateway_route_with_modes(
     hints: &RouteHints,
     modes: &[RouteMode],
     rules: &[RouteRule],
-) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
+) -> Result<Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)>, CatalogRouteError> {
     let hide_official = profile.map(|profile| profile.hide_official).unwrap_or(false);
     let subagent = modes::enabled_background_model(modes).or_else(|| {
         profile
             .map(|profile| profile.subagent_model.clone())
             .filter(|value| !value.trim().is_empty())
     });
-    let role_routing = false;
-    let plan = None;
-    let execute = None;
     let signals = modes::ModeSignals {
         token_count: hints.token_count,
         has_web_search: hints.has_web_search,
@@ -509,11 +528,7 @@ pub fn resolve_gateway_route_with_modes(
             thinking = serde_json::from_str(&mode.thinking_config_json).ok();
             extra_chain = Some(mode.fallback_models.clone());
             let source = RouteSource::from_mode_id(&mode.id);
-            (
-                mode.model.clone(),
-                source,
-                mode_reason(&mode.id, &signals),
-            )
+            (mode.model.clone(), source, mode_reason(&mode.id, &signals))
         } else {
             auto_slot_rewrite(requested_model, force_subagent, profile, hints)
         }
@@ -528,20 +543,27 @@ pub fn resolve_gateway_route_with_modes(
         hide_official,
         subagent.as_deref(),
         force_subagent,
-        plan,
-        execute,
-        role_routing,
+        None,
+        None,
+        false,
     );
-    let (provider_id, upstream) = resolve_request(entries, providers, &normalized)?;
+    let (provider_id, upstream) = resolve_request_strict(entries, providers, &normalized)
+        .map_err(CatalogRouteError::InvalidModel)?
+        .ok_or(CatalogRouteError::InvalidModel(CatalogRequestError::UnknownPublicId(
+            normalized.clone(),
+        )))?;
     if let Some(profile) = profile {
         if !profile_allows_upstream(profile, &provider_id) {
-            return None;
+            return Ok(None);
         }
     }
-    let mut provider = providers
+    let Some(mut provider) = providers
         .iter()
-        .find(|provider| provider.id == provider_id && !provider.is_smart_gateway())?
-        .clone();
+        .find(|provider| provider.id == provider_id && !provider.is_smart_gateway())
+        .cloned()
+    else {
+        return Ok(None);
+    };
     if thinking.as_ref().is_some_and(|cfg| !cfg.is_empty()) {
         provider.thinking_config = thinking.clone();
     }
@@ -571,9 +593,34 @@ pub fn resolve_gateway_route_with_modes(
         source,
         extra_chain.as_deref(),
     );
-    let is_subagent = matches!(source, RouteSource::RoleSubagent)
-        || (force_subagent && !in_catalog);
-    Some((provider, upstream, decision, plan, is_subagent))
+    let is_subagent = matches!(source, RouteSource::RoleSubagent) || (force_subagent && !in_catalog);
+    Ok(Some((provider, upstream, decision, plan, is_subagent)))
+}
+
+pub fn resolve_gateway_route_with_modes(
+    style: CatalogStyle,
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    requested_model: &str,
+    force_subagent: bool,
+    profile: Option<&GatewayProfile>,
+    hints: &RouteHints,
+    modes: &[RouteMode],
+    rules: &[RouteRule],
+) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
+    resolve_gateway_route_with_modes_strict(
+        style,
+        entries,
+        providers,
+        requested_model,
+        force_subagent,
+        profile,
+        hints,
+        modes,
+        rules,
+    )
+    .ok()
+    .flatten()
 }
 
 fn mode_reason(mode_id: &str, signals: &modes::ModeSignals) -> String {

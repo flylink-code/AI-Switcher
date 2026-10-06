@@ -665,7 +665,7 @@ pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LivePro
     };
     let model = inference_models
         .first()
-        .map(&upstream_name)
+        .map(upstream_name)
         .unwrap_or_default();
     let role_model = |role: &str| {
         inference_models
@@ -675,7 +675,7 @@ pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LivePro
                     .and_then(Value::as_str)
                     .is_some_and(|name| name.to_ascii_lowercase().contains(role))
             })
-            .map(&upstream_name)
+            .map(upstream_name)
             .unwrap_or_default()
     };
     let model_mapping = ClaudeModelMapping {

@@ -1,3 +1,26 @@
+use crate::catalog::CatalogRequestError;
+
+#[derive(Debug)]
+pub(crate) enum GatewaySelectionError {
+    Catalog(CatalogRequestError),
+    App(crate::error::AppError),
+}
+
+impl From<crate::error::AppError> for GatewaySelectionError {
+    fn from(error: crate::error::AppError) -> Self {
+        Self::App(error)
+    }
+}
+
+impl std::fmt::Display for GatewaySelectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Catalog(error) => error.fmt(f),
+            Self::App(error) => error.fmt(f),
+        }
+    }
+}
+
 pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
@@ -5,7 +28,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
     incoming: &Value,
     request_path: &str,
     headers: &HeaderMap,
-) -> AppResult<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>> {
+) -> Result<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>, GatewaySelectionError> {
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state
@@ -52,7 +75,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
         session_prompt_cache_hint(headers).as_deref(),
     );
     let Some((provider, upstream, decision, plan, is_catalog_subagent)) =
-        crate::gateway::resolve_gateway_route_with_modes(
+        crate::gateway::resolve_gateway_route_with_modes_strict(
             style,
             &entries,
             &providers,
@@ -68,6 +91,11 @@ pub(crate) fn select_gateway_runtime_provider_with(
             &modes,
             &rules,
         )
+        .map_err(|error| match error {
+            crate::gateway::CatalogRouteError::InvalidModel(error) => {
+                GatewaySelectionError::Catalog(error)
+            }
+        })?
     else {
         return Ok(None);
     };
@@ -365,7 +393,14 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
                     CatalogStyle::Claude => claude_discovery_payload(&entries),
                     CatalogStyle::Codex => openai_models_payload(&entries),
                 };
-                axum::Json(payload).into_response()
+                let revision = crate::catalog::catalog_revision(style, &entries);
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::ETAG, format!("\"{revision}\""))
+                    .header("x-ai-switcher-catalog-revision", revision)
+                    .body(Body::from(payload.to_string()))
+                    .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
             }
             Ok(_) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有已配置的第三方供应商"),
             Err(error) => {
@@ -413,7 +448,14 @@ async fn model_retrieve_handler(
                         CatalogStyle::Claude => claude_discovery_model(entry),
                         CatalogStyle::Codex => crate::catalog::openai_discovery_model(entry),
                     };
-                    axum::Json(payload).into_response()
+                    let revision = crate::catalog::catalog_revision(style, &entries);
+                    Response::builder()
+                        .status(StatusCode::OK)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .header(header::ETAG, format!("\"{revision}\""))
+                        .header("x-ai-switcher-catalog-revision", revision)
+                        .body(Body::from(payload.to_string()))
+                        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
                 } else {
                     json_error(StatusCode::NOT_FOUND, format!("找不到模型: {id}"))
                 }

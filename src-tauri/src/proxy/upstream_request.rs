@@ -209,7 +209,28 @@ async fn proxy_handler(
             }
             Err(error) => {
                 log::error!("按模型选择供应商失败: {error}");
-                return json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录");
+                match error {
+                    crate::proxy::GatewaySelectionError::Catalog(catalog_error) => {
+                        log_early_failure(
+                            &state,
+                            uri.path(),
+                            "model",
+                            Some(400),
+                            started.elapsed().as_millis() as i64,
+                        );
+                        return json_error(StatusCode::BAD_REQUEST, catalog_error.to_string());
+                    }
+                    crate::proxy::GatewaySelectionError::App(_) => {
+                        log_early_failure(
+                            &state,
+                            uri.path(),
+                            "configuration",
+                            Some(500),
+                            started.elapsed().as_millis() as i64,
+                        );
+                        return json_error(StatusCode::INTERNAL_SERVER_ERROR, "无法读取模型目录");
+                    }
+                }
             }
         }
     }
@@ -243,7 +264,13 @@ async fn proxy_handler(
             let mut excluded = vec![provider.id.clone()];
             let mut last_error = e.to_string();
             let mut recovered = None::<reqwest::Response>;
+            let failover_allowed = !route_plan
+                .as_ref()
+                .is_some_and(|plan| plan.explicit_pinned);
             for _ in 0..FAILOVER_MAX_HOPS {
+                if !failover_allowed {
+                    break;
+                }
                 let Some(mut fallback) =
                     next_failover_provider(&state, &excluded, &requested_model)
                         .ok()
@@ -328,14 +355,16 @@ async fn proxy_handler(
         }
     };
 
+    let allow_cross_provider_failover = !route_plan
+        .as_ref()
+        .is_some_and(|plan| plan.explicit_pinned);
+
     if is_retryable_upstream_status(&state, upstream_resp.status())
         && should_failover_upstream_status(&provider, upstream_resp.status())
     {
-        // Ordered model fallback on the same provider before walking other vendors.
-        // Only used before any client bytes are written.
         let plan_models: Vec<String> = route_plan
             .as_ref()
-            .filter(|plan| plan.fallback_mode == "model_chain")
+            .filter(|plan| plan.fallback_mode == "model_chain" && !plan.explicit_pinned)
             .map(|plan| {
                 plan.attempts
                     .iter()
@@ -345,7 +374,11 @@ async fn proxy_handler(
             })
             .unwrap_or_default();
         let model_chain = if plan_models.is_empty() {
-            provider.failover_models.clone()
+            if route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned) {
+                Vec::new()
+            } else {
+                provider.failover_models.clone()
+            }
         } else {
             plan_models
         };
@@ -401,10 +434,10 @@ async fn proxy_handler(
         }
     }
 
-    if is_retryable_upstream_status(&state, upstream_resp.status())
+    if allow_cross_provider_failover
+        && is_retryable_upstream_status(&state, upstream_resp.status())
         && should_failover_upstream_status(&provider, upstream_resp.status())
     {
-        record_provider_failure(&state, &provider.id);
         failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream_resp.status()));
         let mut excluded = vec![provider.id.clone()];
         for _ in 0..FAILOVER_MAX_HOPS {

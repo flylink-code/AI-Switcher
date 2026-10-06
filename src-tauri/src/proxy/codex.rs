@@ -40,9 +40,13 @@ pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
         match super::load_gateway_catalog(&state, crate::catalog::catalog_style_for(state.target)) {
             Ok((_, entries)) if !entries.is_empty() => {
                 let body = openai_models_payload(&entries);
+                let style = crate::catalog::catalog_style_for(state.target);
+                let revision = crate::catalog::catalog_revision(style, &entries);
                 return Response::builder()
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::ETAG, format!("\"{revision}\""))
+                    .header("x-ai-switcher-catalog-revision", revision)
                     .body(Body::from(body.to_string()))
                     .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
             }
@@ -148,14 +152,29 @@ pub async fn codex_proxy_handler(
                 return json_error(StatusCode::BAD_GATEWAY, "没有可路由的 Codex 供应商");
             }
             Err(error) => {
+                let (status, kind) = match &error {
+                    crate::proxy::GatewaySelectionError::Catalog(_) => {
+                        (StatusCode::BAD_REQUEST, "model")
+                    }
+                    crate::proxy::GatewaySelectionError::App(_) => {
+                        (StatusCode::INTERNAL_SERVER_ERROR, "configuration")
+                    }
+                };
                 log_early_failure(
                     &state,
                     &route,
-                    "configuration",
-                    Some(500),
+                    kind,
+                    Some(status.as_u16() as i64),
                     started.elapsed().as_millis() as i64,
                 );
-                return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
+                match error {
+                    crate::proxy::GatewaySelectionError::Catalog(catalog_error) => {
+                        return json_error(StatusCode::BAD_REQUEST, catalog_error.to_string());
+                    }
+                    crate::proxy::GatewaySelectionError::App(error) => {
+                        return json_error(StatusCode::INTERNAL_SERVER_ERROR, error.to_string());
+                    }
+                }
             }
         }
     } else {
@@ -211,7 +230,13 @@ pub async fn codex_proxy_handler(
             let mut excluded = vec![provider.id.clone()];
             let mut last_error = error.to_string();
             let mut recovered = None::<reqwest::Response>;
+            let failover_allowed = !route_decision
+                .as_ref()
+                .is_some_and(|decision| decision.source == crate::gateway::RouteSource::Explicit);
             for _ in 0..FAILOVER_MAX_HOPS {
+                if !failover_allowed {
+                    break;
+                }
                 let Some(fallback) = next_codex_failover_provider(
                     &state,
                     &excluded,
@@ -296,7 +321,11 @@ pub async fn codex_proxy_handler(
     };
 
     let is_compact_route = codex_compact::is_responses_compact_route(&route);
-    if is_retryable_upstream_status(&state, upstream.status())
+    let allow_cross_provider_failover = !route_decision
+        .as_ref()
+        .is_some_and(|decision| decision.source == crate::gateway::RouteSource::Explicit);
+    if allow_cross_provider_failover
+        && is_retryable_upstream_status(&state, upstream.status())
         && should_failover_upstream_status_ex(&provider, upstream.status(), catalog_mode)
         && !is_compact_route
     {

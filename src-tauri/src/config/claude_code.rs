@@ -1151,10 +1151,7 @@ mod tests {
         assert!(!off.auto_mode_server);
         let written: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["env"][ENV_AUTO_MODE_SERVER], "0");
-        assert_eq!(
-            read_agent_settings_at(&path).unwrap().auto_mode_server,
-            false
-        );
+        assert!(!read_agent_settings_at(&path).unwrap().auto_mode_server);
 
         let on = apply_agent_settings_at(
             &path,

@@ -5,6 +5,7 @@
 //! model list and routes each request by `model`.
 
 use std::collections::{BTreeSet, HashMap};
+use std::fmt;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -592,22 +593,65 @@ pub fn with_auto_public_ids(style: CatalogStyle, mut ids: Vec<String>) -> Vec<St
     ids
 }
 
-/// Map a client-facing model id to `(provider_id, upstream_slug)`.
-pub fn resolve_request(
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CatalogRequestError {
+    /// The client retained a gateway-issued model id which is no longer published.
+    StalePublicId(String),
+    /// The client sent a gateway-looking id which is not known to this catalog.
+    UnknownPublicId(String),
+    /// A raw upstream slug exists on more than one provider and cannot be selected safely.
+    AmbiguousUpstream(String),
+}
+
+impl CatalogRequestError {
+    pub fn requested(&self) -> &str {
+        match self {
+            Self::StalePublicId(value)
+            | Self::UnknownPublicId(value)
+            | Self::AmbiguousUpstream(value) => value,
+        }
+    }
+
+    pub fn is_model_not_found(&self) -> bool {
+        !matches!(self, Self::AmbiguousUpstream(_))
+    }
+}
+
+impl fmt::Display for CatalogRequestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::StalePublicId(model) => {
+                write!(f, "模型目录中的模型已不可用: {model}，请刷新模型列表后重新选择")
+            }
+            Self::UnknownPublicId(model) => {
+                write!(f, "模型不在智能网关目录中: {model}，请刷新模型列表后重新选择")
+            }
+            Self::AmbiguousUpstream(model) => {
+                write!(f, "上游模型 {model} 在多个供应商中重复，请使用目录中的供应商限定模型 ID")
+            }
+        }
+    }
+}
+
+/// Classify a model request before applying route modes. Explicit gateway ids
+/// must never silently fall through to the first provider.
+pub fn resolve_request_strict(
     entries: &[CatalogEntry],
     providers: &[Provider],
     requested: &str,
-) -> Option<(String, String)> {
+) -> Result<Option<(String, String)>, CatalogRequestError> {
     let requested = requested.trim();
     if requested.is_empty() {
-        let first = providers.first()?;
-        return Some((first.id.clone(), first.model.trim().to_string()));
+        return Ok(providers
+            .first()
+            .map(|provider| (provider.id.clone(), provider.model.trim().to_string())));
     }
     if let Some(entry) = entries.iter().find(|entry| {
         entry.public_id.eq_ignore_ascii_case(requested) && !entry.provider_id.trim().is_empty()
     }) {
-        return Some((entry.provider_id.clone(), entry.upstream_slug.clone()));
+        return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
     }
+
     let upstream_hits: Vec<&CatalogEntry> = entries
         .iter()
         .filter(|entry| {
@@ -615,29 +659,95 @@ pub fn resolve_request(
                 && entry.upstream_slug.eq_ignore_ascii_case(requested)
         })
         .collect();
-    if let Some(entry) = upstream_hits.first() {
-        return Some((entry.provider_id.clone(), entry.upstream_slug.clone()));
+    if upstream_hits.len() == 1 {
+        let entry = upstream_hits[0];
+        return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
     }
+    if upstream_hits.len() > 1 {
+        return Err(CatalogRequestError::AmbiguousUpstream(requested.to_string()));
+    }
+
     if is_claude_role_request(requested) {
-        let first = providers.first()?;
+        let first = providers.first().ok_or_else(|| {
+            CatalogRequestError::UnknownPublicId(requested.to_string())
+        })?;
         let default = first.model.trim();
         let upstream = if default.is_empty() {
             resolve_upstream_model(first, requested)
         } else {
             default.to_string()
         };
-        return Some((first.id.clone(), upstream));
+        return Ok(Some((first.id.clone(), upstream)));
     }
     if let Some(stripped) = strip_claude_alias(requested) {
         if let Some(entry) = entries
             .iter()
             .find(|entry| entry.upstream_slug.eq_ignore_ascii_case(stripped))
         {
-            return Some((entry.provider_id.clone(), entry.upstream_slug.clone()));
+            return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
         }
     }
-    let first = providers.first()?;
-    Some((first.id.clone(), resolve_upstream_model(first, requested)))
+
+    // Keep arbitrary raw model ids working for non-gateway callers and legacy
+    // provider configurations, but never treat gateway-qualified ids as raw.
+    let looks_gateway_qualified = match requested.strip_prefix("claude.") {
+        Some(rest) => rest.contains('.'),
+        None => requested.contains('.') && requested.split('.').next().is_some_and(|part| {
+            providers.iter().any(|provider| {
+                provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(part)
+            })
+        }),
+    };
+    if looks_gateway_qualified {
+        return Err(CatalogRequestError::StalePublicId(requested.to_string()));
+    }
+    if requested.starts_with("claude.") || requested.starts_with("ccs-") {
+        return Err(CatalogRequestError::UnknownPublicId(requested.to_string()));
+    }
+    let first = providers.first().ok_or_else(|| {
+        CatalogRequestError::UnknownPublicId(requested.to_string())
+    })?;
+    Ok(Some((
+        first.id.clone(),
+        resolve_upstream_model(first, requested),
+    )))
+}
+/// Map a client-facing model id to `(provider_id, upstream_slug)`.
+pub fn resolve_request(
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    requested: &str,
+) -> Option<(String, String)> {
+    resolve_request_strict(entries, providers, requested).ok().flatten()
+}
+
+/// Return a stable, non-secret fingerprint for a published catalog snapshot.
+pub fn catalog_revision(style: CatalogStyle, entries: &[CatalogEntry]) -> String {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    hasher.update(match style {
+        CatalogStyle::Claude => b"claude\0" as &[u8],
+        CatalogStyle::Codex => b"codex\0" as &[u8],
+    });
+    for entry in entries {
+        for value in [
+            entry.public_id.as_str(),
+            entry.display_name.as_str(),
+            entry.upstream_slug.as_str(),
+            entry.provider_id.as_str(),
+        ] {
+            hasher.update(value.as_bytes());
+            hasher.update([0]);
+        }
+        hasher.update(entry.context_window.to_le_bytes());
+        hasher.update([entry.anthropic_upstream as u8, entry.web_search_enabled as u8]);
+    }
+    let digest = hasher.finalize();
+    digest[..12]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 /// One Anthropic-style model row. Claude Code statusline / auto-compact read
@@ -1199,6 +1309,48 @@ mod tests {
         assert!(ids.iter().any(|id| id == "kimi-ok"));
         assert!(ids.iter().any(|id| id == "kimi-cached"));
         assert!(!ids.iter().any(|id| id == "kimi-hidden"));
+    }
+
+    #[test]
+    fn strict_resolver_rejects_ambiguous_raw_models() {
+        let first = provider("a", "Alpha", "shared-model");
+        let second = provider("b", "Beta", "shared-model");
+        let providers = vec![first.clone(), second.clone()];
+        let entries = build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
+
+        assert_eq!(
+            resolve_request_strict(&entries, &providers, "shared-model"),
+            Err(CatalogRequestError::AmbiguousUpstream("shared-model".into()))
+        );
+    }
+
+    #[test]
+    fn strict_resolver_rejects_unknown_gateway_ids() {
+        let first = provider("a", "Alpha", "alpha-model");
+        let providers = vec![first.clone()];
+        let entries = build_catalog(CatalogStyle::Claude, &[(first, vec![])]);
+
+        assert!(matches!(
+            resolve_request_strict(&entries, &providers, "claude.alpha.retired-model"),
+            Err(CatalogRequestError::StalePublicId(value)) if value == "claude.alpha.retired-model"
+        ));
+        assert!(matches!(
+            resolve_request_strict(&entries, &providers, "ccs-retired-model"),
+            Err(CatalogRequestError::UnknownPublicId(value)) if value == "ccs-retired-model"
+        ));
+    }
+
+    #[test]
+    fn catalog_revision_is_stable_and_changes_with_published_metadata() {
+        let first = provider("a", "Alpha", "alpha-model");
+        let entries = build_catalog(CatalogStyle::Claude, &[(first, vec![])]);
+        let revision = catalog_revision(CatalogStyle::Claude, &entries);
+        assert_eq!(revision, catalog_revision(CatalogStyle::Claude, &entries));
+        assert_eq!(revision.len(), 24);
+
+        let mut changed = entries.clone();
+        changed[0].display_name.push_str(" changed");
+        assert_ne!(revision, catalog_revision(CatalogStyle::Claude, &changed));
     }
 
     #[test]

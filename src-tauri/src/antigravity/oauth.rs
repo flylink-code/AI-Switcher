@@ -11,8 +11,8 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use super::account::{
-    store, AntigravityAccount, AntigravityAccountPublic, AntigravityToken, OAUTH_CLIENT_ID,
-    OAUTH_CLIENT_SECRET,
+    ensure_oauth_configured, store, AntigravityAccount, AntigravityAccountPublic,
+    AntigravityToken, OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET,
 };
 use crate::error::{AppError, AppResult};
 
@@ -36,6 +36,7 @@ pub async fn login_with_browser(app: &AppHandle) -> AppResult<AntigravityAccount
 }
 
 async fn login_with_browser_inner(app: &AppHandle) -> AppResult<AntigravityAccountPublic> {
+    ensure_oauth_configured()?;
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(|error| AppError::Io(format!("无法启动 OAuth 回调监听: {error}")))?;

@@ -141,14 +141,9 @@ impl FrameDecoder {
     pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<Frame>, FrameError> {
         self.buffer.extend_from_slice(chunk);
         let mut frames = Vec::new();
-        loop {
-            match parse_frame(&self.buffer)? {
-                Some((frame, consumed)) => {
-                    self.buffer.drain(..consumed);
-                    frames.push(frame);
-                }
-                None => break,
-            }
+        while let Some((frame, consumed)) = parse_frame(&self.buffer)? {
+            self.buffer.drain(..consumed);
+            frames.push(frame);
         }
         Ok(frames)
     }

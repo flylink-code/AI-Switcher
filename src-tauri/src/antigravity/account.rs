@@ -18,8 +18,23 @@ use crate::error::{AppError, AppResult};
 /// Refresh tokens exported from that product must be refreshed with the same client.
 /// Credentials are injected at compile time from the repo-root `.env`
 /// (see `.env.example`); CI may set the same env vars directly.
-pub(crate) const OAUTH_CLIENT_ID: &str = env!("GOOGLE_CLIENT_ID");
-pub(crate) const OAUTH_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
+pub(crate) const OAUTH_CLIENT_ID: &str = match option_env!("GOOGLE_CLIENT_ID") {
+    Some(value) => value,
+    None => "",
+};
+pub(crate) const OAUTH_CLIENT_SECRET: &str = match option_env!("GOOGLE_CLIENT_SECRET") {
+    Some(value) => value,
+    None => "",
+};
+pub(crate) fn ensure_oauth_configured() -> AppResult<()> {
+    if OAUTH_CLIENT_ID.is_empty() || OAUTH_CLIENT_SECRET.is_empty() {
+        return Err(AppError::Other(
+            "Google OAuth credentials are not configured. Copy .env.example to .env and set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.".into(),
+        ));
+    }
+    Ok(())
+}
+
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const REFRESH_SKEW_SECS: i64 = 300;
 const ACCOUNTS_FILE: &str = "antigravity_accounts.json";
@@ -605,6 +620,7 @@ fn refresh_token_with_client(
     client: &Client,
     refresh_token: &str,
 ) -> AppResult<TokenRefreshResponse> {
+    ensure_oauth_configured()?;
     let response = client
         .post(TOKEN_URL)
         .form(&[
