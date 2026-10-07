@@ -27,8 +27,8 @@ pub mod upstream;
 pub mod usage_log;
 
 pub use account::{
-    import_accounts_json, list_accounts, remove_account, set_active_account,
-    AntigravityAccountPublic,
+    import_accounts_json, list_accounts, remove_account, set_account_model_access,
+    set_active_account, AntigravityAccountPublic,
 };
 pub use account_test::AntigravityAccountTestResult;
 pub use fast_path::FastPathSettings;

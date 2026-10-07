@@ -785,6 +785,13 @@ async fn dispatch_generation(
                         break 'levels Err(());
                     }
                     let next = &model_chain[model_idx + 1];
+                    if !account.allows_model(next) {
+                        log::info!(
+                            "Antigravity skipping same-account fallback {next} for {account_email}: model access denied"
+                        );
+                        model_idx += 1;
+                        continue 'levels;
+                    }
                     log::warn!(
                         "Antigravity {current_model} → 429 RESOURCE_EXHAUSTED; retrying {next} on the same account"
                     );

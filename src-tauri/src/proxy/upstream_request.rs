@@ -1020,80 +1020,85 @@ async fn proxy_handler(
             let client_model = client_model.clone();
             async move {
                 loop {
-                if done {
-                    return None;
-                }
-                let (output, done) = match tokio::time::timeout(idle, upstream_stream.next()).await {
-                    Ok(Some(Ok(bytes))) => {
-                        sse_buffer.extend_from_slice(&bytes);
-                        let drained = drain_passthrough_frames(&mut sse_buffer, &mut cursor);
-                        let mut output = Vec::new();
-                        for frame in &drained.frames {
-                            output.extend_from_slice(frame);
-                            record_passthrough_usage(
-                                &db,
-                                stream_log_id.as_deref(),
-                                &target_app,
-                                &provider_id,
-                                frame,
-                            );
-                        }
-                        if drained.terminal_error {
-                            mark_passthrough_midstream_error(
-                                &db,
-                                stream_log_id.as_deref(),
-                                "midstream_error",
-                                "上游服务返回流式错误",
-                            );
-                            output.extend(passthrough_abort(&client_model, &cursor, "上游服务返回流式错误"));
-                            (output, true)
-                        } else {
-                            (output, drained.finished)
-                        }
+                    if done {
+                        return None;
                     }
-                    Ok(Some(Err(_))) | Ok(None) => {
-                        if cursor.saw_message_stop {
-                            return None;
-                        }
-                        sse_buffer.clear();
-                        mark_passthrough_midstream_error(
-                            &db,
-                            stream_log_id.as_deref(),
-                            "midstream_error",
-                            "上游流式响应中途中断",
-                        );
-                        (
-                            passthrough_abort(&client_model, &cursor, "上游流式响应中断"),
-                            true,
-                        )
+                    let (output, done) =
+                        match tokio::time::timeout(idle, upstream_stream.next()).await {
+                            Ok(Some(Ok(bytes))) => {
+                                sse_buffer.extend_from_slice(&bytes);
+                                let drained = drain_passthrough_frames(&mut sse_buffer, &mut cursor);
+                                let mut output = Vec::new();
+                                for frame in &drained.frames {
+                                    output.extend_from_slice(frame);
+                                    record_passthrough_usage(
+                                        &db,
+                                        stream_log_id.as_deref(),
+                                        &target_app,
+                                        &provider_id,
+                                        frame,
+                                    );
+                                }
+                                if drained.terminal_error {
+                                    let message = drained
+                                        .terminal_message
+                                        .as_deref()
+                                        .unwrap_or("上游服务返回流式错误");
+                                    mark_passthrough_midstream_error(
+                                        &db,
+                                        stream_log_id.as_deref(),
+                                        "midstream_error",
+                                        message,
+                                    );
+                                    output.extend(passthrough_abort(&client_model, &cursor, message));
+                                    (output, true)
+                                } else {
+                                    (output, drained.finished)
+                                }
+                            }
+                            Ok(Some(Err(_))) | Ok(None) => {
+                                if cursor.saw_message_stop {
+                                    return None;
+                                }
+                                sse_buffer.clear();
+                                mark_passthrough_midstream_error(
+                                    &db,
+                                    stream_log_id.as_deref(),
+                                    "midstream_error",
+                                    "上游流式响应中途中断",
+                                );
+                                (
+                                    passthrough_abort(&client_model, &cursor, "上游流式响应中途中断"),
+                                    true,
+                                )
+                            }
+                            Err(_) => {
+                                if cursor.saw_message_stop {
+                                    return None;
+                                }
+                                sse_buffer.clear();
+                                mark_passthrough_midstream_error(
+                                    &db,
+                                    stream_log_id.as_deref(),
+                                    "timeout",
+                                    "流式响应空闲超时",
+                                );
+                                (
+                                    passthrough_abort(&client_model, &cursor, "流式响应空闲超时"),
+                                    true,
+                                )
+                            }
+                        };
+                    if output.is_empty() && !done {
+                        continue;
                     }
-                    Err(_) => {
-                        if cursor.saw_message_stop {
-                            return None;
-                        }
-                        sse_buffer.clear();
-                        mark_passthrough_midstream_error(
-                            &db,
-                            stream_log_id.as_deref(),
-                            "timeout",
-                            "流式响应空闲超时",
-                        );
-                        (
-                            passthrough_abort(&client_model, &cursor, "流式响应空闲超时"),
-                            true,
-                        )
+                    if output.is_empty() && done {
+                        return None;
                     }
-                };
-                if output.is_empty() && !done {
-                    continue;
-                }
-                if output.is_empty() && done {
-                    return None;
-                }
-                return Some((
-                    Ok::<Bytes, Infallible>(Bytes::from(output)),
-                    (upstream_stream, sse_buffer, done, cursor),
-                ));
+                    return Some((
+                        Ok::<Bytes, Infallible>(Bytes::from(output)),
+                        (upstream_stream, sse_buffer, done, cursor),
+                    ));
                 }
             }
         },
@@ -1118,6 +1123,8 @@ struct PassthroughDrain {
     frames: Vec<Vec<u8>>,
     /// Upstream `event: error` (or `data.type=error`) replaced by a normal close.
     terminal_error: bool,
+    /// Human-readable error returned by the upstream, when present.
+    terminal_message: Option<String>,
     /// `message_stop` already forwarded; do not read further.
     finished: bool,
 }
@@ -1127,17 +1134,20 @@ fn drain_passthrough_frames(buffer: &mut Vec<u8>, cursor: &mut PassthroughCursor
     while let Some((end, delimiter_len)) = find_sse_frame_end(buffer) {
         let frame = buffer.drain(..end + delimiter_len).collect::<Vec<_>>();
         if passthrough_frame_is_terminal_error(&frame) {
+            let message = passthrough_frame_error_message(&frame);
             buffer.clear();
             if cursor.saw_message_stop {
                 return PassthroughDrain {
                     frames,
                     terminal_error: false,
+                    terminal_message: None,
                     finished: true,
                 };
             }
             return PassthroughDrain {
                 frames,
                 terminal_error: true,
+                terminal_message: message,
                 finished: true,
             };
         }
@@ -1148,6 +1158,7 @@ fn drain_passthrough_frames(buffer: &mut Vec<u8>, cursor: &mut PassthroughCursor
             return PassthroughDrain {
                 frames,
                 terminal_error: false,
+                terminal_message: None,
                 finished: true,
             };
         }
@@ -1155,6 +1166,7 @@ fn drain_passthrough_frames(buffer: &mut Vec<u8>, cursor: &mut PassthroughCursor
     PassthroughDrain {
         frames,
         terminal_error: false,
+        terminal_message: None,
         finished: false,
     }
 }
@@ -1166,6 +1178,18 @@ fn passthrough_frame_is_terminal_error(frame: &[u8]) -> bool {
     sse_frame_data_json(frame)
         .and_then(|value| value.get("type").and_then(Value::as_str).map(str::to_string))
         .is_some_and(|kind| kind == "error")
+}
+
+fn passthrough_frame_error_message(frame: &[u8]) -> Option<String> {
+    let value = sse_frame_data_json(frame)?;
+    let error = value.get("error")?;
+    error
+        .get("message")
+        .and_then(Value::as_str)
+        .or_else(|| error.as_str())
+        .map(str::trim)
+        .filter(|message| !message.is_empty())
+        .map(str::to_string)
 }
 
 fn note_passthrough_frame(frame: &[u8], cursor: &mut PassthroughCursor) {
@@ -1458,11 +1482,11 @@ mod probe_tests {
         let abort = String::from_utf8(passthrough_abort(
             "gpt-5.6-sol",
             &cursor,
-            "上游服务返回流式错误",
+            drained.terminal_message.as_deref().unwrap_or("上游服务返回流式错误"),
         ))
         .unwrap();
         assert!(abort.contains("\"index\":0"));
-        assert!(abort.contains("上游服务返回流式错误"));
+        assert!(abort.contains("model down"));
         assert!(abort.contains("event: message_stop"));
         assert!(!abort.contains("event: message_start"));
         assert!(!abort.contains("event: error"));

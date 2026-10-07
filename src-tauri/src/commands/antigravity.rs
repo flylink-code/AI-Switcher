@@ -4,6 +4,7 @@ use crate::antigravity::{
     clear_sticky_sessions, gateway_status, get_fast_path_settings, get_limiter_settings,
     import_accounts_json, list_accounts, login_with_browser, probe_exit_latency, probe_exit_proxy,
     refresh_all_account_quotas, refresh_one_account_quota, remove_account, set_active_account,
+    set_account_model_access,
     set_exit_proxies, set_fast_path_settings, set_gateway_api_key, set_gateway_port,
     ExitProxyEntry, ExitProxyLatencyResult, ExitProxyProbeResult,
     set_limiter_settings, set_outbound_proxy, start_gateway, stop_gateway,
@@ -43,6 +44,17 @@ pub fn set_antigravity_active_account(account_id: String) -> AppResult<()> {
     set_active_account(&account_id)?;
     clear_sticky_sessions();
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_antigravity_account_model_access(
+    account_id: String,
+    mode: String,
+    patterns: Vec<String>,
+) -> AppResult<AntigravityAccountPublic> {
+    let result = set_account_model_access(&account_id, &mode, patterns)?;
+    clear_sticky_sessions();
+    Ok(result)
 }
 
 #[tauri::command]

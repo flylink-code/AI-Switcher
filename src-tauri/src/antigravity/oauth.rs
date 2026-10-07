@@ -80,6 +80,8 @@ async fn login_with_browser_inner(app: &AppHandle) -> AppResult<AntigravityAccou
             project_id: None,
             session_id: None,
         },
+        model_access_mode: "auto".into(),
+        allowed_model_patterns: Vec::new(),
         disabled: false,
         disabled_reason: None,
         is_active: false,

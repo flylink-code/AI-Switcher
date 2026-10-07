@@ -533,6 +533,62 @@ fn group_looks_gemini(display_name: &str) -> bool {
     display_name.to_ascii_lowercase().contains("gemini")
 }
 
+pub fn default_allowed_model_patterns(tier: Option<&str>) -> Vec<String> {
+    match tier
+        .map(|value| normalize_tier_label(value.to_string()))
+        .as_deref()
+    {
+        Some("PRO") | Some("ULTRA") => vec![
+            "gemini-*flash*".into(),
+            "gemini-*pro*".into(),
+            "claude-*".into(),
+            "gpt-*".into(),
+            "o*".into(),
+        ],
+        // Unknown or missing tier is fail-closed: Flash is the least-privileged
+        // model family and can be widened explicitly in the account settings.
+        _ => vec!["gemini-*flash*".into()],
+    }
+}
+
+pub(crate) fn model_id_for_access_match(model: &str) -> String {
+    let normalized = model.trim().to_ascii_lowercase();
+    normalized
+        .strip_prefix("models/")
+        .unwrap_or(&normalized)
+        .to_string()
+}
+
+/// Match a model id against an account setting. `*` is the only wildcard and
+/// matches zero or more characters; matching is anchored at both ends.
+pub(crate) fn model_pattern_matches(pattern: &str, model: &str) -> bool {
+    let pattern = model_id_for_access_match(pattern);
+    let model = model_id_for_access_match(model);
+    let parts: Vec<&str> = pattern.split('*').collect();
+    if parts.len() == 1 {
+        return parts[0] == model;
+    }
+    let mut position = 0usize;
+    for (index, part) in parts.iter().enumerate() {
+        if part.is_empty() {
+            continue;
+        }
+        if index == 0 {
+            if !model[position..].starts_with(part) {
+                return false;
+            }
+            position += part.len();
+        } else if index == parts.len() - 1 {
+            return model[position..].ends_with(part);
+        } else if let Some(found) = model[position..].find(part) {
+            position += found + part.len();
+        } else {
+            return false;
+        }
+    }
+    true
+}
+
 fn bucket_looks_gemini(bucket_id: &str) -> bool {
     let id = bucket_id.to_ascii_lowercase();
     id.starts_with("gemini-") || id.contains("gemini")
@@ -591,7 +647,6 @@ fn tier_field_value(tier: &Value) -> Option<&str> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
 }
-
 fn extract_tier_from_key(value: &Value, key: &str) -> Option<String> {
     value.get(key).and_then(|tier| {
         if let Some(text) = tier_field_value(tier) {
@@ -1079,6 +1134,30 @@ fn normalize_fraction(frac: f64) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_model_access_patterns_are_conservative_and_tier_based() {
+        assert_eq!(default_allowed_model_patterns(None), vec!["gemini-*flash*"]);
+        assert_eq!(default_allowed_model_patterns(Some("FREE")), vec!["gemini-*flash*"]);
+
+        let paid = default_allowed_model_patterns(Some("Google AI Pro"));
+        assert!(paid.iter().any(|pattern| pattern == "gemini-*flash*"));
+        assert!(paid.iter().any(|pattern| pattern == "gemini-*pro*"));
+        assert!(paid.iter().any(|pattern| pattern == "claude-*"));
+        assert!(paid.iter().any(|pattern| pattern == "gpt-*"));
+        assert!(paid.iter().any(|pattern| pattern == "o*"));
+        assert_eq!(default_allowed_model_patterns(Some("ULTRA")), paid);
+    }
+
+    #[test]
+    fn model_access_patterns_normalize_prefix_and_match_suffixes() {
+        assert!(model_pattern_matches("gemini-*flash*", "models/gemini-3.8-flash-high"));
+        assert!(model_pattern_matches("CLAUDE-*", "claude-sonnet-4-6"));
+        assert!(model_pattern_matches("o*", "models/o4-mini"));
+        assert!(!model_pattern_matches("gemini-*pro*", "gemini-3.8-flash-high"));
+        assert!(!model_pattern_matches("gpt-*", "claude-sonnet-4-6"));
+    }
+
 
     #[test]
     fn parses_models_and_summary() {

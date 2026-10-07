@@ -11,6 +11,19 @@ use super::limiter::AccountLimiter;
 use super::quota::{quota_family_from_model, QuotaFamily};
 use crate::error::{AppError, AppResult};
 
+fn account_allows_model(account: &AntigravityAccount, requested_model: Option<&str>) -> bool {
+    requested_model.map(|model| account.allows_model(model)).unwrap_or(true)
+}
+
+fn account_is_schedulable_for_model(
+    account: &AntigravityAccount,
+    now: i64,
+    family: Option<QuotaFamily>,
+    requested_model: Option<&str>,
+) -> bool {
+    account_allows_model(account, requested_model) && account_is_schedulable(account, now, family)
+}
+
 const RATE_LIMIT_COOLDOWN_SECS: i64 = 45;
 const AUTH_COOLDOWN_SECS: i64 = 180;
 /// Cloud Code sometimes sends a huge Retry-After (hourly/daily reset). Capping
@@ -105,11 +118,11 @@ impl AccountPool {
         let family = requested_family(requested_model);
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
-        let mut candidates = collect_schedulable_with_family_fallback(&accounts, now, family);
+        let mut candidates = collect_schedulable_with_family_fallback(&accounts, now, family, requested_model);
         if candidates.is_empty() {
             // Desktop health probes + short upstream blips can cool every account
             // at once. Prefer a soft retry over hard-failing with "no accounts".
-            if let Some(soft) = soft_select_cooled_account(&accounts, now, family) {
+            if let Some(soft) = soft_select_cooled_account(&accounts, now, family, requested_model) {
                 log::warn!(
                     "Antigravity pool: all accounts cooling; soft-selecting {}",
                     soft.email
@@ -117,7 +130,11 @@ impl AccountPool {
                 let _ = store().clear_cooldown(&soft.id);
                 candidates.push(soft);
             } else {
-                return Err(AppError::Other(explain_unavailable(&accounts, now)));
+                return Err(AppError::Other(explain_unavailable(
+                    &accounts,
+                    now,
+                    requested_model,
+                )));
             }
         }
 
@@ -136,7 +153,11 @@ impl AccountPool {
             self.limiter.as_deref(),
             family,
         ) else {
-            return Err(AppError::Other(explain_unavailable(&accounts, now)));
+            return Err(AppError::Other(explain_unavailable(
+                &accounts,
+                now,
+                requested_model,
+            )));
         };
         log::info!(
             "Antigravity pool select {} via {}",
@@ -197,14 +218,24 @@ impl AccountPool {
             .filter(|account| !exclude.contains(&account.id))
             .cloned()
             .collect();
-        let mut candidates = collect_schedulable_with_family_fallback(&remaining, now, family);
+        let mut candidates = collect_schedulable_with_family_fallback(
+            &remaining,
+            now,
+            family,
+            requested_model,
+        );
         if candidates.is_empty() {
             if remaining.is_empty() {
                 return Err(AppError::Other(
                     "Antigravity 已尝试所有可用账号，上游均失败".into(),
                 ));
             }
-            if let Some(soft) = soft_select_cooled_account(&remaining, now, family) {
+            if let Some(soft) = soft_select_cooled_account(
+                &remaining,
+                now,
+                family,
+                requested_model,
+            ) {
                 log::warn!(
                     "Antigravity pool rotate: soft-selecting cooled {}",
                     soft.email
@@ -212,14 +243,22 @@ impl AccountPool {
                 let _ = store().clear_cooldown(&soft.id);
                 candidates.push(soft);
             } else {
-                return Err(AppError::Other(explain_unavailable(&remaining, now)));
+                return Err(AppError::Other(explain_unavailable(
+                    &remaining,
+                    now,
+                    requested_model,
+                )));
             }
         }
         sort_candidates_best_first(&mut candidates, family);
         let selected = match candidates.first() {
             Some(first) => ensure_token_skipping_auth_failures(&candidates, &first.id)?,
             None => {
-                return Err(AppError::Other(explain_unavailable(&remaining, now)));
+                return Err(AppError::Other(explain_unavailable(
+                    &remaining,
+                    now,
+                    requested_model,
+                )));
             }
         };
         self.bind_session(session_key, &selected.1.id);
@@ -232,16 +271,25 @@ impl AccountPool {
 
     /// Recommends the highest scored account currently schedulable in the pool.
     pub fn recommend_best_account(&self) -> AppResult<Option<AntigravityAccount>> {
+        self.recommend_best_account_for_model(None)
+    }
+
+    pub fn recommend_best_account_for_model(
+        &self,
+        requested_model: Option<&str>,
+    ) -> AppResult<Option<AntigravityAccount>> {
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
         let mut candidates: Vec<_> = accounts
             .into_iter()
-            .filter(|account| account_is_schedulable(account, now, None))
+            .filter(|account| {
+                account_is_schedulable_for_model(account, now, requested_family(requested_model), requested_model)
+            })
             .collect();
         if candidates.is_empty() {
             return Ok(None);
         }
-        sort_candidates_best_first(&mut candidates, None);
+        sort_candidates_best_first(&mut candidates, requested_family(requested_model));
         Ok(candidates.into_iter().next())
     }
 
@@ -354,10 +402,11 @@ fn collect_schedulable(
     accounts: &[AntigravityAccount],
     now: i64,
     family: Option<QuotaFamily>,
+    requested_model: Option<&str>,
 ) -> Vec<AntigravityAccount> {
     accounts
         .iter()
-        .filter(|account| account_is_schedulable(account, now, family))
+        .filter(|account| account_is_schedulable_for_model(account, now, family, requested_model))
         .cloned()
         .collect()
 }
@@ -366,14 +415,15 @@ fn collect_schedulable_with_family_fallback(
     accounts: &[AntigravityAccount],
     now: i64,
     family: Option<QuotaFamily>,
+    requested_model: Option<&str>,
 ) -> Vec<AntigravityAccount> {
-    let mut candidates = collect_schedulable(accounts, now, family);
+    let mut candidates = collect_schedulable(accounts, now, family, requested_model);
     if candidates.is_empty() && family.is_some() {
         log::warn!(
             "Antigravity pool: no accounts with {:?} remaining; soft-fallback to any schedulable account",
             family
         );
-        candidates = collect_schedulable(accounts, now, None);
+        candidates = collect_schedulable(accounts, now, None, requested_model);
     }
     candidates
 }
@@ -398,10 +448,12 @@ fn soft_select_cooled_account(
     accounts: &[AntigravityAccount],
     now: i64,
     family: Option<QuotaFamily>,
+    requested_model: Option<&str>,
 ) -> Option<AntigravityAccount> {
     let non_disabled: Vec<&AntigravityAccount> = accounts
         .iter()
         .filter(|account| !account.disabled)
+        .filter(|account| account_allows_model(account, requested_model))
         .collect();
     if non_disabled.is_empty() {
         return None;
@@ -420,11 +472,26 @@ fn soft_select_cooled_account(
     cooled.first().map(|account| (*account).clone())
 }
 
-fn explain_unavailable(accounts: &[AntigravityAccount], now: i64) -> String {
+fn explain_unavailable(
+    accounts: &[AntigravityAccount],
+    now: i64,
+    requested_model: Option<&str>,
+) -> String {
     if accounts.is_empty() {
         return "没有可用的 Antigravity 账号（请先在网关页登录或导入）".into();
     }
     let disabled = accounts.iter().filter(|account| account.disabled).count();
+    let eligible = accounts.iter().filter(|account| !account.disabled).count();
+    if let Some(model) = requested_model {
+        if eligible > 0
+            && accounts
+                .iter()
+                .filter(|account| !account.disabled)
+                .all(|account| !account.allows_model(model))
+        {
+            return "没有账号支持当前模型，请调整账号模型权限设置".into();
+        }
+    }
     let cooling = accounts
         .iter()
         .filter(|account| {
@@ -680,6 +747,8 @@ mod tests {
             created_at: 0,
             last_used: 0,
             health_score: 1.0,
+            model_access_mode: "auto".into(),
+            allowed_model_patterns: Vec::new(),
             disabled: false,
             disabled_reason: None,
             cooldown_until,
@@ -695,7 +764,8 @@ mod tests {
     fn soft_selects_when_all_accounts_cooling() {
         let now = Utc::now().timestamp();
         let accounts = vec![sample("a1", Some(now + 30)), sample("a2", Some(now + 10))];
-        let soft = soft_select_cooled_account(&accounts, now, None).expect("soft");
+        let soft =
+            soft_select_cooled_account(&accounts, now, None, None).expect("soft");
         assert_eq!(soft.id, "a2");
     }
 
@@ -716,7 +786,7 @@ mod tests {
     fn no_soft_select_when_one_is_ready() {
         let now = Utc::now().timestamp();
         let accounts = vec![sample("a1", Some(now + 30)), sample("a2", None)];
-        assert!(soft_select_cooled_account(&accounts, now, None).is_none());
+        assert!(soft_select_cooled_account(&accounts, now, None, None).is_none());
     }
 
     #[test]
@@ -737,7 +807,7 @@ mod tests {
         let mut a2 = sample("a2", None);
         a1.disabled = true;
         a2.disabled = true;
-        let message = explain_unavailable(&[a1, a2], Utc::now().timestamp());
+        let message = explain_unavailable(&[a1, a2], Utc::now().timestamp(), None);
         assert!(message.contains("重新登录"));
     }
 

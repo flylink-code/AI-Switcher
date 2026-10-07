@@ -60,6 +60,18 @@ export async function setAntigravityActiveAccount(accountId: string): Promise<vo
   await invoke("set_antigravity_active_account", { accountId });
 }
 
+export async function setAntigravityAccountModelAccess(
+  accountId: string,
+  mode: "auto" | "custom",
+  patterns: string[],
+): Promise<AntigravityAccountPublic> {
+  return call<AntigravityAccountPublic>("set_antigravity_account_model_access", {
+    accountId,
+    mode,
+    patterns,
+  });
+}
+
 export async function getAntigravityGatewayStatus(): Promise<AntigravityGatewayStatus> {
   return call<AntigravityGatewayStatus>("get_antigravity_gateway_status");
 }

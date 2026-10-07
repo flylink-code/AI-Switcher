@@ -1376,6 +1376,9 @@ export interface AntigravityAccountPublic {
   id: string;
   email: string;
   name?: string | null;
+  modelAccessMode: "auto" | "custom" | string;
+  allowedModelPatterns: string[];
+  effectiveModelPatterns: string[];
   disabled: boolean;
   disabledReason?: string | null;
   isActive: boolean;

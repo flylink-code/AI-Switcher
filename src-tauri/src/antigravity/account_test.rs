@@ -197,6 +197,24 @@ pub async fn test_account(
     let started = Instant::now();
     let mapped = resolve_probe_model(model.as_deref());
     let prompt = resolve_probe_prompt(prompt.as_deref());
+    let account_snapshot = match account_store().list_accounts() {
+        Ok(accounts) => match accounts.into_iter().find(|account| account.id == account_id) {
+            Some(account) => account,
+            None => return Err(AppError::Config("Antigravity 账号不存在".into())),
+        },
+        Err(error) => return Err(error),
+    };
+    if !account_snapshot.allows_model(&mapped) {
+        return Ok(result_for(
+            false,
+            "error",
+            Some(400),
+            mapped,
+            started.elapsed().as_millis() as u64,
+            None,
+            Some("该账号未配置为支持此模型，请调整模型权限设置".into()),
+        ));
+    }
     let (upstream_model, request) = match build_probe_gemini_request(&mapped, &prompt) {
         Ok(value) => value,
         Err(error) => {

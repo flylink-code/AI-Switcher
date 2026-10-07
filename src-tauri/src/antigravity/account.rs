@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::antigravity::quota::QuotaSnapshot;
+use crate::antigravity::quota::{
+    default_allowed_model_patterns, model_pattern_matches, QuotaSnapshot,
+};
 use crate::config;
 use crate::error::{AppError, AppResult};
 
@@ -66,6 +68,12 @@ pub struct AntigravityAccount {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub token: AntigravityToken,
+    /// `auto` derives access from the authoritative Cloud Code subscription tier;
+    /// `custom` uses `allowed_model_patterns` as an explicit override.
+    #[serde(default = "default_model_access_mode")]
+    pub model_access_mode: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_model_patterns: Vec<String>,
     #[serde(default)]
     pub disabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -88,16 +96,74 @@ pub struct AntigravityAccount {
     pub quota: Option<QuotaSnapshot>,
 }
 
+fn default_model_access_mode() -> String {
+    "auto".to_string()
+}
+
 fn default_health() -> f32 {
     1.0
 }
 
+fn normalize_model_access_mode(mode: &str) -> AppResult<&'static str> {
+    match mode.trim().to_ascii_lowercase().as_str() {
+        "auto" => Ok("auto"),
+        "custom" => Ok("custom"),
+        _ => Err(AppError::Config("模型权限模式必须是 auto 或 custom".into())),
+    }
+}
+
+fn normalize_model_patterns(patterns: Vec<String>) -> AppResult<Vec<String>> {
+    let mut normalized = Vec::new();
+    for pattern in patterns {
+        let value = pattern.trim().to_ascii_lowercase();
+        if value.is_empty() {
+            continue;
+        }
+        if value.contains(['?', '[', ']']) || value.chars().any(char::is_whitespace) {
+            return Err(AppError::Config(format!("模型权限模式无效: {pattern}")));
+        }
+        if !normalized.iter().any(|item| item == &value) {
+            normalized.push(value);
+        }
+    }
+    Ok(normalized)
+}
+
+impl AntigravityAccount {
+    pub fn allows_model(&self, model: &str) -> bool {
+        let patterns = if self.model_access_mode.eq_ignore_ascii_case("custom") {
+            &self.allowed_model_patterns
+        } else {
+            let tier = self.quota.as_ref().and_then(|quota| quota.subscription_tier.as_deref());
+            return default_allowed_model_patterns(tier)
+                .iter()
+                .any(|pattern| model_pattern_matches(pattern, model));
+        };
+        patterns
+            .iter()
+            .any(|pattern| model_pattern_matches(pattern, model))
+    }
+
+    pub fn effective_model_patterns(&self) -> Vec<String> {
+        if self.model_access_mode.eq_ignore_ascii_case("custom") {
+            return self.allowed_model_patterns.clone();
+        }
+        default_allowed_model_patterns(
+            self.quota
+                .as_ref()
+                .and_then(|quota| quota.subscription_tier.as_deref()),
+        )
+    }
+}
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AntigravityAccountPublic {
     pub id: String,
     pub email: String,
     pub name: Option<String>,
+    pub model_access_mode: String,
+    pub allowed_model_patterns: Vec<String>,
+    pub effective_model_patterns: Vec<String>,
     pub disabled: bool,
     pub disabled_reason: Option<String>,
     pub is_active: bool,
@@ -137,6 +203,9 @@ impl From<&AntigravityAccount> for AntigravityAccountPublic {
             id: account.id.clone(),
             email: account.email.clone(),
             name: account.name.clone(),
+            model_access_mode: account.model_access_mode.clone(),
+            allowed_model_patterns: account.allowed_model_patterns.clone(),
+            effective_model_patterns: account.effective_model_patterns(),
             disabled: account.disabled,
             disabled_reason: account.disabled_reason.clone(),
             is_active: account.is_active,
@@ -332,6 +401,31 @@ impl AccountStore {
         Ok(public)
     }
 
+    pub fn set_model_access(
+        &self,
+        account_id: &str,
+        mode: &str,
+        patterns: Vec<String>,
+    ) -> AppResult<AntigravityAccountPublic> {
+        let normalized_mode = normalize_model_access_mode(mode)?;
+        let normalized_patterns = normalize_model_patterns(patterns)?;
+        if normalized_mode == "custom" && normalized_patterns.is_empty() {
+            return Err(AppError::Config(
+                "自定义模型权限至少需要一个模型或模式".into(),
+            ));
+        }
+        let mut guard = self.lock_accounts();
+        let account = guard
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == account_id)
+            .ok_or_else(|| AppError::Config("Antigravity 账号不存在".into()))?;
+        account.model_access_mode = normalized_mode.to_string();
+        account.allowed_model_patterns = normalized_patterns;
+        let public = AntigravityAccountPublic::from(&*account);
+        persist(&guard)?;
+        Ok(public)
+    }
     pub fn mark_cooldown(&self, account_id: &str, seconds: i64, reason: &str) -> AppResult<()> {
         let mut guard = self.lock_accounts();
         let Some(account) = guard.accounts.iter_mut().find(|item| item.id == account_id) else {
@@ -697,6 +791,14 @@ pub fn set_active_account(account_id: &str) -> AppResult<()> {
     store().set_active_account(account_id)
 }
 
+pub fn set_account_model_access(
+    account_id: &str,
+    mode: &str,
+    patterns: Vec<String>,
+) -> AppResult<AntigravityAccountPublic> {
+    store().set_model_access(account_id, mode, patterns)
+}
+
 pub fn import_accounts_json(raw: &str) -> AppResult<usize> {
     store().import_json(raw)
 }
@@ -800,6 +902,8 @@ fn parse_one_account(item: &Value, now: i64) -> Option<AntigravityAccount> {
             project_id,
             session_id: None,
         },
+        model_access_mode: default_model_access_mode(),
+        allowed_model_patterns: Vec::new(),
         disabled: false,
         disabled_reason: None,
         is_active: false,

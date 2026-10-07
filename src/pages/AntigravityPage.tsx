@@ -27,6 +27,7 @@ import {
   listAntigravityModels,
   refreshAntigravityQuotas,
   removeAntigravityAccount,
+  setAntigravityAccountModelAccess,
   setAntigravityActiveAccount,
   setAntigravityGatewayApiKey,
   setAntigravityGatewayPort,
@@ -207,6 +208,18 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
+  const modelAccessMutation = useMutation({
+    mutationFn: ({ accountId, mode, patterns }: { accountId: string; mode: "auto" | "custom"; patterns: string[] }) =>
+      setAntigravityAccountModelAccess(accountId, mode, patterns),
+    onSuccess: async (account) => {
+      queryClient.setQueryData<AntigravityAccountPublic[]>(["antigravity-accounts"], (current) =>
+        current?.map((item) => (item.id === account.id ? account : item)),
+      );
+      await queryClient.invalidateQueries({ queryKey: ["antigravity-pool-warning"] });
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
   const startMutation = useMutation({
     mutationFn: async ({
       port,
@@ -373,6 +386,14 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
     }
   };
 
+  const handleSaveModelAccess = async (
+    accountId: string,
+    mode: "auto" | "custom",
+    patterns: string[],
+  ) => {
+    await modelAccessMutation.mutateAsync({ accountId, mode, patterns });
+  };
+
   // 分类排序：Active 账号优先，其余按 Email 保持稳定性
   const sortedAccounts = [...accounts].sort((a, b) => {
     if (a.isActive && !b.isActive) return -1;
@@ -429,6 +450,7 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
           refresh={refresh}
           handleSetActive={handleSetActive}
           handleRemoveAccount={handleRemoveAccount}
+          handleSaveModelAccess={handleSaveModelAccess}
         />
       )}
     </div>
@@ -462,6 +484,7 @@ interface AntigravityContentProps {
   refresh: () => Promise<void>;
   handleSetActive: (id: string) => Promise<void>;
   handleRemoveAccount: (id: string) => Promise<void>;
+  handleSaveModelAccess: (id: string, mode: "auto" | "custom", patterns: string[]) => Promise<void>;
 }
 
 function AntigravityContent({
@@ -491,6 +514,7 @@ function AntigravityContent({
   refresh,
   handleSetActive,
   handleRemoveAccount,
+  handleSaveModelAccess,
 }: AntigravityContentProps) {
   const agQuotaViewMode = usePagePreferencesStore((state) => state.agQuotaViewMode);
   const setAgQuotaViewMode = usePagePreferencesStore((state) => state.setAgQuotaViewMode);
@@ -614,6 +638,7 @@ function AntigravityContent({
                 account={account}
                 onSetActive={handleSetActive}
                 onRemove={handleRemoveAccount}
+                onSaveModelAccess={handleSaveModelAccess}
                 isPending={actionAccountId === account.id}
                 quotaViewMode={agQuotaViewMode}
                 models={models}
