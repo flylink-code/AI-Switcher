@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.13**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.14**
 
-**This release:** The smart gateway echoes the catalog model you selected, so a pinned model no longer becomes Auto mid-chat.
+**This release:** The reverse-proxy gateway adds Kiro on `127.0.0.1:15831`. Antigravity accounts can limit models by subscription or custom patterns.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 
@@ -26,6 +26,7 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 - **Providers:** Each agent chooses an **external provider connection** or a **gateway profile connection**. The gateway aggregates catalogs, plan/execute/subagent roles, and route logs. Cards copy across agents (protocol and URL rewritten). OpenCode / Pi still write every provider when external; a gateway connection writes a single loopback entry.
 - **Smart gateway:** Standalone listener at `127.0.0.1:15828` for mode routing, thinking levels, catalog scope, and condition rules. Binding an agent writes an Auto card that points at that port. Usage counts only the innermost hop. Entry: main nav **Gateway**.
 - **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
+- **Kiro gateway:** `127.0.0.1:15831` with an account pool and quota-aware scheduling. Import a Builder ID, Social, or Kiro IDE token, or sign in with a device code or Social PKCE. Usage counts only the Kiro hop. Personal use; review upstream terms yourself.
 - **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.
 - **Sessions & usage:** Browse, search, and back up local sessions; estimate cost from proxy logs plus session events.
 - **Tools & localization:** Install/update each agent CLI. Claude Code and VS Code/Cursor Chinese packs (compare against GitHub latest; install or remove).

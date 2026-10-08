@@ -1990,6 +1990,14 @@
         "A missing model or HTTP 404 is returned unchanged, instead of trying another Cloud Code host and turning the error into 429 or 502.",
         "A Daily rate limit falls back to Sandbox before production. Timeouts, 502s, and other upstream failures that are not sign-in or rate-limit errors rotate accounts without cooling them.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_14": [
+        "The reverse-proxy gateway adds Kiro and listens only on 127.0.0.1:15831. Import a Builder ID, Social, or Kiro IDE token, or sign in with a Builder ID device code or Social PKCE. Accounts stay in kiro_accounts.json and are not stored in the main database.",
+        "When a request passes through the smart gateway and then Kiro, usage counts only the Kiro hop. Kiro 429 and 504 responses rotate inside the Kiro account pool and do not fail over to another provider.",
+        "Adding Kiro for an app creates or updates the built-in provider that points at :15831 without switching to it. The upstream pool can include Kiro :15831.",
+        "Antigravity accounts can set model access: automatic patterns from the subscription tier, or custom model ids and wildcards. Custom access only filters the local catalog and does not change upstream quota.",
+        "A Claude model in a Claude Code session can match a non-Claude model in the proxy log, so a mapped request is no longer counted twice.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

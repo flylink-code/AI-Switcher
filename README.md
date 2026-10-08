@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.13**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.14**
 
-**本版**：智能网关回显你选中的目录模型，钉住的模型不会在对话中途变成 Auto。
+**本版**：反代网关加入 Kiro（`127.0.0.1:15831`）。Antigravity 账号可按订阅或自定义模式限制可用模型。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 
@@ -26,6 +26,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 - **供应商**：各 Agent 选择 **外部供应商连接** 或 **网关档案连接**。网关聚合目录、规划/执行/辅助分工与观测；卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi 在外部连接时仍多供应商并存；网关连接只写一条本机入口。
 - **智能网关**：独立本机服务 `127.0.0.1:15828`，模式路由、推理挡位、模型范围与条件规则。绑定 Agent 后写入指向该端口的 Auto 卡。用量按请求链路只计最内层花费。入口在主导航「网关」。
 - **Antigravity 网关**：`127.0.0.1:15830`，把 Cloud Code 接到 Anthropic Messages / OpenAI Chat / Responses。浏览器登录账号池、按额度调度。个人自用，请自行评估上游条款。
+- **Kiro 网关**：`127.0.0.1:15831`，账号池与额度调度。可导入 Builder ID、Social、Kiro IDE token，或用设备码 / Social PKCE 登录。用量只计 Kiro 这一跳。个人自用，请自行评估上游条款。
 - **工作区**：MCP、Prompts、Skills、Agents、插件、项目快照；按当前 Agent 只显示其支持的 Tab。
 - **会话与用量**：浏览、搜索、备份本地会话；合并代理日志与会话事件估算费用。
 - **工具与汉化**：安装/更新各 Agent CLI；Claude Code、VS Code/Cursor 中文包（对照 GitHub latest，可装可卸）。
