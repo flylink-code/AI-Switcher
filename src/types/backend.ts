@@ -1126,7 +1126,10 @@ export interface CodexCliVersionInfo {
 export interface OpenCodeCliVersionInfo {
   installed: boolean;
   currentVersion: string | null;
+  channel: "v1" | "v2" | null;
   latestVersion: string | null;
+  v1LatestVersion: string | null;
+  v2LatestVersion: string | null;
   updateAvailable: boolean;
   installCommand: string;
   updateCommand: string;

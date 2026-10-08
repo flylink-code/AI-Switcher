@@ -746,6 +746,20 @@ pub fn run_anchored_npm_global_install_official(
     )
 }
 
+/// Remove one global package. A missing package still exits successfully.
+pub fn run_anchored_npm_global_uninstall(
+    npm: &Path,
+    node: &Path,
+    package: &str,
+) -> io::Result<Output> {
+    run_anchored_npm_with_timeout(
+        npm,
+        node,
+        &["uninstall", "-g", package, "--yes"],
+        NPM_INSTALL_TIMEOUT,
+    )
+}
+
 fn download_bytes(url: &str) -> AppResult<Vec<u8>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(180))

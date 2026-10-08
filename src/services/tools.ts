@@ -38,8 +38,8 @@ export async function getOpenCodeCliVersion(includeLatest = true): Promise<OpenC
   return call<OpenCodeCliVersionInfo>("get_opencode_cli_version", { includeLatest });
 }
 
-export async function runOpenCodeCliUpdate(): Promise<string> {
-  return call<string>("run_opencode_cli_update", {});
+export async function runOpenCodeCliUpdate(channel: "v1" | "v2"): Promise<string> {
+  return call<string>("run_opencode_cli_update", { channel });
 }
 
 export async function getPiCliVersion(includeLatest = true): Promise<PiCliVersionInfo> {

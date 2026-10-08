@@ -1998,6 +1998,12 @@
         "Antigravity accounts can set model access: automatic patterns from the subscription tier, or custom model ids and wildcards. Custom access only filters the local catalog and does not change upstream quota.",
         "A Claude model in a Claude Code session can match a non-Claude model in the proxy log, so a mapped request is no longer counted twice.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_15": [
+        "Agent tools can install OpenCode CLI v1 (opencode-ai) or v2 (@opencode/cli). Both lines provide the opencode command.",
+        "An existing install stays on its major version: 2.* is v2, and anything older is v1. With nothing installed, the choice starts on v2 and does not silently replace an existing v1.",
+        "Switching lines uninstalls the other package first. Configuration stays in ~/.config/opencode, and opencode.json is not rewritten.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",
@@ -2069,8 +2075,15 @@
     "opencodeInstallSource": "Install source",
     "opencodeExecutablePath": "Executable",
     "opencodeCommandHint": "You can also run this command in a terminal to install or update:",
+    "opencodeChannelV1": "v1",
+    "opencodeChannelV2": "v2",
+    "opencodeChannelHint": "v1 and v2 share the opencode command. Installing one replaces the other. Configuration stays in ~/.config/opencode; this does not rewrite opencode.json.",
     "runOpenCodeUpdate": "Update OpenCode CLI",
     "runOpenCodeInstall": "Install OpenCode CLI",
+    "runOpenCodeInstallV1": "Install v1",
+    "runOpenCodeInstallV2": "Install v2",
+    "runOpenCodeSwitchV1": "Switch to v1",
+    "runOpenCodeSwitchV2": "Switch to v2",
     "piCliSection": "Pi CLI",
     "piCurrentVersion": "Current version",
     "piLatestVersion": "Latest version",

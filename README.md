@@ -1,8 +1,8 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.14**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.15**
 
-**本版**：反代网关加入 Kiro（`127.0.0.1:15831`）。Antigravity 账号可按订阅或自定义模式限制可用模型。
+**本版**：Agent 工具安装 OpenCode CLI 时可选 v1（`opencode-ai`）或 v2（`@opencode/cli`）。已安装的版本不会被静默替换。
 
 **升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
 

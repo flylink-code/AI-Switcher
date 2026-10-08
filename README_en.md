@@ -1,8 +1,8 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.14**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.15**
 
-**This release:** The reverse-proxy gateway adds Kiro on `127.0.0.1:15831`. Antigravity accounts can limit models by subscription or custom patterns.
+**This release:** Agent tools can install OpenCode CLI v1 (`opencode-ai`) or v2 (`@opencode/cli`). An existing install is not replaced unless you switch.
 
 **Upgrade note:** The main database remains on Schema 33, so no database migration is required. Backing up `~/.claude-switcher` is still recommended. 1.4.xx hotfixes stay on `release/1.4.x` and do not take Schema 33.
 

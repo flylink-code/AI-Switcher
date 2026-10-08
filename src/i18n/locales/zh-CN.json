@@ -1998,6 +1998,12 @@
         "Antigravity 账号可以设置模型权限：自动按订阅等级推导，或自定义模型与通配模式。自定义只过滤本机目录，不改变上游真实额度。",
         "Claude Code 会话里的 Claude 模型可以和代理日志里的非 Claude 上游模型配成同一次用量，映射后不再重复计数。",
         "主资料库 Schema 保持 33，无需数据库迁移。"
+      ],
+      "1_5_15": [
+        "Agent 工具里的 OpenCode CLI 可以选择 v1（opencode-ai）或 v2（@opencode/cli）。两条线共用 opencode 命令。",
+        "已安装时按主版本停在对应线：2.* 为 v2，其余为 v1。未安装时默认 v2，不会把现有 v1 静默换成 v2。",
+        "切换到另一条时先卸掉另一包再安装。配置仍在 ~/.config/opencode，这次不改写 opencode.json。",
+        "主资料库 Schema 保持 33，无需数据库迁移。"
       ]
     },
     "appName": "应用名称",
@@ -2069,8 +2075,15 @@
     "opencodeInstallSource": "安装来源",
     "opencodeExecutablePath": "可执行文件",
     "opencodeCommandHint": "也可在终端手动执行以下命令安装或更新：",
+    "opencodeChannelV1": "v1",
+    "opencodeChannelV2": "v2",
+    "opencodeChannelHint": "v1 与 v2 共用 opencode 命令，换装会替换另一条。配置仍在 ~/.config/opencode，这里不改写 opencode.json。",
     "runOpenCodeUpdate": "更新 OpenCode CLI",
     "runOpenCodeInstall": "安装 OpenCode CLI",
+    "runOpenCodeInstallV1": "安装 v1",
+    "runOpenCodeInstallV2": "安装 v2",
+    "runOpenCodeSwitchV1": "切换到 v1",
+    "runOpenCodeSwitchV2": "切换到 v2",
     "piCliSection": "Pi CLI",
     "piCurrentVersion": "当前版本",
     "piLatestVersion": "最新版本",

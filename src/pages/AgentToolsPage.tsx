@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Alert,
   Button,
@@ -6,6 +6,7 @@ import {
   Collapse,
   Descriptions,
   Modal,
+  Segmented,
   Space,
   Tag,
   Typography,
@@ -53,6 +54,46 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 const { Text, Paragraph } = Typography;
+
+type OpenCodeChannel = "v1" | "v2";
+
+function isOpenCodeChannel(value: string | null | undefined): value is OpenCodeChannel {
+  return value === "v1" || value === "v2";
+}
+
+function opencodePackageName(channel: OpenCodeChannel): string {
+  switch (channel) {
+    case "v1":
+      return "opencode-ai";
+    case "v2":
+      return "@opencode/cli";
+    default: {
+      const unexpected: never = channel;
+      return unexpected;
+    }
+  }
+}
+
+function openCodeActionLabel(input: {
+  meetsMinimum: boolean;
+  installed: boolean;
+  detected: string | null | undefined;
+  selected: OpenCodeChannel;
+  installNode: string;
+  installV1: string;
+  installV2: string;
+  switchV1: string;
+  switchV2: string;
+}): string | undefined {
+  if (!input.meetsMinimum && !input.installed) return input.installNode;
+  if (!input.installed) {
+    return input.selected === "v2" ? input.installV2 : input.installV1;
+  }
+  if (isOpenCodeChannel(input.detected) && input.detected !== input.selected) {
+    return input.selected === "v2" ? input.switchV2 : input.switchV1;
+  }
+  return undefined;
+}
 
 function formatCliInstallError(raw: string, t: (key: string) => string): string {
   if (raw.includes("NODE_RUNTIME_MISSING:")) {
@@ -110,6 +151,8 @@ export default function AgentToolsPage() {
   const [updatingClaude, setUpdatingClaude] = useState(false);
   const [updatingCodex, setUpdatingCodex] = useState(false);
   const [updatingOpenCode, setUpdatingOpenCode] = useState(false);
+  const [opencodeChannel, setOpencodeChannel] = useState<OpenCodeChannel>("v2");
+  const [opencodeChannelTouched, setOpencodeChannelTouched] = useState(false);
   const [updatingPi, setUpdatingPi] = useState(false);
   const [updatingDsh, setUpdatingDsh] = useState(false);
   const [updatingDesktop, setUpdatingDesktop] = useState(false);
@@ -268,11 +311,18 @@ export default function AgentToolsPage() {
     await runInstall();
   };
 
+  useEffect(() => {
+    if (opencodeChannelTouched || !opencodeInfo) return;
+    if (isOpenCodeChannel(opencodeInfo.channel)) {
+      setOpencodeChannel(opencodeInfo.channel);
+    }
+  }, [opencodeChannelTouched, opencodeInfo]);
+
   const updateOpenCodeCli = async () => {
     const runInstall = async () => {
       setUpdatingOpenCode(true);
       try {
-        const result = await runOpenCodeCliUpdate();
+        const result = await runOpenCodeCliUpdate(opencodeChannel);
         void message.success(result);
         await queryClient.invalidateQueries({ queryKey: ["opencode-cli-version"] });
       } catch (e) {
@@ -358,6 +408,32 @@ export default function AgentToolsPage() {
     if (nodeRuntime.installed) return t("about.nodeRuntimeTooOld");
     return t("about.nodeRuntimeMissing");
   };
+
+  const opencodeCommand = `npm i -g ${opencodePackageName(opencodeChannel)}@latest`;
+  const selectedOpenCodeLatest = opencodeChannel === "v2"
+    ? opencodeInfo?.v2LatestVersion
+    : opencodeInfo?.v1LatestVersion;
+  const opencodeDisplayInfo = opencodeInfo
+    ? {
+        ...opencodeInfo,
+        latestVersion: selectedOpenCodeLatest ?? opencodeInfo.latestVersion,
+        updateAvailable:
+          opencodeInfo.channel === opencodeChannel && opencodeInfo.updateAvailable,
+        installCommand: opencodeCommand,
+        updateCommand: opencodeCommand,
+      }
+    : null;
+  const opencodePrimaryLabel = openCodeActionLabel({
+    meetsMinimum: nodeRuntime?.meetsMinimum ?? false,
+    installed: opencodeInfo?.installed ?? false,
+    detected: opencodeInfo?.channel,
+    selected: opencodeChannel,
+    installNode: t("about.installNodeViaFnm"),
+    installV1: t("about.runOpenCodeInstallV1"),
+    installV2: t("about.runOpenCodeInstallV2"),
+    switchV1: t("about.runOpenCodeSwitchV1"),
+    switchV2: t("about.runOpenCodeSwitchV2"),
+  });
 
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%" }}>
@@ -554,17 +630,30 @@ export default function AgentToolsPage() {
       {visibleAgents.includes("opencode") && (
         <CliToolCard
           title={t("about.opencodeCliSection")}
-          info={opencodeInfo}
+          info={opencodeDisplayInfo}
           fetching={opencodeQuery.isFetching}
           updating={updatingOpenCode || installingNode}
           onRefresh={() => void opencodeQuery.refetch()}
           onCopy={(command) => void copyCommand(command)}
           onInstallOrUpdate={() => void updateOpenCodeCli()}
-          primaryLabel={
-            !nodeRuntime?.meetsMinimum && !opencodeInfo?.installed
-              ? t("about.installNodeViaFnm")
-              : undefined
+          extra={
+            <Segmented
+              size="small"
+              value={opencodeChannel}
+              disabled={updatingOpenCode || installingNode}
+              onChange={(value) => {
+                if (value !== "v1" && value !== "v2") return;
+                setOpencodeChannelTouched(true);
+                setOpencodeChannel(value);
+              }}
+              options={[
+                { value: "v1", label: t("about.opencodeChannelV1") },
+                { value: "v2", label: t("about.opencodeChannelV2") },
+              ]}
+            />
           }
+          footnote={t("about.opencodeChannelHint")}
+          primaryLabel={opencodePrimaryLabel}
           labels={{
             current: t("about.opencodeCurrentVersion"),
             latest: t("about.opencodeLatestVersion"),
@@ -674,6 +763,8 @@ function CliToolCard({
   onInstallOrUpdate,
   primaryLabel,
   sidecarNotice,
+  extra,
+  footnote,
   labels,
 }: {
   title: string;
@@ -685,6 +776,8 @@ function CliToolCard({
   onInstallOrUpdate: () => void;
   primaryLabel?: string;
   sidecarNotice?: string;
+  extra?: ReactNode;
+  footnote?: string;
   labels: {
     current: string;
     latest: string;
@@ -720,7 +813,7 @@ function CliToolCard({
   ) : info?.installed ? (
     <Text>
       <Text code>{info.currentVersion ?? labels.unknown}</Text>
-      {info.latestVersion && info.latestVersion !== info.currentVersion ? (
+      {info.updateAvailable && info.latestVersion && info.latestVersion !== info.currentVersion ? (
         <>
           {" → "}
           <Text code>{info.latestVersion}</Text>
@@ -751,10 +844,16 @@ function CliToolCard({
         <Space wrap size="middle" align="center">
           {statusTag}
           {versionSummary}
+          {extra}
           <Button size="small" type="primary" loading={updating} onClick={onInstallOrUpdate}>
             {primaryLabel ?? (info?.installed ? labels.update : labels.install)}
           </Button>
         </Space>
+        {footnote ? (
+          <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            {footnote}
+          </Paragraph>
+        ) : null}
 
         {sidecarNotice ? (
           <Alert type="info" showIcon message={sidecarNotice} />
