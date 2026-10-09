@@ -11,6 +11,12 @@ use serde_json::{json, Value};
 use crate::antigravity::quota::ModelQuota;
 
 const FALLBACK_IDS: &[&str] = &[
+    "claude-sonnet-5-5-medium",
+    "claude-sonnet-5-5-high",
+    "claude-sonnet-5-5-low",
+    "claude-opus-5-5-medium",
+    "claude-opus-5-5-high",
+    "claude-opus-5-5-low",
     "claude-sonnet-4-6",
     "claude-opus-4-6-thinking",
     "gemini-3.8-flash-high",
@@ -19,6 +25,9 @@ const FALLBACK_IDS: &[&str] = &[
     "gemini-3.1-pro-high",
     "gemini-3.1-pro-low",
 ];
+/// Cloud Code output cap for Claude 5.5. 4.6 stays on its own 64k path.
+pub const CLAUDE_55_MAX_OUTPUT_TOKENS: u64 = 128_000;
+const CLAUDE_55_TIER_PREFERENCE: [&str; 3] = ["medium", "high", "low"];
 const GEMINI_31_PRO_TIERS: [&str; 2] = ["gemini-3.1-pro-high", "gemini-3.1-pro-low"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -398,6 +407,7 @@ pub fn prune_catalog_models(mut models: Vec<CatalogModel>) -> Vec<CatalogModel> 
         let lower = model.id.to_ascii_lowercase();
         // Bare `gemini-3.1-pro` 404s; keep only the `-high` / `-low` SKUs.
         !lower.eq_ignore_ascii_case("gemini-3.1-pro")
+            && !is_bare_claude_55(&lower)
             && is_agent_facing_model(&lower)
             && !is_retired_model(&lower)
             && !is_superseded_gemini(&lower)
@@ -630,10 +640,14 @@ pub fn list_openai_models_payload() -> Value {
 }
 
 /// Prefer a Claude Sonnet default when present; otherwise first catalog id.
+///
+/// Sonnet 5.5 medium is the Cloud Code default tier. High is the fallback when
+/// a snapshot only published `-high`. 4.6 stays available for free-tier accounts.
 pub fn preferred_default_model() -> String {
     let ids = list_model_ids();
     ids.iter()
-        .find(|id| id.as_str() == "claude-sonnet-5")
+        .find(|id| id.as_str() == "claude-sonnet-5-5-medium")
+        .or_else(|| ids.iter().find(|id| id.as_str() == "claude-sonnet-5-5-high"))
         .or_else(|| ids.iter().find(|id| id.as_str() == "claude-sonnet-4-6"))
         .cloned()
         .or_else(|| {
@@ -720,7 +734,124 @@ pub fn extend_flash_level_variants(ids: &mut Vec<String>) {
 
 pub fn preferred_claude_opus() -> Option<String> {
     let ids = list_model_ids();
-    ids.iter().find(|id| id.contains("opus")).cloned()
+    ["claude-opus-5-5-medium", "claude-opus-5-5-high", "claude-opus-5-5-low"]
+        .into_iter()
+        .find_map(|id| ids.iter().find(|item| item.as_str() == id).cloned())
+        .or_else(|| ids.iter().find(|id| id.contains("opus")).cloned())
+}
+
+/// Claude 5.5 family (`opus` / `sonnet`) plus an optional effort suffix.
+///
+/// Bare names (`claude-opus-5`, `claude-opus-5.5`, `claude-opus-5-5`) have no
+/// suffix. `claude-opus-5-high` and `claude-opus-5.5-high` are explicit tiers.
+fn parse_claude_55(id: &str) -> Option<(&'static str, Option<&'static str>)> {
+    let lower = id.trim().to_ascii_lowercase();
+    let (family, after_family) = if let Some(rest) = lower.strip_prefix("claude-opus-") {
+        ("opus", rest)
+    } else if let Some(rest) = lower.strip_prefix("claude-sonnet-") {
+        ("sonnet", rest)
+    } else {
+        return None;
+    };
+    let after_major = after_family.strip_prefix('5')?;
+    let after_minor = if let Some(rest) = after_major.strip_prefix(".5") {
+        rest
+    } else if let Some(rest) = after_major.strip_prefix("-5") {
+        rest
+    } else {
+        after_major
+    };
+    if after_minor.is_empty() {
+        return Some((family, None));
+    }
+    let level = after_minor.strip_prefix('-')?;
+    let level = match level {
+        "low" => "low",
+        "medium" => "medium",
+        "high" => "high",
+        _ => return None,
+    };
+    Some((family, Some(level)))
+}
+
+/// Bare `claude-opus-5-5` / `claude-sonnet-5` 404 on Cloud Code. Keep them out
+/// of `/v1/models`.
+fn is_bare_claude_55(id: &str) -> bool {
+    parse_claude_55(id).is_some_and(|(_, level)| level.is_none())
+}
+
+/// True for a Claude 5.5 alias or a tiered SKU (`-low` / `-medium` / `-high`).
+pub fn is_claude_55(id: &str) -> bool {
+    parse_claude_55(id).is_some()
+}
+
+/// Client asked for 5.5 without `-low` / `-medium` / `-high`.
+pub fn is_claude_55_bare(id: &str) -> bool {
+    is_bare_claude_55(id)
+}
+
+/// Effort suffix already present on a 5.5 id. `None` for bare names and other models.
+pub fn claude_55_level(id: &str) -> Option<&'static str> {
+    parse_claude_55(id).and_then(|(_, level)| level)
+}
+
+fn pick_claude_55_tier_in(ids: &[String], family: &str) -> String {
+    for level in CLAUDE_55_TIER_PREFERENCE {
+        let candidate = format!("claude-{family}-5-5-{level}");
+        if ids
+            .iter()
+            .any(|id| id.eq_ignore_ascii_case(&candidate))
+        {
+            return candidate;
+        }
+    }
+    format!("claude-{family}-5-5-medium")
+}
+
+fn pick_claude_55_tier(family: &str) -> String {
+    let ids = list_model_ids();
+    pick_claude_55_tier_in(&ids, family)
+}
+
+/// Map a Claude 5.5 alias onto a tiered Cloud Code id.
+///
+/// Explicit suffixes stay. Bare names prefer medium, then high, then low, and
+/// still emit medium when the live catalog has not listed any tier yet.
+pub fn map_claude_55_id(id: &str) -> Option<String> {
+    let (family, level) = parse_claude_55(id)?;
+    Some(match level {
+        Some(level) => format!("claude-{family}-5-5-{level}"),
+        None => pick_claude_55_tier(family),
+    })
+}
+
+/// Bare 5.5 plus a client effort. The named tier wins when the catalog has it.
+pub fn apply_claude_55_effort(id: &str, level: &str) -> String {
+    let Some((family, _)) = parse_claude_55(id) else {
+        return id.to_string();
+    };
+    let normalized = match level {
+        "low" | "medium" | "high" => level,
+        _ => return pick_claude_55_tier(family),
+    };
+    let candidate = format!("claude-{family}-5-5-{normalized}");
+    let ids = list_model_ids();
+    if ids
+        .iter()
+        .any(|item| item.eq_ignore_ascii_case(&candidate))
+    {
+        candidate
+    } else {
+        pick_claude_55_tier(family)
+    }
+}
+
+pub fn clamp_claude_55_max_output(model: &str, max_tokens: u64) -> u64 {
+    if claude_55_level(model).is_some() {
+        max_tokens.min(CLAUDE_55_MAX_OUTPUT_TOKENS)
+    } else {
+        max_tokens
+    }
 }
 
 pub fn preferred_gemini_pro() -> Option<String> {
@@ -1159,5 +1290,71 @@ mod tests {
         let merged = prune_catalog_models(merge_catalog_snapshots(&[], incoming));
         assert!(merged.iter().any(|model| model.id.starts_with("gemini-")));
         assert!(merged.iter().any(|model| model.id == "claude-sonnet-4-6"));
+    }
+
+    #[test]
+    fn fallback_prefers_claude_55_medium_and_hides_bare_ids() {
+        let ids = list_model_ids();
+        assert!(ids.iter().any(|id| id == "claude-sonnet-5-5-medium"));
+        assert!(ids.iter().any(|id| id == "claude-opus-5-5-high"));
+        assert!(!ids.iter().any(|id| id == "claude-opus-5-5"));
+        assert!(!ids.iter().any(|id| id == "claude-sonnet-5"));
+        assert_eq!(preferred_default_model(), "claude-sonnet-5-5-medium");
+        assert_eq!(
+            preferred_claude_opus().as_deref(),
+            Some("claude-opus-5-5-medium")
+        );
+        let pruned = prune_catalog_models(vec![
+            CatalogModel {
+                id: "claude-opus-5-5".into(),
+                display_name: None,
+            },
+            CatalogModel {
+                id: "claude-sonnet-5".into(),
+                display_name: None,
+            },
+            CatalogModel {
+                id: "claude-opus-5-5-high".into(),
+                display_name: None,
+            },
+            CatalogModel {
+                id: "claude-sonnet-4-6".into(),
+                display_name: None,
+            },
+        ]);
+        let pruned_ids: Vec<_> = pruned.iter().map(|model| model.id.as_str()).collect();
+        assert!(pruned_ids.contains(&"claude-opus-5-5-high"));
+        assert!(pruned_ids.contains(&"claude-sonnet-4-6"));
+        assert!(!pruned_ids.contains(&"claude-opus-5-5"));
+        assert!(!pruned_ids.contains(&"claude-sonnet-5"));
+    }
+
+    #[test]
+    fn bare_claude_55_falls_through_medium_then_high() {
+        let only_high = vec!["claude-opus-5-5-high".to_string()];
+        assert_eq!(
+            pick_claude_55_tier_in(&only_high, "opus"),
+            "claude-opus-5-5-high"
+        );
+        let none: Vec<String> = Vec::new();
+        assert_eq!(
+            pick_claude_55_tier_in(&none, "sonnet"),
+            "claude-sonnet-5-5-medium"
+        );
+        assert!(is_claude_55_bare("claude-opus-5.5"));
+        assert!(!is_claude_55_bare("claude-opus-5-5-low"));
+        assert_eq!(
+            map_claude_55_id("claude-opus-5.5-high").as_deref(),
+            Some("claude-opus-5-5-high")
+        );
+        assert_eq!(claude_55_level("claude-sonnet-5-5-low"), Some("low"));
+        assert_eq!(
+            clamp_claude_55_max_output("claude-opus-5-5-high", 200_000),
+            CLAUDE_55_MAX_OUTPUT_TOKENS
+        );
+        assert_eq!(
+            clamp_claude_55_max_output("claude-sonnet-4-6", 200_000),
+            200_000
+        );
     }
 }

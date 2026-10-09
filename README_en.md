@@ -1,6 +1,6 @@
 # AI-Switcher
 
-Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.15**
+Local configuration and provider manager for **Claude Code**, **Codex**, **OpenCode**, **Pi**, and **Cline**. **v1.5.16**
 
 **This release:** Agent tools can install OpenCode CLI v1 (`opencode-ai`) or v2 (`@opencode/cli`). An existing install is not replaced unless you switch.
 

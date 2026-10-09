@@ -84,6 +84,12 @@ fn parse_version(text: &str) -> Option<String> {
         let token = token.trim_matches(|c: char| {
             !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '+'
         });
+        // OpenCode v2 prints `opencode v2.0.26`. A single leading v is not part of the version.
+        let token = token
+            .strip_prefix('v')
+            .or_else(|| token.strip_prefix('V'))
+            .filter(|rest| rest.chars().next().is_some_and(|c| c.is_ascii_digit()))
+            .unwrap_or(token);
         (token
             .chars()
             .next()
@@ -2693,6 +2699,7 @@ mod tests {
     fn parses_common_claude_version_outputs() {
         assert_eq!(parse_version("2.1.146 (Claude Code)"), Some("2.1.146".into()));
         assert_eq!(parse_version("claude 1.0.20"), Some("1.0.20".into()));
+        assert_eq!(parse_version("opencode v2.0.26"), Some("2.0.26".into()));
         assert_eq!(parse_version("no version"), None);
     }
 

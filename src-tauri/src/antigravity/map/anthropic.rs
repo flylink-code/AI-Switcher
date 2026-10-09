@@ -58,6 +58,12 @@ pub fn anthropic_to_gemini_request(
     let thoughts_allowed =
         matches!(thinking_kind.as_deref(), Some("enabled") | Some("adaptive")) || effort.is_some();
     let gemini_target = lower_model.starts_with("gemini-");
+    let claude_55 = model_catalog::is_claude_55(&model);
+    if claude_55 && model_catalog::is_claude_55_bare(requested_model) {
+        if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
+            model = model_catalog::apply_claude_55_effort(&model, level);
+        }
+    }
     if gemini_target {
         if let Some(level) = effort.as_deref().and_then(map_effort_to_suffix) {
             model = model_catalog::with_forced_level(&model, level);
@@ -84,6 +90,10 @@ pub fn anthropic_to_gemini_request(
                 .unwrap_or("high");
             model = model_catalog::with_forced_level(&model, level);
         }
+    } else if model_catalog::is_claude_55(&model) {
+        // The SKU suffix is the effort. Do not let a later effort or
+        // thinking.type=disabled rewrite an explicit -low/-medium/-high.
+        claude_thinking_level = model_catalog::claude_55_level(&model);
     } else if lower_model.starts_with("claude-") {
         claude_thinking_level = match effort.as_deref().and_then(map_effort_to_suffix) {
             Some(level) => Some(level),
@@ -173,7 +183,8 @@ pub fn anthropic_to_gemini_request(
 
     let mut generation = json!({});
     if let Some(max_tokens) = body.get("max_tokens").and_then(Value::as_u64) {
-        generation["maxOutputTokens"] = json!(max_tokens);
+        generation["maxOutputTokens"] =
+            json!(model_catalog::clamp_claude_55_max_output(&model, max_tokens));
     }
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
     let skip_sampling = gemini_target && model_catalog::is_gemini_31_pro(&model);
@@ -190,7 +201,9 @@ pub fn anthropic_to_gemini_request(
     }
     if let Some(level) = claude_thinking_level {
         generation["thinkingConfig"]["thinkingLevel"] = json!(level);
-        if thoughts_allowed {
+        // 5.5 thinking cannot be disabled. Always ask for thought text so the
+        // next turn still has a signature. Other Claude models stay opt-in.
+        if thoughts_allowed || model_catalog::is_claude_55(&model) {
             generation["thinkingConfig"]["includeThoughts"] = json!(true);
         }
     }
@@ -2001,6 +2014,43 @@ mod tests {
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("medium")
         );
+    }
+
+    #[test]
+    fn claude_55_keeps_explicit_suffix_and_skips_thinking_budget() {
+        let body = json!({
+            "model": "claude-opus-5-5-low",
+            "max_tokens": 200_000,
+            "output_config": { "effort": "high" },
+            "thinking": { "type": "disabled" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(parts.model, "claude-opus-5-5-low");
+        let config = &parts.request["generationConfig"]["thinkingConfig"];
+        assert_eq!(config["thinkingLevel"], json!("low"));
+        assert_eq!(config["includeThoughts"], json!(true));
+        assert!(config.get("thinkingBudget").is_none());
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(128_000)
+        );
+    }
+
+    #[test]
+    fn bare_claude_55_effort_selects_tier() {
+        let body = json!({
+            "model": "claude-opus-5.5",
+            "output_config": { "effort": "high" },
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        assert_eq!(parts.model, "claude-opus-5-5-high");
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("high")
+        );
+        assert!(parts.request["generationConfig"].get("maxOutputTokens").is_none());
     }
 
     #[test]

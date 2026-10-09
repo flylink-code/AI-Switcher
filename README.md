@@ -1,6 +1,6 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.15**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.16**
 
 **本版**：Agent 工具安装 OpenCode CLI 时可选 v1（`opencode-ai`）或 v2（`@opencode/cli`）。已安装的版本不会被静默替换。
 

@@ -2004,6 +2004,14 @@
         "An existing install stays on its major version: 2.* is v2, and anything older is v1. With nothing installed, the choice starts on v2 and does not silently replace an existing v1.",
         "Switching lines uninstalls the other package first. Configuration stays in ~/.config/opencode, and opencode.json is not rewritten.",
         "The main database remains on Schema 33; no database migration is required."
+      ],
+      "1_5_16": [
+        "The Antigravity proxy forwards Claude Opus 5.5 and Sonnet 5.5. The public catalog and upstream requests use only the six low, medium, and high tiers. A bare name maps to medium, and an explicit tier stays as written.",
+        "Opus and Sonnet 5.5 send thinkingLevel for the selected tier and omit thinkingBudget. Output above 128000 tokens is clamped to 128000. Claude 4.6 keeps its existing path.",
+        "Generate and quota requests use a client identity that passes Cloud Code's version check, so new models are no longer rejected for an outdated client.",
+        "An account whose model list omits the requested 5.5 tier is skipped. A 404 or a permission failure for that tier quarantines only that account and model for 15 minutes, then tries another account that lists it.",
+        "OpenCode CLI v2 versions printed with a leading v are recognized, so a working install is no longer reported as unable to run.",
+        "The main database remains on Schema 33; no database migration is required."
       ]
     },
     "appName": "App name",

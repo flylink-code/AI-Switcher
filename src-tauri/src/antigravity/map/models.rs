@@ -43,7 +43,7 @@ pub fn map_model_id(requested: &str) -> String {
             model_catalog::preferred_gemini_flash()
                 .unwrap_or_else(|| "gemini-3.8-flash-high".into())
         }
-        other => other.to_string(),
+        other => model_catalog::map_claude_55_id(other).unwrap_or_else(|| other.to_string()),
     };
     // Explicit level suffixes pass through; bare Gemini names compose to a
     // catalog variant (high → medium → low fallback) here.
@@ -78,7 +78,14 @@ pub fn list_public_models() -> Value {
         return live;
     }
     json!([
+        { "id": "claude-sonnet-5-5-medium", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-sonnet-5-5-high", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-sonnet-5-5-low", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-opus-5-5-medium", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-opus-5-5-high", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-opus-5-5-low", "object": "model", "owned_by": "antigravity" },
         { "id": "claude-sonnet-4-6", "object": "model", "owned_by": "antigravity" },
+        { "id": "claude-opus-4-6-thinking", "object": "model", "owned_by": "antigravity" },
         { "id": "gemini-3.8-flash-high", "object": "model", "owned_by": "antigravity" },
         { "id": "gemini-3.7-flash-high", "object": "model", "owned_by": "antigravity" },
         { "id": "gemini-3.6-flash-high", "object": "model", "owned_by": "antigravity" },
@@ -119,9 +126,23 @@ mod tests {
 
     #[test]
     fn claude_sonnet_5_is_not_remapped_to_flash() {
-        // Desktop role id may still appear on the wire via role routing; AG no
-        // longer synthesizes a Flash alias — pass through as a Claude id.
-        assert_eq!(map_model_id("claude-sonnet-5"), "claude-sonnet-5");
+        // Bare Claude 5 names are the 5.5 family. They must not fall through to
+        // Flash, and they must not leave as the bare id Cloud Code 404s.
+        assert_eq!(map_model_id("claude-sonnet-5"), "claude-sonnet-5-5-medium");
+        assert!(!map_model_id("claude-sonnet-5").contains("flash"));
+    }
+
+    #[test]
+    fn claude_55_aliases_keep_explicit_suffix() {
+        assert_eq!(map_model_id("claude-opus-5"), "claude-opus-5-5-medium");
+        assert_eq!(map_model_id("claude-opus-5.5"), "claude-opus-5-5-medium");
+        assert_eq!(map_model_id("claude-opus-5-5"), "claude-opus-5-5-medium");
+        assert_eq!(map_model_id("claude-opus-5.5-high"), "claude-opus-5-5-high");
+        assert_eq!(map_model_id("claude-opus-5-5-low"), "claude-opus-5-5-low");
+        assert_eq!(map_model_id("claude-sonnet-5.5-high"), "claude-sonnet-5-5-high");
+        assert_eq!(map_model_id("Claude-Opus-5-high"), "claude-opus-5-5-high");
+        assert_eq!(map_model_id("claude-opus-4-6"), "claude-opus-4-6-thinking");
+        assert_eq!(map_model_id("claude-sonnet-4-6"), "claude-sonnet-4-6");
     }
 
     #[test]

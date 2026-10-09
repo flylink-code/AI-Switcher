@@ -15,13 +15,47 @@ fn account_allows_model(account: &AntigravityAccount, requested_model: Option<&s
     requested_model.map(|model| account.allows_model(model)).unwrap_or(true)
 }
 
+/// Claude 5.5 is entitlement-gated. A non-empty quota model list that omits the
+/// SKU means this account cannot serve it. An empty list is a cold start and
+/// still allowed; a later 404 quarantines that pair.
+fn account_offers_requested_model(
+    account: &AntigravityAccount,
+    requested_model: Option<&str>,
+) -> bool {
+    if !account_allows_model(account, requested_model) {
+        return false;
+    }
+    let Some(model) = requested_model.filter(|id| super::model_catalog::is_claude_55(id)) else {
+        return true;
+    };
+    let Some(quota) = account.quota.as_ref() else {
+        return true;
+    };
+    if quota.models.is_empty() {
+        return true;
+    }
+    quota
+        .models
+        .iter()
+        .any(|item| item.name.eq_ignore_ascii_case(model))
+}
+
+pub(crate) fn failure_cools_whole_account(status: u16) -> bool {
+    matches!(status, 401 | 429)
+}
+
+pub(crate) fn failure_forbids_whole_account(status: u16) -> bool {
+    status == 403
+}
+
 fn account_is_schedulable_for_model(
     account: &AntigravityAccount,
     now: i64,
     family: Option<QuotaFamily>,
     requested_model: Option<&str>,
 ) -> bool {
-    account_allows_model(account, requested_model) && account_is_schedulable(account, now, family)
+    account_offers_requested_model(account, requested_model)
+        && account_is_schedulable(account, now, family)
 }
 
 const RATE_LIMIT_COOLDOWN_SECS: i64 = 45;
@@ -32,6 +66,9 @@ const MAX_RATE_LIMIT_COOLDOWN_SECS: i64 = 120;
 /// SKU/RPM 429 while 5h/7d bars still have remaining. Short so another account
 /// can pick up the same request without parking the first number for 45s+.
 const SKU_RATE_LIMIT_COOLDOWN_SECS: i64 = 15;
+/// One Claude 5.5 SKU 404/403 on an account that is not entitled. The rest of
+/// that account (Gemini, Claude 4.6) stays usable.
+const CLAUDE_55_UNAVAILABLE_SECS: i64 = 900;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +83,8 @@ pub struct PoolQuotaWarning {
 pub struct AccountPool {
     sticky: Mutex<HashMap<String, String>>,
     limiter: Option<Arc<AccountLimiter>>,
+    /// `(account id, lowercase model)` → unix seconds until the SKU can be tried again.
+    model_unavailable: Mutex<HashMap<(String, String), i64>>,
 }
 
 impl AccountPool {
@@ -53,6 +92,7 @@ impl AccountPool {
         Self {
             sticky: Mutex::new(HashMap::new()),
             limiter: None,
+            model_unavailable: Mutex::new(HashMap::new()),
         }
     }
 
@@ -60,7 +100,44 @@ impl AccountPool {
         Self {
             sticky: Mutex::new(HashMap::new()),
             limiter: Some(limiter),
+            model_unavailable: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Remember that this account cannot serve one Claude 5.5 SKU. Does not
+    /// write the account file and does not cool the whole account.
+    pub fn note_claude_55_unavailable(&self, account_id: &str, model: &str) {
+        if !super::model_catalog::is_claude_55(model) {
+            return;
+        }
+        let until = Utc::now().timestamp() + CLAUDE_55_UNAVAILABLE_SECS;
+        if let Ok(mut guard) = self.model_unavailable.lock() {
+            guard.insert((account_id.to_string(), model.to_ascii_lowercase()), until);
+        }
+    }
+
+    pub fn claude_55_model_blocked(&self, account_id: &str, model: &str, now: i64) -> bool {
+        let Ok(guard) = self.model_unavailable.lock() else {
+            return false;
+        };
+        guard
+            .get(&(account_id.to_string(), model.to_ascii_lowercase()))
+            .is_some_and(|until| *until > now)
+    }
+
+    fn drop_quarantined_models(
+        &self,
+        accounts: Vec<AntigravityAccount>,
+        requested_model: Option<&str>,
+        now: i64,
+    ) -> Vec<AntigravityAccount> {
+        let Some(model) = requested_model.filter(|id| super::model_catalog::is_claude_55(id)) else {
+            return accounts;
+        };
+        accounts
+            .into_iter()
+            .filter(|account| !self.claude_55_model_blocked(&account.id, model, now))
+            .collect()
     }
 
     /// Async entry for gateway handlers. Token refresh uses reqwest::blocking and
@@ -118,11 +195,23 @@ impl AccountPool {
         let family = requested_family(requested_model);
         let accounts = store().list_accounts()?;
         let now = Utc::now().timestamp();
-        let mut candidates = collect_schedulable_with_family_fallback(&accounts, now, family, requested_model);
+        let mut candidates = self.drop_quarantined_models(
+            collect_schedulable_with_family_fallback(&accounts, now, family, requested_model),
+            requested_model,
+            now,
+        );
         if candidates.is_empty() {
             // Desktop health probes + short upstream blips can cool every account
             // at once. Prefer a soft retry over hard-failing with "no accounts".
             if let Some(soft) = soft_select_cooled_account(&accounts, now, family, requested_model) {
+                let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
+                let Some(soft) = soft.into_iter().next() else {
+                    return Err(AppError::Other(explain_unavailable(
+                        &accounts,
+                        now,
+                        requested_model,
+                    )));
+                };
                 log::warn!(
                     "Antigravity pool: all accounts cooling; soft-selecting {}",
                     soft.email
@@ -195,9 +284,9 @@ impl AccountPool {
         requested_model: Option<&str>,
     ) -> AppResult<(String, AntigravityAccount)> {
         let family = requested_family(requested_model);
-        if status == 403 {
+        if failure_forbids_whole_account(status) {
             let _ = store().mark_forbidden_403(failed_account_id, "上游返回 403 权限受限/账号异常");
-        } else if matches!(status, 401 | 429) {
+        } else if failure_cools_whole_account(status) {
             let cooldown = if status == 401 {
                 AUTH_COOLDOWN_SECS
             } else {
@@ -218,11 +307,15 @@ impl AccountPool {
             .filter(|account| !exclude.contains(&account.id))
             .cloned()
             .collect();
-        let mut candidates = collect_schedulable_with_family_fallback(
-            &remaining,
-            now,
-            family,
+        let mut candidates = self.drop_quarantined_models(
+            collect_schedulable_with_family_fallback(
+                &remaining,
+                now,
+                family,
+                requested_model,
+            ),
             requested_model,
+            now,
         );
         if candidates.is_empty() {
             if remaining.is_empty() {
@@ -236,6 +329,14 @@ impl AccountPool {
                 family,
                 requested_model,
             ) {
+                let soft = self.drop_quarantined_models(vec![soft], requested_model, now);
+                let Some(soft) = soft.into_iter().next() else {
+                    return Err(AppError::Other(explain_unavailable(
+                        &remaining,
+                        now,
+                        requested_model,
+                    )));
+                };
                 log::warn!(
                     "Antigravity pool rotate: soft-selecting cooled {}",
                     soft.email
@@ -453,7 +554,7 @@ fn soft_select_cooled_account(
     let non_disabled: Vec<&AntigravityAccount> = accounts
         .iter()
         .filter(|account| !account.disabled)
-        .filter(|account| account_allows_model(account, requested_model))
+        .filter(|account| account_offers_requested_model(account, requested_model))
         .collect();
     if non_disabled.is_empty() {
         return None;
@@ -487,7 +588,7 @@ fn explain_unavailable(
             && accounts
                 .iter()
                 .filter(|account| !account.disabled)
-                .all(|account| !account.allows_model(model))
+                .all(|account| !account_offers_requested_model(account, Some(model)))
         {
             return "没有账号支持当前模型，请调整账号模型权限设置".into();
         }
@@ -726,7 +827,7 @@ pub(crate) fn sku_rate_limit_cooldown_secs(retry_after: Option<u64>) -> i64 {
 mod tests {
     use super::*;
     use crate::antigravity::account::AntigravityToken;
-    use crate::antigravity::quota::{QuotaBucket, QuotaGroup, QuotaSnapshot};
+    use crate::antigravity::quota::{ModelQuota, QuotaBucket, QuotaGroup, QuotaSnapshot};
 
     fn sample(id: &str, cooldown_until: Option<i64>) -> AntigravityAccount {
         AntigravityAccount {
@@ -1069,5 +1170,81 @@ mod tests {
             &gemini_5h_empty,
             Some(QuotaFamily::ClaudeGpt)
         ));
+    }
+
+    #[test]
+    fn claude_55_skips_account_whose_snapshot_lacks_the_sku() {
+        let mut entitled = sample("a1", None);
+        let mut trial = sample("a2", None);
+        entitled.quota = Some(QuotaSnapshot {
+            models: vec![ModelQuota {
+                name: "claude-opus-5-5-high".into(),
+                percentage: 80,
+                reset_time: String::new(),
+                display_name: None,
+            }],
+            subscription_tier: Some("PRO".into()),
+            ..QuotaSnapshot::default()
+        });
+        trial.quota = Some(QuotaSnapshot {
+            models: vec![ModelQuota {
+                name: "claude-opus-4-6-thinking".into(),
+                percentage: 80,
+                reset_time: String::new(),
+                display_name: None,
+            }],
+            subscription_tier: Some("PRO".into()),
+            ..QuotaSnapshot::default()
+        });
+        let now = 0;
+        let family = Some(QuotaFamily::ClaudeGpt);
+        assert!(account_is_schedulable_for_model(
+            &entitled,
+            now,
+            family,
+            Some("claude-opus-5-5-high")
+        ));
+        assert!(!account_is_schedulable_for_model(
+            &trial,
+            now,
+            family,
+            Some("claude-opus-5-5-high")
+        ));
+        trial.quota.as_mut().unwrap().models.clear();
+        assert!(
+            account_is_schedulable_for_model(&trial, now, family, Some("claude-opus-5-5-high")),
+            "empty model list is a cold start and must still be eligible"
+        );
+        assert!(account_is_schedulable_for_model(
+            &trial,
+            now,
+            Some(QuotaFamily::Gemini),
+            Some("gemini-3.8-flash-high")
+        ));
+    }
+
+    #[test]
+    fn claude_55_404_quarantines_one_model_and_does_not_cool_the_account() {
+        assert!(!failure_cools_whole_account(404));
+        assert!(!failure_forbids_whole_account(404));
+        assert!(failure_cools_whole_account(429));
+        assert!(failure_forbids_whole_account(403));
+        let pool = AccountPool::new();
+        pool.note_claude_55_unavailable("a1", "claude-opus-5-5-high");
+        let now = Utc::now().timestamp();
+        assert!(pool.claude_55_model_blocked("a1", "claude-opus-5-5-high", now));
+        assert!(!pool.claude_55_model_blocked("a1", "claude-opus-5-5-low", now));
+        assert!(!pool.claude_55_model_blocked("a2", "claude-opus-5-5-high", now));
+        assert!(!pool.claude_55_model_blocked("a1", "gemini-3.8-flash-high", now));
+        let mut account = sample("a1", None);
+        account.cooldown_until = None;
+        let kept = pool.drop_quarantined_models(
+            vec![account.clone(), sample("a2", None)],
+            Some("claude-opus-5-5-high"),
+            now,
+        );
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].id, "a2");
+        assert!(account.cooldown_until.is_none());
     }
 }

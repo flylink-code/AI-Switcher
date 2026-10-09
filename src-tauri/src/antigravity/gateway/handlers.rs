@@ -962,7 +962,18 @@ async fn dispatch_generation(
                     );
                 }
             } else if status.as_u16() == 403 {
-                let _ = account_store().mark_forbidden_403(&account.id, &last_error);
+                if claude_55_entitlement_denied(&current_model, 403, &text) {
+                    state
+                        .pool
+                        .note_claude_55_unavailable(&account.id, &current_model);
+                    state.pool.clear_session(session_key.as_deref());
+                    last_fail_status = 404;
+                    log::warn!(
+                        "Antigravity Claude 5.5 403 on {account_email} model={current_model}; quarantining that model and rotating"
+                    );
+                } else {
+                    let _ = account_store().mark_forbidden_403(&account.id, &last_error);
+                }
             } else {
                 let _ = account_store().mark_reauthorization_required(&account.id, REAUTH_REASON);
             }
@@ -976,6 +987,17 @@ async fn dispatch_generation(
             } else {
                 format!("upstream {status}: {clipped}")
             };
+            if claude_55_entitlement_denied(&current_model, status.as_u16(), &text) {
+                state
+                    .pool
+                    .note_claude_55_unavailable(&account.id, &current_model);
+                state.pool.clear_session(session_key.as_deref());
+                last_fail_status = 404;
+                log::warn!(
+                    "Antigravity Claude 5.5 {status} on {account_email} model={current_model}; quarantining that model and rotating"
+                );
+                continue;
+            }
             log::warn!(
                 "Antigravity request-body error {status} on {account_email} model={last_attempted_model}: {last_error}"
             );
@@ -1587,6 +1609,25 @@ fn is_request_body_status(status: u16) -> bool {
     matches!(status, 400 | 404 | 422)
 }
 
+/// Claude 5.5 404, or a 403 whose body says the model is missing or not
+/// permitted, is an entitlement miss for that SKU. Other 400/422 stay put.
+fn claude_55_entitlement_denied(model: &str, status: u16, body: &str) -> bool {
+    if !model_catalog::is_claude_55(model) {
+        return false;
+    }
+    if status == 404 {
+        return true;
+    }
+    if status != 403 {
+        return false;
+    }
+    let lower = body.to_ascii_lowercase();
+    lower.contains("model not found")
+        || lower.contains("model_not_found")
+        || lower.contains("requested entity was not found")
+        || lower.contains("permission")
+}
+
 fn should_cool_account_on_generate_error(error: &AppError) -> bool {
     !matches!(error, AppError::Network(_))
 }
@@ -2114,5 +2155,36 @@ mod tests {
         );
         assert_ne!(corrupted, text);
         assert!(corrupted.contains('\u{FFFD}'));
+    }
+
+    #[test]
+    fn claude_55_404_rotates_but_other_request_errors_do_not() {
+        assert!(claude_55_entitlement_denied(
+            "claude-opus-5-5-high",
+            404,
+            "Requested entity was not found."
+        ));
+        assert!(claude_55_entitlement_denied(
+            "claude-sonnet-5-5-medium",
+            403,
+            "PERMISSION_DENIED"
+        ));
+        assert!(!claude_55_entitlement_denied(
+            "claude-opus-5-5-high",
+            403,
+            "account disabled"
+        ));
+        assert!(!claude_55_entitlement_denied(
+            "claude-sonnet-4-6",
+            404,
+            "Requested entity was not found."
+        ));
+        assert!(!claude_55_entitlement_denied(
+            "claude-opus-5-5-low",
+            400,
+            "invalid argument"
+        ));
+        assert!(!crate::antigravity::pool::failure_cools_whole_account(404));
+        assert!(!crate::antigravity::pool::failure_forbids_whole_account(404));
     }
 }

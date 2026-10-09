@@ -15,7 +15,7 @@ use crate::error::{AppError, AppResult};
 /// Cloud Code quota endpoints validate the native Antigravity client fingerprint.
 /// A generic `antigravity` user agent is accepted inconsistently and can return
 /// an empty/forbidden quota response despite a valid OAuth token.
-const QUOTA_USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
+const QUOTA_USER_AGENT: &str = crate::antigravity::upstream::USER_AGENT;
 
 /// Connect / total timeouts for quota probes (Antigravity-Manager uses 15s).
 const QUOTA_CONNECT_SECS: u64 = 8;

@@ -40,8 +40,16 @@ pub fn openai_to_gemini_request(
         })
         .and_then(|effort| map_effort_to_suffix(&effort));
     let mut claude_thinking_level: Option<&'static str> = None;
+    let requested_model = body.get("model").and_then(Value::as_str).unwrap_or("");
     let lower_model = model.to_ascii_lowercase();
-    if let Some(level) = effort {
+    if model_catalog::is_claude_55(&model) {
+        if model_catalog::is_claude_55_bare(requested_model) {
+            if let Some(level) = effort {
+                model = model_catalog::apply_claude_55_effort(&model, level);
+            }
+        }
+        claude_thinking_level = model_catalog::claude_55_level(&model);
+    } else if let Some(level) = effort {
         if lower_model.starts_with("gemini-") {
             model = model_catalog::with_forced_level(&model, level);
         } else if lower_model.starts_with("claude-") {
@@ -210,7 +218,8 @@ pub fn openai_to_gemini_request(
         .or_else(|| body.get("max_completion_tokens"))
         .and_then(Value::as_u64)
     {
-        generation["maxOutputTokens"] = json!(max_tokens);
+        generation["maxOutputTokens"] =
+            json!(model_catalog::clamp_claude_55_max_output(&model, max_tokens));
     }
     let gemini_target = model.to_ascii_lowercase().starts_with("gemini-");
     // Gemini 3.1 Pro rejects temperature / topP with a bare INVALID_ARGUMENT.
@@ -223,7 +232,14 @@ pub fn openai_to_gemini_request(
         }
     }
     if let Some(level) = claude_thinking_level {
-        generation["thinkingConfig"] = json!({ "thinkingLevel": level });
+        if model_catalog::is_claude_55(&model) {
+            generation["thinkingConfig"] = json!({
+                "thinkingLevel": level,
+                "includeThoughts": true,
+            });
+        } else {
+            generation["thinkingConfig"] = json!({ "thinkingLevel": level });
+        }
     }
     if gemini_target {
         if let Some(budget) = model_catalog::thinking_budget_for(&model) {
@@ -561,7 +577,7 @@ mod tests {
             ]
         });
         let parts = openai_to_gemini_request(&body, None).unwrap();
-        assert_eq!(parts.model, "claude-sonnet-4-6");
+        assert_eq!(parts.model, "claude-sonnet-5-5-medium");
         assert!(parts.request.get("systemInstruction").is_some());
     }
 
@@ -680,6 +696,46 @@ mod tests {
         .unwrap();
         assert_eq!(
             claude.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            json!("low")
+        );
+    }
+
+    #[test]
+    fn claude_55_explicit_suffix_beats_reasoning_effort() {
+        let parts = openai_to_gemini_request(
+            &json!({
+                "model": "claude-opus-5.5-low",
+                "reasoning_effort": "high",
+                "max_completion_tokens": 200000,
+                "messages": [{"role": "user", "content": "hi"}]
+            }),
+            None,
+        )
+        .unwrap();
+        assert_eq!(parts.model, "claude-opus-5-5-low");
+        let config = &parts.request["generationConfig"]["thinkingConfig"];
+        assert_eq!(config["thinkingLevel"], json!("low"));
+        assert!(config.get("thinkingBudget").is_none());
+        assert_eq!(
+            parts.request["generationConfig"]["maxOutputTokens"],
+            json!(128000)
+        );
+    }
+
+    #[test]
+    fn bare_claude_55_reasoning_effort_selects_tier() {
+        let parts = openai_to_gemini_request(
+            &json!({
+                "model": "claude-sonnet-5",
+                "reasoning_effort": "low",
+                "messages": [{"role": "user", "content": "hi"}]
+            }),
+            None,
+        )
+        .unwrap();
+        assert_eq!(parts.model, "claude-sonnet-5-5-low");
+        assert_eq!(
+            parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("low")
         );
     }

@@ -19,9 +19,9 @@ const GENERATE_TIMEOUT_SECS: u64 = 600;
 /// Skip the daily cluster for this long after a URL-level 429.
 const DAILY_HOST_LIMITED_TTL: Duration = Duration::from_secs(90);
 
-/// Same Cloud Code client fingerprint as quota probes. A generic `antigravity`
-/// UA is accepted inconsistently and can 429 newer Gemini variants.
-const USER_AGENT: &str = "vscode/1.X.X (Antigravity/4.3.0)";
+/// Cloud Code rejects Claude 5.5 for clients below 2.9.0. This hub fingerprint
+/// matches October 2026 live traffic and is shared with quota probes.
+pub(crate) const USER_AGENT: &str = "antigravity/hub/2.19.1 darwin/arm64";
 
 /// Anthropic beta marker for Claude models served via Cloud Code
 /// (mirrors Antigravity-Manager's claude.rs handling).
