@@ -24,7 +24,7 @@
 1. `gateway_bindings` 增加 `mode` / `direct_upstream_id`；`upstreams` 增加 `model_mapping_json`。
 2. 迁移前用 SQLite backup API 备份实际资料库路径（含 WAL 已提交数据）为 `app.db.v33.bak`。既有备份不覆盖；校验失败则停止升级。
 3. 将 T1/T2 旧供应商合并到全局上游。身份包含规范化端点、协议、实际 Key 哈希、认证类型和 OAuth 账号；URL path 大小写保留。跳过 Auto、自指端口与 T3 专用卡。非空 keyring 引用缺失凭据、上游写入或模型合并失败时停止迁移，事务回滚，不将缺失凭据视为空 Key 合并。
-4. Code / Codex 当前独立卡转直连，Auto 保持网关，官方不绑定；T2 保留已有绑定，未绑定默认建网关入口。迁移事务不写 Agent 配置，旧供应商行暂保留。
+4. Code / Codex 当前独立卡转直连，Auto 保持网关，官方不绑定；旧库升级时 T2 保留已有绑定，未绑定默认建网关入口。全新库（初始 `user_version=0`）不创建这些绑定，首次启动不接管 Agent。迁移事务不写 Agent 配置，旧供应商行暂保留。
 5. 迁移表保存原绑定完整凭据、档案及当前卡快照，并有完成标记防止重跑覆盖。回滚后可以重新迁移。
 
 ## 降级恢复

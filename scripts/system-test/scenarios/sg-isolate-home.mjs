@@ -16,6 +16,11 @@ export async function run() {
     pathUnderHome(paths.appConfigDir, home),
     `app config escaped isolation: ${paths.appConfigDir}`
   );
+  for (const [name, value] of Object.entries(paths)) {
+    if (typeof value === "string" && value) {
+      assert(pathUnderHome(value, home), `${name} escaped isolation: ${value}`);
+    }
+  }
   assert(
     pathUnderHome(paths.appDbPath, home),
     `app.db escaped isolation: ${paths.appDbPath}`

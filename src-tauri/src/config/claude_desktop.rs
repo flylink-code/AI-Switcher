@@ -93,6 +93,9 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
 
 #[cfg(target_os = "linux")]
 fn linux_config_home() -> PathBuf {
+    if crate::config::paths::test_isolation_enabled() {
+        return get_home_dir().join(".config");
+    }
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .filter(|path| !path.as_os_str().is_empty())
@@ -101,6 +104,9 @@ fn linux_config_home() -> PathBuf {
 
 #[cfg(windows)]
 fn windows_local_app_data_dir() -> PathBuf {
+    if crate::config::paths::test_isolation_enabled() {
+        return get_home_dir().join("AppData").join("Local");
+    }
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| get_home_dir().join("AppData").join("Local"))
@@ -108,6 +114,9 @@ fn windows_local_app_data_dir() -> PathBuf {
 
 #[cfg(windows)]
 fn windows_roaming_app_data_dir() -> PathBuf {
+    if crate::config::paths::test_isolation_enabled() {
+        return get_home_dir().join("AppData").join("Roaming");
+    }
     std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| get_home_dir().join("AppData").join("Roaming"))
@@ -785,6 +794,17 @@ mod tests {
     use super::*;
     use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderKind, ProviderTarget};
     use tempfile::tempdir;
+
+    #[cfg(windows)]
+    #[test]
+    fn isolated_desktop_paths_ignore_host_appdata() {
+        let home = tempdir().unwrap();
+        crate::config::paths::with_isolated_home(home.path(), || {
+            assert_eq!(windows_local_app_data_dir(), home.path().join("AppData/Local"));
+            assert_eq!(windows_roaming_app_data_dir(), home.path().join("AppData/Roaming"));
+            assert!(!active_profile_uses_local_proxy());
+        });
+    }
 
     fn mapped_provider() -> Provider {
         Provider {

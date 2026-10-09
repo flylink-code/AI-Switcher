@@ -7,6 +7,8 @@ use crate::error::{AppError, AppResult};
 
 /// Service name under which provider keys are filed in the OS credential store.
 pub const KEYRING_SERVICE: &str = "com.claude-switcher.provider";
+/// 隔离测试使用独立凭据命名空间，不访问正式条目。
+const TEST_KEYRING_SERVICE: &str = "com.claude-switcher.provider.test";
 /// Prefix marking a stored value as a credential-store reference.
 pub const KEYRING_REF_PREFIX: &str = "kr://";
 
@@ -18,8 +20,25 @@ pub fn is_keyring_ref(value: &str) -> bool {
     value.starts_with(KEYRING_REF_PREFIX)
 }
 
+fn keyring_service() -> String {
+    if !crate::config::paths::test_isolation_enabled() {
+        return KEYRING_SERVICE.to_string();
+    }
+    // 每个临时 HOME 独立；没有 HOME 的单元测试按进程隔离。
+    // 同一 HOME 重启后仍可取回 Key，不把测试明文落盘。
+    use sha2::{Digest, Sha256};
+    let scope = std::env::var_os(crate::config::paths::TEST_HOME_ENV)
+        .filter(|home| std::path::Path::new(home).is_absolute())
+        .map(|home| home.to_string_lossy().into_owned())
+        .unwrap_or_else(|| {
+            static SCOPE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+            SCOPE.get_or_init(|| uuid::Uuid::new_v4().to_string()).clone()
+        });
+    format!("{TEST_KEYRING_SERVICE}.{:x}", Sha256::digest(scope.as_bytes()))
+}
+
 fn entry(account: &str) -> AppResult<keyring::Entry> {
-    keyring::Entry::new(KEYRING_SERVICE, account)
+    keyring::Entry::new(&keyring_service(), account)
         .map_err(|e| AppError::Config(format!("系统凭据库不可用: {e}")))
 }
 
@@ -59,6 +78,17 @@ pub fn delete_key(account: &str) -> AppResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tests_never_use_production_keyring_service() {
+        let home = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(home.path(), || {
+            let service = keyring_service();
+            assert!(service.starts_with(&format!("{TEST_KEYRING_SERVICE}.")));
+            assert_ne!(service, KEYRING_SERVICE);
+            assert_eq!(service, keyring_service());
+        });
+    }
 
     #[test]
     fn ref_helpers_round_trip() {

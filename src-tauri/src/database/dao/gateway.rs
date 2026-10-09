@@ -2428,6 +2428,14 @@ pub fn is_v34_migration_done(conn: &Connection) -> bool {
 }
 
 pub fn migrate_v33_to_v34(conn: &Connection) -> AppResult<()> {
+    migrate_to_v34(conn, false)
+}
+
+pub(crate) fn initialize_fresh_v34(conn: &Connection) -> AppResult<()> {
+    migrate_to_v34(conn, true)
+}
+
+fn migrate_to_v34(conn: &Connection, fresh: bool) -> AppResult<()> {
     if is_v34_migration_done(conn) {
         return Ok(());
     }
@@ -2581,31 +2589,27 @@ pub fn migrate_v33_to_v34(conn: &Connection) -> AppResult<()> {
         }
     }
 
-    // 5. Update bindings for T2 agents (OpenCode, Pi, Cline)
+    // 5. 旧库升级沿用 T2 入口迁移规则；新库不自动接管未绑定 Agent。
     for target in [ProviderTarget::OpenCode, ProviderTarget::Pi, ProviderTarget::Cline] {
-        let existing = binding_for_target(&tx, target)?;
-        match existing {
-            Some(b) => {
-                let mode = if b.mode.trim().is_empty() {
-                    BINDING_MODE_GATEWAY.to_string()
-                } else {
-                    b.mode
-                };
-                tx.execute(
-                    "UPDATE gateway_bindings SET mode = ?, direct_upstream_id = ? WHERE target_app = ?;",
-                    params![mode, b.direct_upstream_id, target.as_str()],
-                )?;
-            }
-            None => {
-                let token = format!("gwt_{}", Uuid::new_v4().simple());
-                let provider_id = format!("sgw_{}", target.as_str());
-                tx.execute(
-                    "INSERT INTO gateway_bindings
-                        (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
-                     VALUES (?, ?, ?, ?, ?, 'gateway', '');",
-                    params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
-                )?;
-            }
+        if let Some(b) = binding_for_target(&tx, target)? {
+            let mode = if b.mode.trim().is_empty() {
+                BINDING_MODE_GATEWAY.to_string()
+            } else {
+                b.mode
+            };
+            tx.execute(
+                "UPDATE gateway_bindings SET mode = ?, direct_upstream_id = ? WHERE target_app = ?;",
+                params![mode, b.direct_upstream_id, target.as_str()],
+            )?;
+        } else if !fresh {
+            let token = format!("gwt_{}", Uuid::new_v4().simple());
+            let provider_id = format!("sgw_{}", target.as_str());
+            tx.execute(
+                "INSERT INTO gateway_bindings
+                    (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                 VALUES (?, ?, ?, ?, ?, 'gateway', '');",
+                params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+            )?;
         }
     }
 
@@ -3959,6 +3963,7 @@ mod tests {
     fn rollback_missing_snapshot_fails_without_changing_bindings() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
+            upsert_binding(conn, ProviderTarget::Pi, "p_pi")?;
             let before = binding_for_target(conn, ProviderTarget::Pi)?.unwrap();
             conn.execute("DELETE FROM upstream_migration_v34 WHERE old_provider_id = '__snap_pi';", [])?;
             assert!(rollback_v34(conn).is_err());
@@ -4070,9 +4075,9 @@ mod tests {
             assert_eq!(code_binding.mode, BINDING_MODE_DIRECT);
             assert_eq!(code_binding.direct_upstream_id, upstreams[0].id);
 
-            // T2 (OpenCode) was unbound -> gateway binding
-            let opencode_binding = binding_for_target(conn, ProviderTarget::OpenCode)?.expect("opencode binding");
-            assert_eq!(opencode_binding.mode, BINDING_MODE_GATEWAY);
+            // T2 旧库升级保留冻结的网关入口迁移行为。
+            let binding = binding_for_target(conn, ProviderTarget::OpenCode)?.expect("opencode binding");
+            assert_eq!(binding.mode, BINDING_MODE_GATEWAY);
 
             // T1 (Codex) had no current provider -> official, not bound
             assert!(binding_for_target(conn, ProviderTarget::Codex)?.is_none());
@@ -4297,6 +4302,18 @@ mod tests {
     }
 
     #[test]
+    fn fresh_database_does_not_bind_agents() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            for target in super::MIGRATION_TARGETS {
+                assert!(binding_for_target(conn, target)?.is_none());
+            }
+            assert!(super::is_v34_migration_done(conn));
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
     fn test_unbound_t2_agents_get_gateway_binding_on_migration() {
         let db = migration_fixture();
         db.with_conn(|conn| {
@@ -4306,7 +4323,7 @@ mod tests {
             // Run migration with no cards for Pi or Cline
             migrate_v33_to_v34(conn)?;
 
-            // T2 (Pi, Cline, OpenCode) must all have gateway bindings created
+            // 旧库升级规则不受新库初始化分支影响。
             for target in [ProviderTarget::OpenCode, ProviderTarget::Pi, ProviderTarget::Cline] {
                 let binding = binding_for_target(conn, target)?.expect("T2 binding must be created");
                 assert_eq!(binding.mode, BINDING_MODE_GATEWAY);

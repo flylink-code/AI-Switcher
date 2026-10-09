@@ -205,6 +205,10 @@ pub fn data_root_config_path() -> PathBuf {
 }
 
 pub fn configured_data_root() -> Option<PathBuf> {
+    // 隔离启动不跟随资料库指针，防止复用测试产物时意外访问真实库。
+    if test_isolation_enabled() {
+        return None;
+    }
     let path = data_root_config_path();
     let text = fs::read_to_string(path).ok()?;
     let config = serde_json::from_str::<DataRootConfig>(&text).ok()?;
@@ -530,6 +534,17 @@ mod tests {
                     .join("opencode.json")
             );
             assert_eq!(get_dsh_config_dir(), temp.path().join(".dsh"));
+        });
+    }
+
+    #[test]
+    fn isolated_home_ignores_external_data_root() {
+        let home = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        with_isolated_home(home.path(), || {
+            write_data_root_config(outside.path()).unwrap();
+            assert!(configured_data_root().is_none());
+            assert_eq!(get_app_db_path(), home.path().join(APP_DIR_NAME).join(APP_DB_NAME));
         });
     }
 

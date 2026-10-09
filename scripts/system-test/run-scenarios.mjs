@@ -11,6 +11,7 @@ const SCENARIOS = [
   "./scenarios/sg-p0-agent-proxy-hop.mjs",
   "./scenarios/sg-providers-pool-crud.mjs",
   "./scenarios/sg-agent-connection-card.mjs",
+  "./scenarios/sg-gateway-ui-reliability.mjs",
 ];
 
 const filter = (process.env.AISW_SCENARIO || "*").trim();
@@ -56,6 +57,10 @@ const failed = results.filter((row) => !row.ok);
 console.log(
   `\n${results.length - failed.length}/${results.length} passed in ${Date.now() - started}ms`
 );
+if (results.length === 0) {
+  console.error(`[system-test] no scenarios matched: ${filter}`);
+  process.exit(1);
+}
 if (failed.length > 0) {
   process.exit(1);
 }

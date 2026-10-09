@@ -22,7 +22,7 @@ pub fn get_pi_dir() -> PathBuf {
     }
 
     let default_home = get_home_dir().join(".pi").join("agent");
-    if default_home.exists() {
+    if default_home.exists() || crate::config::paths::test_isolation_enabled() {
         return default_home;
     }
 

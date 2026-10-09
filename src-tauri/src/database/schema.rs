@@ -442,7 +442,7 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
         migrate_v32_to_v33(conn)?;
     }
     if current < 34 {
-        migrate_v33_to_v34(conn)?;
+        migrate_v33_to_v34(conn, current == 0)?;
     }
     Ok(())
 }
@@ -1279,11 +1279,15 @@ fn migrate_v32_to_v33(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 33)
 }
 
-fn migrate_v33_to_v34(conn: &Connection) -> AppResult<()> {
+fn migrate_v33_to_v34(conn: &Connection, fresh: bool) -> AppResult<()> {
     add_binding_mode_and_direct_upstream_columns(conn)?;
     add_upstream_model_mapping_column(conn)?;
     create_upstream_migration_table(conn)?;
-    crate::database::dao::gateway::migrate_v33_to_v34(conn)?;
+    if fresh {
+        crate::database::dao::gateway::initialize_fresh_v34(conn)?;
+    } else {
+        crate::database::dao::gateway::migrate_v33_to_v34(conn)?;
+    }
     set_user_version(conn, 34)
 }
 

@@ -669,6 +669,13 @@ fn report_startup_failure(error: &str) {
 /// Single-instance guard + DB init + tray. Windows/macOS/Linux only.
 #[cfg(desktop)]
 fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
+    // 显式隔离测试使用独立 HOME、端口和 WebView 数据，不抢占安装版单实例锁。
+    if config::paths::test_isolation_enabled()
+        && std::env::var_os(config::paths::TEST_HOME_ENV)
+            .is_some_and(|home| std::path::Path::new(&home).is_absolute())
+    {
+        return builder;
+    }
     builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         if argv.iter().any(|arg| arg == "--autostart") {
             return;
@@ -820,8 +827,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(desktop)]
     {
         use tauri_plugin_deep_link::DeepLinkExt;
-        if let Err(error) = app.deep_link().register_all() {
-            log::warn!("Deep Link 协议注册失败: {error}");
+        if !config::paths::test_isolation_enabled() {
+            if let Err(error) = app.deep_link().register_all() {
+                log::warn!("Deep Link 协议注册失败: {error}");
+            }
         }
         let handle = app.handle().clone();
         app.deep_link().on_open_url(move |event| {

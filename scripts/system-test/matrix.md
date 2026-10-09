@@ -14,6 +14,7 @@ IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acc
 | `SG-p0-protocol-responses-bridge` | L1 | Responses→Chat unified assistant (text+tool_calls un-split) to loopback mock; AG Responses→Gemini single model content + mid-session reminder |
 | `SG-providers-pool-crud` | L2 | Global upstream pool CRUD, export/import JSON, deletion rejection when referenced by direct (IPC-level verification) |
 | `SG-agent-connection-card` | L2 | Agent connection transitions (official/direct/gateway), profile selection rejection in direct/unbound, direct without :15828, deletion safety (IPC-level verification) |
+| `SG-gateway-ui-reliability` | L2 DOM | 真实点击档案备用方式，核对仅修改所选档案、不抢占 direct/不隐式绑定；连接卡显示隔离端口与停启状态，保存页面截图 |
 | `SG-A-bind-code` | L2 (via auto-current) | `bind_smart_gateway` for Claude Code |
 | optional `claude -p --bare` | L2 `-ClaudeCode` | Real CLI against isolated URL; hop is `agent_proxy` or `smart_gateway` |
 
