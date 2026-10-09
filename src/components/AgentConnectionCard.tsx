@@ -18,6 +18,7 @@ import { filterUiAgents } from "@/lib/agentVisibility";
 import {
   bindSmartGateway,
   getAgentConnectionMode,
+  getSmartGatewayStatus,
   listGatewayProfiles,
   listGatewayUpstreams,
   listSmartGatewayBindings,
@@ -127,12 +128,24 @@ export function AgentConnectionCard() {
     queryFn: listGatewayProfiles,
   });
 
+  const smartGatewayQuery = useQuery({
+    queryKey: ["smart-gateway-status"],
+    queryFn: getSmartGatewayStatus,
+    refetchInterval: 10_000,
+  });
+  const smartGateway = smartGatewayQuery.data;
+
   const connectionModesQuery = useQuery({
     queryKey: ["agent-connection-modes"],
     queryFn: async () => {
+      const entries = await Promise.all(
+        visibleTargets.map(async (target) => {
+          const mode = await getAgentConnectionMode(target);
+          return [target, mode] as const;
+        }),
+      );
       const result: Partial<Record<ProviderTarget, string>> = {};
-      for (const target of visibleTargets) {
-        const mode = await getAgentConnectionMode(target);
+      for (const [target, mode] of entries) {
         if (mode) result[target] = mode;
       }
       return result;
@@ -493,9 +506,33 @@ export function AgentConnectionCard() {
                 );
               }
               if (row.displayMode === "gateway") {
+                if (!smartGatewayQuery.isSuccess || !smartGateway) {
+                  return <Tag>{t("providers.statusGatewayUnknown", { defaultValue: "网关状态未知" })}</Tag>;
+                }
+                const port = smartGateway.port;
+                const isGatewayRunning = smartGateway.running;
+                if (!isGatewayRunning && smartGatewayQuery.isSuccess) {
+                  return (
+                    <Tooltip
+                      title={t("providers.gatewayStoppedHint", {
+                        defaultValue: "智能网关未运行，请求将无法处理，请前往网关页启动",
+                      })}
+                    >
+                      <Tag color="warning" style={{ margin: 0 }}>
+                        {t("providers.statusGatewayStopped", {
+                          port,
+                          defaultValue: `网关未启动 (:${port})`,
+                        })}
+                      </Tag>
+                    </Tooltip>
+                  );
+                }
                 return (
                   <Tag color="blue" style={{ margin: 0 }}>
-                    {t("providers.statusGateway", { defaultValue: "已连接网关 (:15828)" })}
+                    {t("providers.statusGateway", {
+                      port,
+                      defaultValue: `已连接网关 (:${port})`,
+                    })}
                   </Tag>
                 );
               }

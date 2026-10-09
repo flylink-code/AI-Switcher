@@ -460,7 +460,6 @@ mod tests {
         ProxyState {
             db: Arc::new(Database::memory().unwrap()),
             client: Client::new(),
-            circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
             codex_history: Arc::new(super::codex_history::CodexHistoryStore::default()),
             target: ProviderTarget::ClaudeCode,
             listener_kind: ListenerKind::Agent,

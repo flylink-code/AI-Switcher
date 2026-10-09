@@ -121,6 +121,13 @@ export async function updateGatewayProfile(
   return call<GatewayProfile>("update_gateway_profile", { target, patch });
 }
 
+export async function updateGatewayProfileById(
+  id: string,
+  patch: GatewayProfilePatch,
+): Promise<GatewayProfile> {
+  return call<GatewayProfile>("update_gateway_profile_by_id", { id, patch });
+}
+
 export async function listGatewayProfiles(): Promise<GatewayProfile[]> {
   return call("list_gateway_profiles", {});
 }

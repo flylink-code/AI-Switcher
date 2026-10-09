@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Alert, Button, Card, Tooltip, Typography } from "antd";
 import ArrowRightOutlined from "@ant-design/icons/es/icons/ArrowRightOutlined";
 import CheckCircleFilled from "@ant-design/icons/es/icons/CheckCircleFilled";
@@ -24,7 +25,8 @@ import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";
 import { usagePeriodHourKeys } from "@/utils/usagePeriod";
-import { getSmartGatewayStatus } from "@/services/providers";
+import { getSmartGatewayStatus, listSmartGatewayBindings } from "@/services/providers";
+import { filterUiAgents } from "@/lib/agentVisibility";
 
 const { Text } = Typography;
 
@@ -43,13 +45,26 @@ export default function WorkbenchPage() {
   const heatmapSource = usePagePreferencesStore((state) => state.heatmapSource);
   const setHeatmapSource = usePagePreferencesStore((state) => state.setHeatmapSource);
 
+  const visibleAgents = usePagePreferencesStore((state) => state.visibleAgents);
+  const visibleTargets = useMemo(() => filterUiAgents(visibleAgents), [visibleAgents]);
+  const totalVisibleAgents = visibleTargets.length;
+
   // Existing queries. Year heatmap is trend-only (`get_usage_trend`).
   const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
-  const proxyQueries = [
-    useQuery(proxyStatusOptions("claude_code")),
-    useQuery(proxyStatusOptions("codex")),
-    useQuery(proxyStatusOptions("opencode")),
-  ];
+  const codeProxyQuery = useQuery(proxyStatusOptions("claude_code"));
+  const codexProxyQuery = useQuery(proxyStatusOptions("codex"));
+  const opencodeProxyQuery = useQuery(proxyStatusOptions("opencode"));
+  const piProxyQuery = useQuery(proxyStatusOptions("pi"));
+  const clineProxyQuery = useQuery(proxyStatusOptions("cline"));
+
+  const proxyQueryMap: Partial<Record<ProviderTarget, typeof codeProxyQuery>> = {
+    claude_code: codeProxyQuery,
+    codex: codexProxyQuery,
+    opencode: opencodeProxyQuery,
+    pi: piProxyQuery,
+    cline: clineProxyQuery,
+  };
+
   const providerQueries = [
     useQuery(providerListOptions("claude_code")),
     useQuery(providerListOptions("codex")),
@@ -60,20 +75,53 @@ export default function WorkbenchPage() {
     queryKey: ["smart-gateway-status"],
     queryFn: getSmartGatewayStatus,
   });
+
+  const bindingsQuery = useQuery({
+    queryKey: ["smart-gateway-bindings"],
+    queryFn: listSmartGatewayBindings,
+  });
+  const bindings = useMemo(() => bindingsQuery.data ?? [], [bindingsQuery.data]);
+
   const dashboardQuery = useQuery(usageDashboardOptions("24h", heatmapSource));
   const activityQuery = useQuery(usageLogsOptions("24h", 0, heatmapSource));
   const yearTrendQuery = useQuery(usageTrendOptions(365, heatmapSource));
 
   // ----- Aggregate status strip -----
-  const proxyTargets: ProviderTarget[] = ["claude_code", "codex", "opencode"];
-  const proxyRunningCount = proxyQueries.filter((q) => q.data?.running).length;
+  const smartGatewayRunning = Boolean(
+    gatewayQuery.data?.running &&
+      bindings.some(
+        (b) => b.mode === "gateway" && visibleTargets.includes(b.targetApp),
+      ),
+  );
+
+  const runningLocalProxiesCount = visibleTargets.reduce((count, target) => {
+    const binding = bindings.find((b) => b.targetApp === target);
+    if (binding?.mode === "gateway") return count;
+    const pq = proxyQueryMap[target];
+    return pq?.data?.running ? count + 1 : count;
+  }, 0);
+
+  const proxyRunningCount = (smartGatewayRunning ? 1 : 0) + runningLocalProxiesCount;
   const providerCount = providerQueries.reduce((sum, q) => sum + (q.data?.length ?? 0), 0);
   const providersLoaded = providerQueries.every((q) => q.data !== undefined);
   const appStatus = runtimeQuery.data;
+
+  const isAgentProcessRunning = (target: ProviderTarget): boolean => {
+    if (!appStatus) return false;
+    if (target === "claude_code") return Boolean(appStatus.claudeCode);
+    if (target === "codex") return Boolean(appStatus.codex);
+    if (target === "opencode") return Boolean(appStatus.opencode);
+    if (target === "claude_desktop") return Boolean(appStatus.claudeDesktop);
+    return false;
+  };
+
   const agentRunningCount = appStatus
-    ? [appStatus.claudeCode, appStatus.codex, appStatus.opencode].filter(Boolean)
-        .length
+    ? visibleTargets.filter(isAgentProcessRunning).length
     : null;
+  const agentIdleCount =
+    agentRunningCount != null
+      ? Math.max(0, totalVisibleAgents - agentRunningCount)
+      : null;
 
   // ----- Today (24h) usage hero -----
   const summary = dashboardQuery.data?.summary;
@@ -149,12 +197,15 @@ export default function WorkbenchPage() {
       action: t("workbench.viewUsageLink", { defaultValue: "查看用量" }),
     });
   }
-  proxyTargets.forEach((target, index) => {
-    if (proxyQueries[index].data?.phase === "error") {
+  visibleTargets.forEach((target) => {
+    const binding = bindings.find((b) => b.targetApp === target);
+    if (binding?.mode === "gateway") return;
+    const pq = proxyQueryMap[target];
+    if (pq?.data?.phase === "error") {
       attentionItems.push({
         key: `proxy-${target}`,
         text: t("workbench.attentionProxyError", {
-          agent: t(LABEL_KEYS[target]),
+          agent: t(LABEL_KEYS[target] ?? `workspace.${target}`),
           defaultValue: "{{agent}} 代理异常",
         }),
         page: "localProxy",
@@ -162,7 +213,14 @@ export default function WorkbenchPage() {
       });
     }
   });
-  if (gatewayQuery.data && gatewayQuery.data.bindingCount > 0 && (gatewayQuery.data.phase === "error" || !gatewayQuery.data.running)) {
+  const hasVisibleGatewayBinding = bindings.some(
+    (b) => b.mode === "gateway" && visibleTargets.includes(b.targetApp),
+  );
+  if (
+    gatewayQuery.data &&
+    (gatewayQuery.data.bindingCount > 0 || hasVisibleGatewayBinding) &&
+    (gatewayQuery.data.phase === "error" || !gatewayQuery.data.running)
+  ) {
     attentionItems.push({
       key: "smart-gateway",
       text: t("workbench.attentionGatewayError", { defaultValue: "已绑定应用的智能网关未运行" }),
@@ -284,10 +342,10 @@ export default function WorkbenchPage() {
         </span>
         <span aria-hidden style={{ color: "var(--color-text-tertiary)" }}>·</span>
         <span>
-          {agentRunningCount != null
+          {agentRunningCount != null && agentIdleCount != null
             ? t("workbench.stripAgents", {
                 running: agentRunningCount,
-                idle: 4 - agentRunningCount,
+                idle: agentIdleCount,
                 defaultValue: "Agent：{{running}} 活跃 · {{idle}} 空闲",
               })
             : "…"}
@@ -467,10 +525,10 @@ export default function WorkbenchPage() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <span style={{ flex: "0 0 52px", color: "var(--color-text-tertiary)" }}>Agent</span>
                     <span style={{ color: "var(--color-text-secondary)" }}>
-                      {agentRunningCount != null
+                      {agentRunningCount != null && agentIdleCount != null
                         ? t("workbench.attentionAgentsActive", {
                             running: agentRunningCount,
-                            idle: 4 - agentRunningCount,
+                            idle: agentIdleCount,
                             defaultValue: "{{running}} 活跃 · {{idle}} 空闲",
                           })
                         : "…"}

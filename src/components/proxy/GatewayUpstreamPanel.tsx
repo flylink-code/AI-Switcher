@@ -15,6 +15,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from "antd";
@@ -85,32 +86,75 @@ function healthLabel(
   if (!row || row.status === "unknown") {
     return <Tag>{t("proxy.healthUnknown", { defaultValue: "未检测" })}</Tag>;
   }
+
+  const lastError = row.lastError;
+  const timeStr = row.lastCheckedAt > 0 ? new Date(row.lastCheckedAt).toLocaleString() : null;
+
+  const tooltipContent =
+    timeStr || lastError ? (
+      <div style={{ maxWidth: 300, wordBreak: "break-all" }}>
+        {timeStr ? (
+          <div>
+            {t("proxy.healthLastChecked", {
+              time: timeStr,
+              defaultValue: `检测时间：${timeStr}`,
+            })}
+          </div>
+        ) : null}
+        {lastError ? (
+          <div style={{ marginTop: timeStr ? 4 : 0, color: "#ff7875" }}>
+            {t("proxy.healthLastError", {
+              error: lastError,
+              defaultValue: `错误信息：${lastError}`,
+            })}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
+
+  const wrapWithTooltip = (node: React.ReactNode) => {
+    if (!tooltipContent) return node;
+    return <Tooltip title={tooltipContent}>{node}</Tooltip>;
+  };
+
   if (row.status === "ok") {
-    const latency = row.lastLatencyMs != null
-      ? t("proxy.healthLatency", { ms: row.lastLatencyMs, defaultValue: "{{ms}}ms" })
-      : "";
-    return (
+    const latency =
+      row.lastLatencyMs != null
+        ? t("proxy.healthLatency", { ms: row.lastLatencyMs, defaultValue: "{{ms}}ms" })
+        : "";
+    return wrapWithTooltip(
       <Space size={4}>
         <Tag color="green">{t("proxy.healthOk", { defaultValue: "正常" })}</Tag>
         {latency ? <Text type="secondary">{latency}</Text> : null}
-      </Space>
+      </Space>,
     );
   }
-  if (row.status === "cooling") {
+  if (row.status === "cooling" || row.status === "rate_limited") {
     const secs = Math.max(1, Math.ceil(row.cooldownRemainingMs / 1000));
-    return (
+    return wrapWithTooltip(
       <Space size={4}>
-        <Tag color="orange">{t("proxy.healthCooling", { secs, defaultValue: "冷却中 {{secs}}s" })}</Tag>
+        <Tag color="orange">
+          {t("proxy.healthCooling", { secs, defaultValue: "冷却中 {{secs}}s" })}
+        </Tag>
         <Text type="secondary">×{row.consecutiveFailures}</Text>
-      </Space>
+      </Space>,
     );
   }
-  return (
+  if (row.status === "auth_failed") {
+    return wrapWithTooltip(
+      <Space size={4}>
+        <Tag color="red">{t("proxy.healthAuthFailed", { defaultValue: "鉴权失败" })}</Tag>
+        <Text type="secondary">×{row.consecutiveFailures}</Text>
+        {row.lastLatencyMs != null ? <Text type="secondary">{row.lastLatencyMs}ms</Text> : null}
+      </Space>,
+    );
+  }
+  return wrapWithTooltip(
     <Space size={4}>
       <Tag color="red">{t("proxy.healthFailing", { defaultValue: "连续失败" })}</Tag>
       <Text type="secondary">×{row.consecutiveFailures}</Text>
       {row.lastLatencyMs != null ? <Text type="secondary">{row.lastLatencyMs}ms</Text> : null}
-    </Space>
+    </Space>,
   );
 }
 

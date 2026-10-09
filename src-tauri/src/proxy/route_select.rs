@@ -115,6 +115,33 @@ pub(crate) fn select_gateway_runtime_provider_with(
     Ok(Some((provider, upstream, is_catalog_subagent, decision, plan)))
 }
 
+/// 显式备用仅解析目录，不重新检测模式，避免备用再次落回主模型。
+pub(crate) fn resolve_explicit_fallback(
+    state: &ProxyState,
+    model: &str,
+) -> AppResult<Option<(Provider, String)>> {
+    let style = crate::catalog::catalog_style_for(state.target);
+    let (providers, entries) = load_gateway_catalog(state, style)?;
+    let resolved = crate::catalog::resolve_request_strict(&entries, &providers, model)
+        .map_err(|error| AppError::Config(error.to_string()))?;
+    let Some((id, upstream)) = resolved else { return Ok(None); };
+    let Some(provider) = providers.into_iter().find(|provider| provider.id == id) else {
+        return Ok(None);
+    };
+    Ok(hydrate_provider_credential(state, provider)?.map(|mut provider| {
+        provider.model = upstream.clone();
+        (provider, upstream)
+    }))
+}
+
+pub(crate) fn should_try_explicit_fallback(provider: &Provider, status: StatusCode) -> bool {
+    if provider.is_kiro() && matches!(status, StatusCode::TOO_MANY_REQUESTS | StatusCode::GATEWAY_TIMEOUT) {
+        return false;
+    }
+    matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS)
+        || status.is_server_error()
+}
+
 fn prepare_upstream_request(
     state: &ProxyState,
     provider: &mut Provider,
@@ -212,7 +239,7 @@ fn compatible_stream_retry(provider: &Provider, prepared: &PreparedUpstreamReque
 pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCode) -> bool {
     let codes = state
         .db
-        .with_conn(|conn| load_retryable_status_codes(conn))
+        .with_read_conn(|conn| load_retryable_status_codes(conn))
         .unwrap_or_else(|_| default_retryable_status_codes());
     codes.contains(&status.as_u16())
 }
@@ -243,7 +270,6 @@ pub(crate) fn should_failover_upstream_status_ex(
 
 pub fn default_retryable_status_codes() -> Vec<u16> {
     let mut codes = Vec::new();
-    codes.extend(400..=404);
     codes.push(408);
     codes.push(429);
     codes.extend(500..=599);

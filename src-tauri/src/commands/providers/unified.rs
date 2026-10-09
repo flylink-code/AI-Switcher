@@ -308,7 +308,11 @@ pub async fn test_upstream_connection(
                 String::new()
             }
         });
-    test_provider_with_key(&provider, key, state.db.as_ref(), true).await
+    let result = test_provider_with_key(&provider, key, state.db.as_ref(), true).await?;
+    if result.ok {
+        crate::gateway::health::record_model_success(&provider.id, &provider.model, result.latency_ms.map(|ms| ms.min(i64::MAX as u64) as i64));
+    }
+    Ok(result)
 }
 
 fn sanitize_export_custom_headers(

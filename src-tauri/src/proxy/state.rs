@@ -105,7 +105,6 @@ impl ProxyManager {
                 .no_proxy()
                 .build()
                 .map_err(|e| AppError::Other(format!("创建 HTTP 客户端失败: {e}")))?,
-            circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
             codex_history: Arc::new(codex_history::CodexHistoryStore::default()),
             target,
             listener_kind: ListenerKind::Agent,
@@ -300,7 +299,6 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
     let state = ProxyState {
         db,
         client,
-        circuits: Arc::new(Mutex::new(std::collections::HashMap::new())),
         codex_history: Arc::new(codex_history::CodexHistoryStore::default()),
         target: ProviderTarget::ClaudeCode,
         listener_kind: ListenerKind::SmartGateway,
@@ -409,7 +407,6 @@ pub enum ListenerKind {
 pub(crate) struct ProxyState {
     pub(crate) db: Arc<Database>,
     pub(crate) client: Client,
-    circuits: Arc<Mutex<std::collections::HashMap<String, ProviderCircuit>>>,
     pub(crate) codex_history: Arc<codex_history::CodexHistoryStore>,
     pub(crate) target: ProviderTarget,
     pub(crate) listener_kind: ListenerKind,
@@ -417,12 +414,6 @@ pub(crate) struct ProxyState {
     started_at: Instant,
     pub(crate) correlation: Option<crate::gateway::correlation::Correlation>,
     request_path: String,
-}
-
-#[derive(Debug, Clone)]
-struct ProviderCircuit {
-    failures: u8,
-    open_until: Option<Instant>,
 }
 
 struct PreparedUpstreamRequest {
@@ -442,37 +433,16 @@ fn apply_catalog_subagent_signal(
     }
 }
 
-fn circuit_is_open(state: &ProxyState, provider_id: &str) -> bool {
-    let Ok(mut circuits) = state.circuits.lock() else { return false; };
-    let Some(circuit) = circuits.get(provider_id) else { return false; };
-    match circuit.open_until {
-        Some(until) if until > Instant::now() => true,
-        Some(_) => {
-            circuits.remove(provider_id);
-            false
-        }
-        None => false,
-    }
+#[cfg(test)]
+fn circuit_is_open(_state: &ProxyState, provider_id: &str) -> bool {
+    !crate::gateway::health::is_available(provider_id, None)
 }
 
-pub(crate) fn record_provider_success(state: &ProxyState, provider_id: &str) {
-    if let Ok(mut circuits) = state.circuits.lock() {
-        circuits.remove(provider_id);
-    }
+pub(crate) fn record_provider_success(_state: &ProxyState, provider_id: &str) {
     crate::gateway::health::record_success(provider_id, None);
 }
 
-pub(crate) fn record_provider_failure(state: &ProxyState, provider_id: &str) {
-    if let Ok(mut circuits) = state.circuits.lock() {
-        let circuit = circuits.entry(provider_id.to_string()).or_insert(ProviderCircuit {
-            failures: 0,
-            open_until: None,
-        });
-        circuit.failures = circuit.failures.saturating_add(1);
-        if circuit.failures >= CIRCUIT_FAILURE_THRESHOLD {
-            circuit.open_until = Some(Instant::now() + std::time::Duration::from_secs(CIRCUIT_OPEN_SECONDS));
-        }
-    }
+pub(crate) fn record_provider_failure(_state: &ProxyState, provider_id: &str) {
     crate::gateway::health::record_failure(provider_id);
 }
 
@@ -510,7 +480,13 @@ pub(crate) fn next_failover_provider_ex(
     if !enabled {
         return Ok(None);
     }
-    let mut candidates = state.db.with_read_conn(|conn| list_providers(conn, state.target))?;
+    let mut candidates = state.db.with_read_conn(|conn| {
+        if gateway_catalog_enabled(state) {
+            crate::database::dao::gateway::list_upstream_providers(conn, false)
+        } else {
+            list_providers(conn, state.target)
+        }
+    })?;
     if gateway_catalog_enabled(state) {
         if let Ok(Some(profile)) = state
             .db
@@ -535,7 +511,7 @@ pub(crate) fn next_failover_provider_ex(
     for mut candidate in candidates {
         if exclude_ids.iter().any(|id| id == &candidate.id)
             || candidate.base_url.trim().is_empty()
-            || circuit_is_open(state, &candidate.id)
+            || !crate::gateway::health::is_available(&candidate.id, Some(&resolve_upstream_model(&candidate, requested_model)))
             || (!ignore_model_filter && !candidate.allows_failover_for_request(requested_model))
         {
             continue;

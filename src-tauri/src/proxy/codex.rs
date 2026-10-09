@@ -29,10 +29,10 @@ use super::{
     codex_auto_review::{apply_auto_review_model_override, has_subagent_header}, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     json_error_with_retry_after, log_early_failure, log_request, log_request_with_diagnostic,
-    next_failover_provider, next_failover_provider_ex, record_provider_failure,
-    record_provider_success, select_gateway_runtime_provider_with, CS_SUBAGENT_HEADER,
-    session_prompt_cache_hint, should_failover_upstream_status_ex,
-    FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
+    next_failover_provider, next_failover_provider_ex, resolve_explicit_fallback,
+    select_gateway_runtime_provider_with, send_observed_upstream, session_prompt_cache_hint,
+    should_failover_upstream_status_ex, should_try_explicit_fallback, should_try_explicit_response,
+    CS_SUBAGENT_HEADER, FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
 };
 
 pub async fn codex_models_handler(State(state): State<ProxyState>) -> Response {
@@ -125,7 +125,8 @@ pub async fn codex_proxy_handler(
     let catalog_mode = super::gateway_catalog_enabled(&state);
     let mut is_catalog_subagent = false;
     let mut route_decision = None;
-    let attempt_index: i64 = 0;
+    let mut route_plan: Option<crate::gateway::RouteExecutionPlan> = None;
+    let mut current_upstream_model = String::new();
     let mut provider = if catalog_mode {
         match select_gateway_runtime_provider_with(
             &state,
@@ -135,10 +136,12 @@ pub async fn codex_proxy_handler(
             uri.path(),
             &headers,
         ) {
-            Ok(Some((selected, upstream, routed_subagent, decision, _plan))) => {
-                original_body = Bytes::from(rewrite_json_model(&original_body, &upstream));
+            Ok(Some((selected, upstream_model, routed_subagent, decision, plan))) => {
+                original_body = Bytes::from(rewrite_json_model(&original_body, &upstream_model));
+                current_upstream_model = upstream_model;
                 is_catalog_subagent = routed_subagent;
                 route_decision = Some(decision);
+                route_plan = Some(plan);
                 selected
             }
             Ok(None) => {
@@ -205,6 +208,9 @@ pub async fn codex_proxy_handler(
             }
         }
     };
+    if current_upstream_model.is_empty() {
+        current_upstream_model = provider.model.clone();
+    }
     let prepared = match prepare_codex_upstream(
         &state,
         &provider,
@@ -221,81 +227,131 @@ pub async fn codex_proxy_handler(
     let mut is_stream = prepared.is_stream;
     let mut compact_fallback = prepared.compact_fallback;
     let mut is_chat_bridge = prepared.is_chat_bridge;
+    let mut current_prepared = prepared;
+
+    let explicit_models: Vec<String> = route_plan
+        .as_ref()
+        .filter(|plan| !plan.explicit_pinned)
+        .map(|plan| {
+            plan.attempts
+                .iter()
+                .skip(1)
+                .map(|attempt| attempt.model.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+    let allow_cross_provider_failover =
+        !route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned);
+    let has_explicit_chain = !explicit_models.is_empty();
+    let mut explicit_models = explicit_models.into_iter();
+    let mut legacy_models = if route_plan.is_none() {
+        provider.failover_models.clone().into_iter()
+    } else {
+        Vec::new().into_iter()
+    };
+    let mut excluded = vec![provider.id.clone()];
+    let mut attempt_index: i64 = 0;
     let mut failover_trace: Vec<String> = Vec::new();
-    let mut upstream = match prepared.request.body(prepared.request_body).send().await {
-        Ok(response) => response,
-        Err(error) => {
-            record_provider_failure(&state, &provider.id);
-            failover_trace.push(format!("{}({}) 网络错误", provider.name, provider.id));
-            let mut excluded = vec![provider.id.clone()];
-            let mut last_error = error.to_string();
-            let mut recovered = None::<reqwest::Response>;
-            let failover_allowed = !route_decision
-                .as_ref()
-                .is_some_and(|decision| decision.source == crate::gateway::RouteSource::Explicit);
-            for _ in 0..FAILOVER_MAX_HOPS {
-                if !failover_allowed {
-                    break;
+
+    let upstream = loop {
+        let result = send_observed_upstream(
+            current_prepared.request.body(current_prepared.request_body),
+            &provider,
+        )
+        .await;
+
+        let can_explicit = allow_cross_provider_failover && match &result {
+            Ok(response) => should_try_explicit_response(&provider, response),
+            Err(_) => true,
+        };
+        let is_compact_route = codex_compact::is_responses_compact_route(&route);
+        let can_generic = allow_cross_provider_failover && !is_compact_route && match &result {
+            Ok(response) => {
+                is_retryable_upstream_status(&state, response.status())
+                    && should_failover_upstream_status_ex(&provider, response.status(), false)
+            }
+            Err(_) => !provider.is_kiro(),
+        };
+
+        let mut next = None;
+        if can_explicit && has_explicit_chain {
+            for model in explicit_models.by_ref() {
+                if let Ok(Some((candidate, slug))) = resolve_explicit_fallback(&state, &model) {
+                    if candidate.id == provider.id && slug == current_upstream_model {
+                        continue;
+                    }
+                    if !crate::gateway::health::is_available(&candidate.id, Some(&slug)) {
+                        continue;
+                    }
+                    let failover_body = Bytes::from(rewrite_json_model(&original_body, &slug));
+                    if let Ok(prep) = prepare_codex_upstream(
+                        &state,
+                        &candidate,
+                        &route,
+                        &headers,
+                        &failover_body,
+                        false,
+                        is_catalog_subagent,
+                    ) {
+                        next = Some((candidate, slug, prep));
+                        break;
+                    }
                 }
-                let Some(fallback) = next_codex_failover_provider(
+            }
+        } else if can_generic && !has_explicit_chain {
+            if let Some(model) = legacy_models.next() {
+                let failover_body = Bytes::from(rewrite_json_model(&original_body, &model));
+                if let Ok(prep) = prepare_codex_upstream(
                     &state,
-                    &excluded,
-                    &requested_model,
-                    catalog_mode,
-                ) else {
-                    break;
-                };
-                excluded.push(fallback.id.clone());
-                log::warn!(
-                    "Codex 供应商 {} 网络请求失败，尝试故障切换到 {}",
-                    provider.id,
-                    fallback.id
-                );
-                let failover_body = catalog_failover_body_if_needed(
-                    &state,
-                    &fallback,
-                    &original_body,
-                    catalog_mode,
-                );
-                match prepare_codex_upstream(
-                    &state,
-                    &fallback,
+                    &provider,
                     &route,
                     &headers,
                     &failover_body,
                     false,
                     is_catalog_subagent,
                 ) {
-                    Ok(fallback_prepared) => {
-                        match fallback_prepared
-                            .request
-                            .body(fallback_prepared.request_body)
-                            .send()
-                            .await
-                        {
-                            Ok(response) => {
-                                failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
-                                provider = fallback;
-                                is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
-                                is_stream = fallback_prepared.is_stream;
-                                compact_fallback = fallback_prepared.compact_fallback;
-                                is_chat_bridge = fallback_prepared.is_chat_bridge;
-                                recovered = Some(response);
-                                break;
-                            }
-                            Err(fallback_error) => {
-                                record_provider_failure(&state, &fallback.id);
-                                failover_trace.push(format!("{}({}) 失败: {fallback_error}", fallback.name, fallback.id));
-                                last_error = fallback_error.to_string();
-                            }
-                        }
+                    next = Some((provider.clone(), model, prep));
+                }
+            } else if (attempt_index as usize) < FAILOVER_MAX_HOPS {
+                while let Some(fallback) = next_codex_failover_provider(
+                    &state,
+                    &excluded,
+                    &requested_model,
+                    catalog_mode,
+                ) {
+                    excluded.push(fallback.id.clone());
+                    let failover_body = catalog_failover_body_if_needed(
+                        &state,
+                        &fallback,
+                        &original_body,
+                        catalog_mode,
+                    );
+                    if let Ok(prep) = prepare_codex_upstream(
+                        &state,
+                        &fallback,
+                        &route,
+                        &headers,
+                        &failover_body,
+                        false,
+                        is_catalog_subagent,
+                    ) {
+                        let fallback_model = fallback.model.clone();
+                        next = Some((fallback, fallback_model, prep));
+                        break;
                     }
-                    Err(_) => continue,
                 }
             }
-            match recovered {
-                Some(response) => response,
-                None => {
+        }
+
+        let Some((next_provider, next_model, next_prepared)) = next else {
+            match result {
+                Ok(response) => {
+                    if !failover_trace.is_empty() && response.status().is_success() {
+                        failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
+                    }
+                    break response;
+                }
+                Err(error) => {
                     let failover_diag = if !failover_trace.is_empty() {
                         Some(format!("故障降级失败: {}", failover_trace.join(" → ")))
                     } else {
@@ -313,85 +369,36 @@ pub async fn codex_proxy_handler(
                     );
                     return json_error(
                         StatusCode::BAD_GATEWAY,
-                        format!("上游连接失败: {last_error}"),
+                        format!("上游连接失败: {error}"),
                     );
                 }
             }
-        }
-    };
+        };
 
-    let is_compact_route = codex_compact::is_responses_compact_route(&route);
-    let allow_cross_provider_failover = !route_decision
-        .as_ref()
-        .is_some_and(|decision| decision.source == crate::gateway::RouteSource::Explicit);
-    if allow_cross_provider_failover
-        && is_retryable_upstream_status(&state, upstream.status())
-        && should_failover_upstream_status_ex(&provider, upstream.status(), catalog_mode)
-        && !is_compact_route
-    {
-        record_provider_failure(&state, &provider.id);
-        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
-        let mut excluded = vec![provider.id.clone()];
-        for _ in 0..FAILOVER_MAX_HOPS {
-            let Some(fallback) = next_codex_failover_provider(
-                &state,
-                &excluded,
-                &requested_model,
-                catalog_mode,
-            ) else {
-                break;
-            };
-            excluded.push(fallback.id.clone());
-            log::warn!(
-                "Codex 供应商 {} 返回 {}，尝试故障切换到 {}",
-                provider.id,
-                upstream.status(),
-                fallback.id
-            );
-            let failover_body = catalog_failover_body_if_needed(
-                &state,
-                &fallback,
-                &original_body,
-                catalog_mode,
-            );
-            if let Ok(fallback_prepared) = prepare_codex_upstream(
-                &state,
-                &fallback,
-                &route,
-                &headers,
-                &failover_body,
-                false,
-                is_catalog_subagent,
-            ) {
-                match fallback_prepared
-                    .request
-                    .body(fallback_prepared.request_body)
-                    .send()
-                    .await
-                {
-                    Ok(response) => {
-                        provider = fallback;
-                        is_anthropic_upstream = fallback_prepared.is_anthropic_upstream;
-                        is_stream = fallback_prepared.is_stream;
-                        compact_fallback = fallback_prepared.compact_fallback;
-                        is_chat_bridge = fallback_prepared.is_chat_bridge;
-                        upstream = response;
-                        if !is_retryable_upstream_status(&state, upstream.status()) {
-                            failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
-                            break;
-                        }
-                        record_provider_failure(&state, &provider.id);
-                        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream.status()));
-                    }
-                    Err(error) => {
-                        record_provider_failure(&state, &fallback.id);
-                        failover_trace.push(format!("{}({}) 连接失败: {error}", fallback.name, fallback.id));
-                        log::warn!("Codex 备用供应商 {} 连接失败: {error}", fallback.id);
-                    }
-                }
-            }
-        }
-    }
+        failover_trace.push(format!(
+            "{}({}) {} → {}",
+            provider.name,
+            provider.id,
+            result
+                .as_ref()
+                .map(|r| format!("状态码 {}", r.status()))
+                .unwrap_or_else(|_| "网络错误".into()),
+            next_provider.name
+        ));
+
+        excluded.push(next_provider.id.clone());
+        attempt_index = attempt_index.saturating_add(1);
+        provider = next_provider;
+        current_upstream_model = next_model;
+        provider.model = current_upstream_model.clone();
+        // 后续协议兼容重试必须沿用当前备用模型，而不是最初的主模型。
+        original_body = Bytes::from(rewrite_json_model(&original_body, &current_upstream_model));
+        is_anthropic_upstream = next_prepared.is_anthropic_upstream;
+        is_stream = next_prepared.is_stream;
+        compact_fallback = next_prepared.compact_fallback;
+        is_chat_bridge = next_prepared.is_chat_bridge;
+        current_prepared = next_prepared;
+    };
 
     let mut prefetched_bytes: Option<Bytes> = None;
     let mut status = StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
@@ -419,11 +426,11 @@ pub async fn codex_proxy_handler(
                         true,
                         is_catalog_subagent,
                     ) {
-                        Ok(chat_prepared) => match chat_prepared
-                            .request
-                            .body(chat_prepared.request_body)
-                            .send()
-                            .await
+                        Ok(chat_prepared) => match send_observed_upstream(
+                            chat_prepared.request.body(chat_prepared.request_body),
+                            &provider,
+                        )
+                        .await
                         {
                             Ok(response) => {
                                 failover_trace.push(format!(
@@ -456,9 +463,6 @@ pub async fn codex_proxy_handler(
     }
 
     if let Some(bytes) = prefetched_bytes {
-        if status.is_success() {
-            record_provider_success(&state, &provider.id);
-        }
         let failover_diag = if !failover_trace.is_empty() {
             Some(format!("故障降级: {}", failover_trace.join(" → ")))
         } else {
@@ -484,9 +488,6 @@ pub async fn codex_proxy_handler(
     let Some(upstream) = upstream else {
         return json_error(StatusCode::BAD_GATEWAY, "Codex 上游响应丢失");
     };
-    if status.is_success() {
-        record_provider_success(&state, &provider.id);
-    }
     let failover_diag = if !failover_trace.is_empty() {
         Some(format!("故障降级: {}", failover_trace.join(" → ")))
     } else {
@@ -1583,5 +1584,137 @@ mod tests {
         assert_eq!(chat["stream"], true);
         assert_eq!(chat["messages"][0]["role"], "user");
         assert_eq!(chat["messages"][0]["content"], "hello");
+    }
+
+    #[test]
+    fn test_explicit_fallback_rewrites_model_and_does_not_send_raw_public_id() {
+        let body = Bytes::from(json!({
+            "model": "codex.auto",
+            "input": "test prompt",
+            "stream": false
+        }).to_string());
+
+        let upstream_slug = "gpt-5.6-luna";
+        let rewritten = rewrite_json_model(&body, upstream_slug);
+        let parsed: Value = serde_json::from_slice(&rewritten).unwrap();
+
+        assert_eq!(parsed["model"], "gpt-5.6-luna");
+        assert_ne!(parsed["model"], "codex.auto");
+    }
+
+    #[test]
+    fn test_explicit_chain_pinned_blocks_failover() {
+        let plan = crate::gateway::RouteExecutionPlan {
+            attempts: vec![
+                crate::gateway::RouteAttemptPlan {
+                    index: 0,
+                    model: "primary-model".into(),
+                    upstream_id: Some("p1".into()),
+                },
+                crate::gateway::RouteAttemptPlan {
+                    index: 1,
+                    model: "backup-model".into(),
+                    upstream_id: None,
+                },
+            ],
+            fallback_mode: "off".into(),
+            primary_model: "primary-model".into(),
+            explicit_pinned: true,
+        };
+
+        let allow_cross_provider_failover = !plan.explicit_pinned;
+        assert!(!allow_cross_provider_failover);
+
+        let explicit_models: Vec<String> = if !plan.explicit_pinned {
+            plan.attempts.iter().skip(1).map(|a| a.model.clone()).collect()
+        } else {
+            Vec::new()
+        };
+        assert!(explicit_models.is_empty());
+    }
+
+    #[test]
+    fn test_explicit_chain_limits_attempts_to_three_total() {
+        let plan = crate::gateway::RouteExecutionPlan {
+            attempts: vec![
+                crate::gateway::RouteAttemptPlan {
+                    index: 0,
+                    model: "m0".into(),
+                    upstream_id: Some("p0".into()),
+                },
+                crate::gateway::RouteAttemptPlan { index: 1, model: "m1".into(), upstream_id: None },
+                crate::gateway::RouteAttemptPlan { index: 2, model: "m2".into(), upstream_id: None },
+                crate::gateway::RouteAttemptPlan { index: 3, model: "m3".into(), upstream_id: None },
+            ],
+            fallback_mode: "model_chain".into(),
+            primary_model: "m0".into(),
+            explicit_pinned: false,
+        };
+
+        // Plan attempts can be up to 3 total, skip 1 primary gives at most 2 explicit fallbacks
+        let explicit_models: Vec<String> = plan
+            .attempts
+            .iter()
+            .skip(1)
+            .take(2)
+            .map(|a| a.model.clone())
+            .collect();
+        assert_eq!(explicit_models.len(), 2);
+        assert_eq!(explicit_models, vec!["m1", "m2"]);
+    }
+
+    fn test_provider(kind: crate::provider::ProviderKind) -> Provider {
+        Provider {
+            id: "test".into(),
+            name: "test".into(),
+            base_url: "http://127.0.0.1".into(),
+            api_key: String::new(),
+            api_key_set: false,
+            model: "test-model".into(),
+            model_context_window: Some(200_000),
+            auto_review_model_override: None,
+            web_search_enabled: Some(true),
+            model_mapping: crate::provider::ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::OpenAiResponses,
+            provider_kind: kind,
+            auth_binding: String::new(),
+            target_app: crate::provider::ProviderTarget::Codex,
+            notes: String::new(),
+            sort_index: 0,
+            failover_group: 0,
+            failover_models: Vec::new(),
+            hidden_models: Vec::new(),
+            thinking_config: None,
+            custom_headers: None,
+            is_current: false,
+            created_at: 0,
+            health_latency_ms: None,
+            health_status: None,
+            health_checked_at: None,
+        }
+    }
+
+    #[test]
+    fn test_explicit_vs_generic_failover_status_rules() {
+        let ag_provider = test_provider(crate::provider::ProviderKind::Antigravity);
+        let kiro_provider = test_provider(crate::provider::ProviderKind::Kiro);
+        let std_provider = test_provider(crate::provider::ProviderKind::Standard);
+
+        // Explicit fallback: AG 429 & 504 allowed; Kiro 429 & 504 rejected
+        assert!(should_try_explicit_fallback(&ag_provider, StatusCode::TOO_MANY_REQUESTS));
+        assert!(should_try_explicit_fallback(&ag_provider, StatusCode::GATEWAY_TIMEOUT));
+        assert!(!should_try_explicit_fallback(&kiro_provider, StatusCode::TOO_MANY_REQUESTS));
+        assert!(!should_try_explicit_fallback(&kiro_provider, StatusCode::GATEWAY_TIMEOUT));
+        assert!(should_try_explicit_fallback(&std_provider, StatusCode::TOO_MANY_REQUESTS));
+        assert!(should_try_explicit_fallback(&std_provider, StatusCode::INTERNAL_SERVER_ERROR));
+        assert!(!should_try_explicit_fallback(&std_provider, StatusCode::BAD_REQUEST));
+
+        // Generic failover: AG 429 & 504 suppressed; Kiro 429 & 504 suppressed
+        assert!(!should_failover_upstream_status_ex(&ag_provider, StatusCode::TOO_MANY_REQUESTS, false));
+        assert!(!should_failover_upstream_status_ex(&ag_provider, StatusCode::GATEWAY_TIMEOUT, false));
+        assert!(!should_failover_upstream_status_ex(&kiro_provider, StatusCode::TOO_MANY_REQUESTS, false));
+        assert!(!should_failover_upstream_status_ex(&kiro_provider, StatusCode::GATEWAY_TIMEOUT, false));
+        assert!(should_failover_upstream_status_ex(&std_provider, StatusCode::TOO_MANY_REQUESTS, false));
+        assert!(should_failover_upstream_status_ex(&std_provider, StatusCode::INTERNAL_SERVER_ERROR, false));
     }
 }

@@ -714,6 +714,7 @@ fn fail(error: impl std::fmt::Display) -> ! {
 }
 
 include!("system_test_unified.rs");
+include!("system_test_gateway_reliability.rs");
 
 #[tokio::test]
 async fn sg_regress_independent_not_stolen_live_env() {

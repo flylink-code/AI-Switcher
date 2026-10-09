@@ -188,6 +188,19 @@ pub async fn set_gateway_binding_profile(
 }
 
 #[tauri::command]
+pub async fn update_gateway_profile_by_id(
+    id: String,
+    patch: GatewayProfilePatch,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<GatewayProfile> {
+    let profile = state.db.with_conn(|conn| patch_profile(conn, &id, &patch))?;
+    crate::catalog::invalidate_view_cache();
+    // 编辑档案不切换 Agent 连接，只刷新已经使用网关的目录。
+    crate::commands::providers::push_bound_gateway_catalogs(&state).await?;
+    Ok(profile)
+}
+
+#[tauri::command]
 pub async fn update_gateway_profile(
     target: ProviderTarget,
     patch: GatewayProfilePatch,

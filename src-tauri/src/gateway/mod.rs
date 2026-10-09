@@ -378,8 +378,11 @@ pub fn build_execution_plan_with_chain(
         model: primary_model.to_string(),
         upstream_id: primary_upstream_id.map(str::to_string),
     }];
-    if fallback_mode == "model_chain" {
-        let chain: Vec<String> = extra_chain
+    let explicit_pinned = matches!(source, RouteSource::Explicit)
+        && profile.map(|profile| !profile.explicit_fallback_enabled).unwrap_or(true);
+    let mode_chain = extra_chain.filter(|items| !items.is_empty());
+    if !explicit_pinned && (mode_chain.is_some() || fallback_mode == "model_chain") {
+        let chain: Vec<String> = mode_chain
             .map(|items| items.to_vec())
             .or_else(|| {
                 profile.map(|profile| chain_for_source(profile, source).to_vec())
@@ -387,7 +390,7 @@ pub fn build_execution_plan_with_chain(
             .unwrap_or_default();
         for model in chain {
             let model = model.trim();
-            if model.is_empty() || model.eq_ignore_ascii_case(primary_model) {
+            if model.is_empty() || attempts.iter().any(|attempt| attempt.model.eq_ignore_ascii_case(model)) {
                 continue;
             }
             if attempts.len() >= 3 {
@@ -404,10 +407,7 @@ pub fn build_execution_plan_with_chain(
         attempts,
         fallback_mode: fallback_mode.to_string(),
         primary_model: primary_model.to_string(),
-        explicit_pinned: matches!(source, RouteSource::Explicit)
-            && profile
-                .map(|profile| !profile.explicit_fallback_enabled)
-                .unwrap_or(true),
+        explicit_pinned,
     }
 }
 
@@ -713,6 +713,17 @@ mod tests {
             "https://api.example.test/v1",
             &default_gateway_ports()
         ));
+    }
+
+    #[test]
+    fn mode_chain_works_without_profile_fallback_and_deduplicates() {
+        let chain = vec!["primary".into(), "backup".into(), "BACKUP".into(), "last".into(), "extra".into()];
+        let plan = build_execution_plan_with_chain(None, "primary", Some("p1"), RouteSource::Auto, Some(&chain));
+        assert_eq!(plan.fallback_mode, "off");
+        assert_eq!(plan.attempts.iter().map(|attempt| attempt.model.as_str()).collect::<Vec<_>>(), vec!["primary", "backup", "last"]);
+        let pinned = build_execution_plan_with_chain(None, "primary", Some("p1"), RouteSource::Explicit, Some(&chain));
+        assert!(pinned.explicit_pinned);
+        assert_eq!(pinned.attempts.len(), 1);
     }
 
     #[test]

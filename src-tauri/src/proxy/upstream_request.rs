@@ -252,249 +252,86 @@ async fn proxy_handler(
     let mut translated = prepared.translated;
     let mut retry_without_stream_options = compatible_stream_retry(&provider, &prepared, incoming_stream);
     let mut failover_trace: Vec<String> = Vec::new();
-    let mut upstream_resp = match apply_catalog_subagent_signal(prepared.builder, is_catalog_subagent)
-        .body(prepared.outgoing_body)
-        .send()
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            record_provider_failure(&state, &provider.id);
-            failover_trace.push(format!("{}({}) 网络错误", provider.name, provider.id));
-            let mut excluded = vec![provider.id.clone()];
-            let mut last_error = e.to_string();
-            let mut recovered = None::<reqwest::Response>;
-            let failover_allowed = !route_plan
-                .as_ref()
-                .is_some_and(|plan| plan.explicit_pinned);
-            for _ in 0..FAILOVER_MAX_HOPS {
-                if !failover_allowed {
-                    break;
-                }
-                let Some(mut fallback) =
-                    next_failover_provider(&state, &excluded, &requested_model)
-                        .ok()
-                        .flatten()
-                else {
-                    break;
-                };
-                excluded.push(fallback.id.clone());
-                log::warn!(
-                    "供应商 {} 网络请求失败，尝试故障切换到 {}",
-                    provider.id,
-                    fallback.id
-                );
-                let Ok(fallback_prepared) = prepare_upstream_request(
-                    &state,
-                    &mut fallback,
-                    &method,
-                    &headers,
-                    &incoming,
-                    &body_bytes,
-                    incoming_stream,
-                    &client_model,
-                ) else {
-                    continue;
-                };
-                translated = fallback_prepared.translated;
-                retry_without_stream_options =
-                    compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-                match apply_catalog_subagent_signal(
-                    fallback_prepared.builder,
-                    is_catalog_subagent,
-                )
-                .body(fallback_prepared.outgoing_body)
-                .send()
-                .await
-                {
-                    Ok(response) => {
-                        failover_trace.push(format!("{}({}) 接管", fallback.name, fallback.id));
-                        provider = fallback;
-                        attempt_index = attempt_index.saturating_add(1);
-                        recovered = Some(response);
-                        break;
-                    }
-                    Err(fallback_error) => {
-                        record_provider_failure(&state, &fallback.id);
-                        failover_trace.push(format!("{}({}) 失败: {fallback_error}", fallback.name, fallback.id));
-                        last_error = fallback_error.to_string();
-                    }
-                }
-            }
-            match recovered {
-                Some(response) => response,
-                None => {
-                    let failover_diag = if !failover_trace.is_empty() {
-                        Some(format!("故障降级失败: {}", failover_trace.join(" → ")))
-                    } else {
-                        None
-                    };
-                    log_request_with_diagnostic(
-                        &state,
-                        &provider,
-                        Some(502),
-                        started.elapsed().as_millis() as i64,
-                        uri.path(),
-                        incoming_stream,
-                        Some("network"),
-                        failover_diag.as_deref(),
-                    );
-                    if translated {
-                        log::warn!("转发到 OpenAI 兼容上游失败: {last_error}");
-                        return anthropic_error(
-                            StatusCode::BAD_GATEWAY,
-                            convert::openai_error_to_anthropic(502),
-                        );
-                    }
-                    return json_error(
-                        StatusCode::BAD_GATEWAY,
-                        format!("转发到上游失败: {last_error}"),
-                    );
-                }
-            }
-        }
+    let explicit_models: Vec<String> = route_plan.as_ref()
+        .filter(|plan| !plan.explicit_pinned)
+        .map(|plan| plan.attempts.iter().skip(1).map(|attempt| attempt.model.clone()).collect())
+        .unwrap_or_default();
+    let allow_cross_provider_failover = !route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned);
+    let has_explicit_chain = !explicit_models.is_empty();
+    let mut explicit_models = explicit_models.into_iter();
+    let mut legacy_models = if route_plan.is_none() {
+        provider.failover_models.clone().into_iter()
+    } else {
+        Vec::new().into_iter()
     };
-
-    let allow_cross_provider_failover = !route_plan
-        .as_ref()
-        .is_some_and(|plan| plan.explicit_pinned);
-
-    if is_retryable_upstream_status(&state, upstream_resp.status())
-        && should_failover_upstream_status(&provider, upstream_resp.status())
-    {
-        let plan_models: Vec<String> = route_plan
-            .as_ref()
-            .filter(|plan| plan.fallback_mode == "model_chain" && !plan.explicit_pinned)
-            .map(|plan| {
-                plan.attempts
-                    .iter()
-                    .skip(1)
-                    .map(|attempt| attempt.model.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-        let model_chain = if plan_models.is_empty() {
-            if route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned) {
-                Vec::new()
-            } else {
-                provider.failover_models.clone()
-            }
-        } else {
-            plan_models
+    let mut excluded = vec![provider.id.clone()];
+    let mut outgoing = apply_catalog_subagent_signal(prepared.builder, is_catalog_subagent)
+        .body(prepared.outgoing_body);
+    let mut upstream_resp = loop {
+        let result = send_observed_upstream(outgoing, &provider).await;
+        let can_explicit = allow_cross_provider_failover && match &result {
+            Ok(response) => should_try_explicit_response(&provider, response),
+            Err(_) => true,
         };
-        for next_model in model_chain {
-            let next_model = next_model.trim().to_string();
-            if next_model.is_empty() || next_model.eq_ignore_ascii_case(&requested_model) {
-                continue;
-            }
-            if let Some(object) = incoming.as_object_mut() {
-                object.insert("model".to_string(), Value::String(next_model.clone()));
-            }
-            body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &next_model));
-            requested_model = next_model.clone();
-            let Ok(fallback_prepared) = prepare_upstream_request(
-                &state,
-                &mut provider,
-                &method,
-                &headers,
-                &incoming,
-                &body_bytes,
-                incoming_stream,
-                &client_model,
-            ) else {
-                continue;
-            };
-            translated = fallback_prepared.translated;
-            retry_without_stream_options =
-                compatible_stream_retry(&provider, &fallback_prepared, incoming_stream);
-            match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
-                .body(fallback_prepared.outgoing_body)
-                .send()
-                .await
-            {
-                Ok(response) if !is_retryable_upstream_status(&state, response.status()) => {
-                    failover_trace.push(format!("{} 模型 {} 接管", provider.name, next_model));
-                    attempt_index = attempt_index.saturating_add(1);
-                    upstream_resp = response;
+        let can_generic = allow_cross_provider_failover && match &result {
+            Ok(response) => is_retryable_upstream_status(&state, response.status())
+                && should_failover_upstream_status(&provider, response.status()),
+            Err(_) => !provider.is_kiro(),
+        };
+        let mut next = None;
+        if can_explicit && has_explicit_chain {
+            for model in explicit_models.by_ref() {
+                if let Ok(Some((candidate, slug))) = resolve_explicit_fallback(&state, &model) {
+                    if candidate.id == provider.id && slug == requested_model { continue; }
+                    if !crate::gateway::health::is_available(&candidate.id, Some(&slug)) { continue; }
+                    next = Some((candidate, slug));
                     break;
                 }
-                Ok(response) => {
-                    failover_trace.push(format!(
-                        "{} 模型 {} 状态码 {}",
-                        provider.name,
-                        next_model,
-                        response.status()
-                    ));
-                    upstream_resp = response;
-                }
-                Err(error) => {
-                    failover_trace.push(format!("{} 模型 {} 失败: {error}", provider.name, next_model));
+            }
+        } else if can_generic && !has_explicit_chain {
+            if let Some(model) = legacy_models.next() {
+                next = Some((provider.clone(), model));
+            } else if attempt_index < FAILOVER_MAX_HOPS as i64 {
+                if let Ok(Some(candidate)) = next_failover_provider(&state, &excluded, &requested_model) {
+                    next = Some((candidate, requested_model.clone()));
                 }
             }
         }
-    }
-
-    if allow_cross_provider_failover
-        && is_retryable_upstream_status(&state, upstream_resp.status())
-        && should_failover_upstream_status(&provider, upstream_resp.status())
-    {
-        failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream_resp.status()));
-        let mut excluded = vec![provider.id.clone()];
-        for _ in 0..FAILOVER_MAX_HOPS {
-            let Some(mut fallback) =
-                next_failover_provider(&state, &excluded, &requested_model)
-                    .ok()
-                    .flatten()
-            else {
-                break;
-            };
-            excluded.push(fallback.id.clone());
-            log::warn!(
-                "供应商 {} 返回 {}，尝试故障切换到 {}",
-                provider.id,
-                upstream_resp.status(),
-                fallback.id
-            );
-            let Ok(fallback_prepared) = prepare_upstream_request(
-                &state,
-                &mut fallback,
-                &method,
-                &headers,
-                &incoming,
-                &body_bytes,
-                incoming_stream,
-                &client_model,
-            ) else {
-                continue;
-            };
-            let fallback_translated = fallback_prepared.translated;
-            let fallback_retry =
-                compatible_stream_retry(&fallback, &fallback_prepared, incoming_stream);
-            match apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
-                .body(fallback_prepared.outgoing_body)
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    provider = fallback;
-                    translated = fallback_translated;
-                    retry_without_stream_options = fallback_retry;
-                    upstream_resp = response;
-                    if !is_retryable_upstream_status(&state, upstream_resp.status()) {
-                        failover_trace.push(format!("{}({}) 接管成功", provider.name, provider.id));
-                        break;
-                    }
-                    record_provider_failure(&state, &provider.id);
-                    failover_trace.push(format!("{}({}) 状态码 {}", provider.name, provider.id, upstream_resp.status()));
-                }
+        let Some((mut candidate, model)) = next else {
+            match result {
+                Ok(response) => break response,
                 Err(error) => {
-                    record_provider_failure(&state, &fallback.id);
-                    failover_trace.push(format!("{}({}) 连接失败: {error}", fallback.name, fallback.id));
-                    log::warn!("备用供应商 {} 连接失败: {error}", fallback.id);
+                    log_request_with_diagnostic(&state, &provider, Some(502),
+                        started.elapsed().as_millis() as i64, uri.path(), incoming_stream,
+                        Some("network"), Some(&format!("故障降级失败: {}", failover_trace.join(" → "))));
+                    return if translated {
+                        anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502))
+                    } else {
+                        json_error(StatusCode::BAD_GATEWAY, format!("转发到上游失败: {error}"))
+                    };
                 }
             }
+        };
+        failover_trace.push(format!("{}({}) {} → {}", provider.name, provider.id,
+            result.as_ref().map(|response| response.status().to_string()).unwrap_or_else(|_| "网络错误".into()), candidate.name));
+        if let Some(object) = incoming.as_object_mut() {
+            object.insert("model".into(), Value::String(model.clone()));
         }
-    }
+        body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &model));
+        let fallback_prepared = match prepare_upstream_request(&state, &mut candidate, &method,
+            &headers, &incoming, &body_bytes, incoming_stream, &client_model) {
+            Ok(prepared) => prepared,
+            Err(error) => return json_error(StatusCode::BAD_REQUEST, error.to_string()),
+        };
+        translated = fallback_prepared.translated;
+        retry_without_stream_options = compatible_stream_retry(&candidate, &fallback_prepared, incoming_stream);
+        outgoing = apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
+            .body(fallback_prepared.outgoing_body);
+        requested_model = model;
+        excluded.push(candidate.id.clone());
+        provider = candidate;
+        attempt_index = attempt_index.saturating_add(1);
+    };
 
     if let Some(retry_request) = retry_without_stream_options {
         let rejected_status = upstream_resp.status();
@@ -531,7 +368,7 @@ async fn proxy_handler(
                 log::info!(
                     "上游明确不支持 stream_options.include_usage，移除该字段后兼容重试一次"
                 );
-                upstream_resp = match retry_request.send().await {
+                upstream_resp = match send_observed_upstream(retry_request, &provider).await {
                     Ok(response) => response,
                     Err(error) => {
                         let log_id = log_request(
@@ -581,9 +418,6 @@ async fn proxy_handler(
     }
 
     let status = upstream_resp.status();
-    if status.is_success() {
-        record_provider_success(&state, &provider.id);
-    }
     let duration_ms = started.elapsed().as_millis() as i64;
     let error_category = (!status.is_success()).then(|| upstream_error_category(status));
     let failover_diag = if !failover_trace.is_empty() {
@@ -800,6 +634,7 @@ async fn proxy_handler(
                 );
                 let mut excluded = vec![provider.id.clone()];
                 for _ in 0..FAILOVER_MAX_HOPS {
+                    if !allow_cross_provider_failover || has_explicit_chain { break; }
                     let Some(mut fallback) =
                         next_failover_provider(&state, &excluded, &requested_model)
                             .ok()

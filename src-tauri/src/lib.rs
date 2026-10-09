@@ -127,7 +127,7 @@ use crate::commands::{
     stop_antigravity_gateway, test_antigravity_account,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled, get_agent_connection, set_agent_connection,
-    get_gateway_profile, list_gateway_profiles, update_gateway_profile, list_gateway_route_logs,
+    get_gateway_profile, list_gateway_profiles, update_gateway_profile, update_gateway_profile_by_id, list_gateway_route_logs,
     create_gateway_profile, rename_gateway_profile, delete_gateway_profile, set_gateway_binding_profile,
     list_gateway_upstreams, upsert_gateway_upstream, delete_gateway_upstream, add_antigravity_gateway_upstream,
     add_kiro_gateway_upstream,

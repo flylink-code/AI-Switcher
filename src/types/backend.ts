@@ -89,6 +89,7 @@ export interface GatewayUpstreamHealth {
   cooldownRemainingMs: number;
   lastLatencyMs?: number | null;
   lastCheckedAt: number;
+  lastError?: string | null;
 }
 
 export interface SmartGatewayInboundLimits {

@@ -67,6 +67,7 @@ import {
   startSmartGateway,
   stopSmartGateway,
   unbindSmartGateway,
+  updateGatewayProfileById,
   updateRouteMode,
 } from "@/services/providers";
 import type { ProviderTarget, RouteMode, GatewayCatalogModelOption, GatewayRouteLog, GatewayProfile } from "@/types/backend";
@@ -480,8 +481,10 @@ export default function GatewayPage() {
       await queryClient.invalidateQueries({ queryKey: ["smart-gateway-status"] });
       await queryClient.invalidateQueries({ queryKey: ["providers"] });
     },
-    onError: (error) => {
+    onError: async (error) => {
       void message.error(errMsg(error));
+      await queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
+      await queryClient.invalidateQueries({ queryKey: ["smart-gateway-status"] });
     },
   });
 
@@ -548,9 +551,14 @@ export default function GatewayPage() {
   };
 
   const patchMode = (id: string, patch: Parameters<typeof updateRouteMode>[1]) => {
-    void updateRouteMode(id, patch, profileId).then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["route-modes", profileId] });
-    });
+    void updateRouteMode(id, patch, profileId)
+      .then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["route-modes", profileId] });
+      })
+      .catch((error) => {
+        void message.error(errMsg(error));
+        void queryClient.invalidateQueries({ queryKey: ["route-modes", profileId] });
+      });
   };
 
   if (tab === "antigravity") {
@@ -830,6 +838,7 @@ export default function GatewayPage() {
                       void queryClient.invalidateQueries({ queryKey: ["providers"] });
                     }).catch((error) => {
                       void message.error(errMsg(error));
+                      void queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
                     });
                   }}
                 />
@@ -899,10 +908,46 @@ export default function GatewayPage() {
               </Button>
             </Popconfirm>
           </Space>
+          <Space wrap align="center">
+            <Text type="secondary">{t("gateway.profileFallbackMode", { defaultValue: "故障转移" })}</Text>
+            <Tooltip
+              title={t("gateway.profileFallbackModeHint", {
+                defaultValue: "档案故障转移开关不关闭模式中显式配置的备用模型",
+              })}
+            >
+              <Select
+                size="small"
+                style={{ minWidth: 160 }}
+                value={editingProfile?.fallbackMode || "off"}
+                options={[
+                  { value: "off", label: t("gateway.fallbackModeOff", { defaultValue: "关闭 (off)" }) },
+                  { value: "retry", label: t("gateway.fallbackModeRetry", { defaultValue: "同模型重试 (retry)" }) },
+                  { value: "model_chain", label: t("gateway.fallbackModeModelChain", { defaultValue: "备用链 (model_chain)" }) },
+                ]}
+                onChange={async (value) => {
+                  try {
+                    await updateGatewayProfileById(
+                      profileId,
+                      { fallbackMode: value },
+                    );
+                    await refreshProfiles();
+                  } catch (error) {
+                    void message.error(errMsg(error));
+                    await refreshProfiles();
+                  }
+                }}
+              />
+            </Tooltip>
+          </Space>
         </Space>
         <Text type="secondary" style={{ display: "block", marginTop: 8 }}>
           {t("gateway.profileToolbarHint", {
             defaultValue: "这里改的是档案内容，和各 Agent Auto 卡选用哪一套无关。",
+          })}
+        </Text>
+        <Text type="secondary" style={{ display: "block", marginTop: 2, fontSize: 12 }}>
+          {t("gateway.profileFallbackModeHint", {
+            defaultValue: "档案故障转移开关不关闭模式中显式配置的备用模型",
           })}
         </Text>
         {profileUsers.length > 0 ? (
@@ -1049,18 +1094,30 @@ export default function GatewayPage() {
             {
               title: t("gateway.fallback", { defaultValue: "备用" }),
               render: (_: unknown, row: RouteMode) => (
-                <Select
-                  {...catalogModelSelectProps}
-                  mode="multiple"
-                  allowClear
-                  maxTagCount={1}
-                  style={{ minWidth: 160 }}
-                  value={row.fallbackModels}
-                  options={modelOptions}
-                  onChange={(value) => {
-                    void patchMode(row.id, { fallbackModels: value.slice(0, 3) });
-                  }}
-                />
+                <Space size={4} align="center">
+                  <Select
+                    {...catalogModelSelectProps}
+                    mode="multiple"
+                    allowClear
+                    maxTagCount={1}
+                    style={{ minWidth: 160 }}
+                    value={row.fallbackModels}
+                    options={modelOptions}
+                    onChange={(value) => {
+                      void patchMode(row.id, { fallbackModels: value.slice(0, 2) });
+                    }}
+                  />
+                  <Tooltip
+                    title={t("gateway.fallbackCountHint", {
+                      count: row.fallbackModels?.length ?? 0,
+                      defaultValue: `已配置 ${row.fallbackModels?.length ?? 0}/2 个备用模型`,
+                    })}
+                  >
+                    <Tag style={{ margin: 0 }}>
+                      {`${row.fallbackModels?.length ?? 0}/2`}
+                    </Tag>
+                  </Tooltip>
+                </Space>
               ),
             },
             {
