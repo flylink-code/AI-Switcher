@@ -39,17 +39,12 @@ pub fn set_default_codex_oauth_account(account_id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn ensure_codex_oauth_provider(
+pub async fn ensure_codex_oauth_provider(
     target: ProviderTarget,
     account_id: String,
     model: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
-    if !matches!(target, ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop) {
-        return Err(AppError::Config(
-            "ChatGPT 订阅目前仅支持 Claude Code 和 Claude Desktop".to_string(),
-        ));
-    }
     if !manager()
         .list_accounts()
         .iter()
@@ -59,7 +54,7 @@ pub fn ensure_codex_oauth_provider(
     }
     manager().set_default_account(&account_id)?;
     let existing = state.db.with_conn(|conn| {
-        Ok(dao::list_providers(conn, target)?
+        Ok(dao::gateway::list_upstream_providers(conn, true)?
             .into_iter()
             .find(|provider| {
                 provider.provider_kind == ProviderKind::CodexOauth
@@ -90,5 +85,14 @@ pub fn ensure_codex_oauth_provider(
         thinking_config: None,
         custom_headers: None,
     };
-    state.db.with_conn(|conn| dao::upsert_provider(conn, &input))
+    let mut provider = state
+        .db
+        .with_conn(|conn| dao::gateway::upsert_upstream(conn, &input))?;
+    crate::catalog::invalidate_view_cache();
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    provider.target_app = target;
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
+    }
+    Ok(provider)
 }

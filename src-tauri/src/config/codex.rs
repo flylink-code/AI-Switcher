@@ -651,6 +651,42 @@ fn auth_restore_would_downgrade_login(live: Option<&Value>, backup_bytes: &[u8])
     !backup.as_ref().is_some_and(auth_has_credential_login_material)
 }
 
+/// 读取用户当前第三方配置供全局上游导入，不把官方 OAuth 凭据当 API Key。
+pub fn read_current_upstream_for_import() -> AppResult<Option<LiveProviderInfo>> {
+    let doc = load_document(&get_codex_config_path())?;
+    let provider_id = doc.get("model_provider").and_then(Item::as_str).unwrap_or("openai");
+    let Some(table) = doc.get("model_providers")
+        .and_then(|providers| providers.get(provider_id)).and_then(Item::as_table) else {
+        return Ok(None);
+    };
+    let base_url = table.get("base_url").and_then(Item::as_str).unwrap_or("");
+    if base_url.is_empty() {
+        return Ok(None);
+    }
+    let key = table.get("experimental_bearer_token").and_then(Item::as_str)
+        .map(str::to_string)
+        .or_else(|| table.get("env_key").and_then(Item::as_str).and_then(|name| std::env::var(name).ok()))
+        .unwrap_or_default();
+    let auth_token = if key.is_empty() {
+        std::fs::read_to_string(get_codex_auth_path()).ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .and_then(|auth| auth.get("OPENAI_API_KEY").and_then(serde_json::Value::as_str).map(str::to_string))
+            .unwrap_or_default()
+    } else {
+        key
+    };
+    Ok(Some(LiveProviderInfo {
+        base_url: base_url.to_string(), auth_token,
+        model: doc.get("model").and_then(Item::as_str).unwrap_or("").to_string(),
+        model_mapping: ClaudeModelMapping::default(),
+        protocol_type: if table.get("wire_api").and_then(Item::as_str) == Some("chat") {
+            crate::provider::ProtocolType::OpenAiChat
+        } else {
+            crate::provider::ProtocolType::OpenAiResponses
+        },
+    }))
+}
+
 pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     let doc = load_document(&get_codex_config_path())?;
     let provider_id = doc["model_provider"].as_str().unwrap_or_default();

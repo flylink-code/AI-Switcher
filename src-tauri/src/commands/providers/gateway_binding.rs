@@ -28,6 +28,9 @@ pub async fn repair_current_desktop_profile(state: &AppState) -> AppResult<()> {
 /// Reapply the active Codex provider when the managed `ai_switcher` entry is
 /// out of sync with the current routing mode.
 pub async fn repair_codex_managed_proxy_endpoint(state: &AppState) -> AppResult<()> {
+    if direct_connection_upstream(state, ProviderTarget::Codex)?.is_some() {
+        return Ok(());
+    }
     if gateway_catalog_on(state, ProviderTarget::Codex) {
         let current = state
             .db
@@ -95,6 +98,9 @@ fn is_loopback_v1_base_url(base_url: &str) -> bool {
 /// Reapply an active Claude Code provider only when the live model fields use
 /// the pre-display-name or pre-role-alias format.
 pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()> {
+    if direct_connection_upstream(state, ProviderTarget::ClaudeCode)?.is_some() {
+        return Ok(());
+    }
     let provider = state
         .db
         .with_conn(|conn| dao::get_current_provider(conn, ProviderTarget::ClaudeCode))?;

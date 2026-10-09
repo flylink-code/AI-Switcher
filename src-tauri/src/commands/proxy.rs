@@ -328,6 +328,22 @@ pub async fn ensure_runtime_proxies(app: &tauri::AppHandle, state: &AppState) {
         crate::provider::ProviderTarget::Codex,
         crate::provider::ProviderTarget::Cline,
     ] {
+        let unified_connection = state.db.with_read_conn(|conn| {
+            crate::database::dao::gateway::binding_for_target(conn, target)
+        }).ok().flatten();
+        if let Some(binding) = unified_connection.as_ref() {
+            if target != crate::provider::ProviderTarget::ClaudeDesktop {
+                // 新直连不会留下 current 卡；迁移保留的旧卡继续提供原协议转换。
+                let legacy_direct_proxy = binding.mode == "direct" && state.db.with_read_conn(|conn| {
+                    Ok(get_current_provider(conn, target)?.is_some_and(|provider| provider.requires_local_proxy()))
+                }).unwrap_or(false);
+                if !legacy_direct_proxy {
+                    continue;
+                }
+            }
+        } else if target == crate::provider::ProviderTarget::Cline {
+            continue;
+        }
         let needs_proxy = if target == crate::provider::ProviderTarget::Cline {
             state
                 .db

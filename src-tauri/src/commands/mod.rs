@@ -87,7 +87,7 @@ pub use backup::{
     preview_library_backup, restore_library_backup, restore_library_from_webdav,
     set_webdav_settings, upload_library_to_webdav,
 };
-pub use db::get_db_info;
+pub use db::{get_db_info, rollback_v34};
 pub use data_root::{get_data_root, migrate_data_root};
 pub use deeplink::{
     build_mcp_deeplink, build_provider_deeplink, build_skill_deeplink, confirm_import_preview, preview_import_text,
@@ -146,7 +146,8 @@ pub use providers::{
     set_gateway_catalog_opusplan, set_gateway_catalog_plan, set_gateway_catalog_execute,
     set_claude_code_default_permission_mode, set_claude_code_agent_settings,
     set_opencode_permission_mode, speedtest_provider_endpoint,
-    switch_provider, switch_to_official,
+    switch_provider, switch_to_official, set_agent_direct, get_agent_connection_mode,
+    test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
     test_provider_connection, test_provider_input, update_provider,
     ensure_smart_gateway_provider,
 };

@@ -6,9 +6,9 @@ use serde::Serialize;
 
 use crate::commands::providers::sync_live_after_connection_change;
 use crate::database::dao::gateway::{
-    current_connection_view, current_profile, delete_upstream, ensure_profile_for_target,
+    current_profile, delete_upstream, ensure_profile_for_target,
     import_providers_as_upstreams, list_profiles, list_upstream_models, list_upstream_providers,
-    patch_profile, replace_upstream_models, set_current_connection_type, set_upstream_model_visible,
+    patch_profile, replace_upstream_models, set_upstream_model_visible,
     upsert_upstream, AgentConnectionView, ConnectionType, GatewayBinding, GatewayProfile,
     GatewayProfilePatch, GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
@@ -23,9 +23,41 @@ pub fn get_agent_connection(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<AgentConnectionView> {
-    state
-        .db
-        .with_conn(|conn| current_connection_view(conn, target))
+    state.db.with_read_conn(|conn| {
+        let binding = crate::database::dao::gateway::binding_for_target(conn, target)?;
+        match binding {
+            Some(b) if b.mode == "direct" => {
+                let upstream_id = if b.direct_upstream_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(b.direct_upstream_id)
+                };
+                Ok(AgentConnectionView {
+                    target,
+                    connection_type: ConnectionType::External,
+                    upstream_id,
+                    profile: None,
+                })
+            }
+            Some(_) if crate::database::dao::gateway::is_gateway_connection(conn, target) => {
+                let profile = crate::database::dao::gateway::current_profile(conn, target)?;
+                Ok(AgentConnectionView {
+                    target,
+                    connection_type: ConnectionType::Gateway,
+                    upstream_id: None,
+                    profile,
+                })
+            }
+            _ => {
+                Ok(AgentConnectionView {
+                    target,
+                    connection_type: ConnectionType::External,
+                    upstream_id: None,
+                    profile: None,
+                })
+            }
+        }
+    })
 }
 
 #[tauri::command]
@@ -36,15 +68,16 @@ pub async fn set_agent_connection(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<AgentConnectionView> {
     let kind = ConnectionType::from_str_lossy(&connection_type);
-    state.db.with_conn(|conn| {
-        ensure_profile_for_target(conn, target)?;
-        set_current_connection_type(conn, target.as_str(), kind)
-    })?;
-    sync_live_after_connection_change(target, kind == ConnectionType::Gateway, &app, &state).await?;
+    match kind {
+        ConnectionType::Gateway => {
+            crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state).await?;
+        }
+        ConnectionType::External => {
+            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state).await?;
+        }
+    }
     crate::commands::proxy::publish_target_status(&app, &state, target).await;
-    state
-        .db
-        .with_conn(|conn| current_connection_view(conn, target))
+    get_agent_connection(target, state)
 }
 
 #[tauri::command]
@@ -52,8 +85,7 @@ pub fn get_gateway_profile(
     target: ProviderTarget,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Option<GatewayProfile>> {
-    state.db.with_conn(|conn| {
-        ensure_profile_for_target(conn, target)?;
+    state.db.with_read_conn(|conn| {
         current_profile(conn, target)
     })
 }
@@ -297,14 +329,38 @@ pub fn list_gateway_upstreams(state: tauri::State<'_, AppState>) -> AppResult<Ve
 }
 
 #[tauri::command]
-pub fn upsert_gateway_upstream(
+pub async fn upsert_gateway_upstream(
     input: ProviderInput,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
     if input.provider_kind == ProviderKind::SmartGateway {
         return Err(AppError::Config("托管 Auto 卡不能加入上游池".to_string()));
     }
-    state.db.with_conn(|conn| upsert_upstream(conn, &input))
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+
+    if let Some(upstream_id) = input.id.as_deref() {
+        state.db.with_read_conn(|conn| {
+            crate::commands::providers::validate_upstream_update_for_direct_bindings(
+                conn,
+                upstream_id,
+                input.provider_kind,
+                input.protocol_type,
+            )
+        })?;
+    }
+
+    let mut provider = state.db.with_conn(|conn| upsert_upstream(conn, &input))?;
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    if let Err(error) = crate::commands::providers::refresh_direct_upstream_locked(&provider.id, Some(&app), &state).await {
+        return Err(AppError::Config(format!(
+            "上游数据已保存，但刷新直连 Agent 配置失败: {error}"
+        )));
+    }
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
+    }
+    Ok(provider)
 }
 
 #[tauri::command]
@@ -342,11 +398,14 @@ pub async fn set_gateway_upstream_model_visible(
     id: String,
     model_id: String,
     visible: bool,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayUpstreamModelRow>> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
     let rows = state
         .db
         .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))?;
+    crate::commands::providers::refresh_direct_upstream_locked(&id, Some(&app), &state).await?;
     let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
     Ok(rows)
 }
@@ -420,7 +479,8 @@ async fn discover_one_upstream(
 }
 
 #[tauri::command]
-pub fn delete_gateway_upstream(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub async fn delete_gateway_upstream(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
     state.db.with_conn(|conn| delete_upstream(conn, &id))
 }
 
@@ -475,7 +535,11 @@ pub fn add_antigravity_gateway_upstream(state: tauri::State<'_, AppState>) -> Ap
         thinking_config: None,
         custom_headers: None,
     };
-    state.db.with_conn(|conn| upsert_upstream(conn, &input))
+    let mut provider = state.db.with_conn(|conn| upsert_upstream(conn, &input))?;
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
+    }
+    Ok(provider)
 }
 
 #[tauri::command]
@@ -532,7 +596,11 @@ pub fn add_kiro_gateway_upstream(state: tauri::State<'_, AppState>) -> AppResult
         thinking_config: None,
         custom_headers: None,
     };
-    state.db.with_conn(|conn| upsert_upstream(conn, &input))
+    let mut provider = state.db.with_conn(|conn| upsert_upstream(conn, &input))?;
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
+    }
+    Ok(provider)
 }
 
 #[tauri::command]
@@ -593,30 +661,10 @@ pub async fn bind_smart_gateway(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Provider> {
-    let enabled = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::list_upstream_providers(conn, false))?;
-    if enabled.is_empty() {
-        return Err(AppError::Config("请先在上游池中添加至少一个供应商".into()));
+    let mut provider = crate::commands::providers::set_agent_gateway_for_target(target, Some(&app), &state).await?;
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
     }
-    crate::gateway::service::mark_enabled(state.db.as_ref())?;
-    if !crate::gateway::service::current_status().running {
-        crate::gateway::service::start_via_state(&state, None).await?;
-    }
-    let provider_id = crate::gateway::smart_gateway_provider_id(target);
-    state.db.with_conn(|conn| {
-        crate::database::dao::gateway::upsert_binding(conn, target, &provider_id)
-    })?;
-    crate::catalog::invalidate_view_cache();
-    let provider = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target)?;
-    if target.is_catalog_target() {
-        state
-            .db
-            .with_conn(|conn| crate::database::dao::clear_current_provider(conn, target))?;
-    } else {
-        crate::commands::providers::switch_provider_for_target(&provider.id, target, Some(&app), &state).await?;
-    }
-    crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state).await?;
     crate::gateway::service::emit_status(&app);
     Ok(provider)
 }
@@ -627,16 +675,29 @@ pub async fn unbind_smart_gateway(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
-    state
+    let binding = state
         .db
-        .with_conn(|conn| crate::database::dao::gateway::delete_binding(conn, target))?;
-    if target.is_catalog_target() {
-        state
+        .with_read_conn(|conn| crate::database::dao::gateway::binding_for_target(conn, target))?;
+
+    if let Some(binding) = binding {
+        if binding.mode == "direct" {
+            return Err(AppError::Config(
+                "当前Agent使用直连，请在Agent连接中切换".into(),
+            ));
+        }
+        let is_gw = state
             .db
-            .with_conn(|conn| crate::database::dao::clear_current_provider(conn, target))?;
+            .with_read_conn(|conn| Ok(crate::database::dao::gateway::is_gateway_connection(conn, target)))
+            .unwrap_or(false);
+        if is_gw {
+            crate::commands::providers::switch_to_official_for_target(target, Some(&app), &state).await?;
+        } else {
+            state
+                .db
+                .with_conn(|conn| crate::database::dao::gateway::delete_binding(conn, target))?;
+            crate::catalog::invalidate_view_cache();
+        }
     }
-    crate::catalog::invalidate_view_cache();
-    crate::commands::providers::sync_live_after_connection_change(target, false, &app, &state).await?;
     crate::gateway::service::emit_status(&app);
     Ok(())
 }

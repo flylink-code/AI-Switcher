@@ -71,6 +71,30 @@ export async function ensureCodexOauthProvider(
   });
 }
 
+export async function setAgentDirect(target: ProviderTarget, upstreamId: string): Promise<Provider> {
+  return call<Provider>("set_agent_direct", { target, upstreamId });
+}
+
+export async function getAgentConnectionMode(target: ProviderTarget): Promise<string> {
+  return call<string>("get_agent_connection_mode", { target });
+}
+
+export async function importLiveConfigAsUpstreams(target: ProviderTarget): Promise<ProviderImportResult> {
+  return call<ProviderImportResult>("import_live_config_as_upstreams", { target });
+}
+
+export async function testUpstreamConnection(id: string): Promise<ConnectionTestResult> {
+  return call<ConnectionTestResult>("test_upstream_connection", { id });
+}
+
+export async function exportGatewayUpstreams(): Promise<string> {
+  return call<string>("export_gateway_upstreams");
+}
+
+export async function importGatewayUpstreamsJson(json: string): Promise<ProviderImportResult> {
+  return call<ProviderImportResult>("import_gateway_upstreams_json", { json });
+}
+
 export async function getCurrentProvider(target: ProviderTarget): Promise<Provider | null> {
   return call<Provider | null>("get_current_provider", { target });
 }

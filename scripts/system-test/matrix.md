@@ -9,9 +9,11 @@ IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acc
 | `SG-regress-independent-not-stolen` | L1+L2 | Independent Code current + `update_route_mode` does not write `:15828` |
 | `SG-regress-auto-current-writes-gateway` | L1+L2 | Bind + Auto current writes gateway URL + discovery; leaving Auto clears it |
 | `SG-p0-simulate-default-mode` | L1+L2 | `simulate_gateway_route` (`claude.auto`) uses the default mode, not `gpt-6-astra` |
-| `SG-p0-catalog-bind-appends-auto` | L1+L2 | OpenCode bind appends Auto and keeps the independent provider |
+| `SG-p0-catalog-bind-appends-auto` | L1+L2 | OpenCode bind writes Auto as only managed entry; legacy direct kept in DB but not in live config |
 | `SG-p0-agent-proxy-hop` | L1 (+ L2 optional CLI) | Same `correlation_id` keeps innermost hop; live L2 checks `agent_proxy` when a request exists |
 | `SG-p0-protocol-responses-bridge` | L1 | Responses→Chat unified assistant (text+tool_calls un-split) to loopback mock; AG Responses→Gemini single model content + mid-session reminder |
+| `SG-providers-pool-crud` | L2 | Global upstream pool CRUD, export/import JSON, deletion rejection when referenced by direct (IPC-level verification) |
+| `SG-agent-connection-card` | L2 | Agent connection transitions (official/direct/gateway), profile selection rejection in direct/unbound, direct without :15828, deletion safety (IPC-level verification) |
 | `SG-A-bind-code` | L2 (via auto-current) | `bind_smart_gateway` for Claude Code |
 | optional `claude -p --bare` | L2 `-ClaudeCode` | Real CLI against isolated URL; hop is `agent_proxy` or `smart_gateway` |
 

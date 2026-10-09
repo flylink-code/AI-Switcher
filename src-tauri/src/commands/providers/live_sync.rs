@@ -125,11 +125,9 @@ fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
     Ok(())
 }
 
-/// 把 DB 中全部 OpenCode 供应商写入 `opencode.json`（多供应商并存，无需切换）。
+/// 按连接模式写出 OpenCode 的单一托管入口。
 pub(crate) fn sync_opencode_providers_to_live(state: &AppState) -> AppResult<()> {
-    let providers = state
-        .db
-        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::OpenCode))?;
+    let providers = catalog_connection_providers(state, ProviderTarget::OpenCode)?;
     let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
     for provider in providers {
         entries.push(hydrate_catalog_runtime(state, provider)?);
@@ -249,6 +247,20 @@ pub async fn import_providers_json(
         sync_gateway_catalog_target(ProviderTarget::Codex, Some(&app), &state).await?;
     }
     Ok(ProviderImportResult { imported, skipped })
+}
+
+fn catalog_connection_providers(state: &AppState, target: ProviderTarget) -> AppResult<Vec<Provider>> {
+    let binding = state.db.with_read_conn(|conn| {
+        crate::database::dao::gateway::binding_for_target(conn, target)
+    })?;
+    match binding {
+        Some(binding) if binding.mode == "direct" => state.db.with_read_conn(|conn| {
+            Ok(vec![crate::database::dao::gateway::provider_from_upstream(conn, &binding.direct_upstream_id, target)?])
+        }),
+        Some(_) => Ok(vec![ensure_smart_gateway_provider_row(state, target)?]),
+        // 官方模式不重新写出升级前保留的供应商卡。
+        None => Ok(Vec::new()),
+    }
 }
 
 fn sync_catalog_target(state: &AppState, target: ProviderTarget) -> AppResult<()> {
@@ -422,34 +434,16 @@ fn hydrate_catalog_runtime(
     if runtime.is_kiro() && runtime.api_key.trim().is_empty() {
         runtime.api_key = crate::kiro::gateway::builtin_api_key();
     }
-    let extra_models = match provider.target_app {
-        ProviderTarget::Pi => state
-            .db
-            .with_conn(|conn| extra_models_for_pi_apply(conn, &runtime))
-            .unwrap_or_default(),
-        ProviderTarget::Cline => {
-            let cached = state
-                .db
-                .with_conn(|conn| {
-                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                        .map(|cache| cache.models)
-                        .unwrap_or_default())
-                })
-                .unwrap_or_default();
-            runtime.filter_hidden_models(cached)
+    let extra_models = state.db.with_read_conn(|conn| {
+        if crate::database::dao::gateway::get_upstream_provider(conn, &provider.id)?.is_some() {
+            return Ok(provider.filter_hidden_models(
+                crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &provider.id)?,
+            ));
         }
-        _ => {
-            let cached = state
-                .db
-                .with_conn(|conn| {
-                    Ok(dao::get_provider_model_cache(conn, &provider.id)?
-                        .map(|cache| cache.models)
-                        .unwrap_or_default())
-                })
-                .unwrap_or_default();
-            extra_models_for_ag_catalog_apply(&provider, cached)
-        }
-    };
+        let cached = dao::get_provider_model_cache(conn, &provider.id)?
+            .map(|cache| cache.models).unwrap_or_default();
+        Ok(extra_models_for_ag_catalog_apply(&provider, cached))
+    })?;
     Ok((runtime, extra_models))
 }
 
@@ -469,6 +463,9 @@ pub(crate) async fn push_bound_gateway_catalogs(state: &AppState) -> AppResult<(
         .db
         .with_conn(crate::database::dao::gateway::list_bindings)?;
     for binding in bindings {
+        if binding.mode != "gateway" {
+            continue;
+        }
         match binding.target_app {
             ProviderTarget::OpenCode
             | ProviderTarget::Pi
@@ -519,10 +516,12 @@ async fn sync_gateway_catalog_target<R: tauri::Runtime>(
         .with_conn(|conn| crate::database::dao::gateway::binding_for_target(conn, target))
         .ok()
         .flatten()
+        .filter(|binding| binding.mode == "gateway")
         .is_some();
     if !bound {
         return Ok(());
     }
+    ensure_reverse_gateways_for_pool(state).await?;
     let auto = ensure_smart_gateway_provider_row(state, target)?;
     let _ = apply_target_provider(&auto, app, state).await?;
     let _ = state
@@ -549,9 +548,7 @@ pub(crate) fn sync_dsh_providers_to_live(state: &AppState) -> AppResult<()> {
 pub(crate) fn sync_cline_providers_to_live(state: &AppState) -> AppResult<()> {
     use crate::config::cline::sync_managed_cline_providers;
 
-    let providers = state
-        .db
-        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Cline))?;
+    let providers = catalog_connection_providers(state, ProviderTarget::Cline)?;
     let mut entries: Vec<(Provider, Vec<String>)> = Vec::with_capacity(providers.len());
     for provider in providers {
         entries.push(hydrate_catalog_runtime(state, provider)?);
@@ -559,15 +556,13 @@ pub(crate) fn sync_cline_providers_to_live(state: &AppState) -> AppResult<()> {
     sync_managed_cline_providers(&entries)
 }
 
-/// 把 DB 中全部 Pi 供应商写入 `models.json` / `auth.json`（多供应商并存，无需切换）。
+/// 按连接模式写出 Pi 的单一托管入口与凭据。
 pub(crate) fn sync_pi_providers_to_live(state: &AppState) -> AppResult<()> {
     use crate::coding::pi::config::{
         read_pi_settings, sync_managed_pi_auth, sync_managed_pi_providers, update_pi_settings,
     };
 
-    let providers = state
-        .db
-        .with_conn(|conn| dao::list_providers(conn, ProviderTarget::Pi))?;
+    let providers = catalog_connection_providers(state, ProviderTarget::Pi)?;
     let mut model_entries: Vec<(String, serde_json::Value)> = Vec::with_capacity(providers.len());
     let mut auth_entries: Vec<(String, String)> = Vec::with_capacity(providers.len());
     for provider in &providers {
@@ -591,9 +586,12 @@ pub(crate) fn sync_pi_providers_to_live(state: &AppState) -> AppResult<()> {
         .unwrap_or("");
     let default_missing = default_provider.is_empty()
         || retired.iter().any(|id| id == default_provider);
-    if default_missing {
+    let explicit_connection = state.db.with_read_conn(|conn| {
+        Ok(crate::database::dao::gateway::binding_for_target(conn, ProviderTarget::Pi)?.is_some())
+    })?;
+    if default_missing || explicit_connection {
         if let (Some((id, _)), Some(provider)) = (model_entries.first(), providers.first()) {
-            let _ = update_pi_settings(Some(id.clone()), Some(provider.model.clone()), None, None);
+            update_pi_settings(Some(id.clone()), Some(provider.model.clone()), None, None)?;
         }
     }
     Ok(())
@@ -812,87 +810,12 @@ async fn apply_target_provider<R: tauri::Runtime>(
     let mut runtime_provider = provider.clone();
     if runtime_provider.is_antigravity() {
         crate::commands::antigravity::ensure_gateway_running_for_provider(&runtime_provider).await?;
-        let gateway = crate::antigravity::gateway_status()?;
-        if runtime_provider.api_key.trim().is_empty()
-            || state
-                .db
-                .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-                .ok()
-                .flatten()
-                .is_none()
-        {
-            // Persist gateway key so subsequent resolves succeed.
-            let _ = state.db.with_conn(|conn| {
-                dao::upsert_provider(
-                    conn,
-                    &ProviderInput {
-                        id: Some(provider.id.clone()),
-                        name: provider.name.clone(),
-                        base_url: gateway.base_url.clone(),
-                        api_key: gateway.api_key.clone(),
-                        clear_api_key: false,
-                        model: provider.model.clone(),
-                        model_context_window: provider.model_context_window,
-                        auto_review_model_override: provider.auto_review_model_override.clone(),
-                        web_search_enabled: provider.web_search_enabled,
-                        model_mapping: provider.model_mapping.clone(),
-                        protocol_type: provider.protocol_type,
-                        provider_kind: provider.provider_kind,
-                        auth_binding: provider.auth_binding.clone(),
-                        target_app: provider.target_app,
-                        notes: provider.notes.clone(),
-                        failover_group: provider.failover_group,
-                        failover_models: provider.failover_models.clone(),
-                        hidden_models: provider.hidden_models.clone(),
-                        thinking_config: provider.thinking_config.clone(),
-                        custom_headers: provider.custom_headers.clone(),
-                    },
-                )
-            });
-            runtime_provider.base_url = gateway.base_url;
-        }
     }
     if runtime_provider.is_kiro() {
         crate::commands::kiro::ensure_gateway_running_for_provider(&runtime_provider).await?;
-        let gateway = crate::kiro::gateway_status()?;
-        if runtime_provider.api_key.trim().is_empty()
-            || state
-                .db
-                .with_conn(|conn| dao::resolve_api_key(conn, &provider.id))
-                .ok()
-                .flatten()
-                .is_none()
-        {
-            let _ = state.db.with_conn(|conn| {
-                dao::upsert_provider(
-                    conn,
-                    &ProviderInput {
-                        id: Some(provider.id.clone()),
-                        name: provider.name.clone(),
-                        base_url: gateway.base_url.clone(),
-                        api_key: gateway.api_key.clone(),
-                        clear_api_key: false,
-                        model: provider.model.clone(),
-                        model_context_window: provider.model_context_window,
-                        auto_review_model_override: provider.auto_review_model_override.clone(),
-                        web_search_enabled: provider.web_search_enabled,
-                        model_mapping: provider.model_mapping.clone(),
-                        protocol_type: provider.protocol_type,
-                        provider_kind: provider.provider_kind,
-                        auth_binding: provider.auth_binding.clone(),
-                        target_app: provider.target_app,
-                        notes: provider.notes.clone(),
-                        failover_group: provider.failover_group,
-                        failover_models: provider.failover_models.clone(),
-                        hidden_models: provider.hidden_models.clone(),
-                        thinking_config: provider.thinking_config.clone(),
-                        custom_headers: provider.custom_headers.clone(),
-                    },
-                )
-            });
-            runtime_provider.base_url = gateway.base_url;
-            runtime_provider.api_key = gateway.api_key;
-        }
+    }
+    if runtime_provider.is_smart_gateway() {
+        ensure_reverse_gateways_for_pool(state).await?;
     }
     runtime_provider.api_key = if provider.is_codex_oauth() {
         "PROXY_MANAGED".to_string()
@@ -973,7 +896,11 @@ async fn apply_target_provider<R: tauri::Runtime>(
         return Err(AppError::Config("默认模型不能为空，请先编辑供应商配置".to_string()));
     }
     let gateway_catalog = live_uses_gateway_catalog(state, &runtime_provider);
-    let uses_proxy = target_starts_agent_proxy(
+    let direct = state.db.with_read_conn(|conn| {
+        Ok(crate::database::dao::gateway::binding_for_target(conn, runtime_provider.target_app)?
+            .is_some_and(|binding| binding.mode == "direct"))
+    })?;
+    let uses_proxy = !direct && target_starts_agent_proxy(
         runtime_provider.target_app,
         gateway_catalog,
         &runtime_provider,
@@ -1092,6 +1019,9 @@ async fn apply_target_provider<R: tauri::Runtime>(
                         state
                             .db
                             .with_conn(|conn| {
+                                if crate::database::dao::gateway::get_upstream_provider(conn, &runtime_provider.id)?.is_some() {
+                                    return crate::database::dao::gateway::list_visible_upstream_model_ids(conn, &runtime_provider.id);
+                                }
                                 Ok(dao::get_provider_model_cache(conn, &runtime_provider.id)?
                                     .map(|cache| cache.models)
                                     .unwrap_or_default())

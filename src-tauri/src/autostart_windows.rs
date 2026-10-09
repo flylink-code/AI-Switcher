@@ -108,8 +108,25 @@ fn normalize_exe_display(path: &Path) -> String {
         .to_string()
 }
 
+#[cfg(test)]
+fn test_registry_root() -> &'static str {
+    static ROOT: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    ROOT.get_or_init(|| format!(r"SOFTWARE\AI-Switcher\Tests\Autostart\{}", uuid::Uuid::new_v4()))
+}
+
 fn hkcu() -> RegKey {
-    RegKey::predef(HKEY_CURRENT_USER)
+    let root = RegKey::predef(HKEY_CURRENT_USER);
+    #[cfg(test)]
+    {
+        // 单元测试只访问随机子树，不读写正式应用的自启配置。
+        root.create_subkey(test_registry_root())
+            .expect("创建隔离自启测试注册表目录")
+            .0
+    }
+    #[cfg(not(test))]
+    {
+        root
+    }
 }
 
 fn read_run_value(name: &str) -> AppResult<Option<String>> {
@@ -230,6 +247,13 @@ mod tests {
 
     #[test]
     fn live_enable_disable_roundtrip_cleans_legacy_names() {
+        struct TestRegistryCleanup;
+        impl Drop for TestRegistryCleanup {
+            fn drop(&mut self) {
+                let _ = RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(test_registry_root());
+            }
+        }
+        let _cleanup = TestRegistryCleanup;
         let _ = cleanup_legacy_names();
         enable().expect("enable autostart");
         let status = registration_status().expect("status after enable");

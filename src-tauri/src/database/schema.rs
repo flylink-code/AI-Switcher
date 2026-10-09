@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 33;
+pub const SCHEMA_VERSION: u32 = 34;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -185,6 +185,7 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
             hidden_models_json TEXT NOT NULL DEFAULT '[]',
             thinking_config_json TEXT NOT NULL DEFAULT '{}',
             custom_headers_json TEXT NOT NULL DEFAULT '{}',
+            model_mapping_json TEXT NOT NULL DEFAULT '{}',
             created_at    INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS upstream_models (
@@ -246,7 +247,17 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
             entry_token TEXT NOT NULL,
             provider_id TEXT NOT NULL DEFAULT '',
             created_at INTEGER NOT NULL DEFAULT 0,
-            profile_id TEXT NOT NULL DEFAULT 'gprof_shared'
+            profile_id TEXT NOT NULL DEFAULT 'gprof_shared',
+            mode TEXT NOT NULL DEFAULT 'gateway',
+            direct_upstream_id TEXT NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS upstream_migration_v34 (
+            old_provider_id TEXT PRIMARY KEY,
+            target_app TEXT NOT NULL,
+            upstream_id TEXT NOT NULL,
+            was_current INTEGER NOT NULL DEFAULT 0,
+            prev_binding_json TEXT NOT NULL DEFAULT '',
+            newly_created INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS route_modes (
             id TEXT NOT NULL,
@@ -429,6 +440,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 33 {
         migrate_v32_to_v33(conn)?;
+    }
+    if current < 34 {
+        migrate_v33_to_v34(conn)?;
     }
     Ok(())
 }
@@ -1172,10 +1186,66 @@ fn migrate_v27_to_v28(conn: &Connection) -> AppResult<()> {
 }
 
 fn migrate_v28_to_v29(conn: &Connection) -> AppResult<()> {
+    // Some minimal legacy databases used by migrations (and old installs that
+    // skipped the v3 credential step) do not contain the health/cache tables.
+    // The gateway seeding path reads them, so make this migration self-contained.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS provider_health (
+            provider_id TEXT PRIMARY KEY,
+            status      TEXT NOT NULL,
+            detail      TEXT NOT NULL DEFAULT '',
+            checked_at  INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS provider_models (
+            provider_id TEXT PRIMARY KEY,
+            models_json TEXT NOT NULL DEFAULT '[]',
+            checked_at  INTEGER NOT NULL
+        );",
+    )?;
+    ensure_provider_columns_for_gateway_seed(conn)?;
     create_gateway_tables(conn)?;
     add_proxy_log_route_columns(conn)?;
     crate::database::dao::gateway::seed_from_legacy(conn)?;
     set_user_version(conn, 29)
+}
+
+/// Older migration fixtures and interrupted upgrades can have a version marker
+/// ahead of one or more optional provider columns. Gateway seeding reads the
+/// complete provider projection, so add any missing columns before that read.
+fn ensure_provider_columns_for_gateway_seed(conn: &Connection) -> AppResult<()> {
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='providers';",
+        [],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        return Ok(());
+    }
+    for (name, definition) in [
+        ("model_mapping_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("model_context_window", "INTEGER"),
+        ("auto_review_model_override", "TEXT"),
+        ("provider_kind", "TEXT NOT NULL DEFAULT 'standard'"),
+        ("auth_binding", "TEXT NOT NULL DEFAULT ''"),
+        ("web_search_enabled", "BOOLEAN"),
+        ("failover_group", "INTEGER NOT NULL DEFAULT 0"),
+        ("failover_models", "TEXT NOT NULL DEFAULT '[]'"),
+        ("hidden_models_json", "TEXT NOT NULL DEFAULT '[]'"),
+        ("thinking_config_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("custom_headers_json", "TEXT NOT NULL DEFAULT '{}'"),
+    ] {
+        let present: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('providers') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if present == 0 {
+            conn.execute_batch(&format!(
+                "ALTER TABLE providers ADD COLUMN {name} {definition};"
+            ))?;
+        }
+    }
+    Ok(())
 }
 
 fn migrate_v29_to_v30(conn: &Connection) -> AppResult<()> {
@@ -1207,6 +1277,91 @@ fn migrate_v32_to_v33(conn: &Connection) -> AppResult<()> {
         [],
     )?;
     set_user_version(conn, 33)
+}
+
+fn migrate_v33_to_v34(conn: &Connection) -> AppResult<()> {
+    add_binding_mode_and_direct_upstream_columns(conn)?;
+    add_upstream_model_mapping_column(conn)?;
+    create_upstream_migration_table(conn)?;
+    crate::database::dao::gateway::migrate_v33_to_v34(conn)?;
+    set_user_version(conn, 34)
+}
+
+fn add_binding_mode_and_direct_upstream_columns(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='gateway_bindings';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    for (name, ddl) in [
+        (
+            "mode",
+            "ALTER TABLE gateway_bindings ADD COLUMN mode TEXT NOT NULL DEFAULT 'gateway';",
+        ),
+        (
+            "direct_upstream_id",
+            "ALTER TABLE gateway_bindings ADD COLUMN direct_upstream_id TEXT NOT NULL DEFAULT '';",
+        ),
+    ] {
+        let has: i64 = conn.query_row(
+            "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = ?;",
+            [name],
+            |row| row.get(0),
+        )?;
+        if has == 0 {
+            conn.execute_batch(ddl)?;
+        }
+    }
+    Ok(())
+}
+
+fn add_upstream_model_mapping_column(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='upstreams';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('upstreams') WHERE name = 'model_mapping_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has == 0 {
+        conn.execute_batch(
+            "ALTER TABLE upstreams ADD COLUMN model_mapping_json TEXT NOT NULL DEFAULT '{}';",
+        )?;
+    }
+    Ok(())
+}
+
+fn create_upstream_migration_table(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upstream_migration_v34 (
+            old_provider_id TEXT PRIMARY KEY,
+            target_app TEXT NOT NULL,
+            upstream_id TEXT NOT NULL,
+            was_current INTEGER NOT NULL DEFAULT 0,
+            prev_binding_json TEXT NOT NULL DEFAULT '',
+            newly_created INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('upstream_migration_v34') WHERE name = 'newly_created';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has == 0 {
+        conn.execute_batch(
+            "ALTER TABLE upstream_migration_v34 ADD COLUMN newly_created INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
+    Ok(())
 }
 
 fn add_binding_profile_id_column(conn: &Connection) -> AppResult<()> {
@@ -1402,7 +1557,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "gateway_bindings", "route_modes", "route_rules", "gateway_id_map"] {
+            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "gateway_bindings", "route_modes", "route_rules", "gateway_id_map", "upstream_migration_v34"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],
@@ -1436,6 +1591,20 @@ mod tests {
                 |r| r.get(0),
             )?;
             assert_eq!(binding_profile, 1, "missing gateway_bindings.profile_id");
+            for column in ["mode", "direct_upstream_id"] {
+                let has: i64 = conn.query_row(
+                    "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = ?;",
+                    [column],
+                    |r| r.get(0),
+                )?;
+                assert_eq!(has, 1, "missing gateway_bindings column {column}");
+            }
+            let has_model_mapping: i64 = conn.query_row(
+                "SELECT count(*) FROM pragma_table_info('upstreams') WHERE name = 'model_mapping_json';",
+                [],
+                |r| r.get(0),
+            )?;
+            assert_eq!(has_model_mapping, 1, "missing upstreams.model_mapping_json");
             for index in [
                 "idx_logs_correlation_hop",
                 "idx_logs_created_status",

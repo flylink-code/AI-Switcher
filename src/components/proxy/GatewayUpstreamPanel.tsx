@@ -4,6 +4,7 @@ import {
   Card,
   Checkbox,
   Drawer,
+  Dropdown,
   Form,
   Input,
   Modal,
@@ -19,7 +20,13 @@ import {
 } from "antd";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
+import ExportOutlined from "@ant-design/icons/es/icons/ExportOutlined";
+import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
+import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
+import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
+import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,12 +35,19 @@ import {
   deleteGatewayUpstream,
   discoverGatewayUpstreamModels,
   discoverGatewayUpstreamModelsBatch,
+  ensureCodexOauthProvider,
+  exportGatewayUpstreams,
   importGatewayUpstreamsFromProviders,
+  importGatewayUpstreamsJson,
+  importLiveConfigAsUpstreams,
   listGatewayUpstreamHealth,
   listGatewayUpstreamModels,
   listGatewayUpstreams,
   listProviders,
+  pollCodexOauthLogin,
   setGatewayUpstreamModelVisible,
+  startCodexOauthLogin,
+  testUpstreamConnection,
   upsertGatewayUpstream,
 } from "@/services/providers";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
@@ -47,7 +61,14 @@ import {
   normalizeBaseUrl,
 } from "@/lib/providerUrl";
 import { ProviderQuotaView } from "@/components/ProviderQuotaView";
-import type { GatewayUpstreamHealth, Provider, ProviderInput, ProviderTarget, ProtocolType } from "@/types/backend";
+import type {
+  CodexOauthDeviceStart,
+  GatewayUpstreamHealth,
+  Provider,
+  ProviderInput,
+  ProviderTarget,
+  ProtocolType,
+} from "@/types/backend";
 
 const { Text } = Typography;
 
@@ -117,7 +138,11 @@ const UPSTREAM_PRESETS: ProviderPreset[] = PROVIDER_PRESETS.filter(
     !preset.baseUrl.includes(":15831"),
 );
 
-export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: ProviderTarget }) {
+export function GatewayUpstreamPanel({
+  allowlistTarget = "claude_code",
+}: {
+  allowlistTarget?: ProviderTarget;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ProviderInput>();
@@ -138,6 +163,18 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
 
   const [modelsUpstream, setModelsUpstream] = useState<Provider | null>(null);
   const [modelsSaving, setModelsSaving] = useState(false);
+
+  // Codex / ChatGPT OAuth state
+  const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
+  const [oauthPolling, setOauthPolling] = useState(false);
+
+  // Test connection state
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  // JSON Import state
+  const [importJsonOpen, setImportJsonOpen] = useState(false);
+  const [importJsonText, setImportJsonText] = useState("");
+  const [importJsonLoading, setImportJsonLoading] = useState(false);
 
   const watchedBaseUrl = Form.useWatch("baseUrl", form);
   const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
@@ -438,6 +475,115 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
     }
   };
 
+  const handleCodexOauthLogin = async () => {
+    setOauthPolling(true);
+    try {
+      const device = await startCodexOauthLogin();
+      setOauthDevice(device);
+      await openUrl(device.verificationUri);
+      const deadline = Date.now() + device.expiresIn * 1000;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, Math.max(1, device.interval) * 1000));
+        const result = await pollCodexOauthLogin(device.deviceCode);
+        if (result.status === "pending") continue;
+        if (result.status === "complete" && result.account) {
+          await ensureCodexOauthProvider("claude_code", result.account.accountId);
+          await invalidatePool();
+          setOauthDevice(null);
+          void message.success(
+            t("providers.chatgptLoginSuccess", {
+              defaultValue: "ChatGPT / Codex 账号登录成功，已作为上游加入上游池",
+            }),
+          );
+          return;
+        }
+        throw new Error(result.message || t("providers.chatgptLoginFailed", { defaultValue: "登录失败" }));
+      }
+      throw new Error(t("providers.chatgptLoginExpired", { defaultValue: "登录已超时，请重试" }));
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setOauthPolling(false);
+    }
+  };
+
+  const handleTestUpstream = async (row: Provider) => {
+    setTestingId(row.id);
+    try {
+      const result = await testUpstreamConnection(row.id);
+      if (result.ok) {
+        void message.success(
+          t("proxy.upstreamTestSuccess", {
+            name: row.name,
+            ms: result.latencyMs ?? 0,
+            defaultValue: `上游 [${row.name}] 连接成功 (${result.latencyMs ?? 0}ms)`,
+          }),
+        );
+      } else {
+        void message.error(
+          t("proxy.upstreamTestFailed", {
+            name: row.name,
+            error: result.message || "连接失败",
+            defaultValue: `上游 [${row.name}] 连接失败: ${result.message || "未知错误"}`,
+          }),
+        );
+      }
+      await queryClient.invalidateQueries({ queryKey: ["gateway-upstream-health"] });
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  const handleExportUpstreams = async () => {
+    try {
+      const jsonText = await exportGatewayUpstreams();
+      await navigator.clipboard.writeText(jsonText);
+      void message.success(
+        t("proxy.exportUpstreamCopied", { defaultValue: "上游配置 JSON 已复制到剪贴板" }),
+      );
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const handleImportUpstreamsSubmit = async () => {
+    if (!importJsonText.trim()) {
+      void message.warning(t("proxy.importJsonEmpty", { defaultValue: "请先粘贴上游配置 JSON" }));
+      return;
+    }
+    setImportJsonLoading(true);
+    try {
+      await importGatewayUpstreamsJson(importJsonText);
+      await invalidatePool();
+      setImportJsonOpen(false);
+      setImportJsonText("");
+      void message.success(t("proxy.importUpstreamSuccess", { defaultValue: "成功导入上游配置" }));
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setImportJsonLoading(false);
+    }
+  };
+
+  const handleImportLiveAsUpstreams = async (target: ProviderTarget) => {
+    try {
+      const result = await importLiveConfigAsUpstreams(target);
+      await invalidatePool();
+      void message.success(
+        t("proxy.importLiveDone", {
+          client: t(LABEL_KEYS[target] ?? `workspace.${target}`),
+          imported: result.imported ?? 0,
+          skipped: result.skipped ?? 0,
+          defaultValue: `已从 ${t(LABEL_KEYS[target] ?? `workspace.${target}`)} 本机配置导入 ${result.imported ?? 0} 个上游（跳过 ${result.skipped ?? 0} 个）`,
+        }),
+      );
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   return (
     <Card
       size="small"
@@ -454,24 +600,80 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
           >
             {t("proxy.refreshSelectedModels")}
           </Button>
-          <Button
-            size="small"
-            icon={<ImportOutlined />}
-            onClick={() => {
-              setImportTarget(allowlistTarget);
-              setImportIds([]);
-              setImportAllowlist(true);
-              setImportOpen(true);
-            }}
-          >
-            {t("proxy.importFromProviders")}
-          </Button>
           <Button size="small" loading={addingAg} onClick={() => void handleAddAg()}>
             {t("proxy.addAgUpstream")}
           </Button>
           <Button size="small" loading={addingKiro} onClick={() => void handleAddKiro()}>
             {t("proxy.addKiroUpstream")}
           </Button>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: "oauth",
+                  icon: <LoginOutlined />,
+                  label: t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth" }),
+                  disabled: oauthPolling,
+                  onClick: () => void handleCodexOauthLogin(),
+                },
+                {
+                  key: "importLive",
+                  icon: <ScanOutlined />,
+                  label: t("proxy.importLiveAsUpstreams", { defaultValue: "从本机 Live 配置导入上游" }),
+                  children: [
+                    {
+                      key: "importLiveCode",
+                      label: "Claude Code",
+                      onClick: () => void handleImportLiveAsUpstreams("claude_code"),
+                    },
+                    {
+                      key: "importLiveCodex",
+                      label: "Codex",
+                      onClick: () => void handleImportLiveAsUpstreams("codex"),
+                    },
+                    {
+                      key: "importLiveOpenCode",
+                      label: "OpenCode",
+                      onClick: () => void handleImportLiveAsUpstreams("opencode"),
+                    },
+                  ],
+                },
+                {
+                  key: "importProviders",
+                  icon: <ImportOutlined />,
+                  label: t("proxy.importFromProviders"),
+                  onClick: () => {
+                    setImportTarget(allowlistTarget);
+                    setImportIds([]);
+                    setImportAllowlist(true);
+                    setImportOpen(true);
+                  },
+                },
+                {
+                  key: "importJson",
+                  icon: <ImportOutlined />,
+                  label: t("proxy.importUpstreams", { defaultValue: "导入 JSON" }),
+                  onClick: () => {
+                    setImportJsonText("");
+                    setImportJsonOpen(true);
+                  },
+                },
+                {
+                  key: "exportJson",
+                  icon: <ExportOutlined />,
+                  label: t("proxy.exportUpstreams", { defaultValue: "导出 JSON" }),
+                  onClick: () => void handleExportUpstreams(),
+                },
+              ],
+            }}
+          >
+            <Button size="small">
+              <Space size={4}>
+                {t("proxy.moreActions", { defaultValue: "更多操作" })}
+                <DownOutlined style={{ fontSize: 10 }} />
+              </Space>
+            </Button>
+          </Dropdown>
           <Button size="small" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t("proxy.addUpstream")}
           </Button>
@@ -520,9 +722,18 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
           },
           {
             title: t("proxy.upstreamActions"),
-            width: 200,
+            width: 240,
             render: (_, row: Provider) => (
               <Space size={4}>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<ThunderboltOutlined />}
+                  loading={testingId === row.id}
+                  onClick={() => void handleTestUpstream(row)}
+                >
+                  {t("proxy.testConnection", { defaultValue: "测试" })}
+                </Button>
                 <Button type="link" size="small" onClick={() => setModelsUpstream(row)}>
                   {t("proxy.upstreamModels")}
                 </Button>
@@ -741,6 +952,61 @@ export function GatewayUpstreamPanel({ allowlistTarget }: { allowlistTarget: Pro
           )}
         </Space>
       </Drawer>
+      <Modal
+        open={Boolean(oauthDevice)}
+        title={t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth 登录" })}
+        onCancel={() => {
+          setOauthDevice(null);
+          setOauthPolling(false);
+        }}
+        footer={null}
+        destroyOnHidden
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%", padding: "12px 0" }}>
+          <Text>
+            {t("providers.chatgptLoginPrompt", {
+              defaultValue: "请在打开的浏览器页面中确认授权，输入以下设备代码：",
+            })}
+          </Text>
+          <div
+            style={{
+              textAlign: "center",
+              padding: "16px",
+              background: "var(--ant-color-fill-quaternary, rgba(0,0,0,0.04))",
+              borderRadius: 8,
+            }}
+          >
+            <Text strong copyable style={{ fontSize: 24, letterSpacing: 2 }}>
+              {oauthDevice?.userCode}
+            </Text>
+          </div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("providers.chatgptLoginPolling", {
+              defaultValue: "正在等待授权完成，请勿关闭此窗口...",
+            })}
+          </Text>
+        </Space>
+      </Modal>
+      <Modal
+        open={importJsonOpen}
+        title={t("proxy.importJsonTitle", { defaultValue: "导入全局上游 JSON" })}
+        onCancel={() => setImportJsonOpen(false)}
+        onOk={() => void handleImportUpstreamsSubmit()}
+        confirmLoading={importJsonLoading}
+        destroyOnHidden
+      >
+        <Space direction="vertical" size="small" style={{ width: "100%" }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("proxy.importJsonHint", { defaultValue: "粘贴此前导出的上游 JSON 内容进行批量导入。" })}
+          </Text>
+          <Input.TextArea
+            rows={8}
+            value={importJsonText}
+            onChange={(e) => setImportJsonText(e.target.value)}
+            placeholder='[{"name": "...", "baseUrl": "...", ...}]'
+          />
+        </Space>
+      </Modal>
     </Card>
   );
 }

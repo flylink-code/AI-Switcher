@@ -1,10 +1,12 @@
-# 智能网关数据模型（Schema 33）
+# 智能网关数据模型（Schema 34）
 
 一套或多套全局档案。默认档案 `gprof_shared` 不可删除。每个 Agent 通过 `gateway_bindings.profile_id` 选用其中一套；未绑定与自定义 Key（`sk-aisw-…`）回落 `gprof_shared`。不再按 Agent 建档。`agent_connections` 已删除。
 
 ## 新表
 
-- `gateway_bindings(target_app PK, entry_token, provider_id, created_at, profile_id)` — Schema 33 增加 `profile_id TEXT NOT NULL DEFAULT 'gprof_shared'`
+- `gateway_bindings(target_app PK, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)` — Schema 33 增加 `profile_id`，Schema 34 增加连接模式与直连上游；直连 token 拒绝网关入站
+- `upstreams.model_mapping_json` — 全局上游保存角色模型映射
+- `upstream_migration_v34` — 保留旧卡映射与原连接状态，详见 [统一供应商](unified-providers.md)
 - `route_modes(id, profile_id, enabled, model, thinking_config_json, fallback_models_json, threshold, sort_index)` — `id` 为 9 个模式名
 - `route_rules(id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model, thinking_config_json, rewrites_json)`
 

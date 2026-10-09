@@ -98,6 +98,8 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use crate::commands::{
     check_app_update, install_app_update,
     get_codex_auth_status, get_codex_web_search_mode, add_codex_plugin_marketplace,
+    set_agent_direct, get_agent_connection_mode,
+    test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
     list_codex_plugin_marketplaces, list_codex_plugin_catalog, list_codex_plugins,
     remove_codex_plugin_marketplace, set_codex_plugin_enabled, set_codex_web_search_mode,
     get_codex_output_profile, set_codex_output_profile,
@@ -148,7 +150,7 @@ use crate::commands::{
     get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_gateway_catalog_opusplan,
     get_gateway_catalog_plan, get_gateway_catalog_execute, get_claude_code_default_permission_mode,
     get_claude_code_agent_settings, get_opencode_permission_mode,
-    get_db_info, get_paths,
+    get_db_info, rollback_v34, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
     get_managed_apps_runtime_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
@@ -300,6 +302,7 @@ pub fn run() {
             set_update_mirror_settings,
             get_paths,
             get_db_info,
+            rollback_v34,
             get_data_root,
             migrate_data_root,
             backup_now,
@@ -399,6 +402,12 @@ pub fn run() {
             delete_provider,
             switch_provider,
             switch_to_official,
+            set_agent_direct,
+            test_upstream_connection,
+            export_gateway_upstreams,
+            import_gateway_upstreams_json,
+            import_live_config_as_upstreams,
+            get_agent_connection_mode,
             test_provider_connection,
             test_provider_input,
             batch_diagnose_providers,
@@ -753,6 +762,9 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
         if let Err(error) = commands::providers::sync_pi_providers_to_live(&state) {
             log::warn!("启动时同步 Pi 供应商失败: {error}");
+        }
+        if let Err(error) = commands::providers::sync_cline_providers_to_live(&state) {
+            log::warn!("启动时同步 Cline 连接失败: {error}");
         }
         if let Err(error) = commands::providers::sync_dsh_providers_to_live(&state) {
             log::warn!("启动时同步 DeepSeek Harness 供应商失败: {error}");

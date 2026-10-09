@@ -18,3 +18,22 @@
 2. 允许多行 `gateway_profiles`；`gprof_shared` 仍为不可删默认档案。
 3. 新档案 `target_app` 写 `shared`，不再按 Agent 建档。
 4. 删除非默认档案时，绑了该档的 Agent 回落到 `gprof_shared`。
+
+# Schema 33 → 34（统一供应商）
+
+1. `gateway_bindings` 增加 `mode` / `direct_upstream_id`；`upstreams` 增加 `model_mapping_json`。
+2. 迁移前用 SQLite backup API 备份实际资料库路径（含 WAL 已提交数据）为 `app.db.v33.bak`。既有备份不覆盖；校验失败则停止升级。
+3. 将 T1/T2 旧供应商合并到全局上游。身份包含规范化端点、协议、实际 Key 哈希、认证类型和 OAuth 账号；URL path 大小写保留。跳过 Auto、自指端口与 T3 专用卡。非空 keyring 引用缺失凭据、上游写入或模型合并失败时停止迁移，事务回滚，不将缺失凭据视为空 Key 合并。
+4. Code / Codex 当前独立卡转直连，Auto 保持网关，官方不绑定；T2 保留已有绑定，未绑定默认建网关入口。迁移事务不写 Agent 配置，旧供应商行暂保留。
+5. 迁移表保存原绑定完整凭据、档案及当前卡快照，并有完成标记防止重跑覆盖。回滚后可以重新迁移。
+
+## 降级恢复
+
+旧版不能打开 Schema 34。`rollback_v34(destination)` IPC 只导出经过完整性校验的 Schema 33 副本，要求绝对路径且禁止覆盖；**不改变运行中的库，也不修改 Agent live 配置**。库中 Key 仍是本机 keyring 引用，不能把导出库当跨设备凭据备份。
+
+恢复前退出新版（包括托盘进程），另存当前资料库与 Agent 配置，再选择：
+
+- 使用迁移前的 `app.db.v33.bak`，准确恢复迁移前数据库；或
+- 使用回滚导出副本，恢复旧绑定与当前卡、保留可兼容的后续数据库内容。
+
+将副本作为旧版的 `app.db` 使用；不要在任何应用持有 SQLite 连接时替换文件，不要让旧 `-wal` / `-shm` 跟随新文件。启动旧版前须核对 Agent live 配置（降级导出不回退迁移后手动切换的配置）。新版的常规备份导入会再次迁移到 Schema 34，不能用它完成降级。

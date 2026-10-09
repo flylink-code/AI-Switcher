@@ -85,15 +85,54 @@ impl Database {
     /// Create tables and apply migrations, setting `PRAGMA user_version`.
     fn ensure_schema(&self) -> AppResult<()> {
         let conn = lock_conn!(self.conn);
-        schema::create_tables(&conn)?;
-        // Snapshot the DB before any data-touching migration, so we can recover if
-        // a migration fails midway. Only meaningful for on-disk databases.
         let current = conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?;
+        if current > schema::SCHEMA_VERSION {
+            return Err(AppError::Database(format!(
+                "数据库版本 {current} 高于当前支持的 {}，已停止打开",
+                schema::SCHEMA_VERSION
+            )));
+        }
+        // 先备份，再改表；SQLite backup API 会包含 WAL 中已提交的数据。
         if current > 0 && current < schema::SCHEMA_VERSION {
-            if let Err(e) = crate::backup::backup_file(&crate::config::get_app_db_path(), 10) {
-                log::warn!("迁移前数据库备份失败（继续迁移）: {e}");
+            if let Some(path) = self.path.as_ref() {
+                let suffix = if current == 33 {
+                    ".v33.bak".to_string()
+                } else {
+                    format!(".v{current}.bak")
+                };
+                let mut backup_path = path.as_os_str().to_os_string();
+                backup_path.push(suffix);
+                let backup_path = PathBuf::from(backup_path);
+                // 已有备份属于此前的迁移尝试，不能静默覆盖。
+                if !backup_path.exists() {
+                    let staging = tempfile::NamedTempFile::new_in(
+                        path.parent().unwrap_or_else(|| std::path::Path::new(".")),
+                    )?;
+                    {
+                        let mut destination = Connection::open(staging.path())?;
+                        let backup = rusqlite::backup::Backup::new(&conn, &mut destination)?;
+                        backup.run_to_completion(
+                            100,
+                            std::time::Duration::from_millis(5),
+                            None,
+                        )?;
+                    }
+                    staging.persist_noclobber(&backup_path).map_err(|error| {
+                        AppError::Io(format!("迁移前数据库备份失败，已停止升级: {error}"))
+                    })?;
+                }
+                let probe = Connection::open(&backup_path)?;
+                let version: u32 = probe.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
+                let integrity: String = probe.query_row("PRAGMA integrity_check;", [], |row| row.get(0))?;
+                if version != current || integrity != "ok" {
+                    return Err(AppError::Database(format!(
+                        "迁移备份无效（version={version}, integrity={integrity}），已停止升级: {}",
+                        backup_path.display()
+                    )));
+                }
             }
         }
+        schema::create_tables(&conn)?;
         schema::migrate(&conn)?;
         seed::run_seed(&conn)?;
         Ok(())
@@ -172,6 +211,48 @@ impl Database {
         Ok(())
     }
 
+    /// Roll back Schema 34 data layer migration to Schema 33.
+    ///
+    /// Drains read pool, acquires write lock, runs data layer rollback, and resets user_version to 33.
+    pub fn rollback_v34(&self) -> AppResult<()> {
+        self.drain_read_pool();
+        self.with_conn(|conn| dao::gateway::rollback_v34(conn))
+    }
+
+    /// 导出可由旧版打开的 Schema 33 数据库，不改变运行中的资料库。
+    pub fn export_rollback_v34(&self, destination: &std::path::Path) -> AppResult<()> {
+        if destination.exists() {
+            return Err(AppError::Config("回滚导出路径已存在，禁止覆盖".into()));
+        }
+        let parent = destination.parent().filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or_else(|| std::path::Path::new("."));
+        let staging = tempfile::NamedTempFile::new_in(parent)?;
+        {
+            let source = lock_conn!(self.conn);
+            let version: u32 = source.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
+            if version != 34 || !dao::gateway::is_v34_migration_done(&source) {
+                return Err(AppError::Config("资料库没有有效的 Schema 34 迁移快照，无法回滚".into()));
+            }
+            let mut copy = Connection::open(staging.path())?;
+            {
+                let backup = rusqlite::backup::Backup::new(&source, &mut copy)?;
+                backup.run_to_completion(100, std::time::Duration::from_millis(5), None)?;
+            }
+            copy.execute_batch("PRAGMA foreign_keys = ON;")?;
+            dao::gateway::rollback_v34(&copy)?;
+            let integrity: String = copy.query_row("PRAGMA integrity_check;", [], |row| row.get(0))?;
+            let version: u32 = copy.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
+            if integrity != "ok" || version != 33 {
+                return Err(AppError::Database("回滚导出校验失败，未保存产物".into()));
+            }
+            copy.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE;")?;
+        }
+        staging.persist_noclobber(destination).map_err(|error| {
+            AppError::Io(format!("保存回滚数据库失败: {error}"))
+        })?;
+        Ok(())
+    }
+
     /// Close the live DB file, replace it with `new_db`, reopen, and rematerialize
     /// any plaintext API keys into the OS keyring.
     ///
@@ -198,8 +279,10 @@ impl Database {
             }
         }
 
+        let path = self.path.as_ref().ok_or_else(|| {
+            AppError::Config("内存资料库不能替换磁盘文件".into())
+        })?.clone();
         self.drain_read_pool();
-        let path = get_app_db_path();
         let mut guard = lock_conn!(self.conn);
         let _ = guard.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
         // Drop the file handle so Linux can replace the path safely.
@@ -384,18 +467,7 @@ mod tests {
             .unwrap();
         drop(incoming_db);
 
-        db.drain_read_pool();
-        {
-            let mut guard = db.conn.lock().expect("write lock");
-            *guard = Connection::open_in_memory().unwrap();
-            std::fs::copy(&incoming, &path).unwrap();
-            let conn = Connection::open(&path).unwrap();
-            conn.execute_batch(
-                "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;",
-            )
-            .unwrap();
-            *guard = conn;
-        }
+        db.replace_on_disk_and_reopen(&incoming).expect("replace actual instance path");
         db.with_read_conn(|conn| {
             let value = crate::database::dao::settings::get_setting(conn, "pool_probe")?;
             assert_eq!(value.as_deref(), Some("new"));
@@ -408,6 +480,67 @@ mod tests {
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
         let _ = std::fs::remove_file(format!("{}-wal", incoming.display()));
         let _ = std::fs::remove_file(format!("{}-shm", incoming.display()));
+    }
+
+    #[test]
+    fn migration_backup_includes_wal_at_actual_database_path() {
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join("isolated.db");
+        let db = Database::init_at(path.clone()).unwrap();
+        db.with_conn(|conn| {
+            conn.execute_batch("PRAGMA wal_autocheckpoint = 0; PRAGMA user_version = 33;")?;
+            dao::settings::set_setting(conn, "wal_only_probe", "committed")
+        })
+        .unwrap();
+        db.ensure_schema().unwrap();
+        let backup = Connection::open(home.path().join("isolated.db.v33.bak")).unwrap();
+        let version: u32 = backup.query_row("PRAGMA user_version;", [], |row| row.get(0)).unwrap();
+        assert_eq!(version, 33);
+        assert_eq!(
+            dao::settings::get_setting(&backup, "wal_only_probe").unwrap().as_deref(),
+            Some("committed")
+        );
+    }
+
+    #[test]
+    fn invalid_existing_migration_backup_blocks_upgrade() {
+        let home = tempfile::tempdir().unwrap();
+        let path = home.path().join("isolated.db");
+        let db = Database::init_at(path.clone()).unwrap();
+        db.with_conn(|conn| {
+            conn.execute_batch("PRAGMA user_version = 33;")?;
+            Ok(())
+        })
+        .unwrap();
+        let backup_path = home.path().join("isolated.db.v33.bak");
+        std::fs::write(&backup_path, b"not a SQLite database").unwrap();
+        assert!(db.ensure_schema().is_err());
+        db.with_conn(|conn| {
+            let version: u32 = conn.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
+            assert_eq!(version, 33);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(std::fs::read(backup_path).unwrap(), b"not a SQLite database");
+    }
+
+    #[test]
+    fn rollback_export_does_not_downgrade_live_database_or_overwrite_files() {
+        let home = tempfile::tempdir().unwrap();
+        let db = Database::init_at(home.path().join("live.db")).unwrap();
+        let output = home.path().join("rollback.db");
+        db.export_rollback_v34(&output).unwrap();
+        db.with_conn(|conn| {
+            let version: u32 = conn.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
+            assert_eq!(version, 34);
+            Ok(())
+        }).unwrap();
+        let restored = Connection::open(&output).unwrap();
+        assert_eq!(restored.query_row("PRAGMA user_version;", [], |row| row.get::<_, u32>(0)).unwrap(), 33);
+        drop(restored);
+        let original = std::fs::read(&output).unwrap();
+        assert!(db.export_rollback_v34(&output).is_err());
+        assert_eq!(std::fs::read(output).unwrap(), original);
     }
 
     struct UtcStamp;

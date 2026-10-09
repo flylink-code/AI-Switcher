@@ -174,6 +174,7 @@ pub async fn sg_regress_no_autobind(h: &Harness) -> AppResult<()> {
     h.state.db.with_conn(|conn| {
         ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
         let cloned = crate::database::dao::gateway::create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
+        crate::database::dao::gateway::delete_binding(conn, ProviderTarget::OpenCode)?;
         assert!(set_binding_profile(conn, ProviderTarget::OpenCode, &cloned.id).is_err());
         assert!(binding_for_target(conn, ProviderTarget::OpenCode)?.is_none());
         let rows: i64 = conn.query_row(
@@ -411,8 +412,8 @@ pub async fn sg_p0_catalog_bind_appends_auto(h: &Harness) -> AppResult<()> {
     let path = paths::get_opencode_config_path();
     let text = fs::read_to_string(&path).unwrap_or_default();
     assert!(
-        text.contains("direct.example.test") || text.contains("direct"),
-        "independent OpenCode provider must remain in live config: {path:?}"
+        !text.contains("direct.example.test"),
+        "绑定后仅写 Auto，不重新写出保留的旧供应商卡: {path:?} {text}"
     );
     assert!(
         text.contains("ai-switcher") || text.contains("15828"),
@@ -711,6 +712,8 @@ pub async fn sg_p0_protocol_responses_translation_roundtrip(_h: &Harness) -> App
 fn fail(error: impl std::fmt::Display) -> ! {
     panic!("{error}");
 }
+
+include!("system_test_unified.rs");
 
 #[tokio::test]
 async fn sg_regress_independent_not_stolen_live_env() {

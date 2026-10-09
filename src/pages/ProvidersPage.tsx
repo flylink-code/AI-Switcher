@@ -1,143 +1,92 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
-  App,
   Badge,
   Button,
   Card,
   Collapse,
-  Dropdown,
-  Modal,
-  Popconfirm,
-  Segmented,
   Select,
   Space,
   Switch,
   Tag,
-  Tooltip,
   Typography,
-  type MenuProps,
+  message,
 } from "antd";
-import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
-import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
-import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
-import MedicineBoxOutlined from "@ant-design/icons/es/icons/MedicineBoxOutlined";
-import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
-import ExportOutlined from "@ant-design/icons/es/icons/ExportOutlined";
-import FolderOpenOutlined from "@ant-design/icons/es/icons/FolderOpenOutlined";
-import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
-import EditOutlined from "@ant-design/icons/es/icons/EditOutlined";
-import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
-import CopyOutlined from "@ant-design/icons/es/icons/CopyOutlined";
-import SwapOutlined from "@ant-design/icons/es/icons/SwapOutlined";
-import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
 import NodeIndexOutlined from "@ant-design/icons/es/icons/NodeIndexOutlined";
+import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import type { CodexOauthDeviceStart, GatewayCatalogModelOption, Provider, ProviderDoctorReport, ProviderTarget, ClaudeCodeAgentSettings } from "@/types/backend";
-import { catalogModelView } from "@/utils/catalogModelLabel";
-import { useProvidersStore } from "@/stores/providersStore";
+import type { ClaudeCodeAgentSettings } from "@/types/backend";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
-import { ProviderForm } from "@/components/ProviderForm";
-import { ImportPreviewDialog } from "@/components/ImportPreviewDialog";
-import { ImportFromAgentDialog, canCopyProviderTo } from "@/components/ImportFromAgentDialog";
-import { OnboardingTip } from "@/components/OnboardingTip";
-import { ProviderBrandIcon } from "@/components/ProviderBrandIcon";
-import { ProviderQuotaView } from "@/components/ProviderQuotaView";
-import { AgentTargetSwitcher, LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
-import { usageSourceIcon } from "@/components/UsageSourceIcons";
-import { ResourceEmptyState } from "@/components/workspace/ResourceEmptyState";
-import { managedAppsRuntimeStatusOptions, proxyStatusOptions } from "@/lib/appQueries";
-import { filterUiAgents } from "@/lib/agentVisibility";
+import { AgentConnectionCard } from "@/components/AgentConnectionCard";
+import { GatewayUpstreamPanel } from "@/components/proxy/GatewayUpstreamPanel";
 import { useNavigatePage } from "@/lib/navigation";
-import { errMsg, useProviderActions } from "@/lib/useProviderActions";
 import {
-  batchDiagnoseProviders,
-  ensureCodexOauthProvider,
-  ensureSmartGatewayProvider,
-  bindSmartGateway,
   getAntigravityGatewayStatus,
-  getCodexAuthStatus,
-  getPaths,
-  getPiSettings,
+  getKiroGatewayStatus,
+  getSmartGatewayStatus,
   getClaudeCodeDefaultPermissionMode,
   getClaudeCodeAgentSettings,
   getOpenCodePermissionMode,
-  importGatewayUpstreamsFromProviders,
-  listGatewayCatalogEntries,
-  listGatewayProfiles,
-  listSmartGatewayBindings,
-  pollCodexOauthLogin,
-  quarantineFailedProviders,
+  getPiSettings,
+  readLivePrompt,
   setClaudeCodeDefaultPermissionMode,
   setClaudeCodeAgentSettings,
   setOpenCodePermissionMode,
-  setGatewayBindingProfile,
-  startCodexOauthLogin,
   updatePiSettings,
-  updateProvider,
-  readLivePrompt,
 } from "@/services/api";
 
-const { Text } = Typography;
-
-function groupedCatalogOptions(entries: GatewayCatalogModelOption[]) {
-  const groups = new Map<string, { label: string; value: string; searchText: string; title: string }[]>();
-  for (const entry of entries) {
-    const view = catalogModelView(entry);
-    const name = entry.providerName.trim() || view.provider || entry.displayName;
-    const list = groups.get(name) ?? [];
-    list.push({
-      label: view.short,
-      value: entry.publicId,
-      searchText: view.searchText,
-      title: view.title,
-    });
-    groups.set(name, list);
-  }
-  return [...groups.entries()].map(([label, options]) => ({ label, options }));
-}
+const { Text, Title } = Typography;
 
 function livePromptBlocksAgentTeams(content: string | undefined | null): boolean {
   if (!content) return false;
   return /不创建\s*Agent Teams|不使用多级代理编排|do not create Agent Teams/i.test(content);
 }
 
-/**
- * Providers page — classic cc-switch card list layout: a header row with the
- * page-local Agent switcher + runtime status tags + primary actions, then
- * full-width provider cards (official mode card first).
- */
+function errMsg(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return String(error ?? "未知错误");
+}
+
 export default function ProvidersPage() {
   const { t } = useTranslation();
-  const { message } = App.useApp();
   const navigate = useNavigatePage();
-  const store = useProvidersStore();
-  const target = usePagePreferencesStore((state) => state.providersTarget);
-  const setProvidersTarget = usePagePreferencesStore((state) => state.setProvidersTarget);
   const setWorkspaceTarget = usePagePreferencesStore((state) => state.setWorkspaceTarget);
-  const setProxyTarget = usePagePreferencesStore((state) => state.setProxyTarget);
-  const setGatewayTab = usePagePreferencesStore((state) => state.setGatewayTab);
-  const setGatewaySection = usePagePreferencesStore((state) => state.setGatewaySection);
-  const setGatewayProfileId = usePagePreferencesStore((state) => state.setGatewayProfileId);
-  const isNativeCatalog = target === "opencode" || target === "pi" || target === "dsh" || target === "cline";
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Provider | null>(null);
-  const [importHint, setImportHint] = useState<string | null>(null);
-  const [importFromOpen, setImportFromOpen] = useState(false);
-
-  const [codexAuth, setCodexAuth] = useState<{ loggedIn: boolean; loginCommand: string } | null>(null);
-  const [oauthDevice, setOauthDevice] = useState<CodexOauthDeviceStart | null>(null);
-  const [oauthPolling, setOauthPolling] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [doctorModalOpen, setDoctorModalOpen] = useState(false);
-  const [doctorLoading, setDoctorLoading] = useState(false);
-  const [doctorReports, setDoctorReports] = useState<ProviderDoctorReport[]>([]);
-  const [quarantining, setQuarantining] = useState(false);
   const [piThinkingLevel, setPiThinkingLevel] = useState<string>("medium");
-  const [autoModelSaving, setAutoModelSaving] = useState(false);
+
+  const smartGatewayQuery = useQuery({
+    queryKey: ["smart-gateway-status"],
+    queryFn: getSmartGatewayStatus,
+    refetchInterval: 10_000,
+  });
+
+  const antigravityQuery = useQuery({
+    queryKey: ["antigravity-gateway"],
+    queryFn: getAntigravityGatewayStatus,
+    refetchInterval: 10_000,
+  });
+
+  const kiroQuery = useQuery({
+    queryKey: ["kiro-gateway"],
+    queryFn: getKiroGatewayStatus,
+    refetchInterval: 10_000,
+  });
+
+  const defaultPermissionModeQuery = useQuery({
+    queryKey: ["claude-code-default-permission-mode"],
+    queryFn: getClaudeCodeDefaultPermissionMode,
+  });
+
+  const agentSettingsQuery = useQuery({
+    queryKey: ["claude-code-agent-settings"],
+    queryFn: getClaudeCodeAgentSettings,
+  });
+
+  const opencodePermissionQuery = useQuery({
+    queryKey: ["opencode-permission-mode"],
+    queryFn: getOpenCodePermissionMode,
+  });
 
   const piSettingsQuery = useQuery({
     queryKey: ["pi-settings"],
@@ -148,190 +97,16 @@ export default function ProvidersPage() {
       }
       return res;
     },
-    enabled: target === "pi",
   });
 
-  const gatewayCatalog = store.providers.some(
-    (provider) => provider.providerKind === "smart_gateway" && provider.isCurrent,
-  );
-
-  const catalogEntriesQuery = useQuery({
-    queryKey: ["gateway-catalog-entries", target],
-    queryFn: () => listGatewayCatalogEntries(target),
-  });
-  const gatewayProfilesQuery = useQuery({
-    queryKey: ["gateway-profiles"],
-    queryFn: listGatewayProfiles,
-  });
-  const gatewayBindingsQuery = useQuery({
-    queryKey: ["smart-gateway-bindings"],
-    queryFn: listSmartGatewayBindings,
-  });
-  const autoBinding = gatewayBindingsQuery.data?.find((item) => item.targetApp === target);
-  const defaultPermissionModeQuery = useQuery({
-    queryKey: ["claude-code-default-permission-mode"],
-    queryFn: getClaudeCodeDefaultPermissionMode,
-    enabled: target === "claude_code",
-  });
-  const agentSettingsQuery = useQuery({
-    queryKey: ["claude-code-agent-settings"],
-    queryFn: getClaudeCodeAgentSettings,
-    enabled: target === "claude_code",
-  });
-  const opencodePermissionQuery = useQuery({
-    queryKey: ["opencode-permission-mode"],
-    queryFn: getOpenCodePermissionMode,
-    enabled: target === "opencode",
-  });
   const livePromptQuery = useQuery({
     queryKey: ["claude-code-live-prompt"],
     queryFn: () => readLivePrompt("claude_code"),
-    enabled: target === "claude_code",
   });
 
-  const handleRunDoctor = async () => {
-    setDoctorLoading(true);
-    try {
-      const reports = await batchDiagnoseProviders(target);
-      setDoctorReports(reports);
-      setDoctorModalOpen(true);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setDoctorLoading(false);
-    }
-  };
-
-  const handleQuarantineFailed = async () => {
-    const failedIds = doctorReports.filter((r) => !r.ok && (r.category === "authentication" || r.statusCode === 401 || r.statusCode === 403)).map((r) => r.providerId);
-    if (!failedIds.length) {
-      void message.info(t("providers.noFailedToQuarantine", { defaultValue: "没有发现需要隔离的 401/403 鉴权异常节点" }));
-      return;
-    }
-    setQuarantining(true);
-    try {
-      const count = await quarantineFailedProviders(failedIds);
-      void message.success(t("providers.quarantinedSuccess", { count, defaultValue: `已成功隔离 ${count} 个失效节点` }));
-      setDoctorModalOpen(false);
-      await store.load(target);
-    } catch (e) {
-      void message.error(errMsg(e));
-    } finally {
-      setQuarantining(false);
-    }
-  };
-
-  const handleUpdatePiThinkingLevel = async (level: string) => {
-    setPiThinkingLevel(level);
-    try {
-      await updatePiSettings(null, null, level);
-      void message.success(t("providers.piThinkingLevelUpdated", { defaultValue: `已设置 Pi 思考强度为: ${level}` }));
-      void piSettingsQuery.refetch();
-    } catch (e) {
-      void message.error(errMsg(e));
-    }
-  };
-
-  const {
-    busy,
-    setBusy,
-    switchingId,
-    testingId,
-    batchTesting,
-    importPreview,
-    importConfirming,
-    setImportPreview,
-    handleSubmit,
-    handleSwitch,
-    handleOfficial,
-    handleTest,
-    handleSpeedtestAll,
-    handleShareLink,
-    handleDelete,
-    handleExport,
-    handleImportLive,
-    handleImportClipboard,
-    handleImportFile,
-    handleConfirmImport,
-    handleCopyToTarget,
-  } = useProviderActions({
-    target,
-    editing,
-    closeForm: () => {
-      setFormOpen(false);
-      setImportHint(null);
-    },
-  });
-
-  const officialCurrent = !store.providers.some((provider) => provider.isCurrent);
-
-  useEffect(() => {
-    void store.load(target);
-  }, [store.load, target]);
-
-  useEffect(() => {
-    void ensureSmartGatewayProvider(target)
-      .then(() => store.load(target))
-      .catch(() => undefined);
-  }, [store.load, target]);
-
-  useEffect(() => {
-    if (target !== "codex") return;
-    void getCodexAuthStatus().then(setCodexAuth).catch(() => setCodexAuth(null));
-  }, [target]);
-
-  // Header status tags
-  const runtimeQuery = useQuery(managedAppsRuntimeStatusOptions);
-  const proxyQuery = useQuery(proxyStatusOptions(target));
-  const proxy = proxyQuery.data;
-
-  const handleAutoModelChange = async (provider: Provider, model: string) => {
-    setAutoModelSaving(true);
-    try {
-      await updateProvider({
-        id: provider.id,
-        name: provider.name,
-        baseUrl: provider.baseUrl,
-        apiKey: "",
-        model,
-        modelContextWindow: provider.modelContextWindow,
-        autoReviewModelOverride: provider.autoReviewModelOverride,
-        webSearchEnabled: provider.webSearchEnabled,
-        modelMapping: provider.modelMapping,
-        protocolType: provider.protocolType,
-        providerKind: "smart_gateway",
-        authBinding: provider.authBinding,
-        targetApp: provider.targetApp,
-        notes: provider.notes,
-        failoverGroup: provider.failoverGroup,
-        failoverModels: provider.failoverModels,
-        hiddenModels: provider.hiddenModels,
-        thinkingConfig: provider.thinkingConfig,
-        customHeaders: provider.customHeaders,
-      });
-      await store.load(target);
-      void message.success(t("providers.autoModelSaved"));
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setAutoModelSaving(false);
-    }
-  };
-
-  const handleAutoProfileChange = async (profileId: string) => {
-    setAutoModelSaving(true);
-    try {
-      await setGatewayBindingProfile(target, profileId);
-      await gatewayBindingsQuery.refetch();
-      await catalogEntriesQuery.refetch();
-      await store.load(target);
-      void message.success(t("providers.gatewayProfileSaved", { defaultValue: "已切换智能网关档案" }));
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setAutoModelSaving(false);
-    }
-  };
+  const smartGateway = smartGatewayQuery.data;
+  const antigravity = antigravityQuery.data;
+  const kiro = kiroQuery.data;
 
   const handleDefaultPermissionModeChange = async (mode: string) => {
     try {
@@ -372,6 +147,21 @@ export default function ProvidersPage() {
     }
   };
 
+  const handleUpdatePiThinkingLevel = async (level: string) => {
+    setPiThinkingLevel(level);
+    try {
+      await updatePiSettings(null, null, level);
+      void message.success(
+        t("providers.piThinkingLevelUpdated", {
+          defaultValue: `已设置 Pi 思考强度为: ${level}`,
+        }),
+      );
+      void piSettingsQuery.refetch();
+    } catch (error) {
+      void message.error(errMsg(error));
+    }
+  };
+
   const openWorkspacePrompts = () => {
     setWorkspaceTarget("claude_code");
     if (typeof localStorage !== "undefined") {
@@ -380,222 +170,35 @@ export default function ProvidersPage() {
     navigate("workspace");
   };
 
-  const handleImportToGateway = async (provider: Provider) => {
-    try {
-      const result = await importGatewayUpstreamsFromProviders(target, [provider.id], target);
-      if (result.imported > 0) {
-        void message.success(t("proxy.importUpstreamDone", { imported: result.imported, skipped: result.skipped }));
-      } else {
-        void message.info(t("proxy.importUpstreamDone", { imported: result.imported, skipped: result.skipped }));
-      }
-    } catch (error) {
-      void message.error(errMsg(error));
-    }
-  };
-
-  const antigravityQuery = useQuery({
-    queryKey: ["antigravity-gateway"],
-    queryFn: getAntigravityGatewayStatus,
-    refetchInterval: (query) => (query.state.data?.running ? 5_000 : false),
-  });
-  const antigravity = antigravityQuery.data;
-
-  const appRunningKey =
-    target === "claude_code"
-      ? "claudeCode"
-      : target === "claude_desktop"
-        ? "claudeDesktop"
-        : target === "opencode"
-          ? "opencode"
-          : "codex";
-  const isAppRunning = Boolean(runtimeQuery.data?.[appRunningKey]);
-
-  const openCreate = () => {
-    setEditing(null);
-    setImportHint(null);
-    setFormOpen(true);
-  };
-
-  const handleCreateSmartGateway = async () => {
-    try {
-      if (isNativeCatalog) {
-        await bindSmartGateway(target);
-        await store.load(target);
-        void message.success(t("providers.smartGatewayReady"));
-        return;
-      }
-      const auto = await ensureSmartGatewayProvider(target);
-      await store.load(target);
-      if (!auto.isCurrent) {
-        await handleSwitch(auto);
-      } else {
-        void message.success(t("providers.smartGatewayReady"));
-      }
-    } catch (error) {
-      void message.error(errMsg(error));
-    }
-  };
-
-  const createMenuItems: MenuProps["items"] = [
-    {
-      key: "smart_gateway",
-      label: t("providers.createSmartGateway"),
-      onClick: () => void handleCreateSmartGateway(),
-    },
-    {
-      key: "custom",
-      label: t("providers.createCustom"),
-      onClick: openCreate,
-    },
-  ];
-
-  const openEdit = (provider: Provider, hint?: string | null) => {
-    setEditing(provider);
-    setImportHint(hint ?? null);
-    setFormOpen(true);
-  };
-
-  const afterCopyToTarget = async (source: Provider, dest: ProviderTarget) => {
-    const copied = await handleCopyToTarget(source, dest);
-    if (!copied) return;
-    const hint = t("providers.copiedAdjustHint", { agent: t(LABEL_KEYS[source.targetApp]) });
-    if (dest !== target) {
-      setProvidersTarget(dest);
-    }
-    await store.load(dest);
-    openEdit(copied, hint);
-  };
-
-  const handleOpenOpencodeConfig = async () => {
-    try {
-      const paths = await getPaths();
-      await revealItemInDir(paths.opencodeConfigPath);
-    } catch (error) {
-      void message.error(errMsg(error));
-    }
-  };
-
-  const handleCodexOauthLogin = async () => {
-    setBusy(true);
-    try {
-      const device = await startCodexOauthLogin();
-      setOauthDevice(device);
-      setOauthPolling(true);
-      await openUrl(device.verificationUri);
-      const deadline = Date.now() + device.expiresIn * 1000;
-      while (Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, Math.max(1, device.interval) * 1000));
-        const result = await pollCodexOauthLogin(device.deviceCode);
-        if (result.status === "pending") continue;
-        if (result.status === "complete" && result.account) {
-          await ensureCodexOauthProvider(target, result.account.accountId);
-          await store.load(target);
-          setOauthDevice(null);
-          void message.success(t("providers.chatgptLoginSuccess"));
-          return;
-        }
-        throw new Error(result.message || t("providers.chatgptLoginFailed"));
-      }
-      throw new Error(t("providers.chatgptLoginExpired"));
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setOauthPolling(false);
-      setBusy(false);
-    }
-  };
-
-  const importExportItems: MenuProps["items"] = [
-    ...(target === "claude_code" || target === "claude_desktop"
-      ? [
-          {
-            key: "chatgptLogin",
-            icon: <LoginOutlined />,
-            label: t("providers.chatgptLogin"),
-            disabled: oauthPolling,
-            onClick: () => void handleCodexOauthLogin(),
-          },
-        ]
-      : []),
-    {
-      key: "importFromAgent",
-      icon: <SwapOutlined />,
-      label: t("providers.importFromAgent"),
-      disabled: busy,
-      onClick: () => setImportFromOpen(true),
-    },
-    {
-      key: "importLive",
-      icon: <ImportOutlined />,
-      label:
-        target === "opencode"
-          ? t("providers.syncOpenCodeLive")
-          : target === "pi"
-            ? t("providers.syncPiLive")
-            : t("providers.importLive"),
-      disabled: busy,
-      onClick: () => void handleImportLive(),
-    },
-    {
-      key: "importClipboard",
-      label: t("providers.importClipboard"),
-      disabled: busy,
-      onClick: () => void handleImportClipboard(),
-    },
-    {
-      key: "importFile",
-      label: t("providers.importFile"),
-      disabled: busy,
-      onClick: () => fileInputRef.current?.click(),
-    },
-    {
-      key: "export",
-      icon: <ExportOutlined />,
-      label: t("providers.exportJson", { defaultValue: t("providers.export") }),
-      disabled: busy,
-      onClick: () => void handleExport(),
-    },
-    ...(target === "opencode"
-      ? [
-          { type: "divider" as const },
-          {
-            key: "opencodeConfig",
-            icon: <FolderOpenOutlined />,
-            label: t("providers.opencodeOpenConfig"),
-            onClick: () => void handleOpenOpencodeConfig(),
-          },
-        ]
-      : []),
-  ];
-
   return (
     <Space direction="vertical" size="middle" style={{ width: "100%", minWidth: 0 }}>
-      {store.error && (
-        <Alert type="error" showIcon message={store.error} closable onClose={() => store.clearError()} />
-      )}
-
-      {/* Header: page-local Agent switcher + runtime status + actions */}
-      <div className="cc-workbench-header">
-        <div className="cc-header-left">
-          <AgentTargetSwitcher value={target} onChange={setProvidersTarget} targets={PROVIDER_TARGET_OPTIONS} />
-          <Badge
-            status={isAppRunning ? "success" : "default"}
-            text={isAppRunning ? t("workbench.running") : t("workbench.stopped")}
-          />
+      {/* Top Header: Title, Runtime status badges, Quick Navigation */}
+      <div
+        className="cc-workbench-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <Space align="center" size={10} wrap>
+          <Title level={4} style={{ margin: 0 }}>
+            {t("providers.pageTitle", { defaultValue: "统一供应商与接入" })}
+          </Title>
           <Tag
-            icon={<NodeIndexOutlined />}
-            color={isNativeCatalog ? "blue" : proxy?.running ? "green" : undefined}
+            color={smartGateway?.running ? "blue" : undefined}
             style={{ cursor: "pointer", margin: 0 }}
-            onClick={() => {
-              setProxyTarget(target);
-              navigate("gateway");
-            }}
+            onClick={() => navigate("gateway")}
           >
-            {isNativeCatalog
-              ? t("workbench.proxyDirect")
-              : proxy?.running
-                ? t("workbench.proxyRunning", { port: proxy.port })
-                : t("workbench.proxyStopped")}
+            <Badge status={smartGateway?.running ? "processing" : "default"} style={{ marginRight: 6 }} />
+            {smartGateway?.running
+              ? t("providers.gatewayRunningTag", {
+                  port: smartGateway.port ?? 15828,
+                  defaultValue: `智能网关 :${smartGateway.port ?? 15828}`,
+                })
+              : t("providers.gatewayStoppedTag", { defaultValue: "智能网关未启动" })}
           </Tag>
           <Tag
             color={antigravity?.running ? "purple" : undefined}
@@ -603,704 +206,202 @@ export default function ProvidersPage() {
             onClick={() => navigate("gateway")}
           >
             {antigravity?.running
-              ? t("workbench.antigravityRunning", { port: antigravity.port })
-              : t("workbench.antigravityStopped")}
+              ? t("workbench.antigravityRunning", {
+                  port: antigravity.port,
+                  defaultValue: `反代网关 :${antigravity.port}`,
+                })
+              : t("workbench.antigravityStopped", { defaultValue: "反代网关未运行" })}
           </Tag>
-        </div>
-        <div className="cc-header-right">
-          <Dropdown menu={{ items: createMenuItems }} trigger={["click"]}>
-            <Button type="primary" icon={<PlusOutlined />}>
-              {t("providers.create")}
-            </Button>
-          </Dropdown>
-          {target === "opencode" && (
-            <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
-              {t("providers.syncOpenCodeLive")}
-            </Button>
-          )}
-          <Button
-            icon={<ThunderboltOutlined />}
-            loading={batchTesting}
-            onClick={() => void handleSpeedtestAll()}
+          <Tag
+            color={kiro?.running ? "green" : undefined}
+            style={{ cursor: "pointer", margin: 0 }}
+            onClick={() => navigate("gateway")}
           >
-            {t("providers.speedtestAll")}
+            {kiro?.running
+              ? t("gateway.kiroRunning", {
+                  port: kiro.port,
+                  defaultValue: `Kiro :${kiro.port}`,
+                })
+              : t("gateway.kiroStopped", { defaultValue: "Kiro 未运行" })}
+          </Tag>
+        </Space>
+        <Space wrap>
+          <Button icon={<NodeIndexOutlined />} onClick={() => navigate("gateway")}>
+            {t("providers.openGateway", { defaultValue: "智能网关配置" })}
           </Button>
-          <Button
-            icon={<MedicineBoxOutlined />}
-            loading={doctorLoading}
-            onClick={() => void handleRunDoctor()}
-          >
-            {t("providers.providerDoctor", { defaultValue: "供应商诊断 (Doctor)" })}
-          </Button>
-          <Dropdown menu={{ items: importExportItems }} trigger={["click"]}>
-            <Button icon={<ImportOutlined />} loading={oauthPolling}>
-              {t("providers.importExport")}
-            </Button>
-          </Dropdown>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void handleImportFile(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </div>
+        </Space>
       </div>
 
-      {/* Onboarding Tips */}
-      <OnboardingTip
-        tipKey="providers_hot_switch"
-        type="info"
-        message={t("providers.hotSwitchTitle")}
-        description={t("providers.hotSwitchDescription")}
-      />
-      {!gatewayCatalog && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-          message={<span style={{ fontSize: "12.5px" }}>{t("providers.enableGatewayHint")}</span>}
-        />
-      )}
-      {target === "claude_code" && (
-        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-          <Space direction="vertical" size={12} style={{ width: "100%" }}>
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                <strong>{t("providers.defaultPermissionModeTitle")}</strong>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.defaultPermissionModeHint")}
-                </Text>
+      {/* 1. Unified Agent Connection Card (T1/T2, filterUiAgents, no Desktop/DSH) */}
+      <AgentConnectionCard />
+
+      {/* 2. Global Upstream Pool Management (CRUD, Presets, Models, Quota, OAuth, Import/Export) */}
+      <GatewayUpstreamPanel allowlistTarget="claude_code" />
+
+      {/* 3. Collapsible Agent Runtime & Permission Settings */}
+      <Collapse
+        ghost
+        items={[
+          {
+            key: "agentSettings",
+            label: (
+              <Space size={6}>
+                <SettingOutlined />
+                <span>{t("providers.agentSpecificSettings", { defaultValue: "Agent 运行与权限设置" })}</span>
               </Space>
-              <Select
-                value={defaultPermissionModeQuery.data ?? "default"}
-                loading={defaultPermissionModeQuery.isLoading}
-                disabled={defaultPermissionModeQuery.isFetching}
-                style={{ minWidth: 200 }}
-                onChange={(value) => void handleDefaultPermissionModeChange(String(value))}
-                options={[
-                  { value: "default", label: t("providers.defaultPermissionModeDefault") },
-                  { value: "plan", label: t("providers.defaultPermissionModePlan") },
-                  { value: "acceptEdits", label: t("providers.defaultPermissionModeAcceptEdits") },
-                  { value: "auto", label: t("providers.defaultPermissionModeAuto") },
-                ]}
-              />
-            </Space>
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                <span>{t("providers.agentTeamsEnable")}</span>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.agentTeamsEnableHint")}
-                </Text>
-              </Space>
-              <Switch
-                checked={agentSettingsQuery.data?.teamsEnabled ?? false}
-                loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
-                onChange={(checked) => void handleAgentSettingsChange({ teamsEnabled: checked })}
-              />
-            </Space>
-            {agentSettingsQuery.data?.teamsEnabled
-              && livePromptBlocksAgentTeams(livePromptQuery.data?.content) && (
-              <Alert
-                type="warning"
-                showIcon
-                message={t("providers.agentTeamsPromptConflict")}
-                action={
-                  <Button size="small" onClick={openWorkspacePrompts}>
-                    {t("providers.agentTeamsOpenPrompts")}
-                  </Button>
-                }
-              />
-            )}
-            <Collapse
-              ghost
-              items={[
-                {
-                  key: "advanced",
-                  label: t("providers.claudeCodeAdvanced"),
-                  children: (
-                    <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                        <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                          <span>{t("providers.autoModeServer")}</span>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {t("providers.autoModeServerHint")}
-                          </Text>
-                        </Space>
-                        <Switch
-                          checked={agentSettingsQuery.data?.autoModeServer ?? true}
-                          loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
-                          onChange={(checked) =>
-                            void handleAgentSettingsChange(
-                              { autoModeServer: checked },
-                              "providers.autoModeServerSaved",
-                            )
-                          }
-                        />
-                      </Space>
-                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                        <span>{t("providers.agentTeamsMode")}</span>
-                        <Select
-                          value={
-                            agentSettingsQuery.data?.teammateMode === "tmux"
-                              && !agentSettingsQuery.data.tmuxSupported
-                              ? "in-process"
-                              : (agentSettingsQuery.data?.teammateMode ?? "auto")
-                          }
-                          loading={agentSettingsQuery.isLoading}
-                          disabled={!agentSettingsQuery.data?.teamsEnabled || agentSettingsQuery.isFetching}
-                          style={{ minWidth: 280 }}
-                          onChange={(value) => void handleAgentSettingsChange({ teammateMode: String(value) })}
-                          options={[
-                            { value: "auto", label: t("providers.agentTeamsModeAuto") },
-                            { value: "in-process", label: t("providers.agentTeamsModeInProcess") },
-                            {
-                              value: "tmux",
-                              label: t("providers.agentTeamsModeTmux"),
-                              disabled: !agentSettingsQuery.data?.tmuxSupported,
-                            },
-                          ]}
-                        />
-                      </Space>
-                      {!agentSettingsQuery.data?.tmuxSupported && (
+            ),
+            children: (
+              <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                <Card size="small" title="Claude Code" className="page-surface">
+                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                        <strong>{t("providers.defaultPermissionModeTitle")}</strong>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          {t("providers.agentTeamsModeTmuxDisabled")}
+                          {t("providers.defaultPermissionModeHint")}
                         </Text>
-                      )}
-                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                        <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-                          <span>{t("providers.agentTeamsForceModel")}</span>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {t("providers.agentTeamsForceModelHint")}
-                          </Text>
-                        </Space>
-                        <Switch
-                          checked={agentSettingsQuery.data?.subagentModelForce ?? false}
-                          loading={agentSettingsQuery.isFetching}
-                          disabled={!agentSettingsQuery.data?.teamsEnabled}
-                          onChange={(checked) =>
-                            void handleAgentSettingsChange({ subagentModelForce: checked })
+                      </Space>
+                      <Select
+                        value={defaultPermissionModeQuery.data ?? "default"}
+                        loading={defaultPermissionModeQuery.isLoading}
+                        disabled={defaultPermissionModeQuery.isFetching}
+                        style={{ minWidth: 200 }}
+                        onChange={(value) => void handleDefaultPermissionModeChange(String(value))}
+                        options={[
+                          { value: "default", label: t("providers.defaultPermissionModeDefault") },
+                          { value: "plan", label: t("providers.defaultPermissionModePlan") },
+                          { value: "acceptEdits", label: t("providers.defaultPermissionModeAcceptEdits") },
+                          { value: "auto", label: t("providers.defaultPermissionModeAuto") },
+                        ]}
+                      />
+                    </Space>
+                    <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                        <span>{t("providers.agentTeamsEnable")}</span>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {t("providers.agentTeamsEnableHint")}
+                        </Text>
+                      </Space>
+                      <Switch
+                        checked={agentSettingsQuery.data?.teamsEnabled ?? false}
+                        loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
+                        onChange={(checked) => void handleAgentSettingsChange({ teamsEnabled: checked })}
+                      />
+                    </Space>
+                    {agentSettingsQuery.data?.teamsEnabled &&
+                      livePromptBlocksAgentTeams(livePromptQuery.data?.content) && (
+                        <Alert
+                          type="warning"
+                          showIcon
+                          message={t("providers.agentTeamsPromptConflict")}
+                          action={
+                            <Button size="small" onClick={openWorkspacePrompts}>
+                              {t("providers.agentTeamsOpenPrompts")}
+                            </Button>
                           }
                         />
+                      )}
+                    <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                        <span>{t("providers.autoModeServer")}</span>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {t("providers.autoModeServerHint")}
+                        </Text>
                       </Space>
+                      <Switch
+                        checked={agentSettingsQuery.data?.autoModeServer ?? true}
+                        loading={agentSettingsQuery.isLoading || agentSettingsQuery.isFetching}
+                        onChange={(checked) =>
+                          void handleAgentSettingsChange(
+                            { autoModeServer: checked },
+                            "providers.autoModeServerSaved",
+                          )
+                        }
+                      />
+                    </Space>
+                    <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                      <span>{t("providers.agentTeamsMode")}</span>
+                      <Select
+                        value={
+                          agentSettingsQuery.data?.teammateMode === "tmux" &&
+                          !agentSettingsQuery.data.tmuxSupported
+                            ? "in-process"
+                            : (agentSettingsQuery.data?.teammateMode ?? "auto")
+                        }
+                        loading={agentSettingsQuery.isLoading}
+                        disabled={!agentSettingsQuery.data?.teamsEnabled || agentSettingsQuery.isFetching}
+                        style={{ minWidth: 280 }}
+                        onChange={(value) => void handleAgentSettingsChange({ teammateMode: String(value) })}
+                        options={[
+                          { value: "auto", label: t("providers.agentTeamsModeAuto") },
+                          { value: "in-process", label: t("providers.agentTeamsModeInProcess") },
+                          {
+                            value: "tmux",
+                            label: t("providers.agentTeamsModeTmux"),
+                            disabled: !agentSettingsQuery.data?.tmuxSupported,
+                          },
+                        ]}
+                      />
+                    </Space>
+                    {!agentSettingsQuery.data?.tmuxSupported && (
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        {t("providers.agentTeamsGatewayNote")}
+                        {t("providers.agentTeamsModeTmuxDisabled")}
+                      </Text>
+                    )}
+                  </Space>
+                </Card>
+
+                <Card size="small" title="OpenCode" className="page-surface">
+                  <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                    <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                      <strong>{t("providers.opencodePermissionTitle")}</strong>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t("providers.opencodePermissionHint")}
                       </Text>
                     </Space>
-                  ),
-                },
-              ]}
-            />
-          </Space>
-        </Card>
-      )}
-      {target === "opencode" && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-          message={
-            <span style={{ fontSize: "12.5px" }}>
-              <strong>{t("providers.opencodeNoSwitchTitle")}</strong> — {t("providers.opencodeNoSwitchDescription")}
-            </span>
-          }
-        />
-      )}
-      {target === "opencode" && (
-        <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-            <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
-              <strong>{t("providers.opencodePermissionTitle")}</strong>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {t("providers.opencodePermissionHint")}
-              </Text>
-            </Space>
-            <Switch
-              checked={opencodePermissionQuery.data === "allow"}
-              loading={opencodePermissionQuery.isLoading || opencodePermissionQuery.isFetching}
-              onChange={(checked) => void handleOpenCodePermissionChange(checked)}
-            />
-          </Space>
-        </Card>
-      )}
-      {target === "pi" && (
-        <>
-          <Alert
-            type="info"
-            showIcon
-            style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-            message={
-              <span style={{ fontSize: "12.5px" }}>
-                <strong>{t("providers.piNoSwitchTitle")}</strong> — {t("providers.piNoSwitchDescription")}
-              </span>
-            }
-          />
-          <Card size="small" style={{ margin: "8px 0" }} className="page-surface">
-            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-              <Space>
-                <strong>{t("providers.piThinkingLevelTitle", { defaultValue: "Pi 默认思考强度 (Thinking Level)" })}</strong>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("providers.piThinkingLevelHint", { defaultValue: "控制 Pi 模型 Reasoning/Thinking 思考过程" })}
-                </Text>
-              </Space>
-              <Segmented
-                value={piThinkingLevel}
-                onChange={(val) => void handleUpdatePiThinkingLevel(String(val))}
-                options={[
-                  { label: "关闭 (off)", value: "off" },
-                  { label: "极低 (minimal)", value: "minimal" },
-                  { label: "低 (low)", value: "low" },
-                  { label: "中 (medium)", value: "medium" },
-                  { label: "高 (high)", value: "high" },
-                  { label: "超高 (xhigh)", value: "xhigh" },
-                  { label: "最大 (max)", value: "max" },
-                ]}
-              />
-            </Space>
-          </Card>
-        </>
-      )}
-      {target === "cline" && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ minHeight: "38px", padding: "6px 14px", borderRadius: "6px" }}
-          message={
-            <span style={{ fontSize: "12.5px" }}>
-              <strong>{t("providers.clineNoSwitchTitle")}</strong> — {t("providers.clineNoSwitchDescription")}
-            </span>
-          }
-        />
-      )}
-      {target === "codex" && (
-        <OnboardingTip
-          tipKey="providers_codex_auth"
-          type={codexAuth?.loggedIn ? "success" : "info"}
-          message={codexAuth?.loggedIn ? t("providers.codexLoginDetected") : t("providers.codexLoginNeeded")}
-          description={
-            <Space direction="vertical" size={4}>
-              <Space wrap>
-                <Text code>{codexAuth?.loginCommand ?? "codex login"}</Text>
-                <Button
-                  size="small"
-                  onClick={() => void navigator.clipboard?.writeText(codexAuth?.loginCommand ?? "codex login")}
-                >
-                  {t("common.copy", { defaultValue: "复制命令" })}
-                </Button>
-              </Space>
-              <Text type="secondary">{t("providers.codexLoginHint")}</Text>
-            </Space>
-          }
-        />
-      )}
+                    <Switch
+                      checked={opencodePermissionQuery.data === "allow"}
+                      loading={opencodePermissionQuery.isLoading || opencodePermissionQuery.isFetching}
+                      onChange={(checked) => void handleOpenCodePermissionChange(checked)}
+                    />
+                  </Space>
+                </Card>
 
-      {/* Provider Card List */}
-      <div className="cc-provider-list">
-        {/* Official Provider Card — same 3-row structure as custom cards */}
-        {target !== "opencode" && target !== "pi" && target !== "dsh" && target !== "cline" && (
-          <div className={`cc-provider-card ${officialCurrent ? "cc-provider-card-active" : ""}`}>
-            <div className="cc-provider-card-body">
-              <div className="cc-provider-card-header">
-                <div className="cc-provider-main">
-                  <div className="cc-provider-icon" style={{ width: 36, height: 36, borderRadius: 8 }}>
-                    {usageSourceIcon(target, { size: 20 })}
-                  </div>
-                  <div className="cc-provider-info">
-                    <span className="cc-provider-name">{t("providers.officialMode")}</span>
-                  </div>
-                </div>
-                {officialCurrent && (
-                  <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
-                    🟢 {t("providers.current")}
-                  </Tag>
-                )}
-              </div>
-
-              <div className="cc-provider-card-meta">
-                <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
-                  {t("providers.officialModeTag", { defaultValue: "官方" })}
-                </Tag>
-                <Tag style={{ margin: 0, borderRadius: 4, fontSize: 11, background: "var(--color-bg-subtle, rgba(0,0,0,0.04))" }}>
-                  native
-                </Tag>
-                <ProviderQuotaView target={target} />
-              </div>
-
-              <div className="cc-provider-card-footer">
-                <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
-                  {t("providers.officialModeHint", { defaultValue: "使用官方原生 API Endpoint / 账号凭据" })}
-                </Text>
-                <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
-                  {!officialCurrent && (
-                    <Button
-                      type="primary"
-                      size="small"
-                      style={{ borderRadius: 6, fontSize: 12 }}
-                      loading={switchingId === "official"}
-                      onClick={() => void handleOfficial()}
-                    >
-                      {t("providers.switchTo")}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Custom Provider Cards */}
-        {[...store.providers]
-          .sort((left, right) => Number(right.providerKind === "smart_gateway") - Number(left.providerKind === "smart_gateway"))
-          .map((provider) => {
-          const isAuto = provider.providerKind === "smart_gateway";
-          const isCurrent = provider.isCurrent;
-          const extraModels = extraListedModels(provider);
-          const showSwitch = !isNativeCatalog && !isCurrent;
-          const showCurrent = !isNativeCatalog && isCurrent;
-          return (
-            <div
-              key={provider.id}
-              className={`cc-provider-card ${showCurrent ? "cc-provider-card-active" : ""}`}
-            >
-              <div className="cc-provider-card-body">
-                <div className="cc-provider-card-header">
-                  <div className="cc-provider-main">
-                    <ProviderBrandIcon provider={provider} size={36} />
-                    <div className="cc-provider-info">
-                      <span className="cc-provider-name">
-                        {isAuto ? t("providers.autoCardName") : provider.name}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {isAuto && (
-                      <Tag color="blue" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
-                        {t("providers.autoCardTag")}
-                      </Tag>
-                    )}
-                    {showCurrent && (
-                      <Tag color="success" style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontSize: 11 }}>
-                        🟢 {t("providers.current")}
-                      </Tag>
-                    )}
-                    {provider.healthStatus && provider.healthLatencyMs != null && (
-                      <Tag
-                        color={provider.healthStatus === "healthy" ? "success" : "error"}
-                        style={{ borderRadius: 6, fontSize: 11, margin: 0 }}
-                      >
-                        {provider.healthLatencyMs}ms
-                      </Tag>
-                    )}
-                  </div>
-                </div>
-
-                <div className="cc-provider-card-meta">
-                  {isAuto ? (
-                    <>
-                      <Select
-                        size="small"
-                        showSearch
-                        optionFilterProp="searchText"
-                        style={{ minWidth: 180 }}
-                        value={provider.model || "auto"}
-                        loading={autoModelSaving}
-                        options={groupedCatalogOptions(catalogEntriesQuery.data ?? [])}
-                        onChange={(value) => void handleAutoModelChange(provider, String(value ?? "auto"))}
-                      />
-                      <Tooltip
-                        title={
-                          autoBinding
-                            ? undefined
-                            : t("providers.gatewayProfileBindFirst", {
-                                defaultValue: "请先绑定智能网关，再选择路由档案",
-                              })
-                        }
-                      >
-                        <span>
-                          <Select
-                            size="small"
-                            style={{ minWidth: 140 }}
-                            loading={autoModelSaving}
-                            disabled={!autoBinding}
-                            value={autoBinding?.profileId ?? "gprof_shared"}
-                            options={(gatewayProfilesQuery.data ?? []).map((profile) => ({
-                              value: profile.id,
-                              label: profile.id === "gprof_shared"
-                                ? t("gateway.profileDefault", { defaultValue: profile.name || "默认" })
-                                : (profile.name.trim() || profile.id),
-                            }))}
-                            onChange={(value) => void handleAutoProfileChange(String(value))}
-                            placeholder={t("providers.gatewayProfile", { defaultValue: "配置" })}
-                          />
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <Tag className="cc-provider-model-tag" title={provider.model || "Default"}>
-                      Model: {provider.model || "Default"}
-                    </Tag>
-                  )}
-                  {!isAuto && extraModels.length > 0 && (
-                    <Tag
-                      className="cc-provider-meta-tag"
-                      title={t("providers.extraModelsHint", { models: extraModels.join(", ") })}
-                    >
-                      +{extraModels.length}
-                    </Tag>
-                  )}
-                  <Tag className="cc-provider-meta-tag">{isAuto ? "auto" : provider.protocolType}</Tag>
-                  {!isAuto && <ProviderQuotaView providerId={provider.id} />}
-                </div>
-
-                <div className="cc-provider-card-footer">
-                  <Text type="secondary" ellipsis style={{ maxWidth: 220, fontSize: 11 }}>
-                    {isAuto ? t("providers.autoCardHint") : provider.baseUrl}
-                  </Text>
-                  <div className="cc-provider-actions" style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 28 }}>
-                    {showSwitch && (
-                      <Button
-                        type="primary"
-                        size="small"
-                        style={{ borderRadius: 6, fontSize: 12 }}
-                        loading={switchingId === provider.id}
-                        onClick={() => void handleSwitch(provider)}
-                      >
-                        {isAuto ? t("providers.enableSmartGateway") : t("providers.switchTo")}
-                      </Button>
-                    )}
-                    {isAuto ? (
-                      <Button
-                        type="link"
-                        size="small"
-                        onClick={() => {
-                          const selected = autoBinding?.profileId ?? "gprof_shared";
-                          setProxyTarget(target);
-                          setGatewayTab("smart");
-                          setGatewaySection("routing");
-                          setGatewayProfileId(selected);
-                          navigate("gateway");
-                        }}
-                      >
-                        {t("providers.configureGateway")}
-                      </Button>
-                    ) : (
-                    <Space size={2}>
-                      <Tooltip title={t("providers.testConnection")}>
-                        <Button
-                          size="small"
-                          type="text"
-                          loading={testingId === provider.id}
-                          icon={<ThunderboltOutlined />}
-                          onClick={() => void handleTest(provider)}
-                        />
-                      </Tooltip>
-                      <Tooltip title={t("common.edit")}>
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<EditOutlined />}
-                          onClick={() => openEdit(provider)}
-                        />
-                      </Tooltip>
-                      <Tooltip title={t("providers.importToGateway")}>
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<ImportOutlined />}
-                          onClick={() => void handleImportToGateway(provider)}
-                        />
-                      </Tooltip>
-                      <Tooltip title={t("providers.copyToAgent")}>
-                        <Dropdown
-                          trigger={["click"]}
-                          menu={{
-                            items: filterUiAgents(PROVIDER_TARGET_OPTIONS).filter((option) => option !== target).map((option) => ({
-                              key: option,
-                              label: t(LABEL_KEYS[option]),
-                              disabled: !canCopyProviderTo(provider, option),
-                              onClick: () => void afterCopyToTarget(provider, option),
-                            })),
-                          }}
-                        >
-                          <Button size="small" type="text" icon={<SwapOutlined />} />
-                        </Dropdown>
-                      </Tooltip>
-                      <Tooltip title={t("deeplink.shareLink")}>
-                        <Button
-                          size="small"
-                          type="text"
-                          icon={<CopyOutlined />}
-                          onClick={() => void handleShareLink(provider)}
-                        />
-                      </Tooltip>
-                      <Popconfirm
-                        title={t("providers.deleteConfirmTitle")}
-                        description={t("providers.deleteConfirmDesc")}
-                        onConfirm={() => void handleDelete(provider)}
-                        okText={t("common.delete")}
-                        cancelText={t("common.cancel")}
-                      >
-                        <Tooltip title={t("common.delete")}>
-                          <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                        </Tooltip>
-                      </Popconfirm>
+                <Card size="small" title="Pi" className="page-surface">
+                  <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                    <Space direction="vertical" size={0} style={{ minWidth: 0, flex: 1 }}>
+                      <strong>
+                        {t("providers.piThinkingLevelTitle", {
+                          defaultValue: "Pi 默认思考强度 (Thinking Level)",
+                        })}
+                      </strong>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t("providers.piThinkingLevelHint", {
+                          defaultValue: "控制 Pi 模型 Reasoning/Thinking 思考过程",
+                        })}
+                      </Text>
                     </Space>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {store.providers.length === 0 && (
-          <div className="cc-provider-empty">
-            <ResourceEmptyState
-              title={t("providers.empty", { defaultValue: "暂无供应商" })}
-              description={t("providers.emptyHint", { defaultValue: "为当前 Agent 添加第一个 Provider。" })}
-              style={{ padding: "20px 16px" }}
-              action={
-                <Space>
-                  <Dropdown menu={{ items: createMenuItems }} trigger={["click"]}>
-                    <Button type="primary" icon={<PlusOutlined />}>
-                      {t("providers.create")}
-                    </Button>
-                  </Dropdown>
-                  {target === "opencode" && (
-                    <Button icon={<ScanOutlined />} loading={busy} onClick={() => void handleImportLive()}>
-                      {t("providers.syncOpenCodeLive")}
-                    </Button>
-                  )}
-                </Space>
-              }
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Form / Modals */}
-      <ProviderForm
-        open={formOpen}
-        editing={editing}
-        target={target}
-        gatewayCatalog={gatewayCatalog}
-        importHint={importHint}
-        onCancel={() => {
-          setFormOpen(false);
-          setImportHint(null);
-        }}
-        onSubmit={handleSubmit}
-      />
-
-      <ImportFromAgentDialog
-        open={importFromOpen}
-        dest={target}
-        confirming={busy}
-        onCancel={() => setImportFromOpen(false)}
-        onImport={(provider) => {
-          setImportFromOpen(false);
-          void afterCopyToTarget(provider, target);
-        }}
-      />
-
-      <ImportPreviewDialog
-        open={importPreview !== null}
-        preview={importPreview}
-        confirming={importConfirming}
-        onCancel={() => setImportPreview(null)}
-        onConfirm={() => void handleConfirmImport()}
-      />
-
-      <Modal
-        open={oauthDevice !== null}
-        title={t("providers.chatgptLoginTitle")}
-        footer={null}
-        closable={!oauthPolling}
-        maskClosable={!oauthPolling}
-        onCancel={() => setOauthDevice(null)}
-      >
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <Text>{t("providers.chatgptLoginInstructions")}</Text>
-          <Typography.Title level={2} copyable style={{ margin: 0 }}>
-            {oauthDevice?.userCode}
-          </Typography.Title>
-          <Button
-            type="primary"
-            onClick={() => oauthDevice && void openUrl(oauthDevice.verificationUri)}
-          >
-            {t("providers.openChatgptLogin")}
-          </Button>
-          {oauthPolling && <Text type="secondary">{t("providers.waitingAuthorization")}</Text>}
-        </Space>
-      </Modal>
-      <Modal
-        open={doctorModalOpen}
-        title={t("providers.doctorReportTitle", { defaultValue: "供应商健康与诊断报告 (Provider Doctor)" })}
-        width={720}
-        onCancel={() => setDoctorModalOpen(false)}
-        footer={[
-          <Button key="close" onClick={() => setDoctorModalOpen(false)}>
-            {t("common.close", { defaultValue: "关闭" })}
-          </Button>,
-          <Button
-            key="quarantine"
-            type="primary"
-            danger
-            loading={quarantining}
-            disabled={!doctorReports.some((r) => !r.ok && (r.category === "authentication" || r.statusCode === 401 || r.statusCode === 403))}
-            onClick={() => void handleQuarantineFailed()}
-          >
-            {t("providers.quarantineFailed", { defaultValue: "一键隔离 401/403 失效节点" })}
-          </Button>,
-        ]}
-      >
-        <Space direction="vertical" style={{ width: "100%" }}>
-          <Alert
-            type="info"
-            showIcon
-            message={t("providers.doctorTip", { defaultValue: "诊断测速每个供应商节点的连通性与 401/403 鉴权状态。隔离节点后将不会作为故障切换备选。" })}
-          />
-          {doctorReports.map((report) => (
-            <Card key={report.providerId} size="small" style={{ marginBottom: 8 }}>
-              <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                <Space>
-                  <Tag color={report.ok ? "success" : report.statusCode === 401 || report.statusCode === 403 ? "error" : "warning"}>
-                    {report.ok ? "健康 OK" : report.statusCode ? `HTTP ${report.statusCode}` : report.category}
-                  </Tag>
-                  <strong>{report.providerName}</strong>
-                  <Tag>{report.targetApp}</Tag>
-                  {report.quarantined && <Tag color="default">已隔离</Tag>}
-                </Space>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {report.latencyMs ? `${report.latencyMs} ms` : "—"}
-                </Text>
+                    <Select
+                      style={{ minWidth: 160 }}
+                      value={piThinkingLevel}
+                      onChange={(val) => void handleUpdatePiThinkingLevel(String(val))}
+                      options={[
+                        { label: "关闭 (off)", value: "off" },
+                        { label: "极低 (minimal)", value: "minimal" },
+                        { label: "低 (low)", value: "low" },
+                        { label: "中 (medium)", value: "medium" },
+                        { label: "高 (high)", value: "high" },
+                        { label: "超高 (xhigh)", value: "xhigh" },
+                        { label: "最大 (max)", value: "max" },
+                      ]}
+                    />
+                  </Space>
+                </Card>
               </Space>
-              <div style={{ fontSize: 12, color: report.ok ? "#52c41a" : "#ff4d4f", marginTop: 4 }}>
-                {report.message}
-              </div>
-            </Card>
-          ))}
-        </Space>
-      </Modal>
+            ),
+          },
+        ]}
+      />
     </Space>
   );
-}
-
-function extraListedModels(provider: Provider): string[] {
-  const defaultModel = provider.model.trim().toLowerCase();
-  const hidden = new Set((provider.hiddenModels ?? []).map((id) => id.trim().toLowerCase()));
-  const extras: string[] = [];
-  const seen = new Set<string>();
-  for (const id of provider.failoverModels ?? []) {
-    const trimmed = id.trim();
-    const key = trimmed.toLowerCase();
-    if (!trimmed || key === defaultModel || hidden.has(key) || seen.has(key)) continue;
-    seen.add(key);
-    extras.push(trimmed);
-  }
-  return extras;
 }

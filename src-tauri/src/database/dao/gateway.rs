@@ -1,7 +1,8 @@
 //! Gateway profiles, agent connections, and upstream mirrors (Schema 29).
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 #[cfg(test)]
 use ts_rs::TS;
 use uuid::Uuid;
@@ -458,7 +459,10 @@ fn current_provider_is_smart_gateway(conn: &Connection, target: ProviderTarget) 
 }
 
 pub fn is_gateway_connection(conn: &Connection, target: ProviderTarget) -> bool {
-    if binding_for_target(conn, target).ok().flatten().is_some() {
+    if let Some(binding) = binding_for_target(conn, target).ok().flatten() {
+        if binding.mode == BINDING_MODE_DIRECT {
+            return false;
+        }
         // Catalog agents keep Auto as an extra entry; binding alone means catalog-on.
         // Code / Desktop / Codex only route through the gateway when Auto is current.
         if target.is_catalog_target() {
@@ -635,9 +639,14 @@ pub fn set_binding_profile(
     if !requested.is_empty() && get_profile(conn, requested)?.is_none() {
         return Err(AppError::Config(format!("网关档案不存在: {requested}")));
     }
-    if binding_for_target(conn, target)?.is_none() {
+    let Some(binding) = binding_for_target(conn, target)? else {
         return Err(AppError::Config(
             "请先绑定智能网关，再选择路由档案".to_string(),
+        ));
+    };
+    if binding.mode == BINDING_MODE_DIRECT {
+        return Err(AppError::Config(
+            "当前处于直连模式，无法切换网关档案；请先切换为智能网关模式".to_string(),
         ));
     }
     let resolved = resolve_profile_id(conn, Some(requested))?;
@@ -1252,6 +1261,22 @@ fn add_upstream_to_default_allowlist(conn: &Connection, target: &str, upstream_i
 }
 
 pub fn assert_upstream_deletable(conn: &Connection, id: &str) -> AppResult<()> {
+    if table_exists(conn, "gateway_bindings") && bindings_have_v34(conn) {
+        let mut stmt = conn.prepare(
+            "SELECT target_app FROM gateway_bindings WHERE mode = 'direct' AND direct_upstream_id = ?;",
+        )?;
+        let rows = stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
+        let mut targets = Vec::new();
+        for row in rows {
+            targets.push(row?);
+        }
+        if !targets.is_empty() {
+            let joined = targets.join(", ");
+            return Err(AppError::Config(format!(
+                "该上游正被 Agent ({joined}) 直连使用，无法删除；请先切换对应 Agent 的连接模式"
+            )));
+        }
+    }
     let gateway_current: i64 = if table_exists(conn, "gateway_bindings") {
         conn.query_row("SELECT count(*) FROM gateway_bindings;", [], |row| row.get(0))?
     } else if table_exists(conn, "agent_connections") {
@@ -1357,32 +1382,79 @@ pub fn profile_allows_upstream(profile: &GatewayProfile, upstream_id: &str) -> b
             .any(|id| id.eq_ignore_ascii_case(upstream_id))
 }
 
+fn parse_health_latency_ms(detail: Option<&str>) -> Option<u64> {
+    let detail = detail?;
+    let marker = "latency_ms=";
+    let start = detail.find(marker)? + marker.len();
+    let rest = &detail[start..];
+    let end = rest.find('|').unwrap_or(rest.len());
+    rest[..end].trim().parse().ok()
+}
+
 /// Global upstream pool (excludes the managed Auto card).
 pub fn list_upstream_providers(conn: &Connection, include_disabled: bool) -> AppResult<Vec<Provider>> {
-    let sql = if include_disabled {
-        "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
-                notes, sort_index, enabled, model_context_window, web_search_enabled,
-                auto_review_model_override, failover_group, failover_models, hidden_models_json,
-                thinking_config_json, custom_headers_json, created_at
-         FROM upstreams
-         WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway'
-         ORDER BY sort_index ASC, created_at ASC;"
-    } else {
-        "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
-                notes, sort_index, enabled, model_context_window, web_search_enabled,
-                auto_review_model_override, failover_group, failover_models, hidden_models_json,
-                thinking_config_json, custom_headers_json, created_at
-         FROM upstreams
-         WHERE COALESCE(enabled, 1) = 1
-           AND COALESCE(provider_kind, 'standard') != 'smart_gateway'
-         ORDER BY sort_index ASC, created_at ASC;"
+    let has_model_mapping = upstreams_have_model_mapping(conn);
+    let sql = match (include_disabled, has_model_mapping) {
+        (true, true) => {
+            "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                    notes, sort_index, enabled, model_context_window, web_search_enabled,
+                    auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                    thinking_config_json, custom_headers_json, created_at, model_mapping_json,
+                    (SELECT status FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT checked_at FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT detail FROM provider_health WHERE provider_id = upstreams.id)
+             FROM upstreams
+             WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway'
+             ORDER BY sort_index ASC, created_at ASC;"
+        }
+        (true, false) => {
+            "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                    notes, sort_index, enabled, model_context_window, web_search_enabled,
+                    auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                    thinking_config_json, custom_headers_json, created_at,
+                    (SELECT status FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT checked_at FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT detail FROM provider_health WHERE provider_id = upstreams.id)
+             FROM upstreams
+             WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway'
+             ORDER BY sort_index ASC, created_at ASC;"
+        }
+        (false, true) => {
+            "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                    notes, sort_index, enabled, model_context_window, web_search_enabled,
+                    auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                    thinking_config_json, custom_headers_json, created_at, model_mapping_json,
+                    (SELECT status FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT checked_at FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT detail FROM provider_health WHERE provider_id = upstreams.id)
+             FROM upstreams
+             WHERE COALESCE(enabled, 1) = 1
+               AND COALESCE(provider_kind, 'standard') != 'smart_gateway'
+             ORDER BY sort_index ASC, created_at ASC;"
+        }
+        (false, false) => {
+            "SELECT id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                    notes, sort_index, enabled, model_context_window, web_search_enabled,
+                    auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                    thinking_config_json, custom_headers_json, created_at,
+                    (SELECT status FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT checked_at FROM provider_health WHERE provider_id = upstreams.id),
+                    (SELECT detail FROM provider_health WHERE provider_id = upstreams.id)
+             FROM upstreams
+             WHERE COALESCE(enabled, 1) = 1
+               AND COALESCE(provider_kind, 'standard') != 'smart_gateway'
+             ORDER BY sort_index ASC, created_at ASC;"
+        }
     };
     let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([], row_to_upstream_provider)?;
+    let rows = stmt.query_map([], |row| row_to_upstream_provider(row, has_model_mapping))?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
-fn row_to_upstream_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
+fn row_to_upstream_provider(
+    row: &rusqlite::Row<'_>,
+    has_model_mapping: bool,
+) -> rusqlite::Result<Provider> {
     let protocol = ProtocolType::from_str_lossy(&row.get::<_, String>(5)?);
     let kind = ProviderKind::from_str_lossy(&row.get::<_, String>(6)?);
     let failover_models = parse_string_list(row.get::<_, String>(15).unwrap_or_else(|_| "[]".into()));
@@ -1396,6 +1468,26 @@ fn row_to_upstream_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provide
     let window: Option<i64> = row.get(11)?;
     let web_search: Option<i64> = row.get(12)?;
     let api_key: String = row.get(3)?;
+    let model_mapping = if has_model_mapping {
+        let mapping_json: String = row.get(20).unwrap_or_else(|_| "{}".into());
+        serde_json::from_str(&mapping_json).unwrap_or_default()
+    } else {
+        crate::provider::ClaudeModelMapping::default()
+    };
+    let (health_status, health_checked_at, health_detail) = if has_model_mapping {
+        (
+            row.get::<_, Option<String>>(21)?,
+            row.get::<_, Option<i64>>(22)?,
+            row.get::<_, Option<String>>(23)?,
+        )
+    } else {
+        (
+            row.get::<_, Option<String>>(20)?,
+            row.get::<_, Option<i64>>(21)?,
+            row.get::<_, Option<String>>(22)?,
+        )
+    };
+    let health_latency_ms = parse_health_latency_ms(health_detail.as_deref());
     Ok(Provider {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -1409,7 +1501,7 @@ fn row_to_upstream_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provide
         created_at: row.get(19)?,
         sort_index: row.get(9)?,
         is_current: false,
-        model_mapping: crate::provider::ClaudeModelMapping::default(),
+        model_mapping,
         model_context_window: window.and_then(|value| u64::try_from(value).ok()),
         web_search_enabled: web_search.map(|value| value != 0),
         auto_review_model_override: row.get(13)?,
@@ -1420,9 +1512,9 @@ fn row_to_upstream_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provide
         hidden_models,
         thinking_config,
         custom_headers,
-        health_status: None,
-        health_checked_at: None,
-        health_latency_ms: None,
+        health_status,
+        health_checked_at,
+        health_latency_ms,
     })
 }
 
@@ -1439,6 +1531,24 @@ pub fn get_upstream_provider(conn: &Connection, id: &str) -> AppResult<Option<Pr
     Ok(list_upstream_providers(conn, true)?
         .into_iter()
         .find(|provider| provider.id == id))
+}
+
+pub fn provider_from_upstream(
+    conn: &Connection,
+    id: &str,
+    target: ProviderTarget,
+) -> AppResult<Provider> {
+    let upstream = get_upstream_provider(conn, id)?
+        .ok_or_else(|| AppError::Config(format!("上游不存在: {id}")))?;
+    let mut provider = upstream;
+    provider.id = id.to_string();
+    provider.target_app = target;
+    if !provider.api_key.trim().is_empty() && !secrets::is_keyring_ref(&provider.api_key) {
+        provider.api_key = secrets::keyring_ref(id);
+    }
+    provider.api_key_set = !provider.api_key.trim().is_empty();
+    provider.is_current = true;
+    Ok(provider)
 }
 
 pub fn upsert_upstream(conn: &Connection, input: &ProviderInput) -> AppResult<Provider> {
@@ -1520,52 +1630,106 @@ pub fn upsert_upstream(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             .filter(|headers| !headers.is_empty())
             .unwrap_or(&std::collections::HashMap::new()),
     )?;
-    conn.execute(
-        "INSERT INTO upstreams (
-            id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
-            notes, sort_index, enabled, model_context_window, web_search_enabled,
-            auto_review_model_override, failover_group, failover_models, hidden_models_json,
-            thinking_config_json, custom_headers_json, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            base_url = excluded.base_url,
-            api_key = excluded.api_key,
-            model = excluded.model,
-            protocol_type = excluded.protocol_type,
-            provider_kind = excluded.provider_kind,
-            auth_binding = excluded.auth_binding,
-            notes = excluded.notes,
-            model_context_window = excluded.model_context_window,
-            web_search_enabled = excluded.web_search_enabled,
-            auto_review_model_override = excluded.auto_review_model_override,
-            failover_group = excluded.failover_group,
-            failover_models = excluded.failover_models,
-            hidden_models_json = excluded.hidden_models_json,
-            thinking_config_json = excluded.thinking_config_json,
-            custom_headers_json = excluded.custom_headers_json;",
-        params![
-            id,
-            input.name.trim(),
-            base_url,
-            api_key_col,
-            input.model.trim(),
-            protocol_type.as_str(),
-            input.provider_kind.as_str(),
-            input.auth_binding.trim(),
-            input.notes,
-            sort_index,
-            input.model_context_window.map(|value| value as i64),
-            input.web_search_enabled.map(|value| if value { 1 } else { 0 }),
-            input.auto_review_model_override,
-            input.failover_group,
-            serde_json::to_string(&input.failover_models)?,
-            serde_json::to_string(&input.hidden_models)?,
-            thinking_config_json,
-            custom_headers_json,
-            created_at,
-        ],
-    )?;
+    let model_mapping_json = serde_json::to_string(&input.model_mapping)?;
+    let has_model_mapping = upstreams_have_model_mapping(conn);
+
+    if has_model_mapping {
+        conn.execute(
+            "INSERT INTO upstreams (
+                id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                notes, sort_index, enabled, model_context_window, web_search_enabled,
+                auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                thinking_config_json, custom_headers_json, created_at, model_mapping_json
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                base_url = excluded.base_url,
+                api_key = excluded.api_key,
+                model = excluded.model,
+                protocol_type = excluded.protocol_type,
+                provider_kind = excluded.provider_kind,
+                auth_binding = excluded.auth_binding,
+                notes = excluded.notes,
+                model_context_window = excluded.model_context_window,
+                web_search_enabled = excluded.web_search_enabled,
+                auto_review_model_override = excluded.auto_review_model_override,
+                failover_group = excluded.failover_group,
+                failover_models = excluded.failover_models,
+                hidden_models_json = excluded.hidden_models_json,
+                thinking_config_json = excluded.thinking_config_json,
+                custom_headers_json = excluded.custom_headers_json,
+                model_mapping_json = excluded.model_mapping_json;",
+            params![
+                id,
+                input.name.trim(),
+                base_url,
+                api_key_col,
+                input.model.trim(),
+                protocol_type.as_str(),
+                input.provider_kind.as_str(),
+                input.auth_binding.trim(),
+                input.notes,
+                sort_index,
+                input.model_context_window.map(|value| value as i64),
+                input.web_search_enabled.map(|value| if value { 1 } else { 0 }),
+                input.auto_review_model_override,
+                input.failover_group,
+                serde_json::to_string(&input.failover_models)?,
+                serde_json::to_string(&input.hidden_models)?,
+                thinking_config_json,
+                custom_headers_json,
+                created_at,
+                model_mapping_json,
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO upstreams (
+                id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
+                notes, sort_index, enabled, model_context_window, web_search_enabled,
+                auto_review_model_override, failover_group, failover_models, hidden_models_json,
+                thinking_config_json, custom_headers_json, created_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                base_url = excluded.base_url,
+                api_key = excluded.api_key,
+                model = excluded.model,
+                protocol_type = excluded.protocol_type,
+                provider_kind = excluded.provider_kind,
+                auth_binding = excluded.auth_binding,
+                notes = excluded.notes,
+                model_context_window = excluded.model_context_window,
+                web_search_enabled = excluded.web_search_enabled,
+                auto_review_model_override = excluded.auto_review_model_override,
+                failover_group = excluded.failover_group,
+                failover_models = excluded.failover_models,
+                hidden_models_json = excluded.hidden_models_json,
+                thinking_config_json = excluded.thinking_config_json,
+                custom_headers_json = excluded.custom_headers_json;",
+            params![
+                id,
+                input.name.trim(),
+                base_url,
+                api_key_col,
+                input.model.trim(),
+                protocol_type.as_str(),
+                input.provider_kind.as_str(),
+                input.auth_binding.trim(),
+                input.notes,
+                sort_index,
+                input.model_context_window.map(|value| value as i64),
+                input.web_search_enabled.map(|value| if value { 1 } else { 0 }),
+                input.auto_review_model_override,
+                input.failover_group,
+                serde_json::to_string(&input.failover_models)?,
+                serde_json::to_string(&input.hidden_models)?,
+                thinking_config_json,
+                custom_headers_json,
+                created_at,
+            ],
+        )?;
+    }
     conn.execute(
         "INSERT OR IGNORE INTO gateway_id_map (old_provider_id, upstream_id) VALUES (?, ?);",
         params![id, id],
@@ -1599,11 +1763,50 @@ fn get_provider_row_exists(conn: &Connection, id: &str) -> AppResult<bool> {
     Ok(count > 0)
 }
 
+pub fn normalize_upstream_url_for_dedup(base_url: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    if let Ok(mut parsed) = url::Url::parse(trimmed) {
+        let path = parsed.path().trim_end_matches('/').to_string();
+        parsed.set_path(&path);
+        parsed.to_string().trim_end_matches('/').to_string()
+    } else if let Some((scheme, rest)) = trimmed.split_once("://") {
+        let scheme_lower = scheme.to_ascii_lowercase();
+        if let Some((host_port, path)) = rest.split_once('/') {
+            format!("{scheme_lower}://{}/{path}", host_port.to_ascii_lowercase())
+        } else {
+            format!("{scheme_lower}://{}", rest.to_ascii_lowercase())
+        }
+    } else {
+        trimmed.to_string()
+    }
+}
+
 pub fn upstream_endpoint_key(base_url: &str, protocol: ProtocolType) -> String {
     format!(
         "{}|{}",
-        base_url.trim().trim_end_matches('/').to_ascii_lowercase(),
+        normalize_upstream_url_for_dedup(base_url),
         protocol.as_str()
+    )
+}
+
+pub fn upstream_identity_dedup_key(
+    base_url: &str,
+    protocol: ProtocolType,
+    resolved_key: &str,
+    provider_kind: ProviderKind,
+    auth_binding: &str,
+) -> String {
+    let norm_url = normalize_upstream_url_for_dedup(base_url);
+    let mut hasher = Sha256::new();
+    hasher.update(resolved_key.trim().as_bytes());
+    let key_hash = format!("{:x}", hasher.finalize());
+    format!(
+        "{}|{}|{}|{}|{}",
+        norm_url,
+        protocol.as_str(),
+        key_hash,
+        provider_kind.as_str(),
+        auth_binding.trim()
     )
 }
 
@@ -1905,6 +2108,641 @@ pub fn import_providers_as_upstreams(
     })
 }
 
+pub fn merge_provider_models_into_upstream(
+    conn: &Connection,
+    upstream_id: &str,
+    provider: &Provider,
+) -> AppResult<()> {
+    let mut candidate_models = Vec::new();
+    if !provider.model.trim().is_empty() {
+        candidate_models.push(provider.model.trim().to_string());
+    }
+    for role_model in [
+        &provider.model_mapping.sonnet,
+        &provider.model_mapping.opus,
+        &provider.model_mapping.haiku,
+        &provider.model_mapping.fable,
+        &provider.model_mapping.subagent,
+    ] {
+        if !role_model.trim().is_empty() {
+            candidate_models.push(role_model.trim().to_string());
+        }
+    }
+    if let Some(ref auto_rev) = provider.auto_review_model_override {
+        if !auto_rev.trim().is_empty() {
+            candidate_models.push(auto_rev.trim().to_string());
+        }
+    }
+    for m in &provider.failover_models {
+        if !m.trim().is_empty() {
+            candidate_models.push(m.trim().to_string());
+        }
+    }
+    for m in &provider.hidden_models {
+        if !m.trim().is_empty() {
+            candidate_models.push(m.trim().to_string());
+        }
+    }
+    if let Some(cache) = super::providers::get_provider_model_cache(conn, &provider.id)? {
+        for m in cache.models {
+            if !m.trim().is_empty() {
+                candidate_models.push(m.trim().to_string());
+            }
+        }
+    }
+    let existing_models = list_upstream_models(conn, upstream_id)?;
+    for row in &existing_models {
+        if !row.model_id.trim().is_empty() {
+            candidate_models.push(row.model_id.clone());
+        }
+    }
+    replace_upstream_models(conn, upstream_id, &candidate_models)?;
+    // 合并身份相同的旧卡时保留已探测或用户设置的模型元数据。
+    for row in existing_models {
+        conn.execute(
+            "UPDATE upstream_models SET display_name = ?, context_window = ?, max_output_tokens = ?,
+                reasoning_levels_json = ?, capabilities_json = ?, visible = ?
+             WHERE upstream_id = ? AND model_id = ?;",
+            params![row.display_name, row.context_window, row.max_output_tokens,
+                serde_json::to_string(&row.reasoning_levels)?, row.capabilities.to_string(),
+                i64::from(row.visible), upstream_id, row.model_id],
+        )?;
+    }
+    for hidden in &provider.hidden_models {
+        conn.execute(
+            "UPDATE upstream_models SET visible = 0 WHERE upstream_id = ?
+             AND model_id = ? COLLATE NOCASE
+             AND model_id != (SELECT model FROM upstreams WHERE id = ?) COLLATE NOCASE;",
+            params![upstream_id, hidden, upstream_id],
+        )?;
+    }
+    sync_hidden_models_from_rows(conn, upstream_id)?;
+    Ok(())
+}
+
+fn migration_api_key(stored: &str) -> AppResult<String> {
+    match super::providers::materialize_api_key(stored)? {
+        Some(key) => Ok(key),
+        None if stored.trim().is_empty() => Ok(String::new()),
+        None => Err(AppError::Config(
+            "系统凭据库中缺少旧供应商或上游的 API Key，请恢复凭据后重试迁移".into(),
+        )),
+    }
+}
+
+pub fn import_all_providers_as_upstreams(
+    conn: &Connection,
+) -> AppResult<GatewayUpstreamImportResult> {
+    if !table_exists(conn, "providers") {
+        return Ok(GatewayUpstreamImportResult {
+            imported: 0,
+            skipped: 0,
+            items: Vec::new(),
+        });
+    }
+
+    let existing = list_upstream_providers(conn, true)?;
+    let mut existing_names: std::collections::HashSet<String> =
+        existing.iter().map(|item| item.name.clone()).collect();
+    let mut existing_dedup_keys: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+
+    for item in &existing {
+        let actual_key = migration_api_key(&item.api_key)?;
+        let key = upstream_identity_dedup_key(
+            &item.base_url,
+            item.protocol_type,
+            &actual_key,
+            item.provider_kind,
+            &item.auth_binding,
+        );
+        existing_dedup_keys.insert(key, item.id.clone());
+    }
+
+    if table_exists(conn, "gateway_id_map") {
+        let mut stmt = conn.prepare("SELECT old_provider_id, upstream_id FROM gateway_id_map;")?;
+        let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
+        for row in rows {
+            let (_old_id, up_id) = row?;
+            if let Some(up) = existing.iter().find(|u| u.id == up_id) {
+                let actual_key = migration_api_key(&up.api_key)?;
+                let key = upstream_identity_dedup_key(
+                    &up.base_url,
+                    up.protocol_type,
+                    &actual_key,
+                    up.provider_kind,
+                    &up.auth_binding,
+                );
+                existing_dedup_keys.entry(key).or_insert(up_id);
+            }
+        }
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT id, target_app FROM providers ORDER BY sort_index ASC, created_at ASC;",
+    )?;
+    let provider_refs: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+
+    let mut items = Vec::new();
+    let mut imported = 0i64;
+    let mut skipped = 0i64;
+
+    for (provider_id, target_app_str) in provider_refs {
+        let target = ProviderTarget::from_str_lossy(&target_app_str);
+
+        // 1. T3 agents (Claude Desktop, DSH) do NOT migrate
+        if matches!(target, ProviderTarget::ClaudeDesktop | ProviderTarget::Dsh) {
+            skipped += 1;
+            items.push(GatewayUpstreamImportItem {
+                provider_id: provider_id.clone(),
+                name: provider_id.clone(),
+                upstream_id: None,
+                skipped: true,
+                reason: "t3_skipped".to_string(),
+            });
+            continue;
+        }
+
+        let Some(provider) = super::providers::get_provider(conn, &provider_id)? else {
+            skipped += 1;
+            items.push(GatewayUpstreamImportItem {
+                provider_id: provider_id.clone(),
+                name: provider_id.clone(),
+                upstream_id: None,
+                skipped: true,
+                reason: "missing".to_string(),
+            });
+            continue;
+        };
+
+        // 2. Skip smart_gateway
+        if provider.is_smart_gateway() {
+            skipped += 1;
+            items.push(GatewayUpstreamImportItem {
+                provider_id: provider.id.clone(),
+                name: provider.name.clone(),
+                upstream_id: None,
+                skipped: true,
+                reason: "smart_gateway".to_string(),
+            });
+            continue;
+        }
+
+        // 3. Skip self-referential
+        if crate::gateway::is_self_referential_upstream(
+            &provider.base_url,
+            &crate::gateway::default_gateway_ports(),
+        ) {
+            skipped += 1;
+            items.push(GatewayUpstreamImportItem {
+                provider_id: provider.id.clone(),
+                name: provider.name.clone(),
+                upstream_id: None,
+                skipped: true,
+                reason: "self_ref".to_string(),
+            });
+            continue;
+        }
+
+        let api_key = migration_api_key(&provider.api_key)?;
+
+        let dedup_key = upstream_identity_dedup_key(
+            &provider.base_url,
+            provider.protocol_type,
+            &api_key,
+            provider.provider_kind,
+            &provider.auth_binding,
+        );
+
+        // 4. Check if duplicate of existing upstream
+        if let Some(target_upstream_id) = existing_dedup_keys.get(&dedup_key) {
+            conn.execute(
+                "INSERT OR REPLACE INTO gateway_id_map (old_provider_id, upstream_id) VALUES (?, ?);",
+                params![provider.id, target_upstream_id],
+            )?;
+            merge_provider_models_into_upstream(conn, target_upstream_id, &provider)?;
+            skipped += 1;
+            items.push(GatewayUpstreamImportItem {
+                provider_id: provider.id.clone(),
+                name: provider.name.clone(),
+                upstream_id: Some(target_upstream_id.clone()),
+                skipped: true,
+                reason: "duplicate".to_string(),
+            });
+            continue;
+        }
+
+        // 5. Unique name generation (append #2, #3 if name exists)
+        let mut final_name = provider.name.clone();
+        if existing_names.contains(&final_name) {
+            let mut count = 2;
+            while existing_names.contains(&format!("{final_name} #{count}")) {
+                count += 1;
+            }
+            final_name = format!("{final_name} #{count}");
+        }
+
+        let model = if provider.model.trim().is_empty() {
+            super::providers::get_provider_model_cache(conn, &provider.id)?
+                .and_then(|cache| cache.models.into_iter().find(|id| !id.trim().is_empty()))
+                .unwrap_or_else(|| "default".to_string())
+        } else {
+            provider.model.clone()
+        };
+
+        let input = ProviderInput {
+            id: None,
+            name: final_name.clone(),
+            base_url: provider.base_url.clone(),
+            api_key: api_key.clone(),
+            clear_api_key: false,
+            model,
+            model_context_window: provider.model_context_window,
+            auto_review_model_override: provider.auto_review_model_override.clone(),
+            web_search_enabled: provider.web_search_enabled,
+            model_mapping: provider.model_mapping.clone(),
+            protocol_type: provider.protocol_type,
+            provider_kind: provider.provider_kind,
+            auth_binding: provider.auth_binding.clone(),
+            target_app: ProviderTarget::ClaudeCode,
+            notes: provider.notes.clone(),
+            failover_group: provider.failover_group,
+            failover_models: provider.failover_models.clone(),
+            hidden_models: provider.hidden_models.clone(),
+            thinking_config: provider.thinking_config.clone(),
+            custom_headers: provider.custom_headers.clone(),
+        };
+
+        let created = upsert_upstream(conn, &input)?;
+
+        conn.execute(
+            "INSERT OR REPLACE INTO gateway_id_map (old_provider_id, upstream_id) VALUES (?, ?);",
+            params![provider.id, created.id],
+        )?;
+
+        merge_provider_models_into_upstream(conn, &created.id, &provider)?;
+
+        existing_names.insert(final_name);
+        existing_dedup_keys.insert(dedup_key, created.id.clone());
+        imported += 1;
+        items.push(GatewayUpstreamImportItem {
+            provider_id: provider.id.clone(),
+            name: created.name.clone(),
+            upstream_id: Some(created.id),
+            skipped: false,
+            reason: String::new(),
+        });
+    }
+
+    Ok(GatewayUpstreamImportResult {
+        imported,
+        skipped,
+        items,
+    })
+}
+
+pub const MIGRATION_DONE_MARKER: &str = "__mig_v34_done__";
+pub const SNAPSHOT_PREFIX: &str = "__snap_";
+
+pub const MIGRATION_TARGETS: [ProviderTarget; 5] = [
+    ProviderTarget::ClaudeCode,
+    ProviderTarget::Codex,
+    ProviderTarget::OpenCode,
+    ProviderTarget::Pi,
+    ProviderTarget::Cline,
+];
+
+pub fn is_v34_migration_done(conn: &Connection) -> bool {
+    if !table_exists(conn, "upstream_migration_v34") {
+        return false;
+    }
+    conn.query_row(
+        "SELECT count(*) FROM upstream_migration_v34 WHERE old_provider_id = ?;",
+        params![MIGRATION_DONE_MARKER],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0) > 0
+}
+
+pub fn migrate_v33_to_v34(conn: &Connection) -> AppResult<()> {
+    if is_v34_migration_done(conn) {
+        return Ok(());
+    }
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS upstream_migration_v34 (
+            old_provider_id TEXT PRIMARY KEY,
+            target_app TEXT NOT NULL,
+            upstream_id TEXT NOT NULL,
+            was_current INTEGER NOT NULL DEFAULT 0,
+            prev_binding_json TEXT NOT NULL DEFAULT '',
+            newly_created INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+    let now = chrono::Utc::now().timestamp_millis();
+    let tx = conn.unchecked_transaction()?;
+
+    // 保存全部 T1/T2 原绑定，再执行迁移。
+    if table_exists(&tx, "upstream_migration_v34") {
+        for target in MIGRATION_TARGETS {
+            let snap_json = if let Some(b) = binding_for_target(&tx, target)? {
+                let snap = BindingSnapshot::from_binding(&b);
+                serde_json::to_string(&snap)
+                    .map_err(|e| AppError::Config(format!("序列化绑定快照失败: {e}")))?
+            } else {
+                String::new()
+            };
+            let row_id = format!("{SNAPSHOT_PREFIX}{}", target.as_str());
+            tx.execute(
+                "INSERT OR REPLACE INTO upstream_migration_v34
+                    (old_provider_id, target_app, upstream_id, was_current, prev_binding_json, newly_created)
+                 VALUES (?, ?, '', 0, ?, 0);",
+                params![row_id, target.as_str(), snap_json],
+            )?;
+        }
+    }
+
+    // 2. Import all legacy T1/T2 providers as upstreams
+    let import_res = import_all_providers_as_upstreams(&tx)?;
+    let newly_created_set: std::collections::HashSet<String> = import_res
+        .items
+        .iter()
+        .filter(|item| !item.skipped && item.upstream_id.is_some())
+        .filter_map(|item| item.upstream_id.clone())
+        .collect();
+
+    // 3. Record provider mapping & current state in upstream_migration_v34
+    if table_exists(&tx, "upstream_migration_v34") && table_exists(&tx, "providers") {
+        let mut stmt = tx.prepare(
+            "SELECT id, target_app, is_current FROM providers;",
+        )?;
+        let prov_rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)? != 0,
+            ))
+        })?;
+        for prow in prov_rows {
+            let (old_id, target_str, is_current) = prow?;
+            let target = ProviderTarget::from_str_lossy(&target_str);
+            if matches!(target, ProviderTarget::ClaudeDesktop | ProviderTarget::Dsh) {
+                continue;
+            }
+            let mapped_up_id: String = tx.query_row(
+                "SELECT upstream_id FROM gateway_id_map WHERE old_provider_id = ?;",
+                params![old_id],
+                |row| row.get(0),
+            ).optional()?.unwrap_or_default();
+            let newly_created = if !mapped_up_id.is_empty() && newly_created_set.contains(&mapped_up_id) { 1 } else { 0 };
+            tx.execute(
+                "INSERT OR REPLACE INTO upstream_migration_v34
+                    (old_provider_id, target_app, upstream_id, was_current, prev_binding_json, newly_created)
+                 VALUES (?, ?, ?, ?, '', ?);",
+                params![old_id, target_str, mapped_up_id, if is_current { 1 } else { 0 }, newly_created],
+            )?;
+        }
+    }
+
+    // 4. Update bindings for T1 agents (ClaudeCode, Codex)
+    for target in [ProviderTarget::ClaudeCode, ProviderTarget::Codex] {
+        let current_prov: Option<(String, String)> = if table_exists(&tx, "providers") {
+            tx.query_row(
+                "SELECT id, COALESCE(provider_kind, '') FROM providers WHERE target_app = ? AND is_current = 1 LIMIT 1;",
+                params![target.as_str()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).optional()?
+        } else {
+            None
+        };
+
+        match current_prov {
+            Some((_id, kind)) if kind == "smart_gateway" => {
+                // Auto is current -> mode = gateway, preserve existing token/profile/provider_id
+                let existing = binding_for_target(&tx, target)?;
+                match existing {
+                    Some(_b) => {
+                        tx.execute(
+                            "UPDATE gateway_bindings SET mode = 'gateway', direct_upstream_id = '' WHERE target_app = ?;",
+                            params![target.as_str()],
+                        )?;
+                    }
+                    None => {
+                        let token = format!("gwt_{}", Uuid::new_v4().simple());
+                        let provider_id = format!("sgw_{}", target.as_str());
+                        tx.execute(
+                            "INSERT INTO gateway_bindings
+                                (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                             VALUES (?, ?, ?, ?, ?, 'gateway', '');",
+                            params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+                        )?;
+                    }
+                }
+            }
+            Some((id, _kind)) => {
+                // Independent custom card is current -> mode = direct, preserve existing token/profile/provider_id
+                let mapped_upstream: Option<String> = tx.query_row(
+                    "SELECT upstream_id FROM gateway_id_map WHERE old_provider_id = ?;",
+                    params![id],
+                    |row| row.get(0),
+                ).optional()?;
+
+                if let Some(upstream_id) = mapped_upstream {
+                    let existing = binding_for_target(&tx, target)?;
+                    match existing {
+                        Some(_b) => {
+                            tx.execute(
+                                "UPDATE gateway_bindings SET mode = 'direct', direct_upstream_id = ? WHERE target_app = ?;",
+                                params![upstream_id, target.as_str()],
+                            )?;
+                        }
+                        None => {
+                            let token = format!("gwt_{}", Uuid::new_v4().simple());
+                            let provider_id = format!("sgw_{}", target.as_str());
+                            tx.execute(
+                                "INSERT INTO gateway_bindings
+                                    (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                                 VALUES (?, ?, ?, ?, ?, 'direct', ?);",
+                                params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID, upstream_id],
+                            )?;
+                        }
+                    }
+                }
+            }
+            None => {
+                // Official login -> do not create binding row; remove existing if any ("官方不绑")
+                tx.execute(
+                    "DELETE FROM gateway_bindings WHERE target_app = ?;",
+                    params![target.as_str()],
+                )?;
+            }
+        }
+    }
+
+    // 5. Update bindings for T2 agents (OpenCode, Pi, Cline)
+    for target in [ProviderTarget::OpenCode, ProviderTarget::Pi, ProviderTarget::Cline] {
+        let existing = binding_for_target(&tx, target)?;
+        match existing {
+            Some(b) => {
+                let mode = if b.mode.trim().is_empty() {
+                    BINDING_MODE_GATEWAY.to_string()
+                } else {
+                    b.mode
+                };
+                tx.execute(
+                    "UPDATE gateway_bindings SET mode = ?, direct_upstream_id = ? WHERE target_app = ?;",
+                    params![mode, b.direct_upstream_id, target.as_str()],
+                )?;
+            }
+            None => {
+                let token = format!("gwt_{}", Uuid::new_v4().simple());
+                let provider_id = format!("sgw_{}", target.as_str());
+                tx.execute(
+                    "INSERT INTO gateway_bindings
+                        (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                     VALUES (?, ?, ?, ?, ?, 'gateway', '');",
+                    params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+                )?;
+            }
+        }
+    }
+
+    // 6. Record completion marker
+    if table_exists(&tx, "upstream_migration_v34") {
+        tx.execute(
+            "INSERT OR REPLACE INTO upstream_migration_v34
+                (old_provider_id, target_app, upstream_id, was_current, prev_binding_json, newly_created)
+             VALUES (?, 'global', '', 0, '', 0);",
+            params![MIGRATION_DONE_MARKER],
+        )?;
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn rollback_v34(conn: &Connection) -> AppResult<()> {
+    if !is_v34_migration_done(conn) {
+        return Err(AppError::Config("缺少完整的 Schema 34 迁移快照，已停止回滚".into()));
+    }
+    let tx = conn.unchecked_transaction()?;
+
+    // 1. Restore all T1/T2 bindings from dedicated snapshot rows
+    for target in MIGRATION_TARGETS {
+        let row_id = format!("{SNAPSHOT_PREFIX}{}", target.as_str());
+        let snap_row: Option<String> = match tx.query_row(
+            "SELECT prev_binding_json FROM upstream_migration_v34 WHERE old_provider_id = ?;",
+            params![row_id],
+            |row| row.get(0),
+        ) {
+            Ok(val) => Some(val),
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                return Err(AppError::Config(format!("缺少 {} 原绑定快照，已停止回滚", target.as_str())));
+            }
+            Err(err) => return Err(err.into()),
+        };
+
+        if let Some(snap_json) = snap_row {
+            let trimmed = snap_json.trim();
+            if !trimmed.is_empty() {
+                let snap: BindingSnapshot = serde_json::from_str(trimmed)
+                    .map_err(|e| AppError::Config(format!("解析绑定快照失败: {e}")))?;
+                tx.execute(
+                    "INSERT OR REPLACE INTO gateway_bindings
+                        (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                     VALUES (?, ?, ?, ?, ?, ?, ?);",
+                    params![
+                        snap.target_app,
+                        snap.entry_token,
+                        snap.provider_id,
+                        snap.created_at,
+                        snap.profile_id,
+                        snap.mode,
+                        snap.direct_upstream_id,
+                    ],
+                )?;
+                continue;
+            }
+        }
+        // If snapshot was empty or not found, target had no binding before migration
+        tx.execute(
+            "DELETE FROM gateway_bindings WHERE target_app = ?;",
+            params![target.as_str()],
+        )?;
+    }
+
+    // 2. Restore providers.is_current
+    let mut stmt = tx.prepare(
+        "SELECT old_provider_id, target_app, was_current, upstream_id, newly_created
+         FROM upstream_migration_v34
+         WHERE old_provider_id != ? AND substr(old_provider_id, 1, 7) != ?;",
+    )?;
+    struct ProvMig {
+        old_provider_id: String,
+        target_app: String,
+        was_current: bool,
+        upstream_id: String,
+        newly_created: bool,
+    }
+    let prov_rows: Vec<ProvMig> = stmt.query_map(params![MIGRATION_DONE_MARKER, SNAPSHOT_PREFIX], |row| {
+        Ok(ProvMig {
+            old_provider_id: row.get(0)?,
+            target_app: row.get(1)?,
+            was_current: row.get::<_, i64>(2)? != 0,
+            upstream_id: row.get(3)?,
+            newly_created: row.get::<_, i64>(4)? != 0,
+        })
+    })?.collect::<Result<Vec<_>, _>>()?;
+    drop(stmt);
+
+    // 即使升级前没有旧卡，也要清除升级后生成的当前卡。
+    for target in MIGRATION_TARGETS {
+        tx.execute(
+            "UPDATE providers SET is_current = 0 WHERE target_app = ?;",
+            params![target.as_str()],
+        )?;
+    }
+    for row in &prov_rows {
+        if row.was_current {
+            tx.execute(
+                "UPDATE providers SET is_current = 1 WHERE id = ?;",
+                params![row.old_provider_id],
+            )?;
+        }
+    }
+
+    // 3. Remove upstreams that were newly created during v34 migration
+    let newly_created_upstreams: std::collections::HashSet<String> = prov_rows
+        .iter()
+        .filter(|r| r.newly_created)
+        .map(|r| r.upstream_id.clone())
+        .collect();
+
+    for up_id in newly_created_upstreams {
+        tx.execute("DELETE FROM upstream_models WHERE upstream_id = ?;", params![up_id])?;
+        tx.execute("DELETE FROM gateway_id_map WHERE upstream_id = ?;", params![up_id])?;
+        tx.execute("DELETE FROM upstreams WHERE id = ?;", params![up_id])?;
+        // 回滚也用于导出副本，不能删除运行库仍在引用的系统凭据。
+    }
+
+    // 4. Also clean up any gateway_id_map entries for old_provider_ids in migration
+    for row in &prov_rows {
+        tx.execute(
+            "DELETE FROM gateway_id_map WHERE old_provider_id = ?;",
+            params![row.old_provider_id],
+        )?;
+    }
+
+    // 5. Drop migration table
+    tx.execute("DROP TABLE IF EXISTS upstream_migration_v34;", [])?;
+
+    crate::database::schema::set_user_version(&tx, 33)?;
+    tx.commit()?;
+    Ok(())
+}
+
 fn table_exists(conn: &Connection, name: &str) -> bool {
     conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name = ?;",
@@ -1925,23 +2763,70 @@ fn bindings_have_profile_id(conn: &Connection) -> bool {
         > 0
 }
 
-fn row_to_binding(row: &rusqlite::Row<'_>, has_profile: bool) -> rusqlite::Result<GatewayBinding> {
+fn bindings_have_v34(conn: &Connection) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('gateway_bindings') WHERE name = 'mode';",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
+fn upstreams_have_model_mapping(conn: &Connection) -> bool {
+    conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('upstreams') WHERE name = 'model_mapping_json';",
+        [],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
+pub const BINDING_MODE_GATEWAY: &str = "gateway";
+pub const BINDING_MODE_DIRECT: &str = "direct";
+
+fn default_binding_mode() -> String {
+    BINDING_MODE_GATEWAY.to_string()
+}
+
+fn row_to_binding(
+    row: &rusqlite::Row<'_>,
+    has_profile: bool,
+    has_v34: bool,
+) -> rusqlite::Result<GatewayBinding> {
     let token: String = row.get(1)?;
+    let profile_id = if has_profile {
+        row.get::<_, String>(4)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| SHARED_PROFILE_ID.to_string())
+    } else {
+        SHARED_PROFILE_ID.to_string()
+    };
+    let (mode, direct_upstream_id) = if has_v34 {
+        let m: String = row.get(5).unwrap_or_else(|_| BINDING_MODE_GATEWAY.to_string());
+        let mode = if m.trim().is_empty() {
+            BINDING_MODE_GATEWAY.to_string()
+        } else {
+            m
+        };
+        let du: String = row.get(6).unwrap_or_default();
+        (mode, du)
+    } else {
+        (BINDING_MODE_GATEWAY.to_string(), String::new())
+    };
+
     Ok(GatewayBinding {
         target_app: ProviderTarget::from_str_lossy(&row.get::<_, String>(0)?),
         entry_token_set: !token.trim().is_empty(),
         entry_token: token,
         provider_id: row.get(2)?,
         created_at: row.get(3)?,
-        profile_id: if has_profile {
-            row.get::<_, String>(4)
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| SHARED_PROFILE_ID.to_string())
-        } else {
-            SHARED_PROFILE_ID.to_string()
-        },
+        profile_id,
+        mode,
+        direct_upstream_id,
     })
 }
 
@@ -1956,6 +2841,36 @@ pub struct GatewayBinding {
     pub provider_id: String,
     pub profile_id: String,
     pub created_at: i64,
+    #[serde(default = "default_binding_mode")]
+    pub mode: String,
+    #[serde(default)]
+    pub direct_upstream_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BindingSnapshot {
+    pub target_app: String,
+    pub entry_token: String,
+    pub provider_id: String,
+    pub created_at: i64,
+    pub profile_id: String,
+    pub mode: String,
+    pub direct_upstream_id: String,
+}
+
+impl BindingSnapshot {
+    pub fn from_binding(b: &GatewayBinding) -> Self {
+        Self {
+            target_app: b.target_app.as_str().to_string(),
+            entry_token: b.entry_token.clone(),
+            provider_id: b.provider_id.clone(),
+            created_at: b.created_at,
+            profile_id: b.profile_id.clone(),
+            mode: b.mode.clone(),
+            direct_upstream_id: b.direct_upstream_id.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2157,13 +3072,16 @@ pub fn list_bindings(conn: &Connection) -> AppResult<Vec<GatewayBinding>> {
         return Ok(Vec::new());
     }
     let has_profile = bindings_have_profile_id(conn);
-    let sql = if has_profile {
+    let has_v34 = bindings_have_v34(conn);
+    let sql = if has_v34 {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id FROM gateway_bindings ORDER BY target_app;"
+    } else if has_profile {
         "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings ORDER BY target_app;"
     } else {
         "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings ORDER BY target_app;"
     };
     let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([], |row| row_to_binding(row, has_profile))?;
+    let rows = stmt.query_map([], |row| row_to_binding(row, has_profile, has_v34))?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
@@ -2172,7 +3090,10 @@ pub fn binding_for_target(conn: &Connection, target: ProviderTarget) -> AppResul
         return Ok(None);
     }
     let has_profile = bindings_have_profile_id(conn);
-    let sql = if has_profile {
+    let has_v34 = bindings_have_v34(conn);
+    let sql = if has_v34 {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id FROM gateway_bindings WHERE target_app = ?;"
+    } else if has_profile {
         "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings WHERE target_app = ?;"
     } else {
         "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE target_app = ?;"
@@ -2182,7 +3103,7 @@ pub fn binding_for_target(conn: &Connection, target: ProviderTarget) -> AppResul
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    Ok(Some(row_to_binding(row, has_profile)?))
+    Ok(Some(row_to_binding(row, has_profile, has_v34)?))
 }
 
 pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<GatewayBinding>> {
@@ -2191,7 +3112,10 @@ pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<Gate
         return Ok(None);
     }
     let has_profile = bindings_have_profile_id(conn);
-    let sql = if has_profile {
+    let has_v34 = bindings_have_v34(conn);
+    let sql = if has_v34 {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id FROM gateway_bindings WHERE entry_token = ?;"
+    } else if has_profile {
         "SELECT target_app, entry_token, provider_id, created_at, profile_id FROM gateway_bindings WHERE entry_token = ?;"
     } else {
         "SELECT target_app, entry_token, provider_id, created_at FROM gateway_bindings WHERE entry_token = ?;"
@@ -2201,7 +3125,11 @@ pub fn binding_by_token(conn: &Connection, token: &str) -> AppResult<Option<Gate
     let Some(row) = rows.next()? else {
         return Ok(None);
     };
-    Ok(Some(row_to_binding(row, has_profile)?))
+    let binding = row_to_binding(row, has_profile, has_v34)?;
+    if binding.mode == BINDING_MODE_DIRECT {
+        return Ok(None);
+    }
+    Ok(Some(binding))
 }
 
 fn binding_token(conn: &Connection, target: ProviderTarget) -> Option<String> {
@@ -2214,11 +3142,19 @@ fn binding_token(conn: &Connection, target: ProviderTarget) -> Option<String> {
 
 pub fn upsert_binding(conn: &Connection, target: ProviderTarget, provider_id: &str) -> AppResult<GatewayBinding> {
     let now = chrono::Utc::now().timestamp_millis();
+    let has_v34 = bindings_have_v34(conn);
+    let has_profile = bindings_have_profile_id(conn);
     if let Some(existing) = binding_for_target(conn, target)? {
-        if existing.entry_token.trim().is_empty() {
-            let token = format!("gwt_{}", Uuid::new_v4().simple());
+        let token = if existing.entry_token.trim().is_empty() {
+            format!("gwt_{}", Uuid::new_v4().simple())
+        } else {
+            existing.entry_token.clone()
+        };
+        if has_v34 {
             conn.execute(
-                "UPDATE gateway_bindings SET entry_token = ?, provider_id = ? WHERE target_app = ?;",
+                "UPDATE gateway_bindings
+                 SET entry_token = ?, provider_id = ?, mode = 'gateway', direct_upstream_id = ''
+                 WHERE target_app = ?;",
                 params![token, provider_id, target.as_str()],
             )?;
         } else if existing.provider_id != provider_id {
@@ -2231,7 +3167,13 @@ pub fn upsert_binding(conn: &Connection, target: ProviderTarget, provider_id: &s
             .ok_or_else(|| AppError::Config("绑定写入失败".to_string()));
     }
     let token = format!("gwt_{}", Uuid::new_v4().simple());
-    if bindings_have_profile_id(conn) {
+    if has_v34 {
+        conn.execute(
+            "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+             VALUES (?, ?, ?, ?, ?, 'gateway', '');",
+            params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+        )?;
+    } else if has_profile {
         conn.execute(
             "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at, profile_id)
              VALUES (?, ?, ?, ?, ?);",
@@ -2245,6 +3187,100 @@ pub fn upsert_binding(conn: &Connection, target: ProviderTarget, provider_id: &s
         )?;
     }
     binding_for_target(conn, target)?.ok_or_else(|| AppError::Config("绑定写入失败".to_string()))
+}
+
+pub fn set_direct_binding(
+    conn: &Connection,
+    target: ProviderTarget,
+    upstream_id: &str,
+) -> AppResult<GatewayBinding> {
+    let upstream_id = upstream_id.trim();
+    if upstream_id.is_empty() {
+        return Err(AppError::Config("直连上游 ID 不能为空".to_string()));
+    }
+    let upstream = get_upstream_provider(conn, upstream_id)?
+        .ok_or_else(|| AppError::Config(format!("上游不存在: {upstream_id}")))?;
+    if upstream.is_smart_gateway() {
+        return Err(AppError::Config("不能将智能网关 Auto 卡设为直连上游".to_string()));
+    }
+
+    let now = chrono::Utc::now().timestamp_millis();
+    let has_v34 = bindings_have_v34(conn);
+    let has_profile = bindings_have_profile_id(conn);
+
+    if let Some(existing) = binding_for_target(conn, target)? {
+        let token = if existing.entry_token.trim().is_empty() {
+            format!("gwt_{}", Uuid::new_v4().simple())
+        } else {
+            existing.entry_token
+        };
+        if has_v34 {
+            conn.execute(
+                "UPDATE gateway_bindings
+                 SET entry_token = ?, mode = 'direct', direct_upstream_id = ?
+                 WHERE target_app = ?;",
+                params![token, upstream_id, target.as_str()],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE gateway_bindings SET entry_token = ? WHERE target_app = ?;",
+                params![token, target.as_str()],
+            )?;
+        }
+    } else {
+        let token = format!("gwt_{}", Uuid::new_v4().simple());
+        let provider_id = format!("sgw_{}", target.as_str());
+        if has_v34 {
+            conn.execute(
+                "INSERT INTO gateway_bindings
+                    (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                 VALUES (?, ?, ?, ?, ?, 'direct', ?);",
+                params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID, upstream_id],
+            )?;
+        } else if has_profile {
+            conn.execute(
+                "INSERT INTO gateway_bindings
+                    (target_app, entry_token, provider_id, created_at, profile_id)
+                 VALUES (?, ?, ?, ?, ?);",
+                params![target.as_str(), token, provider_id, now, SHARED_PROFILE_ID],
+            )?;
+        } else {
+            conn.execute(
+                "INSERT INTO gateway_bindings (target_app, entry_token, provider_id, created_at)
+                 VALUES (?, ?, ?, ?);",
+                params![target.as_str(), token, provider_id, now],
+            )?;
+        }
+    }
+    binding_for_target(conn, target)?.ok_or_else(|| AppError::Config("直连绑定写入失败".to_string()))
+}
+
+pub fn set_gateway_binding(
+    conn: &Connection,
+    target: ProviderTarget,
+) -> AppResult<GatewayBinding> {
+    let provider_id = format!("sgw_{}", target.as_str());
+    upsert_binding(conn, target, &provider_id)
+}
+
+pub fn list_direct_bindings_for_upstream(
+    conn: &Connection,
+    upstream_id: &str,
+) -> AppResult<Vec<GatewayBinding>> {
+    if !table_exists(conn, "gateway_bindings") || !bindings_have_v34(conn) {
+        return Ok(Vec::new());
+    }
+    let has_profile = bindings_have_profile_id(conn);
+    let sql = if has_profile {
+        "SELECT target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id
+         FROM gateway_bindings WHERE mode = 'direct' AND direct_upstream_id = ?;"
+    } else {
+        "SELECT target_app, entry_token, provider_id, created_at, mode, direct_upstream_id
+         FROM gateway_bindings WHERE mode = 'direct' AND direct_upstream_id = ?;"
+    };
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(params![upstream_id], |row| row_to_binding(row, has_profile, true))?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
 pub fn delete_binding(conn: &Connection, target: ProviderTarget) -> AppResult<()> {
@@ -2410,11 +3446,17 @@ pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
 
 #[cfg(test)]
 mod tests {
+    use rusqlite::params;
     use super::{
-        binding_for_target, create_profile, current_profile, delete_profile, ensure_profile_for_target,
-        is_gateway_connection, list_profiles, list_route_modes, list_route_rules, patch_route_mode,
-        repair_long_context_one_token_threshold, set_binding_profile, upsert_binding,
-        upsert_route_rule, upstream_endpoint_key, RouteModePatch, RouteRule,
+        assert_upstream_deletable, binding_by_token, binding_for_target, create_profile,
+        current_profile, delete_profile, delete_upstream, ensure_profile_for_target,
+        is_gateway_connection, get_upstream_provider, list_upstream_models,
+        list_direct_bindings_for_upstream, list_profiles, list_route_modes,
+        list_route_rules, list_upstream_providers, migrate_v33_to_v34, patch_route_mode,
+        provider_from_upstream, repair_long_context_one_token_threshold, rollback_v34,
+        set_binding_profile, set_direct_binding, set_gateway_binding, upstream_endpoint_key,
+        upstream_identity_dedup_key, upsert_binding, upsert_route_rule, upsert_upstream,
+        RouteModePatch, RouteRule, BINDING_MODE_DIRECT, BINDING_MODE_GATEWAY,
         DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID,
     };
     use crate::database::dao::{set_current_provider, upsert_provider};
@@ -2707,15 +3749,671 @@ mod tests {
         db.with_conn(|conn| {
             ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
             let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
-            assert!(set_binding_profile(conn, ProviderTarget::OpenCode, &cloned.id).is_err());
-            assert!(binding_for_target(conn, ProviderTarget::OpenCode)?.is_none());
-            assert!(!is_gateway_connection(conn, ProviderTarget::OpenCode));
+            assert!(set_binding_profile(conn, ProviderTarget::ClaudeCode, &cloned.id).is_err());
+            assert!(binding_for_target(conn, ProviderTarget::ClaudeCode)?.is_none());
+            assert!(!is_gateway_connection(conn, ProviderTarget::ClaudeCode));
             let rows: i64 = conn.query_row(
                 "SELECT count(*) FROM gateway_bindings WHERE target_app = ?;",
-                [ProviderTarget::OpenCode.as_str()],
+                [ProviderTarget::ClaudeCode.as_str()],
                 |row| row.get(0),
             )?;
             assert_eq!(rows, 0);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_upstream_identity_dedup_key() {
+        let key1 = upstream_identity_dedup_key(
+            "https://api.example.com/v1/",
+            ProtocolType::Anthropic,
+            "secret-123",
+            ProviderKind::Standard,
+            "",
+        );
+        let key2 = upstream_identity_dedup_key(
+            "https://API.EXAMPLE.COM/v1",
+            ProtocolType::Anthropic,
+            "secret-123",
+            ProviderKind::Standard,
+            "",
+        );
+        assert_eq!(key1, key2, "dedup key should normalize URL case and trailing slash");
+
+        let key_diff_secret = upstream_identity_dedup_key(
+            "https://api.example.com/v1",
+            ProtocolType::Anthropic,
+            "secret-456",
+            ProviderKind::Standard,
+            "",
+        );
+        assert_ne!(key1, key_diff_secret, "different keys must have different dedup keys");
+
+        let key_diff_protocol = upstream_identity_dedup_key(
+            "https://api.example.com/v1",
+            ProtocolType::OpenAiChat,
+            "secret-123",
+            ProviderKind::Standard,
+            "",
+        );
+        assert_ne!(key1, key_diff_protocol, "different protocols must have different dedup keys");
+    }
+
+    #[test]
+    fn test_direct_binding_restrictions() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let upstream = upsert_upstream(
+                conn,
+                &ProviderInput {
+                    id: Some("up_test_direct".to_string()),
+                    name: "Upstream Direct Test".to_string(),
+                    base_url: "https://api.openai.com/v1".to_string(),
+                    api_key: String::new(),
+                    clear_api_key: false,
+                    model: "gpt-4o".to_string(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::OpenAiChat,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 0,
+                    failover_models: Vec::new(),
+                    hidden_models: Vec::new(),
+                    thinking_config: None,
+                    custom_headers: None,
+                },
+            )?;
+
+            // 1. set_direct_binding creates/updates direct binding
+            let binding = set_direct_binding(conn, ProviderTarget::ClaudeCode, &upstream.id)?;
+            assert_eq!(binding.mode, BINDING_MODE_DIRECT);
+            assert_eq!(binding.direct_upstream_id, upstream.id);
+
+            // 2. direct does not recognize gateway
+            assert!(!is_gateway_connection(conn, ProviderTarget::ClaudeCode));
+
+            // 3. direct token cannot enter gateway
+            assert!(binding_by_token(conn, &binding.entry_token)?.is_none());
+
+            // 4. set_binding_profile rejects when in direct mode
+            assert!(set_binding_profile(conn, ProviderTarget::ClaudeCode, SHARED_PROFILE_ID).is_err());
+
+            // 5. assert_upstream_deletable blocks deletion of direct-referenced upstream
+            assert!(assert_upstream_deletable(conn, &upstream.id).is_err());
+            assert!(delete_upstream(conn, &upstream.id).is_err());
+
+            // 6. list_direct_bindings_for_upstream finds the binding
+            let direct_bindings = list_direct_bindings_for_upstream(conn, &upstream.id)?;
+            assert_eq!(direct_bindings.len(), 1);
+            assert_eq!(direct_bindings[0].target_app, ProviderTarget::ClaudeCode);
+
+            // 7. Switching to gateway clears direct
+            let gateway_binding = set_gateway_binding(conn, ProviderTarget::ClaudeCode)?;
+            assert_eq!(gateway_binding.mode, BINDING_MODE_GATEWAY);
+            assert!(gateway_binding.direct_upstream_id.is_empty());
+
+            // Upstream can now be deleted
+            assert!(assert_upstream_deletable(conn, &upstream.id).is_ok());
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_provider_from_upstream_field_mapping() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let upstream = upsert_upstream(
+                conn,
+                &ProviderInput {
+                    id: Some("up_source".to_string()),
+                    name: "Upstream Source".to_string(),
+                    base_url: "https://api.anthropic.com".to_string(),
+                    api_key: String::new(),
+                    clear_api_key: false,
+                    model: "claude-3-7-sonnet-20250219".to_string(),
+                    model_context_window: Some(200_000),
+                    auto_review_model_override: Some("guardian".to_string()),
+                    web_search_enabled: Some(true),
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::Anthropic,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: "test notes".to_string(),
+                    failover_group: 1,
+                    failover_models: vec!["model-a".to_string()],
+                    hidden_models: vec!["model-b".to_string()],
+                    thinking_config: None,
+                    custom_headers: None,
+                },
+            )?;
+
+            let provider = provider_from_upstream(conn, &upstream.id, ProviderTarget::Codex)?;
+            assert_eq!(provider.id, upstream.id);
+            assert_eq!(provider.target_app, ProviderTarget::Codex);
+            assert!(provider.is_current);
+            assert_eq!(provider.name, upstream.name);
+            assert_eq!(provider.base_url, upstream.base_url);
+            assert_eq!(provider.model, upstream.model);
+            assert_eq!(provider.model_context_window, Some(200_000));
+            assert_eq!(provider.web_search_enabled, Some(true));
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn migration_missing_keyring_entry_aborts_without_changing_connections() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            let old = upsert_provider(conn, &provider_input(
+                Some("missing_key_old"), ProviderTarget::ClaudeCode, ProviderKind::Standard,
+                ProtocolType::Anthropic, "https://missing-key.example.test", "custom-model",
+            ))?;
+            set_current_provider(conn, &old.id)?;
+            // 只引用随机不存在的条目，不写入或删除系统凭据。
+            let missing_ref = format!("kr://aisw_missing_test_{}", uuid::Uuid::new_v4());
+            conn.execute("UPDATE providers SET api_key = ? WHERE id = ?;", params![missing_ref, old.id])?;
+            assert!(migrate_v33_to_v34(conn).is_err());
+            assert!(!super::is_v34_migration_done(conn));
+            assert!(list_upstream_providers(conn, true)?.is_empty());
+            assert!(binding_for_target(conn, ProviderTarget::ClaudeCode)?.is_none());
+            assert_eq!(super::super::providers::get_current_provider(conn, ProviderTarget::ClaudeCode)?.unwrap().id, old.id);
+            assert_eq!(conn.query_row("SELECT count(*) FROM upstream_migration_v34;", [], |r| r.get::<_, i64>(0))?, 0);
+            assert_eq!(conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?, 33);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn migration_upstream_write_failure_does_not_mark_upgrade_complete() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            let old = upsert_provider(conn, &provider_input(
+                Some("failed_import_old"), ProviderTarget::ClaudeCode, ProviderKind::Standard,
+                ProtocolType::Anthropic, "https://failed-import.example.test", "custom-model",
+            ))?;
+            set_current_provider(conn, &old.id)?;
+            conn.execute_batch("CREATE TRIGGER reject_migration_upstream BEFORE INSERT ON upstreams
+                BEGIN SELECT RAISE(ABORT, 'test upstream write failure'); END;")?;
+            assert!(migrate_v33_to_v34(conn).is_err());
+            assert!(!super::is_v34_migration_done(conn));
+            assert!(list_upstream_providers(conn, true)?.is_empty());
+            assert!(binding_for_target(conn, ProviderTarget::ClaudeCode)?.is_none());
+            assert_eq!(super::super::providers::get_current_provider(conn, ProviderTarget::ClaudeCode)?.unwrap().id, old.id);
+            assert_eq!(conn.query_row("SELECT count(*) FROM upstream_migration_v34;", [], |r| r.get::<_, i64>(0))?, 0);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn rollback_missing_snapshot_fails_without_changing_bindings() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let before = binding_for_target(conn, ProviderTarget::Pi)?.unwrap();
+            conn.execute("DELETE FROM upstream_migration_v34 WHERE old_provider_id = '__snap_pi';", [])?;
+            assert!(rollback_v34(conn).is_err());
+            let after = binding_for_target(conn, ProviderTarget::Pi)?.unwrap();
+            assert_eq!(before.entry_token, after.entry_token);
+            assert_eq!(conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?, 34);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn rollback_restores_official_even_after_new_auto_card_was_selected() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            migrate_v33_to_v34(conn)?;
+            let auto = upsert_provider(conn, &provider_input(
+                Some("new_auto"), ProviderTarget::ClaudeCode, ProviderKind::SmartGateway,
+                ProtocolType::Anthropic, "http://127.0.0.1:15828", "claude.auto",
+            ))?;
+            set_current_provider(conn, &auto.id)?;
+            rollback_v34(conn)?;
+            assert!(super::super::providers::get_current_provider(conn, ProviderTarget::ClaudeCode)?.is_none());
+            assert!(binding_for_target(conn, ProviderTarget::ClaudeCode)?.is_none());
+            Ok(())
+        }).unwrap();
+    }
+
+    fn migration_fixture() -> Database {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            // 新库已迁移完成，清掉标记和默认绑定，模拟升级前的 Schema 33 状态。
+            conn.execute("DELETE FROM upstream_migration_v34;", [])?;
+            conn.execute("DELETE FROM gateway_bindings;", [])?;
+            crate::database::schema::set_user_version(conn, 33)
+        }).unwrap();
+        db
+    }
+
+    #[test]
+    fn test_migrate_v33_to_v34_and_idempotence() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            // Setup legacy providers
+            let p1 = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p1"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.anthropic.com",
+                    "claude-3-5-sonnet",
+                ),
+            )?;
+            set_current_provider(conn, &p1.id)?;
+
+            let _p2 = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p2"),
+                    ProviderTarget::OpenCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.anthropic.com",
+                    "claude-3-5-sonnet",
+                ),
+            )?;
+
+            let _p3_auto = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p3_auto"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::SmartGateway,
+                    ProtocolType::Anthropic,
+                    "http://127.0.0.1:15828",
+                    "claude.auto",
+                ),
+            )?;
+
+            conn.execute(
+                "INSERT INTO providers (id, name, base_url, api_key, model, protocol_type, provider_kind, target_app, is_current, created_at)
+                 VALUES ('p4_self', 'Self reference', 'http://127.0.0.1:15828/v1', '', 'claude-3-5-sonnet', 'anthropic', 'standard', 'claude_code', 0, 0);",
+                [],
+            )?;
+
+            let _p5_desktop = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p5_desktop"),
+                    ProviderTarget::ClaudeDesktop,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.anthropic.com",
+                    "claude-3-5-sonnet",
+                ),
+            )?;
+
+            // Run migration
+            migrate_v33_to_v34(conn)?;
+
+            // p1 and p2 have same endpoint & empty key -> deduplicated to 1 upstream
+            // p3_auto, p4_self_ref, p5_desktop skipped
+            let upstreams = list_upstream_providers(conn, true)?;
+            assert_eq!(upstreams.len(), 1, "should deduplicate to 1 upstream");
+
+            // T1 (Code) was current with independent p1 -> direct binding
+            let code_binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.expect("code binding");
+            assert_eq!(code_binding.mode, BINDING_MODE_DIRECT);
+            assert_eq!(code_binding.direct_upstream_id, upstreams[0].id);
+
+            // T2 (OpenCode) was unbound -> gateway binding
+            let opencode_binding = binding_for_target(conn, ProviderTarget::OpenCode)?.expect("opencode binding");
+            assert_eq!(opencode_binding.mode, BINDING_MODE_GATEWAY);
+
+            // T1 (Codex) had no current provider -> official, not bound
+            assert!(binding_for_target(conn, ProviderTarget::Codex)?.is_none());
+
+            // Idempotency: run again, nothing breaks or duplicates
+            migrate_v33_to_v34(conn)?;
+            let upstreams_after = list_upstream_providers(conn, true)?;
+            assert_eq!(upstreams_after.len(), 1, "re-running migration must be idempotent");
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_rollback_v34() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            let p_auto = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_auto_roll"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::SmartGateway,
+                    ProtocolType::Anthropic,
+                    "http://127.0.0.1:15828",
+                    "claude.auto",
+                ),
+            )?;
+            set_current_provider(conn, &p_auto.id)?;
+
+            let p1 = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_roll"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.example.com",
+                    "claude-3-5-sonnet",
+                ),
+            )?;
+
+            // Migrate
+            migrate_v33_to_v34(conn)?;
+            assert_eq!(crate::database::schema::SCHEMA_VERSION, 34);
+
+            let binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(binding.mode, BINDING_MODE_GATEWAY);
+
+            // In v34, user switches current to independent card
+            set_current_provider(conn, &p1.id)?;
+            let up_id: String = conn.query_row(
+                "SELECT upstream_id FROM gateway_id_map WHERE old_provider_id = 'p_code_roll';",
+                [],
+                |row| row.get(0),
+            )?;
+            assert!(!up_id.is_empty());
+            assert!(get_upstream_provider(conn, &up_id)?.is_some());
+
+            // Rollback
+            rollback_v34(conn)?;
+
+            let current_ver: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
+            assert_eq!(current_ver, 33, "rollback must set user_version to 33");
+
+            // Check provider current restored (Auto was current, p1 was not)
+            let prov_auto = super::super::providers::get_provider(conn, "p_code_auto_roll")?.unwrap();
+            assert!(prov_auto.is_current, "Auto card must be restored to is_current=true");
+            let prov1 = super::super::providers::get_provider(conn, "p_code_roll")?.unwrap();
+            assert!(!prov1.is_current, "p1 must be restored to is_current=false");
+
+            // Newly created upstream must be deleted
+            assert!(
+                get_upstream_provider(conn, &up_id)?.is_none(),
+                "newly created upstream must be deleted on rollback"
+            );
+
+            // Can re-migrate cleanly from version 33
+            migrate_v33_to_v34(conn)?;
+            let binding_re = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(binding_re.mode, BINDING_MODE_GATEWAY);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_existing_upstream_with_key_hit() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            // 1. Create an existing upstream
+            let up = upsert_upstream(
+                conn,
+                &ProviderInput {
+                    id: Some("up_existing_key".to_string()),
+                    name: "Existing Upstream".to_string(),
+                    base_url: "https://api.upstream.com/v1".to_string(),
+                    api_key: "secret_shared_key_123".to_string(),
+                    clear_api_key: false,
+                    model: "upstream-model".to_string(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: ClaudeModelMapping::default(),
+                    protocol_type: ProtocolType::Anthropic,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 0,
+                    failover_models: Vec::new(),
+                    hidden_models: Vec::new(),
+                    thinking_config: None,
+                    custom_headers: None,
+                },
+            )?;
+
+            // 2. Create a legacy provider with the exact same base_url and matching secret key,
+            //    plus extra role model in model_mapping to verify models merge into existing upstream
+            let mut mapping = ClaudeModelMapping::default();
+            mapping.haiku = "claude-3-5-haiku-role".to_string();
+
+            let p_legacy = upsert_provider(
+                conn,
+                &ProviderInput {
+                    id: Some("p_legacy_same_key".to_string()),
+                    name: "Legacy Same Key".to_string(),
+                    base_url: "https://API.UPSTREAM.COM/v1".to_string(),
+                    api_key: "secret_shared_key_123".to_string(),
+                    clear_api_key: false,
+                    model: "upstream-model".to_string(),
+                    model_context_window: None,
+                    auto_review_model_override: None,
+                    web_search_enabled: None,
+                    model_mapping: mapping,
+                    protocol_type: ProtocolType::Anthropic,
+                    provider_kind: ProviderKind::Standard,
+                    auth_binding: String::new(),
+                    target_app: ProviderTarget::ClaudeCode,
+                    notes: String::new(),
+                    failover_group: 0,
+                    failover_models: Vec::new(),
+                    hidden_models: Vec::new(),
+                    thinking_config: None,
+                    custom_headers: None,
+                },
+            )?;
+
+            // Run migration
+            migrate_v33_to_v34(conn)?;
+
+            // Check that NO new upstream was created: existing upstream is reused!
+            let upstreams = list_upstream_providers(conn, true)?;
+            assert_eq!(upstreams.len(), 1, "should hit existing upstream and not create duplicate");
+            assert_eq!(upstreams[0].id, up.id);
+
+            // gateway_id_map maps p_legacy to existing up.id
+            let mapped: String = conn.query_row(
+                "SELECT upstream_id FROM gateway_id_map WHERE old_provider_id = ?;",
+                params![p_legacy.id],
+                |row| row.get(0),
+            )?;
+            assert_eq!(mapped, up.id);
+
+            // Verify models were merged into existing upstream
+            let models = list_upstream_models(conn, &up.id)?;
+            assert!(
+                models.iter().any(|m| m.model_id == "claude-3-5-haiku-role"),
+                "role model must be merged into existing upstream"
+            );
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_auto_migration_preserves_custom_profile_and_token() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            // Create a custom profile
+            let custom_profile = create_profile(conn, "Custom Profile", Some(SHARED_PROFILE_ID))?;
+
+            // Pre-create binding with custom profile, token, and provider_id
+            conn.execute(
+                "INSERT INTO gateway_bindings
+                    (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                 VALUES ('claude_code', 'gwt_custom_secret_token', 'sgw_custom_prov', 1234567, ?, 'gateway', '');",
+                params![custom_profile.id],
+            )?;
+
+            // Insert auto card as current
+            let auto = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_auto"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::SmartGateway,
+                    ProtocolType::Anthropic,
+                    "http://127.0.0.1:15828",
+                    "claude.auto",
+                ),
+            )?;
+            set_current_provider(conn, &auto.id)?;
+
+            // Run migration
+            migrate_v33_to_v34(conn)?;
+
+            // Check binding: profile_id, entry_token, provider_id, created_at must be preserved!
+            let binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.expect("binding");
+            assert_eq!(binding.mode, BINDING_MODE_GATEWAY);
+            assert_eq!(binding.profile_id, custom_profile.id, "profile_id must be preserved");
+            assert_eq!(binding.entry_token, "gwt_custom_secret_token", "entry_token must be preserved");
+            assert_eq!(binding.provider_id, "sgw_custom_prov", "provider_id must be preserved");
+            assert_eq!(binding.created_at, 1234567, "created_at must be preserved");
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_unbound_t2_agents_get_gateway_binding_on_migration() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            // Ensure no bindings exist
+            conn.execute("DELETE FROM gateway_bindings;", [])?;
+
+            // Run migration with no cards for Pi or Cline
+            migrate_v33_to_v34(conn)?;
+
+            // T2 (Pi, Cline, OpenCode) must all have gateway bindings created
+            for target in [ProviderTarget::OpenCode, ProviderTarget::Pi, ProviderTarget::Cline] {
+                let binding = binding_for_target(conn, target)?.expect("T2 binding must be created");
+                assert_eq!(binding.mode, BINDING_MODE_GATEWAY);
+                assert!(binding.direct_upstream_id.is_empty());
+                assert!(!binding.entry_token.is_empty());
+            }
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_rerun_migration_then_rollback_and_remigrate() {
+        let db = migration_fixture();
+        db.with_conn(|conn| {
+            // Pre-create a binding for Code with custom profile & token
+            let custom_profile = create_profile(conn, "Initial Profile", Some(SHARED_PROFILE_ID))?;
+            conn.execute(
+                "INSERT INTO gateway_bindings
+                    (target_app, entry_token, provider_id, created_at, profile_id, mode, direct_upstream_id)
+                 VALUES ('claude_code', 'gwt_initial_token', 'sgw_initial', 11111, ?, 'gateway', '');",
+                params![custom_profile.id],
+            )?;
+
+            // Pre-create an auto card (not current) and an independent card (current)
+            let p_auto = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_auto"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::SmartGateway,
+                    ProtocolType::Anthropic,
+                    "http://127.0.0.1:15828",
+                    "claude.auto",
+                ),
+            )?;
+
+            let p1 = upsert_provider(
+                conn,
+                &provider_input(
+                    Some("p_code_indep"),
+                    ProviderTarget::ClaudeCode,
+                    ProviderKind::Standard,
+                    ProtocolType::Anthropic,
+                    "https://api.example.com",
+                    "claude-3-5-sonnet",
+                ),
+            )?;
+            set_current_provider(conn, &p1.id)?;
+
+            // 1. Run migration
+            migrate_v33_to_v34(conn)?;
+            let b1 = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(b1.mode, BINDING_MODE_DIRECT);
+            let created_up_id = b1.direct_upstream_id.clone();
+            assert!(!created_up_id.is_empty());
+            assert!(get_upstream_provider(conn, &created_up_id)?.is_some());
+            assert_eq!(b1.profile_id, custom_profile.id);
+            assert_eq!(b1.entry_token, "gwt_initial_token");
+
+            // 2. Rerun migration multiple times
+            migrate_v33_to_v34(conn)?;
+            migrate_v33_to_v34(conn)?;
+
+            let b_rerun = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(b_rerun.mode, BINDING_MODE_DIRECT);
+            assert_eq!(b_rerun.entry_token, "gwt_initial_token");
+
+            // 3. User alters state in v34 (e.g. switches current to auto)
+            set_current_provider(conn, &p_auto.id)?;
+
+            // 4. Rollback
+            rollback_v34(conn)?;
+            let current_ver: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
+            assert_eq!(current_ver, 33);
+
+            // Assert newly created upstream is ACTUALLY DELETED
+            assert!(
+                get_upstream_provider(conn, &created_up_id)?.is_none(),
+                "newly created upstream must be deleted on rollback"
+            );
+
+            // Initial binding must be fully restored: token, profile, mode!
+            let b_restored = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(b_restored.entry_token, "gwt_initial_token");
+            assert_eq!(b_restored.profile_id, custom_profile.id);
+            assert_eq!(b_restored.created_at, 11111);
+            assert_eq!(b_restored.provider_id, "sgw_initial");
+            assert_eq!(b_restored.mode, BINDING_MODE_GATEWAY);
+
+            // Providers is_current must be restored to pre-migration state:
+            // p1 (p_code_indep) was current, p_auto was not!
+            let prov1 = super::super::providers::get_provider(conn, "p_code_indep")?.unwrap();
+            assert!(prov1.is_current, "p_code_indep must be restored to is_current=true");
+            let prov_auto = super::super::providers::get_provider(conn, "p_code_auto")?.unwrap();
+            assert!(!prov_auto.is_current, "p_code_auto must be restored to is_current=false");
+
+            // T2 bindings that did not exist initially must be removed on rollback
+            assert!(binding_for_target(conn, ProviderTarget::Pi)?.is_none());
+
+            // 5. Remigrate from version 33 cleanly
+            migrate_v33_to_v34(conn)?;
+            let b_remigrated = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
+            assert_eq!(b_remigrated.mode, BINDING_MODE_DIRECT);
+            assert_eq!(b_remigrated.entry_token, "gwt_initial_token");
+
             Ok(())
         })
         .unwrap();

@@ -1,10 +1,10 @@
 # AI-Switcher
 
-本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.16**
+本地配置与供应商管理器，面向 **Claude Code**、**Codex**、**OpenCode**、**Pi**、**Cline**。**v1.5.17-beta.1（本地测试版）**
 
-**本版**：Agent 工具安装 OpenCode CLI 时可选 v1（`opencode-ai`）或 v2（`@opencode/cli`）。已安装的版本不会被静默替换。
+**Beta 测试（未正式发布）**：统一供应商池，所有 Agent 共用一份上游配置；连接方式为智能网关、直连或官方。此包用于本地安装测试，尚未完成 GUI 与真实出网验收；最新正式版仍为 v1.5.16。
 
-**升级注意**：主资料库仍为 Schema 33，无需数据库迁移。建议照常备份 `~/.claude-switcher`。1.4.xx 热修走 `release/1.4.x`，不回写 Schema 33。
+**升级注意**：开发版主资料库升级至 Schema 34，自动合并旧供应商并保留旧卡。迁移前生成 SQLite 一致性备份 `app.db.v33.bak`；旧版不能直接打开 Schema 34，降级前须退出新版并恢复备份或回滚导出库。建议另行备份 `~/.claude-switcher`。1.4.xx 热修仍走 `release/1.4.x`，不回写新 Schema。
 
 [English](README_en.md) · [Releases](https://github.com/flylink-code/AI-Switcher/releases/latest) · [MIT](LICENSE)
 
@@ -23,7 +23,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 
 ## 功能
 
-- **供应商**：各 Agent 选择 **外部供应商连接** 或 **网关档案连接**。网关聚合目录、规划/执行/辅助分工与观测；卡片可复制到其他 Agent（自动改编协议与 URL）。OpenCode / Pi 在外部连接时仍多供应商并存；网关连接只写一条本机入口。
+- **供应商**：一份全局上游池，API Key / OAuth 账号不再按 Agent 重复配置。支持预设、模型发现、连接测试、额度与元数据导入导出。「Agent 连接」统一选择 **智能网关（推荐）**、**直连（选择一个上游）** 或 **官方**。Code 直连仅限 Anthropic，Codex 仅限 OpenAI Chat / Responses；跨协议及 Codex OAuth 走网关。OpenCode / Pi / Cline 仅写所选单入口，保留用户自有配置。
 - **智能网关**：独立本机服务 `127.0.0.1:15828`，模式路由、推理挡位、模型范围与条件规则。绑定 Agent 后写入指向该端口的 Auto 卡。用量按请求链路只计最内层花费。入口在主导航「网关」。
 - **Antigravity 网关**：`127.0.0.1:15830`，把 Cloud Code 接到 Anthropic Messages / OpenAI Chat / Responses。浏览器登录账号池、按额度调度。个人自用，请自行评估上游条款。
 - **Kiro 网关**：`127.0.0.1:15831`，账号池与额度调度。可导入 Builder ID、Social、Kiro IDE token，或用设备码 / Social PKCE 登录。用量只计 Kiro 这一跳。个人自用，请自行评估上游条款。
@@ -41,7 +41,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 | OpenCode | `~/.config/opencode/` · `~/.local/share/opencode/` |
 | Pi | `~/.pi/agent/` |
 | DSH | `~/.dsh/`；**已从界面隐藏**，后端与资料库卡片仍保留 |
-| Cline | `~/.cline/`（sidecar `ai-switcher.json`；绑定 Auto 走 `:15828`，独立卡可走 `:15827`） |
+| Cline | `~/.cline/`（sidecar `ai-switcher.json`；网关写 Auto，直连写所选上游） |
 | 本应用 | `~/.claude-switcher/`（可迁移；库名保持兼容旧用户） |
 
 导出 / 同步默认不含 API Key。
@@ -63,9 +63,9 @@ pnpm build:exe              # 正式 exe → release\AISwitcher.exe
 
 ## 边界
 
-- 客户端就是上述七个 Agent；AG 网关把 Gemini / Cloud Code 接到它们。
+- 产品面为上述五个 Agent；Desktop / DSH 仅保留兼容后端，不在界面展示。
 - Pi / DSH / Cline 不接插件、Agents、Profiles、托盘切换。
-- Pi / DSH 的 OpenAI 兼容上游直连；Cline 绑定 Auto 直连 `:15828`，独立卡仍可走本机代理 `:15827`。
+- 新直连不启动协议转换代理；升级前依赖本地代理的旧 T1 卡保留兼容链路，建议显式切换智能网关。
 - 不同步远端冲突，不做团队分享。
 - Linux 仅 Ubuntu 22.04 / Debian 12+。
 

@@ -484,7 +484,14 @@ pub async fn switch_to_official_for_target<R: tauri::Runtime>(
     app: Option<&tauri::AppHandle<R>>,
     state: &AppState,
 ) -> AppResult<()> {
-    restore_official_for_target(target, app, state, true).await
+    let _guard = agent_connection_lock().lock().await;
+    let old = AgentConnectionSnapshot::capture(state, target)?;
+    let result = restore_official_for_target(target, app, state, true).await;
+    if let Err(error) = result {
+        return restore_connection_failure(old, state, target, error).await;
+    }
+    crate::catalog::invalidate_view_cache();
+    Ok(())
 }
 
 async fn restore_official_for_target<R: tauri::Runtime>(
@@ -521,6 +528,7 @@ async fn restore_official_for_target<R: tauri::Runtime>(
         }
         state.db.with_conn(|conn| {
             dao::clear_current_provider(conn, target)?;
+            crate::database::dao::gateway::delete_binding(conn, target)?;
             crate::database::dao::gateway::set_current_connection_type(
                 conn,
                 target.as_str(),
@@ -533,6 +541,9 @@ async fn restore_official_for_target<R: tauri::Runtime>(
             }
             Ok(())
         })?;
+        if matches!(target, ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Cline) {
+            sync_catalog_target(state, target)?;
+        }
         Ok(())
     }
     .await;

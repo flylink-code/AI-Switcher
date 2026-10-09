@@ -5,7 +5,8 @@
 | 文档 | 内容 |
 | --- | --- |
 | [architecture.md](architecture.md) | 监听布局、绑定、路由顺序、自引用防护、与本地代理 / Antigravity 的边界 |
-| [data-model.md](data-model.md) | Schema 33 表、字段、用量去重、绑定令牌、多套档案 |
+| [data-model.md](data-model.md) | Schema 表、字段、用量去重、绑定令牌、多套档案 |
+| [unified-providers.md](unified-providers.md) | Schema 34 全局供应商、直连与官方模式、迁移兼容 |
 | [agent-matrix.md](agent-matrix.md) | 七个 Agent 的绑定写入、目录刷新与阶段信号 |
 | [migration.md](migration.md) | 30→31、32→33、旧 Auto 卡改写、`agent_connections` 删除 |
 | [acceptance.md](acceptance.md) | 验收用例：绑定、9 模式、去重、刷新、服务可用性 |

@@ -4,7 +4,14 @@ fn catalog_subagent_model(state: &AppState, target: ProviderTarget) -> Option<St
 
 #[tauri::command]
 pub fn get_current_provider(target: ProviderTarget, state: tauri::State<'_, AppState>) -> AppResult<Option<Provider>> {
-    state.db.with_conn(|conn| dao::get_current_provider(conn, target))
+    state.db.with_read_conn(|conn| {
+        if let Some(binding) = crate::database::dao::gateway::binding_for_target(conn, target)? {
+            if binding.mode == "direct" {
+                return Ok(Some(crate::database::dao::gateway::provider_from_upstream(conn, &binding.direct_upstream_id, target)?));
+            }
+        }
+        dao::get_current_provider(conn, target)
+    })
 }
 
 #[tauri::command]

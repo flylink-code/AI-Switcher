@@ -9,6 +9,8 @@ const SCENARIOS = [
   "./scenarios/sg-p0-catalog-bind.mjs",
   "./scenarios/sg-regress-auto-current.mjs",
   "./scenarios/sg-p0-agent-proxy-hop.mjs",
+  "./scenarios/sg-providers-pool-crud.mjs",
+  "./scenarios/sg-agent-connection-card.mjs",
 ];
 
 const filter = (process.env.AISW_SCENARIO || "*").trim();

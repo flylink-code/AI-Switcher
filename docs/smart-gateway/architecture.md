@@ -18,10 +18,11 @@
 
 与 Antigravity `BindAppsCard` 同构：绑定某 Agent 后写入普通供应商卡 `provider_kind=smart_gateway`，`base_url` 指向 `127.0.0.1:15828`（Codex/Cline/OpenCode 带 `/v1`，Claude 系用宿主根），`api_key` 为该 App 独立 `entry_token`。
 
-- **Claude Code / Desktop / Codex**：把 Auto 卡设为当前才走网关（与独立供应商互斥）。
-- **OpenCode / Pi / DSH / Cline**：目录型多供应商，绑定只**追加**一条 Auto 入口，写出全部供应商，不设 `is_current`、不出现切换。Agent 配置里既能选直连卡，也能选 `auto` 走网关。
+- **Claude Code / Desktop / Codex**：绑定 `mode=gateway` 且 Auto 卡为当前才走网关；`mode=direct` 不允许 token 入站。
+- **OpenCode / Pi / Cline**：网关模式只写 Auto，直连只写所选全局上游，官方清理托管入口；保留用户自有配置。
+- **DSH**：产品面隐藏，后端保留旧多供应商目录与追加 Auto 行为。
 
-是否再经本地代理：Desktop 仍走 15822；Code / Codex / OpenCode / Pi / DSH / Cline（绑定 Auto）直连 15828。Cline 未绑定的独立卡仍可走 15827。
+是否再经本地代理：Desktop 仍走 15822；Code / Codex / OpenCode / Pi / DSH / Cline（网关模式）直连 15828。新直连不启动协议转换代理；旧 T1 转换链路迁移时保留。
 
 ## 自定义 Agent
 
@@ -32,11 +33,11 @@
 ```
 客户端点名的目录模型  →  规则
   →  子代理/Haiku：只走 background（未开则 default）
-  →  image_gen  →  web_search  →  vision  →  long_context
-  →  plan  →  think  →  edit  →  default
+  →  image_gen  →  web_search  →  vision
+  →  plan  →  think  →  edit  →  long_context  →  default
 ```
 
-Haiku / Explore / `x-cs-subagent` 不会被长上下文阈值或请求体里的 `thinking` 抢走。模式选出的后台模型在 `force_subagent` 归一化时保留，不再跟空的档案子代理槽或池里 `is_current` 默认。长上下文阈值 `<= 0` 不匹配；新行默认 **20000**（存量 `1` 会迁到 20000）。
+Haiku / Explore / `x-cs-subagent` 不会被长上下文阈值或请求体里的 `thinking` 抢走。模式选出的后台模型在 `force_subagent` 归一化时保留，不再跟空的档案子代理槽或池里 `is_current` 默认。长上下文阈值 `<= 0` 不匹配；新行默认 **60000**，不改写存量 20000（存量 `1` 会修复到默认值）。
 
 `plan` 看工具清单里是否声明了 `ExitPlanMode` / `enterplanmode` / `update_plan`（Claude Code 只在 Plan 工作模式下才下发）。`edit` 看最近一轮真实调用：Anthropic 最后一条 assistant 的 `tool_use`，Codex 看 `input` 末尾一批 `function_call`（`Edit` / `Write` / `apply_patch` / `Bash` 等）。不看正文关键词，也不把 `body.tools` 目录当成改内容信号。这两个模式默认关闭。最近路由写「命中规划模式（依据：tools 含 ExitPlanMode）」或「命中改内容模式（依据：最近一轮调用了 Write）」，不写「检测到用户在做规划」。
 

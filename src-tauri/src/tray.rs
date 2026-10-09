@@ -14,6 +14,7 @@ use crate::store::AppState;
 const TRAY_ID: &str = "main-tray";
 const CODE_PROVIDER_PREFIX: &str = "code-provider:";
 const DESKTOP_PROVIDER_PREFIX: &str = "desktop-provider:";
+const CODE_GATEWAY_ID: &str = "code-provider:gateway";
 const CODE_OFFICIAL_ID: &str = "code-provider:official";
 const DESKTOP_OFFICIAL_ID: &str = "desktop-provider:official";
 const PROFILE_PREFIX: &str = "profile:";
@@ -39,6 +40,12 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> AppResult<()> {
             match id {
                 "show" => show_main_window(app),
                 "quit" => app.exit(0),
+                CODE_GATEWAY_ID => {
+                    let state = app.state::<AppState>();
+                    if let Err(error) = tauri::async_runtime::block_on(crate::commands::providers::set_agent_gateway_for_target(ProviderTarget::ClaudeCode, Some(app), &state)) {
+                        log::error!("托盘切换智能网关失败: {error}");
+                    }
+                }
                 CODE_OFFICIAL_ID => {
                     if let Err(e) = tauri::async_runtime::block_on(switch_to_official(app, ProviderTarget::ClaudeCode)) {
                         log::error!("托盘切换 Claude Code 官方登录失败: {e}");
@@ -97,12 +104,6 @@ fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult
     let labels = tray_labels(language);
     let code_menu =
         build_provider_menu(app, ProviderTarget::ClaudeCode, "Claude Code", labels.official)?;
-    let desktop_menu = build_provider_menu(
-        app,
-        ProviderTarget::ClaudeDesktop,
-        "Claude Desktop",
-        labels.official,
-    )?;
     let profiles_menu = build_profiles_menu(app, labels.projects)?;
     let show = MenuItem::with_id(app, "show", labels.show, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
@@ -110,7 +111,7 @@ fn create_tray_menu<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult
         PredefinedMenuItem::separator(app).map_err(|e| AppError::Tauri(e.to_string()))?;
     let quit = MenuItem::with_id(app, "quit", labels.quit, true, None::<&str>)
         .map_err(|e| AppError::Tauri(e.to_string()))?;
-    Menu::with_items(app, &[&show, &code_menu, &desktop_menu, &profiles_menu, &separator, &quit])
+    Menu::with_items(app, &[&show, &code_menu, &profiles_menu, &separator, &quit])
         .map_err(|e| AppError::Tauri(e.to_string()))
 }
 
@@ -147,7 +148,19 @@ fn build_provider_menu<R: Runtime>(
     official_label: &str,
 ) -> AppResult<Submenu<R>> {
     let state = app.state::<AppState>();
-    let providers = state.db.with_conn(|conn| dao::list_providers(conn, target))?;
+    let providers = state.db.with_read_conn(|conn| {
+        if target == ProviderTarget::ClaudeCode {
+            let binding = crate::database::dao::gateway::binding_for_target(conn, target)?;
+            let mut providers = crate::database::dao::gateway::list_upstream_providers(conn, true)?;
+            providers.retain(|provider| provider.protocol_type == crate::provider::ProtocolType::Anthropic && !provider.is_codex_oauth());
+            for provider in &mut providers {
+                provider.is_current = binding.as_ref().is_some_and(|binding| binding.mode == "direct" && binding.direct_upstream_id == provider.id);
+            }
+            Ok(providers)
+        } else {
+            dao::list_providers(conn, target)
+        }
+    })?;
     let (prefix, official_id) = match target {
         ProviderTarget::ClaudeCode => (CODE_PROVIDER_PREFIX, CODE_OFFICIAL_ID),
         ProviderTarget::ClaudeDesktop => (DESKTOP_PROVIDER_PREFIX, DESKTOP_OFFICIAL_ID),
@@ -177,7 +190,12 @@ fn build_provider_menu<R: Runtime>(
                 .map_err(|e| AppError::Tauri(e.to_string()))?,
         );
     }
+    let gateway = MenuItem::with_id(app, CODE_GATEWAY_ID, if crate::commands::system::read_app_language(&state.db)? == "en-US" { "Smart Gateway" } else { "智能网关" }, true, None::<&str>)
+        .map_err(|error| AppError::Tauri(error.to_string()))?;
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<R>> = vec![&official];
+    if target == ProviderTarget::ClaudeCode {
+        items.push(&gateway);
+    }
     items.extend(provider_items.iter().map(|item| item as &dyn tauri::menu::IsMenuItem<R>));
     Submenu::with_items(app, label, true, &items)
         .map_err(|e| AppError::Tauri(e.to_string()))
@@ -236,6 +254,10 @@ async fn switch_provider<R: Runtime>(
     target: ProviderTarget,
 ) -> AppResult<()> {
     let state = app.state::<AppState>();
+    if target == ProviderTarget::ClaudeCode {
+        crate::commands::providers::set_agent_direct_for_target(target, id, Some(app), &state).await?;
+        return Ok(());
+    }
     let provider =
         crate::commands::providers::switch_provider_for_target(id, target, Some(app), &state).await?;
     crate::commands::providers::schedule_provider_health_check(

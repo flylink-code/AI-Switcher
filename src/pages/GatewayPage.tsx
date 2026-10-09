@@ -31,7 +31,6 @@ import DeleteOutlined from "@ant-design/icons/es/icons/DeleteOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  GatewayUpstreamPanel,
   GatewayLimitsCard,
   RouteModesHelpButton,
   RouteModesHelpDrawer,
@@ -268,11 +267,17 @@ export default function GatewayPage() {
   } | null>(null);
   const [profileBusy, setProfileBusy] = useState(false);
 
+  useEffect(() => {
+    if (section === "upstreams") {
+      setSection("service");
+    }
+  }, [section, setSection]);
+
+  const effectiveSection = section === "upstreams" ? "service" : section;
   const smartTab = tab === "smart";
-  const serviceSection = smartTab && section === "service";
-  const routingSection = smartTab && section === "routing";
-  const upstreamsSection = smartTab && section === "upstreams";
-  const logsSection = smartTab && section === "logs";
+  const serviceSection = smartTab && effectiveSection === "service";
+  const routingSection = smartTab && effectiveSection === "routing";
+  const logsSection = smartTab && effectiveSection === "logs";
 
   const statusQuery = useQuery({
     queryKey: ["smart-gateway-status"],
@@ -313,12 +318,12 @@ export default function GatewayPage() {
   const catalogQuery = useQuery({
     queryKey: ["gateway-catalog-entries", "claude_code"],
     queryFn: () => listGatewayCatalogEntries("claude_code"),
-    enabled: routingSection || upstreamsSection,
+    enabled: routingSection || serviceSection,
   });
   const pricingQuery = useQuery({
     queryKey: ["model-pricing"],
     queryFn: listModelPricing,
-    enabled: routingSection || upstreamsSection,
+    enabled: routingSection || serviceSection,
   });
 
   const status = statusQuery.data;
@@ -367,11 +372,18 @@ export default function GatewayPage() {
       void message.error(errMsg(error));
     }
   };
-  const bound = new Set((bindingsQuery.data ?? []).map((item) => item.targetApp));
+  const bound = new Set(
+    (bindingsQuery.data ?? [])
+      .filter((item) => item.mode === "gateway")
+      .map((item) => item.targetApp),
+  );
   const profileUsers = (bindingsQuery.data ?? [])
-    .filter((item) => (item.profileId || SHARED_PROFILE_ID) === profileId)
+    .filter(
+      (item) =>
+        item.mode === "gateway" && (item.profileId || SHARED_PROFILE_ID) === profileId,
+    )
     .map((item) => t(`workspace.${item.targetApp}`));
-  const profiles = profilesQuery.data ?? [];
+  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
   const profileOptions = profiles.map((profile) => ({
     value: profile.id,
     label: profile.id === SHARED_PROFILE_ID
@@ -585,12 +597,11 @@ export default function GatewayPage() {
       />
       <Segmented
         size="small"
-        value={section}
+        value={effectiveSection}
         onChange={(value) => {
           switch (value) {
             case "service":
             case "routing":
-            case "upstreams":
             case "logs":
               setSection(value);
               break;
@@ -601,7 +612,6 @@ export default function GatewayPage() {
         options={[
           { value: "service", label: t("gateway.sectionService", { defaultValue: "服务与绑定" }) },
           { value: "routing", label: t("gateway.sectionRouting", { defaultValue: "路由与规则" }) },
-          { value: "upstreams", label: t("gateway.sectionUpstreams", { defaultValue: "上游与限额" }) },
           { value: "logs", label: t("gateway.sectionLogs", { defaultValue: "最近路由" }) },
         ]}
       />
@@ -613,7 +623,7 @@ export default function GatewayPage() {
         })}
       />
 
-      {section === "service" ? (
+      {effectiveSection === "service" ? (
       <>
       <Card
         size="small"
@@ -770,12 +780,16 @@ export default function GatewayPage() {
           size="small"
           pagination={false}
           rowKey="target"
-          dataSource={BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => ({
-            target,
-            bound: bound.has(target),
-            profileId: (bindingsQuery.data ?? []).find((item) => item.targetApp === target)?.profileId
-              ?? SHARED_PROFILE_ID,
-          }))}
+          dataSource={BIND_TARGETS.filter((target) => visibleAgents.includes(target)).map((target) => {
+            const gatewayBinding = (bindingsQuery.data ?? []).find(
+              (item) => item.targetApp === target && item.mode === "gateway",
+            );
+            return {
+              target,
+              bound: Boolean(gatewayBinding),
+              profileId: gatewayBinding?.profileId ?? SHARED_PROFILE_ID,
+            };
+          })}
           columns={[
             {
               title: t("gateway.bindAgent", { defaultValue: "应用" }),
@@ -824,18 +838,12 @@ export default function GatewayPage() {
           ]}
         />
       </Card>
-      </>
-      ) : null}
-
-      {section === "upstreams" ? (
-      <>
-      <GatewayUpstreamPanel allowlistTarget="claude_code" />
 
       <GatewayLimitsCard modelOptions={modelOptions} />
       </>
       ) : null}
 
-      {section === "routing" ? (
+      {effectiveSection === "routing" ? (
       <>
       <Card size="small">
         <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
@@ -1149,7 +1157,7 @@ export default function GatewayPage() {
         />
       </Modal>
 
-      {section === "logs" ? (
+      {effectiveSection === "logs" ? (
       <Card size="small" title={t("proxy.recentRoutes")} className="gateway-route-logs">
         <Table
           size="small"

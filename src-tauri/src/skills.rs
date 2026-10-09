@@ -772,9 +772,22 @@ async fn download_github_archive(url: &str) -> AppResult<(Vec<u8>, String)> {
 }
 
 async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(GITHUB_CONNECT_TIMEOUT)
+        .timeout(GITHUB_REQUEST_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .map_err(|e| AppError::Other(format!("创建 GitHub 请求客户端失败: {e}")))?;
+    download_github_archive_bytes_with_client(archive_url, &client).await
+}
+
+async fn download_github_archive_bytes_with_client(
+    archive_url: &str,
+    client: &reqwest::Client,
+) -> AppResult<Vec<u8>> {
     let mut last_error = None;
     for attempt in 1..=2 {
-        match download_github_archive_once(archive_url).await {
+        match download_github_archive_once(archive_url, client).await {
             Ok(archive) => return Ok(archive),
             Err(error) => last_error = Some((attempt, error)),
         }
@@ -785,18 +798,15 @@ async fn download_github_archive_bytes(archive_url: &str) -> AppResult<Vec<u8>> 
     Err(AppError::Other(format!("GitHub Skill 下载失败（已重试 {attempts} 次）: {error}")))
 }
 
-async fn download_github_archive_once(archive_url: &str) -> AppResult<Vec<u8>> {
+async fn download_github_archive_once(
+    archive_url: &str,
+    client: &reqwest::Client,
+) -> AppResult<Vec<u8>> {
     let request = async {
-        let mut response = reqwest::Client::builder()
-            .connect_timeout(GITHUB_CONNECT_TIMEOUT)
-            .timeout(GITHUB_REQUEST_TIMEOUT)
-            .redirect(reqwest::redirect::Policy::limited(5))
-            .build()
-            .map_err(|e| AppError::Other(format!("创建 GitHub 请求客户端失败: {e}")))?
+        let mut response = client
             .get(archive_url)
             .header("User-Agent", "Claude-Switcher")
-            // Some proxies add a Content-Encoding header that this minimal client does not
-            // decode. Asking for identity keeps the GitHub ZIP bytes intact end-to-end.
+            // 部分代理添加的 Content-Encoding 未被此客户端解码；要求原始 ZIP 字节。
             .header(reqwest::header::ACCEPT_ENCODING, "identity")
             .send()
             .await
@@ -1280,7 +1290,16 @@ mod tests {
             requests
         });
 
-        let bytes = download_github_archive_bytes(&format!("http://{address}/archive.zip")).await.unwrap();
+        // 回环 mock 不经过本机系统代理，避免测试依赖宿主网络设置。
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let bytes = download_github_archive_bytes_with_client(
+            &format!("http://{address}/archive.zip"),
+            &client,
+        ).await.unwrap();
         let paths = repository_skill_entries(&bytes, "skills").unwrap()
             .into_iter().map(|(skill, _)| skill.path).collect::<Vec<_>>();
         assert_eq!(paths, vec!["skills/first", "skills/second"]);
