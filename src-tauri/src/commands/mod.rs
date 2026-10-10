@@ -146,6 +146,7 @@ pub use providers::{
     set_gateway_catalog_opusplan, set_gateway_catalog_plan, set_gateway_catalog_execute,
     set_claude_code_default_permission_mode, set_claude_code_agent_settings,
     set_opencode_permission_mode, speedtest_provider_endpoint,
+    batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
     switch_provider, switch_to_official, set_agent_direct, get_agent_connection_mode,
     test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
     test_provider_connection, test_provider_input, update_provider,
@@ -163,10 +164,13 @@ pub use gateway::{
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
     list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
     update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule,
-    list_route_mode_usage_stats, simulate_gateway_route, list_gateway_upstream_health,
+    list_route_mode_usage_stats, list_upstream_daily_usage_stats,
+    simulate_gateway_route, list_gateway_upstream_health,
+    get_gateway_upstream_policy, set_gateway_upstream_policy, list_gateway_upstream_pressure,
     get_smart_gateway_inbound_limits, set_smart_gateway_inbound_limits, get_smart_gateway_budget,
     set_smart_gateway_budget, get_smart_gateway_health_probe_secs,
-    set_smart_gateway_health_probe_secs,
+    set_smart_gateway_health_probe_secs, get_smart_gateway_subagent_inherit_upstream,
+    set_smart_gateway_subagent_inherit_upstream,
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,

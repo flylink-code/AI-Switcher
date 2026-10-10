@@ -35,7 +35,13 @@ L2  pnpm system:test          debug exe + CDP IPC (not in CI)
 
 On L2 failure the temp home is copied to `scripts/system-test/artifacts/`.
 
-CDP `Runtime.evaluate` often sends `Origin: null`, which Tauri 2 rejects (`Origin header is not a valid URL`). `cdp-invoke.mjs` intercepts Fetch and rewrites Origin to the page origin or `https://tauri.localhost`. IPC-only scenarios may run against a browser-error document as long as `__TAURI_INTERNALS__.invoke` exists; DOM scenarios must verify a rendered application page and cannot treat `chrome-error://` or a blank document as success.
+CDP `Runtime.evaluate` 可能发送 `Origin: null`，Tauri 2 会拒绝该值（`Origin header is not a valid URL`）。`cdp-invoke.mjs` 仅拦截 `ipc.localhost`，将无效 Origin 改为有效页面源；DOM 场景期间保持桥接，以覆盖真实点击触发的 IPC。所有场景启动前均验证应用已渲染，不接受浏览器错误页、空白页或仅有 `__TAURI_INTERNALS__.invoke` 的启动页。
+
+`-SkipBuild` 要求 `.system-test-vite-port` 内的 EXE SHA256 与当前 debug EXE 匹配，不从 EXE 字符串或当前配置猜端口。它只证明构建产物与端口元数据匹配，不证明源码未变化：修改 Rust 或注册 IPC 后必须不带 `-SkipBuild` 重编。
+
+新增 UI 场景：`SG-gateway-ui-reliability` 通过真实指针操作选择档案、保存备用方式并检查连接不被抢占，同时验证 Code/Codex 漂移检测与显式重新应用；`SG-ui-layout-matrix` 覆盖顶栏/侧栏、深浅色、中英文导航与截图。`SG-upstream-limits-ui` 使用无凭据测试上游验证限额弹窗加载、真实键盘输入、保存重开与 Escape/焦点返回，并在网关限额卡往返保存「子代理沿用父会话上游」，不发送上游请求。截图产出本身不等于视觉验收通过。
+
+事件刷新可单独运行 `node scripts/test-usage-log-refresh.mjs`：转译真实 Hook 源码，覆盖共享订阅、StrictMode、隐藏/恢复可见、尾随刷新和外部在途查询补查。它不替代实际 WebView 事件验收。若测试凭据库报 `Windows error code 8`，应报告场景失败；禁止清除用户凭据、改用明文落盘或关闭生产凭据保护来获得通过结果。
 
 Coverage IDs: [`scripts/system-test/matrix.md`](../scripts/system-test/matrix.md). Smart-gateway acceptance: [`docs/smart-gateway/acceptance.md`](smart-gateway/acceptance.md).
 

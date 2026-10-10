@@ -12,6 +12,7 @@ import {
 } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { AgentConfigDrift } from "@/components/AgentConfigDrift";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { filterUiAgents } from "@/lib/agentVisibility";
@@ -171,6 +172,7 @@ export function AgentConnectionCard() {
   }, [profiles, t]);
 
   const invalidateAgentQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["agent-config-drift"] });
     await queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
     await queryClient.invalidateQueries({ queryKey: ["smart-gateway-status"] });
     await queryClient.invalidateQueries({ queryKey: ["agent-connection-modes"] });
@@ -493,6 +495,11 @@ export function AgentConnectionCard() {
                 </Tooltip>
               );
             },
+          },
+          {
+            title: t("configDrift.column"),
+            width: 190,
+            render: (_: unknown, row: AgentRow) => row.isT1 ? <AgentConfigDrift target={row.target} /> : "—",
           },
           {
             title: t("providers.status", { defaultValue: "当前状态" }),

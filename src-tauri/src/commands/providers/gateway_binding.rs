@@ -322,7 +322,7 @@ async fn classify_test_response(
             category: "network".to_string(),
             message: format!(
                 "无法连接供应商服务（{}）",
-                sanitize_network_error(&error)
+                sanitize_network_error(error)
             ),
             checked_at,
             latency_ms,

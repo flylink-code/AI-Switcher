@@ -61,6 +61,10 @@ pub fn store_key(account: &str, secret: &str) -> AppResult<()> {
 }
 
 pub fn load_key(account: &str) -> AppResult<Option<String>> {
+    #[cfg(test)]
+    if let Some(secret) = test_credentials::lookup(account) {
+        return Ok(Some(secret));
+    }
     match entry(account)?.get_password() {
         Ok(secret) => Ok(Some(secret)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -75,9 +79,58 @@ pub fn delete_key(account: &str) -> AppResult<()> {
     }
 }
 
+/// 仅单元测试编译：显式注册的合成凭据，不作为系统凭据失败的回退。
+#[cfg(test)]
+pub(crate) mod test_credentials {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+
+    fn keys() -> &'static Mutex<HashMap<String, String>> {
+        static KEYS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+        KEYS.get_or_init(|| Mutex::new(HashMap::new()))
+    }
+
+    pub(crate) struct Credential(String);
+
+    impl Credential {
+        pub(crate) fn new(secret: &str) -> Self {
+            let account = format!("aisw_unit_{}", uuid::Uuid::new_v4().simple());
+            keys().lock().unwrap().insert(account.clone(), secret.to_string());
+            Self(account)
+        }
+
+        pub(crate) fn reference(&self) -> String {
+            super::keyring_ref(&self.0)
+        }
+    }
+
+    impl Drop for Credential {
+        fn drop(&mut self) {
+            keys().lock().unwrap().remove(&self.0);
+        }
+    }
+
+    pub(super) fn lookup(account: &str) -> Option<String> {
+        keys().lock().unwrap().get(account).cloned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn synthetic_credentials_are_scoped_and_keep_stored_key_validation() {
+        let credential = test_credentials::Credential::new("synthetic-key");
+        let reference = credential.reference();
+        assert_eq!(
+            crate::database::dao::materialize_api_key(&reference).unwrap().as_deref(),
+            Some("synthetic-key")
+        );
+        assert!(crate::database::dao::materialize_api_key("synthetic-key").is_err());
+        drop(credential);
+        assert!(test_credentials::lookup(&reference[KEYRING_REF_PREFIX.len()..]).is_none());
+    }
 
     #[test]
     fn tests_never_use_production_keyring_service() {

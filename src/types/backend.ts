@@ -4,9 +4,17 @@
  * command payloads stay handwritten here until later batches.
  */
 
+export interface ConfigDriftReport {
+  target: ProviderTarget;
+  status: "unmanaged" | "unknown" | "in_sync" | "drifted";
+  fields: { field: string; currentPresent: boolean; appliedPresent: boolean }[];
+  revision: string;
+}
+
 export * from "./quota";
 import type {
   ClaudeModelMapping,
+  CurrencyAmount,
   GatewayProfile,
   ModelPricing,
   ProtocolType,
@@ -53,6 +61,15 @@ export interface AgentConnectionView {
   profile?: GatewayProfile | null;
 }
 
+export type GatewayRouteLogStatusFilter = "all" | "success" | "rate_limited" | "midstream_error" | "error";
+
+export interface GatewayRouteLogFilters {
+  target?: ProviderTarget | null;
+  status?: GatewayRouteLogStatusFilter | string | null;
+  mode?: string | null;
+  keyword?: string | null;
+}
+
 export interface PaginatedGatewayRouteLogs {
   data: GatewayRouteLog[];
   total: number;
@@ -80,6 +97,7 @@ export interface GatewayRouteLog {
   errorCategory?: string | null;
   streamOutcome?: string | null;
   estimatedCost: number;
+  attemptsJson?: string | null;
 }
 
 export interface GatewayUpstreamHealth {
@@ -90,6 +108,22 @@ export interface GatewayUpstreamHealth {
   lastLatencyMs?: number | null;
   lastCheckedAt: number;
   lastError?: string | null;
+}
+
+export interface UpstreamLimitPolicy {
+  maxConcurrency: number;
+  rpm: number;
+  queueCapacity: number;
+  queueTimeoutMs: number;
+  firstOutputTimeoutMs: number;
+}
+
+export interface UpstreamLimitSnapshot {
+  upstreamId: string;
+  policy: UpstreamLimitPolicy;
+  active: number;
+  queueLen: number;
+  currentRpm: number;
 }
 
 export interface SmartGatewayInboundLimits {
@@ -316,6 +350,16 @@ export interface RouteModeUsageStat {
   modeId: string;
   requestCount: number;
   estimatedCost: number;
+}
+
+export interface UpstreamDailyUsageStat {
+  upstreamId: string;
+  requestCount: number;
+  successfulRequestCount: number;
+  successRate: number;
+  estimatedCost: number;
+  estimatedCostCurrency: string;
+  estimatedCostsByCurrency: CurrencyAmount[];
 }
 
 export interface GatewayUpstreamDiscoverItem {
@@ -910,6 +954,21 @@ export interface EndpointSpeedtestResult {
   message: string;
   checkedAt: number;
   url: string;
+}
+
+export interface BatchSpeedtestItemResult {
+  id: string;
+  name: string;
+  result: EndpointSpeedtestResult;
+  cancelled: boolean;
+}
+
+export interface BatchSpeedtestResult {
+  batchId: string;
+  total: number;
+  completed: number;
+  cancelled: boolean;
+  items: BatchSpeedtestItemResult[];
 }
 
 export interface InstalledSkillSource {

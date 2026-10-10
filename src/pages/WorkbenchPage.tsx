@@ -5,6 +5,7 @@ import CheckCircleFilled from "@ant-design/icons/es/icons/CheckCircleFilled";
 import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { GatewayTopology } from "@/components/proxy/GatewayTopology";
 import { UsageCalendar, UsageTrendBars } from "@/components/UsageCalendar";
 import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
 import { usageSourceIcon, isUsageSourceFilter, usageSourceLabelKey } from "@/components/UsageSourceIcons";
@@ -31,12 +32,8 @@ import { filterUiAgents } from "@/lib/agentVisibility";
 const { Text } = Typography;
 
 /**
- * Overview — Plan B: minimal Usage Intelligence.
- * Structure: Status Strip (<=64px) → Today Usage Hero (KPI + 24h trend) →
- * Bottom Surface (Needs Attention | Recent Activity).
- * No Agent→Provider details, no provider switch, no proxy start/stop here;
- * those live on the Providers / Proxy pages. Year heatmap uses a trend-only
- * IPC so switching back in does not rebuild the full usage dashboard.
+ * 概览：状态条 → 只读连接拓扑 → 今日用量与趋势 → 待处理和最近活动。
+ * 切换供应商与启停代理仍放在对应页面；年热力图使用独立趋势 IPC。
  */
 export default function WorkbenchPage() {
   const { t } = useTranslation();
@@ -361,6 +358,8 @@ export default function WorkbenchPage() {
           {t("workbench.stripViewStatus", { defaultValue: "查看状态" })}
         </Button>
       </div>
+
+      <GatewayTopology targets={visibleTargets} />
 
       {/* 2. Today Usage hero: 4 KPIs in one surface + 24h trend chart */}
       <Card

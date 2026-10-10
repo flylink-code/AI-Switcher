@@ -35,6 +35,8 @@ const normalizeAntdStaticCss = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [normalizeAntdStaticCss, react()],
+  // 本项目没有 PostCSS 插件；避免 dev CSS 转换向父目录搜索配置而阻塞首页。
+  css: { postcss: { plugins: [] } },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

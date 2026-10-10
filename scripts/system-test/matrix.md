@@ -14,7 +14,9 @@ IDs align with [`docs/smart-gateway/acceptance.md`](../../docs/smart-gateway/acc
 | `SG-p0-protocol-responses-bridge` | L1 | Responses→Chat unified assistant (text+tool_calls un-split) to loopback mock; AG Responses→Gemini single model content + mid-session reminder |
 | `SG-providers-pool-crud` | L2 | Global upstream pool CRUD, export/import JSON, deletion rejection when referenced by direct (IPC-level verification) |
 | `SG-agent-connection-card` | L2 | Agent connection transitions (official/direct/gateway), profile selection rejection in direct/unbound, direct without :15828, deletion safety (IPC-level verification) |
-| `SG-gateway-ui-reliability` | L2 DOM | 真实点击档案备用方式，核对仅修改所选档案、不抢占 direct/不隐式绑定；连接卡显示隔离端口与停启状态，保存页面截图 |
+| `SG-gateway-ui-reliability` | L2 DOM + IPC | 真实点击档案备用方式，核对仅修改所选档案、不抢占 direct/不隐式绑定；连接卡显示隔离端口与停启状态；Code/Codex 漂移检测、过期预览拒绝与显式重新应用 |
+| `SG-upstream-limits-ui` | L2 DOM + IPC | 无凭据上游的限额弹窗：真实键盘输入、保存重开、Escape 关闭、焦点返回及截图；不发送上游请求 |
+| `SG-ui-layout-matrix` | L2 DOM | 顶栏/侧栏 × 深浅色 × 中英文的概览、供应商、网关导航与截图；文档横向溢出检查、拓扑 reduced-motion 计算样式 |
 | `SG-A-bind-code` | L2 (via auto-current) | `bind_smart_gateway` for Claude Code |
 | optional `claude -p --bare` | L2 `-ClaudeCode` | Real CLI against isolated URL; hop is `agent_proxy` or `smart_gateway` |
 

@@ -8,7 +8,7 @@ use crate::commands::providers::sync_live_after_connection_change;
 use crate::database::dao::gateway::{
     current_profile, delete_upstream, ensure_profile_for_target,
     import_providers_as_upstreams, list_profiles, list_upstream_models, list_upstream_providers,
-    patch_profile, replace_upstream_models, set_upstream_model_visible,
+    get_upstream_provider,    patch_profile, replace_upstream_models, set_upstream_model_visible,
     upsert_upstream, AgentConnectionView, ConnectionType, GatewayBinding, GatewayProfile,
     GatewayProfilePatch, GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
@@ -220,117 +220,30 @@ pub async fn update_gateway_profile(
     Ok(profile)
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GatewayRouteLog {
-    pub id: String,
-    pub created_at: i64,
-    pub requested_model: Option<String>,
-    pub model: Option<String>,
-    pub route_reason: Option<String>,
-    pub route_mode: Option<String>,
-    pub profile_id: Option<String>,
-    pub upstream_id: Option<String>,
-    pub provider_name: Option<String>,
-    pub attempt_index: i64,
-    pub status_code: Option<i64>,
-    pub duration_ms: i64,
-    pub input_tokens: i64,
-    pub cache_read_input_tokens: i64,
-    pub cache_creation_input_tokens: i64,
-    pub output_tokens: i64,
-    pub error_category: Option<String>,
-    pub stream_outcome: Option<String>,
-    pub estimated_cost: f64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginatedGatewayRouteLogs {
-    pub data: Vec<GatewayRouteLog>,
-    pub total: i64,
-    pub page: i64,
-    pub page_size: i64,
-}
+pub use crate::database::dao::proxy_logs::{
+    GatewayRouteLog, GatewayRouteLogFilters, PaginatedGatewayRouteLogs,
+};
 
 #[tauri::command]
 pub fn list_gateway_route_logs(
     target: Option<ProviderTarget>,
     limit: Option<i64>,
     offset: Option<i64>,
+    status: Option<String>,
+    mode: Option<String>,
+    keyword: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<PaginatedGatewayRouteLogs> {
-    let cap = limit.unwrap_or(20).clamp(1, 200);
-    let skip = offset.unwrap_or(0).max(0);
-    let page = skip / cap;
+    let filters = GatewayRouteLogFilters {
+        target_app: target.map(|t| t.as_str().to_string()),
+        status,
+        mode,
+        keyword,
+    };
+    let cap = limit.unwrap_or(20);
+    let skip = offset.unwrap_or(0);
     state.db.with_read_conn(|conn| {
-        let cost = crate::database::dao::proxy_logs::ROW_COST_SQL;
-        let where_sql = if target.is_some() {
-            "l.target_app = ? AND COALESCE(l.data_source, 'proxy') = 'proxy'
-               AND l.route_reason IS NOT NULL AND trim(l.route_reason) != ''"
-        } else {
-            "COALESCE(l.data_source, 'proxy') = 'proxy'
-               AND (l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))
-               AND l.route_reason IS NOT NULL AND trim(l.route_reason) != ''"
-        };
-        let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs l WHERE {where_sql}");
-        let total: i64 = if let Some(target) = target {
-            conn.query_row(&count_sql, rusqlite::params![target.as_str()], |row| row.get(0))?
-        } else {
-            conn.query_row(&count_sql, [], |row| row.get(0))?
-        };
-        let columns = format!(
-            "l.id, l.created_at, l.requested_model, l.model, l.route_reason, l.route_mode,
-                    l.profile_id, l.upstream_id, l.provider_name, l.attempt_index, l.status_code,
-                    COALESCE(l.duration_ms, 0), COALESCE(l.input_tokens, 0),
-                    COALESCE(l.cache_read_input_tokens, 0), COALESCE(l.cache_creation_input_tokens, 0),
-                    COALESCE(l.output_tokens, 0), l.error_category, l.stream_outcome,
-                    COALESCE({cost}, 0)"
-        );
-        let sql = format!(
-            "SELECT {columns}
-             FROM proxy_request_logs l
-             LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(l.model, ''))
-             WHERE {where_sql}
-             ORDER BY l.created_at DESC LIMIT ? OFFSET ?;"
-        );
-        let mut stmt = conn.prepare(&sql)?;
-        let map_row = |row: &rusqlite::Row<'_>| {
-            Ok(GatewayRouteLog {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                requested_model: row.get(2)?,
-                model: row.get(3)?,
-                route_reason: row.get(4)?,
-                route_mode: row.get(5)?,
-                profile_id: row.get(6)?,
-                upstream_id: row.get(7)?,
-                provider_name: row.get(8)?,
-                attempt_index: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
-                status_code: row.get(10)?,
-                duration_ms: row.get::<_, Option<i64>>(11)?.unwrap_or(0),
-                input_tokens: row.get::<_, Option<i64>>(12)?.unwrap_or(0),
-                cache_read_input_tokens: row.get::<_, Option<i64>>(13)?.unwrap_or(0),
-                cache_creation_input_tokens: row.get::<_, Option<i64>>(14)?.unwrap_or(0),
-                output_tokens: row.get::<_, Option<i64>>(15)?.unwrap_or(0),
-                error_category: row.get(16)?,
-                stream_outcome: row.get(17)?,
-                estimated_cost: row.get::<_, Option<f64>>(18)?.unwrap_or(0.0),
-            })
-        };
-        let data = if let Some(target) = target {
-            let rows = stmt.query_map(rusqlite::params![target.as_str(), cap, skip], map_row)?;
-            rows.collect::<Result<Vec<_>, _>>()?
-        } else {
-            let rows = stmt.query_map(rusqlite::params![cap, skip], map_row)?;
-            rows.collect::<Result<Vec<_>, _>>()?
-        };
-        Ok(PaginatedGatewayRouteLogs {
-            data,
-            total,
-            page,
-            page_size: cap,
-        })
+        crate::database::dao::proxy_logs::list_gateway_route_logs(conn, &filters, cap, skip)
     })
 }
 
@@ -494,7 +407,9 @@ async fn discover_one_upstream(
 #[tauri::command]
 pub async fn delete_gateway_upstream(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
     let _guard = crate::commands::providers::agent_connection_lock().lock().await;
-    state.db.with_conn(|conn| delete_upstream(conn, &id))
+    state.db.with_conn(|conn| delete_upstream(conn, &id))?;
+    state.db.gateway_upstream_limiter.remove(&id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -809,6 +724,24 @@ pub async fn list_route_mode_usage_stats(
     .map_err(|e| AppError::Database(format!("route mode usage stats task failed: {e}")))?
 }
 
+pub use crate::database::dao::proxy_logs::UpstreamDailyUsageStat;
+
+#[tauri::command]
+pub async fn list_upstream_daily_usage_stats(
+    since: Option<i64>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<UpstreamDailyUsageStat>> {
+    let since = since.unwrap_or_else(crate::database::dao::proxy_logs::local_midnight_millis);
+    let db = Arc::clone(&state.db);
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_read_conn(|conn| {
+            crate::database::dao::proxy_logs::list_upstream_daily_usage_stats(conn, since)
+        })
+    })
+    .await
+    .map_err(|e| AppError::Database(format!("list upstream daily usage stats task failed: {e}")))?
+}
+
 #[tauri::command]
 pub fn simulate_gateway_route(
     input: crate::gateway::simulate::SimulateRouteInput,
@@ -828,6 +761,53 @@ pub fn list_gateway_upstream_health(
         .map(|provider| provider.id)
         .collect::<Vec<_>>();
     Ok(crate::gateway::health::list_for_upstreams(&ids))
+}
+
+#[tauri::command]
+pub fn get_gateway_upstream_policy(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::upstream_limits::UpstreamLimitPolicy> {
+    state.db.with_read_conn(|conn| {
+        if get_upstream_provider(conn, &id)?.is_none() {
+            return Err(AppError::Config("上游不存在".into()));
+        }
+        Ok(crate::gateway::upstream_limits::load_policy(conn, &id)?.unwrap_or_default())
+    })
+}
+
+#[tauri::command]
+pub async fn set_gateway_upstream_policy(
+    id: String,
+    policy: crate::gateway::upstream_limits::UpstreamLimitPolicy,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<crate::gateway::upstream_limits::UpstreamLimitPolicy> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    state.db.with_conn(|conn| crate::gateway::upstream_limits::persist_policy(conn, &id, &policy))?;
+    state.db.gateway_upstream_limiter.apply(&id, policy.clone());
+    Ok(policy)
+}
+
+#[tauri::command]
+pub fn list_gateway_upstream_pressure(
+    state: tauri::State<'_, AppState>,
+) -> Vec<crate::gateway::upstream_limits::UpstreamLimitSnapshot> {
+    state.db.gateway_upstream_limiter.snapshot_all()
+}
+
+#[tauri::command]
+pub fn get_smart_gateway_subagent_inherit_upstream(
+    state: tauri::State<'_, AppState>,
+) -> bool {
+    crate::gateway::inbound::subagent_inherit_upstream(&state.db)
+}
+
+#[tauri::command]
+pub fn set_smart_gateway_subagent_inherit_upstream(
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    crate::gateway::inbound::persist_subagent_inherit_upstream(&state.db, enabled)
 }
 
 #[tauri::command]

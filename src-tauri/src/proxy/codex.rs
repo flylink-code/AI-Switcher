@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::catalog::{openai_models_payload, rewrite_json_model};
 use crate::database::dao::providers::{get_current_provider, get_provider_model_cache};
-use crate::database::dao::proxy_logs::update_proxy_log_usage_idempotent;
+use crate::database::dao::proxy_logs::{update_proxy_log_usage_idempotent, ProxyRequestAttempt};
 use crate::provider::{api_endpoint_url, ProtocolType, Provider};
 
 use super::codex_anthropic::{
@@ -30,7 +30,8 @@ use super::{
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
     json_error_with_retry_after, log_early_failure, log_request, log_request_with_diagnostic,
     next_failover_provider, next_failover_provider_ex, resolve_explicit_fallback,
-    select_gateway_runtime_provider_with, send_observed_upstream, session_prompt_cache_hint,
+    note_gateway_inflight, remember_gateway_success_upstream, select_gateway_runtime_provider_with,
+    session_prompt_cache_hint,
     should_failover_upstream_status_ex, should_try_explicit_fallback, should_try_explicit_response,
     CS_SUBAGENT_HEADER, FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
 };
@@ -252,13 +253,28 @@ pub async fn codex_proxy_handler(
     let mut excluded = vec![provider.id.clone()];
     let mut attempt_index: i64 = 0;
     let mut failover_trace: Vec<String> = Vec::new();
+    let mut attempts: Vec<ProxyRequestAttempt> = Vec::new();
 
     let upstream = loop {
-        let result = send_observed_upstream(
+        let attempt_start = Instant::now();
+        note_gateway_inflight(
+            &state, &provider, &current_upstream_model, is_stream, route_decision.as_ref(), &attempts,
+        );
+        let (result, queue_wait_ms) = super::upstream_health::send_observed_upstream_with_timing(
             current_prepared.request.body(current_prepared.request_body),
             &provider,
+            Some(&state),
+            is_stream,
         )
         .await;
+        let attempt_duration = attempt_start.elapsed().as_millis() as i64;
+        attempts.push(super::upstream_health::build_request_attempt(
+            attempts.len(),
+            &provider,
+            &current_upstream_model,
+            attempt_duration,
+            &result,
+        ).with_queue_wait_ms(queue_wait_ms));
 
         let can_explicit = allow_cross_provider_failover && match &result {
             Ok(response) => should_try_explicit_response(&provider, response),
@@ -357,7 +373,7 @@ pub async fn codex_proxy_handler(
                     } else {
                         None
                     };
-                    let _ = log_request_with_diagnostic(
+                    let fail_log_id = log_request_with_diagnostic(
                         &state,
                         &provider,
                         None,
@@ -367,6 +383,14 @@ pub async fn codex_proxy_handler(
                         Some("network"),
                         failover_diag.as_deref(),
                     );
+                    let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+                    if let Some(id) = fail_log_id.as_deref() {
+                        if let Some(decision) = route_decision.as_ref() {
+                            super::patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+                        } else if !attempts.is_empty() {
+                            super::update_proxy_log_attempts(&state, id, &attempts_json);
+                        }
+                    }
                     return json_error(
                         StatusCode::BAD_GATEWAY,
                         format!("上游连接失败: {error}"),
@@ -426,26 +450,42 @@ pub async fn codex_proxy_handler(
                         true,
                         is_catalog_subagent,
                     ) {
-                        Ok(chat_prepared) => match send_observed_upstream(
-                            chat_prepared.request.body(chat_prepared.request_body),
-                            &provider,
-                        )
-                        .await
-                        {
-                            Ok(response) => {
-                                failover_trace.push(format!(
-                                    "{}({}) Responses 400 后改走 Chat Completions",
-                                    provider.name, provider.id
-                                ));
-                                is_chat_bridge = chat_prepared.is_chat_bridge;
-                                is_stream = chat_prepared.is_stream;
-                                compact_fallback = chat_prepared.compact_fallback;
-                                status = StatusCode::from_u16(response.status().as_u16())
-                                    .unwrap_or(StatusCode::BAD_GATEWAY);
-                                upstream = Some(response);
-                            }
-                            Err(_) => {
-                                prefetched_bytes = Some(error_bytes);
+                        Ok(chat_prepared) => {
+                            let chat_start = Instant::now();
+                            note_gateway_inflight(
+                                &state, &provider, &current_upstream_model, is_stream, route_decision.as_ref(), &attempts,
+                            );
+                            let (chat_result, queue_wait_ms) = super::upstream_health::send_observed_upstream_with_timing(
+                                chat_prepared.request.body(chat_prepared.request_body),
+                                &provider,
+                                Some(&state),
+                                is_stream,
+                            )
+                            .await;
+                            let chat_duration = chat_start.elapsed().as_millis() as i64;
+                            attempts.push(super::upstream_health::build_request_attempt(
+                                attempts.len(),
+                                &provider,
+                                &current_upstream_model,
+                                chat_duration,
+                                &chat_result,
+                            ).with_queue_wait_ms(queue_wait_ms));
+                            match chat_result {
+                                Ok(response) => {
+                                    failover_trace.push(format!(
+                                        "{}({}) Responses 400 后改走 Chat Completions",
+                                        provider.name, provider.id
+                                    ));
+                                    is_chat_bridge = chat_prepared.is_chat_bridge;
+                                    is_stream = chat_prepared.is_stream;
+                                    compact_fallback = chat_prepared.compact_fallback;
+                                    status = StatusCode::from_u16(response.status().as_u16())
+                                        .unwrap_or(StatusCode::BAD_GATEWAY);
+                                    upstream = Some(response);
+                                }
+                                Err(_) => {
+                                    prefetched_bytes = Some(error_bytes);
+                                }
                             }
                         },
                         Err(_) => {
@@ -468,7 +508,7 @@ pub async fn codex_proxy_handler(
         } else {
             None
         };
-        let _ = log_request_with_diagnostic(
+        let fail_log_id = log_request_with_diagnostic(
             &state,
             &provider,
             Some(i64::from(status.as_u16())),
@@ -478,6 +518,14 @@ pub async fn codex_proxy_handler(
             Some("upstream"),
             failover_diag.as_deref(),
         );
+        let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+        if let Some(id) = fail_log_id.as_deref() {
+            if let Some(decision) = route_decision.as_ref() {
+                super::patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+            } else if !attempts.is_empty() {
+                super::update_proxy_log_attempts(&state, id, &attempts_json);
+            }
+        }
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")
@@ -507,8 +555,13 @@ pub async fn codex_proxy_handler(
         },
         failover_diag.as_deref(),
     );
-    if let (Some(id), Some(decision)) = (log_id.as_deref(), route_decision.as_ref()) {
-        super::patch_route_log(&state, id, decision, attempt_index);
+    let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+    if let Some(id) = log_id.as_deref() {
+        if let Some(decision) = route_decision.as_ref() {
+            super::patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+        } else if !attempts.is_empty() {
+            super::update_proxy_log_attempts(&state, id, &attempts_json);
+        }
     }
 
     let is_streaming = is_stream
@@ -517,6 +570,9 @@ pub async fn codex_proxy_handler(
             .get(header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| value.contains("text/event-stream"));
+    if status.is_success() {
+        remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
+    }
 
     if is_anthropic_upstream || matches!(compact_fallback, Some(CompactFallback::Anthropic)) {
         if let Some(CompactFallback::Anthropic) = compact_fallback {
@@ -615,6 +671,8 @@ pub async fn codex_proxy_handler(
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
 
+    let body_log_id = log_id.clone();
+    let body_db = Arc::clone(&state.db);
     let db = Arc::clone(&state.db);
     let history = Arc::clone(&state.codex_history);
     let mut sse_buffer = Vec::new();
@@ -636,6 +694,7 @@ pub async fn codex_proxy_handler(
                     let data = data_parts.join("\n");
                     if !data.is_empty() && data != "[DONE]" {
                         if let Ok(value) = serde_json::from_str::<Value>(&data) {
+                            super::response_lifecycle::record_response_event(&db, log_id.as_deref(), &value);
                             history.inspect_sse_event(&value, &mut current_response_id);
                         }
                     }
@@ -661,11 +720,23 @@ pub async fn codex_proxy_handler(
             }
             Ok::<Bytes, Infallible>(bytes)
         }
-        Err(_) => Ok(Bytes::new()),
+        Err(_) => {
+            if let Some(id) = log_id.as_deref() {
+                let _ = db.with_conn(|conn| {
+                    crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                        conn, id, "midstream_error", None, Some("midstream_error"),
+                        Some("Codex 上游流式响应中途中断"),
+                    )
+                });
+            }
+            Ok(Bytes::new())
+        },
     });
 
     resp_builder
-        .body(Body::from_stream(stream))
+        .body(super::response_lifecycle::track_stream_body(
+            Body::from_stream(stream), body_db, body_log_id,
+        ))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
@@ -985,6 +1056,7 @@ fn prepare_codex_upstream(
             || key.eq_ignore_ascii_case("content-type")
             || key.eq_ignore_ascii_case(crate::gateway::correlation::REQUEST_ID_HEADER)
             || key.eq_ignore_ascii_case(crate::gateway::correlation::TARGET_APP_HEADER)
+            || key.eq_ignore_ascii_case(crate::gateway::sticky::PARENT_SESSION_HEADER)
         {
             continue;
         }
@@ -1077,6 +1149,8 @@ async fn forward_chat_bridge_upstream(
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
 
+    let body_log_id = log_id.clone();
+    let body_db = Arc::clone(&state.db);
     let db = Arc::clone(&state.db);
     let history = Arc::clone(&state.codex_history);
     let target_app = state.target.as_str().to_string();
@@ -1178,7 +1252,8 @@ async fn forward_chat_bridge_upstream(
                         let data = data_parts.join("\n");
                         if !data.is_empty() && data != "[DONE]" {
                             if let Ok(value) = serde_json::from_str::<Value>(&data) {
-                                history.inspect_sse_event(&value, &mut response_id);
+                                super::response_lifecycle::record_response_event(&db, stream_log_id.as_deref(), &value);
+                            history.inspect_sse_event(&value, &mut response_id);
                             }
                         }
                     }
@@ -1220,7 +1295,9 @@ async fn forward_chat_bridge_upstream(
         .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
         .header("x-accel-buffering", "no")
-        .body(Body::from_stream(stream))
+        .body(super::response_lifecycle::track_stream_body(
+            Body::from_stream(stream), body_db, body_log_id,
+        ))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
@@ -1357,6 +1434,8 @@ async fn forward_anthropic_upstream(
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
 
+    let body_log_id = log_id.clone();
+    let body_db = Arc::clone(&state.db);
     let db = Arc::clone(&state.db);
     let history = Arc::clone(&state.codex_history);
     let target_app = state.target.as_str().to_string();
@@ -1397,7 +1476,17 @@ async fn forward_anthropic_upstream(
                         }
                         (output, false)
                     }
-                    Some(Err(_)) => (converter.error_event("上游流式响应中断"), true),
+                    Some(Err(_)) => {
+                        if let Some(id) = stream_log_id.as_deref() {
+                            let _ = db.with_conn(|conn| {
+                                crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
+                                    conn, id, "midstream_error", None, Some("midstream_error"),
+                                    Some("Codex 上游流式响应中途中断"),
+                                )
+                            });
+                        }
+                        (converter.error_event("上游流式响应中断"), true)
+                    }
                     None => (converter.finish_stream(), true),
                 };
                 out_buf.extend_from_slice(&output);
@@ -1412,7 +1501,8 @@ async fn forward_anthropic_upstream(
                         let data = data_parts.join("\n");
                         if !data.is_empty() && data != "[DONE]" {
                             if let Ok(value) = serde_json::from_str::<Value>(&data) {
-                                history.inspect_sse_event(&value, &mut response_id);
+                                super::response_lifecycle::record_response_event(&db, stream_log_id.as_deref(), &value);
+                            history.inspect_sse_event(&value, &mut response_id);
                             }
                         }
                     }
@@ -1454,7 +1544,9 @@ async fn forward_anthropic_upstream(
         .header(header::CONTENT_TYPE, "text/event-stream")
         .header(header::CACHE_CONTROL, "no-cache")
         .header("x-accel-buffering", "no")
-        .body(Body::from_stream(stream))
+        .body(super::response_lifecycle::track_stream_body(
+            Body::from_stream(stream), body_db, body_log_id,
+        ))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 

@@ -12,8 +12,8 @@ mod tests {
 
     use crate::database::dao::gateway::{GatewayBinding, GatewayProfile, RouteMode, RouteRule};
     use crate::database::dao::proxy_logs::{
-        CurrencyAmount, ModelPricing, PaginatedProxyLogs, ProxyLogFilters, ProxyRequestLog,
-        UsageBreakdown, UsageSummary, UsageTrendPoint,
+        CurrencyAmount, ModelPricing, PaginatedProxyLogs, ProxyLogFilters, ProxyRequestAttempt,
+        ProxyRequestLog, UsageBreakdown, UsageSummary, UsageTrendPoint,
     };
     use crate::gateway::{RouteDecision, RouteSource};
     use crate::provider::{
@@ -56,6 +56,7 @@ mod tests {
         export_one::<UsageBreakdown>(&dir);
         export_one::<UsageTrendPoint>(&dir);
         export_one::<ModelPricing>(&dir);
+        export_one::<ProxyRequestAttempt>(&dir);
         export_one::<ProxyRequestLog>(&dir);
         export_one::<PaginatedProxyLogs>(&dir);
         export_one::<ProxyLogFilters>(&dir);

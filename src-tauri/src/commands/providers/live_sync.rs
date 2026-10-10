@@ -1109,6 +1109,11 @@ async fn apply_target_provider<R: tauri::Runtime>(
     if let Err(error) = snapshot.capture_last_written_files() {
         return rollback_switch(snapshot, state, error).await;
     }
+    if runtime_provider.target_app == ProviderTarget::Codex {
+        if let Err(error) = save_codex_drift_baseline(state) {
+            return rollback_switch(snapshot, state, error).await;
+        }
+    }
     if !uses_proxy {
         state.proxy.lock().await.stop_target(runtime_provider.target_app);
     }

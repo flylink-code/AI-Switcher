@@ -1,4 +1,14 @@
 import { call } from "./ipc";
+import type { ConfigDriftReport } from "@/types/backend";
+
+export function getAgentConfigDrift(target: ProviderTarget): Promise<ConfigDriftReport> {
+  return call("get_agent_config_drift", { target });
+}
+
+export function reapplyAgentConfig(target: ProviderTarget, revision: string): Promise<ConfigDriftReport> {
+  return call("reapply_agent_config", { target, revision });
+}
+
 import type {
   CodexAuthStatus,
   CodexOauthAccount,
@@ -7,6 +17,7 @@ import type {
   ConnectionTestResult,
   DeeplinkImportResult,
   EndpointSpeedtestResult,
+  BatchSpeedtestResult,
   ImportPreview,
   ModelDiscoveryResult,
   Provider,
@@ -21,6 +32,7 @@ import type {
   ConnectionType,
   GatewayProfile,
   GatewayProfilePatch,
+  GatewayRouteLogFilters,
   PaginatedGatewayRouteLogs,
   GatewayUpstreamImportResult,
   GatewayUpstreamModelRow,
@@ -31,7 +43,10 @@ import type {
   RouteModePatch,
   RouteRule,
   RouteModeUsageStat,
+  UpstreamDailyUsageStat,
   GatewayUpstreamHealth,
+  UpstreamLimitPolicy,
+  UpstreamLimitSnapshot,
   SmartGatewayInboundLimits,
   SmartGatewayBudgetView,
   SmartGatewayBudgetSettings,
@@ -155,14 +170,35 @@ export async function setGatewayBindingProfile(
 }
 
 export async function listGatewayRouteLogs(
-  target?: ProviderTarget | null,
+  targetOrFilters?: ProviderTarget | GatewayRouteLogFilters | null,
   limit = 20,
   offset = 0,
+  status?: string | null,
+  mode?: string | null,
+  keyword?: string | null,
 ): Promise<PaginatedGatewayRouteLogs> {
+  if (
+    targetOrFilters &&
+    typeof targetOrFilters === "object" &&
+    !("toLowerCase" in targetOrFilters)
+  ) {
+    const filters = targetOrFilters as GatewayRouteLogFilters;
+    return call<PaginatedGatewayRouteLogs>("list_gateway_route_logs", {
+      target: filters.target ?? null,
+      limit,
+      offset,
+      status: filters.status ?? null,
+      mode: filters.mode ?? null,
+      keyword: filters.keyword ? filters.keyword.trim() : null,
+    });
+  }
   return call<PaginatedGatewayRouteLogs>("list_gateway_route_logs", {
-    target: target ?? null,
+    target: (targetOrFilters as ProviderTarget | null) ?? null,
     limit,
     offset,
+    status: status ?? null,
+    mode: mode ?? null,
+    keyword: keyword ? keyword.trim() : null,
   });
 }
 
@@ -373,6 +409,59 @@ export async function speedtestProviderEndpoint(id: string): Promise<EndpointSpe
   return call<EndpointSpeedtestResult>("speedtest_provider_endpoint", { id });
 }
 
+export async function batchSpeedtestUpstreamEndpoints(
+  ids: string[],
+  concurrency?: number,
+  batchId?: string,
+  signal?: AbortSignal,
+): Promise<BatchSpeedtestResult> {
+  const effectiveBatchId =
+    batchId ||
+    (typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+
+  if (signal?.aborted) {
+    return {
+      batchId: effectiveBatchId,
+      total: ids.length,
+      completed: 0,
+      cancelled: true,
+      items: ids.map((id) => ({
+        id,
+        name: id,
+        result: {
+          ok: false,
+          latencyMs: null,
+          message: "已取消 (调用前已中止)",
+          checkedAt: Date.now(),
+          url: "",
+        },
+        cancelled: true,
+      })),
+    };
+  }
+
+  const cancel = () => {
+    // 卸载时桥接也可能已经销毁；取消失败不能产生未处理的拒绝。
+    void cancelBatchSpeedtest(effectiveBatchId).catch(() => {});
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  try {
+    return await call<BatchSpeedtestResult>("batch_speedtest_upstream_endpoints", {
+      ids,
+      concurrency,
+      batchId: effectiveBatchId,
+    });
+  } finally {
+    signal?.removeEventListener("abort", cancel);
+  }
+}
+
+export async function cancelBatchSpeedtest(batchId: string): Promise<boolean> {
+  return call<boolean>("cancel_batch_speedtest", { batchId });
+}
+
 export async function testProviderInput(input: ProviderInput): Promise<ConnectionTestResult> {
   return call<ConnectionTestResult>("test_provider_input", { input });
 }
@@ -484,6 +573,12 @@ export async function listRouteModeUsageStats(): Promise<RouteModeUsageStat[]> {
   return call("list_route_mode_usage_stats");
 }
 
+export async function listUpstreamDailyUsageStats(
+  since?: number,
+): Promise<UpstreamDailyUsageStat[]> {
+  return call("list_upstream_daily_usage_stats", { since: since ?? null });
+}
+
 export async function simulateGatewayRoute(
   input: SimulateGatewayRouteInput,
 ): Promise<SimulateGatewayRouteResult> {
@@ -494,14 +589,39 @@ export async function listGatewayUpstreamHealth(): Promise<GatewayUpstreamHealth
   return call("list_gateway_upstream_health");
 }
 
+export async function getGatewayUpstreamPolicy(id: string): Promise<UpstreamLimitPolicy> {
+  return call<UpstreamLimitPolicy>("get_gateway_upstream_policy", { id });
+}
+
+export async function setGatewayUpstreamPolicy(
+  id: string,
+  policy: UpstreamLimitPolicy,
+): Promise<UpstreamLimitPolicy> {
+  return call<UpstreamLimitPolicy>("set_gateway_upstream_policy", { id, policy });
+}
+
+export async function listGatewayUpstreamPressure(): Promise<UpstreamLimitSnapshot[]> {
+  return call<UpstreamLimitSnapshot[]>("list_gateway_upstream_pressure");
+}
+
+
+
+export async function getSmartGatewaySubagentInheritUpstream(): Promise<boolean> {
+  return call("get_smart_gateway_subagent_inherit_upstream");
+}
+
+export async function setSmartGatewaySubagentInheritUpstream(enabled: boolean): Promise<boolean> {
+  return call("set_smart_gateway_subagent_inherit_upstream", { enabled });
+}
+
 export async function getSmartGatewayInboundLimits(): Promise<SmartGatewayInboundLimits> {
-  return call("get_smart_gateway_inbound_limits");
+  return call<SmartGatewayInboundLimits>("get_smart_gateway_inbound_limits");
 }
 
 export async function setSmartGatewayInboundLimits(
   settings: SmartGatewayInboundLimits,
 ): Promise<SmartGatewayInboundLimits> {
-  return call("set_smart_gateway_inbound_limits", { settings });
+  return call<SmartGatewayInboundLimits>("set_smart_gateway_inbound_limits", { settings });
 }
 
 export async function getSmartGatewayBudget(): Promise<SmartGatewayBudgetView> {

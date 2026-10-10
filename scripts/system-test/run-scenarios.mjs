@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { waitForTauri } from "./cdp-invoke.mjs";
+import { waitForTauri, withUiOriginBridge } from "./cdp-invoke.mjs";
 
 const SCENARIOS = [
   "./scenarios/sg-isolate-home.mjs",
@@ -12,6 +12,8 @@ const SCENARIOS = [
   "./scenarios/sg-providers-pool-crud.mjs",
   "./scenarios/sg-agent-connection-card.mjs",
   "./scenarios/sg-gateway-ui-reliability.mjs",
+  "./scenarios/sg-upstream-limits-ui.mjs",
+  "./scenarios/sg-ui-layout-matrix.mjs",
 ];
 
 const filter = (process.env.AISW_SCENARIO || "*").trim();
@@ -37,7 +39,7 @@ for (const specifier of SCENARIOS) {
   }
   const t0 = Date.now();
   try {
-    await mod.run();
+    await withUiOriginBridge(() => mod.run());
     const ms = Date.now() - t0;
     console.log(`ok   ${id}  (${ms}ms)`);
     results.push({ id, ok: true, ms });

@@ -15,7 +15,9 @@ mod codex_history;
 mod codex_moonshot_schema;
 mod web_tools;
 mod upstream_health;
-pub(crate) use upstream_health::{send_observed_upstream, should_try_explicit_response};
+mod response_lifecycle;
+mod first_output;
+pub(crate) use upstream_health::{build_request_attempt, should_try_explicit_response};
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -38,8 +40,9 @@ use tokio::task::JoinHandle;
 use tower_http::cors::CorsLayer;
 
 use crate::database::dao::proxy_logs::{
-    insert_proxy_log, maintain_proxy_logs as maintain_logs, update_proxy_log_diagnostic,
-    update_proxy_log_hop, update_proxy_log_route, update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, extract_usage_envelope_id,
+    extract_usage_envelope_id, insert_proxy_log, maintain_proxy_logs as maintain_logs,
+    update_proxy_log_diagnostic, update_proxy_log_hop, update_proxy_log_route,
+    update_proxy_log_stream_outcome, update_proxy_log_usage_idempotent, ProxyRequestAttempt,
 };
 use crate::database::dao::providers::{get_current_provider, list_providers, resolve_api_key};
 use crate::database::dao::settings::get_setting;

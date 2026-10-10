@@ -437,7 +437,7 @@ fn test_parse_retry_after() {
     let parsed = parse_retry_after(&rfc2822, now);
     assert!(parsed.is_some());
     let diff = parsed.unwrap();
-    assert!(diff >= 58 && diff <= 62);
+    assert!((58..=62).contains(&diff));
 }
 
 #[test]

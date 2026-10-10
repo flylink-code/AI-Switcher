@@ -9,6 +9,7 @@ export * from "./Provider";
 export * from "./ProviderKind";
 export * from "./ProviderTarget";
 export * from "./ProxyLogFilters";
+export * from "./ProxyRequestAttempt";
 export * from "./ProxyRequestLog";
 export * from "./RouteDecision";
 export * from "./RouteMode";

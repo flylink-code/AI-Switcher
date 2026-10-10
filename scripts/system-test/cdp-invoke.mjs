@@ -32,13 +32,26 @@ function isHttpPageUrl(value) {
   }
 }
 
+function isChromeErrorUrl(value) {
+  const text = String(value || "");
+  return (
+    text.startsWith("chrome-error://") ||
+    text.includes("chromewebdata") ||
+    text.startsWith("about:neterror")
+  );
+}
+
 function originIsUsable(origin) {
   if (!origin || origin === "null") {
     return false;
   }
   try {
     const url = new URL(origin);
-    return Boolean(url.protocol) && url.protocol !== "about:";
+    return (
+      Boolean(url.protocol) &&
+      url.protocol !== "about:" &&
+      url.protocol !== "chrome-error:"
+    );
   } catch {
     return false;
   }
@@ -50,10 +63,12 @@ export async function pageWebSocketUrl() {
   if (pages.length === 0) {
     throw new Error(`no CDP page on ${cdpBase()}/json`);
   }
+  const validPages = pages.filter((page) => !isChromeErrorUrl(page.url));
+  const candidates = validPages.length > 0 ? validPages : pages;
   const preferred =
-    pages.find((page) => isHttpPageUrl(page.url) && /tauri\.localhost|localhost:\d+/i.test(page.url)) ||
-    pages.find((page) => isHttpPageUrl(page.url));
-  return (preferred || pages[0]).webSocketDebuggerUrl;
+    candidates.find((page) => isHttpPageUrl(page.url) && /tauri\.localhost|localhost:\d+|127\.0\.0\.1:\d+/i.test(page.url)) ||
+    candidates.find((page) => isHttpPageUrl(page.url));
+  return (preferred || candidates[0]).webSocketDebuggerUrl;
 }
 
 function connect(wsUrl) {
@@ -155,29 +170,126 @@ export async function withCdp(body) {
   }
 }
 
-export async function waitForTauri(timeoutMs = 45_000) {
+export async function waitForTauri(timeoutMs = 120_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError = "tauri internals not ready";
+  let reloadAttempted = false;
+  // 持续监听整个启动过程，避免每次轮询断开时丢失模块加载错误。
+  return withCdp(async (send, session) => {
+    const diagnostics = [];
+    const pendingRequests = new Map();
+    const stopDiagnostics = session.onEvent((message) => {
+      const params = message.params || {};
+      if (message.method === "Network.requestWillBeSent") {
+        pendingRequests.set(params.requestId, params.request?.url || "");
+      } else if (message.method === "Network.loadingFinished" || message.method === "Network.loadingFailed") {
+        const url = pendingRequests.get(params.requestId) || "";
+        pendingRequests.delete(params.requestId);
+        if (message.method === "Network.loadingFailed") {
+          diagnostics.push({ type: "network", url, error: params.errorText });
+        }
+      } else if (message.method === "Runtime.exceptionThrown") {
+        const detail = params.exceptionDetails || {};
+        diagnostics.push({ type: "exception", text: detail.exception?.description || detail.text });
+      } else if (message.method === "Log.entryAdded") {
+        diagnostics.push({ type: "log", text: String(params.entry?.text || "").slice(0, 500) });
+      }
+      if (diagnostics.length > 40) diagnostics.shift();
+    });
+    await send("Runtime.enable");
+    await send("Log.enable").catch(() => {});
+    await send("Network.enable");
+    try {
   while (Date.now() < deadline) {
     try {
-      const snapshot = await withCdp(async (send) => {
+      const snapshot = await (async () => {
         const result = await send("Runtime.evaluate", {
-          expression: `(() => ({
-            hasInvoke: Boolean(globalThis.__TAURI_INTERNALS__ && typeof globalThis.__TAURI_INTERNALS__.invoke === "function"),
-            origin: String(location.origin || ""),
-            href: String(location.href || ""),
-          }))()`,
+          expression: `(() => {
+            const href = String(location.href || "");
+            const origin = String(location.origin || "");
+            const title = String(document.title || "");
+            const isChromeError =
+              href.startsWith("chrome-error://") ||
+              href.includes("chromewebdata") ||
+              origin.startsWith("chrome-error") ||
+              title.includes("ERR_") ||
+              title === "Error";
+
+            const root = document.getElementById("root");
+            const bootScreen = document.querySelector(".boot-screen");
+            const nav = document.querySelector(
+              ".v2-top-nav, .app-layout, .ant-layout, [role='navigation']"
+            );
+            const bodyText = String(document.body?.innerText || "").slice(0, 240);
+            const rootMarkup = String(root?.outerHTML || "").slice(0, 600);
+            const scriptCount = document.scripts.length;
+            const readyState = document.readyState;
+            const hasRootChildren = Boolean(
+              root && root.children && root.children.length > 0 && !bootScreen
+            );
+            const uiRendered = Boolean(nav || hasRootChildren);
+
+            return {
+              hasInvoke: Boolean(
+                globalThis.__TAURI_INTERNALS__ &&
+                typeof globalThis.__TAURI_INTERNALS__.invoke === "function"
+              ),
+              origin,
+              href,
+              title,
+              isChromeError,
+              uiRendered,
+              readyState,
+              scriptCount,
+              rootChildCount: root?.children?.length ?? 0,
+              hasBootScreen: Boolean(bootScreen),
+              hasNavigation: Boolean(nav),
+              bodyText,
+              rootMarkup,
+              resources: performance.getEntriesByType('resource').slice(-12).map(r => ({name:r.name,duration:Math.round(r.duration)})),
+            };
+          })()`,
           returnByValue: true,
         });
-        return unwrapEvaluate(result);
-      });
+        const evalVal = unwrapEvaluate(result);
+        if (evalVal?.isChromeError) {
+          try {
+            await send("Page.reload", { ignoreCache: true });
+          } catch {
+            // ignore reload failures on error page
+          }
+        }
+        if (evalVal && typeof evalVal === "object") {
+          evalVal.diagnostics = diagnostics.slice(-20);
+          evalVal.pendingRequests = [...pendingRequests.values()].slice(-30);
+        }
+        return evalVal;
+      })();
+
+      if (snapshot?.isChromeError) {
+        throw new Error(
+          `webview loaded chrome-error page (${snapshot.href || snapshot.title || "error"})`
+        );
+      }
       if (!snapshot?.hasInvoke) {
-        throw new Error("invoke missing");
+        throw new Error(`invoke missing: ${JSON.stringify(snapshot)}`);
       }
       const href = String(snapshot.href || "");
-      const loaded = href.length > 0 && !href.startsWith("about:");
+      const loaded =
+        href.length > 0 &&
+        !href.startsWith("about:") &&
+        !isChromeErrorUrl(href);
       if (!loaded && !originIsUsable(snapshot.origin)) {
-        throw new Error(`page not loaded origin=${snapshot.origin || "(empty)"} href=${href || "(empty)"}`);
+        throw new Error(
+          `page not loaded origin=${snapshot.origin || "(empty)"} href=${href || "(empty)"}`
+        );
+      }
+      if (!snapshot?.uiRendered) {
+        if (!reloadAttempted && snapshot.readyState === "complete" && pendingRequests.size === 0) {
+          reloadAttempted = true;
+          await send("Page.reload", { ignoreCache: true });
+        }
+        throw new Error(`UI not rendered: ${JSON.stringify(snapshot)}`);
       }
       return snapshot;
     } catch (error) {
@@ -186,6 +298,58 @@ export async function waitForTauri(timeoutMs = 45_000) {
     }
   }
   throw new Error(`Tauri IPC not ready: ${lastError}`);
+    } finally {
+      stopDiagnostics();
+    }
+  });
+}
+
+// 保持发起 reload 的 CDP 会话，直到新文档提交，避免短连接提前关闭。
+export async function reloadPage(timeoutMs = 30_000) {
+  await withCdp(async (send) => {
+    await send("Page.enable");
+    const marker = `reload-${Date.now()}-${Math.random()}`;
+    await send("Runtime.evaluate", {
+      expression: `globalThis.__aiswReloadMarker = ${JSON.stringify(marker)}`,
+    });
+    await send("Page.reload", { ignoreCache: true });
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try {
+        const result = await send("Runtime.evaluate", {
+          expression: `globalThis.__aiswReloadMarker !== ${JSON.stringify(marker)}`,
+          returnByValue: true,
+        });
+        if (unwrapEvaluate(result)) return;
+      } catch {
+        // 导航期间执行上下文会短暂销毁。
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    throw new Error("页面重载未提交新文档");
+  });
+  return waitForTauri();
+}
+
+let uiOriginBridgeActive = false;
+
+// DOM 点击触发的 IPC 也需要 Origin 修正，而不仅是测试脚本直接 invoke。
+export async function withUiOriginBridge(body) {
+  return withCdp(async (send, session) => {
+    const stop = session.onEvent((event) => {
+      if (event.method === "Fetch.requestPaused") {
+        continuePausedRequest(send, event.params, "http://localhost").catch(() => {});
+      }
+    });
+    await send("Fetch.enable", { patterns: [{ urlPattern: "*ipc.localhost*", requestStage: "Request" }] });
+    uiOriginBridgeActive = true;
+    try { return await body(); }
+    finally {
+      uiOriginBridgeActive = false;
+      await send("Fetch.disable").catch(() => {});
+      stop();
+    }
+  });
 }
 
 export async function invoke(command, args, timeoutMs = 30_000) {
@@ -202,8 +366,8 @@ export async function invoke(command, args, timeoutMs = 30_000) {
       }
       continuePausedRequest(send, message.params, fallbackOrigin).catch(() => {});
     });
-    await send("Fetch.enable", {
-      patterns: [{ urlPattern: "*", requestStage: "Request" }],
+    if (!uiOriginBridgeActive) await send("Fetch.enable", {
+      patterns: [{ urlPattern: "*ipc.localhost*", requestStage: "Request" }],
     });
     try {
       const expression = `(() => {
@@ -228,7 +392,7 @@ export async function invoke(command, args, timeoutMs = 30_000) {
     } finally {
       stopEvents();
       try {
-        await send("Fetch.disable");
+        if (!uiOriginBridgeActive) await send("Fetch.disable");
       } catch {
         // session may already be closing
       }

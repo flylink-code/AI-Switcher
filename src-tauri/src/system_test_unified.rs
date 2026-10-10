@@ -61,6 +61,21 @@ async fn sg_direct_switch_writes_upstream_and_rules_do_not_steal() {
     .await
     .unwrap();
     assert_eq!(code_base_url(), "https://direct.example.test");
+    let report = crate::commands::providers::config_drift_report(&h.state, ProviderTarget::ClaudeCode).unwrap();
+    assert_eq!(report.status, "in_sync");
+    let settings_path = paths::get_claude_settings_path();
+    let original_settings = fs::read(&settings_path).unwrap();
+    let mut external: serde_json::Value = serde_json::from_slice(&original_settings).unwrap();
+    external["env"]["ANTHROPIC_MODEL"] = serde_json::json!("external-model");
+    fs::write(&settings_path, serde_json::to_vec(&external).unwrap()).unwrap();
+    let drift = crate::commands::providers::config_drift_report(&h.state, ProviderTarget::ClaudeCode).unwrap();
+    assert_eq!(drift.status, "drifted");
+    assert_ne!(drift.revision, report.revision);
+    assert!(drift.fields.iter().any(|field| field.field == "ANTHROPIC_MODEL"));
+    assert!(!serde_json::to_string(&drift).unwrap().contains("external-model"));
+    // 检测只读，不能悄悄修复外部修改。
+    assert_eq!(serde_json::from_slice::<serde_json::Value>(&fs::read(&settings_path).unwrap()).unwrap(), external);
+    fs::write(&settings_path, original_settings).unwrap();
     let before = read_code_env();
     h.state
         .db

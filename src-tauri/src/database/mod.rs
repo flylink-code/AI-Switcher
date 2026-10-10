@@ -27,6 +27,7 @@ pub struct Database {
     /// On-disk path. `None` for in-memory databases (tests).
     path: Option<PathBuf>,
     read_pool: Mutex<Vec<Connection>>,
+    pub(crate) gateway_upstream_limiter: crate::gateway::upstream_limits::UpstreamLimiter,
 }
 
 /// Convenience: lock the connection, returning a `Result` of the guard.
@@ -63,8 +64,12 @@ impl Database {
             conn: Mutex::new(conn),
             path: Some(path),
             read_pool: Mutex::new(Vec::with_capacity(READ_POOL_CAP)),
+            gateway_upstream_limiter: crate::gateway::upstream_limits::UpstreamLimiter::new(),
         };
         db.ensure_schema()?;
+        db.with_read_conn(|conn| {
+            crate::gateway::upstream_limits::load_into_limiter(conn, &db.gateway_upstream_limiter)
+        })?;
         Ok(db)
     }
 
@@ -77,8 +82,12 @@ impl Database {
             conn: Mutex::new(conn),
             path: None,
             read_pool: Mutex::new(Vec::new()),
+            gateway_upstream_limiter: crate::gateway::upstream_limits::UpstreamLimiter::new(),
         };
         db.ensure_schema()?;
+        db.with_read_conn(|conn| {
+            crate::gateway::upstream_limits::load_into_limiter(conn, &db.gateway_upstream_limiter)
+        })?;
         Ok(db)
     }
 
@@ -230,7 +239,7 @@ impl Database {
         {
             let source = lock_conn!(self.conn);
             let version: u32 = source.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
-            if version != 34 || !dao::gateway::is_v34_migration_done(&source) {
+            if (version != 34 && version != 35) || !dao::gateway::is_v34_migration_done(&source) {
                 return Err(AppError::Config("资料库没有有效的 Schema 34 迁移快照，无法回滚".into()));
             }
             let mut copy = Connection::open(staging.path())?;
@@ -345,6 +354,7 @@ impl Database {
             )));
         }
         seed::run_seed(&guard)?;
+        crate::gateway::upstream_limits::load_into_limiter(&guard, &self.gateway_upstream_limiter)?;
         Ok(())
     }
 }
@@ -532,7 +542,7 @@ mod tests {
         db.export_rollback_v34(&output).unwrap();
         db.with_conn(|conn| {
             let version: u32 = conn.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
-            assert_eq!(version, 34);
+            assert_eq!(version, schema::SCHEMA_VERSION);
             Ok(())
         }).unwrap();
         let restored = Connection::open(&output).unwrap();

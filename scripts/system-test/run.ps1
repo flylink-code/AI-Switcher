@@ -1,4 +1,4 @@
-# L2 system-test runner (Windows). Isolates HOME and WebView data, builds debug,
+﻿# L2 system-test runner (Windows). Isolates HOME and WebView data, builds debug,
 # launches with CDP, runs IPC/DOM scenarios, then clean-dev.
 #
 # Usage:
@@ -28,6 +28,23 @@ $exePath = Join-Path $targetDir "debug\claude-switcher.exe"
 $tauriConf = Join-Path $tauriDir "tauri.conf.json"
 $artifacts = Join-Path $PSScriptRoot "artifacts"
 $cleanDev = Join-Path $root "scripts\clean-dev.ps1"
+$vitePortFile = Join-Path $targetDir "debug\.system-test-vite-port"
+$viteOutLog = Join-Path $artifacts "vite.stdout.log"
+$viteErrLog = Join-Path $artifacts "vite.stderr.log"
+
+function Get-DirSizeGB([string]$Path) {
+    if (-not (Test-Path $Path)) { return 0 }
+    try {
+        $fso = New-Object -ComObject Scripting.FileSystemObject
+        $bytes = [int64]$fso.GetFolder($Path).Size
+        return [math]::Round($bytes / 1GB, 2)
+    } catch {
+        $sum = 0L
+        Get-ChildItem $Path -Recurse -File -ErrorAction SilentlyContinue |
+            ForEach-Object { $sum += $_.Length }
+        return [math]::Round($sum / 1GB, 2)
+    }
+}
 
 function Get-FreePort([int]$Start, [int]$Span = 40) {
     for ($port = $Start; $port -lt ($Start + $Span); $port++) {
@@ -53,26 +70,37 @@ function Test-LoopbackListening([int]$ListenPort) {
     }
 }
 
-function Test-ViteHttpReady([int]$ListenPort) {
+# 独立脚本避免 PowerShell 与 JavaScript 多层引号转义。
+function Test-ViteHttpReady([int]$ListenPort, [int]$TimeoutMs = 5000) {
+    & node (Join-Path $PSScriptRoot "vite-ready.mjs") "$ListenPort" "$TimeoutMs"
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Get-FileSha256([string]$Path) {
+    if (-not (Test-Path $Path)) { return "" }
     try {
-        $request = [System.Net.HttpWebRequest]::Create("http://127.0.0.1:$ListenPort/")
-        $request.Method = "GET"
-        $request.Timeout = 1500
-        $request.ReadWriteTimeout = 1500
-        $request.KeepAlive = $false
-        $request.Proxy = [System.Net.GlobalProxySelection]::GetEmptyWebProxy()
-        $response = $request.GetResponse()
-        $response.Close()
-        return $true
-    } catch [System.Net.WebException] {
-        if ($_.Exception.Response) {
-            $_.Exception.Response.Close()
-            return $true
-        }
-        return $false
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop).Hash
     } catch {
-        return $false
+        return ""
     }
+}
+
+function Get-CompiledVitePort([string]$ExePath, [string]$PortFilePath) {
+    # 不从 EXE 字符串或当前配置猜端口；二者可能属于不同构建。
+    if (-not (Test-Path $PortFilePath)) {
+        throw "SkipBuild requires verified build metadata. Run once without -SkipBuild."
+    }
+    $raw = [string](Get-Content -LiteralPath $PortFilePath -Raw -ErrorAction Stop)
+    $meta = $raw | ConvertFrom-Json
+    $currentHash = Get-FileSha256 $ExePath
+    if (-not $meta.exeHash -or -not $currentHash -or $meta.exeHash -ne $currentHash) {
+        throw "SkipBuild metadata does not match the executable. Rebuild without -SkipBuild."
+    }
+    $port = [int]$meta.port
+    if ($port -lt 1024 -or $port -gt 65535) {
+        throw "SkipBuild metadata contains an invalid Vite port. Rebuild without -SkipBuild."
+    }
+    return $port
 }
 
 function Stop-PidTree([int]$ProcessId) {
@@ -88,19 +116,17 @@ function Stop-PidTree([int]$ProcessId) {
 }
 
 function Set-DevUrlPort([string]$ConfPath, [int]$ListenPort) {
-    $raw = Get-Content $ConfPath -Raw -Encoding UTF8
+    $raw = [System.IO.File]::ReadAllText($ConfPath, [System.Text.Encoding]::UTF8)
     $updated = [regex]::Replace(
         $raw,
-        '(?<prefix>"devUrl"\s*:\s*"https?://(?:localhost|127\.0\.0\.1):)\d+(?<suffix>")',
-        {
-            param($match)
-            $match.Groups["prefix"].Value + $ListenPort + $match.Groups["suffix"].Value
-        }
+        '("devUrl"\s*:\s*"https?://)(?:localhost|127\.0\.0\.1):\d+(")',
+        "`${1}127.0.0.1:$ListenPort`${2}"
     )
     if ($updated -eq $raw) {
         throw "Could not update devUrl in $ConfPath"
     }
-    [System.IO.File]::WriteAllText($ConfPath, $updated)
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText($ConfPath, $updated, $utf8NoBom)
 }
 
 function Save-FailedHome([string]$IsolatedHome, [string]$Reason) {
@@ -111,6 +137,12 @@ function Save-FailedHome([string]$IsolatedHome, [string]$Reason) {
     Copy-Item -LiteralPath $IsolatedHome -Destination $dest -Recurse -Force -ErrorAction SilentlyContinue
     $log = Join-Path $artifacts "$stamp.txt"
     Set-Content -LiteralPath $log -Value $Reason -Encoding UTF8
+    if (Test-Path $viteOutLog) {
+        Copy-Item -LiteralPath $viteOutLog -Destination (Join-Path $dest "vite.stdout.log") -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $viteErrLog) {
+        Copy-Item -LiteralPath $viteErrLog -Destination (Join-Path $dest "vite.stderr.log") -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-AutostartCommand {
@@ -144,10 +176,21 @@ New-Item -ItemType Directory -Force -Path (Join-Path $testHome ".pi\agent") | Ou
 $cdpPort = Get-FreePort 9222
 $gatewayPort = Get-FreePort 16828
 $proxyBase = Get-FreePort 16821
-$vitePort = if ($SkipBuild) { 5250 } else { Get-FreePort 5251 20 }
-$originalConf = Get-Content $tauriConf -Raw -Encoding UTF8
+
+if ($SkipBuild) {
+    $vitePort = Get-CompiledVitePort $exePath $vitePortFile
+    Write-Host "[system-test] -SkipBuild: using verified Vite port :$vitePort"
+} else {
+    $vitePort = Get-FreePort 5251 20
+}
+
+$originalConfBytes = $null
+if (Test-Path $tauriConf) {
+    $originalConfBytes = [System.IO.File]::ReadAllBytes($tauriConf)
+}
 $confPatched = $false
 $viteProc = $null
+$vitePid = 0
 $proc = $null
 
 $env:AISW_TEST_HOME = $testHome
@@ -166,6 +209,7 @@ $env:XDG_DATA_HOME = Join-Path $testHome ".local\share"
 $env:CARGO_TARGET_DIR = $targetDir
 Remove-Item Env:CARGO_ENCODED_RUSTFLAGS -ErrorAction SilentlyContinue
 Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
+Remove-Item Env:TAURI_CONFIG -ErrorAction SilentlyContinue
 
 Write-Host "[system-test] AISW_TEST_HOME=$testHome"
 Write-Host "[system-test] CDP=$cdpPort gateway=$gatewayPort proxyBase=$proxyBase vite=$vitePort"
@@ -180,27 +224,85 @@ try {
     if ($SkipBuild -and -not (Test-Path $exePath)) {
         throw "-SkipBuild requires an existing debug executable: $exePath"
     }
+
+    New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
     if (-not (Test-LoopbackListening $vitePort)) {
         $node = Get-Command node -ErrorAction Stop
+        Remove-Item -LiteralPath $viteOutLog -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $viteErrLog -Force -ErrorAction SilentlyContinue
+        Write-Host "[system-test] Starting Vite on 127.0.0.1:$vitePort (stdout -> $viteOutLog, stderr -> $viteErrLog)"
         $viteProc = Start-Process -FilePath $node.Path -ArgumentList @(
             $viteJs, "--port", "$vitePort", "--strictPort", "--host", "127.0.0.1"
-        ) -WorkingDirectory $root -PassThru -WindowStyle Hidden
+        ) -WorkingDirectory $root -PassThru -WindowStyle Hidden `
+          -RedirectStandardOutput $viteOutLog -RedirectStandardError $viteErrLog -ErrorAction Stop
+        if ($null -eq $viteProc -or $viteProc.Id -le 0) {
+            throw "Vite process did not start"
+        }
+        $vitePid = [int]$viteProc.Id
+
+        $viteReady = $false
         for ($i = 1; $i -le 60; $i++) {
-            if ($viteProc.HasExited) {
-                throw "Vite exited early (code $($viteProc.ExitCode))"
+            $viteState = Get-Process -Id $vitePid -ErrorAction SilentlyContinue
+            if ($null -eq $viteState) {
+                $errContent = ""
+                if (Test-Path $viteErrLog) { $errContent = ([string](Get-Content $viteErrLog -Raw -ErrorAction SilentlyContinue)).Trim() }
+                if (-not $errContent -and (Test-Path $viteOutLog)) { $errContent = ([string](Get-Content $viteOutLog -Raw -ErrorAction SilentlyContinue)).Trim() }
+                $msg = "Vite process exited before readiness (PID $vitePid)"
+                if ($errContent) { $msg += ":`n$errContent" }
+                throw $msg
             }
-            if (Test-ViteHttpReady $vitePort) { break }
-            if ($i -eq 60) { throw "Vite did not become ready on :$vitePort" }
+            if (Test-ViteHttpReady $vitePort) {
+                $viteReady = $true
+                break
+            }
+            if ($i -eq 60) {
+                $errContent = ""
+                if (Test-Path $viteErrLog) { $errContent = ([string](Get-Content $viteErrLog -Raw -ErrorAction SilentlyContinue)).Trim() }
+                if (-not $errContent -and (Test-Path $viteOutLog)) { $errContent = ([string](Get-Content $viteOutLog -Raw -ErrorAction SilentlyContinue)).Trim() }
+                $msg = "Vite did not become ready on :$vitePort"
+                if ($errContent) { $msg += ":`n$errContent" }
+                throw $msg
+            }
             Start-Sleep -Milliseconds 500
         }
+        Write-Host "[system-test] Vite ready: http://127.0.0.1:$vitePort/"
     } elseif (-not (Test-ViteHttpReady $vitePort)) {
-        throw "Port $vitePort is occupied but is not serving Vite"
+        throw "Port $vitePort is occupied but is not serving Vite (Test-ViteHttpReady failed)"
+    } else {
+        Write-Host "[system-test] Vite already running and ready on http://127.0.0.1:$vitePort/"
     }
 
-    Set-DevUrlPort $tauriConf $vitePort
-    $confPatched = $true
     if (-not $SkipBuild) {
-        Write-Host "[system-test] cargo build --cfg dev (Vite :$vitePort)"
+        # target >= 20GB clean protection
+        $nestedTarget = Join-Path $tauriDir "src-tauri"
+        if (Test-Path $nestedTarget) {
+            Write-Host "[system-test] Removing nested $nestedTarget (relative CARGO_TARGET_DIR leftover)"
+            Remove-Item -LiteralPath $nestedTarget -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        $targetGb = Get-DirSizeGB $targetDir
+        Write-Host ("[system-test] src-tauri\target size: {0:N1} GB (auto-clean >= 20 GB)" -f $targetGb)
+        if ($targetGb -ge 20 -and (Test-Path $targetDir)) {
+            $cargoBusy = @(Get-Process -Name "cargo", "rustc" -ErrorAction SilentlyContinue)
+            if ($cargoBusy.Count -gt 0) {
+                $pids = ($cargoBusy | ForEach-Object { $_.Id }) -join ", "
+                throw "Another cargo/rustc process is running (PIDs: $pids). Stop it before cargo clean."
+            }
+            Write-Host "[system-test] target exceeds 20 GB; performing cargo clean before build"
+            Push-Location $tauriDir
+            try {
+                & cargo clean
+                if ($LASTEXITCODE -ne 0) { throw "cargo clean failed (exit $LASTEXITCODE)" }
+            } finally {
+                Pop-Location
+            }
+        }
+
+        Set-DevUrlPort $tauriConf $vitePort
+        $confPatched = $true
+        $env:TAURI_CONFIG = ('{"build":{"devUrl":"http://127.0.0.1:' + $vitePort + '"}}')
+
+        Write-Host "[system-test] cargo build --cfg dev (Vite :$vitePort, TAURI_CONFIG override)"
         Push-Location $tauriDir
         try {
             $previousRustFlags = $env:CARGO_ENCODED_RUSTFLAGS
@@ -210,10 +312,28 @@ try {
         } finally {
             $env:CARGO_ENCODED_RUSTFLAGS = $previousRustFlags
             Pop-Location
+            Remove-Item Env:TAURI_CONFIG -ErrorAction SilentlyContinue
+            if ($confPatched -and $originalConfBytes) {
+                [System.IO.File]::WriteAllBytes($tauriConf, $originalConfBytes)
+                $confPatched = $false
+                Write-Host "[system-test] Restored tauri.conf.json byte-for-byte"
+            }
         }
+
+        # Remember compiled port and EXE hash for subsequent -SkipBuild runs
+        $debugDir = Join-Path $targetDir "debug"
+        if (-not (Test-Path $debugDir)) {
+            New-Item -ItemType Directory -Force -Path $debugDir | Out-Null
+        }
+        $exeHash = Get-FileSha256 $exePath
+        $metaObj = @{
+            port = $vitePort
+            exeHash = $exeHash
+            updatedAt = (Get-Date -Format "o")
+        }
+        $metaJson = $metaObj | ConvertTo-Json -Compress
+        Set-Content -LiteralPath $vitePortFile -Value $metaJson -Encoding UTF8
     }
-    [System.IO.File]::WriteAllText($tauriConf, $originalConf)
-    $confPatched = $false
 
     $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=$cdpPort"
     $proc = Start-Process -FilePath $exePath -WorkingDirectory $root -PassThru
@@ -249,17 +369,20 @@ try {
     }
 } catch {
     $failed = $true
-    $failReason = "$_"
-    Write-Host "[system-test] ERROR: $_"
+    $failReason = "$_`n$($_.ScriptStackTrace)"
+    Write-Host "[system-test] ERROR: $failReason"
 } finally {
     if ($proc -and -not $proc.HasExited) {
         Stop-PidTree $proc.Id
     }
-    if ($confPatched) {
-        [System.IO.File]::WriteAllText($tauriConf, $originalConf)
+    Remove-Item Env:TAURI_CONFIG -ErrorAction SilentlyContinue
+    if ($confPatched -and $originalConfBytes) {
+        [System.IO.File]::WriteAllBytes($tauriConf, $originalConfBytes)
+        $confPatched = $false
+        Write-Host "[system-test] Restored tauri.conf.json byte-for-byte in finally"
     }
-    if ($viteProc -and -not $viteProc.HasExited) {
-        Stop-PidTree $viteProc.Id
+    if ($vitePid -gt 0 -and (Get-Process -Id $vitePid -ErrorAction SilentlyContinue)) {
+        Stop-PidTree $vitePid
     }
     if ($failed -or $KeepHome) {
         Save-FailedHome $testHome $(if ($failed) { $failReason } else { "KeepHome" })

@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 34;
+pub const SCHEMA_VERSION: u32 = 35;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -114,7 +114,8 @@ pub fn create_tables(conn: &Connection) -> AppResult<()> {
             upstream_id  TEXT,
             correlation_id TEXT,
             hop TEXT,
-            route_mode TEXT
+            route_mode TEXT,
+            attempts_json TEXT NOT NULL DEFAULT '[]'
         );
         CREATE INDEX IF NOT EXISTS idx_logs_created_at ON proxy_request_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_logs_provider  ON proxy_request_logs(provider_id);
@@ -443,6 +444,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 34 {
         migrate_v33_to_v34(conn, current == 0)?;
+    }
+    if current < 35 {
+        migrate_v34_to_v35(conn)?;
     }
     Ok(())
 }
@@ -1291,6 +1295,33 @@ fn migrate_v33_to_v34(conn: &Connection, fresh: bool) -> AppResult<()> {
     set_user_version(conn, 34)
 }
 
+fn migrate_v34_to_v35(conn: &Connection) -> AppResult<()> {
+    add_proxy_log_attempts_column(conn)?;
+    set_user_version(conn, 35)
+}
+
+fn add_proxy_log_attempts_column(conn: &Connection) -> AppResult<()> {
+    let table_exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
+        [],
+        |row| row.get(0),
+    )?;
+    if table_exists == 0 {
+        return Ok(());
+    }
+    let has: i64 = conn.query_row(
+        "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'attempts_json';",
+        [],
+        |row| row.get(0),
+    )?;
+    if has == 0 {
+        conn.execute_batch(
+            "ALTER TABLE proxy_request_logs ADD COLUMN attempts_json TEXT NOT NULL DEFAULT '[]';",
+        )?;
+    }
+    Ok(())
+}
+
 fn add_binding_mode_and_direct_upstream_columns(conn: &Connection) -> AppResult<()> {
     let table_exists: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='gateway_bindings';",
@@ -1581,7 +1612,7 @@ mod tests {
                 |r| r.get(0),
             )?;
             assert_eq!(dropped, 0);
-            for column in ["correlation_id", "hop", "route_mode"] {
+            for column in ["correlation_id", "hop", "route_mode", "attempts_json"] {
                 let has: i64 = conn.query_row(
                     "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = ?;",
                     [column],
@@ -2105,5 +2136,65 @@ mod tests {
             .query_row("SELECT count(*) FROM upstreams;", [], |row| row.get(0))
             .unwrap();
         assert_eq!(upstreams2, 1);
+    }
+
+    #[test]
+    fn v34_to_v35_adds_attempts_json_idempotently() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Create a Schema 34 proxy_request_logs table without attempts_json
+        conn.execute_batch(
+            "CREATE TABLE proxy_request_logs (
+                id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                provider_id TEXT,
+                provider_name TEXT,
+                model TEXT,
+                status_code INTEGER,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                correlation_id TEXT,
+                hop TEXT,
+                route_mode TEXT
+            );
+            INSERT INTO proxy_request_logs (id, created_at, model) VALUES ('log_test_v34', 123456, 'claude-3-7-sonnet');
+            PRAGMA user_version = 34;",
+        )
+        .unwrap();
+
+        // Run migration to v35
+        migrate(&conn).unwrap();
+
+        // Check column exists
+        let has_col: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('proxy_request_logs') WHERE name = 'attempts_json';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_col, 1);
+
+        // Check existing row has default '[]'
+        let attempts: String = conn
+            .query_row(
+                "SELECT attempts_json FROM proxy_request_logs WHERE id = 'log_test_v34';",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(attempts, "[]");
+
+        let version: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 35);
+
+        // Run migration again to verify idempotency
+        migrate(&conn).unwrap();
+        let version2: u32 = conn
+            .query_row("PRAGMA user_version;", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(version2, 35);
     }
 }

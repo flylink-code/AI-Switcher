@@ -50,7 +50,8 @@
     "targets": ["msi", "nsis"],
     "windows": {
       "wix": {
-        "language": "zh-CN"
+        "language": "zh-CN",
+        "version": "1.5.17.1"
       },
       "nsis": {
         "installMode": "currentUser",

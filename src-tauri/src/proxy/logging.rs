@@ -33,6 +33,7 @@ pub(crate) fn log_request_with_diagnostic(
         )
     }) {
         Ok(id) => {
+            if let Some(slot) = &state.request_log { slot.record(&id); }
             let hop = state.correlation.as_ref().map(|item| item.hop).unwrap_or(
                 match state.listener_kind {
                     ListenerKind::SmartGateway => crate::gateway::correlation::HOP_SMART_GATEWAY,
@@ -58,7 +59,12 @@ pub(crate) fn patch_route_log(
     id: &str,
     decision: &crate::gateway::RouteDecision,
     attempt_index: i64,
+    attempts_json: Option<&str>,
 ) {
+    let final_upstream_id = attempts_json
+        .and_then(|raw| serde_json::from_str::<Vec<ProxyRequestAttempt>>(raw).ok())
+        .and_then(|attempts| attempts.into_iter().last())
+        .and_then(|attempt| attempt.upstream_id);
     if let Err(error) = state.db.with_conn(|conn| {
         update_proxy_log_route(
             conn,
@@ -67,11 +73,64 @@ pub(crate) fn patch_route_log(
             Some(decision.reason.as_str()),
             attempt_index,
             Some(decision.requested_model.as_str()),
-            decision.upstream_id.as_deref(),
+            final_upstream_id.as_deref().or(decision.upstream_id.as_deref()),
             decision.mode_id.as_deref(),
+            attempts_json,
         )
     }) {
         log::warn!("写入网关路由观测失败: {error}");
+    } else {
+        crate::usage_events::notify_log_recorded();
+    }
+}
+
+pub(crate) fn update_proxy_log_attempts(state: &ProxyState, id: &str, attempts_json: &str) {
+    if let Err(error) = state.db.with_conn(|conn| {
+        crate::database::dao::proxy_logs::update_proxy_log_attempts(conn, id, attempts_json)
+    }) {
+        log::warn!("写入请求尝试日志失败: {error}");
+    } else {
+        crate::usage_events::notify_log_recorded();
+    }
+}
+
+fn mark_last_attempt_failure(attempts: &mut [ProxyRequestAttempt], category: &str, diagnostic: &str) {
+    if let Some(attempt) = attempts.last_mut() {
+        attempt.success = false;
+        attempt.error_category = Some(category.to_string());
+        attempt.diagnostic = Some(diagnostic.to_string());
+    }
+}
+
+// 非流式信封失败后仍复用同一计费行，更新为最终实际出站的供应商。
+fn patch_completed_fallback_log(
+    state: &ProxyState,
+    id: Option<&str>,
+    provider: &Provider,
+    status: i64,
+    duration_ms: i64,
+    attempt_index: i64,
+    attempts: &[ProxyRequestAttempt],
+    success: bool,
+) {
+    let Some(id) = id else { return; };
+    let attempts_json = serde_json::to_string(attempts).unwrap_or_else(|_| "[]".into());
+    let result = state.db.with_conn(|conn| {
+        conn.execute(
+            "UPDATE proxy_request_logs SET provider_id=?1, provider_name=?2, model=?3,
+             protocol=?4, upstream_id=?1, status_code=?5, duration_ms=?6, attempt_index=?7,
+             attempts_json=?8, error_category=?9, diagnostic=?10 WHERE id=?11",
+            rusqlite::params![provider.id, provider.name, provider.model, provider.protocol_type.as_str(),
+                status, duration_ms, attempt_index, attempts_json,
+                if success { None } else { Some("upstream_envelope") },
+                if success { "Responses 信封失败后备用接管成功" } else { "Responses 信封失败，未获得有效备用响应" }, id],
+        )?;
+        Ok(())
+    });
+    if let Err(error) = result {
+        log::warn!("更新信封备用结果失败: {error}");
+    } else {
+        crate::usage_events::notify_log_recorded();
     }
 }
 
@@ -172,7 +231,7 @@ pub(crate) fn log_early_failure(
     status: Option<i64>,
     duration_ms: i64,
 ) {
-    if let Err(error) = state.db.with_conn(|conn| {
+    let result = state.db.with_conn(|conn| {
         insert_proxy_log(
             conn,
             None,
@@ -187,11 +246,13 @@ pub(crate) fn log_early_failure(
             Some(error_category),
             Some(error_diagnostic(error_category)),
         )
-        .map(|_| ())
-    }) {
-        log::error!("写入代理早期失败日志失败: {error}");
-    } else {
-        crate::usage_events::notify_log_recorded();
+    });
+    match result {
+        Ok(id) => {
+            if let Some(slot) = &state.request_log { slot.record(&id); }
+            crate::usage_events::notify_log_recorded();
+        }
+        Err(error) => log::error!("写入代理早期失败日志失败: {error}"),
     }
 }
 
@@ -456,7 +517,7 @@ mod tests {
         }
     }
 
-    fn circuit_test_state() -> ProxyState {
+    pub(super) fn circuit_test_state() -> ProxyState {
         ProxyState {
             db: Arc::new(Database::memory().unwrap()),
             client: Client::new(),
@@ -466,8 +527,657 @@ mod tests {
             port: DEFAULT_PORT,
             started_at: Instant::now(),
             correlation: None,
+            request_log: None,
             request_path: String::new(),
         }
+    }
+
+    struct TestServer(tokio::task::JoinHandle<()>);
+
+    impl Drop for TestServer {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn responses_envelope_fallback_obeys_admission_and_updates_single_log() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tower::ServiceExt;
+        for (blocked, explicit, pinned) in [
+            (false, false, false), (true, false, false),
+            (false, true, false), (true, true, false),
+            (false, false, true),
+        ] {
+            let mut state = circuit_test_state();
+            state.listener_kind = ListenerKind::SmartGateway;
+            state.client = Client::builder().no_proxy().build().unwrap();
+            let suffix = uuid::Uuid::new_v4().simple().to_string();
+            let primary_id = format!("envelope_primary_{suffix}");
+            let backup_id = format!("envelope_backup_{suffix}");
+            let hits = Arc::new(AtomicUsize::new(0));
+            let count = hits.clone();
+            let mock = Router::new()
+                .route("/primary/v1/responses", axum::routing::post(|| async {
+                    axum::Json(serde_json::json!({"status":"failed","error":{"message":"private upstream body"}}))
+                }))
+                .route("/backup/v1/messages", axum::routing::post(move || {
+                    let count = count.clone();
+                    async move {
+                        count.fetch_add(1, Ordering::SeqCst);
+                        axum::Json(serde_json::json!({"id":"msg_backup","type":"message","role":"assistant",
+                            "model":"raw-model","content":[{"type":"text","text":"backup works"}],
+                            "stop_reason":"end_turn","usage":{"input_tokens":3,"output_tokens":2}}))
+                    }
+                }));
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); });
+            let _server_guard = TestServer(server);
+            let credential = crate::secrets::test_credentials::Credential::new("mock-key");
+            // 仅内存数据库、合成凭据和 loopback，不访问系统凭据或用户配置。
+            state.db.with_conn(|conn| {
+                crate::database::dao::gateway::ensure_profile_for_target(conn, state.target)?;
+                conn.execute("INSERT INTO providers (id,name,base_url,api_key,model,is_current) VALUES ('seed','seed','http://127.0.0.1:1',?1,'model',1)", [credential.reference()])?;
+                for (id, route, protocol, sort) in [(&primary_id, "primary", "openai_responses", 0), (&backup_id, "backup", "anthropic", 1)] {
+                    conn.execute("INSERT INTO upstreams (id,name,base_url,api_key,model,protocol_type,sort_index) VALUES (?1,?2,?3,?6,'model',?4,?5)",
+                        rusqlite::params![id, route, format!("http://{address}/{route}"), protocol, sort, credential.reference()])?;
+                }
+                conn.execute("UPDATE gateway_profiles SET fallback_mode=?1", [if explicit { "off" } else { "retry" }])?;
+                crate::database::dao::gateway::patch_route_mode(conn, "default", &crate::database::dao::gateway::RouteModePatch {
+                    enabled: Some(true), model: Some("claude.primary.model".into()),
+                    fallback_models: explicit.then(|| vec!["claude.backup.model".into()]),
+                    ..Default::default()
+                }, Some(crate::database::dao::gateway::SHARED_PROFILE_ID))?;
+                Ok(())
+            }).unwrap();
+            state.db.gateway_upstream_limiter.apply(&backup_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+                max_concurrency: 1, queue_capacity: 0, ..Default::default()
+            });
+            let held = if blocked { Some(state.db.gateway_upstream_limiter.acquire(&backup_id).await.unwrap()) } else { None };
+            let key = crate::gateway::service::ensure_api_key(&state.db);
+            let client_model = if pinned { "claude.primary.model" } else { "claude.auto" };
+            let request = http::Request::builder().method("POST").uri("/v1/messages")
+                .header("authorization", format!("Bearer {key}"))
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::json!({
+                    "model": client_model, "messages": [{"role":"user","content":"hello"}],
+                    "max_tokens":16,"stream":false
+                }).to_string())).unwrap();
+            let response = smart_gateway_router(state.db.clone(), 0).oneshot(request).await.unwrap();
+            let status = response.status();
+            let body = axum::body::to_bytes(response.into_body(), 65536).await.unwrap();
+            assert_eq!(
+                status,
+                if blocked || pinned { StatusCode::BAD_GATEWAY } else { StatusCode::OK },
+                "unexpected gateway response: {}",
+                String::from_utf8_lossy(&body)
+            );
+            if !blocked && !pinned {
+                let value: Value = serde_json::from_slice(&body).unwrap();
+                assert_eq!(value["content"][0]["text"], "backup works");
+                assert_eq!(value["model"], "claude.auto");
+            }
+            assert_eq!(hits.load(Ordering::SeqCst), usize::from(!blocked && !pinned));
+            state.db.with_read_conn(|conn| {
+                let count: i64 = conn.query_row("SELECT count(*) FROM proxy_request_logs", [], |row| row.get(0))?;
+                assert_eq!(count, 1);
+                let (provider, upstream, status, category, raw, input, output, diagnostic): (String,String,i64,Option<String>,String,i64,i64,String) = conn.query_row(
+                    "SELECT provider_id,upstream_id,status_code,error_category,attempts_json,input_tokens,output_tokens,diagnostic FROM proxy_request_logs", [],
+                    |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,row.get(5)?,row.get(6)?,row.get(7)?)))?;
+                assert_eq!(provider, if pinned { primary_id.clone() } else { backup_id.clone() });
+                assert_eq!(upstream, provider);
+                assert_eq!(status, if blocked || pinned { 502 } else { 200 });
+                assert_eq!(category.is_some(), blocked || pinned);
+                assert!(!diagnostic.contains("private upstream body"));
+                let attempts: Vec<ProxyRequestAttempt> = serde_json::from_str(&raw).unwrap();
+                assert_eq!(attempts.len(), if pinned { 1 } else { 2 });
+                assert!(!attempts[0].success);
+                if pinned {
+                    assert_eq!(attempts[0].error_category.as_deref(), Some("upstream_envelope"));
+                } else {
+                    assert_eq!(attempts[1].success, !blocked);
+                    assert!(attempts[1].queue_wait_ms.is_some());
+                    if blocked {
+                        assert_eq!(attempts[1].error_category.as_deref(), Some("local_queue_full"));
+                        assert!(crate::gateway::health::is_available(&backup_id, Some("model")));
+                    } else {
+                        assert_eq!((input, output), (3, 2));
+                    }
+                }
+                Ok(())
+            }).unwrap();
+            drop(held);
+        }
+    }
+
+    fn seed_loopback_gateway(
+        db: &Database,
+        address: std::net::SocketAddr,
+        primary_id: &str,
+        backup_id: &str,
+        credential: &str,
+        protocol: &str,
+        target: ProviderTarget,
+        fallback: bool,
+    ) {
+        db.with_conn(|conn| {
+            crate::database::dao::gateway::ensure_profile_for_target(conn, target)?;
+            conn.execute(
+                "INSERT INTO providers (id,name,base_url,api_key,model,is_current,target_app) VALUES ('seed','seed','http://127.0.0.1:1',?1,'model',1,?2)",
+                rusqlite::params![credential, target.as_str()],
+            )?;
+            for (id, route, sort) in [(primary_id, "primary", 0), (backup_id, "backup", 1)] {
+                conn.execute(
+                    "INSERT INTO upstreams (id,name,base_url,api_key,model,protocol_type,sort_index) VALUES (?1,?2,?3,?4,'model',?5,?6)",
+                    rusqlite::params![id, route, format!("http://{address}/{route}"), credential, protocol, sort],
+                )?;
+            }
+            let model = if target == ProviderTarget::Codex { "model" } else { "claude.primary.model" };
+            let backup = if target == ProviderTarget::Codex { "backup.model" } else { "claude.backup.model" };
+            conn.execute("UPDATE gateway_profiles SET fallback_mode='off'", [])?;
+            crate::database::dao::gateway::patch_route_mode(
+                conn, "default", &crate::database::dao::gateway::RouteModePatch {
+                    enabled: Some(true), model: Some(model.into()),
+                    fallback_models: Some(if fallback { vec![backup.into()] } else { Vec::new() }),
+                    ..Default::default()
+                }, Some(crate::database::dao::gateway::SHARED_PROFILE_ID),
+            )?;
+            Ok(())
+        }).unwrap();
+    }
+
+    #[tokio::test]
+    async fn first_output_deadline_switches_before_client_commit_for_code_and_codex() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tower::ServiceExt;
+        for target in [ProviderTarget::ClaudeCode, ProviderTarget::Codex] {
+            for fallback in [false, true] {
+                let db = Arc::new(Database::memory().unwrap());
+                let primary_id = format!("prefetch_primary_{}", uuid::Uuid::new_v4().simple());
+                let backup_id = format!("prefetch_backup_{}", uuid::Uuid::new_v4().simple());
+                let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+                let hits = Arc::new(AtomicUsize::new(0));
+                let count = hits.clone();
+                let mock = Router::new()
+                    .route("/primary/v1/responses", axum::routing::post(|| async {
+                        let stream = futures_util::stream::once(async {
+                            Ok::<_, Infallible>("data: {\"type\":\"response.created\"}\n\n: ping\n\n")
+                        }).chain(futures_util::stream::pending());
+                        Response::builder().header("content-type", "text/event-stream")
+                            .body(Body::from_stream(stream)).unwrap()
+                    }))
+                    .route("/backup/v1/responses", axum::routing::post(move || {
+                        let count = count.clone();
+                        async move {
+                            count.fetch_add(1, Ordering::SeqCst);
+                            Response::builder().header("content-type", "text/event-stream")
+                                .body(Body::from(concat!(
+                                    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"backup works\",\"output_index\":0,\"content_index\":0}\n\n",
+                                    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_backup\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":3,\"output_tokens\":2}}}\n\n"
+                                ))).unwrap()
+                        }
+                    }));
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+                seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "openai_responses", target, fallback);
+                db.gateway_upstream_limiter.apply(&primary_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+                    first_output_timeout_ms: 100, ..Default::default()
+                });
+                let key = crate::gateway::service::ensure_api_key(&db);
+                let (path, body) = if target == ProviderTarget::Codex {
+                    ("/v1/responses", serde_json::json!({"model":"auto","input":"hello","stream":true}))
+                } else {
+                    ("/v1/messages", serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true}))
+                };
+                let request = http::Request::builder().method("POST").uri(path)
+                    .header("authorization", format!("Bearer {key}"))
+                    .header("x-ai-switcher-target", target.as_str())
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string())).unwrap();
+                let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db.clone(), 0).oneshot(request)).await.unwrap().unwrap();
+                let status = response.status();
+                let body = axum::body::to_bytes(response.into_body(), 65536).await.unwrap();
+                let text = String::from_utf8_lossy(&body);
+                assert_eq!(status, if fallback { StatusCode::OK } else { StatusCode::GATEWAY_TIMEOUT }, "target={target:?} fallback={fallback}: {text}");
+                if fallback {
+                    assert_eq!(text.matches("backup works").count(), 1, "{text}");
+                    assert!(!text.contains(": ping"));
+                    if target == ProviderTarget::ClaudeCode { assert!(text.contains("claude.auto"), "{text}"); }
+                }
+                assert_eq!(hits.load(Ordering::SeqCst), usize::from(fallback));
+                db.with_read_conn(|conn| {
+                    let logs = crate::database::dao::proxy_logs::list_proxy_request_logs(conn, &Default::default(), 0, 10)?;
+                    assert_eq!(logs.data.len(), 1);
+                    let attempts = logs.data[0].parse_attempts();
+                    assert_eq!(attempts.len(), if fallback { 2 } else { 1 });
+                    assert_eq!(attempts[0].error_category.as_deref(), Some("first_output_timeout"));
+                    assert_eq!(logs.data[0].upstream_id.as_deref(), Some(if fallback { backup_id.as_str() } else { primary_id.as_str() }));
+                    Ok(())
+                }).unwrap();
+                assert_eq!(db.gateway_upstream_limiter.snapshot(&primary_id).unwrap().active, 0);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn tcp_disconnect_cancels_gateway_queue_and_prefetch_without_backup() {
+        use std::io::Write;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        for target in [ProviderTarget::ClaudeCode, ProviderTarget::Codex] {
+            for queued in [true, false] {
+                let db = Arc::new(Database::memory().unwrap());
+                let primary_id = format!("cancel_primary_{}", uuid::Uuid::new_v4().simple());
+                let backup_id = format!("cancel_backup_{}", uuid::Uuid::new_v4().simple());
+                let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+                let primary_hits = Arc::new(AtomicUsize::new(0));
+                let backup_hits = Arc::new(AtomicUsize::new(0));
+                let (primary, backup) = (primary_hits.clone(), backup_hits.clone());
+                let mock = Router::new()
+                    .route("/primary/v1/responses", axum::routing::post(move || {
+                        let primary = primary.clone();
+                        async move {
+                            primary.fetch_add(1, Ordering::SeqCst);
+                            let stream = futures_util::stream::once(async {
+                                Ok::<_, Infallible>("data: {\"type\":\"response.created\"}\n\n")
+                            }).chain(futures_util::stream::pending());
+                            Response::builder().header("content-type", "text/event-stream")
+                                .body(Body::from_stream(stream)).unwrap()
+                        }
+                    }))
+                    .route("/backup/v1/responses", axum::routing::post(move || {
+                        let backup = backup.clone();
+                        async move {
+                            backup.fetch_add(1, Ordering::SeqCst);
+                            axum::Json(serde_json::json!({"status":"completed"}))
+                        }
+                    }));
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let _mock = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+                seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "openai_responses", target, true);
+                db.gateway_upstream_limiter.apply(&primary_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+                    max_concurrency: 1, queue_timeout_ms: 2000,
+                    first_output_timeout_ms: 1000, ..Default::default()
+                });
+                let held = if queued { Some(db.gateway_upstream_limiter.acquire(&primary_id).await.unwrap()) } else { None };
+                let key = crate::gateway::service::ensure_api_key(&db);
+                let app = smart_gateway_router(db.clone(), 0);
+                let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let gateway_address = listener.local_addr().unwrap();
+                let _gateway = TestServer(tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); }));
+                let (path, body) = if target == ProviderTarget::Codex {
+                    ("/v1/responses", serde_json::json!({"model":"auto","input":"hello","stream":true}))
+                } else {
+                    ("/v1/messages", serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true}))
+                };
+                let payload = body.to_string();
+                let request = format!("POST {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {key}\r\nx-ai-switcher-target: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{payload}", target.as_str(), payload.len());
+                let socket = tokio::task::spawn_blocking(move || {
+                    let mut socket = std::net::TcpStream::connect(gateway_address).unwrap();
+                    socket.write_all(request.as_bytes()).unwrap();
+                    socket
+                }).await.unwrap();
+                tokio::time::timeout(Duration::from_secs(3), async {
+                    loop {
+                        if queued {
+                            if db.gateway_upstream_limiter.snapshot(&primary_id).unwrap().queue_len == 1 { break; }
+                        } else if primary_hits.load(Ordering::SeqCst) == 1 { break; }
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                }).await.unwrap();
+                socket.shutdown(std::net::Shutdown::Both).unwrap();
+                drop(socket);
+                tokio::time::timeout(Duration::from_millis(750), async {
+                    loop {
+                        let snapshot = db.gateway_upstream_limiter.snapshot(&primary_id).unwrap();
+                        if snapshot.queue_len == 0 && snapshot.active == u32::from(queued) { break; }
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                }).await.expect("断连应在排队或首输出截止前即时释放请求");
+                drop(held);
+                tokio::time::sleep(Duration::from_millis(1100)).await;
+                assert_eq!(primary_hits.load(Ordering::SeqCst), usize::from(!queued));
+                assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
+                let snapshot = db.gateway_upstream_limiter.snapshot(&primary_id).unwrap();
+                assert_eq!(snapshot.active, 0);
+                assert_eq!(snapshot.current_rpm, u32::from(!queued));
+                assert!(crate::gateway::health::is_available(&primary_id, Some("model")));
+                tokio::time::timeout(Duration::from_secs(3), async {
+                    loop {
+                        let outcome = db.with_read_conn(|conn| {
+                            Ok(conn.query_row("SELECT stream_outcome FROM proxy_request_logs LIMIT 1", [], |row| row.get::<_, Option<String>>(0)).ok().flatten())
+                        }).unwrap();
+                        if outcome.as_deref() == Some("cancelled") { break; }
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                }).await.expect("头前断连应记录取消终态");
+                db.with_read_conn(|conn| {
+                    assert_eq!(conn.query_row("SELECT count(*) FROM proxy_request_logs", [], |row| row.get::<_, i64>(0))?, 1);
+                    let (provider_id, upstream_id, route, attempts_json): (Option<String>, Option<String>, Option<String>, Option<String>) = conn.query_row(
+                        "SELECT provider_id, upstream_id, route, attempts_json FROM proxy_request_logs LIMIT 1",
+                        [],
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    )?;
+                    assert_eq!(provider_id.as_deref(), Some(primary_id.as_str()));
+                    assert_eq!(upstream_id.as_deref(), Some(primary_id.as_str()));
+                    assert_eq!(route.as_deref(), Some(if target == ProviderTarget::Codex { "/v1/responses" } else { "/v1/messages" }));
+                    let attempts: Vec<crate::database::dao::proxy_logs::ProxyRequestAttempt> = serde_json::from_str(attempts_json.as_deref().unwrap_or("[]")).unwrap();
+                    assert_eq!(attempts.last().and_then(|attempt| attempt.upstream_id.as_deref()), Some(primary_id.as_str()));
+                    Ok(())
+                }).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn parent_session_header_is_not_an_upstream_header() {
+        assert!(!super::should_forward_inbound_header(
+            crate::gateway::sticky::PARENT_SESSION_HEADER
+        ));
+        assert!(super::should_forward_inbound_header("anthropic-version"));
+    }
+
+    #[tokio::test]
+    async fn parent_session_inherit_prefers_recorded_upstream_without_writeback() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        use tower::ServiceExt;
+        let _guard = crate::gateway::sticky::test_lock();
+        crate::gateway::sticky::reset_for_tests();
+        let db = Arc::new(Database::memory().unwrap());
+        let primary_id = format!("inherit_primary_{}", uuid::Uuid::new_v4().simple());
+        let backup_id = format!("inherit_backup_{}", uuid::Uuid::new_v4().simple());
+        let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+        let primary_hits = Arc::new(AtomicUsize::new(0));
+        let backup_hits = Arc::new(AtomicUsize::new(0));
+        let saw_parent = Arc::new(AtomicBool::new(false));
+        let (primary, backup, parent_header) = (primary_hits.clone(), backup_hits.clone(), saw_parent.clone());
+        let message = serde_json::json!({"id":"msg_1","type":"message","role":"assistant","model":"model","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}});
+        let mock = Router::new()
+            .route("/primary/v1/messages", axum::routing::post(move || {
+                let primary = primary.clone();
+                let message = message.clone();
+                async move {
+                    primary.fetch_add(1, Ordering::SeqCst);
+                    axum::Json(message)
+                }
+            }))
+            .route("/backup/v1/messages", axum::routing::post(move |headers: HeaderMap| {
+                let backup = backup.clone();
+                let parent_header = parent_header.clone();
+                let message = serde_json::json!({"id":"msg_2","type":"message","role":"assistant","model":"model","content":[{"type":"text","text":"backup"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}});
+                async move {
+                    parent_header.store(headers.contains_key(crate::gateway::sticky::PARENT_SESSION_HEADER), Ordering::SeqCst);
+                    backup.fetch_add(1, Ordering::SeqCst);
+                    axum::Json(message)
+                }
+            }));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+        seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "anthropic", ProviderTarget::ClaudeCode, false);
+        let key = crate::gateway::service::ensure_api_key(&db);
+        crate::gateway::inbound::persist_subagent_inherit_upstream(&db, true).unwrap();
+        crate::gateway::sticky::remember_successful_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, "parent-1", &backup_id);
+        let send = |model: &str, subagent: bool, parent: bool| {
+            let (db, key, model) = (db.clone(), key.clone(), model.to_string());
+            async move {
+                let mut request = http::Request::builder().method("POST").uri("/v1/messages")
+                    .header("authorization", format!("Bearer {key}"))
+                    .header("x-ai-switcher-target", "claude_code")
+                    .header("content-type", "application/json");
+                if subagent { request = request.header(CS_SUBAGENT_HEADER, "1"); }
+                if parent { request = request.header(crate::gateway::sticky::PARENT_SESSION_HEADER, "parent-1"); }
+                let body = serde_json::json!({"model": model, "messages":[{"role":"user","content":"hello"}], "max_tokens":16, "metadata":{"user_id":"child-session"}});
+                let request = request.body(Body::from(body.to_string())).unwrap();
+                let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db, 0).oneshot(request)).await.unwrap().unwrap();
+                let status = response.status();
+                let text = String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), 65536).await.unwrap()).to_string();
+                (status, text)
+            }
+        };
+        let (status, text) = send("claude.auto", true, true).await;
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert!(text.contains("backup"), "{text}");
+        assert!(!saw_parent.load(Ordering::SeqCst));
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 1);
+        assert_eq!(primary_hits.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
+            Some(backup_id.as_str())
+        );
+        assert_eq!(
+            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("child-session")),
+            None
+        );
+        db.with_read_conn(|conn| {
+            let logs = crate::database::dao::proxy_logs::list_proxy_request_logs(conn, &Default::default(), 0, 5)?;
+            assert!(logs.data[0].route_reason.as_deref().unwrap_or("").contains("沿用父会话上游"));
+            assert!(!logs.data[0].route_reason.as_deref().unwrap_or("").contains("parent-1"));
+            Ok(())
+        }).unwrap();
+        let _ = crate::gateway::simulate::simulate(&db, crate::gateway::simulate::SimulateRouteInput {
+            requested_model: Some("claude.auto".into()), body_json: None, token_count: None,
+            has_web_search: None, has_vision: None, has_thinking: None, is_subagent: Some(true),
+            is_image_gen: None, tool_names: None, recent_write_tool: None, path: Some("/v1/messages".into()),
+            target: Some(ProviderTarget::ClaudeCode), profile_id: None,
+        }).unwrap();
+        assert_eq!(
+            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
+            Some(backup_id.as_str())
+        );
+        primary_hits.store(0, Ordering::SeqCst);
+        backup_hits.store(0, Ordering::SeqCst);
+        let (status, text) = send("claude.auto", true, false).await;
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
+        primary_hits.store(0, Ordering::SeqCst);
+        let (status, text) = send("claude.primary.model", true, true).await;
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
+        db.with_conn(|conn| {
+            crate::database::dao::gateway::upsert_route_rule(conn, &crate::database::dao::gateway::RouteRule {
+                id: "rule_lock".into(), profile_id: crate::database::dao::gateway::SHARED_PROFILE_ID.into(),
+                enabled: true, sort_index: 0, rule_type: "model-prefix".into(), condition_json: "{}".into(),
+                pattern: "claude.auto".into(), target_model: "claude.primary.model".into(),
+                thinking_config_json: "{}".into(), rewrites_json: "[]".into(),
+            })?;
+            Ok(())
+        }).unwrap();
+        primary_hits.store(0, Ordering::SeqCst);
+        backup_hits.store(0, Ordering::SeqCst);
+        let (status, text) = send("claude.auto", true, true).await;
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
+        db.with_conn(|conn| {
+            conn.execute("UPDATE route_rules SET enabled = 0 WHERE id = 'rule_lock'", [])?;
+            Ok(())
+        }).unwrap();
+        crate::gateway::health::record_failure(&backup_id);
+        crate::gateway::health::record_failure(&backup_id);
+        primary_hits.store(0, Ordering::SeqCst);
+        backup_hits.store(0, Ordering::SeqCst);
+        let (status, text) = send("claude.auto", true, true).await;
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
+        let parent_request = http::Request::builder().method("POST").uri("/v1/messages")
+            .header("authorization", format!("Bearer {key}"))
+            .header("x-ai-switcher-target", "claude_code")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"metadata":{"user_id":"parent-2"}}).to_string())).unwrap();
+        let parent_response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db.clone(), 0).oneshot(parent_request)).await.unwrap().unwrap();
+        assert_eq!(parent_response.status(), StatusCode::OK);
+        assert_eq!(
+            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-2")).as_deref(),
+            Some(primary_id.as_str())
+        );
+        assert_eq!(
+            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
+            Some(backup_id.as_str())
+        );
+    }
+
+    #[tokio::test]
+    async fn first_output_deadline_covers_anthropic_chat_limit_and_post_commit() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tower::ServiceExt;
+        for protocol in ["anthropic", "openai_chat"] {
+            let db = Arc::new(Database::memory().unwrap());
+            let primary_id = format!("proto_primary_{}", uuid::Uuid::new_v4().simple());
+            let backup_id = format!("proto_backup_{}", uuid::Uuid::new_v4().simple());
+            let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+            let backup_hits = Arc::new(AtomicUsize::new(0));
+            let hits = backup_hits.clone();
+            let (primary_path, backup_path, stall, ready) = if protocol == "anthropic" {
+                ("/primary/v1/messages", "/backup/v1/messages",
+                    "data: {\"type\":\"message_start\"}\n\n",
+                    "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"backup works\"}}\n\ndata: {\"type\":\"message_stop\"}\n\n")
+            } else {
+                ("/primary/v1/chat/completions", "/backup/v1/chat/completions",
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}]}\n\n",
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"backup works\"}}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+            };
+            let stall = stall.to_string();
+            let ready = ready.to_string();
+            let mock = Router::new()
+                .route(primary_path, axum::routing::post({
+                    let stall = stall.clone();
+                    move || {
+                        let stall = stall.clone();
+                        async move {
+                            let stream = futures_util::stream::once(async move { Ok::<_, Infallible>(stall) }).chain(futures_util::stream::pending());
+                            Response::builder().header("content-type", "text/event-stream").body(Body::from_stream(stream)).unwrap()
+                        }
+                    }
+                }))
+                .route(backup_path, axum::routing::post({
+                    let hits = hits.clone();
+                    let ready = ready.clone();
+                    move || {
+                        let hits = hits.clone();
+                        let ready = ready.clone();
+                        async move {
+                            hits.fetch_add(1, Ordering::SeqCst);
+                            Response::builder().header("content-type", "text/event-stream").body(Body::from(ready)).unwrap()
+                        }
+                    }
+                }));
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+            seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), protocol, ProviderTarget::ClaudeCode, true);
+            db.gateway_upstream_limiter.apply(&primary_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+                first_output_timeout_ms: 100, ..Default::default()
+            });
+            let key = crate::gateway::service::ensure_api_key(&db);
+            let body = serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true});
+            let request = http::Request::builder().method("POST").uri("/v1/messages")
+                .header("authorization", format!("Bearer {key}"))
+                .header("x-ai-switcher-target", "claude_code")
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string())).unwrap();
+            let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db.clone(), 0).oneshot(request)).await.unwrap().unwrap();
+            let status = response.status();
+            let text = String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), 65536).await.unwrap()).to_string();
+            assert_eq!(status, StatusCode::OK, "{protocol}: {text}");
+            assert!(text.contains("backup works"), "{protocol}: {text}");
+            assert_eq!(backup_hits.load(Ordering::SeqCst), 1, "{protocol}");
+        }
+
+        let db = Arc::new(Database::memory().unwrap());
+        let primary_id = format!("limit_primary_{}", uuid::Uuid::new_v4().simple());
+        let backup_id = format!("limit_backup_{}", uuid::Uuid::new_v4().simple());
+        let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+        let backup_hits = Arc::new(AtomicUsize::new(0));
+        let hits = backup_hits.clone();
+        let mock = Router::new()
+            .route("/primary/v1/messages", axum::routing::post(|| async {
+                let mut bytes = b"data: {\"type\":\"message_start\"}\n".to_vec();
+                bytes.extend(std::iter::repeat(b'x').take(256 * 1024));
+                Response::builder().header("content-type", "text/event-stream").body(Body::from(bytes)).unwrap()
+            }))
+            .route("/backup/v1/messages", axum::routing::post(move || {
+                let hits = hits.clone();
+                async move {
+                    hits.fetch_add(1, Ordering::SeqCst);
+                    Response::builder().header("content-type", "text/event-stream").body(Body::from(
+                        "data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"backup works\"}}\n\ndata: {\"type\":\"message_stop\"}\n\n"
+                    )).unwrap()
+                }
+            }));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+        seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "anthropic", ProviderTarget::ClaudeCode, true);
+        db.gateway_upstream_limiter.apply(&primary_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+            first_output_timeout_ms: 1000, ..Default::default()
+        });
+        let key = crate::gateway::service::ensure_api_key(&db);
+        let body = serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true});
+        let request = http::Request::builder().method("POST").uri("/v1/messages")
+            .header("authorization", format!("Bearer {key}"))
+            .header("x-ai-switcher-target", "claude_code")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string())).unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db.clone(), 0).oneshot(request)).await.unwrap().unwrap();
+        let status = response.status();
+        let text = String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), 65536).await.unwrap()).to_string();
+        assert_eq!(status, StatusCode::OK, "{text}");
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 1, "{text}");
+        db.with_read_conn(|conn| {
+            let logs = crate::database::dao::proxy_logs::list_proxy_request_logs(conn, &Default::default(), 0, 5)?;
+            assert!(logs.data.iter().flat_map(|log| log.parse_attempts()).any(|attempt| attempt.error_category.as_deref() == Some("first_output_buffer_limit")));
+            Ok(())
+        }).unwrap();
+
+        let db = Arc::new(Database::memory().unwrap());
+        let primary_id = format!("commit_primary_{}", uuid::Uuid::new_v4().simple());
+        let backup_id = format!("commit_backup_{}", uuid::Uuid::new_v4().simple());
+        let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
+        let backup_hits = Arc::new(AtomicUsize::new(0));
+        let hits = backup_hits.clone();
+        let mock = Router::new()
+            .route("/primary/v1/messages", axum::routing::post(|| async {
+                let stream = futures_util::stream::once(async {
+                    Ok::<_, Infallible>("data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"committed\"}}\n\n")
+                }).chain(futures_util::stream::pending());
+                Response::builder().header("content-type", "text/event-stream").body(Body::from_stream(stream)).unwrap()
+            }))
+            .route("/backup/v1/messages", axum::routing::post(move || {
+                let hits = hits.clone();
+                async move {
+                    hits.fetch_add(1, Ordering::SeqCst);
+                    axum::Json(serde_json::json!({"status":"backup"}))
+                }
+            }));
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
+        seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "anthropic", ProviderTarget::ClaudeCode, true);
+        db.gateway_upstream_limiter.apply(&primary_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
+            first_output_timeout_ms: 100, ..Default::default()
+        });
+        let key = crate::gateway::service::ensure_api_key(&db);
+        let body = serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"stream":true});
+        let request = http::Request::builder().method("POST").uri("/v1/messages")
+            .header("authorization", format!("Bearer {key}"))
+            .header("x-ai-switcher-target", "claude_code")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string())).unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db, 0).oneshot(request)).await.unwrap().unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        use http_body_util::BodyExt;
+        let mut body = response.into_body();
+        let frame = tokio::time::timeout(Duration::from_secs(2), body.frame()).await.unwrap().unwrap().unwrap();
+        let bytes = frame.into_data().unwrap_or_default();
+        assert!(String::from_utf8_lossy(&bytes).contains("committed"));
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
+        drop(body);
     }
 
     #[test]

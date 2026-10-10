@@ -1,18 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
-  Checkbox,
-  Drawer,
   Dropdown,
   Form,
-  Input,
   Modal,
-  AutoComplete,
   Popconfirm,
-  Select,
   Space,
-  Switch,
   Table,
   Tag,
   Tooltip,
@@ -33,6 +27,8 @@ import { useTranslation } from "react-i18next";
 import {
   addAntigravityGatewayUpstream,
   addKiroGatewayUpstream,
+  batchSpeedtestUpstreamEndpoints,
+  cancelBatchSpeedtest,
   deleteGatewayUpstream,
   discoverGatewayUpstreamModels,
   discoverGatewayUpstreamModelsBatch,
@@ -44,6 +40,7 @@ import {
   listGatewayUpstreamHealth,
   listGatewayUpstreamModels,
   listGatewayUpstreams,
+  listUpstreamDailyUsageStats,
   listProviders,
   pollCodexOauthLogin,
   setGatewayUpstreamModelVisible,
@@ -51,112 +48,39 @@ import {
   testUpstreamConnection,
   upsertGatewayUpstream,
 } from "@/services/providers";
-import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
-import { filterUiAgents } from "@/lib/agentVisibility";
-import { PROVIDER_PRESETS, type ProviderPreset } from "@/lib/providerPresets";
+import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
+import type { ProviderPreset } from "@/lib/providerPresets";
 import {
-  buildEndpointPreview,
   ensureOpenAiV1Suffix,
   isReservedListenerUrl,
-  needsOpenAiV1Suffix,
   normalizeBaseUrl,
 } from "@/lib/providerUrl";
 import { ProviderQuotaView } from "@/components/ProviderQuotaView";
 import type {
+  BatchSpeedtestResult,
   CodexOauthDeviceStart,
-  GatewayUpstreamHealth,
+  EndpointSpeedtestResult,
   Provider,
+  UpstreamDailyUsageStat,
   ProviderInput,
   ProviderTarget,
   ProtocolType,
 } from "@/types/backend";
+import {
+  CodexOauthModal,
+  UPSTREAM_PRESETS,
+  UpstreamFormModal,
+  UpstreamHealthBadge,
+  UpstreamImportJsonModal,
+  UpstreamImportModal,
+  UpstreamModelsDrawer,
+  UpstreamPoolSummary,
+} from "./upstream";
+import { UpstreamLimitsModal } from "./upstream/UpstreamLimitsModal";
+import { refreshUsageQuery, useUsageLogRefresh } from "@/lib/useUsageLogRefresh";
+import { UpstreamDailyStats } from "./upstream/UpstreamDailyStats";
 
 const { Text } = Typography;
-
-const PROTOCOL_OPTIONS: { value: ProtocolType; label: string }[] = [
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai_chat", label: "OpenAI Chat" },
-  { value: "openai_responses", label: "OpenAI Responses" },
-];
-
-function healthLabel(
-  row: GatewayUpstreamHealth | undefined,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-) {
-  if (!row || row.status === "unknown") {
-    return <Tag>{t("proxy.healthUnknown", { defaultValue: "未检测" })}</Tag>;
-  }
-
-  const lastError = row.lastError;
-  const timeStr = row.lastCheckedAt > 0 ? new Date(row.lastCheckedAt).toLocaleString() : null;
-
-  const tooltipContent =
-    timeStr || lastError ? (
-      <div style={{ maxWidth: 300, wordBreak: "break-all" }}>
-        {timeStr ? (
-          <div>
-            {t("proxy.healthLastChecked", {
-              time: timeStr,
-              defaultValue: `检测时间：${timeStr}`,
-            })}
-          </div>
-        ) : null}
-        {lastError ? (
-          <div style={{ marginTop: timeStr ? 4 : 0, color: "#ff7875" }}>
-            {t("proxy.healthLastError", {
-              error: lastError,
-              defaultValue: `错误信息：${lastError}`,
-            })}
-          </div>
-        ) : null}
-      </div>
-    ) : null;
-
-  const wrapWithTooltip = (node: React.ReactNode) => {
-    if (!tooltipContent) return node;
-    return <Tooltip title={tooltipContent}>{node}</Tooltip>;
-  };
-
-  if (row.status === "ok") {
-    const latency =
-      row.lastLatencyMs != null
-        ? t("proxy.healthLatency", { ms: row.lastLatencyMs, defaultValue: "{{ms}}ms" })
-        : "";
-    return wrapWithTooltip(
-      <Space size={4}>
-        <Tag color="green">{t("proxy.healthOk", { defaultValue: "正常" })}</Tag>
-        {latency ? <Text type="secondary">{latency}</Text> : null}
-      </Space>,
-    );
-  }
-  if (row.status === "cooling" || row.status === "rate_limited") {
-    const secs = Math.max(1, Math.ceil(row.cooldownRemainingMs / 1000));
-    return wrapWithTooltip(
-      <Space size={4}>
-        <Tag color="orange">
-          {t("proxy.healthCooling", { secs, defaultValue: "冷却中 {{secs}}s" })}
-        </Tag>
-        <Text type="secondary">×{row.consecutiveFailures}</Text>
-      </Space>,
-    );
-  }
-  if (row.status === "auth_failed") {
-    return wrapWithTooltip(
-      <Space size={4}>
-        <Tag color="red">{t("proxy.healthAuthFailed", { defaultValue: "鉴权失败" })}</Tag>
-        <Text type="secondary">×{row.consecutiveFailures}</Text>
-        {row.lastLatencyMs != null ? <Text type="secondary">{row.lastLatencyMs}ms</Text> : null}
-      </Space>,
-    );
-  }
-  return wrapWithTooltip(
-    <Space size={4}>
-      <Tag color="red">{t("proxy.healthFailing", { defaultValue: "连续失败" })}</Tag>
-      <Text type="secondary">×{row.consecutiveFailures}</Text>
-      {row.lastLatencyMs != null ? <Text type="secondary">{row.lastLatencyMs}ms</Text> : null}
-    </Space>,
-  );
-}
 
 function canQueryUpstreamQuota(row: Provider): boolean {
   if (!row.apiKeySet) return false;
@@ -174,13 +98,6 @@ function canQueryUpstreamQuota(row: Provider): boolean {
     }
   }
 }
-
-const UPSTREAM_PRESETS: ProviderPreset[] = PROVIDER_PRESETS.filter(
-  (preset) =>
-    !isReservedListenerUrl(preset.baseUrl) &&
-    !preset.baseUrl.includes(":15830") &&
-    !preset.baseUrl.includes(":15831"),
-);
 
 export function GatewayUpstreamPanel({
   allowlistTarget = "claude_code",
@@ -206,6 +123,7 @@ export function GatewayUpstreamPanel({
   const [importing, setImporting] = useState(false);
 
   const [modelsUpstream, setModelsUpstream] = useState<Provider | null>(null);
+  const [limitsUpstream, setLimitsUpstream] = useState<Provider | null>(null);
   const [modelsSaving, setModelsSaving] = useState(false);
 
   // Codex / ChatGPT OAuth state
@@ -215,18 +133,31 @@ export function GatewayUpstreamPanel({
   // Test connection state
   const [testingId, setTestingId] = useState<string | null>(null);
 
+  // Batch speedtest state
+  const [batchSpeedtesting, setBatchSpeedtesting] = useState(false);
+  const [speedtestResults, setSpeedtestResults] = useState<
+    Record<string, EndpointSpeedtestResult & { cancelled?: boolean }>
+  >({});
+  const [resultsModalOpen, setResultsModalOpen] = useState(false);
+  const [lastBatchResult, setLastBatchResult] = useState<BatchSpeedtestResult | null>(null);
+  const activeBatchRef = useRef<{ batchId: string; abortController: AbortController } | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (activeBatchRef.current) {
+        activeBatchRef.current.abortController.abort();
+        activeBatchRef.current = null;
+      }
+    };
+  }, []);
+
   // JSON Import state
   const [importJsonOpen, setImportJsonOpen] = useState(false);
   const [importJsonText, setImportJsonText] = useState("");
   const [importJsonLoading, setImportJsonLoading] = useState(false);
-
-  const watchedBaseUrl = Form.useWatch("baseUrl", form);
-  const watchedProtocol = Form.useWatch("protocolType", form) ?? "anthropic";
-  const endpointPreview = buildEndpointPreview(watchedBaseUrl, watchedProtocol);
-  const showAppendV1 =
-    (watchedProtocol === "openai_chat" || watchedProtocol === "openai_responses")
-    && typeof watchedBaseUrl === "string"
-    && needsOpenAiV1Suffix(watchedBaseUrl);
 
   const upstreamsQuery = useQuery({
     queryKey: ["gateway-upstreams"],
@@ -247,6 +178,27 @@ export function GatewayUpstreamPanel({
     queryFn: () => listGatewayUpstreamModels(modelsUpstream!.id),
     enabled: Boolean(modelsUpstream),
   });
+
+  // 提升上游当日用量统计查询至父面板（30秒周期刷新），子行组件仅负责数据渲染
+  const dailyStatsQuery = useQuery({
+    queryKey: ["upstream-daily-usage"],
+    queryFn: () => listUpstreamDailyUsageStats(),
+    staleTime: 10_000,
+  });
+  useUsageLogRefresh({
+    pollIntervalMs: 30_000,
+    onRefresh: () => refreshUsageQuery(dailyStatsQuery),
+  });
+
+  const dailyStatsMap = useMemo(() => {
+    const map = new Map<string, UpstreamDailyUsageStat>();
+    if (dailyStatsQuery.data) {
+      for (const item of dailyStatsQuery.data) {
+        map.set(item.upstreamId, item);
+      }
+    }
+    return map;
+  }, [dailyStatsQuery.data]);
 
   const importableProviders = useMemo(
     () => (importProvidersQuery.data ?? []).filter((item) => item.providerKind !== "smart_gateway"),
@@ -580,6 +532,103 @@ export function GatewayUpstreamPanel({
     }
   };
 
+  const handleBatchSpeedtest = async () => {
+    const pool = upstreamsQuery.data ?? [];
+    const targetIds = selectedIds.length > 0 ? selectedIds : pool.map((item) => item.id);
+    if (targetIds.length === 0) {
+      void message.warning(t("proxy.batchSpeedtestEmpty", { defaultValue: "没有可测速的上游" }));
+      return;
+    }
+
+    const batchId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const abortController = new AbortController();
+    activeBatchRef.current = { batchId, abortController };
+    setBatchSpeedtesting(true);
+
+    try {
+      const res = await batchSpeedtestUpstreamEndpoints(targetIds, 4, batchId, abortController.signal);
+      if (!mountedRef.current || activeBatchRef.current?.batchId !== batchId) {
+        return;
+      }
+
+      setSpeedtestResults((prev) => {
+        const next = { ...prev };
+        for (const item of res.items) {
+          next[item.id] = {
+            ...item.result,
+            cancelled: item.cancelled,
+          };
+        }
+        return next;
+      });
+      setLastBatchResult(res);
+      setResultsModalOpen(true);
+
+      const okCount = res.items.filter((i) => !i.cancelled && i.result.ok).length;
+      const failedCount = res.items.filter((i) => !i.cancelled && !i.result.ok).length;
+
+      if (res.cancelled) {
+        void message.info(
+          t("proxy.batchSpeedtestCancelled", {
+            completed: res.completed,
+            total: res.total,
+            defaultValue: `批量测速已取消：已完成 ${res.completed} / ${res.total}`,
+          }),
+        );
+      } else if (failedCount > 0) {
+        void message.warning(
+          t("proxy.batchSpeedtestPartial", {
+            ok: okCount,
+            failed: failedCount,
+            total: res.total,
+            defaultValue: `批量测速完成：成功 ${okCount}，失败 ${failedCount} / ${res.total}`,
+          }),
+        );
+      } else {
+        void message.success(
+          t("proxy.batchSpeedtestDone", {
+            ok: okCount,
+            total: res.total,
+            defaultValue: `批量测速完成：全部 ${okCount} 个成功`,
+          }),
+        );
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        void message.error(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      if (activeBatchRef.current?.batchId === batchId) {
+        activeBatchRef.current = null;
+      }
+      if (mountedRef.current) {
+        setBatchSpeedtesting(false);
+      }
+    }
+  };
+
+  const handleCancelBatchSpeedtest = async () => {
+    if (activeBatchRef.current) {
+      const { batchId, abortController } = activeBatchRef.current;
+      abortController.abort();
+      try {
+        await cancelBatchSpeedtest(batchId);
+        if (mountedRef.current) {
+          void message.info(
+            t("proxy.batchSpeedtestCancelling", { defaultValue: "正在取消测速..." }),
+          );
+        }
+      } catch (error) {
+        if (mountedRef.current) {
+          void message.error(error instanceof Error ? error.message : String(error));
+        }
+      }
+    }
+  };
+
   const handleExportUpstreams = async () => {
     try {
       const jsonText = await exportGatewayUpstreams();
@@ -628,6 +677,9 @@ export function GatewayUpstreamPanel({
     }
   };
 
+  const upstreams = upstreamsQuery.data ?? [];
+  const healthList = healthQuery.data ?? [];
+
   return (
     <Card
       size="small"
@@ -642,61 +694,78 @@ export function GatewayUpstreamPanel({
             disabled={selectedIds.length === 0}
             onClick={() => void handleRefreshSelected()}
           >
-            {t("proxy.refreshSelectedModels")}
+            {t("proxy.refreshSelectedModels", { count: selectedIds.length })}
           </Button>
-          <Button size="small" loading={addingAg} onClick={() => void handleAddAg()}>
-            {t("proxy.addAgUpstream")}
+          <Button
+            size="small"
+            icon={<ThunderboltOutlined />}
+            loading={batchSpeedtesting}
+            disabled={batchSpeedtesting || upstreams.length === 0}
+            onClick={() => void handleBatchSpeedtest()}
+          >
+            {selectedIds.length > 0
+              ? t("proxy.batchSpeedtestSelected", {
+                  count: selectedIds.length,
+                  defaultValue: `批量测速 (${selectedIds.length})`,
+                })
+              : t("proxy.batchSpeedtest", { defaultValue: "批量测速" })}
           </Button>
-          <Button size="small" loading={addingKiro} onClick={() => void handleAddKiro()}>
-            {t("proxy.addKiroUpstream")}
-          </Button>
+          {batchSpeedtesting && (
+            <Button size="small" danger onClick={() => void handleCancelBatchSpeedtest()}>
+              {t("proxy.cancelBatchSpeedtest", { defaultValue: "取消测速" })}
+            </Button>
+          )}
+          {lastBatchResult && !batchSpeedtesting && (
+            <Button size="small" onClick={() => setResultsModalOpen(true)}>
+              {t("proxy.batchSpeedtestResults", { defaultValue: "测速结果" })}
+            </Button>
+          )}
           <Dropdown
             menu={{
               items: [
                 {
-                  key: "oauth",
+                  key: "addAg",
+                  icon: <ThunderboltOutlined />,
+                  label: t("proxy.addAntigravityUpstream", { defaultValue: "添加 Antigravity (:15830)" }),
+                  disabled: addingAg,
+                  onClick: () => void handleAddAg(),
+                },
+                {
+                  key: "addKiro",
+                  icon: <ThunderboltOutlined />,
+                  label: t("proxy.addKiroUpstream", { defaultValue: "添加 Kiro (:15831)" }),
+                  disabled: addingKiro,
+                  onClick: () => void handleAddKiro(),
+                },
+                {
+                  key: "addCodexOauth",
                   icon: <LoginOutlined />,
-                  label: t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth" }),
+                  label: t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth 登录" }),
                   disabled: oauthPolling,
                   onClick: () => void handleCodexOauthLogin(),
+                },
+                { type: "divider" },
+                {
+                  key: "importFromProviders",
+                  icon: <ImportOutlined />,
+                  label: t("proxy.importFromProviders"),
+                  onClick: () => setImportOpen(true),
                 },
                 {
                   key: "importLive",
                   icon: <ScanOutlined />,
-                  label: t("proxy.importLiveAsUpstreams", { defaultValue: "从本机 Live 配置导入上游" }),
-                  children: [
-                    {
-                      key: "importLiveCode",
-                      label: "Claude Code",
-                      onClick: () => void handleImportLiveAsUpstreams("claude_code"),
-                    },
-                    {
-                      key: "importLiveCodex",
-                      label: "Codex",
-                      onClick: () => void handleImportLiveAsUpstreams("codex"),
-                    },
-                    {
-                      key: "importLiveOpenCode",
-                      label: "OpenCode",
-                      onClick: () => void handleImportLiveAsUpstreams("opencode"),
-                    },
-                  ],
+                  label: t("proxy.importFromLiveGroup", { defaultValue: "从本机配置导入..." }),
+                  children: (["claude_code", "codex", "opencode"] as ProviderTarget[]).map((target) => ({
+                    key: `importLive_${target}`,
+                    label: t(LABEL_KEYS[target] ?? `workspace.${target}`),
+                    onClick: () => void handleImportLiveAsUpstreams(target),
+                  })),
                 },
-                {
-                  key: "importProviders",
-                  icon: <ImportOutlined />,
-                  label: t("proxy.importFromProviders"),
-                  onClick: () => {
-                    setImportTarget(allowlistTarget);
-                    setImportIds([]);
-                    setImportAllowlist(true);
-                    setImportOpen(true);
-                  },
-                },
+                { type: "divider" },
                 {
                   key: "importJson",
                   icon: <ImportOutlined />,
-                  label: t("proxy.importUpstreams", { defaultValue: "导入 JSON" }),
+                  label: t("proxy.importJsonTitle", { defaultValue: "导入 JSON" }),
                   onClick: () => {
                     setImportJsonText("");
                     setImportJsonOpen(true);
@@ -724,15 +793,19 @@ export function GatewayUpstreamPanel({
         </Space>
       }
     >
-      <Text type="secondary" style={{ display: "block", marginBottom: 12, fontSize: 12 }}>
+      <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>
         {t("proxy.upstreamPoolHint")}
       </Text>
+
+      {/* Upstream Health Overview */}
+      <UpstreamPoolSummary upstreams={upstreams} healthList={healthList} />
+
       <Table
         size="small"
         rowKey="id"
         pagination={false}
         loading={upstreamsQuery.isLoading}
-        dataSource={upstreamsQuery.data ?? []}
+        dataSource={upstreams}
         locale={{ emptyText: t("proxy.upstreamEmpty") }}
         rowSelection={{
           selectedRowKeys: selectedIds,
@@ -756,13 +829,46 @@ export function GatewayUpstreamPanel({
               ) : null,
           },
           {
+            title: t("upstreamStats.title"),
+            width: 180,
+            render: (_, row: Provider) => (
+              <UpstreamDailyStats
+                stat={dailyStatsMap.get(row.id)}
+                isLoading={dailyStatsQuery.isPending}
+                isError={dailyStatsQuery.isError}
+              />
+            ),
+          },
+          {
             title: t("proxy.upstreamHealth", { defaultValue: "健康" }),
             width: 180,
-            render: (_: unknown, row: Provider) =>
-              healthLabel(
-                (healthQuery.data ?? []).find((item) => item.upstreamId === row.id),
-                t,
-              ),
+            render: (_: unknown, row: Provider) => {
+              const speedtest = speedtestResults[row.id];
+              return (
+                <Space direction="vertical" size={2}>
+                  <UpstreamHealthBadge
+                    health={healthList.find((item) => item.upstreamId === row.id)}
+                    t={t}
+                  />
+                  {speedtest && (
+                    <Tooltip
+                      title={`${speedtest.message} · ${new Date(speedtest.checkedAt).toLocaleTimeString()}`}
+                    >
+                      <Tag
+                        color={speedtest.cancelled ? "default" : speedtest.ok ? "success" : "error"}
+                        style={{ marginInlineEnd: 0, fontSize: 11 }}
+                      >
+                        {speedtest.cancelled
+                          ? t("proxy.speedtestCancelled", { defaultValue: "已取消" })
+                          : speedtest.ok
+                          ? `RTT ${speedtest.latencyMs ?? 0}ms`
+                          : t("proxy.speedtestFailed", { defaultValue: "测速失败" })}
+                      </Tag>
+                    </Tooltip>
+                  )}
+                </Space>
+              );
+            },
           },
           {
             title: t("proxy.upstreamActions"),
@@ -781,6 +887,9 @@ export function GatewayUpstreamPanel({
                 <Button type="link" size="small" onClick={() => setModelsUpstream(row)}>
                   {t("proxy.upstreamModels")}
                 </Button>
+                <Button type="link" size="small" onClick={() => setLimitsUpstream(row)}>
+                  {t("upstreamLimits.button", { defaultValue: "网关限额" })}
+                </Button>
                 <Button type="link" size="small" onClick={() => openEdit(row)}>
                   {t("common.edit")}
                 </Button>
@@ -797,259 +906,133 @@ export function GatewayUpstreamPanel({
           },
         ]}
       />
-      <Modal
+
+      <UpstreamLimitsModal
+        open={Boolean(limitsUpstream)}
+        upstreamId={limitsUpstream?.id ?? null}
+        upstreamName={limitsUpstream?.name ?? ""}
+        onClose={() => setLimitsUpstream(null)}
+      />
+
+      <UpstreamFormModal
         open={open}
-        title={editing ? t("proxy.editUpstream") : t("proxy.addUpstream")}
-        onCancel={() => setOpen(false)}
-        onOk={() => void handleSave()}
-        confirmLoading={saving}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical">
-          {!editing ? (
-            <Form.Item
-              label={t("providers.fromPreset")}
-              extra={t("providers.fromPresetHint")}
-            >
-              <Space wrap size={[8, 8]}>
-                <Button
-                  size="small"
-                  type={selectedPresetId === null ? "primary" : "default"}
-                  onClick={clearPreset}
-                >
-                  {t("providers.blankPreset")}
-                </Button>
-                {UPSTREAM_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.id}
-                    size="small"
-                    type={selectedPresetId === preset.id ? "primary" : "default"}
-                    onClick={() => applyPreset(preset)}
-                  >
-                    {preset.name}
-                    {preset.protocolType === "openai_chat"
-                      ? " · Chat"
-                      : preset.protocolType === "openai_responses"
-                        ? " · Responses"
-                        : ""}
-                  </Button>
-                ))}
-              </Space>
-            </Form.Item>
-          ) : null}
-          <Form.Item name="name" label={t("proxy.upstreamName")} rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="baseUrl"
-            label={t("proxy.upstreamUrl")}
-            extra={
-              <Space direction="vertical" size={2}>
-                {endpointPreview ? (
-                  <>
-                    <Text type="secondary">{t("providers.endpointPreview")}</Text>
-                    <Text code copyable>{endpointPreview}</Text>
-                  </>
-                ) : (
-                  <Text type="secondary">{t("providers.baseUrlHint")}</Text>
-                )}
-                {showAppendV1 ? (
-                  <Button type="link" size="small" onClick={appendV1Suffix} style={{ paddingInline: 0 }}>
-                    {t("providers.appendV1")}
-                  </Button>
-                ) : null}
-              </Space>
-            }
-            rules={[
-              { required: true },
-              {
-                validator: async (_, value: unknown) => {
-                  if (typeof value !== "string" || !value.trim()) return;
-                  try {
-                    const normalized = normalizeBaseUrl(value);
-                    if (isReservedListenerUrl(normalized)) {
-                      throw new Error("upstreamReservedUrl");
-                    }
-                  } catch (error) {
-                    const key = error instanceof Error ? error.message : "invalidBaseUrl";
-                    if (key === "upstreamReservedUrl") {
-                      throw new Error(
-                        t("proxy.upstreamReservedUrl", { defaultValue: "上游不能指向本机 15821–15828" }),
-                      );
-                    }
-                    throw new Error(t(`providers.${key}`));
-                  }
-                },
-              },
-            ]}
-          >
-            <AutoComplete
-              options={urlOptions}
-              placeholder="https://api.deepseek.com/anthropic"
-              onBlur={normalizeBaseUrlField}
-              filterOption={(input, option) =>
-                String(option?.value ?? "").toLowerCase().includes(input.trim().toLowerCase())
-              }
-            />
-          </Form.Item>
-          <Form.Item
-            name="apiKey"
-            label={t("proxy.upstreamKey")}
-            extra={editing ? t("proxy.upstreamKeyKeep") : undefined}
-          >
-            <Input.Password />
-          </Form.Item>
-          <Form.Item name="model" label={t("proxy.upstreamModel")} rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="protocolType" label={t("proxy.upstreamProtocol")} rules={[{ required: true }]}>
-            <Select options={PROTOCOL_OPTIONS} />
-          </Form.Item>
-          <Form.Item name="notes" label={t("proxy.upstreamNotes")}>
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Form>
-      </Modal>
-      <Modal
+        editing={editing}
+        form={form}
+        saving={saving}
+        selectedPresetId={selectedPresetId}
+        urlOptions={urlOptions}
+        onClearPreset={clearPreset}
+        onApplyPreset={applyPreset}
+        onNormalizeBaseUrl={normalizeBaseUrlField}
+        onAppendV1Suffix={appendV1Suffix}
+        onSubmit={() => void handleSave()}
+        onClose={() => setOpen(false)}
+      />
+
+      <UpstreamImportModal
         open={importOpen}
-        title={t("proxy.importFromProviders")}
-        onCancel={() => setImportOpen(false)}
-        onOk={() => void handleImport()}
-        confirmLoading={importing}
-        destroyOnHidden
-      >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <div>
-            <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>
-              {t("proxy.importUpstreamHint")}
-            </Text>
-            <Select
-              style={{ width: "100%" }}
-              value={importTarget}
-              onChange={(value) => {
-                setImportTarget(value);
-                setImportIds([]);
-              }}
-              options={filterUiAgents(PROVIDER_TARGET_OPTIONS).map((item) => ({
-                value: item,
-                label: t(LABEL_KEYS[item]),
-              }))}
-            />
-          </div>
-          <Checkbox.Group
-            style={{ display: "flex", flexDirection: "column", gap: 8 }}
-            value={importIds}
-            onChange={(values) => setImportIds(values.map(String))}
-            options={importableProviders.map((item) => ({
-              value: item.id,
-              label: `${item.name} · ${item.baseUrl}`,
-            }))}
-          />
-          {importableProviders.length === 0 && (
-            <Text type="secondary">{t("proxy.importUpstreamEmpty")}</Text>
-          )}
-          <Checkbox checked={importAllowlist} onChange={(event) => setImportAllowlist(event.target.checked)}>
-            {t("proxy.importAddAllowlist")}
-          </Checkbox>
-        </Space>
-      </Modal>
-      <Drawer
-        title={modelsUpstream ? t("proxy.upstreamModelsTitle", { name: modelsUpstream.name }) : t("proxy.upstreamModels")}
-        open={Boolean(modelsUpstream)}
+        importTarget={importTarget}
+        importIds={importIds}
+        importAllowlist={importAllowlist}
+        importing={importing}
+        importableProviders={importableProviders}
+        onTargetChange={setImportTarget}
+        onIdsChange={setImportIds}
+        onAllowlistChange={setImportAllowlist}
+        onSubmit={() => void handleImport()}
+        onClose={() => setImportOpen(false)}
+      />
+
+      <UpstreamModelsDrawer
+        upstream={modelsUpstream}
+        models={modelsQuery.data ?? []}
+        saving={modelsSaving}
         onClose={() => setModelsUpstream(null)}
-        width={420}
-        extra={
-          <Button size="small" loading={modelsSaving} onClick={() => void handleRefreshDrawer()}>
-            {t("proxy.refreshModels")}
-          </Button>
-        }
-      >
-        <Text type="secondary" style={{ display: "block", marginBottom: 12, fontSize: 12 }}>
-          {t("proxy.upstreamModelsHint")}
-        </Text>
-        <Space direction="vertical" size="small" style={{ width: "100%" }}>
-          {(modelsQuery.data ?? []).map((row) => {
-            const isDefault =
-              Boolean(modelsUpstream) &&
-              row.modelId.trim().toLowerCase() === (modelsUpstream?.model ?? "").trim().toLowerCase();
-            return (
-              <Space
-                key={row.modelId}
-                align="center"
-                style={{ width: "100%", justifyContent: "space-between" }}
-              >
-                <Text ellipsis style={{ maxWidth: 260 }}>
-                  {row.modelId}
-                  {isDefault ? ` (${t("proxy.upstreamDefaultModel")})` : ""}
-                </Text>
-                <Switch
-                  size="small"
-                  checked={row.visible}
-                  disabled={isDefault || modelsSaving}
-                  onChange={(checked) => void handleToggleModel(row.modelId, checked)}
-                />
-              </Space>
-            );
-          })}
-          {(modelsQuery.data ?? []).length === 0 && (
-            <Text type="secondary">{t("proxy.upstreamModelsEmpty")}</Text>
-          )}
-        </Space>
-      </Drawer>
-      <Modal
-        open={Boolean(oauthDevice)}
-        title={t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth 登录" })}
-        onCancel={() => {
+        onRefresh={() => void handleRefreshDrawer()}
+        onToggleModel={(modelId, visible) => void handleToggleModel(modelId, visible)}
+      />
+
+      <CodexOauthModal
+        device={oauthDevice}
+        onClose={() => {
           setOauthDevice(null);
           setOauthPolling(false);
         }}
-        footer={null}
-        destroyOnHidden
-      >
-        <Space direction="vertical" size="middle" style={{ width: "100%", padding: "12px 0" }}>
-          <Text>
-            {t("providers.chatgptLoginPrompt", {
-              defaultValue: "请在打开的浏览器页面中确认授权，输入以下设备代码：",
-            })}
-          </Text>
-          <div
-            style={{
-              textAlign: "center",
-              padding: "16px",
-              background: "var(--ant-color-fill-quaternary, rgba(0,0,0,0.04))",
-              borderRadius: 8,
-            }}
-          >
-            <Text strong copyable style={{ fontSize: 24, letterSpacing: 2 }}>
-              {oauthDevice?.userCode}
-            </Text>
-          </div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t("providers.chatgptLoginPolling", {
-              defaultValue: "正在等待授权完成，请勿关闭此窗口...",
-            })}
-          </Text>
-        </Space>
-      </Modal>
-      <Modal
+      />
+
+      <UpstreamImportJsonModal
         open={importJsonOpen}
-        title={t("proxy.importJsonTitle", { defaultValue: "导入全局上游 JSON" })}
-        onCancel={() => setImportJsonOpen(false)}
-        onOk={() => void handleImportUpstreamsSubmit()}
-        confirmLoading={importJsonLoading}
+        text={importJsonText}
+        loading={importJsonLoading}
+        onTextChange={setImportJsonText}
+        onSubmit={() => void handleImportUpstreamsSubmit()}
+        onClose={() => setImportJsonOpen(false)}
+      />
+      <Modal
+        title={t("proxy.batchSpeedtestResults", { defaultValue: "测速结果" })}
+        open={resultsModalOpen}
+        onCancel={() => setResultsModalOpen(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setResultsModalOpen(false)}>
+            {t("common.close", { defaultValue: "关闭" })}
+          </Button>,
+        ]}
+        width={720}
         destroyOnHidden
       >
-        <Space direction="vertical" size="small" style={{ width: "100%" }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t("proxy.importJsonHint", { defaultValue: "粘贴此前导出的上游 JSON 内容进行批量导入。" })}
-          </Text>
-          <Input.TextArea
-            rows={8}
-            value={importJsonText}
-            onChange={(e) => setImportJsonText(e.target.value)}
-            placeholder='[{"name": "...", "baseUrl": "...", ...}]'
-          />
-        </Space>
+        {lastBatchResult && (
+          <Space direction="vertical" style={{ width: "100%" }} size={12}>
+            <Text type="secondary">
+              {t("proxy.batchSpeedtestSummary", {
+                total: lastBatchResult.total,
+                ok: lastBatchResult.items.filter((i) => !i.cancelled && i.result.ok).length,
+                failed: lastBatchResult.items.filter((i) => !i.cancelled && !i.result.ok).length,
+                cancelled: lastBatchResult.items.filter((i) => i.cancelled).length,
+                defaultValue: `总计 ${lastBatchResult.total} 项 · 成功 ${lastBatchResult.items.filter((i) => !i.cancelled && i.result.ok).length} · 失败 ${lastBatchResult.items.filter((i) => !i.cancelled && !i.result.ok).length} · 已取消 ${lastBatchResult.items.filter((i) => i.cancelled).length}`,
+              })}
+            </Text>
+            <Table
+              size="small"
+              pagination={false}
+              rowKey="id"
+              dataSource={lastBatchResult.items}
+              columns={[
+                {
+                  title: t("proxy.upstreamName"),
+                  dataIndex: "name",
+                  width: 140,
+                  ellipsis: true,
+                },
+                {
+                  title: t("proxy.speedtestStatus", { defaultValue: "状态" }),
+                  width: 90,
+                  render: (_, item) => (
+                    <Tag
+                      color={item.cancelled ? "default" : item.result.ok ? "success" : "error"}
+                    >
+                      {item.cancelled
+                        ? t("proxy.speedtestCancelled", { defaultValue: "已取消" })
+                        : item.result.ok
+                        ? t("proxy.speedtestSuccess", { defaultValue: "成功" })
+                        : t("proxy.speedtestFailed", { defaultValue: "失败" })}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: t("proxy.speedtestLatency", { defaultValue: "延迟" }),
+                  width: 90,
+                  render: (_, item) =>
+                    item.result.latencyMs != null ? `${item.result.latencyMs} ms` : "—",
+                },
+                {
+                  title: t("proxy.speedtestMessage", { defaultValue: "详情" }),
+                  dataIndex: ["result", "message"],
+                  ellipsis: true,
+                },
+              ]}
+            />
+          </Space>
+        )}
       </Modal>
     </Card>
   );

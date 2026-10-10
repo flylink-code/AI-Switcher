@@ -1,0 +1,34 @@
+.gateway-topology-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  min-width: 0;
+}
+
+.gateway-topology-arrow {
+  color: var(--color-text-secondary);
+}
+
+.gateway-topology-result {
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gateway-topology-result--animated {
+  animation: gateway-result-appear 350ms ease-out;
+}
+
+@keyframes gateway-result-appear {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gateway-topology-result,
+  .gateway-topology-result--animated {
+    animation: none !important;
+  }
+}

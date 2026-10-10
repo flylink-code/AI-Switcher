@@ -5,7 +5,218 @@ use std::path::Path;
 
 use chrono::Utc;
 use rusqlite::{named_params, params, Connection};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayRouteLog {
+    pub id: String,
+    pub created_at: i64,
+    pub requested_model: Option<String>,
+    pub model: Option<String>,
+    pub route_reason: Option<String>,
+    pub route_mode: Option<String>,
+    pub profile_id: Option<String>,
+    pub upstream_id: Option<String>,
+    pub provider_name: Option<String>,
+    pub attempt_index: i64,
+    pub status_code: Option<i64>,
+    pub duration_ms: i64,
+    pub input_tokens: i64,
+    pub cache_read_input_tokens: i64,
+    pub cache_creation_input_tokens: i64,
+    pub output_tokens: i64,
+    pub error_category: Option<String>,
+    pub stream_outcome: Option<String>,
+    pub estimated_cost: f64,
+    pub attempts_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaginatedGatewayRouteLogs {
+    pub data: Vec<GatewayRouteLog>,
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GatewayRouteLogFilters {
+    pub target_app: Option<String>,
+    pub status: Option<String>,
+    pub mode: Option<String>,
+    pub keyword: Option<String>,
+}
+
+pub fn list_gateway_route_logs(
+    conn: &Connection,
+    filters: &GatewayRouteLogFilters,
+    limit: i64,
+    offset: i64,
+) -> AppResult<PaginatedGatewayRouteLogs> {
+    let cap = limit.clamp(1, 200);
+    let skip = offset.max(0);
+    let page = skip / cap;
+
+    let mut conditions = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    conditions.push("COALESCE(l.data_source, 'proxy') = 'proxy'".to_string());
+    conditions.push("l.route_reason IS NOT NULL AND trim(l.route_reason) != ''".to_string());
+
+    if let Some(ref target) = filters.target_app {
+        conditions.push("l.target_app = ?".to_string());
+        params.push(Box::new(target.clone()));
+    } else {
+        conditions.push("(l.hop IS NULL OR l.hop IN ('smart_gateway', 'agent_proxy', 'antigravity'))".to_string());
+    }
+
+    if let Some(status) = filters
+        .status
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && *s != "all")
+    {
+        match status {
+            "success" | "2xx" => {
+                conditions.push(
+                    "(l.status_code >= 200 AND l.status_code < 300 \
+                      AND (l.stream_outcome IS NULL OR l.stream_outcome NOT IN ('midstream_error', 'cancelled')) \
+                      AND (l.error_category IS NULL OR trim(l.error_category) = ''))"
+                        .to_string(),
+                );
+            }
+            "rate_limited" | "429" => {
+                conditions.push(
+                    "(l.status_code = 429 OR l.error_category = 'rate_limit' OR l.error_category LIKE '%rate%')"
+                        .to_string(),
+                );
+            }
+            "error" => {
+                conditions.push(
+                    "(l.status_code >= 400 OR l.stream_outcome = 'midstream_error'                       OR (l.error_category IS NOT NULL AND trim(l.error_category) != ''))"
+                        .to_string(),
+                );
+            }
+            "midstream_error" => {
+                conditions.push("l.stream_outcome = 'midstream_error'".to_string());
+            }
+            other => {
+                if let Ok(code) = other.parse::<i64>() {
+                    conditions.push("l.status_code = ?".to_string());
+                    params.push(Box::new(code));
+                }
+            }
+        }
+    }
+
+    if let Some(mode) = filters
+        .mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && *s != "all")
+    {
+        let reason_clause = match mode {
+            "plan" => "(l.route_reason = 'plan' OR l.route_reason LIKE '%规划%')",
+            "edit" => "(l.route_reason = 'edit' OR l.route_reason LIKE '%改内容%')",
+            "background" => {
+                "(l.route_reason = 'background' OR l.route_reason = 'role_subagent' OR l.route_reason LIKE '%后台%')"
+            }
+            "think" => "(l.route_reason = 'think' OR l.route_reason LIKE '%思考%')",
+            "long_context" => "(l.route_reason = 'long_context' OR l.route_reason LIKE '%长上下文%')",
+            "web_search" => "(l.route_reason = 'web_search' OR l.route_reason LIKE '%联网%')",
+            "vision" => "(l.route_reason = 'vision' OR l.route_reason LIKE '%视觉%')",
+            "image_gen" => "(l.route_reason = 'image_gen' OR l.route_reason LIKE '%图像%')",
+            "default" => {
+                "(l.route_reason = 'default' OR l.route_reason = 'auto' OR l.route_reason = 'profile_default' OR l.route_reason LIKE '%默认%')"
+            }
+            "rule" => "(l.route_reason = 'rule' OR l.route_reason LIKE 'rule:%')",
+            "explicit_model" => "(l.route_reason = 'explicit_model')",
+            _ => "0=1",
+        };
+        conditions.push(format!(
+            "(l.route_mode = ? OR ((l.route_mode IS NULL OR trim(l.route_mode) = '') AND {reason_clause}))"
+        ));
+        params.push(Box::new(mode.to_string()));
+    }
+
+    if let Some(kw) = filters
+        .keyword
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let pattern = format!("%{}%", kw.to_lowercase());
+        conditions.push(
+            "(lower(l.id) LIKE ?               OR lower(COALESCE(l.model, '')) LIKE ?               OR lower(COALESCE(l.requested_model, '')) LIKE ?               OR lower(COALESCE(l.provider_name, '')) LIKE ?               OR lower(COALESCE(l.upstream_id, '')) LIKE ?               OR lower(COALESCE(l.route_reason, '')) LIKE ?               OR lower(COALESCE(l.profile_id, '')) LIKE ?)"
+                .to_string(),
+        );
+        for _ in 0..7 {
+            params.push(Box::new(pattern.clone()));
+        }
+    }
+
+    let where_clause = format!("WHERE {}", conditions.join(" AND "));
+    let count_sql = format!("SELECT COUNT(*) FROM proxy_request_logs l {where_clause}");
+    let count_params: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let total: i64 = conn.query_row(&count_sql, count_params.as_slice(), |row| row.get(0))?;
+
+    let columns = format!(
+        "l.id, l.created_at, l.requested_model, l.model, l.route_reason, l.route_mode,
+                l.profile_id, l.upstream_id, l.provider_name, l.attempt_index, l.status_code,
+                COALESCE(l.duration_ms, 0), COALESCE(l.input_tokens, 0),
+                COALESCE(l.cache_read_input_tokens, 0), COALESCE(l.cache_creation_input_tokens, 0),
+                COALESCE(l.output_tokens, 0), l.error_category, l.stream_outcome,
+                COALESCE({ROW_COST_SQL}, 0), l.attempts_json"
+    );
+    let data_sql = format!(
+        "SELECT {columns}
+         FROM proxy_request_logs l
+         LEFT JOIN model_pricing p ON lower(p.model) = lower(COALESCE(l.model, ''))
+         {where_clause}
+         ORDER BY l.created_at DESC LIMIT ? OFFSET ?;"
+    );
+
+    let mut data_params = count_params;
+    data_params.push(&cap);
+    data_params.push(&skip);
+
+    let mut stmt = conn.prepare(&data_sql)?;
+    let map_row = |row: &rusqlite::Row<'_>| {
+        Ok(GatewayRouteLog {
+            id: row.get(0)?,
+            created_at: row.get(1)?,
+            requested_model: row.get(2)?,
+            model: row.get(3)?,
+            route_reason: row.get(4)?,
+            route_mode: row.get(5)?,
+            profile_id: row.get(6)?,
+            upstream_id: row.get(7)?,
+            provider_name: row.get(8)?,
+            attempt_index: row.get::<_, Option<i64>>(9)?.unwrap_or(0),
+            status_code: row.get(10)?,
+            duration_ms: row.get::<_, Option<i64>>(11)?.unwrap_or(0),
+            input_tokens: row.get::<_, Option<i64>>(12)?.unwrap_or(0),
+            cache_read_input_tokens: row.get::<_, Option<i64>>(13)?.unwrap_or(0),
+            cache_creation_input_tokens: row.get::<_, Option<i64>>(14)?.unwrap_or(0),
+            output_tokens: row.get::<_, Option<i64>>(15)?.unwrap_or(0),
+            error_category: row.get(16)?,
+            stream_outcome: row.get(17)?,
+            estimated_cost: row.get::<_, Option<f64>>(18)?.unwrap_or(0.0),
+            attempts_json: row.get(19)?,
+        })
+    };
+    let rows = stmt.query_map(data_params.as_slice(), map_row)?;
+    let data = rows.collect::<Result<Vec<_>, _>>()?;
+
+    Ok(PaginatedGatewayRouteLogs {
+        data,
+        total,
+        page,
+        page_size: cap,
+    })
+}
+
 #[cfg(test)]
 use ts_rs::TS;
 use uuid::Uuid;
@@ -830,10 +1041,12 @@ pub fn update_proxy_log_route(
     requested_model: Option<&str>,
     upstream_id: Option<&str>,
     route_mode: Option<&str>,
+    attempts_json: Option<&str>,
 ) -> AppResult<()> {
     conn.execute(
         "UPDATE proxy_request_logs
-         SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?, route_mode = ?
+         SET profile_id = ?, route_reason = ?, attempt_index = ?, requested_model = ?, upstream_id = ?, route_mode = ?,
+             attempts_json = COALESCE(?, attempts_json)
          WHERE id = ?;",
         params![
             profile_id,
@@ -842,8 +1055,21 @@ pub fn update_proxy_log_route(
             requested_model,
             upstream_id,
             route_mode,
+            attempts_json,
             id
         ],
+    )?;
+    Ok(())
+}
+
+pub fn update_proxy_log_attempts(
+    conn: &Connection,
+    id: &str,
+    attempts_json: &str,
+) -> AppResult<()> {
+    conn.execute(
+        "UPDATE proxy_request_logs SET attempts_json = ? WHERE id = ?;",
+        params![attempts_json, id],
     )?;
     Ok(())
 }
@@ -1225,6 +1451,55 @@ pub fn delete_model_pricing(conn: &Connection, model: &str) -> AppResult<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyRequestAttempt {
+    pub attempt_index: usize,
+    pub upstream_id: Option<String>,
+    pub provider_name: Option<String>,
+    pub model: String,
+    pub status_code: Option<u16>,
+    pub duration_ms: i64,
+    #[serde(default)]
+    pub queue_wait_ms: Option<i64>,
+    pub error_category: Option<String>,
+    pub diagnostic: Option<String>,
+    pub success: bool,
+}
+
+impl ProxyRequestAttempt {
+    pub fn with_queue_wait_ms(mut self, queue_wait_ms: Option<i64>) -> Self {
+        self.queue_wait_ms = queue_wait_ms.map(|ms| ms.max(0));
+        self
+    }
+
+    pub fn new(
+        attempt_index: usize,
+        upstream_id: Option<String>,
+        provider_name: Option<String>,
+        model: String,
+        status_code: Option<u16>,
+        duration_ms: i64,
+        error_category: Option<String>,
+        diagnostic: Option<String>,
+        success: bool,
+    ) -> Self {
+        Self {
+            attempt_index,
+            upstream_id,
+            provider_name,
+            model,
+            status_code,
+            duration_ms,
+            queue_wait_ms: None,
+            error_category,
+            diagnostic: diagnostic.map(|d| crate::log_redact::redact_secrets(&d)),
+            success,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "camelCase")]
@@ -1257,6 +1532,16 @@ pub struct ProxyRequestLog {
     pub correlation_id: Option<String>,
     pub hop: Option<String>,
     pub usage_counted: bool,
+    pub attempts_json: Option<String>,
+}
+
+impl ProxyRequestLog {
+    pub fn parse_attempts(&self) -> Vec<ProxyRequestAttempt> {
+        self.attempts_json
+            .as_deref()
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -1287,24 +1572,16 @@ pub fn update_proxy_log_stream_outcome(
     error_category: Option<&str>,
     diagnostic: Option<&str>,
 ) -> AppResult<()> {
-    if let Some(duration) = duration_ms {
-        conn.execute(
-            "UPDATE proxy_request_logs
-             SET stream_outcome = ?, duration_ms = ?,
-                 error_category = COALESCE(?, error_category),
-                 diagnostic = COALESCE(?, diagnostic)
-             WHERE id = ?;",
-            params![stream_outcome, duration, error_category, diagnostic, id],
-        )?;
-    } else {
-        conn.execute(
-            "UPDATE proxy_request_logs
-             SET stream_outcome = ?,
-                 error_category = COALESCE(?, error_category),
-                 diagnostic = COALESCE(?, diagnostic)
-             WHERE id = ?;",
-            params![stream_outcome, error_category, diagnostic, id],
-        )?;
+    let changed = conn.execute(
+        "UPDATE proxy_request_logs
+         SET stream_outcome = ?1, duration_ms = COALESCE(?2, duration_ms),
+             error_category = COALESCE(?3, error_category),
+             diagnostic = COALESCE(?4, diagnostic)
+         WHERE id = ?5 AND stream_outcome IS NULL;",
+        params![stream_outcome, duration_ms, error_category, diagnostic, id],
+    )?;
+    if changed > 0 {
+        crate::usage_events::notify_log_recorded();
     }
     Ok(())
 }
@@ -1358,7 +1635,7 @@ pub fn list_proxy_request_logs(
                 l.is_stream, l.error_category, l.diagnostic,
                 COALESCE(l.data_source, 'proxy'), l.session_id, l.stream_outcome,
                 l.route_reason, l.requested_model, l.upstream_id, l.profile_id,
-                l.correlation_id, l.hop, {USAGE_COUNTED_SQL}
+                l.correlation_id, l.hop, {USAGE_COUNTED_SQL}, l.attempts_json
          FROM proxy_request_logs l
          {where_clause}
          ORDER BY l.created_at DESC
@@ -1399,6 +1676,7 @@ pub fn list_proxy_request_logs(
             correlation_id: row.get(25)?,
             hop: row.get(26)?,
             usage_counted: row.get::<_, i64>(27)? != 0,
+            attempts_json: row.get(28)?,
         })
     })?;
     let data = rows.collect::<Result<Vec<_>, _>>()?;
@@ -1563,6 +1841,227 @@ pub fn list_route_mode_usage_stats(
     Ok(out)
 }
 
+/// 上游当日请求量、成功率与成本汇总。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpstreamDailyUsageStat {
+    pub upstream_id: String,
+    pub request_count: i64,
+    pub successful_request_count: i64,
+    pub success_rate: f64,
+    pub estimated_cost: f64,
+    pub estimated_cost_currency: String,
+    pub estimated_costs_by_currency: Vec<CurrencyAmount>,
+}
+
+pub fn local_midnight_millis() -> i64 {
+    use chrono::{Duration, Local};
+    let today = Local::now().date_naive();
+    today
+        .and_hms_opt(0, 0, 0)
+        .and_then(|naive| naive.and_local_timezone(Local).single())
+        .map(|dt| dt.timestamp_millis())
+        .unwrap_or_else(|| (Utc::now() - Duration::days(1)).timestamp_millis())
+}
+
+pub fn list_upstream_daily_usage_stats(
+    conn: &Connection,
+    since: i64,
+) -> AppResult<Vec<UpstreamDailyUsageStat>> {
+    let sql = format!(
+        "SELECT l.upstream_id,
+                COUNT(*),
+                COALESCE(SUM(
+                  CASE
+                    WHEN l.status_code BETWEEN 200 AND 299
+                     AND (l.error_category IS NULL OR TRIM(l.error_category) = '')
+                     AND (l.stream_outcome IS NULL OR l.stream_outcome NOT IN ('midstream_error', 'cancelled'))
+                    THEN 1 ELSE 0
+                  END
+                ), 0),
+                COALESCE(SUM({ROW_COST_SQL}), 0),
+                {PRICING_CURRENCY_SQL}
+         FROM (
+           SELECT
+             COALESCE(
+               NULLIF(TRIM(raw_bill.upstream_id), ''),
+               (SELECT u2.id FROM upstreams u2 WHERE u2.name = raw_bill.provider_name LIMIT 1),
+               ''
+             ) AS upstream_id,
+             COALESCE(NULLIF(TRIM(u.name), ''), raw_bill.provider_name, 'Unknown') AS provider_name,
+             raw_bill.status_code,
+             raw_bill.error_category,
+             raw_bill.stream_outcome,
+             raw_bill.model,
+             raw_bill.input_tokens,
+             raw_bill.cache_read_input_tokens,
+             raw_bill.cache_creation_input_tokens,
+             raw_bill.output_tokens
+           FROM (
+             SELECT
+               COALESCE(
+                 NULLIF(TRIM(req.upstream_id), ''),
+                 NULLIF(TRIM(i.upstream_id), ''),
+                 CASE
+                   WHEN req.provider_id LIKE 'up_%' THEN TRIM(req.provider_id)
+                   WHEN i.provider_id LIKE 'up_%' THEN TRIM(i.provider_id)
+                   WHEN (SELECT m.upstream_id FROM gateway_id_map m WHERE m.old_provider_id = req.provider_id LIMIT 1) IS NOT NULL
+                     THEN (SELECT m.upstream_id FROM gateway_id_map m WHERE m.old_provider_id = req.provider_id LIMIT 1)
+                   WHEN lower(COALESCE(i.provider_name, '')) = 'antigravity' THEN 'up_ag_15830'
+                   WHEN lower(COALESCE(req.provider_name, '')) = 'antigravity' THEN 'up_ag_15830'
+                   WHEN lower(COALESCE(i.provider_name, '')) = 'kiro' THEN 'up_kiro_15831'
+                   WHEN lower(COALESCE(req.provider_name, '')) = 'kiro' THEN 'up_kiro_15831'
+                   ELSE COALESCE(NULLIF(TRIM(req.provider_id), ''), '')
+                 END
+               ) AS upstream_id,
+               COALESCE(NULLIF(TRIM(req.provider_name), ''), NULLIF(TRIM(i.provider_name), ''), 'Unknown') AS provider_name,
+               COALESCE(req.status_code, i.status_code) AS status_code,
+               COALESCE(NULLIF(TRIM(req.error_category), ''), NULLIF(TRIM(i.error_category), '')) AS error_category,
+               COALESCE(NULLIF(TRIM(req.stream_outcome), ''), NULLIF(TRIM(i.stream_outcome), '')) AS stream_outcome,
+               CASE
+                 WHEN i.id IS NOT NULL THEN i.input_tokens
+                 ELSE req.input_tokens
+               END AS input_tokens,
+               CASE
+                 WHEN i.id IS NOT NULL THEN i.cache_read_input_tokens
+                 ELSE req.cache_read_input_tokens
+               END AS cache_read_input_tokens,
+               CASE
+                 WHEN i.id IS NOT NULL THEN i.cache_creation_input_tokens
+                 ELSE req.cache_creation_input_tokens
+               END AS cache_creation_input_tokens,
+               CASE
+                 WHEN i.id IS NOT NULL THEN i.output_tokens
+                 ELSE req.output_tokens
+               END AS output_tokens,
+               CASE
+                 WHEN i.id IS NOT NULL THEN COALESCE(i.model, req.model)
+                 ELSE req.model
+               END AS model
+             FROM proxy_request_logs req
+             LEFT JOIN proxy_request_logs i
+               ON NULLIF(TRIM(COALESCE(req.correlation_id, '')), '') IS NOT NULL
+              AND i.id = (
+                SELECT c.id FROM proxy_request_logs c
+                WHERE c.correlation_id = req.correlation_id
+                  AND COALESCE(c.data_source, 'proxy') = 'proxy'
+                ORDER BY
+                  CASE COALESCE(c.hop, '')
+                    WHEN 'kiro' THEN 0
+                    WHEN 'antigravity' THEN 1
+                    WHEN 'smart_gateway' THEN 2
+                    WHEN 'agent_proxy' THEN 3
+                    ELSE 4
+                  END ASC,
+                  c.created_at DESC,
+                  c.id DESC
+                LIMIT 1
+              )
+             WHERE req.created_at >= ?
+               AND COALESCE(req.data_source, 'proxy') = 'proxy'
+               AND (
+                 NULLIF(TRIM(COALESCE(req.correlation_id, '')), '') IS NULL
+                 OR req.id = (
+                   SELECT g.id FROM proxy_request_logs g
+                   WHERE g.correlation_id = req.correlation_id
+                     AND COALESCE(g.data_source, 'proxy') = 'proxy'
+                   ORDER BY
+                     CASE COALESCE(g.hop, '')
+                       WHEN 'smart_gateway' THEN 0
+                       WHEN 'agent_proxy' THEN 1
+                       ELSE 2
+                     END ASC,
+                     g.created_at ASC,
+                     g.id ASC
+                   LIMIT 1
+                 )
+               )
+           ) raw_bill
+           LEFT JOIN upstreams u ON NULLIF(raw_bill.upstream_id, '') IS NOT NULL AND u.id = raw_bill.upstream_id
+           WHERE NULLIF(TRIM(raw_bill.upstream_id), '') IS NOT NULL
+              OR (NULLIF(TRIM(raw_bill.provider_name), '') IS NOT NULL AND raw_bill.provider_name != 'Unknown')
+         ) l
+         LEFT JOIN model_pricing p ON p.model = COALESCE(
+           (SELECT exact.model FROM model_pricing exact WHERE exact.model = l.model LIMIT 1),
+           (SELECT fallback.model FROM model_pricing fallback WHERE lower(fallback.model) = lower(l.model) ORDER BY fallback.model ASC LIMIT 1)
+         )
+         GROUP BY l.upstream_id, {PRICING_CURRENCY_SQL};"
+    );
+
+    struct UpstreamAcc {
+        request_count: i64,
+        successful_request_count: i64,
+        costs_by_currency: HashMap<String, f64>,
+    }
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![since], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, f64>(3)?,
+            row.get::<_, String>(4)?,
+        ))
+    })?;
+
+    let mut grouped: HashMap<String, UpstreamAcc> = HashMap::new();
+    for row in rows {
+        let (upstream_id, count, successful_count, cost, currency) = row?;
+        let entry = grouped
+            .entry(upstream_id)
+            .or_insert_with(|| UpstreamAcc {
+                request_count: 0,
+                successful_request_count: 0,
+                costs_by_currency: HashMap::new(),
+            });
+        entry.request_count += count;
+        entry.successful_request_count += successful_count;
+        if cost.abs() > f64::EPSILON {
+            *entry.costs_by_currency.entry(currency).or_insert(0.0) += cost;
+        }
+    }
+
+    let mut out: Vec<UpstreamDailyUsageStat> = grouped
+        .into_iter()
+        .map(|(upstream_id, acc)| {
+            let mut estimated_costs_by_currency: Vec<CurrencyAmount> = acc
+                .costs_by_currency
+                .into_iter()
+                .filter(|(_, amount)| amount.abs() > f64::EPSILON)
+                .map(|(currency, amount)| CurrencyAmount { currency, amount })
+                .collect();
+            estimated_costs_by_currency.sort_by(|a, b| a.currency.cmp(&b.currency));
+
+            let (estimated_cost_currency, estimated_cost) =
+                pick_primary_currency_amount(&estimated_costs_by_currency);
+
+            let success_rate = if acc.request_count > 0 {
+                acc.successful_request_count as f64 / acc.request_count as f64
+            } else {
+                0.0
+            };
+
+            UpstreamDailyUsageStat {
+                upstream_id,
+                request_count: acc.request_count,
+                successful_request_count: acc.successful_request_count,
+                success_rate,
+                estimated_cost,
+                estimated_cost_currency,
+                estimated_costs_by_currency,
+            }
+        })
+        .collect();
+
+    out.sort_by(|a, b| {
+        b.request_count
+            .cmp(&a.request_count)
+            .then_with(|| a.upstream_id.cmp(&b.upstream_id))
+    });
+
+    Ok(out)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1877,6 +2376,7 @@ mod tests {
                 Some("claude.auto"),
                 Some("ag"),
                 Some("default"),
+                None,
             )?;
             let inner = insert_proxy_log_with_source(
                 conn,
@@ -1908,6 +2408,650 @@ mod tests {
             assert_eq!(stats[0].mode_id, "default");
             assert_eq!(stats[0].request_count, 1);
             assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_list_upstream_daily_usage_stats() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+
+            conn.execute(
+                "INSERT OR REPLACE INTO model_pricing (model, provider, input_price_per_million, output_price_per_million, currency)
+                 VALUES ('test-usd-model', 'OpenAI', 1.0, 2.0, 'USD'),
+                        ('test-cny-model', 'Antigravity', 7.25, 14.5, 'CNY');",
+                [],
+            )?;
+
+            // Upstream 1: 2 requests, 1 success (200), 1 failure (500)
+            let log1 = insert_proxy_log_with_source(
+                conn,
+                Some("log_up1_1"),
+                now + 10,
+                Some("up_openai"),
+                Some("OpenAI"),
+                Some("test-usd-model"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                500_000,
+                true,
+                50,
+                Some("claude_code"),
+                Some("openai"),
+                Some("/v1/chat/completions"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log1, None, None, 0, None, Some("up_openai"), None, None)?;
+
+            let log2 = insert_proxy_log_with_source(
+                conn,
+                Some("log_up1_2"),
+                now + 20,
+                Some("up_openai"),
+                Some("OpenAI"),
+                Some("test-usd-model"),
+                Some(500),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_code"),
+                Some("openai"),
+                Some("/v1/chat/completions"),
+                false,
+                Some("server_error"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log2, None, None, 0, None, Some("up_openai"), None, None)?;
+
+            // Upstream 2: Antigravity multi-hop (gateway hop + antigravity hop)
+            let gw_hop = insert_proxy_log_with_source(
+                conn,
+                Some("log_ag_gw"),
+                now + 30,
+                Some("up_ag_15830"),
+                Some("Antigravity"),
+                Some("test-cny-model"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                150,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &gw_hop, Some("corr_ag_1"), Some("smart_gateway"))?;
+            update_proxy_log_route(conn, &gw_hop, None, None, 0, None, Some("up_ag_15830"), None, None)?;
+
+            let inner_hop = insert_proxy_log_with_source(
+                conn,
+                Some("log_ag_inner"),
+                now + 30,
+                Some("account_google"),
+                Some("Antigravity"),
+                Some("test-cny-model"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                0,
+                true,
+                140,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner_hop, Some("corr_ag_1"), Some("antigravity"))?;
+
+            // Past request before since: excluded
+            let old_log = insert_proxy_log_with_source(
+                conn,
+                Some("log_old"),
+                now - 100_000,
+                Some("up_old"),
+                Some("OldProvider"),
+                Some("test-usd-model"),
+                Some(200),
+                100,
+                0,
+                0,
+                0,
+                true,
+                10,
+                Some("claude_code"),
+                Some("openai"),
+                Some("/v1/chat/completions"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &old_log, None, None, 0, None, Some("up_old"), None, None)?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+
+            assert_eq!(stats.len(), 2);
+
+            let s1 = &stats[0];
+            assert_eq!(s1.upstream_id, "up_openai");
+            assert_eq!(s1.request_count, 2);
+            assert_eq!(s1.successful_request_count, 1);
+            assert!((s1.success_rate - 0.5).abs() < 1e-9);
+            assert_eq!(s1.estimated_cost_currency, "USD");
+            assert!((s1.estimated_cost - 2.0).abs() < 1e-9);
+            assert_eq!(s1.estimated_costs_by_currency.len(), 1);
+            assert_eq!(s1.estimated_costs_by_currency[0].currency, "USD");
+            assert!((s1.estimated_costs_by_currency[0].amount - 2.0).abs() < 1e-9);
+
+            let s2 = &stats[1];
+            assert_eq!(s2.upstream_id, "up_ag_15830");
+            assert_eq!(s2.request_count, 1);
+            assert_eq!(s2.successful_request_count, 1);
+            assert!((s2.success_rate - 1.0).abs() < 1e-9);
+            assert_eq!(s2.estimated_cost_currency, "CNY");
+            assert!((s2.estimated_cost - 7.25).abs() < 1e-9);
+            assert_eq!(s2.estimated_costs_by_currency.len(), 1);
+            assert_eq!(s2.estimated_costs_by_currency[0].currency, "CNY");
+            assert!((s2.estimated_costs_by_currency[0].amount - 7.25).abs() < 1e-9);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_both_hops_have_tokens_prefer_inner() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            conn.execute(
+                "INSERT OR REPLACE INTO model_pricing (model, provider, input_price_per_million, output_price_per_million, currency)
+                 VALUES ('test-model', 'Antigravity', 2.0, 4.0, 'USD');",
+                [],
+            )?;
+
+            // Gateway hop has 1,000,000 tokens ($2.00)
+            let gw = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_tokens"),
+                now + 10,
+                Some("up_ag_15830"),
+                Some("Antigravity"),
+                Some("test-model"),
+                Some(200),
+                1_000_000,
+                0,
+                0,
+                0,
+                true,
+                50,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &gw, Some("corr_both"), Some("smart_gateway"))?;
+            update_proxy_log_route(conn, &gw, None, None, 0, None, Some("up_ag_15830"), None, None)?;
+
+            // Inner hop has 500,000 tokens ($1.00)
+            let inner = insert_proxy_log_with_source(
+                conn,
+                Some("log_inner_tokens"),
+                now + 10,
+                Some("account_xyz"),
+                Some("Antigravity"),
+                Some("test-model"),
+                Some(200),
+                500_000,
+                0,
+                0,
+                0,
+                true,
+                40,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner, Some("corr_both"), Some("antigravity"))?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_ag_15830");
+            assert_eq!(stats[0].request_count, 1);
+            assert_eq!(stats[0].successful_request_count, 1);
+            assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_midstream_and_error_category_not_counted_as_success() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+
+            // Request 1: 200 OK, but midstream_error
+            let log1 = insert_proxy_log_with_source(
+                conn,
+                Some("log_midstream"),
+                now + 10,
+                Some("up_test"),
+                Some("TestProvider"),
+                Some("model-a"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log1, None, None, 0, None, Some("up_test"), None, None)?;
+            update_proxy_log_stream_outcome(conn, &log1, "midstream_error", Some(100), Some("stream_drop"), None)?;
+
+            // Request 2: 200 OK, but error_category set
+            let log2 = insert_proxy_log_with_source(
+                conn,
+                Some("log_err_cat"),
+                now + 20,
+                Some("up_test"),
+                Some("TestProvider"),
+                Some("model-a"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                Some("timeout"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log2, None, None, 0, None, Some("up_test"), None, None)?;
+
+            // Request 3: 200 OK, truly successful
+            let log3 = insert_proxy_log_with_source(
+                conn,
+                Some("log_ok"),
+                now + 30,
+                Some("up_test"),
+                Some("TestProvider"),
+                Some("model-a"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log3, None, None, 0, None, Some("up_test"), None, None)?;
+            update_proxy_log_stream_outcome(conn, &log3, "complete", Some(100), None, None)?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_test");
+            assert_eq!(stats[0].request_count, 3);
+            assert_eq!(stats[0].successful_request_count, 1);
+            assert!((stats[0].success_rate - 1.0 / 3.0).abs() < 1e-9);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_three_hop_chain_deduplication() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            conn.execute(
+                "INSERT OR REPLACE INTO model_pricing (model, provider, input_price_per_million, output_price_per_million, currency)
+                 VALUES ('gemini-pro', 'Antigravity', 2.0, 4.0, 'USD');",
+                [],
+            )?;
+
+            // Hop 1: agent_proxy
+            let h1 = insert_proxy_log_with_source(
+                conn,
+                Some("h1_agent_proxy"),
+                now + 10,
+                Some("local_binding"),
+                Some("LocalProxy"),
+                Some("gemini-pro"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                200,
+                Some("claude_desktop"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &h1, Some("corr_3hop"), Some("agent_proxy"))?;
+
+            // Hop 2: smart_gateway (has upstream_id)
+            let h2 = insert_proxy_log_with_source(
+                conn,
+                Some("h2_smart_gateway"),
+                now + 11,
+                Some("up_ag_15830"),
+                Some("Antigravity"),
+                Some("gemini-pro"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                190,
+                Some("claude_desktop"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &h2, Some("corr_3hop"), Some("smart_gateway"))?;
+            update_proxy_log_route(conn, &h2, None, None, 0, None, Some("up_ag_15830"), None, None)?;
+
+            // Hop 3: antigravity (has real token usage)
+            let h3 = insert_proxy_log_with_source(
+                conn,
+                Some("h3_antigravity"),
+                now + 12,
+                Some("google_acct"),
+                Some("Antigravity"),
+                Some("gemini-pro"),
+                Some(200),
+                200_000,
+                0,
+                0,
+                0,
+                true,
+                180,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &h3, Some("corr_3hop"), Some("antigravity"))?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_ag_15830");
+            assert_eq!(stats[0].request_count, 1);
+            assert_eq!(stats[0].successful_request_count, 1);
+            assert!((stats[0].success_rate - 1.0).abs() < 1e-9);
+            assert!((stats[0].estimated_cost - 0.40).abs() < 1e-9);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_null_hop_row_not_dropped() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+
+            // Row with hop = NULL
+            let log = insert_proxy_log_with_source(
+                conn,
+                Some("log_null_hop"),
+                now + 10,
+                Some("up_custom"),
+                Some("CustomProvider"),
+                Some("model-x"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                50,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_route(conn, &log, None, None, 0, None, Some("up_custom"), None, None)?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_custom");
+            assert_eq!(stats[0].request_count, 1);
+            assert_eq!(stats[0].successful_request_count, 1);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_attempt_index_mismatch_across_hops() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            conn.execute(
+                "INSERT OR REPLACE INTO model_pricing (model, provider, input_price_per_million, output_price_per_million, currency)
+                 VALUES ('gemini-pro', 'Antigravity', 2.0, 4.0, 'USD');",
+                [],
+            )?;
+
+            // Gateway hop has attempt_index = 2 (after failovers)
+            let gw = insert_proxy_log_with_source(
+                conn,
+                Some("gw_idx2"),
+                now + 10,
+                Some("up_ag_15830"),
+                Some("Antigravity"),
+                Some("gemini-pro"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                150,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &gw, Some("c_mismatch"), Some("smart_gateway"))?;
+            update_proxy_log_route(conn, &gw, None, None, 2, None, Some("up_ag_15830"), None, None)?;
+
+            // Inner hop has attempt_index = 0 (Antigravity internal attempt index is independent)
+            let inner = insert_proxy_log_with_source(
+                conn,
+                Some("ag_idx0"),
+                now + 11,
+                Some("acct_mismatch"),
+                Some("Antigravity"),
+                Some("gemini-pro"),
+                Some(200),
+                500_000,
+                0,
+                0,
+                0,
+                true,
+                140,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &inner, Some("c_mismatch"), Some("antigravity"))?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_ag_15830");
+            assert_eq!(stats[0].request_count, 1);
+            assert_eq!(stats[0].successful_request_count, 1);
+            assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_agent_proxy_to_antigravity_without_smart_gateway_dedup() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            conn.execute(
+                "INSERT OR REPLACE INTO model_pricing (model, provider, input_price_per_million, output_price_per_million, currency)
+                 VALUES ('gemini-2.0', 'Antigravity', 2.0, 4.0, 'USD');",
+                [],
+            )?;
+
+            // Hop 1: agent_proxy
+            let h1 = insert_proxy_log_with_source(
+                conn,
+                Some("ap_no_gw"),
+                now + 10,
+                Some("p_desktop"),
+                Some("Antigravity"),
+                Some("gemini-2.0"),
+                Some(200),
+                0,
+                0,
+                0,
+                0,
+                false,
+                100,
+                Some("claude_desktop"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &h1, Some("corr_no_gw"), Some("agent_proxy"))?;
+
+            // Hop 2: antigravity
+            let h2 = insert_proxy_log_with_source(
+                conn,
+                Some("ag_no_gw"),
+                now + 11,
+                Some("acct_1"),
+                Some("Antigravity"),
+                Some("gemini-2.0"),
+                Some(200),
+                500_000,
+                0,
+                0,
+                0,
+                true,
+                90,
+                Some("antigravity"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &h2, Some("corr_no_gw"), Some("antigravity"))?;
+
+            let stats = list_upstream_daily_usage_stats(conn, now)?;
+            assert_eq!(stats.len(), 1);
+            assert_eq!(stats[0].upstream_id, "up_ag_15830");
+            assert_eq!(stats[0].request_count, 1);
+            assert_eq!(stats[0].successful_request_count, 1);
+            assert!((stats[0].estimated_cost - 1.0).abs() < 1e-9);
+
             Ok(())
         })
         .unwrap();
@@ -2026,6 +3170,507 @@ mod tests {
                 0,
                 118,
             )?);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn proxy_log_records_and_parses_attempts_json() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let log_id = insert_proxy_log(
+                conn,
+                Some("primary_prov"),
+                Some("Primary Provider"),
+                Some("claude-3-7-sonnet"),
+                Some(200),
+                250,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                None,
+            )?;
+
+            // Initially default attempts_json is "[]"
+            let listed = list_proxy_request_logs(conn, &ProxyLogFilters::default(), 0, 10)?;
+            assert_eq!(listed.data.len(), 1);
+            assert_eq!(listed.data[0].attempts_json.as_deref(), Some("[]"));
+            assert!(listed.data[0].parse_attempts().is_empty());
+
+            // Build multiple attempts (attempt 0 failed with 429, attempt 1 succeeded with 200)
+            let attempts = vec![
+                ProxyRequestAttempt::new(
+                    0,
+                    Some("primary_prov".to_string()),
+                    Some("Primary Provider".to_string()),
+                    "claude-3-7-sonnet".to_string(),
+                    Some(429),
+                    80,
+                    Some("rate_limit".to_string()),
+                    Some("请求频次超限 (HTTP 429)".to_string()),
+                    false,
+                ),
+                ProxyRequestAttempt::new(
+                    1,
+                    Some("fallback_prov".to_string()),
+                    Some("Fallback Provider".to_string()),
+                    "claude-3-7-sonnet".to_string(),
+                    Some(200),
+                    170,
+                    None,
+                    None,
+                    true,
+                ),
+            ];
+            let attempts_json = serde_json::to_string(&attempts).unwrap();
+
+            update_proxy_log_route(
+                conn,
+                &log_id,
+                Some("gprof_shared"),
+                Some("rule:fallback"),
+                1,
+                Some("claude-3-7-sonnet"),
+                Some("fallback_prov"),
+                Some("default"),
+                Some(&attempts_json),
+            )?;
+
+            let listed = list_proxy_request_logs(conn, &ProxyLogFilters::default(), 0, 10)?;
+            assert_eq!(listed.data.len(), 1);
+            let parsed = listed.data[0].parse_attempts();
+            assert_eq!(parsed.len(), 2);
+            assert_eq!(parsed[0].attempt_index, 0);
+            assert_eq!(parsed[0].status_code, Some(429));
+            assert_eq!(parsed[0].error_category.as_deref(), Some("rate_limit"));
+            assert!(!parsed[0].success);
+
+            assert_eq!(parsed[1].attempt_index, 1);
+            assert_eq!(parsed[1].status_code, Some(200));
+            assert!(parsed[1].success);
+
+            // Test update_proxy_log_attempts directly
+            update_proxy_log_attempts(conn, &log_id, "[]")?;
+            let listed2 = list_proxy_request_logs(conn, &ProxyLogFilters::default(), 0, 10)?;
+            assert_eq!(listed2.data[0].parse_attempts().len(), 0);
+
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn proxy_log_attempts_scrubs_secrets() {
+        let attempt = ProxyRequestAttempt::new(
+            0,
+            Some("p1".to_string()),
+            Some("P1".to_string()),
+            "m1".to_string(),
+            Some(401),
+            50,
+            Some("auth".to_string()),
+            Some("Failed with key sk-ant-api03-secret123456789 and Bearer mytoken123".to_string()),
+            false,
+        );
+        let diag = attempt.diagnostic.unwrap();
+        assert!(!diag.contains("sk-ant-api03-secret123456789"));
+        assert!(!diag.contains("mytoken123"));
+        assert!(diag.contains("[redacted]"));
+    }
+    #[test]
+    fn gateway_route_logs_filtering_target_status_mode_keyword() {
+        let db = crate::database::Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let now = Utc::now().timestamp_millis();
+            // Row 1: claude_code, 200, think mode, claude-3-7-sonnet, provider Anthropic, upstream up_anthropic
+            let log1 = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_1"),
+                now,
+                Some("sgw"),
+                Some("Anthropic"),
+                Some("claude-3-7-sonnet"),
+                Some(200),
+                100,
+                0,
+                0,
+                50,
+                true,
+                120,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                None,
+                Some("sensitive internal diagnostic text"),
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &log1, Some("corr_1"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &log1,
+                Some("gprof_shared"),
+                Some("命中深度思考模式"),
+                0,
+                Some("claude.auto"),
+                Some("up_anthropic"),
+                Some("think"),
+                None,
+            )?;
+
+            // Row 2: claude_code, 429, plan mode, claude-3-5-haiku, provider Bedrock, upstream up_bedrock with structured attempts_json
+            let log2_attempts = vec![
+                ProxyRequestAttempt::new(
+                    0,
+                    Some("up_bedrock".to_string()),
+                    Some("Bedrock".to_string()),
+                    "claude-3-5-haiku".to_string(),
+                    Some(429),
+                    45,
+                    Some("rate_limit".to_string()),
+                    Some("Rate limit exceeded".to_string()),
+                    false,
+                ),
+            ];
+            let log2_attempts_json = serde_json::to_string(&log2_attempts).unwrap();
+
+            let log2 = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_2"),
+                now + 1000,
+                Some("sgw"),
+                Some("Bedrock"),
+                Some("claude-3-5-haiku"),
+                Some(429),
+                80,
+                0,
+                0,
+                0,
+                false,
+                45,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                false,
+                Some("rate_limit"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &log2, Some("corr_2"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &log2,
+                Some("gprof_shared"),
+                Some("命中代码规划模式"),
+                1,
+                Some("claude.auto"),
+                Some("up_bedrock"),
+                Some("plan"),
+                Some(&log2_attempts_json),
+            )?;
+
+            // Row 3: codex, 500, default mode, gpt-4o, provider OpenAI, upstream up_openai
+            let log3 = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_3"),
+                now + 2000,
+                Some("sgw"),
+                Some("OpenAI"),
+                Some("gpt-4o"),
+                Some(500),
+                200,
+                0,
+                0,
+                0,
+                false,
+                300,
+                Some("codex"),
+                Some("openai"),
+                Some("/v1/responses"),
+                false,
+                Some("server_error"),
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_hop(conn, &log3, Some("corr_3"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &log3,
+                Some("gprof_custom"),
+                Some("默认模式"),
+                0,
+                Some("auto"),
+                Some("up_openai"),
+                Some("default"),
+                None,
+            )?;
+
+            // Row 4: codex, 200 with midstream_error, legacy route_reason without route_mode
+            let log4 = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_4"),
+                now + 3000,
+                Some("sgw"),
+                Some("OpenAI"),
+                Some("gpt-4o-mini"),
+                Some(200),
+                150,
+                0,
+                0,
+                10,
+                true,
+                500,
+                Some("codex"),
+                Some("openai"),
+                Some("/v1/responses"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_stream_outcome(conn, &log4, "midstream_error", Some(500), Some("stream_drop"), None)?;
+            update_proxy_log_hop(conn, &log4, Some("corr_4"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &log4,
+                Some("gprof_custom"),
+                Some("规划模式分流"),
+                0,
+                Some("auto"),
+                Some("up_openai"),
+                None,
+                None,
+            )?;
+
+            // Row 5: claude_code, 200 with stream_outcome='cancelled' (must be excluded from success filter)
+            let log5 = insert_proxy_log_with_source(
+                conn,
+                Some("log_gw_5"),
+                now + 4000,
+                Some("sgw"),
+                Some("Anthropic"),
+                Some("claude-3-7-sonnet"),
+                Some(200),
+                100,
+                0,
+                0,
+                5,
+                true,
+                80,
+                Some("claude_code"),
+                Some("anthropic"),
+                Some("/v1/messages"),
+                true,
+                None,
+                None,
+                DATA_SOURCE_PROXY,
+                None,
+            )?;
+            update_proxy_log_stream_outcome(conn, &log5, "cancelled", Some(80), None, None)?;
+            update_proxy_log_hop(conn, &log5, Some("corr_5"), Some("smart_gateway"))?;
+            update_proxy_log_route(
+                conn,
+                &log5,
+                Some("gprof_shared"),
+                Some("命中深度思考模式"),
+                0,
+                Some("claude.auto"),
+                Some("up_anthropic"),
+                Some("think"),
+                None,
+            )?;
+
+            // 1. All records (no filters)
+            let all = list_gateway_route_logs(conn, &GatewayRouteLogFilters::default(), 20, 0)?;
+            assert_eq!(all.total, 5);
+            assert_eq!(all.data.len(), 5);
+
+            // 2. Target filter
+            let cc = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    target_app: Some("claude_code".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(cc.total, 3);
+            assert!(cc.data.iter().all(|r| r.id == "log_gw_1" || r.id == "log_gw_2" || r.id == "log_gw_5"));
+
+            let codex = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    target_app: Some("codex".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(codex.total, 2);
+            assert!(codex.data.iter().all(|r| r.id == "log_gw_3" || r.id == "log_gw_4"));
+
+            // 3. Status filter: success (excludes midstream_error and cancelled)
+            let succ = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    status: Some("success".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(succ.total, 1);
+            assert_eq!(succ.data[0].id, "log_gw_1");
+
+            // 3b. Status filter: midstream_error independent filter
+            let ms = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    status: Some("midstream_error".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(ms.total, 1);
+            assert_eq!(ms.data[0].id, "log_gw_4");
+
+            // 4. Status filter: rate_limited
+            let rl = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    status: Some("rate_limited".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(rl.total, 1);
+            assert_eq!(rl.data[0].id, "log_gw_2");
+
+            // 错误筛选包含 HTTP 429、500 与中途断流。
+            let errs = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    status: Some("error".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(errs.total, 3);
+            assert!(errs.data.iter().any(|r| r.id == "log_gw_2"));
+            assert!(errs.data.iter().any(|r| r.id == "log_gw_3"));
+            assert!(errs.data.iter().any(|r| r.id == "log_gw_4"));
+
+            // 6. Mode filter: think
+            let think = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    mode: Some("think".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(think.total, 2);
+            assert!(think.data.iter().any(|r| r.id == "log_gw_1"));
+            assert!(think.data.iter().any(|r| r.id == "log_gw_5"));
+
+            // 7. Mode filter: plan (matches explicit plan and fallback '规划' in route_reason)
+            let plan = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    mode: Some("plan".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(plan.total, 2);
+            assert!(plan.data.iter().any(|r| r.id == "log_gw_2"));
+            assert!(plan.data.iter().any(|r| r.id == "log_gw_4"));
+
+            // 8. Keyword filter: matches model
+            let kw_model = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    keyword: Some("haiku".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(kw_model.total, 1);
+            assert_eq!(kw_model.data[0].id, "log_gw_2");
+
+            // 9. Keyword filter: matches provider_name
+            let kw_prov = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    keyword: Some("Bedrock".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(kw_prov.total, 1);
+            assert_eq!(kw_prov.data[0].id, "log_gw_2");
+
+            // 10. Keyword filter: matches upstream_id
+            let kw_up = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    keyword: Some("up_openai".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(kw_up.total, 2);
+
+            // 11. Keyword filter: MUST NOT match sensitive diagnostic / body text
+            let kw_sec = list_gateway_route_logs(
+                conn,
+                &GatewayRouteLogFilters {
+                    keyword: Some("sensitive internal diagnostic text".to_string()),
+                    ..Default::default()
+                },
+                20,
+                0,
+            )?;
+            assert_eq!(kw_sec.total, 0);
+
+            // 12. attempts_json returned in GatewayRouteLog and parses correctly
+            let row2 = all.data.iter().find(|r| r.id == "log_gw_2").expect("log_gw_2 present");
+            assert!(row2.attempts_json.is_some(), "attempts_json must be returned on GatewayRouteLog");
+            let parsed_attempts: Vec<ProxyRequestAttempt> = serde_json::from_str(row2.attempts_json.as_deref().unwrap()).unwrap();
+            assert_eq!(parsed_attempts.len(), 1);
+            assert_eq!(parsed_attempts[0].model, "claude-3-5-haiku");
+            assert_eq!(parsed_attempts[0].status_code, Some(429));
+            assert!(!parsed_attempts[0].success);
+
+            // 13. Pagination total accuracy
+            let page0 = list_gateway_route_logs(conn, &GatewayRouteLogFilters::default(), 2, 0)?;
+            assert_eq!(page0.total, 5);
+            assert_eq!(page0.page, 0);
+            assert_eq!(page0.page_size, 2);
+            assert_eq!(page0.data.len(), 2);
+
+            let page1 = list_gateway_route_logs(conn, &GatewayRouteLogFilters::default(), 2, 2)?;
+            assert_eq!(page1.total, 5);
+            assert_eq!(page1.page, 1);
+            assert_eq!(page1.page_size, 2);
+            assert_eq!(page1.data.len(), 2);
+
             Ok(())
         })
         .unwrap();

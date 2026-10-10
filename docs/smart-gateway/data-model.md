@@ -15,6 +15,7 @@
 ## 增列
 
 - `proxy_request_logs.correlation_id` / `hop`（`agent_proxy` / `smart_gateway` / `antigravity`）
+- `proxy_request_logs.attempts_json`（Schema 35：存储请求实际尝试明细，含上游、模型、耗时、状态码、脱敏失败分类与最终结果，默认 `'[]'`）
 - `upstream_models.display_name` / `context_window` / `max_output_tokens` / `reasoning_levels_json` / `capabilities_json`
 
 ## 用量去重

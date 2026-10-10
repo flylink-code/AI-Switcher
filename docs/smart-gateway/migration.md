@@ -27,6 +27,14 @@
 4. Code / Codex 当前独立卡转直连，Auto 保持网关，官方不绑定；旧库升级时 T2 保留已有绑定，未绑定默认建网关入口。全新库（初始 `user_version=0`）不创建这些绑定，首次启动不接管 Agent。迁移事务不写 Agent 配置，旧供应商行暂保留。
 5. 迁移表保存原绑定完整凭据、档案及当前卡快照，并有完成标记防止重跑覆盖。回滚后可以重新迁移。
 
+# Schema 34 → 35（请求尝试明细）
+
+1. `proxy_request_logs` 增加 `attempts_json TEXT NOT NULL DEFAULT '[]'`。
+2. 记录单次请求在故障降级（failover）或协议兼容重试过程中的实际尝试链，包含每跳的 `attemptIndex`、`upstreamId`、`providerName`、`model`、`statusCode`、`durationMs`、`errorCategory`、`diagnostic` 及 `success`。
+3. 严格脱敏：请求正文、响应正文与认证凭据不进入数据库，错误诊断文本经 `log_redact::redact_secrets` 统一过滤敏感信息。
+4. 沿用已有 `correlation_id` / `hop` 去重规则：单请求的多跳尝试结构化保存在该请求日志行的 `attempts_json` 字段内，不增加用量日志记录数，避免重复计费。
+5. 幂等迁移与旧库兼容：检查 `pragma_table_info` 避免重复添加；`Database::export_rollback_v34` 继续支持从 Schema 35 资料库导出 Schema 33 降级副本。
+
 ## 降级恢复
 
 旧版不能打开 Schema 34。`rollback_v34(destination)` IPC 只导出经过完整性校验的 Schema 33 副本，要求绝对路径且禁止覆盖；**不改变运行中的库，也不修改 Agent live 配置**。库中 Key 仍是本机 keyring 引用，不能把导出库当跨设备凭据备份。

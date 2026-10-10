@@ -2,34 +2,49 @@ async fn proxy_handler(
     State(mut state): State<ProxyState>,
     method: Method,
     uri: Uri,
-    mut headers: HeaderMap,
+    headers: HeaderMap,
     body: Body,
 ) -> Response {
     if let Err(error) = validate_listener_auth(&state, &headers) {
         return gateway_auth_error(error);
     }
     if state.listener_kind == ListenerKind::SmartGateway {
-        if let Some(target) = resolve_binding_target(&state, &headers) {
-            state.target = target;
-        }
+        if let Some(target) = resolve_binding_target(&state, &headers) { state.target = target; }
     }
-    let hop = match state.listener_kind {
-        ListenerKind::SmartGateway => crate::gateway::correlation::HOP_SMART_GATEWAY,
-        ListenerKind::Agent => crate::gateway::correlation::HOP_AGENT_PROXY,
-    };
+    state.request_path = uri.path().to_string();
     state.correlation = Some(crate::gateway::correlation::resolve(
         &headers,
-        hop,
+        if state.listener_kind == ListenerKind::SmartGateway {
+            crate::gateway::correlation::HOP_SMART_GATEWAY
+        } else { crate::gateway::correlation::HOP_AGENT_PROXY },
         Some(state.target.as_str()),
     ));
-    let _inbound_permit = if state.listener_kind == ListenerKind::SmartGateway {
+    let mut pending = response_lifecycle::PendingRequestGuard::new(&mut state);
+    let permit = if state.listener_kind == ListenerKind::SmartGateway {
         match acquire_smart_gateway_inbound().await {
             Ok(permit) => Some(permit),
-            Err(response) => return response,
+            Err(response) => { pending.disarm(); return response; }
         }
     } else {
         None
     };
+    let response = proxy_handler_inner(state, method, uri, headers, body).await;
+    pending.disarm();
+    response_lifecycle::hold_response_guard(response, permit)
+}
+
+async fn proxy_handler_inner(
+    mut state: ProxyState,
+    method: Method,
+    uri: Uri,
+    mut headers: HeaderMap,
+    body: Body,
+) -> Response {
+    if state.listener_kind == ListenerKind::SmartGateway {
+        if let Some(target) = resolve_binding_target(&state, &headers) {
+            state.target = target;
+        }
+    }
     state.request_path = uri.path().to_string();
     let started = Instant::now();
 
@@ -267,8 +282,19 @@ async fn proxy_handler(
     let mut excluded = vec![provider.id.clone()];
     let mut outgoing = apply_catalog_subagent_signal(prepared.builder, is_catalog_subagent)
         .body(prepared.outgoing_body);
+    let mut attempts: Vec<ProxyRequestAttempt> = Vec::new();
     let mut upstream_resp = loop {
-        let result = send_observed_upstream(outgoing, &provider).await;
+        let attempt_start = Instant::now();
+        note_gateway_inflight(&state, &provider, &requested_model, incoming_stream, route_decision.as_ref(), &attempts);
+        let (result, queue_wait_ms) = upstream_health::send_observed_upstream_with_timing(outgoing, &provider, Some(&state), incoming_stream).await;
+        let attempt_duration = attempt_start.elapsed().as_millis() as i64;
+        attempts.push(build_request_attempt(
+            attempts.len(),
+            &provider,
+            &requested_model,
+            attempt_duration,
+            &result,
+        ).with_queue_wait_ms(queue_wait_ms));
         let can_explicit = allow_cross_provider_failover && match &result {
             Ok(response) => should_try_explicit_response(&provider, response),
             Err(_) => true,
@@ -301,9 +327,17 @@ async fn proxy_handler(
             match result {
                 Ok(response) => break response,
                 Err(error) => {
-                    log_request_with_diagnostic(&state, &provider, Some(502),
+                    let fail_log_id = log_request_with_diagnostic(&state, &provider, Some(502),
                         started.elapsed().as_millis() as i64, uri.path(), incoming_stream,
                         Some("network"), Some(&format!("故障降级失败: {}", failover_trace.join(" → "))));
+                    let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+                    if let Some(id) = fail_log_id.as_deref() {
+                        if let Some(decision) = route_decision.as_ref() {
+                            patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+                        } else if !attempts.is_empty() {
+                            update_proxy_log_attempts(&state, id, &attempts_json);
+                        }
+                    }
                     return if translated {
                         anthropic_error(StatusCode::BAD_GATEWAY, convert::openai_error_to_anthropic(502))
                     } else {
@@ -368,7 +402,18 @@ async fn proxy_handler(
                 log::info!(
                     "上游明确不支持 stream_options.include_usage，移除该字段后兼容重试一次"
                 );
-                upstream_resp = match send_observed_upstream(retry_request, &provider).await {
+                let retry_start = Instant::now();
+                note_gateway_inflight(&state, &provider, &requested_model, incoming_stream, route_decision.as_ref(), &attempts);
+                let (retry_result, queue_wait_ms) = upstream_health::send_observed_upstream_with_timing(retry_request, &provider, Some(&state), incoming_stream).await;
+                let retry_duration = retry_start.elapsed().as_millis() as i64;
+                attempts.push(build_request_attempt(
+                    attempts.len(),
+                    &provider,
+                    &requested_model,
+                    retry_duration,
+                    &retry_result,
+                ).with_queue_wait_ms(queue_wait_ms));
+                upstream_resp = match retry_result {
                     Ok(response) => response,
                     Err(error) => {
                         let log_id = log_request(
@@ -386,6 +431,14 @@ async fn proxy_handler(
                             "network",
                             "移除 stream_options 后的兼容重试连接失败",
                         );
+                        let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+                        if let Some(id) = log_id.as_deref() {
+                            if let Some(decision) = route_decision.as_ref() {
+                                patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+                            } else if !attempts.is_empty() {
+                                update_proxy_log_attempts(&state, id, &attempts_json);
+                            }
+                        }
                         log::warn!("OpenAI stream_options 兼容重试失败: {error}");
                         return anthropic_error(
                             StatusCode::BAD_GATEWAY,
@@ -409,6 +462,14 @@ async fn proxy_handler(
                     upstream_error_category(rejected_status),
                     &sanitized_upstream_diagnostic(rejected_status, &rejected_body),
                 );
+                let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+                if let Some(id) = log_id.as_deref() {
+                    if let Some(decision) = route_decision.as_ref() {
+                        patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+                    } else if !attempts.is_empty() {
+                        update_proxy_log_attempts(&state, id, &attempts_json);
+                    }
+                }
                 return anthropic_error(
                     rejected_status,
                     convert::openai_error_to_anthropic(rejected_status.as_u16()),
@@ -435,8 +496,13 @@ async fn proxy_handler(
         error_category,
         failover_diag.as_deref(),
     );
-    if let (Some(id), Some(decision)) = (log_id.as_deref(), route_decision.as_ref()) {
-        patch_route_log(&state, id, decision, attempt_index);
+    let attempts_json = serde_json::to_string(&attempts).unwrap_or_else(|_| "[]".to_string());
+    if let Some(id) = log_id.as_deref() {
+        if let Some(decision) = route_decision.as_ref() {
+            patch_route_log(&state, id, decision, attempt_index, Some(&attempts_json));
+        } else if !attempts.is_empty() {
+            update_proxy_log_attempts(&state, id, &attempts_json);
+        }
     }
 
     // OpenAI upstreams are normalized into Anthropic JSON. For an Anthropic
@@ -480,6 +546,9 @@ async fn proxy_handler(
                                 for item in decoder.push(&bytes) {
                                     match item {
                                         UpstreamSseItem::Json(event) => {
+                                            response_lifecycle::record_response_event(
+                                                &db, stream_log_id.as_deref(), &event,
+                                            );
                                             output.extend(converter.push_event(&event));
                                             if converter.took_terminal_error() {
                                                 terminal_error = true;
@@ -487,6 +556,9 @@ async fn proxy_handler(
                                             }
                                         }
                                         UpstreamSseItem::Done => {
+                                            response_lifecycle::record_sse_terminal(
+                                                &db, stream_log_id.as_deref(), "[DONE]",
+                                            );
                                             output.extend(converter.finish_stream())
                                         }
                                     }
@@ -579,12 +651,17 @@ async fn proxy_handler(
                     }
                 },
             );
+            if status.is_success() {
+                remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
+            }
             return Response::builder()
                 .status(status)
                 .header(header::CONTENT_TYPE, "text/event-stream")
                 .header(header::CACHE_CONTROL, "no-cache")
                 .header("x-accel-buffering", "no")
-                .body(Body::from_stream(stream))
+                .body(response_lifecycle::track_stream_body(
+                    Body::from_stream(stream), Arc::clone(&state.db), log_id.clone(),
+                ))
                 .unwrap_or_else(|_| json_error(StatusCode::INTERNAL_SERVER_ERROR, "构造流式响应失败"));
         }
         let response_bytes = match upstream_resp.bytes().await {
@@ -621,28 +698,47 @@ async fn proxy_handler(
             }
         };
         if provider.protocol_type == ProtocolType::OpenAiResponses {
-                if let Some(failed) = convert::responses_failed_anthropic_error(&upstream) {
-                record_provider_failure(&state, &provider.id);
+            if let Some(failed) = convert::responses_failed_anthropic_error(&upstream) {
+                if !provider.is_antigravity() && !provider.is_kiro() {
+                    record_provider_failure(&state, &provider.id);
+                }
+                if let Some(attempt) = attempts.last_mut() {
+                    attempt.success = false;
+                    attempt.error_category = Some("upstream_envelope".into());
+                    attempt.diagnostic = Some("Responses status=failed".into());
+                }
                 update_log_diagnostic(
                     &state,
                     log_id.as_deref(),
-                    "upstream",
-                    failed
-                        .pointer("/error/message")
-                        .and_then(Value::as_str)
-                        .unwrap_or("Responses status=failed"),
+                    "upstream_envelope",
+                    "Responses status=failed",
                 );
-                let mut excluded = vec![provider.id.clone()];
-                for _ in 0..FAILOVER_MAX_HOPS {
-                    if !allow_cross_provider_failover || has_explicit_chain { break; }
-                    let Some(mut fallback) =
+                for _ in attempt_index as usize..FAILOVER_MAX_HOPS {
+                    if !allow_cross_provider_failover || attempt_index >= FAILOVER_MAX_HOPS as i64 { break; }
+                    let next = if has_explicit_chain {
+                        let mut selected = None;
+                        for model in explicit_models.by_ref() {
+                            if let Ok(Some((candidate, slug))) = resolve_explicit_fallback(&state, &model) {
+                                if candidate.id == provider.id && slug == requested_model { continue; }
+                                if !crate::gateway::health::is_available(&candidate.id, Some(&slug)) { continue; }
+                                selected = Some((candidate, slug));
+                                break;
+                            }
+                        }
+                        selected
+                    } else if !provider.is_kiro() {
                         next_failover_provider(&state, &excluded, &requested_model)
-                            .ok()
-                            .flatten()
-                    else {
-                        break;
+                            .ok().flatten().map(|candidate| (candidate, requested_model.clone()))
+                    } else {
+                        None
                     };
+                    let Some((mut fallback, model)) = next else { break; };
                     excluded.push(fallback.id.clone());
+                    requested_model = model;
+                    if let Some(object) = incoming.as_object_mut() {
+                        object.insert("model".into(), Value::String(requested_model.clone()));
+                    }
+                    body_bytes = Bytes::from(rewrite_json_model(&body_bytes, &requested_model));
                     log::warn!(
                         "供应商 {} 返回 Responses failed envelope，尝试故障切换到 {}",
                         provider.id,
@@ -660,17 +756,30 @@ async fn proxy_handler(
                     ) else {
                         continue;
                     };
-                    match fallback_prepared
-                        .builder
-                        .body(fallback_prepared.outgoing_body)
-                        .send()
-                        .await
-                    {
+                    let fallback_start = Instant::now();
+                    note_gateway_inflight(&state, &fallback, &fallback.model, false, route_decision.as_ref(), &attempts);
+                    let (result, queue_wait_ms) = upstream_health::send_observed_upstream_with_timing(
+                        apply_catalog_subagent_signal(fallback_prepared.builder, is_catalog_subagent)
+                            .body(fallback_prepared.outgoing_body),
+                        &fallback,
+                        Some(&state),
+                        false,
+                    ).await;
+                    attempt_index = attempt_index.saturating_add(1);
+                    attempts.push(build_request_attempt(
+                        attempts.len(), &fallback, &fallback.model,
+                        fallback_start.elapsed().as_millis() as i64, &result,
+                    ).with_queue_wait_ms(queue_wait_ms));
+                    provider = fallback.clone();
+                    match result {
                         Ok(response) if response.status().is_success() => {
                             let fallback_bytes = match response.bytes().await {
                                 Ok(bytes) => bytes,
                                 Err(_) => {
-                                    record_provider_failure(&state, &fallback.id);
+                                    if !fallback.is_antigravity() && !fallback.is_kiro() {
+                                        record_provider_failure(&state, &fallback.id);
+                                    }
+                                    mark_last_attempt_failure(&mut attempts, "network", "读取备用响应失败");
                                     continue;
                                 }
                             };
@@ -678,7 +787,7 @@ async fn proxy_handler(
                             {
                                 Ok(value) => value,
                                 Err(_) => {
-                                    record_provider_failure(&state, &fallback.id);
+                                    mark_last_attempt_failure(&mut attempts, "conversion", "备用返回非 JSON 响应");
                                     continue;
                                 }
                             };
@@ -686,11 +795,19 @@ async fn proxy_handler(
                                 && convert::responses_failed_anthropic_error(&fallback_json)
                                     .is_some()
                             {
-                                record_provider_failure(&state, &fallback.id);
+                                if !fallback.is_antigravity() && !fallback.is_kiro() {
+                                    record_provider_failure(&state, &fallback.id);
+                                }
+                                mark_last_attempt_failure(&mut attempts, "upstream_envelope", "Responses status=failed");
                                 continue;
                             }
                             provider = fallback;
                             let anthropic = match provider.protocol_type {
+                                ProtocolType::Anthropic => {
+                                    let mut response = fallback_json;
+                                    response["model"] = Value::String(client_model.trim().to_string());
+                                    response
+                                }
                                 ProtocolType::OpenAiResponses => {
                                     convert::openai_responses_to_anthropic(
                                         &fallback_json,
@@ -702,7 +819,12 @@ async fn proxy_handler(
                                     client_model.trim(),
                                 ),
                             };
+                            let mut anthropic = anthropic;
+                            let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
                             record_provider_success(&state, &provider.id);
+                            remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
+                            patch_completed_fallback_log(&state, log_id.as_deref(), &provider,
+                                200, started.elapsed().as_millis() as i64, attempt_index, &attempts, true);
                             if let Some(id) = log_id.as_deref() {
                                 update_log_usage(
                                     &state,
@@ -740,10 +862,12 @@ async fn proxy_handler(
                                 });
                         }
                         Ok(_) | Err(_) => {
-                            record_provider_failure(&state, &fallback.id);
+                            // 共同观察器已分类；本地准入拒绝不得再次污染健康状态。
                         }
                     }
                 }
+                patch_completed_fallback_log(&state, log_id.as_deref(), &provider,
+                    502, started.elapsed().as_millis() as i64, attempt_index, &attempts, false);
                 return anthropic_error(StatusCode::BAD_GATEWAY, failed);
             }
         }
@@ -761,6 +885,7 @@ async fn proxy_handler(
                 extract_usage_from_json(&serde_json::to_vec(&anthropic).unwrap_or_default()),
             );
         }
+        remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
         if incoming_stream {
             return Response::builder().status(status).header(header::CONTENT_TYPE, "text/event-stream")
                 .header(header::CACHE_CONTROL, "no-cache")
@@ -822,6 +947,9 @@ async fn proxy_handler(
         if let Some(id) = log_id.as_deref() {
             update_log_usage(&state, &provider, id, extract_usage_from_json(&response_bytes));
         }
+        if status.is_success() {
+            remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
+        }
         return resp_builder
             .body(Body::from(response_bytes))
             .unwrap_or_else(|e| json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("构造响应失败: {e}")));
@@ -866,6 +994,11 @@ async fn proxy_handler(
                                 let mut output = Vec::new();
                                 for frame in &drained.frames {
                                     output.extend_from_slice(frame);
+                                    if let Some(json) = sse_frame_data_json(frame) {
+                                        response_lifecycle::record_response_event(
+                                            &db, stream_log_id.as_deref(), &json,
+                                        );
+                                    }
                                     record_passthrough_usage(
                                         &db,
                                         stream_log_id.as_deref(),
@@ -888,6 +1021,13 @@ async fn proxy_handler(
                                     output.extend(passthrough_abort(&client_model, &cursor, message));
                                     (output, true)
                                 } else {
+                                    if drained.finished {
+                                        if let Some(id) = stream_log_id.as_deref() {
+                                            let _ = db.with_conn(|conn| update_proxy_log_stream_outcome(
+                                                conn, id, "complete", None, None, None,
+                                            ));
+                                        }
+                                    }
                                     (output, drained.finished)
                                 }
                             }
@@ -938,7 +1078,12 @@ async fn proxy_handler(
             }
         },
     );
-    let body = Body::from_stream(stream);
+    let body = response_lifecycle::track_stream_body(
+        Body::from_stream(stream), Arc::clone(&state.db), log_id.clone(),
+    );
+    if status.is_success() {
+        remember_gateway_success_upstream(&state, &headers, &incoming, &provider.id, is_catalog_subagent);
+    }
 
     resp_builder
         .body(body)

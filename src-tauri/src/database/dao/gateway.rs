@@ -1746,6 +1746,7 @@ pub fn delete_upstream(conn: &Connection, id: &str) -> AppResult<()> {
     }
     assert_upstream_deletable(conn, id)?;
     delete_upstream_mirror(conn, id)?;
+    crate::gateway::upstream_limits::delete_policy(conn, id)?;
     if get_provider_row_exists(conn, id)? {
         // Keep the provider card; only drop it from the shared pool.
         return Ok(());
@@ -3969,7 +3970,7 @@ mod tests {
             assert!(rollback_v34(conn).is_err());
             let after = binding_for_target(conn, ProviderTarget::Pi)?.unwrap();
             assert_eq!(before.entry_token, after.entry_token);
-            assert_eq!(conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?, 34);
+            assert_eq!(conn.query_row("PRAGMA user_version;", [], |r| r.get::<_, u32>(0))?, crate::database::schema::SCHEMA_VERSION);
             Ok(())
         }).unwrap();
     }
@@ -4123,7 +4124,6 @@ mod tests {
 
             // Migrate
             migrate_v33_to_v34(conn)?;
-            assert_eq!(crate::database::schema::SCHEMA_VERSION, 34);
 
             let binding = binding_for_target(conn, ProviderTarget::ClaudeCode)?.unwrap();
             assert_eq!(binding.mode, BINDING_MODE_GATEWAY);
@@ -4168,8 +4168,10 @@ mod tests {
 
     #[test]
     fn test_existing_upstream_with_key_hit() {
-        let db = migration_fixture();
-        db.with_conn(|conn| {
+        let home = tempfile::tempdir().unwrap();
+        crate::config::paths::with_isolated_home(home.path(), || {
+            let db = migration_fixture();
+            db.with_conn(|conn| {
             // 1. Create an existing upstream
             let up = upsert_upstream(
                 conn,
@@ -4252,6 +4254,7 @@ mod tests {
             );
 
             Ok(())
+            })
         })
         .unwrap();
     }

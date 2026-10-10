@@ -11,6 +11,7 @@ pub mod service;
 pub mod thinking;
 pub mod health;
 pub mod inbound;
+pub mod upstream_limits;
 pub mod budget;
 pub mod simulate;
 pub mod count_tokens;

@@ -111,6 +111,7 @@ impl ProxyManager {
             port,
             started_at: Instant::now(),
             correlation: None,
+            request_log: None,
             request_path: String::new(),
         };
 
@@ -305,6 +306,7 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
         port,
         started_at: Instant::now(),
         correlation: None,
+        request_log: None,
         request_path: String::new(),
     };
     Router::new()
@@ -342,11 +344,15 @@ async fn smart_gateway_openai_handler(
         crate::gateway::correlation::HOP_SMART_GATEWAY,
         Some(state.target.as_str()),
     ));
-    let _inbound_permit = match acquire_smart_gateway_inbound().await {
+    state.request_path = uri.path().to_string();
+    let mut pending = response_lifecycle::PendingRequestGuard::new(&mut state);
+    let inbound_permit = match acquire_smart_gateway_inbound().await {
         Ok(permit) => permit,
-        Err(response) => return response,
+        Err(response) => { pending.disarm(); return response; }
     };
-    codex::codex_proxy_handler(State(state), uri, method, headers, body).await
+    let response = codex::codex_proxy_handler(State(state), uri, method, headers, body).await;
+    pending.disarm();
+    response_lifecycle::hold_response_guard(response, inbound_permit)
 }
 
 async fn count_tokens_handler(
@@ -413,6 +419,7 @@ pub(crate) struct ProxyState {
     port: u16,
     started_at: Instant,
     pub(crate) correlation: Option<crate::gateway::correlation::Correlation>,
+    pub(crate) request_log: Option<response_lifecycle::RequestLogSlot>,
     request_path: String,
 }
 
