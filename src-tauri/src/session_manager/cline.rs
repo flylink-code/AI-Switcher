@@ -151,6 +151,7 @@ fn session_trash_dir(provider: SessionProvider) -> PathBuf {
     config::get_app_config_dir().join("session-trash").join(target)
 }
 
+#[allow(dead_code)]
 fn validated_code_session(source_path: &str) -> AppResult<(PathBuf, PathBuf)> {
     let root = claude_code_session_root();
     let source = validate_session_path_in_root(&root, Path::new(source_path))?;

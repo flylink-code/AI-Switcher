@@ -169,9 +169,7 @@ pub fn upsert_provider(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
         }
         // Determine the DB column value without allowing an implicit empty-key
         // update to erase an existing credential.
-        let api_key_col = if is_codex_oauth {
-            String::new()
-        } else if input.clear_api_key {
+        let api_key_col = if is_codex_oauth || input.clear_api_key {
             String::new()
         } else if !input.api_key.trim().is_empty() {
             secrets::store_key(id, input.api_key.trim())?;
@@ -418,6 +416,7 @@ pub fn clear_current_provider(conn: &Connection, target: ProviderTarget) -> AppR
 }
 
 /// Reorder provider ids within their target application.
+#[allow(dead_code)]
 pub fn reorder_providers(conn: &Connection, ordered_ids: &[String], target: ProviderTarget) -> AppResult<()> {
     for (idx, id) in ordered_ids.iter().enumerate() {
         conn.execute(

@@ -315,6 +315,7 @@ impl CodexOauthManager {
             .unwrap_or_default()
     }
 
+    #[allow(dead_code)]
     pub fn remove_account(&self, account_id: &str) -> AppResult<()> {
         let mut stored = self.stored.write().map_err(lock_error)?;
         let before = stored.accounts.len();

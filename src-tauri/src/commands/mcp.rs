@@ -20,7 +20,7 @@ use crate::store::AppState;
 /// List all unified MCP servers.
 #[tauri::command]
 pub fn list_mcp_servers(state: tauri::State<'_, AppState>) -> AppResult<Vec<McpServer>> {
-    state.db.with_conn(|conn| dao::list_mcp_servers(conn))
+    state.db.with_conn(dao::list_mcp_servers)
 }
 
 /// Create or update a server, then write the enabled set back to both apps.
@@ -261,13 +261,13 @@ pub fn clear_mcp_oauth(input: ClearMcpOauthInput) -> AppResult<McpOauthStatus> {
 pub fn get_mcp_desktop_conflict_status(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<McpDesktopConflictStatus> {
-    let servers = state.db.with_conn(|conn| dao::list_mcp_servers(conn))?;
+    let servers = state.db.with_conn(dao::list_mcp_servers)?;
     mcp::get_desktop_connector_status(&servers)
 }
 
 /// Load all servers from the DB and write the enabled subsets to managed apps.
 pub fn sync_all(state: &AppState) -> AppResult<()> {
-    let servers = state.db.with_conn(|conn| dao::list_mcp_servers(conn))?;
+    let servers = state.db.with_conn(dao::list_mcp_servers)?;
     mcp::sync_to_files(&servers)?;
     crate::config::codex::sync_mcp_servers(&servers)?;
     crate::config::opencode::sync_mcp_servers(&servers)?;

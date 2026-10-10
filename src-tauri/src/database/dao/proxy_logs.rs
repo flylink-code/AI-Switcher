@@ -1593,7 +1593,6 @@ pub fn list_proxy_request_logs(
     page_size: u32,
 ) -> AppResult<PaginatedProxyLogs> {
     let page_size = page_size.clamp(1, 100);
-    let page = page;
     let offset = i64::from(page) * i64::from(page_size);
 
     let mut conditions = Vec::new();

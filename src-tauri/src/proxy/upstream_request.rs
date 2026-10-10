@@ -37,7 +37,7 @@ async fn proxy_handler_inner(
     mut state: ProxyState,
     method: Method,
     uri: Uri,
-    mut headers: HeaderMap,
+    headers: HeaderMap,
     body: Body,
 ) -> Response {
     if state.listener_kind == ListenerKind::SmartGateway {
@@ -173,15 +173,6 @@ async fn proxy_handler_inner(
         return axum::Json(probe_response).into_response();
     }
     if state.listener_kind == ListenerKind::SmartGateway {
-        if let Err((message, retry_after)) =
-            crate::gateway::budget::apply_to_request(&state.db, &mut requested_model)
-        {
-            return json_error_with_retry_after(
-                StatusCode::TOO_MANY_REQUESTS,
-                message,
-                Some(retry_after),
-            );
-        }
         if let Some(object) = incoming.as_object_mut() {
             object.insert("model".to_string(), Value::String(requested_model.clone()));
         }
@@ -198,13 +189,6 @@ async fn proxy_handler_inner(
                 provider = selected;
                 requested_model = upstream.clone();
                 is_catalog_subagent = routed_subagent;
-                crate::gateway::rules::apply_rewrites(&mut incoming, &mut headers, &decision.rewrites);
-                if let Some(thinking) = decision.thinking.as_ref() {
-                    crate::gateway::thinking::apply_to_body(&mut incoming, provider.protocol_type, thinking);
-                    if provider.is_antigravity() {
-                        crate::gateway::thinking::apply_gemini_thinking_budget(&mut incoming, thinking);
-                    }
-                }
                 route_decision = Some(decision);
                 route_plan = Some(plan);
                 if let Some(object) = incoming.as_object_mut() {

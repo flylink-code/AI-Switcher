@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult};
 
 /// Bump whenever the schema changes. Each migration step moves user_version
 /// from N-1 to N.
-pub const SCHEMA_VERSION: u32 = 35;
+pub const SCHEMA_VERSION: u32 = 36;
 
 /// Create all tables (idempotent — uses `IF NOT EXISTS`).
 pub fn create_tables(conn: &Connection) -> AppResult<()> {
@@ -260,31 +260,7 @@ fn create_gateway_tables(conn: &Connection) -> AppResult<()> {
             prev_binding_json TEXT NOT NULL DEFAULT '',
             newly_created INTEGER NOT NULL DEFAULT 0
         );
-        CREATE TABLE IF NOT EXISTS route_modes (
-            id TEXT NOT NULL,
-            profile_id TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 0,
-            model TEXT NOT NULL DEFAULT '',
-            thinking_config_json TEXT NOT NULL DEFAULT '{}',
-            fallback_models_json TEXT NOT NULL DEFAULT '[]',
-            threshold INTEGER NOT NULL DEFAULT 0,
-            sort_index INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (profile_id, id)
-        );
-        CREATE TABLE IF NOT EXISTS route_rules (
-            id TEXT PRIMARY KEY,
-            profile_id TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            sort_index INTEGER NOT NULL DEFAULT 0,
-            rule_type TEXT NOT NULL,
-            condition_json TEXT NOT NULL DEFAULT '{}',
-            pattern TEXT NOT NULL DEFAULT '',
-            target_model TEXT NOT NULL DEFAULT '',
-            thinking_config_json TEXT NOT NULL DEFAULT '{}',
-            rewrites_json TEXT NOT NULL DEFAULT '[]'
-        );
-        CREATE INDEX IF NOT EXISTS idx_route_modes_profile ON route_modes(profile_id);
-        CREATE INDEX IF NOT EXISTS idx_route_rules_profile ON route_rules(profile_id);",
+        ",
     )?;
     Ok(())
 }
@@ -447,6 +423,9 @@ pub fn migrate(conn: &Connection) -> AppResult<()> {
     }
     if current < 35 {
         migrate_v34_to_v35(conn)?;
+    }
+    if current < 36 {
+        migrate_v35_to_v36(conn)?;
     }
     Ok(())
 }
@@ -1300,6 +1279,14 @@ fn migrate_v34_to_v35(conn: &Connection) -> AppResult<()> {
     set_user_version(conn, 35)
 }
 
+fn migrate_v35_to_v36(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "DROP TABLE IF EXISTS route_rules;
+         DROP TABLE IF EXISTS route_modes;",
+    )?;
+    set_user_version(conn, 36)
+}
+
 fn add_proxy_log_attempts_column(conn: &Connection) -> AppResult<()> {
     let table_exists: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='proxy_request_logs';",
@@ -1592,7 +1579,7 @@ mod tests {
             let v: u32 = conn.query_row("PRAGMA user_version;", [], |r| r.get(0))?;
             assert_eq!(v, SCHEMA_VERSION);
             // Tables exist.
-            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "gateway_bindings", "route_modes", "route_rules", "gateway_id_map", "upstream_migration_v34"] {
+            for table in ["providers", "settings", "mcp_servers", "profiles", "proxy_request_logs", "model_pricing", "provider_health", "provider_models", "upstreams", "upstream_models", "gateway_profiles", "gateway_bindings", "gateway_id_map", "upstream_migration_v34"] {
                 let n: i64 = conn.query_row(
                     &format!("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{table}';"),
                     [],
@@ -2188,13 +2175,13 @@ mod tests {
         let version: u32 = conn
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 35);
+        assert_eq!(version, 36);
 
         // Run migration again to verify idempotency
         migrate(&conn).unwrap();
         let version2: u32 = conn
             .query_row("PRAGMA user_version;", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version2, 35);
+        assert_eq!(version2, 36);
     }
 }

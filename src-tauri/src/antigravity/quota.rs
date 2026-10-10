@@ -1011,7 +1011,7 @@ fn parse_summary_groups(value: &Value) -> Vec<QuotaGroup> {
                 .and_then(Value::as_array)
                 .into_iter()
                 .flatten()
-                .filter_map(|bucket| parse_summary_bucket(bucket))
+                .filter_map(parse_summary_bucket)
                 .collect();
             QuotaGroup {
                 display_name,

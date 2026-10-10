@@ -197,7 +197,7 @@ fn parse_quota_limited(body: &Value, queried_at: i64) -> ProviderQuotaResult {
                 "5h" => TIER_FIVE_HOUR,
                 "1d" | "daily" => TIER_DAILY,
                 "7d" => TIER_SEVEN_DAY,
-                other if other.is_empty() => continue,
+                "" => continue,
                 other => other,
             };
             let limit = item.get("limit").and_then(parse_f64).unwrap_or(0.0);
@@ -295,7 +295,7 @@ fn parse_unrestricted(body: &Value, queried_at: i64) -> ProviderQuotaResult {
         total_balance: total,
         granted_balance: None,
         topped_up_balance: None,
-        is_available: total > 0.0 || total < 0.0,
+        is_available: total != 0.0,
         queried_at,
     }
 }

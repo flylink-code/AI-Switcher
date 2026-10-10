@@ -53,6 +53,7 @@ import {
   mcpOauthStatusOptions,
   mcpServersOptions,
 } from "@/lib/appQueries";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text, Paragraph } = Typography;
 
@@ -1160,6 +1161,3 @@ function KeyValueList({
   );
 }
 
-function errMsg(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

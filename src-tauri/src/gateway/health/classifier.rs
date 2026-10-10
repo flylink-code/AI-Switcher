@@ -289,11 +289,9 @@ fn matches_model_not_found(code: Option<&str>, message: Option<&str>, body: &str
             && (lower.contains("does not exist")
                 || lower.contains("not found")
                 || lower.contains("could not be found"))
-        {
-            if !lower.contains("route not found") && !lower.contains("endpoint not found") {
+            && !lower.contains("route not found") && !lower.contains("endpoint not found") {
                 return true;
             }
-        }
         false
     };
 

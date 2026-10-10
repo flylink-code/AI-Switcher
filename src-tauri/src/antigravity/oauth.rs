@@ -142,7 +142,7 @@ async fn wait_for_auth_code(listener: TcpListener, expected_state: &str) -> AppR
         fail_html("OAuth state mismatch")
     } else if let Some(error) = params.get("error") {
         fail_html(error)
-    } else if params.get("code").is_some() {
+    } else if params.contains_key("code") {
         success_html().to_string()
     } else {
         fail_html("missing authorization code")

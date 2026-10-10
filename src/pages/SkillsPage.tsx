@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { errMsg } from "@/lib/errMsg";
 import {
   Button,
   Card,
@@ -719,9 +720,6 @@ export default function SkillsPage({ target: targetProp }: SkillsPageProps = {})
   );
 }
 
-function errMsg(e: unknown) {
-  return e instanceof Error ? e.message : String(e);
-}
 
 function SkillStatus({ status, t }: { status?: SkillUpdateStatus; t: (key: string) => string }) {
   if (!status) return <Text type="secondary">—</Text>;

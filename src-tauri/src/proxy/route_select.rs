@@ -19,111 +19,71 @@ impl std::fmt::Display for GatewaySelectionError {
 pub(crate) fn select_gateway_runtime_provider_with(
     state: &ProxyState,
     requested_model: &str,
-    force_catalog_subagent: bool,
-    incoming: &Value,
-    request_path: &str,
-    headers: &HeaderMap,
+    _force_catalog_subagent: bool,
+    _incoming: &Value,
+    _request_path: &str,
+    _headers: &HeaderMap,
 ) -> Result<Option<(Provider, String, bool, crate::gateway::RouteDecision, crate::gateway::RouteExecutionPlan)>, GatewaySelectionError> {
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state.db.with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target)).ok().flatten();
-    let profile_id = profile.as_ref().map(|item| item.id.clone()).unwrap_or_else(|| crate::database::dao::gateway::SHARED_PROFILE_ID.to_string());
-    let modes = state.db.with_read_conn(|conn| crate::gateway::modes::load_modes(conn, &profile_id)).unwrap_or_default();
-    let rules = state.db.with_read_conn(|conn| crate::database::dao::gateway::list_route_rules(conn, &profile_id)).unwrap_or_default();
-    let tool_names = crate::gateway::modes::extract_tool_names(incoming);
-    let recent_write_tool = crate::gateway::modes::extract_recent_write_tool(incoming);
-    if matches!(state.listener_kind, ListenerKind::SmartGateway) { log::info!("tool-signal-probe tools=[{}] write={} path={} target={}", tool_names.join(","), recent_write_tool.as_deref().unwrap_or("-"), request_path, state.target.as_str()); }
-    let hints = crate::gateway::RouteHints {
-        token_count: crate::gateway::estimate_request_tokens(incoming), has_web_search: crate::gateway::request_has_web_search(incoming), has_vision: crate::gateway::modes::has_vision_content(incoming), has_thinking: crate::gateway::modes::has_thinking_signal(incoming), is_image_gen: request_path.contains("/images/generations"), tool_names, recent_write_tool, path: request_path.to_string(), target: Some(state.target),
+    let explicit = if crate::gateway::is_auto_model_id(requested_model) {
+        entries.first().map(|entry| entry.public_id.clone()).unwrap_or_default()
+    } else {
+        requested_model.trim().to_string()
     };
-    let session_key = crate::gateway::sticky::session_key_from(incoming, session_prompt_cache_hint(headers).as_deref());
-    let routed_model = crate::gateway::sticky::rewrite_requested(state.target, requested_model, &entries, &session_key);
-    let Some((mut provider, upstream, mut decision, mut plan, is_catalog_subagent)) = crate::gateway::resolve_gateway_route_with_modes_strict(style, &entries, &providers, &routed_model, force_catalog_subagent, profile.as_ref(), &hints, &modes, &rules).map_err(|error| match error { crate::gateway::CatalogRouteError::InvalidModel(error) => GatewaySelectionError::Catalog(error) })? else { return Ok(None); };
-
-    let source_locked = matches!(decision.source, crate::gateway::RouteSource::Explicit | crate::gateway::RouteSource::Rule);
-    if crate::gateway::inbound::subagent_inherit_upstream(&state.db) && force_catalog_subagent && !source_locked {
-        match crate::gateway::sticky::parent_session_key_from(headers) {
-            None => note_unused_parent(&mut decision, "未提供父会话标识，保持当前路由"),
-            Some(parent) => {
-                let auth_domain = presented_listener_token(headers);
-                match crate::gateway::sticky::inherited_upstream(&auth_domain, state.target, &profile_id, Some(&parent)) {
-                    Some(inherited_id) => {
-                        if let Some(candidate) = providers.iter().find(|candidate| candidate.id == inherited_id && !candidate.is_smart_gateway()) {
-                            let candidate_model = crate::provider::resolve_upstream_model(candidate, &upstream);
-                            let profile_allowed = profile.as_ref().is_none_or(|item| crate::database::dao::gateway::profile_allows_upstream(item, &candidate.id));
-                            if candidate.allows_failover_for_request(&upstream) && profile_allowed && crate::gateway::health::is_available(&candidate.id, Some(&candidate_model)) {
-                                provider = candidate.clone();
-                                decision.upstream_id = Some(candidate.id.clone());
-                                decision.reason = format!("{}；沿用父会话上游", decision.reason);
-                                if let Some(attempt) = plan.attempts.first_mut() {
-                                    attempt.upstream_id = Some(candidate.id.clone());
-                                }
-                            } else {
-                                note_unused_parent(&mut decision, "父会话上游不适用，保持当前路由");
-                            }
-                        } else {
-                            note_unused_parent(&mut decision, "父会话上游不适用，保持当前路由");
-                        }
-                    }
-                    None => note_unused_parent(&mut decision, "未找到父会话上游，保持当前路由"),
-                }
-            }
-        }
+    if explicit.is_empty() {
+        return Ok(None);
     }
-    let Some(mut provider) = hydrate_provider_credential(state, provider)? else { return Ok(None); };
+    let resolved = crate::catalog::resolve_request_strict(&entries, &providers, &explicit)
+        .map_err(GatewaySelectionError::Catalog)?;
+    let Some((provider_id, upstream)) = resolved else {
+        return Ok(None);
+    };
+    let Some(provider) = providers.into_iter().find(|item| item.id == provider_id) else {
+        return Ok(None);
+    };
+    let source = if crate::gateway::is_auto_model_id(requested_model) {
+        crate::gateway::RouteSource::Auto
+    } else {
+        crate::gateway::RouteSource::Explicit
+    };
+    let decision = crate::gateway::RouteDecision {
+        requested_model: requested_model.to_string(),
+        normalized_model: upstream.clone(),
+        source,
+        reason: source.as_reason().to_string(),
+        profile_id: profile.as_ref().map(|item| item.id.clone()),
+        upstream_id: Some(provider.id.clone()),
+        diagnostics: Vec::new(),
+        thinking: None,
+        rewrites: Vec::new(),
+        mode_id: None,
+    };
+    let plan = crate::gateway::build_execution_plan(
+        profile.as_ref(),
+        &upstream,
+        Some(&provider.id),
+        source,
+    );
+    let Some(mut provider) = hydrate_provider_credential(state, provider)? else {
+        return Ok(None);
+    };
     provider.model = upstream.clone();
-    log::info!("Catalog route client={} normalized={} reason={} provider={} upstream={} subagent={}", decision.requested_model, decision.normalized_model, decision.reason, provider.name, upstream, is_catalog_subagent);
-    Ok(Some((provider, upstream, is_catalog_subagent, decision, plan)))
+    log::info!(
+        "Catalog route client={} normalized={} provider={} upstream={}",
+        decision.requested_model, decision.normalized_model, provider.name, upstream
+    );
+    Ok(Some((provider, upstream, false, decision, plan)))
 }
 
-fn note_unused_parent(decision: &mut crate::gateway::RouteDecision, message: &str) {
-    decision.diagnostics.push(message.into());
-    decision.reason = format!("{}；{message}", decision.reason);
-}
-
-fn should_forward_inbound_header(name: &str) -> bool {
-    !(is_hop_by_hop_header(name)
-        || name.eq_ignore_ascii_case("host")
-        || name.eq_ignore_ascii_case("content-length")
-        || name.eq_ignore_ascii_case("content-type")
-        || name.eq_ignore_ascii_case("authorization")
-        || name.eq_ignore_ascii_case("x-api-key")
-        || name.eq_ignore_ascii_case(crate::gateway::correlation::CLIENT_MODEL_HEADER)
-        || name.eq_ignore_ascii_case(crate::gateway::sticky::PARENT_SESSION_HEADER))
-}
-
-/// 只记录非子代理的最终成功上游。父会话头或子代理请求不回写父槽。
 pub(crate) fn remember_gateway_success_upstream(
-    state: &ProxyState,
-    headers: &HeaderMap,
-    incoming: &Value,
-    provider_id: &str,
-    is_subagent: bool,
+    _state: &ProxyState,
+    _headers: &HeaderMap,
+    _incoming: &Value,
+    _provider_id: &str,
+    _is_subagent: bool,
 ) {
-    if state.listener_kind != ListenerKind::SmartGateway || is_subagent {
-        return;
-    }
-    if crate::gateway::sticky::parent_session_key_from(headers).is_some() {
-        return;
-    }
-    let session_key = crate::gateway::sticky::session_key_from(
-        incoming,
-        session_prompt_cache_hint(headers).as_deref(),
-    );
-    let profile_id = state
-        .db
-        .with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target))
-        .ok()
-        .flatten()
-        .map(|item| item.id)
-        .unwrap_or_else(|| crate::database::dao::gateway::SHARED_PROFILE_ID.to_string());
-    crate::gateway::sticky::remember_successful_upstream(
-        &presented_listener_token(headers),
-        state.target,
-        &profile_id,
-        &session_key,
-        provider_id,
-    );
 }
 
 fn note_gateway_inflight(
@@ -187,6 +147,17 @@ pub(crate) fn should_try_explicit_fallback(provider: &Provider, status: StatusCo
     }
     matches!(status, StatusCode::REQUEST_TIMEOUT | StatusCode::TOO_MANY_REQUESTS)
         || status.is_server_error()
+}
+
+fn should_forward_inbound_header(name: &str) -> bool {
+    !(is_hop_by_hop_header(name)
+        || name.eq_ignore_ascii_case("host")
+        || name.eq_ignore_ascii_case("content-length")
+        || name.eq_ignore_ascii_case("content-type")
+        || name.eq_ignore_ascii_case("authorization")
+        || name.eq_ignore_ascii_case("x-api-key")
+        || name.eq_ignore_ascii_case(crate::gateway::correlation::CLIENT_MODEL_HEADER)
+        || name.eq_ignore_ascii_case(crate::gateway::PARENT_SESSION_HEADER))
 }
 
 fn prepare_upstream_request(
@@ -278,7 +249,7 @@ fn compatible_stream_retry(provider: &Provider, prepared: &PreparedUpstreamReque
 pub(crate) fn is_retryable_upstream_status(state: &ProxyState, status: StatusCode) -> bool {
     let codes = state
         .db
-        .with_read_conn(|conn| load_retryable_status_codes(conn))
+        .with_read_conn(load_retryable_status_codes)
         .unwrap_or_else(|_| default_retryable_status_codes());
     codes.contains(&status.as_u16())
 }

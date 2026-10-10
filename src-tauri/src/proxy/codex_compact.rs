@@ -160,7 +160,7 @@ fn append_compact_input_item(item: &Value, messages: &mut Vec<Value>) {
     if let Some(role) = item.get("role").and_then(Value::as_str) {
         let content = item
             .get("content")
-            .map(|content| content_to_plain(content))
+            .map(content_to_plain)
             .unwrap_or_default();
         if !content.trim().is_empty() {
             let mapped = match role {

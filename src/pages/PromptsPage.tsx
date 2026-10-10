@@ -46,6 +46,7 @@ import {
   saveWorkspacePiPrompt,
 } from "@/services/api";
 import { promptsOverviewOptions } from "@/lib/appQueries";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text, Paragraph } = Typography;
 
@@ -537,6 +538,3 @@ export default function PromptsPage({ target: targetProp }: PromptsPageProps = {
   );
 }
 
-function errMsg(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

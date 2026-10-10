@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { evaluate, invoke, withCdp, waitForTauri } from "../cdp-invoke.mjs";
-import { assert, pathUnderHome, providerInput, upsertUpstream, SHARED_PROFILE_ID } from "../lib.mjs";
+import { assert, pathUnderHome, providerInput, upsertUpstream } from "../lib.mjs";
 
 export const id = "SG-gateway-ui-reliability";
 
@@ -36,17 +36,8 @@ async function click(expression) {
   });
 }
 
-const byText = (selector, text) => `Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find(e => e.textContent.trim() === ${JSON.stringify(text)})`;
 const nav = (name) => `document.querySelector('.v2-top-nav button[aria-label="${name}"]')`;
 const bodyHas = (text) => evaluate(`document.body.innerText.includes(${JSON.stringify(text)})`);
-
-async function option(text) {
-  const expression = byText(".ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-content", text);
-  await waitFor(() => evaluate(`Boolean(${expression})`), `下拉选项 ${text}`);
-  // 下拉动画期间位置仍变化；等布局稳定后再发送真实指针事件。
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  await click(expression);
-}
 
 async function screenshot(name) {
   const dir = path.resolve("scripts/system-test/artifacts", `ui-${process.env.AISW_CDP_PORT}-${process.pid}`);
@@ -63,9 +54,6 @@ export async function run() {
   await invoke("set_smart_gateway_health_probe_secs", { secs: 0 });
   await invoke("switch_to_official", { target: "claude_code" });
   await invoke("switch_to_official", { target: "codex" });
-  const profiles = await invoke("list_gateway_profiles");
-  const shared = profiles.find((row) => row.id === SHARED_PROFILE_ID);
-  const profile = await invoke("create_gateway_profile", { name: "L2 UI 隔离档案", cloneFrom: SHARED_PROFILE_ID });
   const upstream = await upsertUpstream(providerInput({
     name: "L2 UI 上游", targetApp: "claude_code", baseUrl: "http://127.0.0.1:1", model: "ui-primary",
   }));
@@ -75,7 +63,7 @@ export async function run() {
     await evaluate(`(() => {
       localStorage.setItem('cs.language','zh-CN');
       localStorage.setItem('cs.layoutMode','top');
-      localStorage.setItem('cs.pagePreferences',JSON.stringify({visibleAgents:['claude_code','codex'],gatewayTab:'smart',gatewaySection:'routing',gatewayProfileId:${JSON.stringify(profile.id)}}));
+      localStorage.setItem('cs.pagePreferences',JSON.stringify({visibleAgents:['claude_code','codex'],gatewayTab:'smart'}));
     })()`);
     await evaluate("window.__aiswBeforeReload = true");
     await withCdp((send) => send("Page.reload"));
@@ -83,22 +71,10 @@ export async function run() {
     await waitForTauri();
     await waitFor(() => evaluate(`Boolean(${nav("网关")})`), "网关导航渲染");
     await click(nav("网关"));
-    const routingTab = byText(".ant-segmented-item-label", "路由与规则");
-    await waitFor(() => evaluate(`Boolean(${routingTab})`), "路由分区入口");
-    await click(routingTab);
-    await waitFor(() => bodyHas("正在编辑"), "路由档案工具栏");
-    const profileSelect = `Array.from(document.querySelectorAll('.ant-card')).find(e => e.innerText.includes('正在编辑'))?.querySelector('.ant-select')`;
-    await click(profileSelect);
-    await option("L2 UI 隔离档案");
-    await waitFor(() => bodyHas("L2 UI 隔离档案"), "正在编辑档案");
-    const fallbackSelect = `Array.from(document.querySelectorAll('.ant-card')).find(e => e.innerText.includes('正在编辑'))?.querySelectorAll('.ant-select')[1]`;
-    await click(fallbackSelect);
-    await option("备用链 (model_chain)");
-    await waitFor(async () => (await invoke("list_gateway_profiles")).find((row) => row.id === profile.id)?.fallbackMode === "model_chain", "按 ID 保存备用方式");
-    assert((await invoke("list_gateway_profiles")).find((row) => row.id === SHARED_PROFILE_ID)?.fallbackMode === shared.fallbackMode, "编辑其它档案不能改默认档案");
-    assert(await invoke("get_agent_connection_mode", { target: "claude_code" }) === "direct", "编辑档案不能抢占 direct");
-    assert(await invoke("get_agent_connection_mode", { target: "codex" }) === "external", "编辑档案不能隐式绑定 Codex");
-    await screenshot("routing-profile");
+    await waitFor(() => bodyHas("智能网关服务"), "服务与绑定");
+    assert(await invoke("get_agent_connection_mode", { target: "claude_code" }) === "direct", "打开网关页不能抢占 direct");
+    assert(await invoke("get_agent_connection_mode", { target: "codex" }) === "external", "打开网关页不能隐式绑定 Codex");
+    await screenshot("gateway-service");
 
     await invoke("bind_smart_gateway", { target: "claude_code" });
     await invoke("stop_smart_gateway");
@@ -146,14 +122,13 @@ export async function run() {
     assert(await invoke("get_agent_connection_mode", { target: "codex" }) === "gateway", "Codex 重新应用不切换连接方式");
   } catch (error) {
     console.log("[ui] body", await evaluate("document.body.innerText"));
-    console.log("[ui] profiles", JSON.stringify(await invoke("list_gateway_profiles")));
+    console.log("[ui] bindings", JSON.stringify(await invoke("list_smart_gateway_bindings")));
     await screenshot("failure").catch(() => {});
     throw error;
   } finally {
     await invoke("stop_smart_gateway");
     await invoke("switch_to_official", { target: "claude_code" });
     await invoke("switch_to_official", { target: "codex" });
-    await invoke("delete_gateway_profile", { id: profile.id });
     await invoke("delete_gateway_upstream", { id: upstream.id });
   }
 }

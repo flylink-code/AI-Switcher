@@ -5,7 +5,6 @@ const SCENARIOS = [
   "./scenarios/sg-isolate-home.mjs",
   "./scenarios/sg-regress-no-autobind.mjs",
   "./scenarios/sg-regress-independent-not-stolen.mjs",
-  "./scenarios/sg-p0-simulate.mjs",
   "./scenarios/sg-p0-catalog-bind.mjs",
   "./scenarios/sg-regress-auto-current.mjs",
   "./scenarios/sg-p0-agent-proxy-hop.mjs",

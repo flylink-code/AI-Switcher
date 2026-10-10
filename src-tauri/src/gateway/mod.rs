@@ -5,31 +5,20 @@
 
 pub mod correlation;
 pub mod metadata;
-pub mod modes;
-pub mod rules;
 pub mod service;
-pub mod thinking;
 pub mod health;
 pub mod inbound;
 pub mod upstream_limits;
-pub mod budget;
-pub mod simulate;
 pub mod count_tokens;
-pub mod sticky;
+
+pub const PARENT_SESSION_HEADER: &str = "x-cs-parent-session-id";
 
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use ts_rs::TS;
 
-use crate::catalog::{
-    catalog_in_entries, is_explicit_catalog_passthrough, is_sticky_remap_role_id,
-    normalize_client_request_with, resolve_request_strict, CatalogEntry, CatalogRequestError,
-    CatalogStyle,
-};
-use crate::database::dao::gateway::{
-    profile_allows_upstream, GatewayProfile, RouteMode, RouteRule,
-};
-use crate::provider::{Provider, ProviderKind, ThinkingConfig};
+use crate::database::dao::gateway::GatewayProfile;
+use crate::provider::{ProviderKind, ThinkingConfig};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(TS))]
@@ -67,36 +56,6 @@ impl RouteSource {
             RouteSource::Vision => "vision",
             RouteSource::ImageGen => "image_gen",
             RouteSource::ProfileDefault => "profile_default",
-        }
-    }
-
-    pub fn from_mode_id(id: &str) -> Self {
-        match id {
-            "background" => Self::RoleSubagent,
-            "plan" => Self::Plan,
-            "think" => Self::Think,
-            "edit" => Self::Edit,
-            "long_context" => Self::LongContext,
-            "web_search" => Self::WebSearch,
-            "vision" => Self::Vision,
-            "image_gen" => Self::ImageGen,
-            "default" => Self::Auto,
-            _ => Self::ProfileDefault,
-        }
-    }
-
-    pub fn mode_id(self) -> Option<&'static str> {
-        match self {
-            RouteSource::Explicit | RouteSource::Rule => None,
-            RouteSource::Auto | RouteSource::ProfileDefault => Some("default"),
-            RouteSource::RolePlan | RouteSource::Plan => Some("plan"),
-            RouteSource::RoleExecute | RouteSource::Edit => Some("edit"),
-            RouteSource::RoleSubagent => Some("background"),
-            RouteSource::Think => Some("think"),
-            RouteSource::LongContext => Some("long_context"),
-            RouteSource::WebSearch => Some("web_search"),
-            RouteSource::Vision => Some("vision"),
-            RouteSource::ImageGen => Some("image_gen"),
         }
     }
 }
@@ -207,14 +166,15 @@ pub fn normalize_live_model(model: &str) -> String {
     }
 }
 
-/// Live default written to an Agent. Claude discovery requires `claude.auto`.
+/// Live model written to an Agent. Auto and retired Opus Plan are blank so the
+/// caller can substitute the selected or first catalog model.
 pub fn normalize_live_model_for(
-    target: crate::provider::ProviderTarget,
+    _target: crate::provider::ProviderTarget,
     model: &str,
 ) -> String {
     let trimmed = model.trim();
     if is_auto_model_id(trimmed) || trimmed.eq_ignore_ascii_case("opusplan") {
-        crate::catalog::auto_public_id(crate::catalog::catalog_style_for(target)).to_string()
+        String::new()
     } else {
         trimmed.to_string()
     }
@@ -246,19 +206,6 @@ pub fn smart_gateway_live_endpoint(
         ProviderTarget::OpenCode => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}/v1")),
         _ => (ProtocolType::Anthropic, format!("http://127.0.0.1:{port}")),
     }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct RouteHints {
-    pub token_count: u32,
-    pub has_web_search: bool,
-    pub has_vision: bool,
-    pub has_thinking: bool,
-    pub is_image_gen: bool,
-    pub tool_names: Vec<String>,
-    pub recent_write_tool: Option<String>,
-    pub path: String,
-    pub target: Option<crate::provider::ProviderTarget>,
 }
 
 pub fn estimate_request_tokens(body: &serde_json::Value) -> u32 {
@@ -314,27 +261,6 @@ fn estimate_text_tokens(text: &str) -> u32 {
         tokens = tokens.saturating_add(ascii_run.div_ceil(4));
     }
     tokens
-}
-
-pub fn request_has_web_search(body: &serde_json::Value) -> bool {
-    let Some(tools) = body.get("tools").and_then(|value| value.as_array()) else {
-        return false;
-    };
-    tools.iter().any(|tool| {
-        let name = tool
-            .get("name")
-            .or_else(|| tool.pointer("/function/name"))
-            .or_else(|| tool.pointer("/web_search/name"))
-            .and_then(|value| value.as_str())
-            .unwrap_or("");
-        let kind = tool.get("type").and_then(|value| value.as_str()).unwrap_or("");
-        let lower = name.to_ascii_lowercase();
-        kind.eq_ignore_ascii_case("web_search")
-            || kind.eq_ignore_ascii_case("web_fetch")
-            || lower.contains("web_search")
-            || lower.contains("web_fetch")
-            || lower.contains("websearch")
-    })
 }
 
 fn chain_for_source(profile: &GatewayProfile, source: RouteSource) -> &[String] {
@@ -410,282 +336,6 @@ pub fn build_execution_plan_with_chain(
         primary_model: primary_model.to_string(),
         explicit_pinned,
     }
-}
-
-pub fn slot_diagnostics(profile: &GatewayProfile, entries: &[CatalogEntry]) -> Vec<String> {
-    let mut diagnostics = Vec::new();
-    let slots = [
-        ("default", profile.default_model.as_str()),
-        ("plan", profile.plan_model.as_str()),
-        ("execute", profile.execute_model.as_str()),
-        ("subagent", profile.subagent_model.as_str()),
-        ("long_context", profile.long_context_model.as_str()),
-        ("web_search", profile.web_search_model.as_str()),
-    ];
-    for (label, value) in slots {
-        let value = value.trim();
-        if value.is_empty() {
-            continue;
-        }
-        let known = catalog_in_entries(entries, value)
-            || entries
-                .iter()
-                .any(|entry| entry.upstream_slug.eq_ignore_ascii_case(value));
-        if !known {
-            diagnostics.push(format!("槽位 {label} 引用了目录中不存在的模型 {value}"));
-        }
-    }
-    diagnostics
-}
-
-fn default_mode_lookup(
-    modes: &[RouteMode],
-    profile: Option<&GatewayProfile>,
-) -> Option<String> {
-    modes
-        .iter()
-        .find(|mode| mode.id == "default" && mode.enabled && !mode.model.trim().is_empty())
-        .map(|mode| mode.model.clone())
-        .or_else(|| {
-            profile
-                .map(|profile| profile.default_model.clone())
-                .filter(|value| !value.trim().is_empty())
-        })
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CatalogRouteError {
-    InvalidModel(CatalogRequestError),
-}
-
-impl std::fmt::Display for CatalogRouteError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidModel(error) => error.fmt(f),
-        }
-    }
-}
-
-/// Resolve a route while preserving an explicit catalog model's ownership.
-/// `None` remains reserved for an unavailable provider/allowlist result.
-pub fn resolve_gateway_route_with_modes_strict(
-    style: CatalogStyle,
-    entries: &[CatalogEntry],
-    providers: &[Provider],
-    requested_model: &str,
-    force_subagent: bool,
-    profile: Option<&GatewayProfile>,
-    hints: &RouteHints,
-    modes: &[RouteMode],
-    rules: &[RouteRule],
-) -> Result<Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)>, CatalogRouteError> {
-    let hide_official = profile.map(|profile| profile.hide_official).unwrap_or(false);
-    let subagent = modes::enabled_background_model(modes).or_else(|| {
-        profile
-            .map(|profile| profile.subagent_model.clone())
-            .filter(|value| !value.trim().is_empty())
-    });
-    let signals = modes::ModeSignals {
-        token_count: hints.token_count,
-        has_web_search: hints.has_web_search,
-        has_vision: hints.has_vision,
-        has_thinking: hints.has_thinking,
-        is_subagent: force_subagent,
-        is_image_gen: hints.is_image_gen || hints.path.contains("/images/generations"),
-        tool_names: hints.tool_names.clone(),
-        recent_write_tool: hints.recent_write_tool.clone(),
-        target: hints.target,
-        path: hints.path.clone(),
-    };
-    let in_catalog = is_explicit_catalog_passthrough(entries, requested_model);
-    let role_explicit = !force_subagent && is_sticky_remap_role_id(requested_model);
-    let mut thinking: Option<ThinkingConfig> = None;
-    let mut rewrites = Vec::new();
-    let mut extra_chain: Option<Vec<String>> = None;
-    let (lookup_model, mut source, mut reason) = if in_catalog {
-        (
-            requested_model.to_string(),
-            RouteSource::Explicit,
-            RouteSource::Explicit.as_reason().to_string(),
-        )
-    } else if role_explicit {
-        let lookup = default_mode_lookup(modes, profile)
-            .unwrap_or_else(|| requested_model.to_string());
-        (
-            lookup.clone(),
-            RouteSource::Explicit,
-            format!("显式模型（角色 {requested_model} → {lookup}）"),
-        )
-    } else if let Some(hit) = rules::match_rules(rules, requested_model, &signals) {
-        thinking = hit.thinking;
-        rewrites = hit.rewrites;
-        (
-            hit.target_model,
-            RouteSource::Rule,
-            format!("命中规则 {}（优先于模式）", hit.rule_id),
-        )
-    } else if !modes.is_empty() {
-        if let Some(mode) = modes::select_mode(modes, &signals) {
-            thinking = serde_json::from_str(&mode.thinking_config_json).ok();
-            extra_chain = Some(mode.fallback_models.clone());
-            let source = RouteSource::from_mode_id(&mode.id);
-            (mode.model.clone(), source, mode_reason(&mode.id, &signals))
-        } else {
-            auto_slot_rewrite(requested_model, force_subagent, profile, hints)
-        }
-    } else {
-        auto_slot_rewrite(requested_model, force_subagent, profile, hints)
-    };
-    let normalized = normalize_client_request_with(
-        style,
-        entries,
-        providers,
-        &lookup_model,
-        hide_official,
-        subagent.as_deref(),
-        force_subagent,
-        None,
-        None,
-        false,
-    );
-    let (provider_id, upstream) = resolve_request_strict(entries, providers, &normalized)
-        .map_err(CatalogRouteError::InvalidModel)?
-        .ok_or(CatalogRouteError::InvalidModel(CatalogRequestError::UnknownPublicId(
-            normalized.clone(),
-        )))?;
-    if let Some(profile) = profile {
-        if !profile_allows_upstream(profile, &provider_id) {
-            return Ok(None);
-        }
-    }
-    let Some(mut provider) = providers
-        .iter()
-        .find(|provider| provider.id == provider_id && !provider.is_smart_gateway())
-        .cloned()
-    else {
-        return Ok(None);
-    };
-    if thinking.as_ref().is_some_and(|cfg| !cfg.is_empty()) {
-        provider.thinking_config = thinking.clone();
-    }
-    if in_catalog {
-        source = RouteSource::Explicit;
-        reason = source.as_reason().to_string();
-    }
-    let diagnostics = profile
-        .map(|profile| slot_diagnostics(profile, entries))
-        .unwrap_or_default();
-    let decision = RouteDecision {
-        requested_model: requested_model.to_string(),
-        normalized_model: normalized.clone(),
-        source,
-        reason,
-        profile_id: profile.map(|profile| profile.id.clone()),
-        upstream_id: Some(provider_id.clone()),
-        diagnostics,
-        thinking,
-        rewrites,
-        mode_id: source.mode_id().map(str::to_string),
-    };
-    let plan = build_execution_plan_with_chain(
-        profile,
-        &upstream,
-        Some(&provider_id),
-        source,
-        extra_chain.as_deref(),
-    );
-    let is_subagent = matches!(source, RouteSource::RoleSubagent) || (force_subagent && !in_catalog);
-    Ok(Some((provider, upstream, decision, plan, is_subagent)))
-}
-
-pub fn resolve_gateway_route_with_modes(
-    style: CatalogStyle,
-    entries: &[CatalogEntry],
-    providers: &[Provider],
-    requested_model: &str,
-    force_subagent: bool,
-    profile: Option<&GatewayProfile>,
-    hints: &RouteHints,
-    modes: &[RouteMode],
-    rules: &[RouteRule],
-) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
-    resolve_gateway_route_with_modes_strict(
-        style,
-        entries,
-        providers,
-        requested_model,
-        force_subagent,
-        profile,
-        hints,
-        modes,
-        rules,
-    )
-    .ok()
-    .flatten()
-}
-
-fn mode_reason(mode_id: &str, signals: &modes::ModeSignals) -> String {
-    match mode_id {
-        "plan" => {
-            let tool = signals
-                .tool_names
-                .iter()
-                .find(|name| modes::looks_like_plan(std::slice::from_ref(name), signals.target))
-                .cloned()
-                .unwrap_or_else(|| "ExitPlanMode".into());
-            format!("命中规划模式（依据：tools 含 {tool}）")
-        }
-        "edit" => {
-            let tool = signals
-                .recent_write_tool
-                .clone()
-                .unwrap_or_else(|| "Edit".into());
-            format!("命中改内容模式（依据：最近一轮调用了 {tool}）")
-        }
-        "background" => "命中后台/辅助模式（依据：子代理或 Haiku 角色）".into(),
-        "think" => "命中思考模式（依据：请求含 thinking/reasoning）".into(),
-        "long_context" => format!(
-            "命中长上下文模式（依据：估算 token {} 超过阈值）",
-            signals.token_count
-        ),
-        "web_search" => "命中联网模式（依据：tools 含 web_search/web_fetch）".into(),
-        "vision" => "命中视觉模式（依据：content 含 image block）".into(),
-        "image_gen" => "命中图像生成模式（依据：路径 /v1/images/generations）".into(),
-        "default" => "命中默认模式".into(),
-        other => format!("命中模式 {other}"),
-    }
-}
-
-fn auto_slot_rewrite(
-    requested_model: &str,
-    force_subagent: bool,
-    profile: Option<&GatewayProfile>,
-    _hints: &RouteHints,
-) -> (String, RouteSource, String) {
-    if force_subagent || !is_auto_model_id(requested_model) {
-        return (
-            requested_model.to_string(),
-            if force_subagent {
-                RouteSource::RoleSubagent
-            } else {
-                RouteSource::Explicit
-            },
-            if force_subagent {
-                "background".into()
-            } else {
-                "explicit_model".into()
-            },
-        );
-    }
-    log::warn!("route_modes is empty; falling back to profile.default_model");
-    let Some(profile) = profile else {
-        return (String::new(), RouteSource::Auto, "auto".into());
-    };
-    let default = profile.default_model.trim();
-    if !default.is_empty() {
-        return (default.to_string(), RouteSource::Auto, "auto".into());
-    }
-    (String::new(), RouteSource::Auto, "auto".into())
 }
 
 #[cfg(test)]
@@ -792,69 +442,18 @@ mod tests {
     }
 
     #[test]
-    fn auto_slots_ignore_explicit_catalog_ids() {
-        let profile = GatewayProfile {
-            id: "gprof_claude_code".into(),
-            name: "t".into(),
-            target_app: crate::provider::ProviderTarget::ClaudeCode,
-            default_model: "default-m".into(),
-            plan_model: String::new(),
-            execute_model: String::new(),
-            subagent_model: String::new(),
-            allowed_upstream_ids: vec![],
-            role_routing_enabled: false,
-            explicit_fallback_enabled: false,
-            fallback_mode: "off".into(),
-            fallback_models: vec![],
-            hide_official: false,
-            entry_token: String::new(),
-            entry_token_set: false,
-            plan_fallback: vec![],
-            execute_fallback: vec![],
-            subagent_fallback: vec![],
-            long_context_model: "long-m".into(),
-            long_context_tokens: 100,
-            web_search_model: "web-m".into(),
-            created_at: 0,
-            updated_at: 0,
-        };
-        let hints = RouteHints {
-            token_count: 9_000,
-            has_web_search: true,
-            ..RouteHints::default()
-        };
-        let (lookup, source, _) = auto_slot_rewrite("claude.kimi.k2", false, Some(&profile), &hints);
-        assert_eq!(lookup, "claude.kimi.k2");
-        assert_eq!(source, RouteSource::Explicit);
-        let (lookup, source, _) = auto_slot_rewrite("auto", false, Some(&profile), &hints);
-        assert_eq!(lookup, "default-m");
-        assert_eq!(source, RouteSource::Auto);
-        let hints = RouteHints {
-            token_count: 9_000,
-            has_web_search: false,
-            ..RouteHints::default()
-        };
-        let (lookup, source, _) = auto_slot_rewrite("auto", false, Some(&profile), &hints);
-        assert_eq!(lookup, "default-m");
-        assert_eq!(source, RouteSource::Auto);
-        let (lookup, source, _) = auto_slot_rewrite("claude.auto", false, Some(&profile), &hints);
-        assert_eq!(lookup, "default-m");
-        assert_eq!(source, RouteSource::Auto);
-    }
-
-    #[test]
     fn live_auto_id_is_claude_prefixed_for_code() {
         assert_eq!(
             normalize_live_model_for(crate::provider::ProviderTarget::ClaudeCode, "auto"),
-            "claude.auto"
+            ""
         );
         assert_eq!(
             normalize_live_model_for(crate::provider::ProviderTarget::ClaudeDesktop, ""),
-            "claude.auto"
+            ""
         );
         assert_eq!(
-            normalize_live_model_for(crate::provider::ProviderTarget::Codex, "auto"),
-            "auto"
+            normalize_live_model_for(crate::provider::ProviderTarget::Codex, "claude.example.model"),
+            "claude.example.model"
         );
         assert_eq!(normalize_live_model("claude.auto"), "auto");
         assert!(resolved_gateway_token("gwt_abc").is_some());
@@ -903,208 +502,4 @@ mod tests {
         assert_eq!(estimate_request_tokens(&body), 1);
     }
 
-    fn test_provider(id: &str, name: &str, model: &str) -> Provider {
-        use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderKind, ProviderTarget};
-        Provider {
-            id: id.into(),
-            name: name.into(),
-            base_url: "https://api.example.test/v1".into(),
-            api_key: String::new(),
-            api_key_set: false,
-            model: model.into(),
-            model_context_window: Some(200_000),
-            auto_review_model_override: None,
-            web_search_enabled: Some(true),
-            model_mapping: ClaudeModelMapping::default(),
-            protocol_type: ProtocolType::OpenAiChat,
-            provider_kind: ProviderKind::Standard,
-            auth_binding: String::new(),
-            target_app: ProviderTarget::ClaudeCode,
-            notes: String::new(),
-            sort_index: 0,
-            failover_group: 0,
-            failover_models: Vec::new(),
-            hidden_models: Vec::new(),
-            thinking_config: None,
-            custom_headers: None,
-            is_current: false,
-            created_at: 0,
-            health_status: None,
-            health_checked_at: None,
-            health_latency_ms: None,
-        }
-    }
-
-    fn catalog_entry(public_id: &str, slug: &str, provider_id: &str, window: u64) -> CatalogEntry {
-        CatalogEntry {
-            public_id: public_id.into(),
-            display_name: public_id.into(),
-            upstream_slug: slug.into(),
-            provider_id: provider_id.into(),
-            context_window: window,
-            anthropic_upstream: false,
-            web_search_enabled: false,
-        }
-    }
-
-    fn route_mode(id: &str, model: &str, threshold: i64) -> RouteMode {
-        RouteMode {
-            id: id.into(),
-            profile_id: "gprof_shared".into(),
-            enabled: true,
-            model: model.into(),
-            thinking_config_json: "{}".into(),
-            fallback_models: vec![],
-            threshold,
-            sort_index: 0,
-        }
-    }
-
-    fn routing_fixture() -> (Vec<CatalogEntry>, Vec<Provider>, Vec<RouteMode>) {
-        let astra = test_provider("sub2api", "sub2api", "gpt-6-astra");
-        let ag = test_provider("ag", "Antigravity", "gemini-3.8-flash-high");
-        let providers = vec![astra, ag];
-        let entries = vec![
-            catalog_entry(
-                "claude.sub2api.gpt-6-astra",
-                "gpt-6-astra",
-                "sub2api",
-                200_000,
-            ),
-            catalog_entry(
-                "claude.ag.gemini-3.8-flash-high",
-                "gemini-3.8-flash-high",
-                "ag",
-                1_000_000,
-            ),
-            catalog_entry(
-                "claude.ag.gemini-3.8-flash-low",
-                "gemini-3.8-flash-low",
-                "ag",
-                1_000_000,
-            ),
-        ];
-        let modes = vec![
-            route_mode("default", "claude.ag.gemini-3.8-flash-high", 0),
-            route_mode(
-                "long_context",
-                "claude.ag.gemini-3.8-flash-high",
-                20_000,
-            ),
-            route_mode("background", "claude.ag.gemini-3.8-flash-low", 0),
-        ];
-        let entries =
-            crate::catalog::with_auto_entry_from_modes(CatalogStyle::Claude, entries, &modes);
-        (entries, providers, modes)
-    }
-
-    fn route(
-        requested: &str,
-        force_subagent: bool,
-        tokens: u32,
-    ) -> Option<(Provider, String, RouteDecision, RouteExecutionPlan, bool)> {
-        let (entries, providers, modes) = routing_fixture();
-        resolve_gateway_route_with_modes(
-            CatalogStyle::Claude,
-            &entries,
-            &providers,
-            requested,
-            force_subagent,
-            None,
-            &RouteHints {
-                token_count: tokens,
-                ..RouteHints::default()
-            },
-            &modes,
-            &[],
-        )
-    }
-
-    #[test]
-    fn explicit_catalog_id_skips_long_context_mode() {
-        let routed = route("claude.sub2api.gpt-6-astra", false, 42_611).unwrap();
-        assert_eq!(routed.1, "gpt-6-astra");
-        assert_eq!(routed.2.source, RouteSource::Explicit);
-        assert_eq!(routed.2.reason, "explicit_model");
-    }
-
-    #[test]
-    fn auto_over_threshold_hits_long_context() {
-        let routed = route("claude.auto", false, 42_611).unwrap();
-        assert_eq!(routed.1, "gemini-3.8-flash-high");
-        assert_eq!(routed.2.source, RouteSource::LongContext);
-        assert!(routed.2.reason.contains("长上下文"));
-    }
-
-    #[test]
-    fn injected_sonnet_role_without_sticky_skips_modes() {
-        let routed = route("claude-sonnet-5", false, 42_611).unwrap();
-        assert_eq!(routed.1, "gemini-3.8-flash-high");
-        assert_eq!(routed.2.source, RouteSource::Explicit);
-        assert!(routed.2.reason.contains("显式模型"));
-        assert!(routed.2.reason.contains("claude-sonnet-5"));
-        assert_ne!(routed.2.source, RouteSource::LongContext);
-    }
-
-    #[test]
-    fn subagent_header_on_sonnet_role_still_uses_background() {
-        let routed = route("claude-sonnet-5", true, 42_611).unwrap();
-        assert_eq!(routed.1, "gemini-3.8-flash-low");
-        assert_eq!(routed.2.source, RouteSource::RoleSubagent);
-        assert!(routed.4);
-    }
-
-    #[test]
-    fn sticky_sonnet_role_stays_on_explicit_catalog_model() {
-        let _guard = sticky::test_lock();
-        sticky::reset_for_tests();
-        let (entries, providers, modes) = routing_fixture();
-        let rewritten = sticky::rewrite_requested(
-            crate::provider::ProviderTarget::ClaudeCode,
-            "claude.sub2api.gpt-6-astra",
-            &entries,
-            "sess-b",
-        );
-        assert_eq!(rewritten, "claude.sub2api.gpt-6-astra");
-        let rewritten = sticky::rewrite_requested(
-            crate::provider::ProviderTarget::ClaudeCode,
-            "claude-sonnet-5",
-            &entries,
-            "sess-b",
-        );
-        let routed = resolve_gateway_route_with_modes(
-            CatalogStyle::Claude,
-            &entries,
-            &providers,
-            &rewritten,
-            false,
-            None,
-            &RouteHints {
-                token_count: 42_611,
-                ..RouteHints::default()
-            },
-            &modes,
-            &[],
-        )
-        .unwrap();
-        assert_eq!(routed.1, "gpt-6-astra");
-        assert_eq!(routed.2.source, RouteSource::Explicit);
-        sticky::reset_for_tests();
-    }
-
-    #[test]
-    fn haiku_role_uses_background_slot() {
-        let routed = route("claude-haiku-4-5", true, 42_611).unwrap();
-        assert_eq!(routed.1, "gemini-3.8-flash-low");
-        assert_eq!(routed.2.source, RouteSource::RoleSubagent);
-        assert!(routed.4);
-    }
-
-    #[test]
-    fn subagent_header_does_not_steal_explicit_catalog_id() {
-        let routed = route("claude.sub2api.gpt-6-astra", true, 42_611).unwrap();
-        assert_eq!(routed.1, "gpt-6-astra");
-        assert_eq!(routed.2.source, RouteSource::Explicit);
-        assert!(!routed.4);
-    }
 }

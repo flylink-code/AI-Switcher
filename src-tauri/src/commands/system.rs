@@ -331,12 +331,12 @@ fn autostart_status(app: &tauri::AppHandle) -> AppResult<AutostartStatus> {
     {
         let _ = app;
         let status = crate::autostart_windows::registration_status()?;
-        return Ok(AutostartStatus {
+        Ok(AutostartStatus {
             enabled: status.enabled,
             registry_name: status.registry_name,
             command: status.command,
             task_manager_disabled: status.task_manager_disabled,
-        });
+        })
     }
     #[cfg(not(windows))]
     {

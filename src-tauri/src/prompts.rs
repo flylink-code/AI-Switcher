@@ -38,7 +38,9 @@ const CLINE_BACKUP_NAME: &str = "cline-rules-AGENTS.md";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PromptTarget {
+    #[default]
     ClaudeCode,
     Codex,
     #[serde(rename = "opencode")]
@@ -49,9 +51,6 @@ pub enum PromptTarget {
     Cline,
 }
 
-impl Default for PromptTarget {
-    fn default() -> Self { Self::ClaudeCode }
-}
 
 /// One preset in the library (list view; no content).
 #[derive(Debug, Clone, Serialize)]

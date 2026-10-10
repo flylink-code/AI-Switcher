@@ -71,12 +71,15 @@ async fn fallback_http_scenario_with_chain(primary_status: u16, pinned: bool, ta
         let entries = crate::catalog::build_catalog_with(crate::catalog::catalog_style_for(target), &pairs, false);
         let primary_public = entries.iter().find(|entry| entry.provider_id == primary_id).unwrap().public_id.clone();
         let backup_public = entries.iter().find(|entry| entry.provider_id == backup_id).unwrap().public_id.clone();
-        conn.execute("UPDATE gateway_profiles SET fallback_mode=?1, explicit_fallback_enabled=0", [if explicit_chain { "off" } else { "retry" }])?;
-        patch_route_mode(conn, "default", &RouteModePatch {
-            enabled: Some(true), model: Some(primary_public.clone()),
-            fallback_models: Some(if explicit_chain { vec![backup_public.clone()] } else { vec![] }),
-            ..RouteModePatch::default()
-        }, Some(SHARED_PROFILE_ID))?;
+        let fallback_models = if explicit_chain {
+            serde_json::to_string(&vec![backup_public.clone()]).unwrap_or_else(|_| "[]".into())
+        } else {
+            "[]".into()
+        };
+        conn.execute(
+            "UPDATE gateway_profiles SET fallback_mode=?1, fallback_models_json=?2, explicit_fallback_enabled=0",
+            rusqlite::params![if explicit_chain { "model_chain" } else { "retry" }, fallback_models],
+        )?;
         Ok((primary_public, backup_public))
     }).unwrap();
     assert_ne!(primary_public, backup_public);

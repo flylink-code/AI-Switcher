@@ -100,25 +100,22 @@ pub fn clear_mcp_oauth(input: ClearMcpOauthInput) -> AppResult<McpOauthStatus> {
         .filter(|name| !name.is_empty())
         .collect();
 
-    match obj.get_mut(MCP_OAUTH_KEY).and_then(Value::as_object_mut) {
-        Some(mcp) => {
-            if targets.is_empty() {
-                mcp.clear();
-            } else {
-                let keys: Vec<String> = mcp
-                    .keys()
-                    .filter(|key| targets.contains(server_name_from_oauth_key(key)))
-                    .cloned()
-                    .collect();
-                for key in keys {
-                    mcp.remove(&key);
-                }
-            }
-            if mcp.is_empty() {
-                obj.remove(MCP_OAUTH_KEY);
+    if let Some(mcp) = obj.get_mut(MCP_OAUTH_KEY).and_then(Value::as_object_mut) {
+        if targets.is_empty() {
+            mcp.clear();
+        } else {
+            let keys: Vec<String> = mcp
+                .keys()
+                .filter(|key| targets.contains(server_name_from_oauth_key(key)))
+                .cloned()
+                .collect();
+            for key in keys {
+                mcp.remove(&key);
             }
         }
-        None => {}
+        if mcp.is_empty() {
+            obj.remove(MCP_OAUTH_KEY);
+        }
     }
 
     write_credentials_file(&path, &value)?;

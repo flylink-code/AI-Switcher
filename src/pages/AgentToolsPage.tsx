@@ -52,6 +52,7 @@ import type {
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text, Paragraph } = Typography;
 
@@ -136,9 +137,6 @@ function formatCliInstallError(raw: string, t: (key: string) => string): string 
   return raw;
 }
 
-function errMsg(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Settings → Agent tools: Node.js + Claude Code / Codex / OpenCode install & update.

@@ -18,10 +18,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use super::thought_sig_store::{StoreConfig, ThoughtSigStore};
-pub use super::thought_sig_store::{
-    DEFAULT_L1_SESSION_CAP, DEFAULT_L1_SESSION_INDEX_CAP, DEFAULT_L1_TOOL_CAP, DEFAULT_L2_CAPACITY,
-    DEFAULT_TTL_SECS,
-};
 
 /// 无真实签名时的哨兵值：让 Gemini 跳过签名校验（仅 Vertex AI 拒绝该值，
 /// 本网关走 Cloud Code 上游，可用；对照参考实现 FIX #2167）。

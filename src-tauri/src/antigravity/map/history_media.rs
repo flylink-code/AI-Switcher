@@ -32,9 +32,7 @@ pub fn parts_from_text(text: &str) -> Vec<Value> {
 fn next_data_image(text: &str) -> Option<(&str, String, String, &str)> {
     let mut search_from = 0usize;
     while search_from < text.len() {
-        let Some(rel) = text[search_from..].find("data:image") else {
-            return None;
-        };
+        let rel = text[search_from..].find("data:image")?;
         let start = search_from + rel;
         if let Some(parsed) = try_parse_data_image_at(text, start) {
             return Some(parsed);

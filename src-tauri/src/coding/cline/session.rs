@@ -41,7 +41,7 @@ pub fn scan_cline_sessions() -> AppResult<Vec<ClineSessionItem>> {
             items.push(item);
         }
     }
-    items.sort_by(|a, b| b.last_active_at.cmp(&a.last_active_at));
+    items.sort_by_key(|item| std::cmp::Reverse(item.last_active_at));
     Ok(items)
 }
 

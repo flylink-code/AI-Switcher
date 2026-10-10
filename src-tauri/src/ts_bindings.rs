@@ -10,12 +10,11 @@ mod tests {
 
     use ts_rs::TS;
 
-    use crate::database::dao::gateway::{GatewayBinding, GatewayProfile, RouteMode, RouteRule};
+    use crate::database::dao::gateway::GatewayBinding;
     use crate::database::dao::proxy_logs::{
         CurrencyAmount, ModelPricing, PaginatedProxyLogs, ProxyLogFilters, ProxyRequestAttempt,
         ProxyRequestLog, UsageBreakdown, UsageSummary, UsageTrendPoint,
     };
-    use crate::gateway::{RouteDecision, RouteSource};
     use crate::provider::{
         ClaudeModelMapping, ProtocolType, Provider, ProviderKind, ProviderTarget, ThinkingConfig,
     };
@@ -45,12 +44,7 @@ mod tests {
         export_one::<ThinkingConfig>(&dir);
         export_one::<ClaudeModelMapping>(&dir);
         export_one::<Provider>(&dir);
-        export_one::<GatewayProfile>(&dir);
         export_one::<GatewayBinding>(&dir);
-        export_one::<RouteMode>(&dir);
-        export_one::<RouteRule>(&dir);
-        export_one::<RouteSource>(&dir);
-        export_one::<RouteDecision>(&dir);
         export_one::<CurrencyAmount>(&dir);
         export_one::<UsageSummary>(&dir);
         export_one::<UsageBreakdown>(&dir);

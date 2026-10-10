@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { errMsg } from "@/lib/errMsg";
 import {
   Alert,
   Badge,
@@ -43,10 +44,6 @@ function livePromptBlocksAgentTeams(content: string | undefined | null): boolean
   return /不创建\s*Agent Teams|不使用多级代理编排|do not create Agent Teams/i.test(content);
 }
 
-function errMsg(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return String(error ?? "未知错误");
-}
 
 export default function ProvidersPage() {
   const { t } = useTranslation();

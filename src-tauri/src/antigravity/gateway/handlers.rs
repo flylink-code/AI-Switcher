@@ -1078,7 +1078,7 @@ async fn dispatch_generation(
                 }
                 match protocol {
                     WireProtocol::Anthropic => Json(gemini_to_anthropic_response(
-                        &anthropic_envelope_model(
+                        anthropic_envelope_model(
                             protocol,
                             response_model.as_deref(),
                             &current_model,

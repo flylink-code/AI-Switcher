@@ -7,7 +7,7 @@
 | 服务 | 端口 | 职责 |
 | --- | --- | --- |
 | 本地代理 | 15821–15827 | 协议转换 + 当前供应商故障切换 |
-| 智能网关 | **15828** | 模式路由、推理挡位、模型范围、条件规则 |
+| 智能网关 | **15828** | 显式目录 id → 上游、限额、健康检查、故障转移 |
 | Antigravity 反代 | 15830 | 账号池 / 额度 / Cloud Code |
 
 智能网关入口：`/health`、`/v1/models`、`/v1/messages`、`/v1/chat/completions`、`/v1/responses`、`/v1/images/generations`。转发复用 `ProxyManager` 的虚拟 `SmartGateway` 槽，不另写一套流式栈。

@@ -4,13 +4,11 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
-use crate::commands::providers::sync_live_after_connection_change;
 use crate::database::dao::gateway::{
-    current_profile, delete_upstream, ensure_profile_for_target,
-    import_providers_as_upstreams, list_profiles, list_upstream_models, list_upstream_providers,
-    get_upstream_provider,    patch_profile, replace_upstream_models, set_upstream_model_visible,
-    upsert_upstream, AgentConnectionView, ConnectionType, GatewayBinding, GatewayProfile,
-    GatewayProfilePatch, GatewayUpstreamImportResult, GatewayUpstreamModelRow,
+    delete_upstream, ensure_profile_for_target, import_providers_as_upstreams,
+    list_upstream_models, list_upstream_providers, get_upstream_provider, replace_upstream_models,
+    set_upstream_model_visible, upsert_upstream, AgentConnectionView, ConnectionType,
+    GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
 use crate::error::{AppError, AppResult};
 use crate::provider::{
@@ -78,173 +76,6 @@ pub async fn set_agent_connection(
     }
     crate::commands::proxy::publish_target_status(&app, &state, target).await;
     get_agent_connection(target, state)
-}
-
-#[tauri::command]
-pub fn get_gateway_profile(
-    target: ProviderTarget,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Option<GatewayProfile>> {
-    state.db.with_read_conn(|conn| {
-        current_profile(conn, target)
-    })
-}
-
-#[tauri::command]
-pub fn list_gateway_profiles(
-    target: Option<ProviderTarget>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<GatewayProfile>> {
-    let _ = target;
-    match state.db.with_read_conn(list_profiles) {
-        Ok(listed) if !listed.is_empty() => Ok(listed),
-        _ => state.db.with_conn(|conn| {
-            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-            list_profiles(conn)
-        }),
-    }
-}
-
-#[tauri::command]
-pub fn create_gateway_profile(
-    name: String,
-    clone_from: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<GatewayProfile> {
-    let created = state.db.with_conn(|conn| {
-        crate::database::dao::gateway::create_profile(conn, &name, clone_from.as_deref())
-    })?;
-    crate::catalog::invalidate_view_cache();
-    Ok(created)
-}
-
-#[tauri::command]
-pub fn rename_gateway_profile(
-    id: String,
-    name: String,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<GatewayProfile> {
-    state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::rename_profile(conn, &id, &name))
-}
-
-#[tauri::command]
-pub async fn delete_gateway_profile(
-    id: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
-    state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::delete_profile(conn, &id))?;
-    crate::catalog::invalidate_view_cache();
-    for agent in ProviderTarget::ALL {
-        let gateway_on = state
-            .db
-            .with_read_conn(|conn| {
-                Ok(crate::database::dao::gateway::is_gateway_connection(conn, agent))
-            })
-            .unwrap_or(false);
-        if gateway_on {
-            crate::gateway::sticky::clear_for_target(agent);
-            crate::commands::providers::sync_live_after_connection_change(
-                agent, true, &app, &state,
-            )
-            .await?;
-        }
-    }
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    crate::gateway::service::emit_status(&app);
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn set_gateway_binding_profile(
-    target: ProviderTarget,
-    profile_id: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<GatewayBinding> {
-    let binding = state.db.with_conn(|conn| {
-        crate::database::dao::gateway::set_binding_profile(conn, target, &profile_id)
-    })?;
-    let _ = crate::commands::providers::ensure_smart_gateway_provider_row(&state, target);
-    crate::catalog::invalidate_view_cache();
-    crate::gateway::sticky::clear_for_target(target);
-    let gateway_on = state
-        .db
-        .with_read_conn(|conn| {
-            Ok(crate::database::dao::gateway::is_gateway_connection(conn, target))
-        })
-        .unwrap_or(false);
-    if gateway_on {
-        crate::commands::providers::sync_live_after_connection_change(target, true, &app, &state)
-            .await?;
-    }
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    crate::gateway::service::emit_status(&app);
-    Ok(binding)
-}
-
-#[tauri::command]
-pub async fn update_gateway_profile_by_id(
-    id: String,
-    patch: GatewayProfilePatch,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<GatewayProfile> {
-    let profile = state.db.with_conn(|conn| patch_profile(conn, &id, &patch))?;
-    crate::catalog::invalidate_view_cache();
-    // 编辑档案不切换 Agent 连接，只刷新已经使用网关的目录。
-    crate::commands::providers::push_bound_gateway_catalogs(&state).await?;
-    Ok(profile)
-}
-
-#[tauri::command]
-pub async fn update_gateway_profile(
-    target: ProviderTarget,
-    patch: GatewayProfilePatch,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<GatewayProfile> {
-    let profile = state.db.with_conn(|conn| {
-        let profile = ensure_profile_for_target(conn, target)?;
-        patch_profile(conn, &profile.id, &patch)
-    })?;
-    let _ = crate::config::claude_code::apply_opusplan_model(false);
-    for agent in crate::provider::ProviderTarget::ALL {
-        if crate::catalog::enabled(state.db.as_ref(), agent) {
-            sync_live_after_connection_change(agent, true, &app, &state).await?;
-        }
-    }
-    Ok(profile)
-}
-
-pub use crate::database::dao::proxy_logs::{
-    GatewayRouteLog, GatewayRouteLogFilters, PaginatedGatewayRouteLogs,
-};
-
-#[tauri::command]
-pub fn list_gateway_route_logs(
-    target: Option<ProviderTarget>,
-    limit: Option<i64>,
-    offset: Option<i64>,
-    status: Option<String>,
-    mode: Option<String>,
-    keyword: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<PaginatedGatewayRouteLogs> {
-    let filters = GatewayRouteLogFilters {
-        target_app: target.map(|t| t.as_str().to_string()),
-        status,
-        mode,
-        keyword,
-    };
-    let cap = limit.unwrap_or(20);
-    let skip = offset.unwrap_or(0);
-    state.db.with_read_conn(|conn| {
-        crate::database::dao::proxy_logs::list_gateway_route_logs(conn, &filters, cap, skip)
-    })
 }
 
 #[tauri::command]
@@ -630,99 +461,6 @@ pub async fn unbind_smart_gateway(
     Ok(())
 }
 
-#[tauri::command]
-pub fn list_route_modes(
-    profile_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<crate::database::dao::gateway::RouteMode>> {
-    state.db.with_conn(|conn| {
-        crate::database::dao::gateway::ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-        let id = crate::database::dao::gateway::resolve_profile_id(conn, profile_id.as_deref())?;
-        if let Some(profile) = crate::database::dao::gateway::get_profile(conn, &id)? {
-            crate::database::dao::gateway::seed_route_modes_from_profile(conn, &profile)?;
-        }
-        crate::database::dao::gateway::list_route_modes(conn, &id)
-    })
-}
-
-#[tauri::command]
-pub async fn update_route_mode(
-    id: String,
-    patch: crate::database::dao::gateway::RouteModePatch,
-    profile_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<crate::database::dao::gateway::RouteMode> {
-    let mode = state.db.with_conn(|conn| {
-        crate::database::dao::gateway::patch_route_mode(conn, &id, &patch, profile_id.as_deref())
-    })?;
-    crate::catalog::invalidate_view_cache();
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    Ok(mode)
-}
-
-#[tauri::command]
-pub fn list_route_rules(
-    profile_id: Option<String>,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<crate::database::dao::gateway::RouteRule>> {
-    state.db.with_read_conn(|conn| {
-        let id = crate::database::dao::gateway::resolve_profile_id(conn, profile_id.as_deref())?;
-        crate::database::dao::gateway::list_route_rules(conn, &id)
-    })
-}
-
-#[tauri::command]
-pub async fn upsert_route_rule(
-    rule: crate::database::dao::gateway::RouteRule,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<crate::database::dao::gateway::RouteRule> {
-    let saved = state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::upsert_route_rule(conn, &rule))?;
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    Ok(saved)
-}
-
-#[tauri::command]
-pub async fn delete_route_rule(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
-    state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::delete_route_rule(conn, &id))?;
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    Ok(())
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RouteModeUsageStat {
-    pub mode_id: String,
-    pub request_count: i64,
-    pub estimated_cost: f64,
-}
-
-#[tauri::command]
-pub async fn list_route_mode_usage_stats(
-    state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<RouteModeUsageStat>> {
-    let since = chrono::Utc::now().timestamp_millis() - 7 * 24 * 60 * 60 * 1000;
-    let db = Arc::clone(&state.db);
-    tauri::async_runtime::spawn_blocking(move || {
-        db.with_read_conn(|conn| {
-            crate::database::dao::proxy_logs::list_route_mode_usage_stats(conn, since)
-        })
-        .map(|rows| {
-            rows.into_iter()
-                .map(|row| RouteModeUsageStat {
-                    mode_id: row.mode_id,
-                    request_count: row.request_count,
-                    estimated_cost: row.estimated_cost,
-                })
-                .collect()
-        })
-    })
-    .await
-    .map_err(|e| AppError::Database(format!("route mode usage stats task failed: {e}")))?
-}
 
 pub use crate::database::dao::proxy_logs::UpstreamDailyUsageStat;
 
@@ -742,13 +480,6 @@ pub async fn list_upstream_daily_usage_stats(
     .map_err(|e| AppError::Database(format!("list upstream daily usage stats task failed: {e}")))?
 }
 
-#[tauri::command]
-pub fn simulate_gateway_route(
-    input: crate::gateway::simulate::SimulateRouteInput,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<crate::gateway::simulate::SimulateRouteResult> {
-    crate::gateway::simulate::simulate(&state.db, input)
-}
 
 #[tauri::command]
 pub fn list_gateway_upstream_health(
@@ -795,20 +526,6 @@ pub fn list_gateway_upstream_pressure(
     state.db.gateway_upstream_limiter.snapshot_all()
 }
 
-#[tauri::command]
-pub fn get_smart_gateway_subagent_inherit_upstream(
-    state: tauri::State<'_, AppState>,
-) -> bool {
-    crate::gateway::inbound::subagent_inherit_upstream(&state.db)
-}
-
-#[tauri::command]
-pub fn set_smart_gateway_subagent_inherit_upstream(
-    enabled: bool,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<bool> {
-    crate::gateway::inbound::persist_subagent_inherit_upstream(&state.db, enabled)
-}
 
 #[tauri::command]
 pub fn get_smart_gateway_inbound_limits(
@@ -825,41 +542,6 @@ pub fn set_smart_gateway_inbound_limits(
     crate::gateway::inbound::persist(&state.db, &settings)
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SmartGatewayBudgetView {
-    pub daily_budget_usd: f64,
-    pub action: String,
-    pub fallback_model: String,
-    pub today_spend_usd: f64,
-}
-
-#[tauri::command]
-pub fn get_smart_gateway_budget(
-    state: tauri::State<'_, AppState>,
-) -> SmartGatewayBudgetView {
-    let settings = crate::gateway::budget::load_from_db(&state.db);
-    SmartGatewayBudgetView {
-        daily_budget_usd: settings.daily_budget_usd,
-        action: settings.action,
-        fallback_model: settings.fallback_model,
-        today_spend_usd: crate::gateway::budget::today_spend_usd(&state.db),
-    }
-}
-
-#[tauri::command]
-pub fn set_smart_gateway_budget(
-    settings: crate::gateway::budget::BudgetSettings,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<SmartGatewayBudgetView> {
-    crate::gateway::budget::persist(&state.db, &settings)?;
-    Ok(SmartGatewayBudgetView {
-        daily_budget_usd: settings.daily_budget_usd,
-        action: settings.action,
-        fallback_model: settings.fallback_model,
-        today_spend_usd: crate::gateway::budget::today_spend_usd(&state.db),
-    })
-}
 
 #[tauri::command]
 pub fn get_smart_gateway_health_probe_secs(state: tauri::State<'_, AppState>) -> u64 {

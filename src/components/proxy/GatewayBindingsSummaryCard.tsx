@@ -12,15 +12,12 @@ import { OnboardingTip } from "@/components/OnboardingTip";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { filterUiAgents } from "@/lib/agentVisibility";
 import { getAgentConnectionMode } from "@/services/providers";
-import type { GatewayBinding, GatewayProfile, Provider, ProviderTarget } from "@/types/backend";
+import type { GatewayBinding, Provider, ProviderTarget } from "@/types/backend";
 
 const { Text } = Typography;
 
-const SHARED_PROFILE_ID = "gprof_shared";
-
 export interface GatewayBindingsSummaryCardProps {
   bindings: GatewayBinding[];
-  profiles: GatewayProfile[];
   upstreams?: Provider[];
   loading?: boolean;
 }
@@ -28,13 +25,11 @@ export interface GatewayBindingsSummaryCardProps {
 interface SummaryRow {
   target: ProviderTarget;
   modeStatus: "loading" | "unknown" | "gateway" | "direct" | "external";
-  profileId?: string;
   directUpstreamId?: string;
 }
 
 export function GatewayBindingsSummaryCard({
   bindings,
-  profiles,
   upstreams = [],
   loading = false,
 }: GatewayBindingsSummaryCardProps) {
@@ -74,18 +69,6 @@ export function GatewayBindingsSummaryCard({
     [connectionModesQuery.data],
   );
 
-  const profileMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of profiles) {
-      const label =
-        p.id === SHARED_PROFILE_ID
-          ? t("gateway.profileDefault", { defaultValue: p.name || "默认" })
-          : p.name.trim() || p.id;
-      map.set(p.id, label);
-    }
-    return map;
-  }, [profiles, t]);
-
   const upstreamMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const u of upstreams) {
@@ -117,7 +100,6 @@ export function GatewayBindingsSummaryCard({
         return {
           target,
           modeStatus: "gateway",
-          profileId: binding?.profileId || SHARED_PROFILE_ID,
         };
       }
 
@@ -226,22 +208,13 @@ export function GatewayBindingsSummaryCard({
             },
           },
           {
-            title: t("gateway.routeProfileOrUpstream", { defaultValue: "路由档案 / 直连目标" }),
+            title: t("gateway.directUpstream", { defaultValue: "直连目标" }),
             render: (_: unknown, row: SummaryRow) => {
               if (row.modeStatus === "gateway") {
-                const profileLabel =
-                  profileMap.get(row.profileId ?? SHARED_PROFILE_ID) ??
-                  row.profileId ??
-                  t("gateway.profileDefault", { defaultValue: "默认" });
                 return (
-                  <Space size={6}>
-                    <Tag color="purple">{profileLabel}</Tag>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {row.profileId === SHARED_PROFILE_ID
-                        ? t("gateway.sharedProfileHint", { defaultValue: "（默认档案）" })
-                        : ""}
-                    </Text>
-                  </Space>
+                  <Text type="secondary">
+                    {t("gateway.catalogModelHint", { defaultValue: "使用聚合目录中的模型" })}
+                  </Text>
                 );
               }
               if (row.modeStatus === "direct") {

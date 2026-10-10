@@ -63,7 +63,7 @@ impl ProfileScope {
         }
     }
 
-    fn payload<'a>(self, payload: &'a ProfilePayload) -> Option<&'a ProfileScopePayload> {
+    fn payload(self, payload: &ProfilePayload) -> Option<&ProfileScopePayload> {
         match self {
             ProfileScope::ClaudeCode => payload.claude_code.as_ref(),
             ProfileScope::ClaudeDesktop => payload.claude_desktop.as_ref(),

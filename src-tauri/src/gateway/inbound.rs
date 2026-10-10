@@ -10,18 +10,6 @@ use crate::database::dao::settings::{get_setting, set_setting};
 use crate::database::Database;
 use crate::error::{AppError, AppResult};
 
-pub const SUBAGENT_INHERIT_UPSTREAM_SETTING: &str = "smart_gateway_subagent_inherit_upstream";
-
-pub fn subagent_inherit_upstream(db: &Database) -> bool {
-    db.with_read_conn(|conn| Ok(get_setting(conn, SUBAGENT_INHERIT_UPSTREAM_SETTING)?.as_deref() == Some("true")))
-        .unwrap_or(false)
-}
-
-pub fn persist_subagent_inherit_upstream(db: &Database, enabled: bool) -> AppResult<bool> {
-    db.with_conn(|conn| set_setting(conn, SUBAGENT_INHERIT_UPSTREAM_SETTING, if enabled { "true" } else { "false" }))?;
-    Ok(enabled)
-}
-
 pub const MAX_CONCURRENCY_SETTING: &str = "smart_gateway_max_concurrency";
 pub const MIN_INTERVAL_SETTING: &str = "smart_gateway_min_interval_ms";
 pub const RPM_SETTING: &str = "smart_gateway_rpm";
@@ -70,6 +58,7 @@ impl InboundLimitSettings {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn is_active(&self) -> bool {
         self.max_concurrency > 0 || self.min_interval_ms > 0 || self.rpm > 0
     }
@@ -147,6 +136,7 @@ fn lock_state() -> std::sync::MutexGuard<'static, LimiterState> {
     }
 }
 
+#[allow(dead_code)]
 pub fn current_settings() -> InboundLimitSettings {
     lock_state().settings.clone()
 }

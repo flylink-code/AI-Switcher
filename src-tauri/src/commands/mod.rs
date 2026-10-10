@@ -1,5 +1,4 @@
 //! Tauri command handlers exposed to the frontend.
-
 pub mod backend;
 pub mod agents;
 pub mod antigravity;
@@ -34,7 +33,6 @@ pub mod node_runtime;
 pub mod pi;
 pub mod tools;
 pub mod usage;
-
 pub use backend::ping;
 pub use agents::{
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
@@ -79,7 +77,7 @@ pub use codex_plugins::{
 };
 pub use codex_oauth::{
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
-    remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
+    start_codex_oauth_login,
 };
 pub use app_update::{check_app_update, install_app_update};
 pub use backup::{
@@ -124,53 +122,46 @@ pub use prompts::{
 pub use recovery::{list_config_backups, preview_config_backup, restore_config_backup};
 pub use runtime_status::get_managed_apps_runtime_status;
 pub use sessions::{
-    backup_all_sessions, backup_claude_code_sessions, backup_sessions, export_claude_code_session,
-    export_claude_code_sessions, export_session, export_session_markdown, export_sessions,
-    get_session_backup_dir, import_claude_code_session, import_session, list_session_backups,
-    list_trashed_claude_code_sessions, list_trashed_sessions, load_session_messages,
-    reset_session_backup_dir, restore_session_backup, restore_session_mirror, restore_trashed_claude_code_session,
+    backup_all_sessions, backup_sessions, export_session, export_session_markdown, export_sessions,
+    get_session_backup_dir, import_session, list_session_backups,
+    list_trashed_sessions, load_session_messages,
+    reset_session_backup_dir, restore_session_backup, restore_session_mirror,
     restore_trashed_session, scan_sessions, search_session_contents, set_session_backup_dir,
     get_session_auto_backup_settings, set_session_auto_backup_settings, get_session_mirror_dir,
-    trash_claude_code_session, trash_session,
+    trash_session,
 };
 pub use providers::{
-    batch_diagnose_providers, copy_provider_to_target, create_provider, delete_provider, discover_provider_models, discover_provider_models_input, export_providers,
-    get_cached_provider_models, get_current_provider, get_gateway_catalog_enabled,
-    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_gateway_catalog_opusplan,
-    get_gateway_catalog_plan, get_gateway_catalog_execute, get_claude_code_default_permission_mode,
+    create_provider, discover_provider_models, discover_provider_models_input, export_providers,
+    get_cached_provider_models, get_current_provider,
+      get_claude_code_default_permission_mode,
     get_claude_code_agent_settings,
     get_opencode_permission_mode,
-    import_live_config, import_providers_json,
-    list_gateway_catalog_models, list_gateway_catalog_entries, list_providers, quarantine_failed_providers, reorder_providers,
-    set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official,
-    set_gateway_catalog_opusplan, set_gateway_catalog_plan, set_gateway_catalog_execute,
+    import_providers_json,
+    list_gateway_catalog_models, list_gateway_catalog_entries,
+    get_gateway_catalog_hide_official, set_gateway_catalog_hide_official, list_providers,
     set_claude_code_default_permission_mode, set_claude_code_agent_settings,
-    set_opencode_permission_mode, speedtest_provider_endpoint,
+    set_opencode_permission_mode,
     batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
     switch_provider, switch_to_official, set_agent_direct, get_agent_connection_mode,
     test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
-    test_provider_connection, test_provider_input, update_provider,
+    test_provider_input,
     ensure_smart_gateway_provider,
 };
 pub use gateway::{
     add_antigravity_gateway_upstream, add_kiro_gateway_upstream, delete_gateway_upstream, discover_gateway_upstream_models,
-    discover_gateway_upstream_models_batch, get_agent_connection, get_gateway_profile,
-    import_gateway_upstreams_from_providers, list_gateway_profiles, list_gateway_route_logs,
+    discover_gateway_upstream_models_batch, get_agent_connection, 
+    import_gateway_upstreams_from_providers,  
     list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
-    set_gateway_upstream_model_visible, update_gateway_profile, update_gateway_profile_by_id, upsert_gateway_upstream,
-    create_gateway_profile, rename_gateway_profile, delete_gateway_profile,
-    set_gateway_binding_profile,
+    set_gateway_upstream_model_visible,   upsert_gateway_upstream,
     get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
-    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
-    update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule,
-    list_route_mode_usage_stats, list_upstream_daily_usage_stats,
-    simulate_gateway_route, list_gateway_upstream_health,
+    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, 
+     list_upstream_daily_usage_stats,
+     list_gateway_upstream_health,
     get_gateway_upstream_policy, set_gateway_upstream_policy, list_gateway_upstream_pressure,
-    get_smart_gateway_inbound_limits, set_smart_gateway_inbound_limits, get_smart_gateway_budget,
-    set_smart_gateway_budget, get_smart_gateway_health_probe_secs,
-    set_smart_gateway_health_probe_secs, get_smart_gateway_subagent_inherit_upstream,
-    set_smart_gateway_subagent_inherit_upstream,
+    get_smart_gateway_inbound_limits, set_smart_gateway_inbound_limits, 
+     get_smart_gateway_health_probe_secs,
+    set_smart_gateway_health_probe_secs, 
 };
 pub use proxy::{
     get_proxy_failover_enabled, get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs,
@@ -198,9 +189,9 @@ pub use sync::{
 };
 pub use node_runtime::{ensure_node_runtime_via_fnm, get_node_runtime_status};
 pub use pi::{
-    delete_pi_prompt_template, detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
+    delete_pi_prompt_template, detect_pi_cli, get_pi_settings,
     get_workspace_pi_prompt, install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template, read_pi_session_detail,
-    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_pi_prompt_template, save_workspace_pi_prompt,
+    save_pi_prompt_template, save_workspace_pi_prompt,
     update_pi_settings,
 };
 pub use tools::{
@@ -210,7 +201,7 @@ pub use tools::{
     get_dsh_cli_version, run_dsh_cli_update, start_dsh_web,
 };
 pub use usage::{
-    delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, get_usage_dashboard, get_usage_trend, import_model_pricing_xlsx, list_model_pricing,
+    delete_model_pricing, export_model_pricing_xlsx, get_log_maintenance_policy, get_usage_dashboard, get_usage_trend, import_model_pricing_xlsx, list_model_pricing,
     list_proxy_request_logs_cmd, maintain_proxy_logs, preview_proxy_log_maintenance,
     rebuild_codex_session_usage_cmd, sync_codex_session_usage_cmd,
     rebuild_claude_code_session_usage_cmd, sync_claude_code_session_usage_cmd,

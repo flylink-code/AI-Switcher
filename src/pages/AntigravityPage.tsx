@@ -63,21 +63,13 @@ import {
   ImportAccountsModal,
   BIND_TARGETS,
 } from "@/components/antigravity";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
 const ANTIGRAVITY_QUOTA_REFRESH_MS = 5 * 60_000;
 const ANTIGRAVITY_QUOTA_REFRESH_EVENT = "antigravity-quota-refreshed";
 
-function errMsg(error: unknown): string {
-  if (typeof error === "string" && error.trim()) return error;
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (error && typeof error === "object" && "message" in error) {
-    const msg = (error as { message?: unknown }).message;
-    if (typeof msg === "string" && msg.trim()) return msg;
-  }
-  return String(error ?? "未知错误");
-}
 
 export default function AntigravityPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation();

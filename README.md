@@ -24,7 +24,7 @@ Tauri 2 + Rust + React。把配置文件、系统凭据和本地目录收进一�
 ## 功能
 
 - **供应商**：一份全局上游池，API Key / OAuth 账号不再按 Agent 重复配置。支持预设、模型发现、连接测试、额度与元数据导入导出。「Agent 连接」统一选择 **智能网关（推荐）**、**直连（选择一个上游）** 或 **官方**。Code 直连仅限 Anthropic，Codex 仅限 OpenAI Chat / Responses；跨协议及 Codex OAuth 走网关。OpenCode / Pi / Cline 仅写所选单入口，保留用户自有配置。
-- **智能网关**：独立本机服务 `127.0.0.1:15828`，模式路由、推理挡位、模型范围与条件规则。绑定 Agent 后写入指向该端口的 Auto 卡。用量按请求链路只计最内层花费。入口在主导航「网关」。
+- **智能网关**：独立本机服务 `127.0.0.1:15828`，按聚合目录里的模型 id 转到对应上游。绑定 Agent 后写入指向该端口的智能网关卡。用量按请求链路只计最内层花费。入口在主导航「网关」。
 - **Antigravity 网关**：`127.0.0.1:15830`，把 Cloud Code 接到 Anthropic Messages / OpenAI Chat / Responses。浏览器登录账号池、按额度调度。个人自用，请自行评估上游条款。
 - **Kiro 网关**：`127.0.0.1:15831`，账号池与额度调度。可导入 Builder ID、Social、Kiro IDE token，或用设备码 / Social PKCE 登录。用量只计 Kiro 这一跳。个人自用，请自行评估上游条款。
 - **工作区**：MCP、Prompts、Skills、Agents、插件、项目快照；按当前 Agent 只显示其支持的 Tab。

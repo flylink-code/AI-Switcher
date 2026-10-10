@@ -6,10 +6,9 @@ use crate::config::codex_provider_sync::CodexProviderSyncResult;
 use crate::database::dao;
 use crate::database::dao::settings::{get_setting, set_setting};
 use crate::error::{AppError, AppResult};
-use crate::process_util::spawn_blocking_result;
 use crate::provider::{
-    api_endpoint_url, catalog_models_from_provider, copied_provider_input, normalize_base_url,
-    protocol_endpoint_path, should_activate_copied_provider, strip_anthropic_compat_path,
+    api_endpoint_url, catalog_models_from_provider, normalize_base_url,
+    protocol_endpoint_path, strip_anthropic_compat_path,
     ClaudeModelMapping, ConnectionTestResult, EndpointSpeedtestResult, LiveProviderInfo,
     ModelDiscoveryResult, Provider, ProviderExportBundle, ProviderExportEntry,
     normalized_model_mapping, normalized_auto_review_model_override, validate_target_protocol,
@@ -24,7 +23,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 const MODEL_CACHE_TTL_MS: i64 = 24 * 60 * 60 * 1_000;
 const MAX_DISCOVERED_MODELS: usize = 1_000;
@@ -61,131 +60,6 @@ where
         crate::database::dao::gateway::patch_profile(conn, &profile.id, &patch)?;
         Ok(())
     })
-}
-
-/// Compatibility shim: reads the current Agent connection (legacy catalog flag).
-#[tauri::command]
-pub fn get_gateway_catalog_enabled(
-    target: ProviderTarget,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<bool> {
-    if !target.supports_gateway_catalog() {
-        return Ok(false);
-    }
-    Ok(gateway_catalog_on(&state, target))
-}
-
-/// Compatibility shim: writes `agent_connections` + default profile.
-#[tauri::command]
-pub async fn set_gateway_catalog_enabled(
-    target: ProviderTarget,
-    enabled: bool,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<bool> {
-    if !target.supports_gateway_catalog() {
-        return Err(AppError::Config("此 Agent 切换请使用连接选择（外部供应商 / 网关档案）".to_string()));
-    };
-    state.db.with_conn(|conn| {
-        crate::database::dao::gateway::ensure_profile_for_target(conn, target)?;
-        crate::database::dao::gateway::set_current_connection_type(
-            conn,
-            target.as_str(),
-            if enabled {
-                crate::database::dao::gateway::ConnectionType::Gateway
-            } else {
-                crate::database::dao::gateway::ConnectionType::External
-            },
-        )
-    })?;
-    crate::catalog::invalidate_view_cache();
-    if enabled {
-        sync_gateway_catalog_target(target, Some(&app), &state).await?;
-    } else if let Some(provider) = state
-        .db
-        .with_conn(|conn| dao::get_current_provider(conn, target))?
-    {
-        let _ = apply_target_provider(&provider, Some(&app), &state).await?;
-        if target == ProviderTarget::ClaudeCode {
-            let _ = claude_code::apply_opusplan_model(false);
-            let _ = crate::wsl_direct::sync_claude_codex_files();
-        }
-    } else {
-        restore_official_for_target(target, Some(&app), &state, true).await?;
-    }
-    crate::commands::proxy::publish_target_status(&app, &state, target).await;
-    Ok(enabled)
-}
-
-pub(crate) async fn sync_live_after_connection_change<R: tauri::Runtime>(
-    target: ProviderTarget,
-    gateway: bool,
-    app: &tauri::AppHandle<R>,
-    state: &AppState,
-) -> AppResult<()> {
-    if gateway {
-        if target.supports_gateway_catalog() {
-            sync_gateway_catalog_target(target, Some(app), state).await?;
-        } else {
-            if target == ProviderTarget::Cline && !gateway {
-                let port = get_saved_proxy_port(state, target);
-                state.proxy.lock().await.start(port, target).await?;
-            }
-            sync_live_providers(state, target, Some(app)).await?;
-        }
-    } else if target.supports_gateway_catalog() {
-        if let Some(provider) = state
-            .db
-            .with_conn(|conn| dao::get_current_provider(conn, target))?
-        {
-            let _ = apply_target_provider(&provider, Some(app), state).await?;
-            if target == ProviderTarget::ClaudeCode {
-                let _ = claude_code::apply_opusplan_model(false);
-                let _ = crate::wsl_direct::sync_claude_codex_files();
-            }
-        } else {
-            restore_official_for_target(target, Some(app), state, true).await?;
-        }
-    } else {
-        state.proxy.lock().await.stop_target(target);
-        sync_live_providers(state, target, Some(app)).await?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_gateway_catalog_subagent(
-    target: ProviderTarget,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    Ok(catalog_subagent_model(&state, target).unwrap_or_default())
-}
-
-#[tauri::command]
-pub async fn set_gateway_catalog_subagent(
-    target: ProviderTarget,
-    model: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    let Some(key) = catalog::subagent_setting_key(target) else {
-        return Err(AppError::Config("此 Agent 不支持目录子代理".to_string()));
-    };
-    let trimmed = model.trim().to_string();
-    state.db.with_conn(|conn| set_setting(conn, key, &trimmed))?;
-    patch_default_profile_field(&state, target, |profile| {
-        profile.subagent_model = Some(trimmed.clone());
-    })?;
-    crate::catalog::invalidate_view_cache();
-    if gateway_catalog_on(&state, target) {
-        if let Some(provider) = state
-            .db
-            .with_conn(|conn| dao::get_current_provider(conn, target))?
-        {
-            let _ = apply_target_provider(&provider, Some(&app), &state).await?;
-        }
-    }
-    Ok(trimmed)
 }
 
 #[tauri::command]
@@ -237,121 +111,6 @@ pub struct GatewayCatalogModelOption {
     pub vision_enabled: bool,
     #[serde(default)]
     pub reasoning_levels: Vec<String>,
-}
-
-fn require_claude_code_catalog(target: ProviderTarget) -> AppResult<()> {
-    if target != ProviderTarget::ClaudeCode {
-        return Err(AppError::Config("仅 Claude Code 统一目录支持 Opus Plan".to_string()));
-    }
-    Ok(())
-}
-
-async fn persist_claude_code_catalog_setting<R: tauri::Runtime>(
-    target: ProviderTarget,
-    key: &str,
-    value: &str,
-    app: &tauri::AppHandle<R>,
-    state: &AppState,
-) -> AppResult<()> {
-    require_claude_code_catalog(target)?;
-    state.db.with_conn(|conn| set_setting(conn, key, value))?;
-    crate::catalog::invalidate_view_cache();
-    if key == catalog::GATEWAY_CATALOG_CODE_OPUSPLAN_KEY {
-        patch_default_profile_field(state, target, |profile| {
-            profile.role_routing_enabled = Some(false);
-        })?;
-    } else if key == catalog::GATEWAY_CATALOG_CODE_PLAN_KEY {
-        patch_default_profile_field(state, target, |profile| {
-            profile.plan_model = Some(value.to_string());
-        })?;
-    } else if key == catalog::GATEWAY_CATALOG_CODE_EXECUTE_KEY {
-        patch_default_profile_field(state, target, |profile| {
-            profile.execute_model = Some(value.to_string());
-        })?;
-    }
-    if gateway_catalog_on(state, target) {
-        if let Some(provider) = state
-            .db
-            .with_conn(|conn| dao::get_current_provider(conn, target))?
-        {
-            let _ = apply_target_provider(&provider, Some(app), state).await?;
-        }
-    }
-    if key == catalog::GATEWAY_CATALOG_CODE_OPUSPLAN_KEY && value != "true" {
-        let _ = claude_code::apply_opusplan_model(false);
-        let _ = crate::wsl_direct::sync_claude_codex_files();
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_gateway_catalog_opusplan(
-    _target: ProviderTarget,
-    _state: tauri::State<'_, AppState>,
-) -> AppResult<bool> {
-    Ok(false)
-}
-
-#[tauri::command]
-pub async fn set_gateway_catalog_opusplan(
-    target: ProviderTarget,
-    _enabled: bool,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<bool> {
-    let Some(key) = catalog::opusplan_setting_key(target) else {
-        return Err(AppError::Config("仅 Claude Code 曾支持 Opus Plan".to_string()));
-    };
-    persist_claude_code_catalog_setting(target, key, "false", &app, &state).await?;
-    let _ = claude_code::apply_opusplan_model(false);
-    let _ = crate::wsl_direct::sync_claude_codex_files();
-    Ok(false)
-}
-
-#[tauri::command]
-pub fn get_gateway_catalog_plan(
-    target: ProviderTarget,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    Ok(catalog::plan_model(state.db.as_ref(), target).unwrap_or_default())
-}
-
-#[tauri::command]
-pub async fn set_gateway_catalog_plan(
-    target: ProviderTarget,
-    model: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    let Some(key) = catalog::plan_setting_key(target) else {
-        return Err(AppError::Config("仅 Claude Code 统一目录支持规划模型".to_string()));
-    };
-    let trimmed = model.trim().to_string();
-    persist_claude_code_catalog_setting(target, key, &trimmed, &app, &state).await?;
-    Ok(trimmed)
-}
-
-#[tauri::command]
-pub fn get_gateway_catalog_execute(
-    target: ProviderTarget,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    Ok(catalog::execute_model(state.db.as_ref(), target).unwrap_or_default())
-}
-
-#[tauri::command]
-pub async fn set_gateway_catalog_execute(
-    target: ProviderTarget,
-    model: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<String> {
-    let Some(key) = catalog::execute_setting_key(target) else {
-        return Err(AppError::Config("仅 Claude Code 统一目录支持执行模型".to_string()));
-    };
-    let trimmed = model.trim().to_string();
-    persist_claude_code_catalog_setting(target, key, &trimmed, &app, &state).await?;
-    Ok(trimmed)
 }
 
 #[tauri::command]

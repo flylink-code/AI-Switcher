@@ -228,11 +228,11 @@ fn apply_provider_once(
     Ok(CodexApplyInfo { preserved_official_login })
 }
 
-fn proxy_listener_token<'a>(
+fn proxy_listener_token(
     proxy_port: Option<u16>,
-    api_key: &'a str,
+    api_key: &str,
     gateway_catalog: bool,
-) -> &'a str {
+) -> &str {
     if proxy_port.is_some() && !gateway_catalog {
         PROXY_MANAGED_API_KEY
     } else {
@@ -269,7 +269,7 @@ fn apply_auth_strategy(
 fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
     #[cfg(windows)]
     {
-        return matches!(
+        matches!(
             error,
             AppError::Io(message)
                 if ["os error 5", "os error 32", "os error 33", "os error 80", "os error 183"]
@@ -280,7 +280,7 @@ fn is_retryable_windows_config_conflict(error: &AppError) -> bool {
                 // milliseconds apart can never fix it. Fail fast; the startup
                 // long-window retry recovers it once the drive is back.
                 && !message.contains("目标当前不可达")
-        );
+        )
     }
     #[cfg(not(windows))]
     {
@@ -687,6 +687,9 @@ pub fn read_current_upstream_for_import() -> AppResult<Option<LiveProviderInfo>>
     }))
 }
 
+// Kept for live-config inspection. Callers were removed with the old import
+// command; rustc also reports this as unused across the `include!` split.
+#[allow(dead_code)]
 pub fn read_current_live_provider() -> AppResult<Option<LiveProviderInfo>> {
     let doc = load_document(&get_codex_config_path())?;
     let provider_id = doc["model_provider"].as_str().unwrap_or_default();

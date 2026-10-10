@@ -866,7 +866,7 @@ fn detect_install_with_diagnostics() -> AppResult<InstallDetection> {
             }
         }
     }
-    installs.sort_by(|a, b| version_key(&b.version).cmp(&version_key(&a.version)));
+    installs.sort_by_key(|item| std::cmp::Reverse(version_key(&item.version)));
     if let Some(mut install) = installs.into_iter().next() {
         install.multiple_installs = count_unpackaged_installs() > 1;
         diagnostics.push(format!(
@@ -1217,7 +1217,8 @@ impl LocalizationMutex {
 
 fn perform_worker_action(job: &LocalizationWorkerJob) -> AppResult<usize> {
     stop_claude();
-    let result = (|| {
+    
+    (|| {
         if job.install.kind == "appx" {
             ensure_write_access(&job.install.resources_path)?;
         }
@@ -1228,8 +1229,7 @@ fn perform_worker_action(job: &LocalizationWorkerJob) -> AppResult<usize> {
         } else {
             Err(AppError::Config("未知的中文化操作".to_string()))
         }
-    })();
-    result
+    })()
 }
 
 fn perform_install(job: &LocalizationWorkerJob) -> AppResult<usize> {
@@ -1245,11 +1245,10 @@ fn perform_install(job: &LocalizationWorkerJob) -> AppResult<usize> {
         .join("ion-dist")
         .join("i18n")
         .join("zh-CN.json");
-    if installed_frontend.exists() {
-        if latest_backup_dir(&job.backup_root, &job.install)?.is_some() {
+    if installed_frontend.exists()
+        && latest_backup_dir(&job.backup_root, &job.install)?.is_some() {
             restore_latest_backup(&job.backup_root, &job.install, &job.locale_paths)?;
         }
-    }
 
     let changes = collect_install_changes(&job.install, &pack, &job.locale_paths)?;
     if changes.is_empty() {
@@ -1450,7 +1449,7 @@ fn load_hardcoded_replacements(path: &Path) -> AppResult<Vec<(String, String)>> 
         }
         replacements.push((source.to_string(), target.to_string()));
     }
-    replacements.sort_by(|left, right| right.0.len().cmp(&left.0.len()));
+    replacements.sort_by_key(|item| std::cmp::Reverse(item.0.len()));
     Ok(replacements)
 }
 
@@ -1866,6 +1865,16 @@ fn hide_console_window(command: &mut Command) {
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
+
+#[cfg(windows)]
+impl Drop for LocalizationMutex {
+    fn drop(&mut self) {
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1998,7 +2007,7 @@ mod tests {
         for change in &changes {
             atomic_write(&change.target, &change.bytes).unwrap();
         }
-        restore_backup_dir(&backup, &install, &[locale_path.clone()]).unwrap();
+        restore_backup_dir(&backup, &install, std::slice::from_ref(&locale_path)).unwrap();
         assert_eq!(fs::read(js_path).unwrap(), b"original");
         assert!(!zh_path.exists());
         assert!(!locale_path.exists());
@@ -2047,6 +2056,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::permissions_set_readonly_false)]
     fn backup_copy_writes_contents_without_source_file_attributes() {
         let root = tempdir().unwrap();
         let source = root.path().join("encrypted-source.bin");
@@ -2205,16 +2215,6 @@ mod tests {
 
         assert_eq!(info.source, "local");
         assert!(!info.valid);
-    }
-}
-
-
-#[cfg(windows)]
-impl Drop for LocalizationMutex {
-    fn drop(&mut self) {
-        unsafe {
-            windows_sys::Win32::Foundation::CloseHandle(self.0);
-        }
     }
 }
 

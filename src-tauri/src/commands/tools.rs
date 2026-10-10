@@ -740,7 +740,7 @@ async fn fetch_npm_latest() -> Option<String> {
 
 fn version_parts(version: &str) -> Vec<u64> {
     version
-        .split(|c| c == '.' || c == '-')
+        .split(['.', '-'])
         .filter_map(|part| part.parse().ok())
         .collect()
 }
@@ -2886,7 +2886,6 @@ mod tests {
             // Local Codex may be installed but unusable under the probe Node
             // (e.g. Program Files Node 24 ESM loader crash). Skip rather than
             // fail the suite; install/probe alignment is covered by PATH tests.
-            return;
         }
     }
 

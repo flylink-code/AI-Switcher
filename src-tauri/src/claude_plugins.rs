@@ -19,7 +19,7 @@ use serde_json::{Map, Value};
 
 use crate::config::{
     get_claude_installed_plugins_path, get_claude_known_marketplaces_path,
-    get_claude_marketplaces_dir, get_claude_plugins_cache_dir, get_claude_plugins_dir,
+    get_claude_marketplaces_dir, get_claude_plugins_cache_dir,
     get_claude_settings_path, read_json_file, write_json_file,
 };
 use crate::error::{AppError, AppResult};
@@ -1046,11 +1046,6 @@ pub fn resolve_claude_executable() -> AppResult<PathBuf> {
     Err(AppError::Config(
         "未检测到 Claude Code，无法执行插件 CLI（请先安装 Claude Code）".into(),
     ))
-}
-
-#[allow(dead_code)]
-pub fn plugins_dir_for_display() -> String {
-    get_claude_plugins_dir().to_string_lossy().into_owned()
 }
 
 #[cfg(test)]

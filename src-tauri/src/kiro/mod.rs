@@ -21,7 +21,7 @@ pub mod usage_log;
 pub use account::{import_accounts_json, list_accounts, remove_account, KiroAccountPublic};
 pub use gateway::{
     gateway_status, set_gateway_api_key, set_gateway_port, set_outbound_proxy, start_gateway,
-    stop_gateway, KiroGatewayStatus, DEFAULT_GATEWAY_PORT,
+    stop_gateway, KiroGatewayStatus,
 };
-pub use models::{catalog_ids, preferred_default_model};
+pub use models::preferred_default_model;
 pub use oauth::{login_builder_id, login_social};

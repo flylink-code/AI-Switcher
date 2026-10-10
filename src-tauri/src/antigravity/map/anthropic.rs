@@ -500,8 +500,7 @@ fn is_google_search_tool(tool: &Value) -> bool {
         .get("name")
         .and_then(Value::as_str)
         .or_else(|| {
-            tool.get("google_search")
-                .and_then(|_| Some("google_search"))
+            tool.get("google_search").map(|_| "google_search")
         })
         .unwrap_or("");
     let lower = name.to_ascii_lowercase();
@@ -573,15 +572,14 @@ fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
                 }
             }
         }
-        Value::Object(map) => {
-            if map.get("type").and_then(Value::as_str) == Some("text") {
+        Value::Object(map)
+            if map.get("type").and_then(Value::as_str) == Some("text") => {
                 if let Some(text) = map.get("text").and_then(Value::as_str) {
                     if !text.is_empty() {
                         out.push(json!({ "text": text }));
                     }
                 }
             }
-        }
         _ => {}
     }
 }

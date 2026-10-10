@@ -67,7 +67,7 @@ pub fn scan_pi_sessions_sync() -> AppResult<Vec<PiSessionItem>> {
     }
 
     // 按最后更新时间逆序排序
-    list.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    list.sort_by_key(|item| std::cmp::Reverse(item.updated_at));
     Ok(list)
 }
 

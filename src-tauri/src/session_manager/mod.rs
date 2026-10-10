@@ -34,7 +34,9 @@ const MAX_CONTENT_SEARCH_OPENS: usize = 40;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SessionProvider {
+    #[default]
     ClaudeCode,
     Codex,
     /// Keep wire format `opencode` (not `open_code`) to match ProviderTarget / frontend.
@@ -48,9 +50,6 @@ pub enum SessionProvider {
     Cline,
 }
 
-impl Default for SessionProvider {
-    fn default() -> Self { Self::ClaudeCode }
-}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -633,12 +632,11 @@ pub fn list_trashed_sessions(provider: SessionProvider) -> AppResult<Vec<Session
             }
         }
     }
-    archives.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+    archives.sort_by_key(|item| std::cmp::Reverse(item.created_at));
     Ok(archives)
 }
 
 
-include!("claude_code.rs");
 include!("pi.rs");
 include!("dsh.rs");
 include!("cline.rs");

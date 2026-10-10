@@ -8,8 +8,6 @@ const STORAGE_KEY = "cs.pagePreferences";
 
 export type GatewaySection = "service" | "routing" | "upstreams" | "logs";
 
-const GATEWAY_SECTIONS: GatewaySection[] = ["service", "routing", "upstreams", "logs"];
-
 interface PersistedPagePreferences {
   /** Legacy global target; only read as a migration fallback for the
    * per-page targets below. Never written anymore. */
@@ -119,10 +117,6 @@ function isUsagePeriod(value: unknown): value is UsagePeriod {
   return USAGE_PERIOD_VALUES.some((period) => period === value);
 }
 
-function isGatewaySection(value: unknown): value is GatewaySection {
-  return GATEWAY_SECTIONS.some((section) => section === value);
-}
-
 function isUsageLogTarget(value: unknown): value is UsageSourceFilter {
   return value === "all" || value === "antigravity" || isProviderTarget(value);
 }
@@ -227,16 +221,11 @@ function initialState() {
     stored.gatewayTab === "antigravity" ? "antigravity" : "smart";
   const gatewayReverseTab: "antigravity" | "kiro" =
     stored.gatewayReverseTab === "kiro" ? "kiro" : "antigravity";
-  const gatewaySection = isGatewaySection(stored.gatewaySection)
-    ? stored.gatewaySection
-    : DEFAULTS.gatewaySection;
+  const gatewaySection = DEFAULTS.gatewaySection;
   const gatewaySnippetVisible = stored.gatewaySnippetVisible === false
     ? false
     : DEFAULTS.gatewaySnippetVisible;
-  const gatewayProfileId =
-    typeof stored.gatewayProfileId === "string" && stored.gatewayProfileId.trim()
-      ? stored.gatewayProfileId.trim()
-      : DEFAULTS.gatewayProfileId;
+  const gatewayProfileId = DEFAULTS.gatewayProfileId;
 
   return {
     visibleAgents,

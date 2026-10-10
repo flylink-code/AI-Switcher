@@ -18,7 +18,7 @@ pub fn preview_import_text(text: String) -> AppResult<ImportPreview> {
 }
 
 #[tauri::command]
-pub fn confirm_import_preview(
+pub async fn confirm_import_preview(
     preview: ImportPreview,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<DeeplinkImportResult> {
@@ -55,7 +55,7 @@ pub fn confirm_import_preview(
             let mut skipped = 0usize;
             for input in inputs {
                 validate_server_input(&input)?;
-                let existing = state.db.with_conn(|conn| mcp_dao::list_mcp_servers(conn))?;
+                let existing = state.db.with_conn(mcp_dao::list_mcp_servers)?;
                 if existing.iter().any(|server| server.name == input.name) {
                     skipped += 1;
                     continue;
@@ -72,8 +72,14 @@ pub fn confirm_import_preview(
             let mut skipped = 0usize;
             for entry in bundle.skills {
                 if !entry.url.trim().is_empty() {
-                    let _ = crate::skills::install_github_skill(&entry.url, crate::skills::SkillTarget::ClaudeCode);
-                    imported += 1;
+                    if crate::skills::install_github_skill(&entry.url, crate::skills::SkillTarget::ClaudeCode)
+                        .await
+                        .is_ok()
+                    {
+                        imported += 1;
+                    } else {
+                        skipped += 1;
+                    }
                 } else {
                     skipped += 1;
                 }

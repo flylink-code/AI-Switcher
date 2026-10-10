@@ -199,7 +199,7 @@ pub async fn add_skill_repository(url: &str) -> AppResult<SkillRepositorySnapsho
                 .into_iter()
                 .map(|(skill, _)| skill)
                 .collect();
-            skills.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+            skills.sort_by_key(|a| a.path.to_lowercase());
             SkillRepositorySnapshot {
                 repository_url: repository_url.clone(),
                 fetched_at: Some(Utc::now().timestamp_millis()),
@@ -265,7 +265,7 @@ pub fn list_skills(target: SkillTarget) -> AppResult<Vec<Skill>> {
             description_zh,
         });
     }
-    skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    skills.sort_by_key(|a| a.name.to_lowercase());
     Ok(skills)
 }
 
@@ -306,7 +306,7 @@ pub async fn refresh_github_repository_skills(url: &str) -> AppResult<SkillRepos
         .into_iter()
         .map(|(skill, _)| skill)
         .collect();
-    skills.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    skills.sort_by_key(|a| a.path.to_lowercase());
     let snapshot = SkillRepositorySnapshot {
         repository_url: repository_url.clone(),
         fetched_at: Some(Utc::now().timestamp_millis()),
@@ -329,7 +329,7 @@ pub async fn list_github_repository_skills(url: &str) -> AppResult<Vec<Repositor
         .into_iter()
         .map(|(skill, _)| skill)
         .collect();
-    skills.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    skills.sort_by_key(|a| a.path.to_lowercase());
     Ok(skills)
 }
 
@@ -620,7 +620,7 @@ pub async fn update_github_skills(names: &[String], target: SkillTarget) -> AppR
         let source_url = source.source_url.as_deref()
             .ok_or_else(|| AppError::Config(format!("Skill 来源记录缺少地址: {name}")))?;
         if let Some(repository_path) = source.repository_path.as_ref() {
-            let mut skills = install_github_repository_skills(source_url, &[repository_path.clone()], target).await?;
+            let mut skills = install_github_repository_skills(source_url, std::slice::from_ref(repository_path), target).await?;
             updated.append(&mut skills);
         } else {
             updated.push(install_github_skill(source_url, target).await?);
@@ -1023,7 +1023,7 @@ pub fn scan_unmanaged_skills(target: SkillTarget) -> AppResult<Vec<UnmanagedSkil
     }
 
     let mut out: Vec<UnmanagedSkill> = by_key.into_values().collect();
-    out.sort_by(|a, b| a.directory.to_lowercase().cmp(&b.directory.to_lowercase()));
+    out.sort_by_key(|a| a.directory.to_lowercase());
     Ok(out)
 }
 

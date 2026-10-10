@@ -177,10 +177,6 @@ const OPUSPLAN_MODEL_ALIAS: &str = "opusplan";
 
 /// Merge or clear the top-level `model` alias used by Claude Code opusplan.
 /// When disabling, only remove the key if it is exactly `opusplan`.
-pub fn apply_opusplan_model(enabled: bool) -> AppResult<bool> {
-    apply_opusplan_model_at(&get_claude_settings_path(), enabled)
-}
-
 pub fn apply_opusplan_model_at(path: &Path, enabled: bool) -> AppResult<bool> {
     let mut settings = read_or_init_settings_at(path)?;
     backup_settings(path)?;
@@ -668,7 +664,9 @@ fn inject_catalog_proxy_models(
         crate::provider::ProviderTarget::ClaudeCode,
         &provider.model,
     );
-    set_str(env, "ANTHROPIC_MODEL", &default);
+    if !default.is_empty() {
+        set_str(env, "ANTHROPIC_MODEL", &default);
+    }
     let subagent = subagent_model
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -957,7 +955,7 @@ mod tests {
         let env = written["env"].as_object().unwrap();
         assert_eq!(env["ANTHROPIC_AUTH_TOKEN"], "gwt_shared_token");
         assert_eq!(env["ANTHROPIC_API_KEY"], "gwt_shared_token");
-        assert_eq!(env["ANTHROPIC_MODEL"], "claude.auto");
+        assert!(env.get("ANTHROPIC_MODEL").is_none());
         assert_eq!(env["ANTHROPIC_BASE_URL"], "http://127.0.0.1:15828");
     }
 

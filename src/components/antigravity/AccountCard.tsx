@@ -33,6 +33,7 @@ import {
   tierTagColor,
 } from "@/components/AntigravityQuotaBars";
 import { StatusBadge } from "@/components/ui";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text, Paragraph } = Typography;
 const DEFAULT_PROMPT = "hello";
@@ -81,11 +82,6 @@ function testChatAlertType(
   }
 }
 
-function errMsg(error: unknown): string {
-  if (typeof error === "string" && error.trim()) return error;
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return String(error ?? "");
-}
 
 function matchesPattern(pattern: string, model: string): boolean {
   const normalizedPattern = pattern.trim().toLowerCase();

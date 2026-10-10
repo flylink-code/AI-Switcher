@@ -9,7 +9,7 @@
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use url::Url;
 
 use crate::error::{AppError, AppResult};
@@ -114,9 +114,7 @@ pub fn parse_deeplink_url(raw: &str) -> AppResult<ImportPreview> {
         .map_err(|error| AppError::Config(format!("Deep Link URL 无效: {error}")))?;
     let scheme = url.scheme().to_ascii_lowercase();
     if scheme != "ai-switcher" && scheme != "ccswitch" && scheme != "aiswitcher" {
-        return Err(AppError::Config(format!(
-            "Deep Link scheme 必须是 ai-switcher:// 或 ccswitch://"
-        )));
+        return Err(AppError::Config("Deep Link scheme 必须是 ai-switcher:// 或 ccswitch://".to_string()));
     }
     let host = url.host_str().unwrap_or("");
     let path = url.path().trim_matches('/');
@@ -517,6 +515,7 @@ pub fn import_result_label(resource: ImportResource, imported: usize, skipped: u
 mod tests {
     use super::*;
     use crate::provider::{ClaudeModelMapping, ProtocolType, ProviderTarget};
+    use serde_json::json;
 
     #[test]
     fn roundtrips_provider_share_link() {

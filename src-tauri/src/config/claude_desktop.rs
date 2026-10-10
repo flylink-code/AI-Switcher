@@ -84,7 +84,7 @@ pub fn detect_claude_desktop() -> ClaudeDesktopPaths {
             .unwrap_or_else(|| local_app_data.join("Claude"));
         let threep_dir = pick_windows_claude_dir(&local_app_data, &roaming_app_data, true)
             .unwrap_or_else(|| local_app_data.join("Claude-3p"));
-        return paths_from_dirs(normal_dir, threep_dir);
+        paths_from_dirs(normal_dir, threep_dir)
     }
 
     #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
@@ -558,7 +558,11 @@ fn build_profile(provider: &Provider, proxy_port: u16, catalog_models: &[String]
     if provider.is_smart_gateway() {
         let models: Vec<Value> = if catalog_models.is_empty() {
             let model = crate::gateway::normalize_live_model_for(provider.target_app, &provider.model);
-            vec![serde_json::json!({ "name": model, "supports1m": true })]
+            if model.is_empty() {
+                Vec::new()
+            } else {
+                vec![serde_json::json!({ "name": model, "supports1m": true })]
+            }
         } else {
             catalog_models
                 .iter()
@@ -636,6 +640,7 @@ pub fn active_profile_uses_local_proxy() -> bool {
     base_url.contains("127.0.0.1") && base_url.contains(CLAUDE_DESKTOP_PROXY_PREFIX)
 }
 
+#[allow(dead_code)]
 pub fn read_current_live_provider() -> AppResult<Option<crate::provider::LiveProviderInfo>> {
     let paths = detect_claude_desktop();
     let Some(config_library) = paths.config_library else {
@@ -1003,14 +1008,16 @@ mod tests {
         provider.model = "auto".into();
         let profile = build_profile(&provider, 15_822, &[]).expect("profile");
         assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
+        assert_eq!(profile["inferenceModels"].as_array().map(Vec::len), Some(0));
+
+        provider.model = "claude.ag.gemini-3.8-flash-high".into();
+        let named = build_profile(&provider, 15_822, &[]).expect("profile");
         assert_eq!(
-            profile["inferenceModels"][0]["name"],
-            serde_json::json!("claude.auto")
+            named["inferenceModels"][0]["name"],
+            serde_json::json!("claude.ag.gemini-3.8-flash-high")
         );
-        assert_eq!(profile["inferenceModels"].as_array().map(Vec::len), Some(1));
 
         let catalog = vec![
-            "claude.auto".to_string(),
             "claude.ag.gemini-3.8-flash-high".to_string(),
         ];
         let catalog_profile = build_profile(&provider, 15_822, &catalog).expect("profile");
@@ -1022,7 +1029,7 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            vec!["claude.auto", "claude.ag.gemini-3.8-flash-high"]
+            vec!["claude.ag.gemini-3.8-flash-high"]
         );
     }
 

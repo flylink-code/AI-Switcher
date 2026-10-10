@@ -28,11 +28,11 @@ use super::codex_chat::{
 use super::{
     codex_auto_review::{apply_auto_review_model_override, has_subagent_header}, convert, codex_compact, extract_usage_from_json,
     extract_usage_from_sse, is_hop_by_hop_header, is_retryable_upstream_status, json_error,
-    json_error_with_retry_after, log_early_failure, log_request, log_request_with_diagnostic,
+    log_early_failure, log_request, log_request_with_diagnostic,
     next_failover_provider, next_failover_provider_ex, resolve_explicit_fallback,
     note_gateway_inflight, remember_gateway_success_upstream, select_gateway_runtime_provider_with,
     session_prompt_cache_hint,
-    should_failover_upstream_status_ex, should_try_explicit_fallback, should_try_explicit_response,
+    should_failover_upstream_status_ex, should_try_explicit_response,
     CS_SUBAGENT_HEADER, FAILOVER_MAX_HOPS, ListenerKind, ProxyState,
 };
 
@@ -99,29 +99,19 @@ pub async fn codex_proxy_handler(
 
     let mut original_body = body;
     let incoming: Value = serde_json::from_slice(&original_body).unwrap_or(Value::Null);
-    let mut requested_model = incoming
+    let requested_model = incoming
         .get("model")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    if state.listener_kind == ListenerKind::SmartGateway {
-        if let Err((message, retry_after)) =
-            crate::gateway::budget::apply_to_request(&state.db, &mut requested_model)
-        {
-            return json_error_with_retry_after(
-                StatusCode::TOO_MANY_REQUESTS,
-                message,
-                Some(retry_after),
-            );
-        }
-        if incoming
+    if state.listener_kind == ListenerKind::SmartGateway
+        && incoming
             .get("model")
             .and_then(Value::as_str)
             .unwrap_or("")
             != requested_model
-        {
-            original_body = Bytes::from(rewrite_json_model(&original_body, &requested_model));
-        }
+    {
+        original_body = Bytes::from(rewrite_json_model(&original_body, &requested_model));
     }
     let catalog_mode = super::gateway_catalog_enabled(&state);
     let mut is_catalog_subagent = false;
@@ -1056,7 +1046,7 @@ fn prepare_codex_upstream(
             || key.eq_ignore_ascii_case("content-type")
             || key.eq_ignore_ascii_case(crate::gateway::correlation::REQUEST_ID_HEADER)
             || key.eq_ignore_ascii_case(crate::gateway::correlation::TARGET_APP_HEADER)
-            || key.eq_ignore_ascii_case(crate::gateway::sticky::PARENT_SESSION_HEADER)
+            || key.eq_ignore_ascii_case(crate::gateway::PARENT_SESSION_HEADER)
         {
             continue;
         }
@@ -1565,6 +1555,7 @@ fn find_sse_frame_end(buffer: &[u8]) -> Option<(usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::should_try_explicit_fallback;
     use serde_json::json;
 
     #[test]

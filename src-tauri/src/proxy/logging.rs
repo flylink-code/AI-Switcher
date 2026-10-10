@@ -387,7 +387,7 @@ pub(crate) fn extract_usage_from_sse(bytes: &[u8]) -> Option<UsageCounts> {
         .filter_map(|line| line.strip_prefix("data: "))
         .filter_map(|data| serde_json::from_str::<Value>(data).ok())
         .filter_map(|value| usage_from_value(&value))
-        .last()
+        .next_back()
 }
 
 fn usage_from_value(value: &Value) -> Option<UsageCounts> {
@@ -544,7 +544,7 @@ mod tests {
     async fn responses_envelope_fallback_obeys_admission_and_updates_single_log() {
         use std::sync::atomic::{AtomicUsize, Ordering};
         use tower::ServiceExt;
-        for (blocked, explicit, pinned) in [
+        for (blocked, _explicit, pinned) in [
             (false, false, false), (true, false, false),
             (false, true, false), (true, true, false),
             (false, false, true),
@@ -583,12 +583,15 @@ mod tests {
                     conn.execute("INSERT INTO upstreams (id,name,base_url,api_key,model,protocol_type,sort_index) VALUES (?1,?2,?3,?6,'model',?4,?5)",
                         rusqlite::params![id, route, format!("http://{address}/{route}"), protocol, sort, credential.reference()])?;
                 }
-                conn.execute("UPDATE gateway_profiles SET fallback_mode=?1", [if explicit { "off" } else { "retry" }])?;
-                crate::database::dao::gateway::patch_route_mode(conn, "default", &crate::database::dao::gateway::RouteModePatch {
-                    enabled: Some(true), model: Some("claude.primary.model".into()),
-                    fallback_models: explicit.then(|| vec!["claude.backup.model".into()]),
-                    ..Default::default()
-                }, Some(crate::database::dao::gateway::SHARED_PROFILE_ID))?;
+                let fallback_models = if pinned {
+                    "[]"
+                } else {
+                    "[\"claude.backup.model\"]"
+                };
+                conn.execute(
+                    "UPDATE gateway_profiles SET fallback_mode=?1, fallback_models_json=?2, explicit_fallback_enabled=0",
+                    rusqlite::params![if pinned { "off" } else { "model_chain" }, fallback_models],
+                )?;
                 Ok(())
             }).unwrap();
             state.db.gateway_upstream_limiter.apply(&backup_id, crate::gateway::upstream_limits::UpstreamLimitPolicy {
@@ -673,15 +676,15 @@ mod tests {
                     rusqlite::params![id, route, format!("http://{address}/{route}"), credential, protocol, sort],
                 )?;
             }
-            let model = if target == ProviderTarget::Codex { "model" } else { "claude.primary.model" };
             let backup = if target == ProviderTarget::Codex { "backup.model" } else { "claude.backup.model" };
-            conn.execute("UPDATE gateway_profiles SET fallback_mode='off'", [])?;
-            crate::database::dao::gateway::patch_route_mode(
-                conn, "default", &crate::database::dao::gateway::RouteModePatch {
-                    enabled: Some(true), model: Some(model.into()),
-                    fallback_models: Some(if fallback { vec![backup.into()] } else { Vec::new() }),
-                    ..Default::default()
-                }, Some(crate::database::dao::gateway::SHARED_PROFILE_ID),
+            let fallback_models = if fallback {
+                format!("[\"{backup}\"]")
+            } else {
+                "[]".to_string()
+            };
+            conn.execute(
+                "UPDATE gateway_profiles SET fallback_mode=?1, fallback_models_json=?2, explicit_fallback_enabled=0",
+                rusqlite::params![if fallback { "model_chain" } else { "off" }, fallback_models],
             )?;
             Ok(())
         }).unwrap();
@@ -871,155 +874,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn parent_session_header_is_not_an_upstream_header() {
-        assert!(!super::should_forward_inbound_header(
-            crate::gateway::sticky::PARENT_SESSION_HEADER
-        ));
-        assert!(super::should_forward_inbound_header("anthropic-version"));
-    }
-
-    #[tokio::test]
-    async fn parent_session_inherit_prefers_recorded_upstream_without_writeback() {
-        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-        use tower::ServiceExt;
-        let _guard = crate::gateway::sticky::test_lock();
-        crate::gateway::sticky::reset_for_tests();
-        let db = Arc::new(Database::memory().unwrap());
-        let primary_id = format!("inherit_primary_{}", uuid::Uuid::new_v4().simple());
-        let backup_id = format!("inherit_backup_{}", uuid::Uuid::new_v4().simple());
-        let credential = crate::secrets::test_credentials::Credential::new("synthetic-key");
-        let primary_hits = Arc::new(AtomicUsize::new(0));
-        let backup_hits = Arc::new(AtomicUsize::new(0));
-        let saw_parent = Arc::new(AtomicBool::new(false));
-        let (primary, backup, parent_header) = (primary_hits.clone(), backup_hits.clone(), saw_parent.clone());
-        let message = serde_json::json!({"id":"msg_1","type":"message","role":"assistant","model":"model","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}});
-        let mock = Router::new()
-            .route("/primary/v1/messages", axum::routing::post(move || {
-                let primary = primary.clone();
-                let message = message.clone();
-                async move {
-                    primary.fetch_add(1, Ordering::SeqCst);
-                    axum::Json(message)
-                }
-            }))
-            .route("/backup/v1/messages", axum::routing::post(move |headers: HeaderMap| {
-                let backup = backup.clone();
-                let parent_header = parent_header.clone();
-                let message = serde_json::json!({"id":"msg_2","type":"message","role":"assistant","model":"model","content":[{"type":"text","text":"backup"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}});
-                async move {
-                    parent_header.store(headers.contains_key(crate::gateway::sticky::PARENT_SESSION_HEADER), Ordering::SeqCst);
-                    backup.fetch_add(1, Ordering::SeqCst);
-                    axum::Json(message)
-                }
-            }));
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let _server = TestServer(tokio::spawn(async move { axum::serve(listener, mock).await.unwrap(); }));
-        seed_loopback_gateway(&db, address, &primary_id, &backup_id, &credential.reference(), "anthropic", ProviderTarget::ClaudeCode, false);
-        let key = crate::gateway::service::ensure_api_key(&db);
-        crate::gateway::inbound::persist_subagent_inherit_upstream(&db, true).unwrap();
-        crate::gateway::sticky::remember_successful_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, "parent-1", &backup_id);
-        let send = |model: &str, subagent: bool, parent: bool| {
-            let (db, key, model) = (db.clone(), key.clone(), model.to_string());
-            async move {
-                let mut request = http::Request::builder().method("POST").uri("/v1/messages")
-                    .header("authorization", format!("Bearer {key}"))
-                    .header("x-ai-switcher-target", "claude_code")
-                    .header("content-type", "application/json");
-                if subagent { request = request.header(CS_SUBAGENT_HEADER, "1"); }
-                if parent { request = request.header(crate::gateway::sticky::PARENT_SESSION_HEADER, "parent-1"); }
-                let body = serde_json::json!({"model": model, "messages":[{"role":"user","content":"hello"}], "max_tokens":16, "metadata":{"user_id":"child-session"}});
-                let request = request.body(Body::from(body.to_string())).unwrap();
-                let response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db, 0).oneshot(request)).await.unwrap().unwrap();
-                let status = response.status();
-                let text = String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), 65536).await.unwrap()).to_string();
-                (status, text)
-            }
-        };
-        let (status, text) = send("claude.auto", true, true).await;
-        assert_eq!(status, StatusCode::OK, "{text}");
-        assert!(text.contains("backup"), "{text}");
-        assert!(!saw_parent.load(Ordering::SeqCst));
-        assert_eq!(backup_hits.load(Ordering::SeqCst), 1);
-        assert_eq!(primary_hits.load(Ordering::SeqCst), 0);
-        assert_eq!(
-            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
-            Some(backup_id.as_str())
-        );
-        assert_eq!(
-            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("child-session")),
-            None
-        );
-        db.with_read_conn(|conn| {
-            let logs = crate::database::dao::proxy_logs::list_proxy_request_logs(conn, &Default::default(), 0, 5)?;
-            assert!(logs.data[0].route_reason.as_deref().unwrap_or("").contains("沿用父会话上游"));
-            assert!(!logs.data[0].route_reason.as_deref().unwrap_or("").contains("parent-1"));
-            Ok(())
-        }).unwrap();
-        let _ = crate::gateway::simulate::simulate(&db, crate::gateway::simulate::SimulateRouteInput {
-            requested_model: Some("claude.auto".into()), body_json: None, token_count: None,
-            has_web_search: None, has_vision: None, has_thinking: None, is_subagent: Some(true),
-            is_image_gen: None, tool_names: None, recent_write_tool: None, path: Some("/v1/messages".into()),
-            target: Some(ProviderTarget::ClaudeCode), profile_id: None,
-        }).unwrap();
-        assert_eq!(
-            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
-            Some(backup_id.as_str())
-        );
-        primary_hits.store(0, Ordering::SeqCst);
-        backup_hits.store(0, Ordering::SeqCst);
-        let (status, text) = send("claude.auto", true, false).await;
-        assert_eq!(status, StatusCode::OK, "{text}");
-        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
-        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
-        primary_hits.store(0, Ordering::SeqCst);
-        let (status, text) = send("claude.primary.model", true, true).await;
-        assert_eq!(status, StatusCode::OK, "{text}");
-        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
-        db.with_conn(|conn| {
-            crate::database::dao::gateway::upsert_route_rule(conn, &crate::database::dao::gateway::RouteRule {
-                id: "rule_lock".into(), profile_id: crate::database::dao::gateway::SHARED_PROFILE_ID.into(),
-                enabled: true, sort_index: 0, rule_type: "model-prefix".into(), condition_json: "{}".into(),
-                pattern: "claude.auto".into(), target_model: "claude.primary.model".into(),
-                thinking_config_json: "{}".into(), rewrites_json: "[]".into(),
-            })?;
-            Ok(())
-        }).unwrap();
-        primary_hits.store(0, Ordering::SeqCst);
-        backup_hits.store(0, Ordering::SeqCst);
-        let (status, text) = send("claude.auto", true, true).await;
-        assert_eq!(status, StatusCode::OK, "{text}");
-        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
-        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
-        db.with_conn(|conn| {
-            conn.execute("UPDATE route_rules SET enabled = 0 WHERE id = 'rule_lock'", [])?;
-            Ok(())
-        }).unwrap();
-        crate::gateway::health::record_failure(&backup_id);
-        crate::gateway::health::record_failure(&backup_id);
-        primary_hits.store(0, Ordering::SeqCst);
-        backup_hits.store(0, Ordering::SeqCst);
-        let (status, text) = send("claude.auto", true, true).await;
-        assert_eq!(status, StatusCode::OK, "{text}");
-        assert_eq!(primary_hits.load(Ordering::SeqCst), 1, "{text}");
-        assert_eq!(backup_hits.load(Ordering::SeqCst), 0);
-        let parent_request = http::Request::builder().method("POST").uri("/v1/messages")
-            .header("authorization", format!("Bearer {key}"))
-            .header("x-ai-switcher-target", "claude_code")
-            .header("content-type", "application/json")
-            .body(Body::from(serde_json::json!({"model":"claude.auto","messages":[{"role":"user","content":"hello"}],"max_tokens":16,"metadata":{"user_id":"parent-2"}}).to_string())).unwrap();
-        let parent_response = tokio::time::timeout(Duration::from_secs(5), smart_gateway_router(db.clone(), 0).oneshot(parent_request)).await.unwrap().unwrap();
-        assert_eq!(parent_response.status(), StatusCode::OK);
-        assert_eq!(
-            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-2")).as_deref(),
-            Some(primary_id.as_str())
-        );
-        assert_eq!(
-            crate::gateway::sticky::inherited_upstream(&key, ProviderTarget::ClaudeCode, crate::database::dao::gateway::SHARED_PROFILE_ID, Some("parent-1")).as_deref(),
-            Some(backup_id.as_str())
-        );
-    }
 
     #[tokio::test]
     async fn first_output_deadline_covers_anthropic_chat_limit_and_post_commit() {
@@ -1348,7 +1202,7 @@ mod tests {
             }
         };
 
-        let first = next_failover_provider(&state, &[current_id.clone()], "claude-opus-5")
+        let first = next_failover_provider(&state, std::slice::from_ref(&current_id), "claude-opus-5")
             .unwrap()
             .expect("group 0 candidate");
         assert_eq!(first.id, group0_id);

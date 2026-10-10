@@ -24,13 +24,9 @@ export async function run() {
   assert(!before.includes(":15828"), `independent current wrote 15828: ${before}`);
   assert(!codeDiscoveryEnabled(), "discovery should stay off for an independent card");
 
-  await invoke("update_route_mode", {
-    id: "default",
-    patch: { enabled: true },
-    profileId: "gprof_shared",
-  });
+  await invoke("list_smart_gateway_bindings");
 
   const after = codeBaseUrl();
-  assert(after === before, `editing a route mode rewrote live Code env: ${before} → ${after}`);
+  assert(after === before, `reading gateway bindings rewrote live Code env: ${before} → ${after}`);
   assert(!after.includes(":15828"), `rule edit stole the independent card: ${after}`);
 }

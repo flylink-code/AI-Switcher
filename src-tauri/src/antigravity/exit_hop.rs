@@ -330,12 +330,14 @@ pub fn apply_error_for(owner: HopOwner) -> Option<String> {
         .and_then(|slot| slot.apply_error.clone())
 }
 
+#[allow(dead_code)]
 pub fn last_probe() -> Option<ExitProbe> {
     lock_slots()
         .get(&HopOwner::Antigravity)
         .and_then(|slot| slot.probe.clone())
 }
 
+#[allow(dead_code)]
 pub async fn probe_current() -> AppResult<ExitProbe> {
     let (cfg, local) = {
         let slots = lock_slots();

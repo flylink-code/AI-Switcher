@@ -38,18 +38,10 @@ import {
 } from "@/components/kiro";
 import { BIND_TARGETS } from "@/components/antigravity";
 import type { ProviderTarget } from "@/types/backend";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
-function errMsg(error: unknown): string {
-  if (typeof error === "string" && error.trim()) return error;
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (error && typeof error === "object" && "message" in error) {
-    const msg = (error as { message?: unknown }).message;
-    if (typeof msg === "string" && msg.trim()) return msg;
-  }
-  return String(error ?? "未知错误");
-}
 
 function modelGroupColor(group: (typeof KIRO_MODEL_GROUPS)[number]): string {
   switch (group) {

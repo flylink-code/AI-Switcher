@@ -262,7 +262,7 @@ pub fn prune_auto_session_backups(
             .unwrap_or_else(|_| file_mtime_secs(&path).unwrap_or(0));
         archives.push((stamp, path));
     }
-    archives.sort_by(|left, right| right.0.cmp(&left.0));
+    archives.sort_by_key(|item| std::cmp::Reverse(item.0));
     let mut removed = 0;
     for (_, path) in archives.into_iter().skip(keep) {
         if fs::remove_file(&path).is_ok() {
@@ -330,7 +330,7 @@ pub fn list_session_backups(
             }
         }
     }
-    archives.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    archives.sort_by_key(|item| std::cmp::Reverse(item.created_at));
     Ok(archives)
 }
 
@@ -375,9 +375,7 @@ pub fn restore_session_backup(
         let target = import_target(provider, &manifest.relative_path)?;
         if target.exists() {
             let existing_sha = hex::encode(Sha256::digest(fs::read(&target)?));
-            if existing_sha == manifest.content_sha256 {
-                skipped_count += 1;
-            } else if !overwrite {
+            if existing_sha == manifest.content_sha256 || !overwrite {
                 skipped_count += 1;
             } else {
                 if let Some(parent) = target.parent() {

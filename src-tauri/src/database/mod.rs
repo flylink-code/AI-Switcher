@@ -220,14 +220,6 @@ impl Database {
         Ok(())
     }
 
-    /// Roll back Schema 34 data layer migration to Schema 33.
-    ///
-    /// Drains read pool, acquires write lock, runs data layer rollback, and resets user_version to 33.
-    pub fn rollback_v34(&self) -> AppResult<()> {
-        self.drain_read_pool();
-        self.with_conn(|conn| dao::gateway::rollback_v34(conn))
-    }
-
     /// 导出可由旧版打开的 Schema 33 数据库，不改变运行中的资料库。
     pub fn export_rollback_v34(&self, destination: &std::path::Path) -> AppResult<()> {
         if destination.exists() {
@@ -239,7 +231,7 @@ impl Database {
         {
             let source = lock_conn!(self.conn);
             let version: u32 = source.query_row("PRAGMA user_version;", [], |row| row.get(0))?;
-            if (version != 34 && version != 35) || !dao::gateway::is_v34_migration_done(&source) {
+            if (version != 34 && version != 35 && version != 36) || !dao::gateway::is_v34_migration_done(&source) {
                 return Err(AppError::Config("资料库没有有效的 Schema 34 迁移快照，无法回滚".into()));
             }
             let mut copy = Connection::open(staging.path())?;

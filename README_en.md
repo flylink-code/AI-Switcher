@@ -24,7 +24,7 @@ Tauri 2 + Rust + React. One UI for scattered config files, OS credentials, and l
 ## Features
 
 - **Providers:** One global upstream pool; API keys and OAuth accounts no longer need configuring per agent. Includes presets, model discovery, connection tests, quotas, and metadata import/export. **Agent connections** offer **Smart gateway (recommended)**, **Direct (one selected upstream)**, or **Official**. Direct Claude Code requires Anthropic; direct Codex requires OpenAI Chat / Responses. Protocol conversion and Codex OAuth use the gateway. OpenCode / Pi / Cline write only the selected managed entry and preserve user-owned configuration.
-- **Smart gateway:** Standalone listener at `127.0.0.1:15828` for mode routing, thinking levels, catalog scope, and condition rules. Binding an agent writes an Auto card that points at that port. Usage counts only the innermost hop. Entry: main nav **Gateway**.
+- **Smart gateway:** Standalone listener at `127.0.0.1:15828` that sends an aggregated-catalog model id to its upstream. Binding an agent writes a smart-gateway card that points at that port. Usage counts only the innermost hop. Entry: main nav **Gateway**.
 - **Antigravity gateway:** `127.0.0.1:15830` exposes Cloud Code as Anthropic Messages / OpenAI Chat / Responses. Browser OAuth account pool with quota-aware scheduling. Personal use; review upstream terms yourself.
 - **Kiro gateway:** `127.0.0.1:15831` with an account pool and quota-aware scheduling. Import a Builder ID, Social, or Kiro IDE token, or sign in with a device code or Social PKCE. Usage counts only the Kiro hop. Personal use; review upstream terms yourself.
 - **Workspace:** MCP, prompts, skills, agents, plugins, project snapshots — tabs filtered by the current agent.

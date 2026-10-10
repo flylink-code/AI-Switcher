@@ -4,9 +4,8 @@ use serde_json::Value;
 use std::process::Command;
 
 use crate::coding::pi::config::{
-    read_global_agents_md, read_pi_auth, read_pi_models, read_pi_settings, read_workspace_prompt,
-    save_global_agents_md, save_pi_auth as save_pi_auth_fn, save_pi_models as save_pi_models_fn,
-    save_workspace_prompt, update_pi_settings as update_pi_settings_fn,
+    read_pi_settings, read_workspace_prompt, save_workspace_prompt,
+    update_pi_settings as update_pi_settings_fn,
 };
 use crate::coding::pi::detector::{
     apply_pi_latest, detect_pi_cli_sync, fetch_pi_npm_latest_sync, PiCliVersionInfo,
@@ -75,36 +74,6 @@ pub async fn update_pi_settings(
     extra_patch: Option<Value>,
 ) -> AppResult<Value> {
     update_pi_settings_fn(default_provider, default_model, default_thinking_level, extra_patch)
-}
-
-#[tauri::command]
-pub async fn get_pi_auth() -> AppResult<Value> {
-    read_pi_auth()
-}
-
-#[tauri::command]
-pub async fn save_pi_auth(auth_val: Value) -> AppResult<()> {
-    save_pi_auth_fn(auth_val)
-}
-
-#[tauri::command]
-pub async fn get_pi_models() -> AppResult<Value> {
-    read_pi_models()
-}
-
-#[tauri::command]
-pub async fn save_pi_models(models_val: Value) -> AppResult<()> {
-    save_pi_models_fn(models_val)
-}
-
-#[tauri::command]
-pub async fn get_global_pi_agents_md() -> AppResult<String> {
-    read_global_agents_md()
-}
-
-#[tauri::command]
-pub async fn save_global_pi_agents_md(content: String) -> AppResult<()> {
-    save_global_agents_md(&content)
 }
 
 #[tauri::command]

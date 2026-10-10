@@ -141,16 +141,6 @@ const PRICING_COLUMNS: [&str; 9] = [
     "batchOutputPricePerMillion", "currency",
 ];
 
-/// Stable, release-bundled catalog metadata. The individual entries are
-/// returned by `list_model_pricing`; this keeps source and date information
-/// available without querying a third-party pricing endpoint at runtime.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PricingCatalog {
-    pub version: String,
-    pub entries: Vec<ModelPricing>,
-}
-
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
 const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
 const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";
@@ -1018,14 +1008,6 @@ pub fn list_model_pricing(state: tauri::State<'_, AppState>) -> AppResult<Vec<Mo
 }
 
 #[tauri::command]
-pub fn get_pricing_catalog(state: tauri::State<'_, AppState>) -> AppResult<PricingCatalog> {
-    state.db.with_read_conn(|conn| Ok(PricingCatalog {
-        version: crate::database::seed::CATALOG_VERSION.to_string(),
-        entries: list_pricing(conn)?,
-    }))
-}
-
-#[tauri::command]
 pub fn save_model_pricing(input: ModelPricingInput, state: tauri::State<'_, AppState>) -> AppResult<()> {
     let pricing = normalize_pricing_input(input)?;
     state.db.with_conn(|conn| save_pricing(conn, &pricing))
@@ -1310,23 +1292,17 @@ mod tests {
         write_session(
             &sessions,
             "main.jsonl",
-            concat!(
-                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model\":\"gpt-5\",\"last_token_usage\":{\"input_tokens\":20,\"cached_input_tokens\":0,\"output_tokens\":5}}}}\n",
-            ),
+            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model\":\"gpt-5\",\"last_token_usage\":{\"input_tokens\":20,\"cached_input_tokens\":0,\"output_tokens\":5}}}}\n",
         );
         write_session(
             &sessions,
             "agent-child.jsonl",
-            concat!(
-                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":999,\"cached_input_tokens\":0,\"output_tokens\":999}}}}\n",
-            ),
+            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"input_tokens\":999,\"cached_input_tokens\":0,\"output_tokens\":999}}}}\n",
         );
         write_session(
             &archived,
             "old.jsonl",
-            concat!(
-                "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model_name\":\"o4-mini\",\"last_token_usage\":{\"input_tokens\":10,\"cached_input_tokens\":0,\"output_tokens\":2}}}}\n",
-            ),
+            "{\"timestamp\":\"2026-07-01T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"model_name\":\"o4-mini\",\"last_token_usage\":{\"input_tokens\":10,\"cached_input_tokens\":0,\"output_tokens\":2}}}}\n",
         );
 
         let usage = collect_codex_local_usage_from_roots(&[sessions, archived], 0);

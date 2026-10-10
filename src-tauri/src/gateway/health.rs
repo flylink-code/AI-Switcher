@@ -368,6 +368,7 @@ pub fn record_probe_http_status(upstream_id: &str, status: u16, latency_ms: Opti
     }
 }
 
+#[allow(dead_code)]
 pub fn clear_auth_failure(upstream_id: &str) {
     let mut table = lock_table();
     if let Some(entry) = table.get_mut(upstream_id) {
@@ -432,10 +433,12 @@ pub struct CircuitPermit {
 }
 
 impl CircuitPermit {
+    #[allow(dead_code)]
     pub fn upstream_id(&self) -> &str {
         &self.upstream_id
     }
 
+    #[allow(dead_code)]
     pub fn model(&self) -> Option<&str> {
         self.model.as_deref()
     }
@@ -444,6 +447,7 @@ impl CircuitPermit {
         self.is_upstream_half_open || self.is_model_half_open
     }
 
+    #[allow(dead_code)]
     pub fn disarm(mut self) {
         self.release_permit_scope();
         self.completed = true;
@@ -473,6 +477,7 @@ impl CircuitPermit {
         kind
     }
 
+    #[allow(dead_code)]
     pub fn record_failure(mut self) {
         record_failure_scope(&self.upstream_id, self.model.as_deref());
         self.release_permit_scope();
@@ -592,6 +597,7 @@ pub fn min_cooldown_remaining_secs(upstream_id: &str, model: Option<&str>) -> Op
     min_cooldown_remaining(upstream_id, model).map(|d| d.as_secs().max(1))
 }
 
+#[allow(dead_code)]
 pub fn min_cooldown_for_candidates(ids: &[String], model: Option<&str>) -> Option<u64> {
     let mut min_secs: Option<u64> = None;
     for id in ids {
@@ -606,6 +612,7 @@ pub fn min_cooldown_for_candidates(ids: &[String], model: Option<&str>) -> Optio
 // Public Snapshot & Query Functions
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 pub fn snapshot() -> Vec<UpstreamHealth> {
     let now = Instant::now();
     let table = lock_table();

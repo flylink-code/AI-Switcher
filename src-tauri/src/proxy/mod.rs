@@ -20,7 +20,7 @@ mod first_output;
 pub(crate) use upstream_health::{build_request_attempt, should_try_explicit_response};
 
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::convert::Infallible;
 

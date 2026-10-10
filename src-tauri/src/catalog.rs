@@ -26,9 +26,6 @@ pub const GATEWAY_CATALOG_CODEX_SUBAGENT_KEY: &str = "gateway_catalog_codex_suba
 pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODE_KEY: &str =
     "gateway_catalog_hide_official_claude_code";
 pub const GATEWAY_CATALOG_HIDE_OFFICIAL_CODEX_KEY: &str = "gateway_catalog_hide_official_codex";
-pub const GATEWAY_CATALOG_CODE_OPUSPLAN_KEY: &str = "gateway_catalog_claude_code_opusplan";
-pub const GATEWAY_CATALOG_CODE_PLAN_KEY: &str = "gateway_catalog_claude_code_plan";
-pub const GATEWAY_CATALOG_CODE_EXECUTE_KEY: &str = "gateway_catalog_claude_code_execute";
 
 pub fn setting_key(target: ProviderTarget) -> Option<&'static str> {
     match target {
@@ -54,27 +51,6 @@ pub fn hide_official_setting_key(target: ProviderTarget) -> Option<&'static str>
     }
 }
 
-pub fn opusplan_setting_key(target: ProviderTarget) -> Option<&'static str> {
-    match target {
-        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_OPUSPLAN_KEY),
-        _ => None,
-    }
-}
-
-pub fn plan_setting_key(target: ProviderTarget) -> Option<&'static str> {
-    match target {
-        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_PLAN_KEY),
-        _ => None,
-    }
-}
-
-pub fn execute_setting_key(target: ProviderTarget) -> Option<&'static str> {
-    match target {
-        ProviderTarget::ClaudeCode => Some(GATEWAY_CATALOG_CODE_EXECUTE_KEY),
-        _ => None,
-    }
-}
-
 /// Snapshot of catalog flags for one Agent. Loaded in a single connection so
 /// proxy requests do not take the write mutex once per flag.
 #[derive(Debug, Clone, Default)]
@@ -82,8 +58,6 @@ pub struct CatalogView {
     pub enabled: bool,
     pub hide_official: bool,
     pub subagent_model: Option<String>,
-    pub plan_model: Option<String>,
-    pub execute_model: Option<String>,
 }
 
 const VIEW_TTL: Duration = Duration::from_millis(1500);
@@ -112,8 +86,6 @@ pub fn view_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Cat
         enabled: enabled_for_conn(conn, target),
         hide_official: hide_official_for_conn(conn, target),
         subagent_model: subagent_for_conn(conn, target),
-        plan_model: plan_model_for_conn(conn, target),
-        execute_model: execute_model_for_conn(conn, target),
     }
 }
 
@@ -179,44 +151,6 @@ pub fn subagent_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) ->
 
 pub fn subagent_model(db: &Database, target: ProviderTarget) -> Option<String> {
     view(db, target).subagent_model
-}
-
-fn setting_model_for_conn(conn: &rusqlite::Connection, key: &str) -> Option<String> {
-    get_setting(conn, key)
-        .ok()
-        .flatten()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-}
-
-pub fn plan_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
-    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
-        let value = profile.plan_model.trim();
-        if !value.is_empty() {
-            return Some(value.to_string());
-        }
-        return None;
-    }
-    setting_model_for_conn(conn, plan_setting_key(target)?)
-}
-
-pub fn plan_model(db: &Database, target: ProviderTarget) -> Option<String> {
-    view(db, target).plan_model
-}
-
-pub fn execute_model_for_conn(conn: &rusqlite::Connection, target: ProviderTarget) -> Option<String> {
-    if let Ok(Some(profile)) = gateway::current_profile(conn, target) {
-        let value = profile.execute_model.trim();
-        if !value.is_empty() {
-            return Some(value.to_string());
-        }
-        return None;
-    }
-    setting_model_for_conn(conn, execute_setting_key(target)?)
-}
-
-pub fn execute_model(db: &Database, target: ProviderTarget) -> Option<String> {
-    view(db, target).execute_model
 }
 
 /// Opus Plan is removed; keep the helper so leftover IPC callers stay off.
@@ -396,6 +330,7 @@ const AUTO_WINDOW_MODE_IDS: &[&str] = &[
     "background",
 ];
 
+#[allow(dead_code)]
 pub fn auto_catalog_entry(style: CatalogStyle) -> CatalogEntry {
     auto_catalog_entry_with_window(style, DEFAULT_DISCOVERY_CONTEXT_WINDOW)
 }
@@ -604,6 +539,7 @@ pub enum CatalogRequestError {
 }
 
 impl CatalogRequestError {
+    #[allow(dead_code)]
     pub fn requested(&self) -> &str {
         match self {
             Self::StalePublicId(value)
@@ -612,6 +548,7 @@ impl CatalogRequestError {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_model_not_found(&self) -> bool {
         !matches!(self, Self::AmbiguousUpstream(_))
     }
@@ -1731,11 +1668,11 @@ mod tests {
             .map(|item| item["id"].as_str().unwrap())
             .collect();
         assert_eq!(ids[0], CLAUDE_AUTO_PUBLIC_ID);
-        assert!(ids.iter().any(|id| *id == "claude.kimi.kimi-k2"));
-        assert!(ids.iter().any(|id| *id == CLAUDE_HAIKU_ROLE_ID));
-        assert!(ids.iter().any(|id| *id == CLAUDE_SONNET_ROLE_ID));
-        assert!(ids.iter().any(|id| *id == CLAUDE_OPUS_ROLE_ID));
-        assert!(ids.iter().any(|id| *id == CLAUDE_FABLE_ROLE_ID));
+        assert!(ids.contains(&"claude.kimi.kimi-k2"));
+        assert!(ids.contains(&CLAUDE_HAIKU_ROLE_ID));
+        assert!(ids.contains(&CLAUDE_SONNET_ROLE_ID));
+        assert!(ids.contains(&CLAUDE_OPUS_ROLE_ID));
+        assert!(ids.contains(&CLAUDE_FABLE_ROLE_ID));
         let auto = &payload["data"][0];
         assert_eq!(payload["object"], "list");
         assert_eq!(auto["type"], "model");

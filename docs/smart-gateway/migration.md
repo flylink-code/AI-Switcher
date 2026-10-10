@@ -33,7 +33,13 @@
 2. 记录单次请求在故障降级（failover）或协议兼容重试过程中的实际尝试链，包含每跳的 `attemptIndex`、`upstreamId`、`providerName`、`model`、`statusCode`、`durationMs`、`errorCategory`、`diagnostic` 及 `success`。
 3. 严格脱敏：请求正文、响应正文与认证凭据不进入数据库，错误诊断文本经 `log_redact::redact_secrets` 统一过滤敏感信息。
 4. 沿用已有 `correlation_id` / `hop` 去重规则：单请求的多跳尝试结构化保存在该请求日志行的 `attempts_json` 字段内，不增加用量日志记录数，避免重复计费。
-5. 幂等迁移与旧库兼容：检查 `pragma_table_info` 避免重复添加；`Database::export_rollback_v34` 继续支持从 Schema 35 资料库导出 Schema 33 降级副本。
+5. 幂等迁移与旧库兼容：检查 `pragma_table_info` 避免重复添加；`Database::export_rollback_v34` 继续支持从 Schema 35 / 36 资料库导出 Schema 33 降级副本。
+
+# Schema 35 → 36（去掉动态路由表）
+
+1. `DROP TABLE IF EXISTS route_rules`，再 `DROP TABLE IF EXISTS route_modes`。
+2. 新库不再创建这两张表。`gateway_profiles` 冻结为 `gprof_shared`。`gateway_bindings.profile_id` 与日志里的 `route_mode` / `profile_id` 列保留，新写入不再填充。
+3. 回滚导出仍只生成 Schema 33 副本，不降级运行库。Schema 36 的运行库可以导出。
 
 ## 降级恢复
 

@@ -20,11 +20,9 @@ import {
   bindSmartGateway,
   getAgentConnectionMode,
   getSmartGatewayStatus,
-  listGatewayProfiles,
   listGatewayUpstreams,
   listSmartGatewayBindings,
   setAgentDirect,
-  setGatewayBindingProfile,
   switchToOfficial,
 } from "@/services/providers";
 import type {
@@ -32,6 +30,7 @@ import type {
   Provider,
   ProviderTarget,
 } from "@/types/backend";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
@@ -97,10 +96,6 @@ export function checkUpstreamDirectCompatibility(
   return { compatible: true };
 }
 
-function errMsg(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  return String(error ?? "未知错误");
-}
 
 export function AgentConnectionCard() {
   const { t } = useTranslation();
@@ -122,11 +117,6 @@ export function AgentConnectionCard() {
   const upstreamsQuery = useQuery({
     queryKey: ["gateway-upstreams"],
     queryFn: listGatewayUpstreams,
-  });
-
-  const profilesQuery = useQuery({
-    queryKey: ["gateway-profiles"],
-    queryFn: listGatewayProfiles,
   });
 
   const smartGatewayQuery = useQuery({
@@ -159,18 +149,6 @@ export function AgentConnectionCard() {
     [bindingsQuery.data],
   );
   const upstreams = useMemo(() => upstreamsQuery.data ?? [], [upstreamsQuery.data]);
-  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
-
-  const profileOptions = useMemo(() => {
-    return profiles.map((p) => ({
-      value: p.id,
-      label:
-        p.id === "gprof_shared"
-          ? t("gateway.profileDefault", { defaultValue: p.name || "默认档案" })
-          : p.name.trim() || p.id,
-    }));
-  }, [profiles, t]);
-
   const invalidateAgentQueries = async () => {
     await queryClient.invalidateQueries({ queryKey: ["agent-config-drift"] });
     await queryClient.invalidateQueries({ queryKey: ["smart-gateway-bindings"] });
@@ -272,22 +250,6 @@ export function AgentConnectionCard() {
       setPendingDirect((prev) => ({ ...prev, [target]: false }));
       await invalidateAgentQueries();
       void message.success(t("providers.directUpstreamSaved", { defaultValue: "直连上游已更新" }));
-    } catch (error) {
-      void message.error(errMsg(error));
-    } finally {
-      setLoadingTargets((prev) => ({ ...prev, [target]: false }));
-    }
-  };
-
-  const handleSelectProfile = async (target: ProviderTarget, profileId: string) => {
-    setLoadingTargets((prev) => ({ ...prev, [target]: true }));
-    try {
-      // 选档案不得隐式绑定：set_binding_profile 只更新已有 gateway_bindings 行
-      await setGatewayBindingProfile(target, profileId);
-      await invalidateAgentQueries();
-      void message.success(
-        t("providers.gatewayProfileSaved", { defaultValue: "已切换智能网关档案" }),
-      );
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -456,41 +418,6 @@ export function AgentConnectionCard() {
                       </Space>
                     )}
                     onChange={(val) => void handleSelectDirectUpstream(row.target, String(val))}
-                  />
-                </Tooltip>
-              );
-            },
-          },
-          {
-            title: t("providers.gatewayProfile", { defaultValue: "网关档案" }),
-            dataIndex: "binding",
-            width: 200,
-            render: (binding: GatewayBinding | undefined, row: AgentRow) => {
-              // 档案Select仅gateway已有绑定可选，直连/未绑disabled
-              const isGatewayBound = row.displayMode === "gateway" && Boolean(binding);
-              const isRowBusy = Boolean(loadingTargets[row.target]);
-              return (
-                <Tooltip
-                  title={
-                    !isGatewayBound
-                      ? t("providers.profileDisabledHint", {
-                          defaultValue: "仅在连接智能网关时可选档案",
-                        })
-                      : undefined
-                  }
-                >
-                  <Select
-                    size="small"
-                    style={{ width: "100%" }}
-                    disabled={!isGatewayBound || isRowBusy}
-                    value={isGatewayBound ? (binding?.profileId || "gprof_shared") : undefined}
-                    placeholder={
-                      isGatewayBound
-                        ? t("gateway.profileDefault", { defaultValue: "默认档案" })
-                        : "—"
-                    }
-                    options={profileOptions}
-                    onChange={(val) => void handleSelectProfile(row.target, String(val))}
                   />
                 </Tooltip>
               );

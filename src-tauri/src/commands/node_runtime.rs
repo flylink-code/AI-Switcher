@@ -91,7 +91,7 @@ pub fn parse_node_version(text: &str) -> Option<String> {
 
 pub fn version_meets_minimum(version: &str, minimum_major: u64) -> bool {
     let major = version
-        .split(|c| c == '.' || c == '-')
+        .split(['.', '-'])
         .next()
         .and_then(|part| part.parse::<u64>().ok())
         .unwrap_or(0);
@@ -388,12 +388,9 @@ fn run_tool_version(program: &Path, args: &[&str]) -> io::Result<Output> {
 
 fn sibling_npm(node: &Path) -> Option<PathBuf> {
     let dir = node.parent()?;
-    for candidate in executable_candidates(dir, "npm") {
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    None
+    executable_candidates(dir, "npm")
+        .into_iter()
+        .find(|candidate| candidate.is_file())
 }
 
 fn probe_from_node(node: PathBuf, source_hint: &str) -> Option<(PathBuf, PathBuf, String, String)> {
@@ -429,7 +426,7 @@ fn probe_fnm_default_node(fnm: &Path) -> Option<(PathBuf, PathBuf, String, Strin
             .map(str::trim)
             .find(|line| !line.is_empty() && Path::new(line).is_file())
             .map(PathBuf::from)?;
-        return probe_from_node(node_path, "fnm");
+        probe_from_node(node_path, "fnm")
     }
 
     #[cfg(not(windows))]
@@ -639,7 +636,7 @@ fn run_anchored_npm_with_timeout(
             .raw_arg(command_line)
             .creation_flags(CREATE_NO_WINDOW);
         scrub_npm_env(&mut command);
-        return run_output_timeout(command, timeout);
+        run_output_timeout(command, timeout)
     }
 
     #[cfg(not(windows))]
@@ -877,9 +874,9 @@ fn install_fnm_binary(github_mirror_base: Option<&str>) -> AppResult<PathBuf> {
         if direct.is_file() {
             return Ok(direct);
         }
-        return Err(AppError::Config(
+        Err(AppError::Config(
             "fnm was downloaded but the binary was not found under LocalAppData\\fnm.".into(),
-        ));
+        ))
     }
 
     #[cfg(not(windows))]

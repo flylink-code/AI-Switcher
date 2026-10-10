@@ -61,6 +61,7 @@ pub struct UpstreamLimitPolicy {
 }
 
 /// Convenience alias matching coordinator terminology.
+#[allow(dead_code)]
 pub type UpstreamPolicy = UpstreamLimitPolicy;
 
 impl From<&UpstreamLimitPolicy> for UpstreamLimitPolicy {
@@ -806,18 +807,6 @@ impl UpstreamLimiter {
             queue_len: state.waiters.len() as u32,
             current_rpm: active_rpm,
         })
-    }
-
-    /// Retrieve snapshot or default empty state if unconfigured.
-    pub fn snapshot_or_default(&self, upstream_id: &str) -> UpstreamLimitSnapshot {
-        self.snapshot(upstream_id)
-            .unwrap_or_else(|| UpstreamLimitSnapshot {
-                upstream_id: upstream_id.to_string(),
-                policy: UpstreamLimitPolicy::default(),
-                active: 0,
-                queue_len: 0,
-                current_rpm: 0,
-            })
     }
 
     /// Retrieve snapshots of all currently tracked upstreams (pure read-only).

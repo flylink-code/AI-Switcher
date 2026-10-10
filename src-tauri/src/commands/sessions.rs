@@ -12,7 +12,7 @@ use crate::store::AppState;
 pub fn get_session_backup_dir(state: tauri::State<'_, AppState>) -> AppResult<String> {
     let dir = state
         .db
-        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+        .with_conn(session_manager::get_configured_session_backup_dir)?;
     Ok(dir.to_string_lossy().into_owned())
 }
 
@@ -27,7 +27,7 @@ pub fn set_session_backup_dir(path: String, state: tauri::State<'_, AppState>) -
 pub fn reset_session_backup_dir(state: tauri::State<'_, AppState>) -> AppResult<String> {
     state
         .db
-        .with_conn(|conn| session_manager::reset_configured_session_backup_dir(conn))
+        .with_conn(session_manager::reset_configured_session_backup_dir)
 }
 
 #[tauri::command]
@@ -56,7 +56,7 @@ pub fn get_session_mirror_dir(
 ) -> AppResult<String> {
     let backup_dir = state
         .db
-        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+        .with_conn(session_manager::get_configured_session_backup_dir)?;
     Ok(
         crate::session_backup::mirror_provider_dir(&backup_dir, provider)
             .to_string_lossy()
@@ -72,7 +72,7 @@ pub async fn restore_session_mirror(
 ) -> AppResult<SessionBatchRestoreResult> {
     let backup_dir = state
         .db
-        .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+        .with_conn(session_manager::get_configured_session_backup_dir)?;
     let overwrite = overwrite.unwrap_or(false);
     tauri::async_runtime::spawn_blocking(move || {
         crate::session_backup::restore_session_mirror(provider, &backup_dir, overwrite)
@@ -92,7 +92,7 @@ pub async fn backup_all_sessions(
         _ => {
             let configured = state
                 .db
-                .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+                .with_conn(session_manager::get_configured_session_backup_dir)?;
             Some(configured.to_string_lossy().into_owned())
         }
     };
@@ -114,7 +114,7 @@ pub async fn list_session_backups(
         _ => {
             let configured = state
                 .db
-                .with_conn(|conn| session_manager::get_configured_session_backup_dir(conn))?;
+                .with_conn(session_manager::get_configured_session_backup_dir)?;
             Some(configured.to_string_lossy().into_owned())
         }
     };
@@ -226,59 +226,3 @@ pub async fn list_trashed_sessions(provider: SessionProvider) -> AppResult<Vec<S
 }
 
 // migrate_claude_code_session was removed; same-provider resume no longer needs a session fork.
-
-// --- Legacy Claude Code-only session commands ---
-// Kept for backward compatibility; the frontend now uses the generic
-// provider-parameterized commands above (`export_session`, `backup_sessions`, ...).
-
-#[tauri::command]
-pub async fn export_claude_code_session(
-    source_path: String,
-    destination_dir: Option<String>,
-) -> AppResult<SessionArchiveInfo> {
-    tauri::async_runtime::spawn_blocking(move || {
-        session_manager::export_claude_code_session(&source_path, destination_dir.as_deref())
-    })
-        .await.map_err(|error| AppError::Tauri(format!("会话导出任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn backup_claude_code_sessions(source_paths: Vec<String>) -> AppResult<SessionBatchBackupInfo> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::backup_claude_code_sessions(&source_paths))
-        .await.map_err(|error| AppError::Tauri(format!("会话批量备份任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn export_claude_code_sessions(
-    source_paths: Vec<String>,
-    destination_dir: Option<String>,
-) -> AppResult<SessionBatchExportInfo> {
-    tauri::async_runtime::spawn_blocking(move || {
-        session_manager::export_claude_code_sessions(&source_paths, destination_dir.as_deref())
-    })
-        .await.map_err(|error| AppError::Tauri(format!("会话批量导出任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn import_claude_code_session(archive_path: String) -> AppResult<SessionMeta> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::import_claude_code_session(&archive_path))
-        .await.map_err(|error| AppError::Tauri(format!("会话导入任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn trash_claude_code_session(source_path: String) -> AppResult<SessionArchiveInfo> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::trash_claude_code_session(&source_path))
-        .await.map_err(|error| AppError::Tauri(format!("会话删除任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn restore_trashed_claude_code_session(archive_path: String) -> AppResult<SessionMeta> {
-    tauri::async_runtime::spawn_blocking(move || session_manager::restore_trashed_claude_code_session(&archive_path))
-        .await.map_err(|error| AppError::Tauri(format!("会话恢复任务失败: {error}")))?
-}
-
-#[tauri::command]
-pub async fn list_trashed_claude_code_sessions() -> AppResult<Vec<SessionArchiveInfo>> {
-    tauri::async_runtime::spawn_blocking(session_manager::list_trashed_claude_code_sessions)
-        .await.map_err(|error| AppError::Tauri(format!("会话回收站读取失败: {error}")))?
-}

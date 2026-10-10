@@ -564,12 +564,6 @@ pub(crate) fn load_gateway_catalog(
             }
         }
         let hide_official = crate::catalog::hide_official_for_conn(conn, state.target);
-        let profile_id = profile
-            .as_ref()
-            .map(|item| item.id.as_str())
-            .unwrap_or(crate::database::dao::gateway::SHARED_PROFILE_ID);
-        let modes = crate::database::dao::gateway::list_route_modes(conn, profile_id)
-            .unwrap_or_default();
         let mut pairs = Vec::with_capacity(providers.len());
         for provider in &providers {
             let cached =
@@ -577,11 +571,7 @@ pub(crate) fn load_gateway_catalog(
                     .unwrap_or_default();
             pairs.push((provider.clone(), cached));
         }
-        let entries = crate::catalog::with_auto_entry_from_modes(
-            style,
-            crate::catalog::build_catalog_with(style, &pairs, hide_official),
-            &modes,
-        );
+        let entries = crate::catalog::build_catalog_with(style, &pairs, hide_official);
         Ok((providers, entries))
     })
 }

@@ -21,7 +21,7 @@ import {
 } from "@/lib/appQueries";
 import { useNavigatePage } from "@/lib/navigation";
 import type { PageKey } from "@/lib/pageRegistry";
-import { errMsg } from "@/lib/useProviderActions";
+import { errMsg } from "@/lib/errMsg";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 import { formatCompactNumber } from "@/utils/formatCompact";

@@ -58,7 +58,7 @@ fn list_config_backups_blocking(
             })
         })
         .collect::<Vec<_>>();
-    backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    backups.sort_by_key(|item| std::cmp::Reverse(item.created_at));
     Ok(backups)
 }
 

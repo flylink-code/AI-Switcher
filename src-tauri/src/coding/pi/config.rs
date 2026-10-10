@@ -141,6 +141,7 @@ pub fn update_pi_settings(
 }
 
 /// 读取 `auth.json`
+#[allow(dead_code)]
 pub fn read_pi_auth() -> AppResult<Value> {
     let _guard = lock_pi_config()?;
     let path = get_pi_auth_path();
@@ -149,6 +150,7 @@ pub fn read_pi_auth() -> AppResult<Value> {
 }
 
 /// 写入 `auth.json`（合并保存，保留已有供应商和其他未知顶级扩展字段）
+#[allow(dead_code)]
 pub fn save_pi_auth(auth_val: Value) -> AppResult<()> {
     let _guard = lock_pi_config()?;
     let path = get_pi_auth_path();
@@ -171,6 +173,7 @@ pub fn save_pi_auth(auth_val: Value) -> AppResult<()> {
 }
 
 /// 读取 `models.json`
+#[allow(dead_code)]
 pub fn read_pi_models() -> AppResult<Value> {
     let _guard = lock_pi_config()?;
     let path = get_pi_models_path();
@@ -179,6 +182,7 @@ pub fn read_pi_models() -> AppResult<Value> {
 }
 
 /// 写入 `models.json`（合并保存，保留未知顶级扩展字段如 `packages` / `extensionSettings`）
+#[allow(dead_code)]
 pub fn save_pi_models(models_val: Value) -> AppResult<()> {
     let _guard = lock_pi_config()?;
     let path = get_pi_models_path();
@@ -285,6 +289,7 @@ pub fn sync_managed_pi_auth(entries: &[(String, String)], retire_ids: &[String])
 }
 
 /// 读取全局 Prompt (`~/.pi/agent/AGENTS.md`)
+#[allow(dead_code)]
 pub fn read_global_agents_md() -> AppResult<String> {
     let path = get_pi_global_agents_path();
     if !path.exists() {
@@ -294,6 +299,7 @@ pub fn read_global_agents_md() -> AppResult<String> {
 }
 
 /// 保存全局 Prompt (`~/.pi/agent/AGENTS.md`)
+#[allow(dead_code)]
 pub fn save_global_agents_md(content: &str) -> AppResult<()> {
     let path = get_pi_global_agents_path();
     if let Some(parent) = path.parent() {

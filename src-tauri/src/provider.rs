@@ -20,7 +20,9 @@ use crate::error::{AppError, AppResult};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ProtocolType {
+    #[default]
     Anthropic,
     /// OpenAI Chat Completions upstream, reached through the local proxy.
     #[serde(rename = "openai_chat", alias = "open_ai_chat")]
@@ -38,7 +40,9 @@ pub enum ProtocolType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(test, derive(TS))]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ProviderTarget {
+    #[default]
     ClaudeCode,
     ClaudeDesktop,
     Codex,
@@ -86,16 +90,6 @@ impl ProviderTarget {
         )
     }
 
-    pub const ALL: [ProviderTarget; 7] = [
-        ProviderTarget::ClaudeCode,
-        ProviderTarget::ClaudeDesktop,
-        ProviderTarget::Codex,
-        ProviderTarget::OpenCode,
-        ProviderTarget::Pi,
-        ProviderTarget::Dsh,
-        ProviderTarget::Cline,
-    ];
-
     /// Claude Code / Codex 可选「统一模型目录」（由设置项开启）。
     pub fn supports_gateway_catalog(self) -> bool {
         matches!(self, ProviderTarget::ClaudeCode | ProviderTarget::Codex)
@@ -103,22 +97,13 @@ impl ProviderTarget {
 
     /// 供应商页隐藏「设为当前」；保存/删除即同步 live 配置。
     /// Code / Codex 目录模式由设置项控制，不在这里判断。
+    #[allow(dead_code)]
     pub fn hides_provider_switch(self) -> bool {
         self.is_catalog_target()
     }
 }
 
-impl Default for ProviderTarget {
-    fn default() -> Self {
-        ProviderTarget::ClaudeCode
-    }
-}
 
-impl Default for ProtocolType {
-    fn default() -> Self {
-        ProtocolType::Anthropic
-    }
-}
 
 impl ProtocolType {
     pub fn as_str(&self) -> &'static str {
@@ -207,11 +192,10 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
             "OpenCode 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
         ));
     }
-    if target == ProviderTarget::Pi
+    if (target == ProviderTarget::Pi
         || target == ProviderTarget::Dsh
-        || target == ProviderTarget::Cline
-    {
-        if !matches!(
+        || target == ProviderTarget::Cline)
+        && !matches!(
             protocol,
             ProtocolType::Anthropic | ProtocolType::OpenAiChat | ProtocolType::OpenAiResponses
         ) {
@@ -219,7 +203,6 @@ pub fn validate_target_protocol(target: ProviderTarget, protocol: ProtocolType) 
                 "Pi / DeepSeek Harness / Cline 供应商仅支持 Anthropic Messages、OpenAI Chat 或 OpenAI Responses 协议".to_string(),
             ));
         }
-    }
     Ok(())
 }
 

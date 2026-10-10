@@ -15,7 +15,6 @@ export * from "./quota";
 import type {
   ClaudeModelMapping,
   CurrencyAmount,
-  GatewayProfile,
   ModelPricing,
   ProtocolType,
   Provider,
@@ -50,6 +49,17 @@ export interface ProviderInput {
   hiddenModels?: string[];
   thinkingConfig?: ThinkingConfig | null;
   customHeaders?: Record<string, string> | null;
+}
+
+export interface GatewayProfile {
+  id: string;
+  name: string;
+  defaultModel?: string;
+  fallbackMode?: string;
+  fallbackModels?: string[];
+  explicitFallbackEnabled?: boolean;
+  hideOfficial?: boolean;
+  allowedUpstreamIds?: string[];
 }
 
 export type ConnectionType = "external" | "gateway";

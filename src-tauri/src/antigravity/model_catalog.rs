@@ -748,10 +748,9 @@ fn parse_claude_55(id: &str) -> Option<(&'static str, Option<&'static str>)> {
     let lower = id.trim().to_ascii_lowercase();
     let (family, after_family) = if let Some(rest) = lower.strip_prefix("claude-opus-") {
         ("opus", rest)
-    } else if let Some(rest) = lower.strip_prefix("claude-sonnet-") {
-        ("sonnet", rest)
     } else {
-        return None;
+        let rest = lower.strip_prefix("claude-sonnet-")?;
+        ("sonnet", rest)
     };
     let after_major = after_family.strip_prefix('5')?;
     let after_minor = if let Some(rest) = after_major.strip_prefix(".5") {

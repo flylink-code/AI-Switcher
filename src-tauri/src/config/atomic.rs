@@ -81,7 +81,7 @@ fn atomic_write_unlocked(path: &Path, data: &[u8]) -> AppResult<()> {
             let _ = fs::remove_file(&tmp);
             return Err(error);
         }
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(windows))]

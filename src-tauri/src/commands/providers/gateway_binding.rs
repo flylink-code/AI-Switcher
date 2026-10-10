@@ -107,6 +107,11 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
     let Some(provider) = provider else {
         return Ok(());
     };
+    let provider = if provider.is_smart_gateway() {
+        ensure_smart_gateway_provider_row(state, ProviderTarget::ClaudeCode)?
+    } else {
+        provider
+    };
     let catalog = live_uses_gateway_catalog(state, &provider);
     let uses_proxy = target_starts_agent_proxy(
         ProviderTarget::ClaudeCode,
@@ -149,6 +154,7 @@ pub async fn repair_current_code_model_fields(state: &AppState) -> AppResult<()>
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn test_provider_impl(provider: &Provider, state: &AppState) -> AppResult<ConnectionTestResult> {
     let key = state.db.with_conn(|conn| dao::resolve_api_key(conn, &provider.id));
     let key = match key {
@@ -387,6 +393,7 @@ fn protocol_endpoint_message(protocol: ProtocolType) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn import_live_provider(live: LiveProviderInfo, target: ProviderTarget, state: &AppState) -> AppResult<()> {
     let normalized_base_url = normalize_base_url(&live.base_url)?;
     let existing = state.db.with_conn(|conn| dao::list_providers(conn, target))?;
@@ -464,9 +471,10 @@ pub(crate) fn ensure_smart_gateway_provider_row(
         .unwrap_or_else(|_| profile.entry_token.clone());
     let model = existing
         .as_ref()
-        .map(|provider| crate::gateway::normalize_live_model(&provider.model))
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| "auto".to_string());
+        .map(|provider| provider.model.trim().to_string())
+        .filter(|value| !value.is_empty() && !crate::gateway::is_auto_model_id(value))
+        .or_else(|| catalog_ids.first().cloned())
+        .unwrap_or_default();
     let input = ProviderInput {
         id: Some(id),
         name: existing
@@ -492,7 +500,7 @@ pub(crate) fn ensure_smart_gateway_provider_row(
         notes: existing
             .as_ref()
             .map(|provider| provider.notes.clone())
-            .unwrap_or_else(|| "托管 Auto 入口，请求经本机智能网关路由".to_string()),
+            .unwrap_or_else(|| "托管智能网关入口，请求经本机 15828 转到所选模型的上游".to_string()),
         failover_group: 0,
         failover_models: catalog_ids,
         hidden_models: existing

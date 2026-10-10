@@ -1,63 +1,8 @@
 
-#[tauri::command]
-pub async fn reorder_providers(
-    ordered_ids: Vec<String>,
-    target: ProviderTarget,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
-    state.db.with_conn(|conn| dao::reorder_providers(conn, &ordered_ids, target))?;
-    if gateway_catalog_on(&state, target) {
-        if let Some(first_id) = ordered_ids.first() {
-            let _ = state.db.with_conn(|conn| dao::set_current_provider(conn, first_id));
-        }
-        sync_live_providers(&state, target, Some(&app)).await?;
-    }
-    Ok(())
-}
-
-/// Import a live third-party configuration into its matching application list.
-#[tauri::command]
-pub async fn import_live_config(
-    target: ProviderTarget,
-    app: tauri::AppHandle,
-    _state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
-    spawn_blocking_result(move || {
-        let state = app.state::<AppState>();
-        import_live_config_sync(target, &state)
-    })
-    .await
-}
-
-fn import_live_config_sync(target: ProviderTarget, state: &AppState) -> AppResult<()> {
-    if target == ProviderTarget::OpenCode {
-        return import_opencode_live_providers(&state);
-    }
-    if target == ProviderTarget::Pi {
-        return sync_pi_providers_to_live(&state);
-    }
-    if target == ProviderTarget::Dsh {
-        return sync_dsh_providers_to_live(&state);
-    }
-    if target == ProviderTarget::Cline {
-        return sync_cline_providers_to_live(&state);
-    }
-    let live = match target {
-        ProviderTarget::ClaudeCode => claude_code::read_current_live_provider()?,
-        ProviderTarget::ClaudeDesktop => claude_desktop::read_current_live_provider()?,
-        ProviderTarget::Codex => codex::read_current_live_provider()?,
-        ProviderTarget::OpenCode | ProviderTarget::Pi | ProviderTarget::Dsh | ProviderTarget::Cline => unreachable!(),
-    };
-    let Some(live) = live else {
-        return Ok(());
-    };
-    import_live_provider(live, target, &state)
-}
-
 /// OpenCode 配置可携带多个自有供应商（provider 段 + 顶层 model 引用当前项）。
 /// 全部同步：base_url 已存在则更新名称/模型/密钥/协议；否则新建。
 /// OpenCode 无激活切换，导入不标记 `is_current`。
+#[allow(dead_code)]
 fn import_opencode_live_providers(state: &AppState) -> AppResult<()> {
     let live_providers = opencode::read_live_providers()?;
     if live_providers.is_empty() {
@@ -375,19 +320,7 @@ fn gateway_live_entry(
     };
     let hide = catalog::hide_official(state.db.as_ref(), target);
     let style = catalog::catalog_style_for(target);
-    let profile_id = profile
-        .as_ref()
-        .map(|item| item.id.clone())
-        .unwrap_or_else(|| crate::database::dao::gateway::SHARED_PROFILE_ID.to_string());
-    let modes = state
-        .db
-        .with_conn(|conn| crate::gateway::modes::load_modes(conn, &profile_id))
-        .unwrap_or_default();
-    let catalog = catalog::with_auto_entry_from_modes(
-        style,
-        build_catalog_with(style, &pairs, hide),
-        &modes,
-    );
+    let catalog = build_catalog_with(style, &pairs, hide);
     let extra: Vec<String> = catalog
         .iter()
         .map(|entry| entry.public_id.clone())
@@ -410,7 +343,15 @@ fn gateway_live_entry(
         _ => format!("http://127.0.0.1:{port}/v1"),
     };
     live.api_key = token;
-    live.model = crate::gateway::normalize_live_model_for(target, &live.model);
+    let normalized = crate::gateway::normalize_live_model_for(target, &live.model);
+    live.model = if normalized.is_empty() {
+        catalog
+            .first()
+            .map(|entry| entry.public_id.clone())
+            .unwrap_or_default()
+    } else {
+        normalized
+    };
     Ok((live, extra))
 }
 
@@ -754,6 +695,7 @@ fn extra_models_for_ag_catalog_apply(provider: &Provider, mut extra_models: Vec<
     provider.filter_hidden_models(extra_models)
 }
 
+#[allow(dead_code)]
 fn extra_models_for_pi_apply(
     conn: &rusqlite::Connection,
     provider: &Provider,
@@ -826,7 +768,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .ok()
             .flatten()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| crate::antigravity::gateway::builtin_api_key())
+            .unwrap_or_else(crate::antigravity::gateway::builtin_api_key)
     } else if provider.is_kiro() {
         state
             .db
@@ -834,7 +776,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
             .ok()
             .flatten()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| crate::kiro::gateway::builtin_api_key())
+            .unwrap_or_else(crate::kiro::gateway::builtin_api_key)
     } else if gateway_catalog_on(state, provider.target_app) {
         state
             .db
@@ -984,26 +926,7 @@ async fn apply_target_provider<R: tauri::Runtime>(
                     let pairs = load_gateway_pairs(state, ProviderTarget::Codex)?;
                     let hide_official =
                         catalog::hide_official(state.db.as_ref(), ProviderTarget::Codex);
-                    let modes = state
-                        .db
-                        .with_conn(|conn| {
-                            let profile_id =
-                                crate::database::dao::gateway::profile_id_for_target(
-                                    conn,
-                                    ProviderTarget::Codex,
-                                )
-                                .unwrap_or_else(|_| {
-                                    crate::database::dao::gateway::SHARED_PROFILE_ID.to_string()
-                                });
-                            Ok(crate::database::dao::gateway::list_route_modes(conn, &profile_id)
-                                .unwrap_or_default())
-                        })
-                        .unwrap_or_default();
-                    let catalog = catalog::with_auto_entry_from_modes(
-                        CatalogStyle::Codex,
-                        build_catalog_with(CatalogStyle::Codex, &pairs, hide_official),
-                        &modes,
-                    );
+                    let catalog = build_catalog_with(CatalogStyle::Codex, &pairs, hide_official);
                     tauri::async_runtime::spawn_blocking(move || {
                         codex::apply_provider_with_catalog(
                             &provider,

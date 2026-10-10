@@ -589,21 +589,6 @@ pub fn create_profile(
     get_profile(conn, &id)?.ok_or_else(|| AppError::Config("档案创建失败".into()))
 }
 
-pub fn rename_profile(conn: &Connection, id: &str, name: &str) -> AppResult<GatewayProfile> {
-    let trimmed = name.trim();
-    if trimmed.is_empty() {
-        return Err(AppError::Config("档案名称不能为空".into()));
-    }
-    patch_profile(
-        conn,
-        id,
-        &GatewayProfilePatch {
-            name: Some(trimmed.to_string()),
-            ..GatewayProfilePatch::default()
-        },
-    )
-}
-
 pub fn delete_profile(conn: &Connection, id: &str) -> AppResult<()> {
     if id == SHARED_PROFILE_ID {
         return Err(AppError::Config("不能删除默认档案".into()));
@@ -1065,6 +1050,7 @@ fn sync_profile_legacy_settings(conn: &Connection, profile: &GatewayProfile) -> 
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn current_connection_view(
     conn: &Connection,
     target: ProviderTarget,
@@ -1154,88 +1140,6 @@ pub fn set_current_connection_type(
                 )?;
             }
         }
-    }
-    Ok(())
-}
-
-#[allow(dead_code)]
-pub fn sync_upstream_from_provider(conn: &Connection, provider: &Provider) -> AppResult<()> {
-    if provider.is_smart_gateway() {
-        let _ = conn.execute("DELETE FROM upstreams WHERE id = ?;", params![provider.id]);
-        return Ok(());
-    }
-    conn.execute(
-        "INSERT INTO upstreams (
-            id, name, base_url, api_key, model, protocol_type, provider_kind, auth_binding,
-            notes, sort_index, enabled, model_context_window, web_search_enabled,
-            auto_review_model_override, failover_group, failover_models, hidden_models_json,
-            thinking_config_json, custom_headers_json, created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-            name = excluded.name,
-            base_url = excluded.base_url,
-            api_key = excluded.api_key,
-            model = excluded.model,
-            protocol_type = excluded.protocol_type,
-            provider_kind = excluded.provider_kind,
-            auth_binding = excluded.auth_binding,
-            notes = excluded.notes,
-            sort_index = excluded.sort_index,
-            model_context_window = excluded.model_context_window,
-            web_search_enabled = excluded.web_search_enabled,
-            auto_review_model_override = excluded.auto_review_model_override,
-            failover_group = excluded.failover_group,
-            failover_models = excluded.failover_models,
-            hidden_models_json = excluded.hidden_models_json,
-            thinking_config_json = excluded.thinking_config_json,
-            custom_headers_json = excluded.custom_headers_json;",
-        params![
-            provider.id,
-            provider.name,
-            provider.base_url,
-            provider.api_key,
-            provider.model,
-            provider.protocol_type.as_str(),
-            provider.provider_kind.as_str(),
-            provider.auth_binding,
-            provider.notes,
-            provider.sort_index,
-            provider.model_context_window.map(|value| value as i64),
-            provider.web_search_enabled.map(|value| if value { 1 } else { 0 }),
-            provider.auto_review_model_override,
-            provider.failover_group,
-            serde_json::to_string(&provider.failover_models)?,
-            serde_json::to_string(&provider.hidden_models)?,
-            serde_json::to_string(provider.thinking_config.as_ref().unwrap_or(
-                &crate::provider::ThinkingConfig::default()
-            ))?,
-            serde_json::to_string(provider.custom_headers.as_ref().unwrap_or(&Default::default()))?,
-            provider.created_at,
-        ],
-    )?;
-    conn.execute(
-        "INSERT OR IGNORE INTO gateway_id_map (old_provider_id, upstream_id) VALUES (?, ?);",
-        params![provider.id, provider.id],
-    )?;
-    let has_profile: i64 = conn.query_row(
-        "SELECT count(*) FROM gateway_profiles WHERE target_app = ?;",
-        params![provider.target_app.as_str()],
-        |row| row.get(0),
-    )?;
-    if has_profile > 0 && table_exists(conn, "agent_connections") {
-        let now = chrono::Utc::now().timestamp_millis();
-        conn.execute(
-            "INSERT OR IGNORE INTO agent_connections
-                (id, target_app, connection_type, upstream_id, profile_id, is_current, created_at)
-             VALUES (?, ?, 'external', ?, NULL, 0, ?);",
-            params![
-                format!("aconn_ext_{}", provider.id),
-                provider.target_app.as_str(),
-                provider.id,
-                now,
-            ],
-        )?;
-        add_upstream_to_default_allowlist(conn, provider.target_app.as_str(), &provider.id)?;
     }
     Ok(())
 }
@@ -1596,9 +1500,7 @@ pub fn upsert_upstream(conn: &Connection, input: &ProviderInput) -> AppResult<Pr
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| format!("up_{}", Uuid::new_v4().simple()))
     };
-    let api_key_col = if input.provider_kind == ProviderKind::CodexOauth {
-        String::new()
-    } else if input.clear_api_key {
+    let api_key_col = if input.provider_kind == ProviderKind::CodexOauth || input.clear_api_key {
         String::new()
     } else if !input.api_key.trim().is_empty() {
         secrets::store_key(&id, input.api_key.trim())?;
@@ -2686,6 +2588,7 @@ pub fn rollback_v34(conn: &Connection) -> AppResult<()> {
     )?;
     struct ProvMig {
         old_provider_id: String,
+        #[allow(dead_code)]
         target_app: String,
         was_current: bool,
         upstream_id: String,
@@ -2931,6 +2834,9 @@ pub fn migrate_v30_to_v31(conn: &Connection) -> AppResult<()> {
 }
 
 pub(crate) fn seed_route_modes_from_profile(conn: &Connection, profile: &GatewayProfile) -> AppResult<()> {
+    if !table_exists(conn, "route_modes") {
+        return Ok(());
+    }
     let long_context_threshold = if profile.long_context_tokens > 0 {
         profile.long_context_tokens
     } else {
@@ -3336,6 +3242,18 @@ pub fn patch_route_mode(
     patch: &RouteModePatch,
     profile_id: Option<&str>,
 ) -> AppResult<RouteMode> {
+    if !table_exists(conn, "route_modes") {
+        return Ok(RouteMode {
+            id: mode_id.to_string(),
+            profile_id: profile_id.unwrap_or(SHARED_PROFILE_ID).to_string(),
+            enabled: patch.enabled.unwrap_or(false),
+            model: patch.model.clone().unwrap_or_default(),
+            thinking_config_json: patch.thinking_config_json.clone().unwrap_or_else(|| "{}".into()),
+            fallback_models: patch.fallback_models.clone().unwrap_or_default(),
+            threshold: patch.threshold.unwrap_or(0),
+            sort_index: 0,
+        });
+    }
     let profile_id = resolve_profile_id(conn, profile_id)?;
     let mut modes = list_route_modes(conn, &profile_id)?;
     let Some(mode) = modes.iter_mut().find(|item| item.id == mode_id) else {
@@ -3408,47 +3326,6 @@ pub fn list_route_rules(conn: &Connection, profile_id: &str) -> AppResult<Vec<Ro
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
-pub fn upsert_route_rule(conn: &Connection, rule: &RouteRule) -> AppResult<RouteRule> {
-    let profile_id = resolve_profile_id(conn, Some(rule.profile_id.as_str()))?;
-    conn.execute(
-        "INSERT INTO route_rules
-            (id, profile_id, enabled, sort_index, rule_type, condition_json, pattern, target_model,
-             thinking_config_json, rewrites_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-            profile_id = excluded.profile_id,
-            enabled = excluded.enabled,
-            sort_index = excluded.sort_index,
-            rule_type = excluded.rule_type,
-            condition_json = excluded.condition_json,
-            pattern = excluded.pattern,
-            target_model = excluded.target_model,
-            thinking_config_json = excluded.thinking_config_json,
-            rewrites_json = excluded.rewrites_json;",
-        params![
-            rule.id,
-            profile_id,
-            if rule.enabled { 1 } else { 0 },
-            rule.sort_index,
-            rule.rule_type,
-            rule.condition_json,
-            rule.pattern,
-            rule.target_model,
-            rule.thinking_config_json,
-            rule.rewrites_json
-        ],
-    )?;
-    list_route_rules(conn, &profile_id)?
-        .into_iter()
-        .find(|item| item.id == rule.id)
-        .ok_or_else(|| AppError::Config("规则写入失败".to_string()))
-}
-
-pub fn delete_route_rule(conn: &Connection, id: &str) -> AppResult<()> {
-    conn.execute("DELETE FROM route_rules WHERE id = ?;", params![id])?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use rusqlite::params;
@@ -3456,13 +3333,11 @@ mod tests {
         assert_upstream_deletable, binding_by_token, binding_for_target, create_profile,
         current_profile, delete_profile, delete_upstream, ensure_profile_for_target,
         is_gateway_connection, get_upstream_provider, list_upstream_models,
-        list_direct_bindings_for_upstream, list_profiles, list_route_modes,
-        list_route_rules, list_upstream_providers, migrate_v33_to_v34, patch_route_mode,
-        provider_from_upstream, repair_long_context_one_token_threshold, rollback_v34,
-        set_binding_profile, set_direct_binding, set_gateway_binding, upstream_endpoint_key,
-        upstream_identity_dedup_key, upsert_binding, upsert_route_rule, upsert_upstream,
-        RouteModePatch, RouteRule, BINDING_MODE_DIRECT, BINDING_MODE_GATEWAY,
-        DEFAULT_LONG_CONTEXT_THRESHOLD, SHARED_PROFILE_ID,
+        list_direct_bindings_for_upstream, list_profiles, list_upstream_providers,
+        migrate_v33_to_v34, provider_from_upstream, rollback_v34, set_binding_profile,
+        set_direct_binding, set_gateway_binding, upstream_endpoint_key,
+        upstream_identity_dedup_key, upsert_binding, upsert_upstream,
+        BINDING_MODE_DIRECT, BINDING_MODE_GATEWAY, SHARED_PROFILE_ID,
     };
     use crate::database::dao::{set_current_provider, upsert_provider};
     use crate::database::Database;
@@ -3586,24 +3461,6 @@ mod tests {
     }
 
     #[test]
-    fn long_context_threshold_one_is_repaired_to_20000() {
-        let db = Database::memory().unwrap();
-        db.with_conn(|conn| {
-            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-            conn.execute(
-                "UPDATE route_modes SET threshold = 1 WHERE id = 'long_context';",
-                [],
-            )?;
-            repair_long_context_one_token_threshold(conn)?;
-            let modes = list_route_modes(conn, SHARED_PROFILE_ID)?;
-            let long_context = modes.iter().find(|mode| mode.id == "long_context").unwrap();
-            assert_eq!(long_context.threshold, DEFAULT_LONG_CONTEXT_THRESHOLD);
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
     fn list_profiles_returns_cloned_rows() {
         let db = Database::memory().unwrap();
         db.with_conn(|conn| {
@@ -3658,68 +3515,11 @@ mod tests {
             let cloned = create_profile(conn, "gpt", Some(SHARED_PROFILE_ID))?;
             upsert_binding(conn, ProviderTarget::ClaudeCode, "p_sg_claude_code")?;
             set_binding_profile(conn, ProviderTarget::ClaudeCode, &cloned.id)?;
-            patch_route_mode(
-                conn,
-                "default",
-                &RouteModePatch {
-                    model: Some("claude.sub2api.gpt-5.6-terra".into()),
-                    enabled: Some(true),
-                    ..RouteModePatch::default()
-                },
-                Some(&cloned.id),
-            )?;
             conn.execute_batch("PRAGMA query_only = ON;")?;
             let bound = current_profile(conn, ProviderTarget::ClaudeCode)?.expect("bound profile");
             assert_eq!(bound.id, cloned.id);
-            let modes = list_route_modes(conn, &cloned.id)?;
-            let default = modes.iter().find(|mode| mode.id == "default").expect("default");
-            assert_eq!(default.model, "claude.sub2api.gpt-5.6-terra");
             let unbound = current_profile(conn, ProviderTarget::Codex)?.expect("shared");
             assert_eq!(unbound.id, SHARED_PROFILE_ID);
-            Ok(())
-        })
-        .unwrap();
-    }
-
-    #[test]
-    fn clone_profile_copies_modes_and_rules() {
-        let db = Database::memory().unwrap();
-        db.with_conn(|conn| {
-            ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-            patch_route_mode(
-                conn,
-                "default",
-                &RouteModePatch {
-                    model: Some("deepseek.chat".into()),
-                    enabled: Some(true),
-                    ..RouteModePatch::default()
-                },
-                Some(SHARED_PROFILE_ID),
-            )?;
-            upsert_route_rule(
-                conn,
-                &RouteRule {
-                    id: "rule_clone_src".into(),
-                    profile_id: SHARED_PROFILE_ID.into(),
-                    enabled: true,
-                    sort_index: 0,
-                    rule_type: "model-prefix".into(),
-                    condition_json: "{}".into(),
-                    pattern: "gpt-".into(),
-                    target_model: "deepseek.chat".into(),
-                    thinking_config_json: "{}".into(),
-                    rewrites_json: "[]".into(),
-                },
-            )?;
-            let cloned = create_profile(conn, "Astra", Some(SHARED_PROFILE_ID))?;
-            let modes = list_route_modes(conn, &cloned.id)?;
-            let default = modes.iter().find(|mode| mode.id == "default").unwrap();
-            assert_eq!(default.model, "deepseek.chat");
-            let rules = list_route_rules(conn, &cloned.id)?;
-            assert_eq!(rules.len(), 1);
-            assert_ne!(rules[0].id, "rule_clone_src");
-            assert_eq!(rules[0].pattern, "gpt-");
-            assert_eq!(rules[0].profile_id, cloned.id);
             Ok(())
         })
         .unwrap();

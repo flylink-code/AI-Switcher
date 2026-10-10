@@ -23,6 +23,7 @@ import { useAppUpdatePrompt } from "@/lib/appUpdateContext";
 import { useAppVersion } from "@/lib/useAppVersion";
 import type { UpdateMirrorSettings } from "@/types/backend";
 import { OnboardingTip } from "@/components/OnboardingTip";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
@@ -40,9 +41,6 @@ function changelogNotesForVersion(
   return notes.every((item) => typeof item === "string") ? notes : null;
 }
 
-function errMsg(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /** App-only About: version, updater, onboarding tips. CLI tools live under Settings → Runtime Tools. */
 export default function AboutPage() {

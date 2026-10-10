@@ -1,6 +1,6 @@
 # 统一供应商与 Agent 连接（Schema 34）
 
-供应商页维护唯一的全局 `upstreams`，不再按 Agent 重复配置 Key。参考 magpie 的连接方式，但沿用现有公开模型目录及 `claude.auto`，不引入 `provider/model` 命名。
+供应商页维护唯一的全局 `upstreams`，不再按 Agent 重复配置 Key。智能网关 `127.0.0.1:15828` 按聚合目录里的公开模型 id 转到对应上游，不再做动态路由模式或 `claude.auto`。
 
 ## 连接模式
 

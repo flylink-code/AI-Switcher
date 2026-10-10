@@ -31,11 +31,11 @@ pub fn openai_to_gemini_request(
         .get("reasoning_effort")
         .and_then(Value::as_str)
         .map(str::to_ascii_lowercase)
-        .and_then(|effort| {
+        .map(|effort| {
             if effort == "minimal" {
-                Some("low".to_string())
+                "low".to_string()
             } else {
-                Some(effort)
+                effort
             }
         })
         .and_then(|effort| map_effort_to_suffix(&effort));

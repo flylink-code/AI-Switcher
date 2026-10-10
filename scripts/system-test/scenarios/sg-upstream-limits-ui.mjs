@@ -69,30 +69,6 @@ export async function run() {
     await key("Escape", "Escape", 27);
     await until("!document.querySelector('.ant-modal')");
     assert(await evaluate(`document.activeElement === (${limits})`), "关闭弹窗后焦点应回到入口");
-    assert((await invoke("get_smart_gateway_subagent_inherit_upstream")) === false, "子代理上游继承默认关闭");
-    const gateway = `document.querySelector('.v2-top-nav button[aria-label="网关"]')`;
-    await click(gateway);
-    const inherit = `Array.from(document.querySelectorAll('.ant-card')).find(card => card.textContent.includes('子代理沿用父会话上游'))`;
-    await until(`Boolean(${inherit})`);
-    const inheritSwitch = `${inherit}.querySelector('button.ant-switch')`;
-    await until(`Boolean(${inheritSwitch})`);
-    const saveLimits = `Array.from(${inherit}.querySelectorAll('.ant-card-extra button, button')).find(e => e.textContent.replace(/\\s/g,'')==='保存')`;
-    await until(`Boolean(${saveLimits}) && !(${saveLimits}).disabled`);
-    const untilSaved = async (expected) => {
-      for (let i = 0; i < 40; i++) {
-        if ((await invoke("get_smart_gateway_subagent_inherit_upstream")) === expected) return;
-        await wait(150);
-      }
-      throw new Error(`子代理上游继承未写成 ${expected}`);
-    };
-    await click(inheritSwitch);
-    await until(`(${inheritSwitch}).getAttribute('aria-checked')==='true'`);
-    await click(saveLimits);
-    await untilSaved(true);
-    await click(inheritSwitch);
-    await until(`(${inheritSwitch}).getAttribute('aria-checked')==='false'`);
-    await click(saveLimits);
-    await untilSaved(false);
   } finally {
     await invoke("delete_gateway_upstream", { id: upstream.id });
   }

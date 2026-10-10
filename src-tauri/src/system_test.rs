@@ -26,7 +26,6 @@ use crate::database::dao::proxy_logs::{
 };
 use crate::database::Database;
 use crate::error::AppResult;
-use crate::gateway::simulate::{simulate, SimulateRouteInput};
 use crate::provider::{
     ClaudeModelMapping, ProtocolType, ProviderInput, ProviderKind, ProviderTarget,
 };
@@ -262,69 +261,6 @@ pub async fn sg_regress_auto_current_writes_gateway(h: &Harness) -> AppResult<()
         code_base_url()
     );
     assert!(!code_discovery_enabled());
-    Ok(())
-}
-
-pub async fn sg_p0_simulate_default_mode(h: &Harness) -> AppResult<()> {
-    h.state.db.with_conn(|conn| {
-        ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
-        let upstream = upsert_upstream(
-            conn,
-            &provider_input(
-                Some("up_sim"),
-                ProviderTarget::ClaudeCode,
-                ProviderKind::Standard,
-                ProtocolType::Anthropic,
-                "https://sim.example.test",
-                "claude-sonnet-custom",
-                "sim",
-            ),
-        )?;
-        replace_upstream_models(conn, &upstream.id, &["claude-sonnet-custom".into()])?;
-        patch_route_mode(
-            conn,
-            "default",
-            &RouteModePatch {
-                enabled: Some(true),
-                model: Some("claude-sonnet-custom".into()),
-                ..RouteModePatch::default()
-            },
-            Some(SHARED_PROFILE_ID),
-        )?;
-        Ok(())
-    })?;
-    let result = simulate(
-        h.state.db.as_ref(),
-        SimulateRouteInput {
-            requested_model: Some("claude.auto".into()),
-            body_json: None,
-            token_count: Some(32),
-            has_web_search: Some(false),
-            has_vision: Some(false),
-            has_thinking: Some(false),
-            is_subagent: Some(false),
-            is_image_gen: Some(false),
-            tool_names: Some(Vec::new()),
-            recent_write_tool: None,
-            path: Some("/v1/messages".into()),
-            target: Some(ProviderTarget::ClaudeCode),
-            profile_id: Some(SHARED_PROFILE_ID.into()),
-        },
-    )?;
-    let decision = result.decision.expect("route decision");
-    assert_ne!(
-        decision.normalized_model, "gpt-6-astra",
-        "non-empty modes must not fall through to a catalog first item"
-    );
-    assert!(
-        decision.mode_id.as_deref() == Some("default")
-            || decision.normalized_model.contains("claude-sonnet-custom")
-            || result.upstream_model.as_deref().is_some_and(|model| model.contains("claude-sonnet-custom")),
-        "expected default-mode routing, got mode={:?} model={} upstream={:?}",
-        decision.mode_id,
-        decision.normalized_model,
-        result.upstream_model
-    );
     Ok(())
 }
 
@@ -736,14 +672,6 @@ async fn sg_regress_picking_profile_does_not_bind() {
 async fn sg_regress_auto_current_writes_and_clears_15828() {
     let harness = Harness::new().unwrap_or_else(|error| fail(error));
     sg_regress_auto_current_writes_gateway(&harness)
-        .await
-        .unwrap_or_else(|error| fail(error));
-}
-
-#[tokio::test]
-async fn sg_p0_simulate_auto_uses_default_mode() {
-    let harness = Harness::new().unwrap_or_else(|error| fail(error));
-    sg_p0_simulate_default_mode(&harness)
         .await
         .unwrap_or_else(|error| fail(error));
 }

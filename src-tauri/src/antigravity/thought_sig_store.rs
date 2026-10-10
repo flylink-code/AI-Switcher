@@ -21,6 +21,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub const DEFAULT_L1_TOOL_CAP: usize = 1024;
 pub const DEFAULT_L1_SESSION_CAP: usize = 256;
 pub const DEFAULT_L1_SESSION_INDEX_CAP: usize = 2048;
+#[allow(dead_code)]
 pub const DEFAULT_L2_CAPACITY: usize = 10_000;
 pub const DEFAULT_TTL_SECS: i64 = 15 * 86400; // 15 天
 pub const DEFAULT_QUEUE_BOUND: usize = 2048;
@@ -412,16 +413,14 @@ fn isolate_corrupt_files(db_path: &Path) -> std::io::Result<()> {
             return Err(e);
         }
     }
-    if wal_path.exists() {
-        if std::fs::rename(&wal_path, &q_wal).is_err() {
+    if wal_path.exists()
+        && std::fs::rename(&wal_path, &q_wal).is_err() {
             log::warn!("Failed to rename corrupt database WAL file");
         }
-    }
-    if shm_path.exists() {
-        if std::fs::rename(&shm_path, &q_shm).is_err() {
+    if shm_path.exists()
+        && std::fs::rename(&shm_path, &q_shm).is_err() {
             log::warn!("Failed to rename corrupt database SHM file");
         }
-    }
 
     if let Some(parent) = db_path.parent() {
         cleanup_old_quarantine_files(parent, MAX_QUARANTINE_FILES);

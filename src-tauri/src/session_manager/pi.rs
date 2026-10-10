@@ -13,10 +13,7 @@ fn scan_pi_sessions() -> (Vec<SessionMeta>, SessionProviderStatus) {
         root_path: Some(pi_dir.to_string_lossy().into_owned()),
     };
 
-    let items = match crate::coding::pi::session::scan_pi_sessions_sync() {
-        Ok(items) => items,
-        Err(_) => Vec::new(),
-    };
+    let items = crate::coding::pi::session::scan_pi_sessions_sync().unwrap_or_default();
 
     let metas = items.into_iter().map(|item| SessionMeta {
         provider: SessionProvider::Pi,

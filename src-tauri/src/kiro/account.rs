@@ -294,6 +294,7 @@ impl AccountStore {
         }
     }
 
+    #[allow(dead_code)]
     pub fn http(&self) -> Client {
         self.client
             .lock()

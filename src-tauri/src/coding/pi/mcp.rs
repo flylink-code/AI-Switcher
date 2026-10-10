@@ -83,7 +83,7 @@ mod tests {
             enabled_claude_desktop: false,
             enabled_codex: false,
             enabled_opencode: false,
-            enabled_pi: enabled_pi,
+            enabled_pi,
             enabled_cline: false,
             sort_index: 0,
             created_at: 0,

@@ -23,6 +23,7 @@ import { filterUiAgents } from "@/lib/agentVisibility";
 import { ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 import type { ProviderTarget } from "@/types/backend";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
@@ -227,6 +228,3 @@ export default function LocalProxyPage() {
   );
 }
 
-function errMsg(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}

@@ -79,6 +79,7 @@ import { formatCompactNumber } from "@/utils/formatCompact";
 import { formatTokenRate } from "@/utils/usageRate";
 import { usagePeriodGranularity, usagePeriodHourKeys, trendBucketLabel } from "@/utils/usagePeriod";
 import type { UsagePeriod } from "@/utils/usagePeriod";
+import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
 
@@ -1151,6 +1152,3 @@ function formatCost(value: number, currency?: string | null) {
   return `${currencyPrefix(currency)}${value.toFixed(4)}`;
 }
 
-function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}

@@ -1,50 +1,19 @@
 //! Library entry point for the Tauri app. `main.rs` is a thin binary wrapper.
-
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
-// TODO(1.5.x): pay down after file splits; do not add new production dead code.
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(clippy::bind_instead_of_map)]
-#![allow(clippy::cloned_ref_to_slice_refs)]
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::collapsible_match)]
-#![allow(clippy::derivable_impls)]
-#![allow(clippy::double_comparisons)]
-#![allow(clippy::double_ended_iterator_last)]
-#![allow(clippy::field_reassign_with_default)]
-#![allow(clippy::if_same_then_else)]
-#![allow(clippy::incompatible_msrv)]
-#![allow(clippy::items_after_test_module)]
-#![allow(clippy::let_and_return)]
-#![allow(clippy::let_underscore_future)]
-#![allow(clippy::manual_contains)]
-#![allow(clippy::manual_find)]
-#![allow(clippy::manual_pattern_char_comparison)]
-#![allow(clippy::manual_strip)]
-#![allow(clippy::manual_unwrap_or_default)]
-#![allow(clippy::needless_borrow)]
-#![allow(clippy::needless_lifetimes)]
-#![allow(clippy::needless_return)]
-#![allow(clippy::permissions_set_readonly_false)]
-#![allow(clippy::question_mark)]
-#![allow(clippy::redundant_closure)]
-#![allow(clippy::redundant_field_names)]
-#![allow(clippy::redundant_guards)]
-#![allow(clippy::redundant_locals)]
-#![allow(clippy::result_large_err)]
-#![allow(clippy::single_char_add_str)]
-#![allow(clippy::single_match)]
+// Library builds warn about helpers that only unit tests call. The test
+// target still reports items that nothing, including tests, uses.
+#![cfg_attr(not(test), allow(dead_code))]
+// Rewriting these changes signatures or initializer shape without removing
+// unused code. Kept local to the crate until a dedicated cleanup.
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
-#![allow(clippy::unnecessary_get_then_check)]
-#![allow(clippy::unnecessary_sort_by)]
-#![allow(clippy::unnecessary_to_owned)]
-#![allow(clippy::useless_concat)]
-#![allow(clippy::useless_format)]
-
+#![allow(clippy::result_large_err)]
+#![allow(clippy::incompatible_msrv)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::await_holding_lock)]
 mod backup;
 mod agents;
 mod catalog;
@@ -80,21 +49,15 @@ mod tray;
 mod usage;
 mod usage_events;
 mod wsl_direct;
-
 #[cfg(test)]
 mod ts_bindings;
-
 #[cfg(test)]
 mod system_test;
-
 #[cfg(windows)]
 mod autostart_windows;
-
 use std::sync::Arc;
-
 use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
-
 use crate::commands::{
     check_app_update, install_app_update,
     get_codex_auth_status, get_codex_web_search_mode, add_codex_plugin_marketplace,
@@ -110,8 +73,8 @@ use crate::commands::{
     install_claude_plugin, list_claude_plugin_catalog, update_claude_plugin,
     update_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
     sync_codex_session_providers,
-    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings, preview_library_backup, restore_library_backup, restore_library_from_webdav, set_webdav_settings, upload_library_to_webdav, copy_provider_to_target, create_provider, delete_mcp_server, delete_prompt,
-    delete_provider, delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
+    activate_prompt, backup_now, export_library_backup, find_latest_library_archive_cmd, get_webdav_settings, preview_library_backup, restore_library_backup, restore_library_from_webdav, set_webdav_settings, upload_library_to_webdav, create_provider, delete_mcp_server, delete_prompt,
+    delete_skill, check_skill_update, check_skill_updates, discover_provider_models, discover_provider_models_input,
     delete_agent, install_zip_agent, list_agents, save_agent, set_agent_enabled,
     ensure_antigravity_provider, get_antigravity_defaults, get_antigravity_gateway_status,
     get_antigravity_pool_warning, get_antigravity_recommended_account,
@@ -126,9 +89,7 @@ use crate::commands::{
     start_antigravity_gateway, start_antigravity_oauth_login,
     stop_antigravity_gateway, test_antigravity_account,
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
-    get_autostart_enabled, get_current_provider, get_gateway_catalog_enabled, get_agent_connection, set_agent_connection,
-    get_gateway_profile, list_gateway_profiles, update_gateway_profile, update_gateway_profile_by_id, list_gateway_route_logs,
-    create_gateway_profile, rename_gateway_profile, delete_gateway_profile, set_gateway_binding_profile,
+    get_autostart_enabled, get_current_provider, get_agent_connection, set_agent_connection,
     list_gateway_upstreams, upsert_gateway_upstream, delete_gateway_upstream, add_antigravity_gateway_upstream,
     add_kiro_gateway_upstream,
     list_kiro_accounts, import_kiro_accounts, remove_kiro_account,
@@ -142,22 +103,19 @@ use crate::commands::{
     ensure_smart_gateway_provider,
     get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,
-    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, list_route_modes,
-    update_route_mode, list_route_rules, upsert_route_rule, delete_route_rule, list_route_mode_usage_stats,
+    list_smart_gateway_bindings, bind_smart_gateway, unbind_smart_gateway, 
     list_upstream_daily_usage_stats,
-    simulate_gateway_route, list_gateway_upstream_health,
+     list_gateway_upstream_health,
     get_gateway_upstream_policy, set_gateway_upstream_policy, list_gateway_upstream_pressure,
     get_smart_gateway_inbound_limits,
-    set_smart_gateway_inbound_limits, get_smart_gateway_budget, set_smart_gateway_budget,
+    set_smart_gateway_inbound_limits,  
     get_smart_gateway_health_probe_secs, set_smart_gateway_health_probe_secs,
-    get_smart_gateway_subagent_inherit_upstream, set_smart_gateway_subagent_inherit_upstream,
-    get_gateway_catalog_subagent, get_gateway_catalog_hide_official, get_gateway_catalog_opusplan,
-    get_gateway_catalog_plan, get_gateway_catalog_execute, get_claude_code_default_permission_mode,
+      get_claude_code_default_permission_mode,
     get_claude_code_agent_settings, get_opencode_permission_mode,
     get_db_info, rollback_v34, get_paths,
     get_cached_provider_models, get_desktop_localization_status, get_proxy_failover_enabled,
     get_proxy_retryable_status_codes, get_proxy_streaming_idle_timeout_secs, get_proxy_status,
-    get_managed_apps_runtime_status, import_live_config, import_live_prompt, import_mcp_servers, import_providers_json,
+    get_managed_apps_runtime_status, import_live_prompt, import_mcp_servers, import_providers_json,
     list_config_backups, preview_config_backup, restore_config_backup,
     build_provider_deeplink, build_mcp_deeplink, build_skill_deeplink, confirm_import_preview, preview_import_text,
     install_desktop_localization, install_github_repository_skills, install_github_skill, install_zip_skill,
@@ -166,14 +124,14 @@ use crate::commands::{
     uninstall_claude_code_localization, uninstall_editor_localization_helper,
     update_claude_code_localization, update_desktop_localization, update_editor_localization_helper,
     get_skill_repository, get_skill_repository_snapshot, list_skill_repositories, add_skill_repository, remove_skill_repository, ignore_unmanaged_skill, list_github_repository_skills, refresh_github_repository_skills, register_unmanaged_skill, scan_unmanaged_skills, set_skill_repository, update_github_skills, list_mcp_servers, list_prompts,
-    list_providers, get_official_quota, get_provider_quota, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers, reorder_providers,
+    list_providers, get_official_quota, get_provider_quota, list_skills, ping, read_live_prompt, read_prompt, rename_prompt, reorder_mcp_servers,
     search_mcp_registry,
-    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled, set_gateway_catalog_enabled, set_gateway_catalog_subagent, set_gateway_catalog_hide_official, set_gateway_catalog_opusplan, set_gateway_catalog_plan, set_gateway_catalog_execute, set_claude_code_default_permission_mode, set_claude_code_agent_settings, set_opencode_permission_mode, list_gateway_catalog_models, list_gateway_catalog_entries, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
-    set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official, speedtest_provider_endpoint,
+    report_frontend_performance, report_frontend_startup, save_mcp_server, save_model_pricing, save_prompt, set_autostart_config, set_autostart_enabled,      set_claude_code_default_permission_mode, set_claude_code_agent_settings, set_opencode_permission_mode, list_gateway_catalog_models, list_gateway_catalog_entries, get_gateway_catalog_hide_official, set_gateway_catalog_hide_official, set_proxy_failover_enabled, set_proxy_retryable_status_codes, set_proxy_streaming_idle_timeout_secs, set_proxy_port,
+    set_skill_enabled, start_proxy, stop_proxy, switch_provider, switch_to_official,
     batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
-    test_provider_connection, test_provider_input, batch_diagnose_providers, quarantine_failed_providers,
-    toggle_mcp_server, update_provider, delete_model_pricing, get_usage_dashboard, get_usage_trend,
-    export_model_pricing_xlsx, get_log_maintenance_policy, get_pricing_catalog, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
+    test_provider_input,
+    toggle_mcp_server, delete_model_pricing, get_usage_dashboard, get_usage_trend,
+    export_model_pricing_xlsx, get_log_maintenance_policy, import_model_pricing_xlsx, list_model_pricing, list_proxy_request_logs_cmd, maintain_proxy_logs,
     preview_model_pricing_xlsx, preview_proxy_log_maintenance, rebuild_codex_session_usage_cmd, restore_desktop_localization, save_log_maintenance_policy,
     sync_codex_session_usage_cmd, sync_claude_code_session_usage_cmd, rebuild_claude_code_session_usage_cmd,
     sync_opencode_session_usage_cmd, rebuild_opencode_session_usage_cmd,
@@ -187,10 +145,8 @@ use crate::commands::{
     get_claude_desktop_app_status, run_claude_desktop_app_update,
     get_dsh_cli_version, run_dsh_cli_update, start_dsh_web,
     repair_doctor_check, repair_environment_visibility,
-    backup_claude_code_sessions, export_claude_code_session, export_claude_code_sessions,
-    import_claude_code_session, load_session_messages,
-    list_trashed_claude_code_sessions, restore_trashed_claude_code_session, scan_sessions, search_session_contents,
-    trash_claude_code_session,
+    load_session_messages,
+    scan_sessions, search_session_contents,
     backup_all_sessions, backup_sessions, export_session, export_session_markdown, export_sessions,
     get_session_backup_dir, get_session_auto_backup_settings, get_session_mirror_dir, import_session, list_session_backups, list_trashed_sessions,
     reset_session_backup_dir, restore_session_backup, restore_session_mirror, restore_trashed_session, set_session_backup_dir, set_session_auto_backup_settings, trash_session,
@@ -202,18 +158,16 @@ use crate::commands::{
     apply_profile, create_workspace_profile, delete_workspace_profile, get_current_profile_id,
     list_profiles, update_workspace_profile,
     ensure_codex_oauth_provider, list_codex_oauth_accounts, poll_codex_oauth_login,
-    remove_codex_oauth_account, set_default_codex_oauth_account, start_codex_oauth_login,
-    detect_pi_cli, get_global_pi_agents_md, get_pi_auth, get_pi_models, get_pi_settings,
+    start_codex_oauth_login,
+    detect_pi_cli, get_pi_settings,
     get_workspace_pi_prompt, install_pi_cli, list_pi_prompt_templates, list_pi_sessions, read_pi_prompt_template, read_pi_session_detail,
-    save_global_pi_agents_md, save_pi_auth, save_pi_models, save_pi_prompt_template, save_workspace_pi_prompt, delete_pi_prompt_template,
+    save_pi_prompt_template, save_workspace_pi_prompt, delete_pi_prompt_template,
     update_pi_settings,
 };
 use crate::error::AppError;
 use crate::proxy::ProxyManager;
 use crate::store::AppState;
-
 const SESSION_USAGE_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // `generate_context!` and plugin construction happen before `Builder::run`
@@ -222,7 +176,6 @@ pub fn run() {
     std::panic::set_hook(Box::new(|panic_info| {
         report_startup_failure(&format!("Startup panic: {panic_info}"));
     }));
-
     let runtime_log_dir = config::get_app_config_dir().join("logs");
     let builder = tauri::Builder::default()
         .plugin(
@@ -258,12 +211,6 @@ pub fn run() {
             install_pi_cli,
             get_pi_settings,
             update_pi_settings,
-            get_pi_auth,
-            save_pi_auth,
-            get_pi_models,
-            save_pi_models,
-            get_global_pi_agents_md,
-            save_global_pi_agents_md,
             get_workspace_pi_prompt,
             save_workspace_pi_prompt,
             list_pi_prompt_templates,
@@ -339,18 +286,6 @@ pub fn run() {
             get_provider_quota,
             get_official_quota,
             get_current_provider,
-            get_gateway_catalog_enabled,
-            set_gateway_catalog_enabled,
-            get_gateway_catalog_subagent,
-            set_gateway_catalog_subagent,
-            get_gateway_catalog_hide_official,
-            set_gateway_catalog_hide_official,
-            get_gateway_catalog_opusplan,
-            set_gateway_catalog_opusplan,
-            get_gateway_catalog_plan,
-            set_gateway_catalog_plan,
-            get_gateway_catalog_execute,
-            set_gateway_catalog_execute,
             get_claude_code_default_permission_mode,
             set_claude_code_default_permission_mode,
             get_claude_code_agent_settings,
@@ -359,17 +294,10 @@ pub fn run() {
             set_opencode_permission_mode,
             list_gateway_catalog_models,
             list_gateway_catalog_entries,
+            get_gateway_catalog_hide_official,
+            set_gateway_catalog_hide_official,
             get_agent_connection,
             set_agent_connection,
-            get_gateway_profile,
-            list_gateway_profiles,
-            create_gateway_profile,
-            rename_gateway_profile,
-            delete_gateway_profile,
-            set_gateway_binding_profile,
-            update_gateway_profile,
-            update_gateway_profile_by_id,
-            list_gateway_route_logs,
             list_gateway_upstreams,
             upsert_gateway_upstream,
             delete_gateway_upstream,
@@ -389,30 +317,16 @@ pub fn run() {
             list_smart_gateway_bindings,
             bind_smart_gateway,
             unbind_smart_gateway,
-            list_route_modes,
-            update_route_mode,
-            list_route_rules,
-            upsert_route_rule,
-            delete_route_rule,
-            list_route_mode_usage_stats,
             list_upstream_daily_usage_stats,
-            simulate_gateway_route,
             list_gateway_upstream_health,
             get_gateway_upstream_policy,
             set_gateway_upstream_policy,
             list_gateway_upstream_pressure,
             get_smart_gateway_inbound_limits,
             set_smart_gateway_inbound_limits,
-            get_smart_gateway_budget,
-            set_smart_gateway_budget,
             get_smart_gateway_health_probe_secs,
             set_smart_gateway_health_probe_secs,
-            get_smart_gateway_subagent_inherit_upstream,
-            set_smart_gateway_subagent_inherit_upstream,
-            copy_provider_to_target,
             create_provider,
-            update_provider,
-            delete_provider,
             switch_provider,
             switch_to_official,
             set_agent_direct,
@@ -423,19 +337,12 @@ pub fn run() {
             get_agent_connection_mode,
             commands::providers::get_agent_config_drift,
             commands::providers::reapply_agent_config,
-            test_provider_connection,
             test_provider_input,
-            batch_diagnose_providers,
-            quarantine_failed_providers,
-            speedtest_provider_endpoint,
             batch_speedtest_upstream_endpoints,
             cancel_batch_speedtest,
             discover_provider_models,
             get_cached_provider_models,
-            test_provider_input,
             discover_provider_models_input,
-            reorder_providers,
-            import_live_config,
             export_providers,
             import_providers_json,
             preview_import_text,
@@ -446,8 +353,6 @@ pub fn run() {
             start_codex_oauth_login,
             poll_codex_oauth_login,
             list_codex_oauth_accounts,
-            remove_codex_oauth_account,
-            set_default_codex_oauth_account,
             ensure_codex_oauth_provider,
             list_config_backups,
             preview_config_backup,
@@ -571,13 +476,10 @@ pub fn run() {
             rebuild_pi_session_usage_cmd,
             sync_dsh_session_usage_cmd,
             rebuild_dsh_session_usage_cmd,
-            sync_dsh_session_usage_cmd,
-            rebuild_dsh_session_usage_cmd,
             list_model_pricing,
             export_model_pricing_xlsx,
             preview_model_pricing_xlsx,
             import_model_pricing_xlsx,
-            get_pricing_catalog,
             save_model_pricing,
             delete_model_pricing,
             maintain_proxy_logs,
@@ -605,13 +507,6 @@ pub fn run() {
             scan_sessions,
             search_session_contents,
             load_session_messages,
-            export_claude_code_session,
-            backup_claude_code_sessions,
-            export_claude_code_sessions,
-            import_claude_code_session,
-            trash_claude_code_session,
-            restore_trashed_claude_code_session,
-            list_trashed_claude_code_sessions,
             export_session,
             export_session_markdown,
             backup_sessions,
@@ -663,11 +558,9 @@ pub fn run() {
         Err(error) => report_startup_failure(&error.to_string()),
     }
 }
-
 pub fn run_localization_worker_if_requested() -> bool {
     commands::desktop_localization::run_worker_from_args()
 }
-
 /// Release binaries do not have a console window. Preserve startup failures in
 /// a user-accessible file instead of silently terminating.
 fn report_startup_failure(error: &str) {
@@ -679,10 +572,8 @@ fn report_startup_failure(error: &str) {
         path.display()
     );
     let _ = std::fs::write(&path, &report);
-
     eprintln!("{report}");
 }
-
 /// Single-instance guard + DB init + tray. Windows/macOS/Linux only.
 #[cfg(desktop)]
 fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
@@ -707,12 +598,10 @@ fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         }
     }))
 }
-
 #[cfg(not(desktop))]
 fn add_single_instance(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     builder
 }
-
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let setup_started = std::time::Instant::now();
     // Ensure the data directory exists before opening the DB.
@@ -722,7 +611,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     log::info!("AI-Switcher starting; data directory: {}", app_config_dir.display());
     usage_events::init(app.handle().clone());
     tauri::async_runtime::spawn_blocking(antigravity::thought_sig::init_early);
-
     // Initialize storage.
     let db = std::sync::Arc::new(database::Database::init().map_err(box_app_error)?);
     log::info!(
@@ -739,13 +627,11 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         log::info!("test isolation: skipping autostart registration");
     }
-
     // First-run seeding + live-config import. Non-fatal: a seeding failure should
     // not block the app, only log.
-    if let Err(e) = db.with_conn(|conn| database::seed::run_seed(conn)) {
+    if let Err(e) = db.with_conn(database::seed::run_seed) {
         log::error!("供应商初始化/导入失败: {e}");
     }
-
     let initial_proxy_status = commands::proxy::initial_proxy_statuses(&db);
     let (proxy_lifecycle_tx, proxy_lifecycle_rx) =
         tokio::sync::mpsc::unbounded_channel();
@@ -764,7 +650,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         app.handle().clone(),
         proxy_lifecycle_rx,
     );
-
     let app_handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         let background_started = std::time::Instant::now();
@@ -819,7 +704,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
             log::info!("启动后二次恢复检查完成");
         });
     });
-
     spawn_codex_session_usage_sync(Arc::clone(&db));
     spawn_claude_code_session_usage_sync(Arc::clone(&db));
     spawn_opencode_session_usage_sync(Arc::clone(&db));
@@ -827,12 +711,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     spawn_dsh_session_usage_sync(Arc::clone(&db));
     spawn_antigravity_quota_refresh(app.handle().clone());
     crate::session_backup::spawn_session_auto_backup_loop(Arc::clone(&db));
-
     // System tray.
     if let Err(e) = tray::build_tray(app.handle()) {
         log::error!("托盘初始化失败: {e}");
     }
-
     if !commands::system::is_silent_autostart(&db) {
         if let Some(window) = app.get_webview_window("main") {
             window.show().ok();
@@ -840,7 +722,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         log::info!("开机自启采用静默模式，主窗口保持隐藏");
     }
-
     #[cfg(desktop)]
     {
         use tauri_plugin_deep_link::DeepLinkExt;
@@ -852,19 +733,16 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let handle = app.handle().clone();
         app.deep_link().on_open_url(move |event| {
             for url in event.urls() {
-                commands::deeplink::emit_deeplink_url(&handle, &url.to_string());
+                commands::deeplink::emit_deeplink_url(&handle, url.as_ref());
             }
         });
     }
-
     log::info!(
         "Tauri setup completed: duration_ms={}",
         setup_started.elapsed().as_millis()
     );
-
     Ok(())
 }
-
 /// Background Codex session JSONL → DB sync: first run after ~8s, then every 30s.
 /// Skips overlapping runs so a slow sync cannot stack with the next tick.
 /// Each file uses a short DB lock so UI queries can interleave.
@@ -906,7 +784,6 @@ fn spawn_codex_session_usage_sync(db: Arc<database::Database>) {
         }
     });
 }
-
 /// Background Claude Code project JSONL → DB sync: first run after ~12s, then every 30s.
 fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
     tauri::async_runtime::spawn(async move {
@@ -946,7 +823,6 @@ fn spawn_claude_code_session_usage_sync(db: Arc<database::Database>) {
         }
     });
 }
-
 /// Background OpenCode opencode.db → DB sync: first run after ~16s, then every 30s.
 fn spawn_opencode_session_usage_sync(db: Arc<database::Database>) {
     tauri::async_runtime::spawn(async move {
@@ -986,7 +862,6 @@ fn spawn_opencode_session_usage_sync(db: Arc<database::Database>) {
         }
     });
 }
-
 /// Background Pi session JSONL → DB sync: first run after ~20s, then every 30s.
 fn spawn_pi_session_usage_sync(db: Arc<database::Database>) {
     tauri::async_runtime::spawn(async move {
@@ -1026,7 +901,6 @@ fn spawn_pi_session_usage_sync(db: Arc<database::Database>) {
         }
     });
 }
-
 /// Background DeepSeek Harness compressed JSONL → DB sync: first run after ~25s, then every 30s.
 fn spawn_dsh_session_usage_sync(db: Arc<database::Database>) {
     tauri::async_runtime::spawn(async move {
@@ -1051,13 +925,11 @@ fn spawn_dsh_session_usage_sync(db: Arc<database::Database>) {
         }
     });
 }
-
 /// Background Antigravity quota refresh: first run after ~20s, then every 5 minutes.
 fn spawn_antigravity_quota_refresh(app: tauri::AppHandle) {
     use crate::antigravity::{
         try_refresh_all_quotas, QUOTA_REFRESH_EVENT, QUOTA_REFRESH_INTERVAL_SECS,
     };
-
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(20)).await;
         let interval = std::time::Duration::from_secs(QUOTA_REFRESH_INTERVAL_SECS);
@@ -1081,7 +953,6 @@ fn spawn_antigravity_quota_refresh(app: tauri::AppHandle) {
         }
     });
 }
-
 fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
     if let WindowEvent::CloseRequested { api, .. } = event {
         api.prevent_close();
@@ -1105,7 +976,6 @@ fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
         }
     }
 }
-
 /// Promote an [`AppError`] into a boxed error for the setup signature.
 fn box_app_error(e: AppError) -> Box<dyn std::error::Error> {
     Box::<dyn std::error::Error>::from(e.to_string())

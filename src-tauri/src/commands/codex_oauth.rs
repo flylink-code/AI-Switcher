@@ -29,16 +29,6 @@ pub fn list_codex_oauth_accounts() -> Vec<CodexOauthAccount> {
 }
 
 #[tauri::command]
-pub fn remove_codex_oauth_account(account_id: String) -> AppResult<()> {
-    manager().remove_account(&account_id)
-}
-
-#[tauri::command]
-pub fn set_default_codex_oauth_account(account_id: String) -> AppResult<()> {
-    manager().set_default_account(&account_id)
-}
-
-#[tauri::command]
 pub async fn ensure_codex_oauth_provider(
     target: ProviderTarget,
     account_id: String,

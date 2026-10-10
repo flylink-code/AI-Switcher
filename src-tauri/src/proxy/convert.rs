@@ -757,8 +757,8 @@ impl OpenAiSseConverter {
                 .get(&upstream_index)
                 .map(String::as_str)
                 .unwrap_or("");
-            let suffix = if full.starts_with(sent) {
-                &full[sent.len()..]
+            let suffix = if let Some(stripped) = full.strip_prefix(sent) {
+                stripped
             } else if sent.is_empty() {
                 full
             } else {
@@ -1159,7 +1159,7 @@ pub fn is_claude_server_tool_type(tool_type: &str) -> bool {
     prefixes.iter().any(|prefix| lower.starts_with(prefix))
 }
 
-fn extract_tool_name<'a>(tool: &'a Value) -> Option<&'a str> {
+fn extract_tool_name(tool: &Value) -> Option<&str> {
     if let Some(name) = tool.get("name").and_then(Value::as_str) {
         if !name.trim().is_empty() {
             return Some(name);

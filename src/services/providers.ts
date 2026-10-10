@@ -16,42 +16,27 @@ import type {
   CodexOauthPollResult,
   ConnectionTestResult,
   DeeplinkImportResult,
-  EndpointSpeedtestResult,
   BatchSpeedtestResult,
   ImportPreview,
   ModelDiscoveryResult,
   Provider,
-  ProviderDoctorReport,
   ProviderImportResult,
   ProviderInput,
   ProviderTarget,
-  SwitchProviderResult,
   GatewayCatalogModelOption,
   AgentConnectionView,
   ClaudeCodeAgentSettings,
   ConnectionType,
-  GatewayProfile,
-  GatewayProfilePatch,
-  GatewayRouteLogFilters,
-  PaginatedGatewayRouteLogs,
   GatewayUpstreamImportResult,
   GatewayUpstreamModelRow,
   GatewayUpstreamDiscoverItem,
   SmartGatewayStatus,
   GatewayBinding,
-  RouteMode,
-  RouteModePatch,
-  RouteRule,
-  RouteModeUsageStat,
   UpstreamDailyUsageStat,
   GatewayUpstreamHealth,
   UpstreamLimitPolicy,
   UpstreamLimitSnapshot,
   SmartGatewayInboundLimits,
-  SmartGatewayBudgetView,
-  SmartGatewayBudgetSettings,
-  SimulateGatewayRouteInput,
-  SimulateGatewayRouteResult,
 } from "@/types/backend";
 
 export async function listProviders(target: ProviderTarget): Promise<Provider[]> {
@@ -125,83 +110,6 @@ export async function setAgentConnection(
   return call<AgentConnectionView>("set_agent_connection", { target, connectionType });
 }
 
-export async function getGatewayProfile(target: ProviderTarget): Promise<GatewayProfile | null> {
-  return call<GatewayProfile | null>("get_gateway_profile", { target });
-}
-
-export async function updateGatewayProfile(
-  target: ProviderTarget,
-  patch: GatewayProfilePatch,
-): Promise<GatewayProfile> {
-  return call<GatewayProfile>("update_gateway_profile", { target, patch });
-}
-
-export async function updateGatewayProfileById(
-  id: string,
-  patch: GatewayProfilePatch,
-): Promise<GatewayProfile> {
-  return call<GatewayProfile>("update_gateway_profile_by_id", { id, patch });
-}
-
-export async function listGatewayProfiles(): Promise<GatewayProfile[]> {
-  return call("list_gateway_profiles", {});
-}
-
-export async function createGatewayProfile(
-  name: string,
-  cloneFrom?: string | null,
-): Promise<GatewayProfile> {
-  return call("create_gateway_profile", { name, cloneFrom: cloneFrom ?? null });
-}
-
-export async function renameGatewayProfile(id: string, name: string): Promise<GatewayProfile> {
-  return call("rename_gateway_profile", { id, name });
-}
-
-export async function deleteGatewayProfile(id: string): Promise<void> {
-  await call("delete_gateway_profile", { id });
-}
-
-export async function setGatewayBindingProfile(
-  target: ProviderTarget,
-  profileId: string,
-): Promise<GatewayBinding> {
-  return call("set_gateway_binding_profile", { target, profileId });
-}
-
-export async function listGatewayRouteLogs(
-  targetOrFilters?: ProviderTarget | GatewayRouteLogFilters | null,
-  limit = 20,
-  offset = 0,
-  status?: string | null,
-  mode?: string | null,
-  keyword?: string | null,
-): Promise<PaginatedGatewayRouteLogs> {
-  if (
-    targetOrFilters &&
-    typeof targetOrFilters === "object" &&
-    !("toLowerCase" in targetOrFilters)
-  ) {
-    const filters = targetOrFilters as GatewayRouteLogFilters;
-    return call<PaginatedGatewayRouteLogs>("list_gateway_route_logs", {
-      target: filters.target ?? null,
-      limit,
-      offset,
-      status: filters.status ?? null,
-      mode: filters.mode ?? null,
-      keyword: filters.keyword ? filters.keyword.trim() : null,
-    });
-  }
-  return call<PaginatedGatewayRouteLogs>("list_gateway_route_logs", {
-    target: (targetOrFilters as ProviderTarget | null) ?? null,
-    limit,
-    offset,
-    status: status ?? null,
-    mode: mode ?? null,
-    keyword: keyword ? keyword.trim() : null,
-  });
-}
-
 export async function listGatewayUpstreams(): Promise<Provider[]> {
   return call<Provider[]>("list_gateway_upstreams");
 }
@@ -264,80 +172,10 @@ export async function ensureSmartGatewayProvider(target: ProviderTarget): Promis
   return call<Provider>("ensure_smart_gateway_provider", { target });
 }
 
-export async function getGatewayCatalogEnabled(target: ProviderTarget): Promise<boolean> {
-  return call<boolean>("get_gateway_catalog_enabled", { target });
-}
-
-export async function setGatewayCatalogEnabled(
-  target: ProviderTarget,
-  enabled: boolean,
-): Promise<boolean> {
-  return call<boolean>("set_gateway_catalog_enabled", { target, enabled });
-}
-
-export async function getGatewayCatalogSubagent(target: ProviderTarget): Promise<string> {
-  return call<string>("get_gateway_catalog_subagent", { target });
-}
-
-export async function setGatewayCatalogSubagent(
-  target: ProviderTarget,
-  model: string,
-): Promise<string> {
-  return call<string>("set_gateway_catalog_subagent", { target, model });
-}
-
-export async function getGatewayCatalogHideOfficial(target: ProviderTarget): Promise<boolean> {
-  return call<boolean>("get_gateway_catalog_hide_official", { target });
-}
-
-export async function setGatewayCatalogHideOfficial(
-  target: ProviderTarget,
-  enabled: boolean,
-): Promise<boolean> {
-  return call<boolean>("set_gateway_catalog_hide_official", { target, enabled });
-}
-
-export async function listGatewayCatalogModels(target: ProviderTarget): Promise<string[]> {
-  return call<string[]>("list_gateway_catalog_models", { target });
-}
-
 export async function listGatewayCatalogEntries(
   target: ProviderTarget,
 ): Promise<GatewayCatalogModelOption[]> {
   return call<GatewayCatalogModelOption[]>("list_gateway_catalog_entries", { target });
-}
-
-export async function getGatewayCatalogOpusplan(target: ProviderTarget): Promise<boolean> {
-  return call<boolean>("get_gateway_catalog_opusplan", { target });
-}
-
-export async function setGatewayCatalogOpusplan(
-  target: ProviderTarget,
-  enabled: boolean,
-): Promise<boolean> {
-  return call<boolean>("set_gateway_catalog_opusplan", { target, enabled });
-}
-
-export async function getGatewayCatalogPlan(target: ProviderTarget): Promise<string> {
-  return call<string>("get_gateway_catalog_plan", { target });
-}
-
-export async function setGatewayCatalogPlan(
-  target: ProviderTarget,
-  model: string,
-): Promise<string> {
-  return call<string>("set_gateway_catalog_plan", { target, model });
-}
-
-export async function getGatewayCatalogExecute(target: ProviderTarget): Promise<string> {
-  return call<string>("get_gateway_catalog_execute", { target });
-}
-
-export async function setGatewayCatalogExecute(
-  target: ProviderTarget,
-  model: string,
-): Promise<string> {
-  return call<string>("set_gateway_catalog_execute", { target, model });
 }
 
 export async function getClaudeCodeDefaultPermissionMode(): Promise<string> {
@@ -366,47 +204,8 @@ export async function setOpenCodePermissionMode(mode: string): Promise<string> {
   return call<string>("set_opencode_permission_mode", { mode });
 }
 
-export async function createProvider(input: ProviderInput): Promise<Provider> {
-  return call<Provider>("create_provider", { input });
-}
-
-export async function copyProviderToTarget(
-  id: string,
-  target: ProviderTarget,
-): Promise<Provider> {
-  return call<Provider>("copy_provider_to_target", { id, target });
-}
-
-export async function updateProvider(input: ProviderInput): Promise<Provider> {
-  return call<Provider>("update_provider", { input });
-}
-
-export async function deleteProvider(id: string): Promise<void> {
-  return call<void>("delete_provider", { id });
-}
-
-export async function switchProvider(id: string): Promise<SwitchProviderResult> {
-  return call<SwitchProviderResult>("switch_provider", { id });
-}
-
 export async function switchToOfficial(target: ProviderTarget): Promise<void> {
   return call<void>("switch_to_official", { target });
-}
-
-export async function reorderProviders(orderedIds: string[], target: ProviderTarget): Promise<void> {
-  return call<void>("reorder_providers", { orderedIds, target });
-}
-
-export async function importLiveConfig(target: ProviderTarget): Promise<void> {
-  return call<void>("import_live_config", { target });
-}
-
-export async function testProviderConnection(id: string): Promise<ConnectionTestResult> {
-  return call<ConnectionTestResult>("test_provider_connection", { id });
-}
-
-export async function speedtestProviderEndpoint(id: string): Promise<EndpointSpeedtestResult> {
-  return call<EndpointSpeedtestResult>("speedtest_provider_endpoint", { id });
 }
 
 export async function batchSpeedtestUpstreamEndpoints(
@@ -462,51 +261,12 @@ export async function cancelBatchSpeedtest(batchId: string): Promise<boolean> {
   return call<boolean>("cancel_batch_speedtest", { batchId });
 }
 
-export async function testProviderInput(input: ProviderInput): Promise<ConnectionTestResult> {
-  return call<ConnectionTestResult>("test_provider_input", { input });
-}
-
-export async function batchDiagnoseProviders(
-  target?: ProviderTarget | null,
-): Promise<ProviderDoctorReport[]> {
-  return call<ProviderDoctorReport[]>("batch_diagnose_providers", { target: target ?? null });
-}
-
-export async function quarantineFailedProviders(providerIds: string[]): Promise<number> {
-  return call<number>("quarantine_failed_providers", { providerIds });
-}
-
-
-export async function discoverProviderModels(id: string): Promise<ModelDiscoveryResult> {
-  return call<ModelDiscoveryResult>("discover_provider_models", { id });
-}
-
-export async function getCachedProviderModels(id: string): Promise<ModelDiscoveryResult> {
-  return call<ModelDiscoveryResult>("get_cached_provider_models", { id });
-}
-
-export async function discoverProviderModelsInput(input: ProviderInput): Promise<ModelDiscoveryResult> {
-  return call<ModelDiscoveryResult>("discover_provider_models_input", { input });
-}
-
-export async function exportProviders(target: ProviderTarget): Promise<string> {
-  return call<string>("export_providers", { target });
-}
-
-export async function importProvidersJson(json: string): Promise<ProviderImportResult> {
-  return call<ProviderImportResult>("import_providers_json", { json });
-}
-
 export async function previewImportText(text: string): Promise<ImportPreview> {
   return call<ImportPreview>("preview_import_text", { text });
 }
 
 export async function confirmImportPreview(preview: ImportPreview): Promise<DeeplinkImportResult> {
   return call<DeeplinkImportResult>("confirm_import_preview", { preview });
-}
-
-export async function buildProviderDeeplink(providerId: string): Promise<string> {
-  return call<string>("build_provider_deeplink", { providerId });
 }
 
 export async function getSmartGatewayStatus(): Promise<SmartGatewayStatus> {
@@ -545,44 +305,10 @@ export async function unbindSmartGateway(target: ProviderTarget): Promise<void> 
   await call("unbind_smart_gateway", { target });
 }
 
-export async function listRouteModes(profileId?: string | null): Promise<RouteMode[]> {
-  return call("list_route_modes", { profileId: profileId ?? null });
-}
-
-export async function updateRouteMode(
-  id: string,
-  patch: RouteModePatch,
-  profileId?: string | null,
-): Promise<RouteMode> {
-  return call("update_route_mode", { id, patch, profileId: profileId ?? null });
-}
-
-export async function listRouteRules(profileId?: string | null): Promise<RouteRule[]> {
-  return call("list_route_rules", { profileId: profileId ?? null });
-}
-
-export async function upsertRouteRule(rule: RouteRule): Promise<RouteRule> {
-  return call("upsert_route_rule", { rule });
-}
-
-export async function deleteRouteRule(id: string): Promise<void> {
-  await call("delete_route_rule", { id });
-}
-
-export async function listRouteModeUsageStats(): Promise<RouteModeUsageStat[]> {
-  return call("list_route_mode_usage_stats");
-}
-
 export async function listUpstreamDailyUsageStats(
   since?: number,
 ): Promise<UpstreamDailyUsageStat[]> {
   return call("list_upstream_daily_usage_stats", { since: since ?? null });
-}
-
-export async function simulateGatewayRoute(
-  input: SimulateGatewayRouteInput,
-): Promise<SimulateGatewayRouteResult> {
-  return call("simulate_gateway_route", { input });
 }
 
 export async function listGatewayUpstreamHealth(): Promise<GatewayUpstreamHealth[]> {
@@ -606,14 +332,6 @@ export async function listGatewayUpstreamPressure(): Promise<UpstreamLimitSnapsh
 
 
 
-export async function getSmartGatewaySubagentInheritUpstream(): Promise<boolean> {
-  return call("get_smart_gateway_subagent_inherit_upstream");
-}
-
-export async function setSmartGatewaySubagentInheritUpstream(enabled: boolean): Promise<boolean> {
-  return call("set_smart_gateway_subagent_inherit_upstream", { enabled });
-}
-
 export async function getSmartGatewayInboundLimits(): Promise<SmartGatewayInboundLimits> {
   return call<SmartGatewayInboundLimits>("get_smart_gateway_inbound_limits");
 }
@@ -622,16 +340,6 @@ export async function setSmartGatewayInboundLimits(
   settings: SmartGatewayInboundLimits,
 ): Promise<SmartGatewayInboundLimits> {
   return call<SmartGatewayInboundLimits>("set_smart_gateway_inbound_limits", { settings });
-}
-
-export async function getSmartGatewayBudget(): Promise<SmartGatewayBudgetView> {
-  return call("get_smart_gateway_budget");
-}
-
-export async function setSmartGatewayBudget(
-  settings: SmartGatewayBudgetSettings,
-): Promise<SmartGatewayBudgetView> {
-  return call("set_smart_gateway_budget", { settings });
 }
 
 export async function getSmartGatewayHealthProbeSecs(): Promise<number> {
