@@ -6,6 +6,8 @@
 //! table for the usage dashboard (P4).
 
 pub(crate) mod convert;
+pub(crate) mod desktop_alias;
+pub(crate) mod wire;
 mod codex;
 mod codex_anthropic;
 mod codex_auto_review;

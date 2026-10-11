@@ -27,10 +27,15 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let style = crate::catalog::catalog_style_for(state.target);
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state.db.with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target)).ok().flatten();
-    let explicit = if crate::gateway::is_auto_model_id(requested_model) {
-        entries.first().map(|entry| entry.public_id.clone()).unwrap_or_default()
+    let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
+        desktop_alias::canonical_request(requested_model, &entries, &providers)
     } else {
         requested_model.trim().to_string()
+    };
+    let explicit = if crate::gateway::is_auto_model_id(&requested_model) {
+        entries.first().map(|entry| entry.public_id.clone()).unwrap_or_default()
+    } else {
+        requested_model.clone()
     };
     if explicit.is_empty() {
         return Ok(None);
@@ -43,7 +48,7 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let Some(provider) = providers.into_iter().find(|item| item.id == provider_id) else {
         return Ok(None);
     };
-    let source = if crate::gateway::is_auto_model_id(requested_model) {
+    let source = if crate::gateway::is_auto_model_id(&requested_model) {
         crate::gateway::RouteSource::Auto
     } else {
         crate::gateway::RouteSource::Explicit
@@ -425,9 +430,13 @@ async fn models_handler(State(state): State<ProxyState>, headers: HeaderMap) -> 
         let style = crate::catalog::catalog_style_for(target);
         match load_gateway_catalog(&state, style) {
             Ok((_, entries)) if !entries.is_empty() => {
-                let payload = match style {
-                    CatalogStyle::Claude => claude_discovery_payload(&entries),
-                    CatalogStyle::Codex => openai_models_payload(&entries),
+                let payload = if target == ProviderTarget::ClaudeDesktop {
+                    desktop_alias::discovery_payload(&entries)
+                } else {
+                    match style {
+                        CatalogStyle::Claude => claude_discovery_payload(&entries),
+                        CatalogStyle::Codex => openai_models_payload(&entries),
+                    }
                 };
                 let revision = crate::catalog::catalog_revision(style, &entries);
                 Response::builder()
@@ -479,10 +488,19 @@ async fn model_retrieve_handler(
         let style = crate::catalog::catalog_style_for(target);
         match load_gateway_catalog(&state, style) {
             Ok((_, entries)) if !entries.is_empty() => {
-                if let Some(entry) = find_catalog_entry(&entries, &id) {
-                    let payload = match style {
-                        CatalogStyle::Claude => claude_discovery_model(entry),
-                        CatalogStyle::Codex => crate::catalog::openai_discovery_model(entry),
+                let lookup = if target == ProviderTarget::ClaudeDesktop {
+                    desktop_alias::public_id_for_listed(&id, &entries).unwrap_or(id)
+                } else {
+                    id
+                };
+                if let Some(entry) = find_catalog_entry(&entries, &lookup) {
+                    let payload = if target == ProviderTarget::ClaudeDesktop {
+                        desktop_alias::discovery_model(entry, &entries)
+                    } else {
+                        match style {
+                            CatalogStyle::Claude => claude_discovery_model(entry),
+                            CatalogStyle::Codex => crate::catalog::openai_discovery_model(entry),
+                        }
                     };
                     let revision = crate::catalog::catalog_revision(style, &entries);
                     Response::builder()
@@ -493,7 +511,7 @@ async fn model_retrieve_handler(
                         .body(Body::from(payload.to_string()))
                         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
                 } else {
-                    json_error(StatusCode::NOT_FOUND, format!("找不到模型: {id}"))
+                    json_error(StatusCode::NOT_FOUND, format!("找不到模型: {lookup}"))
                 }
             }
             Ok(_) => json_error(StatusCode::SERVICE_UNAVAILABLE, "没有已配置的第三方供应商"),

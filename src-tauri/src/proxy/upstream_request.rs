@@ -786,23 +786,11 @@ async fn proxy_handler_inner(
                                 continue;
                             }
                             provider = fallback;
-                            let anthropic = match provider.protocol_type {
-                                ProtocolType::Anthropic => {
-                                    let mut response = fallback_json;
-                                    response["model"] = Value::String(client_model.trim().to_string());
-                                    response
-                                }
-                                ProtocolType::OpenAiResponses => {
-                                    convert::openai_responses_to_anthropic(
-                                        &fallback_json,
-                                        client_model.trim(),
-                                    )
-                                }
-                                _ => convert::openai_chat_to_anthropic(
-                                    &fallback_json,
-                                    client_model.trim(),
-                                ),
-                            };
+                            let anthropic = wire::client_anthropic_message(
+                                provider.protocol_type,
+                                &fallback_json,
+                                client_model.trim(),
+                            );
                             let mut anthropic = anthropic;
                             let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
                             record_provider_success(&state, &provider.id);
@@ -855,10 +843,7 @@ async fn proxy_handler_inner(
                 return anthropic_error(StatusCode::BAD_GATEWAY, failed);
             }
         }
-        let anthropic = match provider.protocol_type {
-            ProtocolType::OpenAiResponses => convert::openai_responses_to_anthropic(&upstream, client_model.trim()),
-            _ => convert::openai_chat_to_anthropic(&upstream, client_model.trim()),
-        };
+        let anthropic = wire::client_anthropic_message(provider.protocol_type, &upstream, client_model.trim());
         let mut anthropic = anthropic;
         let _ = web_tools::materialize_web_tool_uses(&mut anthropic);
         if let Some(id) = log_id.as_deref() {

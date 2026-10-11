@@ -113,8 +113,14 @@ fn encode_upstream_request(
 ) -> (Bytes, bool) {
     match provider.protocol_type {
         ProtocolType::OpenAiChat | ProtocolType::Proxy => {
-            let mut request =
-                convert::anthropic_to_openai_chat(incoming, provider.model.trim(), stream, provider.thinking_config.as_ref());
+            let mut request = wire::transcode_request(
+                wire::Api::Anthropic,
+                wire::Api::Chat,
+                incoming,
+                provider.model.trim(),
+                stream,
+            );
+            overlay_legacy_thinking(&mut request, incoming, stream, provider, false);
             convert::reinject_chat_prompt_cache_key(
                 &mut request,
                 incoming
@@ -129,8 +135,14 @@ fn encode_upstream_request(
             )
         }
         ProtocolType::OpenAiResponses => {
-            let mut request =
-                convert::anthropic_to_openai_responses(incoming, provider.model.trim(), stream, provider.thinking_config.as_ref());
+            let mut request = wire::transcode_request(
+                wire::Api::Anthropic,
+                wire::Api::Responses,
+                incoming,
+                provider.model.trim(),
+                stream,
+            );
+            overlay_legacy_thinking(&mut request, incoming, stream, provider, true);
             if provider.is_codex_oauth() {
                 convert::apply_codex_oauth_response_body(&mut request);
             }
@@ -140,6 +152,44 @@ fn encode_upstream_request(
             )
         }
         ProtocolType::Anthropic => (rewrite_body(provider, original), false),
+    }
+}
+
+fn overlay_legacy_thinking(
+    request: &mut Value,
+    incoming: &Value,
+    stream: bool,
+    provider: &Provider,
+    responses: bool,
+) {
+    if provider.thinking_config.is_none() && incoming.get("thinking").is_none() {
+        return;
+    }
+    let legacy = if responses {
+        convert::anthropic_to_openai_responses(
+            incoming,
+            provider.model.trim(),
+            stream,
+            provider.thinking_config.as_ref(),
+        )
+    } else {
+        convert::anthropic_to_openai_chat(
+            incoming,
+            provider.model.trim(),
+            stream,
+            provider.thinking_config.as_ref(),
+        )
+    };
+    let Some(object) = request.as_object_mut() else {
+        return;
+    };
+    let Some(legacy) = legacy.as_object() else {
+        return;
+    };
+    for key in ["reasoning_effort", "enable_thinking", "instructions", "reasoning"] {
+        if let Some(value) = legacy.get(key) {
+            object.insert(key.to_string(), value.clone());
+        }
     }
 }
 

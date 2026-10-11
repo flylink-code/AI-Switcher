@@ -555,9 +555,11 @@ fn build_profile(provider: &Provider, proxy_port: u16, _catalog_models: &[String
         "autoModeEnabled": true,
     });
 
-    if provider.is_smart_gateway() || role_routes {
+    // Smart gateway: Desktop lists GET /v1/models itself. Writing catalog ids
+    // or role rows here makes Desktop mark the profile invalid.
+    if role_routes {
         profile["inferenceModels"] = Value::Array(desktop_inference_models(provider));
-    } else if !provider.model.trim().is_empty() {
+    } else if !provider.is_smart_gateway() && !provider.model.trim().is_empty() {
         profile["inferenceModels"] = serde_json::json!([
             { "name": provider.model.trim(), "supports1m": true }
         ]);
@@ -998,48 +1000,29 @@ mod tests {
         provider.model = "auto".into();
         let profile = build_profile(&provider, 15_822, &[]).expect("profile");
         assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
-        assert_eq!(profile["inferenceModels"][0]["name"], "claude-sonnet-5");
-        assert_eq!(profile["inferenceModels"][0]["labelOverride"], "upstream-sonnet");
+        assert_eq!(profile["inferenceGatewayAuthScheme"], serde_json::json!("bearer"));
+        assert_eq!(profile["autoModeEnabled"], serde_json::json!(true));
+        assert!(profile.get("inferenceModels").is_none());
 
         provider.model = "claude.ag.gemini-3.8-flash-high".into();
         let named = build_profile(&provider, 15_822, &[]).expect("profile");
-        assert_eq!(named["inferenceModels"][0]["name"], "claude-sonnet-5");
-        assert_eq!(named["inferenceModels"][0]["labelOverride"], "upstream-sonnet");
-        assert_eq!(named["inferenceModels"][1]["labelOverride"], "upstream-opus");
+        assert!(named.get("inferenceModels").is_none());
 
         let catalog = vec![
             "claude.auto".to_string(),
             "claude.ag.gemini-3.8-flash-high".to_string(),
         ];
         let catalog_profile = build_profile(&provider, 15_822, &catalog).expect("profile");
-        let names: Vec<&str> = catalog_profile["inferenceModels"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter_map(|model| model.get("name").and_then(Value::as_str))
-            .collect();
-        assert_eq!(
-            names,
-            vec![
-                "claude-sonnet-5",
-                "claude-opus-5",
-                "claude-haiku-4-5",
-                "claude-fable-5",
-            ]
-        );
+        assert!(catalog_profile.get("inferenceModels").is_none());
+        let rendered = catalog_profile.to_string();
+        assert!(!rendered.contains("claude.auto"));
+        assert!(!rendered.contains("gemini"));
 
         provider.model_mapping = ClaudeModelMapping::default();
         provider.model = "default-upstream".into();
         let unmapped = build_profile(&provider, 15_822, &catalog).expect("profile");
-        let unmapped_names: Vec<&str> = unmapped["inferenceModels"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter_map(|model| model.get("name").and_then(Value::as_str))
-            .collect();
-        assert_eq!(unmapped_names, names);
-        assert_eq!(unmapped["inferenceModels"][0]["labelOverride"], "default-upstream");
-        assert!(unmapped_names.iter().all(|name| *name != "claude.auto"));
+        assert!(unmapped.get("inferenceModels").is_none());
+        assert!(!unmapped.to_string().contains("claude.auto"));
     }
 
     #[test]
