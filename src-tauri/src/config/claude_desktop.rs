@@ -527,7 +527,7 @@ fn profile_uses_legacy_role_routes(profile: &Value) -> bool {
         })
 }
 
-fn build_profile(provider: &Provider, proxy_port: u16, catalog_models: &[String]) -> AppResult<Value> {
+fn build_profile(provider: &Provider, proxy_port: u16, _catalog_models: &[String]) -> AppResult<Value> {
     let role_routes = provider.requires_local_proxy() && !provider.is_smart_gateway();
     let (base_url, api_key) = if provider.is_smart_gateway() {
         let token = crate::gateway::resolved_gateway_token(&provider.api_key)
@@ -555,24 +555,7 @@ fn build_profile(provider: &Provider, proxy_port: u16, catalog_models: &[String]
         "autoModeEnabled": true,
     });
 
-    if provider.is_smart_gateway() {
-        let models: Vec<Value> = if catalog_models.is_empty() {
-            let model = crate::gateway::normalize_live_model_for(provider.target_app, &provider.model);
-            if model.is_empty() {
-                Vec::new()
-            } else {
-                vec![serde_json::json!({ "name": model, "supports1m": true })]
-            }
-        } else {
-            catalog_models
-                .iter()
-                .map(|id| id.trim())
-                .filter(|id| !id.is_empty())
-                .map(|id| serde_json::json!({ "name": id, "supports1m": true }))
-                .collect()
-        };
-        profile["inferenceModels"] = Value::Array(models);
-    } else if role_routes {
+    if provider.is_smart_gateway() || role_routes {
         profile["inferenceModels"] = Value::Array(desktop_inference_models(provider));
     } else if !provider.model.trim().is_empty() {
         profile["inferenceModels"] = serde_json::json!([
@@ -584,17 +567,24 @@ fn build_profile(provider: &Provider, proxy_port: u16, catalog_models: &[String]
 }
 
 fn desktop_inference_models(provider: &Provider) -> Vec<Value> {
+    let fallback = provider.model.trim();
+    let fallback = if crate::catalog::is_auto_public_id(fallback) {
+        ""
+    } else {
+        fallback
+    };
     DESKTOP_ROLE_ROUTES
         .iter()
         .map(|(route_id, role)| {
-            let upstream = provider
-                .model_mapping
-                .for_role(*role, provider.model.trim());
-            serde_json::json!({
+            let upstream = provider.model_mapping.for_role(*role, fallback);
+            let mut model = serde_json::json!({
                 "name": route_id,
-                "labelOverride": upstream,
                 "supports1m": true,
-            })
+            });
+            if !upstream.is_empty() && !crate::catalog::is_auto_public_id(upstream) {
+                model["labelOverride"] = serde_json::Value::String(upstream.to_string());
+            }
+            model
         })
         .collect()
 }
@@ -1008,16 +998,17 @@ mod tests {
         provider.model = "auto".into();
         let profile = build_profile(&provider, 15_822, &[]).expect("profile");
         assert_eq!(profile["inferenceGatewayApiKey"], serde_json::json!("gwt_desktop"));
-        assert_eq!(profile["inferenceModels"].as_array().map(Vec::len), Some(0));
+        assert_eq!(profile["inferenceModels"][0]["name"], "claude-sonnet-5");
+        assert_eq!(profile["inferenceModels"][0]["labelOverride"], "upstream-sonnet");
 
         provider.model = "claude.ag.gemini-3.8-flash-high".into();
         let named = build_profile(&provider, 15_822, &[]).expect("profile");
-        assert_eq!(
-            named["inferenceModels"][0]["name"],
-            serde_json::json!("claude.ag.gemini-3.8-flash-high")
-        );
+        assert_eq!(named["inferenceModels"][0]["name"], "claude-sonnet-5");
+        assert_eq!(named["inferenceModels"][0]["labelOverride"], "upstream-sonnet");
+        assert_eq!(named["inferenceModels"][1]["labelOverride"], "upstream-opus");
 
         let catalog = vec![
+            "claude.auto".to_string(),
             "claude.ag.gemini-3.8-flash-high".to_string(),
         ];
         let catalog_profile = build_profile(&provider, 15_822, &catalog).expect("profile");
@@ -1029,8 +1020,26 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            vec!["claude.ag.gemini-3.8-flash-high"]
+            vec![
+                "claude-sonnet-5",
+                "claude-opus-5",
+                "claude-haiku-4-5",
+                "claude-fable-5",
+            ]
         );
+
+        provider.model_mapping = ClaudeModelMapping::default();
+        provider.model = "default-upstream".into();
+        let unmapped = build_profile(&provider, 15_822, &catalog).expect("profile");
+        let unmapped_names: Vec<&str> = unmapped["inferenceModels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|model| model.get("name").and_then(Value::as_str))
+            .collect();
+        assert_eq!(unmapped_names, names);
+        assert_eq!(unmapped["inferenceModels"][0]["labelOverride"], "default-upstream");
+        assert!(unmapped_names.iter().all(|name| *name != "claude.auto"));
     }
 
     #[test]

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AgentConnectionCard } from "@/components/AgentConnectionCard";
 import {
+  claudeDesktopAppOptions,
   claudeVersionOptions,
   codexCliVersionOptions,
   localClaudeVersionOptions,
@@ -14,6 +15,7 @@ import {
   opencodeCliVersionOptions,
   piCliVersionOptions,
 } from "@/lib/appQueries";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { errMsg } from "@/lib/errMsg";
 import { useNavigatePage } from "@/lib/navigation";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -26,6 +28,7 @@ import {
   getPiSettings,
   readLivePrompt,
   runClaudeCodeUpdate,
+  runClaudeDesktopAppUpdate,
   runCodexCliUpdate,
   runOpenCodeCliUpdate,
   runPiCliUpdate,
@@ -43,6 +46,7 @@ function livePromptBlocksAgentTeams(content: string | undefined | null): boolean
 }
 
 type ToolTarget = "claude_code" | "codex" | "opencode" | "pi";
+type BusyTarget = ToolTarget | "claude_desktop";
 
 export default function AgentHubPage() {
   const { t } = useTranslation();
@@ -50,7 +54,7 @@ export default function AgentHubPage() {
   const queryClient = useQueryClient();
   const setWorkspaceTarget = usePagePreferencesStore((state) => state.setWorkspaceTarget);
   const [piThinkingLevel, setPiThinkingLevel] = useState("medium");
-  const [busyTarget, setBusyTarget] = useState<ToolTarget | null>(null);
+  const [busyTarget, setBusyTarget] = useState<BusyTarget | null>(null);
   const [installingNode, setInstallingNode] = useState(false);
 
   const nodeQuery = useQuery(nodeRuntimeStatusOptions);
@@ -62,11 +66,13 @@ export default function AgentHubPage() {
   const localOpenCodeQuery = useQuery(localOpenCodeCliVersionOptions);
   const piQuery = useQuery({ ...piCliVersionOptions, placeholderData: () => queryClient.getQueryData(localPiCliVersionOptions.queryKey) });
   const localPiQuery = useQuery(localPiCliVersionOptions);
+  const desktopQuery = useQuery(claudeDesktopAppOptions);
 
   const claudeInfo = claudeQuery.data ?? localClaudeQuery.data;
   const codexInfo = codexQuery.data ?? localCodexQuery.data;
   const opencodeInfo = opencodeQuery.data ?? localOpenCodeQuery.data;
   const piInfo = piQuery.data ?? localPiQuery.data;
+  const desktopInfo = desktopQuery.data;
 
   const defaultPermissionModeQuery = useQuery({
     queryKey: ["claude-code-default-permission-mode"],
@@ -105,8 +111,9 @@ export default function AgentHubPage() {
         return opencodeInfo;
       case "pi":
         return piInfo;
-      case "cline":
       case "claude_desktop":
+        return desktopInfo;
+      case "cline":
       case "dsh":
         return undefined;
       default: {
@@ -145,6 +152,27 @@ export default function AgentHubPage() {
               : await runPiCliUpdate();
       void message.success(result);
       await refreshTool(target);
+    } catch (error) {
+      void message.error(errMsg(error));
+    } finally {
+      setBusyTarget(null);
+    }
+  };
+
+  const runDesktopUpdate = async () => {
+    if (desktopInfo && !desktopInfo.canInstallInApp) {
+      try {
+        await openUrl("https://claude.ai/download");
+      } catch (error) {
+        void message.error(errMsg(error));
+      }
+      return;
+    }
+    setBusyTarget("claude_desktop");
+    try {
+      const result = await runClaudeDesktopAppUpdate();
+      void message.success(result);
+      await queryClient.invalidateQueries({ queryKey: ["claude-desktop-app"] });
     } catch (error) {
       void message.error(errMsg(error));
     } finally {
@@ -195,28 +223,67 @@ export default function AgentHubPage() {
     }
   };
 
+  const installed: Partial<Record<ProviderTarget, boolean>> = {};
+  if (claudeInfo) installed.claude_code = claudeInfo.installed;
+  if (codexInfo) installed.codex = codexInfo.installed;
+  if (opencodeInfo) installed.opencode = opencodeInfo.installed;
+  if (piInfo) installed.pi = piInfo.installed;
+  if (desktopInfo) installed.claude_desktop = desktopInfo.installed;
+
   const renderHeaderExtra = (target: ProviderTarget) => {
     const info = toolInfo(target);
     if (!info) return null;
     if (!info.installed) {
-      const tool = target as ToolTarget;
+      if (target === "claude_desktop") {
+        return (
+          <Button size="small" type="primary" loading={busyTarget === "claude_desktop"} onClick={() => void runDesktopUpdate()}>
+            {t("agentHub.install", { defaultValue: "安装" })}
+          </Button>
+        );
+      }
+      if (target === "cline" || target === "dsh") return null;
       return (
-        <Button size="small" type="primary" loading={busyTarget === tool} onClick={() => void runToolUpdate(tool)}>
+        <Button size="small" type="primary" loading={busyTarget === target} onClick={() => void runToolUpdate(target)}>
           {t("agentHub.install", { defaultValue: "安装" })}
         </Button>
       );
     }
-    return <Text type="secondary">{info.currentVersion ?? ""}</Text>;
+    return (
+      <>
+        {info.currentVersion ? (
+          <Text type="secondary" style={{ fontSize: 12 }}>{info.currentVersion}</Text>
+        ) : null}
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          <span aria-hidden style={{ color: "#34c759", marginRight: 4 }}>●</span>
+          {t("agentHub.installed", { defaultValue: "已安装" })}
+        </Text>
+      </>
+    );
   };
 
   const renderAdvanced = (target: ProviderTarget) => {
+    if (target === "claude_desktop") {
+      return (
+        <Space>
+          <Button size="small" onClick={() => void queryClient.invalidateQueries({ queryKey: ["claude-desktop-app"] })}>
+            {t("agentHub.detect", { defaultValue: "检测" })}
+          </Button>
+          <Button size="small" loading={busyTarget === "claude_desktop"} onClick={() => void runDesktopUpdate()}>
+            {t("agentHub.upgrade", { defaultValue: "升级" })}
+          </Button>
+          <Button size="small" type="link" onClick={() => navigate("localProxy")}>
+            {t("agentHub.viewLocalProxy", { defaultValue: "查看本地代理" })}
+          </Button>
+        </Space>
+      );
+    }
     const info = toolInfo(target);
-    const maintenance = info ? (
+    const maintenance = info && target !== "cline" && target !== "dsh" ? (
       <Space>
-        <Button size="small" onClick={() => void refreshTool(target as ToolTarget)}>
+        <Button size="small" onClick={() => void refreshTool(target)}>
           {t("agentHub.detect", { defaultValue: "检测" })}
         </Button>
-        <Button size="small" loading={busyTarget === target} onClick={() => void runToolUpdate(target as ToolTarget)}>
+        <Button size="small" loading={busyTarget === target} onClick={() => void runToolUpdate(target)}>
           {t("agentHub.upgrade", { defaultValue: "升级" })}
         </Button>
         <Button size="small" type="link" onClick={() => navigate("localProxy")}>
@@ -345,6 +412,7 @@ export default function AgentHubPage() {
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
       <AgentConnectionCard
         framed={false}
+        installed={installed}
         renderHeaderExtra={renderHeaderExtra}
         renderAdvanced={renderAdvanced}
       />

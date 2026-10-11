@@ -63,14 +63,14 @@ export default function WorkbenchPage() {
   const codexProxyQuery = useQuery(proxyStatusOptions("codex"));
   const opencodeProxyQuery = useQuery(proxyStatusOptions("opencode"));
   const piProxyQuery = useQuery(proxyStatusOptions("pi"));
-  const clineProxyQuery = useQuery(proxyStatusOptions("cline"));
+  const desktopProxyQuery = useQuery(proxyStatusOptions("claude_desktop"));
 
   const proxyQueryMap: Partial<Record<ProviderTarget, typeof codeProxyQuery>> = {
     claude_code: codeProxyQuery,
+    claude_desktop: desktopProxyQuery,
     codex: codexProxyQuery,
     opencode: opencodeProxyQuery,
     pi: piProxyQuery,
-    cline: clineProxyQuery,
   };
 
   const providerQueries = [

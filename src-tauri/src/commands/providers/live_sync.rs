@@ -902,14 +902,21 @@ async fn apply_target_provider<R: tauri::Runtime>(
                 if uses_proxy {
                     state.proxy.lock().await.start(proxy_port, ProviderTarget::ClaudeDesktop).await?;
                 }
-                let provider = runtime_provider.clone();
-                let catalog_models = if gateway_catalog {
-                    catalog_public_ids_for(state, ProviderTarget::ClaudeDesktop).unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
+                let mut provider = runtime_provider.clone();
+                if gateway_catalog {
+                    if let Ok(pairs) = load_gateway_pairs(state, ProviderTarget::ClaudeDesktop) {
+                        if let Some((upstream, _)) = pairs.first() {
+                            provider.model_mapping = upstream.model_mapping.clone();
+                            if provider.model.trim().is_empty()
+                                || crate::catalog::is_auto_public_id(provider.model.trim())
+                            {
+                                provider.model = upstream.model.clone();
+                            }
+                        }
+                    }
+                }
                 tauri::async_runtime::spawn_blocking(move || {
-                    claude_desktop::apply_provider(&provider, proxy_port, &catalog_models)
+                    claude_desktop::apply_provider(&provider, proxy_port, &[])
                 })
                 .await
                 .map_err(|error| AppError::Tauri(format!("Claude Desktop 配置写入任务失败: {error}")))??;

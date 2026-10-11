@@ -49,12 +49,12 @@ export function MetricTrendBars({
   if (buckets.length === 0) return null;
 
   return (
-    <div ref={scrollerRef} className="metric-trend-bars" style={{ marginTop: 8 }}>
+    <div ref={scrollerRef} className={`metric-trend-bars ${hourly ? "metric-trend-bars-hour" : "metric-trend-bars-day"}`} style={{ marginTop: 8 }}>
       <div className="hourly-bars" role="img" aria-label={t("workbench.trendChart", { defaultValue: "用量趋势" })} style={{ height: 112 }}>
         {max > 0 && average > 0 ? (
           <span
             className="hourly-bars-refline"
-            style={{ bottom: `calc((100% - 14px) * ${average / max})` }}
+            style={{ bottom: `calc((100% - var(--trend-label-band, 14px)) * ${average / max})` }}
           >
             <span className="hourly-bars-refline-label">
               {t("usage.chartAverage")} {formatMetric(average, metric)}

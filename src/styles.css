@@ -1250,10 +1250,17 @@ body {
   white-space: nowrap;
 }
 
-/* Overview trend: fixed slot width so one busy hour cannot fill the row. */
+/* Overview trend shares the row. The bar itself stays narrow so one busy
+   bucket cannot become a full-width block, while each axis slot is wide
+   enough for MM-DD. Thirty days scroll instead of stacking labels. */
 .metric-trend-bars {
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+.metric-trend-bars .hourly-bars {
+  --trend-label-band: 20px;
+  padding-top: var(--trend-label-band);
 }
 
 .metric-trend-bars .hourly-bars,
@@ -1264,10 +1271,33 @@ body {
 
 .metric-trend-bars .hourly-bars-col,
 .metric-trend-bars .hourly-bars-axis-label {
-  flex: 0 0 16px;
-  width: 16px;
-  min-width: 16px;
-  max-width: 16px;
+  flex: 1 1 0;
+  width: auto;
+  max-width: none;
+}
+
+.metric-trend-bars-hour .hourly-bars-col,
+.metric-trend-bars-hour .hourly-bars-axis-label {
+  min-width: 18px;
+}
+
+.metric-trend-bars-day .hourly-bars-col,
+.metric-trend-bars-day .hourly-bars-axis-label {
+  min-width: 44px;
+}
+
+.metric-trend-bars .hourly-bars-bar {
+  width: min(100%, 22px);
+  max-width: 22px;
+}
+
+.metric-trend-bars .hourly-bars-peak-label {
+  top: 0;
+  transform: translate(-50%, -100%);
+}
+
+.metric-trend-bars .hourly-bars-axis-label {
+  overflow: hidden;
 }
 
 /* ===== Bottom Status Footer ===== */

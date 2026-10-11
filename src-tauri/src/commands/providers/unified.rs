@@ -10,7 +10,7 @@ pub(crate) fn validate_direct_provider_for_target(
 ) -> AppResult<()> {
     validate_target_protocol(target, provider.protocol_type)?;
     if provider.is_codex_oauth()
-        || (target == ProviderTarget::ClaudeCode
+        || ((target == ProviderTarget::ClaudeCode || target == ProviderTarget::ClaudeDesktop)
             && provider.protocol_type != ProtocolType::Anthropic)
         || (target == ProviderTarget::Codex && provider.protocol_type == ProtocolType::Anthropic)
     {
@@ -32,7 +32,8 @@ pub(crate) fn validate_upstream_update_for_direct_bindings(
         if binding.mode == "direct" && binding.direct_upstream_id == upstream_id {
             validate_target_protocol(binding.target_app, new_protocol)?;
             if new_kind == ProviderKind::CodexOauth
-                || (binding.target_app == ProviderTarget::ClaudeCode
+                || ((binding.target_app == ProviderTarget::ClaudeCode
+                    || binding.target_app == ProviderTarget::ClaudeDesktop)
                     && new_protocol != ProtocolType::Anthropic)
                 || (binding.target_app == ProviderTarget::Codex
                     && new_protocol == ProtocolType::Anthropic)
@@ -640,6 +641,12 @@ mod unified_tests {
         // Claude Code 尝试使用 Codex OAuth 直连：OAuth 直连应被拒绝
         let oauth_provider = sample_test_provider("OAuth 上游", ProtocolType::Anthropic, ProviderKind::CodexOauth);
         let err = validate_direct_provider_for_target(ProviderTarget::ClaudeCode, &oauth_provider).unwrap_err();
+        assert!(err.to_string().contains("协议转换或 OAuth 认证"));
+
+        let desktop_ok = sample_test_provider("Desktop Anthropic", ProtocolType::Anthropic, ProviderKind::Standard);
+        assert!(validate_direct_provider_for_target(ProviderTarget::ClaudeDesktop, &desktop_ok).is_ok());
+        let desktop_openai = sample_test_provider("Desktop OpenAI", ProtocolType::OpenAiChat, ProviderKind::Standard);
+        let err = validate_direct_provider_for_target(ProviderTarget::ClaudeDesktop, &desktop_openai).unwrap_err();
         assert!(err.to_string().contains("协议转换或 OAuth 认证"));
     }
 

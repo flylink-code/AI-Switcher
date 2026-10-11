@@ -608,13 +608,10 @@ pub fn resolve_request_strict(
         let first = providers.first().ok_or_else(|| {
             CatalogRequestError::UnknownPublicId(requested.to_string())
         })?;
-        let default = first.model.trim();
-        let upstream = if default.is_empty() {
-            resolve_upstream_model(first, requested)
-        } else {
-            default.to_string()
-        };
-        return Ok(Some((first.id.clone(), upstream)));
+        return Ok(Some((
+            first.id.clone(),
+            resolve_upstream_model(first, requested),
+        )));
     }
     if let Some(stripped) = strip_claude_alias(requested) {
         if let Some(entry) = entries
@@ -1209,6 +1206,13 @@ mod tests {
         assert_eq!(
             resolve_request(&catalog, &providers, CLAUDE_SONNET_ROLE_ID),
             Some(("p1".into(), "kimi-k2".into()))
+        );
+        let mut mapped = providers[0].clone();
+        mapped.model_mapping.sonnet = "mapped-sonnet".into();
+        let mapped_providers = vec![mapped, providers[1].clone()];
+        assert_eq!(
+            resolve_request(&catalog, &mapped_providers, CLAUDE_SONNET_ROLE_ID),
+            Some(("p1".into(), "mapped-sonnet".into()))
         );
     }
 

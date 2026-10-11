@@ -111,7 +111,7 @@ const DEFAULTS: Pick<
   | "workbenchView"
   | "agQuotaViewMode"
 > = {
-  visibleAgents: ["claude_code", "codex", "opencode", "pi", "cline"],
+  visibleAgents: ["claude_code", "claude_desktop", "codex", "opencode", "pi"],
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
@@ -218,15 +218,25 @@ function writePersisted(state: PersistedPagePreferences) {
   }
 }
 
+/** Drop hidden agents. A saved list that still had Cline gains Claude Desktop in its place. */
+function migrateVisibleAgents(source: readonly ProviderTarget[]): ProviderTarget[] {
+  const hadCline = source.includes("cline");
+  const visible = filterUiAgents(source);
+  if (hadCline && !visible.includes("claude_desktop")) {
+    const codeAt = visible.indexOf("claude_code");
+    visible.splice(codeAt >= 0 ? codeAt + 1 : 0, 0, "claude_desktop");
+  }
+  return visible.length > 0 ? visible : [...DEFAULTS.visibleAgents];
+}
+
 function initialState() {
   const stored = readPersisted();
   const rawVisible = Array.isArray(stored.visibleAgents)
     ? stored.visibleAgents.filter(isProviderTarget)
     : null;
-  const filteredVisible = filterUiAgents(
-    rawVisible && rawVisible.length > 0 ? rawVisible : DEFAULTS.visibleAgents,
-  );
-  const visibleAgents = filteredVisible.length > 0 ? filteredVisible : [...DEFAULTS.visibleAgents];
+  const sourceVisible =
+    rawVisible && rawVisible.length > 0 ? rawVisible : [...DEFAULTS.visibleAgents];
+  const visibleAgents = migrateVisibleAgents(sourceVisible);
 
   const usagePeriod = isUsagePeriod(stored.usagePeriod) ? stored.usagePeriod : DEFAULTS.usagePeriod;
   const usageLogTarget = coerceUsageFilter(

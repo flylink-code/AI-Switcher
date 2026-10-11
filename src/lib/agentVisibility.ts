@@ -1,7 +1,7 @@
 import type { ProviderTarget } from "@/types/backend";
 
 /** Agents kept in the backend/schema but hidden from every product surface. */
-export const RETIRED_UI_AGENTS: readonly ProviderTarget[] = ["claude_desktop", "dsh"];
+export const RETIRED_UI_AGENTS: readonly ProviderTarget[] = ["cline", "dsh"];
 
 export function isAgentUiEnabled(target: ProviderTarget): boolean {
   return !RETIRED_UI_AGENTS.includes(target);
