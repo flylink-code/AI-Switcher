@@ -20,7 +20,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import {
-  ensureAntigravityProvider,
   getAntigravityGatewayStatus,
   importAntigravityAccounts,
   listAntigravityAccounts,
@@ -40,7 +39,6 @@ import {
   startAntigravityGateway,
   startAntigravityOauthLogin,
   stopAntigravityGateway,
-  listProviders,
 } from "@/services/api";
 import type {
   AntigravityAccountPublic,
@@ -51,7 +49,6 @@ import type {
   AntigravityGatewayStatus,
   AntigravityLimiterSettings,
   AntigravityFastPathSettings,
-  ProviderTarget,
 } from "@/types/backend";
 import { usageSourceSegmentLabel } from "@/components/UsageSourceIcons";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
@@ -59,9 +56,7 @@ import {
   AccountPoolOverview,
   AccountCard,
   GatewayCard,
-  BindAppsCard,
   ImportAccountsModal,
-  BIND_TARGETS,
 } from "@/components/antigravity";
 import { errMsg } from "@/lib/errMsg";
 
@@ -76,7 +71,6 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
   const queryClient = useQueryClient();
 
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
   const [actionAccountId, setActionAccountId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("antigravity");
 
@@ -94,23 +88,6 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
   const modelsQuery = useQuery({
     queryKey: ["antigravity-models"],
     queryFn: listAntigravityModels,
-  });
-
-  // 各应用是否已有内建 Antigravity 供应商（用于「已添加」标记）
-  const boundProvidersQuery = useQuery({
-    queryKey: ["antigravity-bound-providers"],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        BIND_TARGETS.map(async (target) => {
-          const providers = await listProviders(target);
-          return [
-            target,
-            providers.some((provider) => provider.providerKind === "antigravity"),
-          ] as const;
-        }),
-      );
-      return new Map<ProviderTarget, boolean>(entries);
-    },
   });
 
   const accounts = accountsQuery.data ?? [];
@@ -323,25 +300,6 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
     onError: (error: unknown) => message.error(errMsg(error)),
   });
 
-  const ensureMutation = useMutation({
-    mutationFn: (target: ProviderTarget) => ensureAntigravityProvider(target),
-    onMutate: (target) => setBindingTarget(target),
-    onSuccess: async (_provider, target) => {
-      message.success(
-        t("antigravity.providerReadyForTarget", {
-          target: t(`workspace.${target}`),
-        }),
-      );
-      await refresh();
-      await queryClient.invalidateQueries({
-        queryKey: ["antigravity-bound-providers"],
-      });
-      await queryClient.invalidateQueries({ queryKey: ["providers"] });
-    },
-    onError: (error: unknown) => message.error(errMsg(error)),
-    onSettled: () => setBindingTarget(null),
-  });
-
   const quotaMutation = useMutation({
     mutationFn: refreshAntigravityQuotas,
     onSuccess: async (accounts) => {
@@ -433,9 +391,6 @@ export default function AntigravityPage({ embedded = false }: { embedded?: boole
           exitLatencyMutation={exitLatencyMutation}
           limiterMutation={limiterMutation}
           fastPathMutation={fastPathMutation}
-          ensureMutation={ensureMutation}
-          boundProvidersQuery={boundProvidersQuery}
-          bindingTarget={bindingTarget}
           actionAccountId={actionAccountId}
           importModalOpen={importModalOpen}
           setImportModalOpen={setImportModalOpen}
@@ -467,9 +422,6 @@ interface AntigravityContentProps {
   exitLatencyMutation: { isPending: boolean; mutateAsync: (args: { id: string; url: string }) => Promise<AntigravityExitLatencyResult> };
   limiterMutation: { isPending: boolean; mutateAsync: (settings: AntigravityLimiterSettings) => Promise<unknown> };
   fastPathMutation: { isPending: boolean; mutateAsync: (settings: AntigravityFastPathSettings) => Promise<unknown> };
-  ensureMutation: { mutate: (target: ProviderTarget) => void };
-  boundProvidersQuery: { data?: Map<ProviderTarget, boolean> };
-  bindingTarget: ProviderTarget | null;
   actionAccountId: string | null;
   importModalOpen: boolean;
   setImportModalOpen: (open: boolean) => void;
@@ -497,9 +449,6 @@ function AntigravityContent({
   exitLatencyMutation,
   limiterMutation,
   fastPathMutation,
-  ensureMutation,
-  boundProvidersQuery,
-  bindingTarget,
   actionAccountId,
   importModalOpen,
   setImportModalOpen,
@@ -714,14 +663,6 @@ function AntigravityContent({
           )}
         </Space>
       </Card>
-
-      {/* Bind Apps */}
-      <BindAppsCard
-        boundMap={boundProvidersQuery.data}
-        onEnsureBind={(target) => ensureMutation.mutate(target)}
-        bindingTarget={bindingTarget}
-        accountCount={accounts.length}
-      />
 
       {/* Import Modal */}
       <ImportAccountsModal

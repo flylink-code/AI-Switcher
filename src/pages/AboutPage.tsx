@@ -22,6 +22,7 @@ import { runAppUpdateCheck, type AppUpdateCheckResult } from "@/lib/appUpdater";
 import { useAppUpdatePrompt } from "@/lib/appUpdateContext";
 import { useAppVersion } from "@/lib/useAppVersion";
 import type { UpdateMirrorSettings } from "@/types/backend";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import { OnboardingTip } from "@/components/OnboardingTip";
 import { errMsg } from "@/lib/errMsg";
 
@@ -145,7 +146,7 @@ export default function AboutPage() {
           >
             {t("about.checkAppUpdate")}
           </Button>
-          <Card size="small" type="inner" title={t("about.updateMirrorTitle")}>
+          <ExpandableSection title={t("about.updateMirrorTitle")}>
             <Space direction="vertical" style={{ width: "100%" }}>
               <Space wrap>
                 <Switch
@@ -183,19 +184,18 @@ export default function AboutPage() {
                 {t("about.saveUpdateMirror")}
               </Button>
             </Space>
-          </Card>
+          </ExpandableSection>
           <Button loading={restoringTips} onClick={() => void restoreTips()}>
             {t("about.restoreOnboardingTips")}
           </Button>
         </Space>
       </Card>
 
-      <Card
-        size="small"
-        className="page-surface"
-        title={t("about.changelogTitle")}
-        extra={appVersion ? <Tag color="blue">v{appVersion}</Tag> : null}
-      >
+      <Card size="small" className="page-surface">
+        <ExpandableSection
+          title={t("about.changelogTitle")}
+          extra={appVersion ? <Tag color="blue">v{appVersion}</Tag> : null}
+        >
         {appVersion == null ? null : changelogNotes ? (
           <ul style={{ margin: 0, paddingInlineStart: 20 }}>
             {changelogNotes.map((note) => (
@@ -207,6 +207,7 @@ export default function AboutPage() {
         ) : (
           <Text type="secondary">{t("about.changelogEmpty")}</Text>
         )}
+        </ExpandableSection>
       </Card>
     </Space>
   );

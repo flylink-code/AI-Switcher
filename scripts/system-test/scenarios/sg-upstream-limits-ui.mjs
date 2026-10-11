@@ -41,7 +41,7 @@ export async function run() {
     const nav = `document.querySelector('.v2-top-nav button[aria-label="供应商"]')`;
     await until(`Boolean(${nav})`);
     await click(nav);
-    const limits = `Array.from(document.querySelectorAll('button')).find(e => e.textContent.trim()==='网关限额')`;
+    const limits = `(() => { const row = Array.from(document.querySelectorAll('tr')).find(e => e.textContent.includes('限额验收超长名称')); return row ? Array.from(row.querySelectorAll('button')).find(e => e.textContent.trim()==='网关限额') : null; })()`;
     await until(`Boolean(${limits})`);
     await click(limits);
     const ready = `document.querySelector('.ant-modal input[id$="maxConcurrency"]:not(:disabled)')`;

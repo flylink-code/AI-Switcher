@@ -6,9 +6,7 @@ import QuestionCircleOutlined from "@ant-design/icons/es/icons/QuestionCircleOut
 import UserOutlined from "@ant-design/icons/es/icons/UserOutlined";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { listProviders } from "@/services/api";
 import {
-  ensureKiroProvider,
   getKiroGatewayStatus,
   importKiroAccounts,
   listKiroAccounts,
@@ -30,14 +28,11 @@ import {
 import {
   AccountCard,
   AccountPoolOverview,
-  BindAppsCard,
   GatewayCard,
   ImportAccountsModal,
   KIRO_CATALOG,
   KIRO_MODEL_GROUPS,
 } from "@/components/kiro";
-import { BIND_TARGETS } from "@/components/antigravity";
-import type { ProviderTarget } from "@/types/backend";
 import { errMsg } from "@/lib/errMsg";
 
 const { Text } = Typography;
@@ -64,7 +59,6 @@ export default function KiroPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
-  const [bindingTarget, setBindingTarget] = useState<ProviderTarget | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   const accountsQuery = useQuery({
@@ -76,19 +70,6 @@ export default function KiroPage() {
     queryFn: getKiroGatewayStatus,
     refetchInterval: 5_000,
   });
-  const boundQuery = useQuery({
-    queryKey: ["kiro-bound-providers"],
-    queryFn: async () => {
-      const entries = await Promise.all(
-        BIND_TARGETS.map(async (target) => {
-          const providers = await listProviders(target);
-          return [target, providers.some((provider) => provider.providerKind === "kiro")] as const;
-        }),
-      );
-      return new Map<ProviderTarget, boolean>(entries);
-    },
-  });
-
   const accounts = accountsQuery.data ?? [];
   const status = statusQuery.data;
 
@@ -185,19 +166,6 @@ export default function KiroPage() {
       await refresh();
     },
     onError: (error: unknown) => message.error(errMsg(error)),
-  });
-
-  const ensureMutation = useMutation({
-    mutationFn: (target: ProviderTarget) => ensureKiroProvider(target),
-    onMutate: (target) => setBindingTarget(target),
-    onSuccess: async (_provider, target) => {
-      message.success(t("kiro.providerReady", { target: t(`workspace.${target}`) }));
-      await refresh();
-      await queryClient.invalidateQueries({ queryKey: ["kiro-bound-providers"] });
-      await queryClient.invalidateQueries({ queryKey: ["providers"] });
-    },
-    onError: (error: unknown) => message.error(errMsg(error)),
-    onSettled: () => setBindingTarget(null),
   });
 
   const removeMutation = useMutation({
@@ -354,13 +322,6 @@ export default function KiroPage() {
           ))}
         </Space>
       </Card>
-
-      <BindAppsCard
-        boundMap={boundQuery.data}
-        onEnsureBind={(target) => ensureMutation.mutate(target)}
-        bindingTarget={bindingTarget}
-        accountCount={accounts.length}
-      />
 
       <ImportAccountsModal
         open={importOpen}

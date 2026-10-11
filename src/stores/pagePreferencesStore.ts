@@ -7,6 +7,16 @@ import { USAGE_PERIOD_VALUES, type UsagePeriod } from "@/utils/usagePeriod";
 const STORAGE_KEY = "cs.pagePreferences";
 
 export type GatewaySection = "service" | "routing" | "upstreams" | "logs";
+export type ProvidersTab = "smart" | "reverse";
+export type ReverseGatewayTab = "antigravity" | "kiro" | "chatgpt";
+export type WorkspaceResourceTab =
+  | "profiles"
+  | "mcp"
+  | "prompts"
+  | "skills"
+  | "agents"
+  | "plugins"
+  | "sessions";
 
 interface PersistedPagePreferences {
   /** Legacy global target; only read as a migration fallback for the
@@ -15,6 +25,10 @@ interface PersistedPagePreferences {
   providersTarget?: ProviderTarget;
   /** Independent proxy-page target. */
   proxyTarget?: ProviderTarget;
+  providersTab?: ProvidersTab;
+  reverseTab?: ReverseGatewayTab;
+  workspaceTab?: WorkspaceResourceTab;
+  /** Legacy: smart | antigravity. Read only when providersTab is absent. */
   gatewayTab?: "smart" | "antigravity";
   gatewayReverseTab?: "antigravity" | "kiro";
   gatewaySection?: GatewaySection;
@@ -36,6 +50,10 @@ interface PagePreferencesState {
   workspaceTarget: ProviderTarget;
   providersTarget: ProviderTarget;
   proxyTarget: ProviderTarget;
+  providersTab: ProvidersTab;
+  reverseTab: ReverseGatewayTab;
+  workspaceTab: WorkspaceResourceTab;
+  /** Kept in sync with providersTab so older gateway UI still reads it. */
   gatewayTab: "smart" | "antigravity";
   gatewayReverseTab: "antigravity" | "kiro";
   gatewaySection: GatewaySection;
@@ -53,6 +71,9 @@ interface PagePreferencesState {
   setWorkspaceTarget: (target: ProviderTarget) => void;
   setProvidersTarget: (target: ProviderTarget) => void;
   setProxyTarget: (target: ProviderTarget) => void;
+  setProvidersTab: (tab: ProvidersTab) => void;
+  setReverseTab: (tab: ReverseGatewayTab) => void;
+  setWorkspaceTab: (tab: WorkspaceResourceTab) => void;
   setGatewayTab: (tab: "smart" | "antigravity") => void;
   setGatewayReverseTab: (tab: "antigravity" | "kiro") => void;
   setGatewaySection: (section: GatewaySection) => void;
@@ -74,6 +95,9 @@ const DEFAULTS: Pick<
   | "workspaceTarget"
   | "providersTarget"
   | "proxyTarget"
+  | "providersTab"
+  | "reverseTab"
+  | "workspaceTab"
   | "gatewayTab"
   | "gatewayReverseTab"
   | "gatewaySection"
@@ -91,6 +115,9 @@ const DEFAULTS: Pick<
   workspaceTarget: "claude_code",
   providersTarget: "claude_code",
   proxyTarget: "claude_code",
+  providersTab: "smart",
+  reverseTab: "antigravity",
+  workspaceTab: "mcp",
   gatewayTab: "smart",
   gatewayReverseTab: "antigravity",
   gatewaySection: "service",
@@ -111,6 +138,26 @@ function isProviderTarget(value: unknown): value is ProviderTarget {
 
 function isSessionProvider(value: unknown): value is SessionProvider {
   return value === "claude_code" || value === "codex" || value === "opencode" || value === "pi" || value === "dsh" || value === "cline";
+}
+
+const WORKSPACE_TABS: readonly WorkspaceResourceTab[] = [
+  "profiles",
+  "mcp",
+  "prompts",
+  "skills",
+  "agents",
+  "plugins",
+  "sessions",
+];
+
+function isWorkspaceTab(value: unknown): value is WorkspaceResourceTab {
+  return typeof value === "string" && WORKSPACE_TABS.some((tab) => tab === value);
+}
+
+function readLegacyWorkspaceTab(): WorkspaceResourceTab | undefined {
+  if (typeof localStorage === "undefined") return undefined;
+  const stored = localStorage.getItem("cs.workspaceTab");
+  return isWorkspaceTab(stored) ? stored : undefined;
 }
 
 function isUsagePeriod(value: unknown): value is UsagePeriod {
@@ -217,10 +264,23 @@ function initialState() {
       ? stored.agQuotaViewMode
       : DEFAULTS.agQuotaViewMode;
 
-  const gatewayTab: "smart" | "antigravity" =
-    stored.gatewayTab === "antigravity" ? "antigravity" : "smart";
-  const gatewayReverseTab: "antigravity" | "kiro" =
-    stored.gatewayReverseTab === "kiro" ? "kiro" : "antigravity";
+  const providersTab: ProvidersTab =
+    stored.providersTab === "reverse" || stored.providersTab === "smart"
+      ? stored.providersTab
+      : stored.gatewayTab === "antigravity"
+        ? "reverse"
+        : "smart";
+  const reverseTab: ReverseGatewayTab =
+    stored.reverseTab === "kiro" || stored.reverseTab === "chatgpt" || stored.reverseTab === "antigravity"
+      ? stored.reverseTab
+      : stored.gatewayReverseTab === "kiro"
+        ? "kiro"
+        : "antigravity";
+  const workspaceTab = isWorkspaceTab(stored.workspaceTab)
+    ? stored.workspaceTab
+    : readLegacyWorkspaceTab() ?? DEFAULTS.workspaceTab;
+  const gatewayTab: "smart" | "antigravity" = providersTab === "reverse" ? "antigravity" : "smart";
+  const gatewayReverseTab: "antigravity" | "kiro" = reverseTab === "kiro" ? "kiro" : "antigravity";
   const gatewaySection = DEFAULTS.gatewaySection;
   const gatewaySnippetVisible = stored.gatewaySnippetVisible === false
     ? false
@@ -232,6 +292,9 @@ function initialState() {
     workspaceTarget,
     providersTarget,
     proxyTarget,
+    providersTab,
+    reverseTab,
+    workspaceTab,
     gatewayTab,
     gatewayReverseTab,
     gatewaySection,
@@ -257,6 +320,9 @@ function persistSlice(
     | "workspaceTarget"
     | "providersTarget"
     | "proxyTarget"
+    | "providersTab"
+    | "reverseTab"
+    | "workspaceTab"
     | "gatewayTab"
     | "gatewayReverseTab"
     | "gatewaySection"
@@ -276,6 +342,9 @@ function persistSlice(
     workspaceTarget: state.workspaceTarget,
     providersTarget: state.providersTarget,
     proxyTarget: state.proxyTarget,
+    providersTab: state.providersTab,
+    reverseTab: state.reverseTab,
+    workspaceTab: state.workspaceTab,
     gatewayTab: state.gatewayTab,
     gatewayReverseTab: state.gatewayReverseTab,
     gatewaySection: state.gatewaySection,
@@ -331,12 +400,36 @@ export const usePagePreferencesStore = create<PagePreferencesState>((set, get) =
     set({ proxyTarget: coerceUiAgent(proxyTarget, visible) });
     persistSlice(get());
   },
+  setProvidersTab: (providersTab) => {
+    set({
+      providersTab,
+      gatewayTab: providersTab === "reverse" ? "antigravity" : "smart",
+    });
+    persistSlice(get());
+  },
+  setReverseTab: (reverseTab) => {
+    set({
+      reverseTab,
+      gatewayReverseTab: reverseTab === "kiro" ? "kiro" : "antigravity",
+    });
+    persistSlice(get());
+  },
+  setWorkspaceTab: (workspaceTab) => {
+    set({ workspaceTab });
+    persistSlice(get());
+  },
   setGatewayTab: (gatewayTab) => {
-    set({ gatewayTab });
+    set({
+      gatewayTab,
+      providersTab: gatewayTab === "antigravity" ? "reverse" : "smart",
+    });
     persistSlice(get());
   },
   setGatewayReverseTab: (gatewayReverseTab) => {
-    set({ gatewayReverseTab });
+    set({
+      gatewayReverseTab,
+      reverseTab: gatewayReverseTab,
+    });
     persistSlice(get());
   },
   setGatewaySection: (gatewaySection) => {

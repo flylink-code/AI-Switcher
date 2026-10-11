@@ -79,7 +79,7 @@ import {
   preloadPage,
   type PageKey,
 } from "@/lib/pageRegistry";
-import { NavigationContext } from "@/lib/navigation";
+import { NavigationContext, resolvePageNavigation } from "@/lib/navigation";
 import { AppUpdatePromptContext } from "@/lib/appUpdateContext";
 import type { ImportPreview } from "@/types/backend";
 import { message as staticMessage } from "antd";
@@ -350,9 +350,10 @@ export default function App() {
 
   const antdLocale = language === "en-US" ? enUS : zhCN;
   const handleNavigate = useCallback((key: PageKey) => {
-    if (key === activeKey) return;
-    navigationStartedAt.current = { key, startedAt: performance.now() };
-    setActiveKey(key);
+    const resolved = resolvePageNavigation(key);
+    if (resolved === activeKey) return;
+    navigationStartedAt.current = { key: resolved, startedAt: performance.now() };
+    setActiveKey(resolved);
   }, [activeKey]);
   const handlePagePaint = useCallback((key: PageKey) => {
     const navigation = navigationStartedAt.current;

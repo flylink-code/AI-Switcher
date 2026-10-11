@@ -45,6 +45,7 @@
     "usageShort": "Usage",
     "accounts": "Gateway",
     "accountsShort": "Gateway",
+    "agentHub": "Agent",
     "workspace": "Workspace",
     "sessions": "Sessions",
     "settings": "Settings",

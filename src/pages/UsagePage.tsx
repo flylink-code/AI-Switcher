@@ -550,10 +550,10 @@ export default function UsagePage() {
       {/* Breakdown Cards Grid */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <UsageBreakdownCard title={t("usage.byProvider")} data={dashboard?.byProvider ?? []} />
+          <UsageBreakdownCard title={t("usage.byProvider")} data={(dashboard?.byProvider ?? []).slice(0, 5)} />
         </Col>
         <Col xs={24} lg={12}>
-          <UsageBreakdownCard title={t("usage.byModel")} data={dashboard?.byModel ?? []} />
+          <UsageBreakdownCard title={t("usage.byModel")} data={(dashboard?.byModel ?? []).slice(0, 5)} />
         </Col>
       </Row>
 

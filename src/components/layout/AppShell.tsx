@@ -17,11 +17,10 @@ export interface AppShellProps {
 
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
+  "agentHub",
   "providers",
-  "gateway",
   "usage",
   "workspace",
-  "sessions",
   "settings",
 ]);
 
@@ -43,12 +42,6 @@ export const AppShell: React.FC<AppShellProps> = ({
       case "environment":
         return {
           title: t("nav.environment", { defaultValue: "环境信息" }),
-          parentKey: "settings",
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
-      case "agentTools":
-        return {
-          title: t("nav.agentTools", { defaultValue: "Agent 工具" }),
           parentKey: "settings",
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };

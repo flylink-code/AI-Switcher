@@ -20,6 +20,7 @@ import { proxyStatusOptions } from "@/lib/appQueries";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { AgentTargetSwitcher } from "@/components/AgentTargetSwitcher";
 import { filterUiAgents } from "@/lib/agentVisibility";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import { ProxyRoutePanel, ResilienceSettings } from "@/components/proxy";
 import { Stack } from "@/components/ui";
 import type { ProviderTarget } from "@/types/backend";
@@ -179,6 +180,7 @@ export default function LocalProxyPage() {
       />
 
       {!isOpencodeDirect && (
+        <ExpandableSection title={t("proxy.resilience", { defaultValue: "故障切换与重试" })}>
         <ResilienceSettings
           failoverEnabled={failoverQuery.data ?? false}
           failoverSaving={failoverQuery.isPending || failoverSaving}
@@ -223,6 +225,7 @@ export default function LocalProxyPage() {
               .finally(() => setIdleSaving(false));
           }}
         />
+        </ExpandableSection>
       )}
     </Space>
   );

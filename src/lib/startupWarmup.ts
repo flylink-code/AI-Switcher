@@ -55,7 +55,7 @@ const slowTasks: StartupTask[] = [
   },
 ];
 
-const FOREGROUND_PAGES = ["workbench", "providers"] as const;
+const FOREGROUND_PAGES = ["workbench", "agentHub", "providers"] as const;
 
 export async function runStartupWarmup(
   language: string,

@@ -27,7 +27,7 @@ export async function run() {
           localStorage.setItem('cs.sideNavCollapsed','false');
         })()`);
         await reloadPage();
-        const labels = language === "zh-CN" ? ["概览", "供应商", "网关"] : ["Dashboard", "Providers", "Gateway"];
+        const labels = language === "zh-CN" ? ["概览", "Agent", "供应商"] : ["Dashboard", "Agent", "Providers"];
         for (let index = 0; index < labels.length; index++) {
           const label = labels[index];
           const expr = `Array.from(document.querySelectorAll('.v2-top-nav button,.side-nav-item')).find(e => e.getAttribute('aria-label') === ${JSON.stringify(label)} || e.textContent.trim() === ${JSON.stringify(label)})`;
@@ -54,12 +54,12 @@ export async function run() {
     await send("Input.dispatchMouseEvent", { type: "mousePressed", button: "left", clickCount: 1, ...point });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", button: "left", clickCount: 1, ...point });
   });
-  await waitFor("Boolean(document.querySelector('.gateway-topology-result'))");
+  await waitFor("Boolean(document.querySelector('.dashboard-container'))");
   await withCdp(async (send) => {
     await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
     try {
       assert(await evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches"), "reduced-motion 偏好应生效");
-      assert(await evaluate("Array.from(document.querySelectorAll('.gateway-topology-result')).every(e => getComputedStyle(e).animationName === 'none')"), "reduced-motion 必须关闭拓扑动画");
+      assert(await evaluate("!document.querySelector('.gateway-topology-result')"), "概览不再渲染连接拓扑");
     } finally {
       await send("Emulation.setEmulatedMedia", { features: [] });
     }

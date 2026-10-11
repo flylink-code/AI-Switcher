@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Checkbox, Select, Tag, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "@/stores/appStore";
+import { useAppStore, type LayoutMode } from "@/stores/appStore";
 import { useThemeStore, type ThemeMode } from "@/stores/themeStore";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
 import { PROVIDER_TARGET_OPTIONS, LABEL_KEYS } from "@/components/AgentTargetSwitcher";
@@ -23,6 +23,8 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const navigate = useNavigatePage();
   const language = useAppStore((s) => s.language);
+  const layoutMode = useAppStore((s) => s.layoutMode);
+  const setLayoutMode = useAppStore((s) => s.setLayoutMode);
   const appVersion = useAppVersion();
   const setLanguage = useAppStore((s) => s.setLanguage);
   const themeMode = useThemeStore((s) => s.mode);
@@ -155,6 +157,21 @@ export default function SettingsPage() {
           }
         />
         <SettingsRow
+          title={t("settings.layout", { defaultValue: "布局" })}
+          description={t("settings.layoutHint", { defaultValue: "顶栏或侧栏导航" })}
+          control={
+            <Select<LayoutMode>
+              value={layoutMode}
+              style={{ width: 190 }}
+              options={[
+                { value: "top", label: t("settings.layoutTop", { defaultValue: "顶栏" }) },
+                { value: "sidebar", label: t("settings.layoutSidebar", { defaultValue: "侧栏" }) },
+              ]}
+              onChange={setLayoutMode}
+            />
+          }
+        />
+        <SettingsRow
           title={t("settings.visibleAgents", { defaultValue: "显示 Agent" })}
           description={t("settings.visibleAgentsHint", {
             defaultValue: "勾选在全局和各页面切换器中显示的 Agent 工具",
@@ -189,13 +206,6 @@ export default function SettingsPage() {
           title={t("nav.environment", { defaultValue: "环境信息" })}
           description={t("settings.environmentHint", { defaultValue: "本机路径与环境诊断" })}
           onClick={() => navigate("environment")}
-        />
-        <SettingsRow
-          title={t("nav.agentTools", { defaultValue: "Agent 工具" })}
-          description={t("settings.agentToolsHint", {
-            defaultValue: "检测并安装 / 更新 Node.js、Claude Code、Codex、OpenCode、Pi CLI 等 Agent 工具",
-          })}
-          onClick={() => navigate("agentTools")}
         />
       </SettingsSection>
 

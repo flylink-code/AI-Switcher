@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { Segmented, Space, Spin } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,45 +7,33 @@ import {
   type PageKey,
 } from "@/lib/pageRegistry";
 import { AgentTargetSwitcher, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
-import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { usePagePreferencesStore, type WorkspaceResourceTab } from "@/stores/pagePreferencesStore";
 import type { ProviderTarget } from "@/types/backend";
 
 /**
  * Workspace resource pages supported per agent.
  */
-const AGENT_SUPPORTED_TABS: Record<ProviderTarget, PageKey[]> = {
-  claude_code: ["profiles", "mcp", "prompts", "skills", "agents", "plugins"],
+const AGENT_SUPPORTED_TABS: Record<ProviderTarget, WorkspaceResourceTab[]> = {
+  claude_code: ["profiles", "mcp", "prompts", "skills", "agents", "plugins", "sessions"],
   claude_desktop: ["profiles", "mcp"],
-  codex: ["mcp", "prompts", "skills", "agents", "plugins"],
-  opencode: ["mcp", "prompts"],
-  pi: ["mcp", "prompts", "skills"],
+  codex: ["mcp", "prompts", "skills", "agents", "plugins", "sessions"],
+  opencode: ["mcp", "prompts", "sessions"],
+  pi: ["mcp", "prompts", "skills", "sessions"],
   dsh: [],
-  cline: ["mcp", "prompts", "skills"],
+  cline: ["mcp", "prompts", "skills", "sessions"],
 };
 
-const WORKSPACE_PAGES: PageKey[] = [
+const WORKSPACE_PAGES: WorkspaceResourceTab[] = [
   "profiles",
   "mcp",
   "prompts",
   "skills",
   "agents",
   "plugins",
+  "sessions",
 ];
 
-const WORKSPACE_TAB_KEY = "cs.workspaceTab";
-
-/** Old Claude/Codex plugin tabs → unified plugins hub. */
-function migrateWorkspaceTab(key: string): string {
-  if (key === "claudePlugins" || key === "codexPlugins") {
-    if (typeof localStorage !== "undefined" && !localStorage.getItem("cs.pluginsTarget")) {
-      localStorage.setItem("cs.pluginsTarget", key === "codexPlugins" ? "codex" : "claude_code");
-    }
-    return "plugins";
-  }
-  return key;
-}
-
-function isWorkspacePage(key: string): key is PageKey {
+function isWorkspacePage(key: string): key is WorkspaceResourceTab {
   return WORKSPACE_PAGES.some((page) => page === key);
 }
 
@@ -56,6 +44,7 @@ const NAV_FALLBACKS: Record<string, string> = {
   skills: "技能",
   agents: "Agent 智能体",
   plugins: "插件",
+  sessions: "会话",
 };
 
 /**
@@ -67,27 +56,20 @@ export default function WorkspacePage() {
   const workspaceTarget = usePagePreferencesStore((s) => s.workspaceTarget);
   const setWorkspaceTarget = usePagePreferencesStore((s) => s.setWorkspaceTarget);
 
-  const supportedTabs = AGENT_SUPPORTED_TABS[workspaceTarget] ?? ["mcp"];
-
-  const [activeTab, setActiveTab] = useState<PageKey>(() => {
-    if (typeof localStorage !== "undefined") {
-      const stored = migrateWorkspaceTab(localStorage.getItem(WORKSPACE_TAB_KEY) ?? "");
-      if (isWorkspacePage(stored) && supportedTabs.includes(stored)) return stored;
-    }
-    return supportedTabs[0] ?? "mcp";
-  });
+  const workspaceTab = usePagePreferencesStore((state) => state.workspaceTab);
+  const setWorkspaceTab = usePagePreferencesStore((state) => state.setWorkspaceTab);
+  const supportedTabs = useMemo(
+    () => AGENT_SUPPORTED_TABS[workspaceTarget] ?? ["mcp"],
+    [workspaceTarget],
+  );
+  const activeTab: WorkspaceResourceTab = supportedTabs.includes(workspaceTab) ? workspaceTab : (supportedTabs[0] ?? "mcp");
 
   useEffect(() => {
-    if (!supportedTabs.includes(activeTab)) {
-      setActiveTab(supportedTabs[0] ?? "mcp");
+    if (!supportedTabs.includes(workspaceTab)) {
+      const fallback = supportedTabs[0];
+      if (fallback && isWorkspacePage(fallback)) setWorkspaceTab(fallback);
     }
-  }, [workspaceTarget, supportedTabs, activeTab]);
-
-  useEffect(() => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(WORKSPACE_TAB_KEY, activeTab);
-    }
-  }, [activeTab]);
+  }, [supportedTabs, setWorkspaceTab, workspaceTab]);
 
   return (
     <div
@@ -108,11 +90,13 @@ export default function WorkspacePage() {
         </Space>
         {supportedTabs.length > 0 && (
         <div>
-          <Segmented<PageKey>
+          <Segmented<WorkspaceResourceTab>
             className="app-segmented-switcher"
             size="small"
             value={activeTab}
-            onChange={(key) => setActiveTab(key)}
+            onChange={(key) => {
+              if (isWorkspacePage(key)) setWorkspaceTab(key);
+            }}
             options={supportedTabs.map((key) => ({
               value: key,
               label: t(`nav.${key}`, { defaultValue: NAV_FALLBACKS[key] ?? key }),

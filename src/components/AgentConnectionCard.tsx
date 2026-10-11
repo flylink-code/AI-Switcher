@@ -1,12 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Card,
   Radio,
   Select,
   Space,
-  Table,
   Tag,
-  Tooltip,
   Typography,
   message,
 } from "antd";
@@ -31,6 +29,7 @@ import type {
   ProviderTarget,
 } from "@/types/backend";
 import { errMsg } from "@/lib/errMsg";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 
 const { Text } = Typography;
 
@@ -97,7 +96,20 @@ export function checkUpstreamDirectCompatibility(
 }
 
 
-export function AgentConnectionCard() {
+export interface AgentConnectionCardProps {
+  /** When false, the agent is not installed: hide connection controls. */
+  installed?: Partial<Record<ProviderTarget, boolean>>;
+  renderHeaderExtra?: (target: ProviderTarget) => ReactNode;
+  renderAdvanced?: (target: ProviderTarget) => ReactNode;
+  framed?: boolean;
+}
+
+export function AgentConnectionCard({
+  installed,
+  renderHeaderExtra,
+  renderAdvanced,
+  framed = true,
+}: AgentConnectionCardProps = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [loadingTargets, setLoadingTargets] = useState<Partial<Record<ProviderTarget, boolean>>>({});
@@ -122,7 +134,7 @@ export function AgentConnectionCard() {
   const smartGatewayQuery = useQuery({
     queryKey: ["smart-gateway-status"],
     queryFn: getSmartGatewayStatus,
-    refetchInterval: 10_000,
+    refetchInterval: 5_000,
   });
   const smartGateway = smartGatewayQuery.data;
 
@@ -289,6 +301,96 @@ export function AgentConnectionCard() {
     });
   }, [visibleTargets, bindings, connectionModesQuery.data, pendingDirect]);
 
+  const rows = (
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      {dataSource.map((row) => {
+        const ready = installed?.[row.target] !== false;
+        const advanced = ready ? renderAdvanced?.(row.target) : null;
+        const isRowBusy = Boolean(loadingTargets[row.target]);
+        const isDirect = row.displayMode === "direct";
+        const optionsForTarget = upstreams.map((upstream) => {
+          const compat = checkUpstreamDirectCompatibility(row.target, upstream, t);
+          return {
+            value: upstream.id,
+            label: `${upstream.name} (${upstream.model || upstream.protocolType})`,
+            disabled: !compat.compatible,
+            reason: compat.reason,
+          };
+        });
+        const selectedUpstreamId =
+          (row.binding?.mode === "direct" ? row.binding.directUpstreamId : undefined) ||
+          rememberedDirect[row.target] ||
+          undefined;
+        return (
+          <Card key={row.target} size="small" className="page-surface">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {usageSourceIcon(row.target, { size: 18 })}
+              <Text strong>{t(LABEL_KEYS[row.target] ?? `workspace.${row.target}`)}</Text>
+              <Tag style={{ margin: 0 }}>
+                {row.isT1
+                  ? t("providers.tierT1", { defaultValue: "T1 全功能" })
+                  : t("providers.tierT2", { defaultValue: "T2 兼容" })}
+              </Tag>
+              <span style={{ marginLeft: "auto" }}>{renderHeaderExtra?.(row.target)}</span>
+            </div>
+            {ready ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                <Radio.Group
+                  size="small"
+                  optionType="button"
+                  buttonStyle="solid"
+                  disabled={isRowBusy}
+                  value={row.displayMode}
+                  onChange={(event) => void handleModeChange(row.target, event.target.value as AgentConnectionMode)}
+                  options={[
+                    { label: t("providers.modeGateway", { defaultValue: "智能网关" }), value: "gateway" },
+                    { label: t("providers.modeDirect", { defaultValue: "直连" }), value: "direct" },
+                    { label: t("providers.modeOfficial", { defaultValue: "官方" }), value: "official" },
+                  ]}
+                />
+                {isDirect ? (
+                  <Select
+                    size="small"
+                    style={{ maxWidth: 360 }}
+                    disabled={isRowBusy}
+                    value={selectedUpstreamId}
+                    placeholder={t("providers.selectDirectUpstream", { defaultValue: "请选择直连上游..." })}
+                    options={optionsForTarget}
+                    onChange={(value) => void handleSelectDirectUpstream(row.target, String(value))}
+                  />
+                ) : row.displayMode === "gateway" ? (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {!smartGateway
+                      ? t("providers.statusGatewayUnknown", { defaultValue: "网关状态未知" })
+                      : smartGateway.running
+                        ? t("providers.statusGateway", {
+                            port: smartGateway.port,
+                            defaultValue: `已连接网关 (:${smartGateway.port})`,
+                          })
+                        : t("providers.statusGatewayStopped", {
+                            port: smartGateway.port,
+                            defaultValue: `网关未启动 (:${smartGateway.port})`,
+                          })}
+                    {" · "}
+                    {t("providers.gatewayCatalogHint", { defaultValue: "使用聚合目录中的模型" })}
+                  </Text>
+                ) : null}
+                {row.isT1 ? <AgentConfigDrift target={row.target} /> : null}
+                {advanced ? (
+                  <ExpandableSection title={t("agentHub.advanced", { defaultValue: "高级设置" })}>
+                    {advanced}
+                  </ExpandableSection>
+                ) : null}
+              </div>
+            ) : null}
+          </Card>
+        );
+      })}
+    </Space>
+  );
+
+  if (!framed) return rows;
+
   return (
     <Card
       size="small"
@@ -301,196 +403,7 @@ export function AgentConnectionCard() {
             "统一配置各 Agent 的连接方式。推荐默认连接智能网关以享受多模型与动态路由，也可指定单个全局上游进行直连，或使用官方原生凭据。",
         })}
       </Text>
-
-      <Table<AgentRow>
-        size="small"
-        rowKey="target"
-        pagination={false}
-        loading={bindingsQuery.isLoading}
-        dataSource={dataSource}
-        columns={[
-          {
-            title: t("providers.agentName", { defaultValue: "Agent" }),
-            dataIndex: "target",
-            width: 180,
-            render: (target: ProviderTarget, row: AgentRow) => (
-              <Space align="center" size={8}>
-                <div style={{ width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {usageSourceIcon(target, { size: 20 })}
-                </div>
-                <Space direction="vertical" size={0}>
-                  <Text strong style={{ fontSize: 13 }}>
-                    {t(LABEL_KEYS[target] ?? `workspace.${target}`)}
-                  </Text>
-                  <Tag
-                    color={row.isT1 ? "blue" : "default"}
-                    style={{ fontSize: 10, lineHeight: "16px", paddingInline: 4, margin: 0 }}
-                  >
-                    {row.isT1
-                      ? t("providers.tierT1", { defaultValue: "T1 全功能" })
-                      : t("providers.tierT2", { defaultValue: "T2 兼容" })}
-                  </Tag>
-                </Space>
-              </Space>
-            ),
-          },
-          {
-            title: t("providers.connectionMode", { defaultValue: "连接模式" }),
-            dataIndex: "displayMode",
-            width: 250,
-            render: (mode: AgentConnectionMode, row: AgentRow) => {
-              const isRowBusy = Boolean(loadingTargets[row.target]);
-              return (
-                <Radio.Group
-                  size="small"
-                  optionType="button"
-                  buttonStyle="solid"
-                  disabled={isRowBusy}
-                  value={mode}
-                  onChange={(e) => void handleModeChange(row.target, e.target.value as AgentConnectionMode)}
-                  options={[
-                    {
-                      label: t("providers.modeGateway", { defaultValue: "智能网关" }),
-                      value: "gateway",
-                    },
-                    {
-                      label: t("providers.modeDirect", { defaultValue: "直连" }),
-                      value: "direct",
-                    },
-                    {
-                      label: t("providers.modeOfficial", { defaultValue: "官方" }),
-                      value: "official",
-                    },
-                  ]}
-                />
-              );
-            },
-          },
-          {
-            title: t("providers.directUpstream", { defaultValue: "直连上游" }),
-            dataIndex: "binding",
-            width: 260,
-            render: (_: unknown, row: AgentRow) => {
-              const isDirect = row.displayMode === "direct";
-              const isRowBusy = Boolean(loadingTargets[row.target]);
-              const optionsForTarget = upstreams.map((u) => {
-                const compat = checkUpstreamDirectCompatibility(row.target, u, t);
-                return {
-                  value: u.id,
-                  label: `${u.name} (${u.model || u.protocolType})`,
-                  disabled: !compat.compatible,
-                  reason: compat.reason,
-                };
-              });
-
-              const selectedUpstreamId =
-                (row.binding?.mode === "direct" ? row.binding.directUpstreamId : undefined) ||
-                rememberedDirect[row.target] ||
-                undefined;
-
-              return (
-                <Tooltip
-                  title={
-                    !isDirect
-                      ? t("providers.directDisabledHint", { defaultValue: "仅在直连模式下可选择上游" })
-                      : undefined
-                  }
-                >
-                  <Select
-                    size="small"
-                    style={{ width: "100%" }}
-                    disabled={!isDirect || isRowBusy}
-                    value={isDirect ? selectedUpstreamId : undefined}
-                    placeholder={
-                      isDirect
-                        ? t("providers.selectDirectUpstream", { defaultValue: "请选择直连上游..." })
-                        : "—"
-                    }
-                    options={optionsForTarget}
-                    optionRender={(option) => (
-                      <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                        <span>{option.data.label}</span>
-                        {option.data.reason ? (
-                          <Text type="secondary" style={{ fontSize: 11 }}>
-                            ({option.data.reason})
-                          </Text>
-                        ) : null}
-                      </Space>
-                    )}
-                    onChange={(val) => void handleSelectDirectUpstream(row.target, String(val))}
-                  />
-                </Tooltip>
-              );
-            },
-          },
-          {
-            title: t("configDrift.column"),
-            width: 190,
-            render: (_: unknown, row: AgentRow) => row.isT1 ? <AgentConfigDrift target={row.target} /> : "—",
-          },
-          {
-            title: t("providers.status", { defaultValue: "当前状态" }),
-            width: 180,
-            render: (_: unknown, row: AgentRow) => {
-              if (row.isPendingDirect) {
-                return (
-                  <Tag color="warning" style={{ margin: 0 }}>
-                    {t("providers.statusPendingDirect", { defaultValue: "待选择上游" })}
-                  </Tag>
-                );
-              }
-              if (row.displayMode === "gateway") {
-                if (!smartGatewayQuery.isSuccess || !smartGateway) {
-                  return <Tag>{t("providers.statusGatewayUnknown", { defaultValue: "网关状态未知" })}</Tag>;
-                }
-                const port = smartGateway.port;
-                const isGatewayRunning = smartGateway.running;
-                if (!isGatewayRunning && smartGatewayQuery.isSuccess) {
-                  return (
-                    <Tooltip
-                      title={t("providers.gatewayStoppedHint", {
-                        defaultValue: "智能网关未运行，请求将无法处理，请前往网关页启动",
-                      })}
-                    >
-                      <Tag color="warning" style={{ margin: 0 }}>
-                        {t("providers.statusGatewayStopped", {
-                          port,
-                          defaultValue: `网关未启动 (:${port})`,
-                        })}
-                      </Tag>
-                    </Tooltip>
-                  );
-                }
-                return (
-                  <Tag color="blue" style={{ margin: 0 }}>
-                    {t("providers.statusGateway", {
-                      port,
-                      defaultValue: `已连接网关 (:${port})`,
-                    })}
-                  </Tag>
-                );
-              }
-              if (row.displayMode === "direct") {
-                const directId =
-                  (row.binding?.mode === "direct" ? row.binding.directUpstreamId : undefined) ||
-                  rememberedDirect[row.target];
-                const matchedUpstream = upstreams.find((u) => u.id === directId);
-                return (
-                  <Tag color="cyan" style={{ margin: 0 }}>
-                    {t("providers.statusDirect", { defaultValue: "直连: " })}
-                    {matchedUpstream ? matchedUpstream.name : (directId || "—")}
-                  </Tag>
-                );
-              }
-              return (
-                <Tag color="default" style={{ margin: 0 }}>
-                  {t("providers.statusOfficial", { defaultValue: "官方原生" })}
-                </Tag>
-              );
-            },
-          },
-        ]}
-      />
+      {rows}
     </Card>
   );
 }

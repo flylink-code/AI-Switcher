@@ -39,11 +39,10 @@ const themeIcons: Record<ThemeMode, React.ReactNode> = {
 
 const PRIMARY_PAGES = new Set<PageKey>([
   "workbench",
+  "agentHub",
   "providers",
-  "gateway",
   "usage",
   "workspace",
-  "sessions",
   "settings",
 ]);
 
@@ -87,12 +86,6 @@ export const DesktopShell: React.FC<DesktopShellProps> = ({
       case "environment":
         return {
           title: t("nav.environment", { defaultValue: "环境信息" }),
-          parentKey: "settings" as PageKey,
-          parentLabel: t("navigation.settings", { defaultValue: "设置" }),
-        };
-      case "agentTools":
-        return {
-          title: t("nav.agentTools", { defaultValue: "Agent 工具" }),
           parentKey: "settings" as PageKey,
           parentLabel: t("navigation.settings", { defaultValue: "设置" }),
         };

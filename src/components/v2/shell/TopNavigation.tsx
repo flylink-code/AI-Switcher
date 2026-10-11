@@ -1,23 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
-import ApiOutlined from "@ant-design/icons/es/icons/ApiOutlined";
 import BarChartOutlined from "@ant-design/icons/es/icons/BarChartOutlined";
 import ClusterOutlined from "@ant-design/icons/es/icons/ClusterOutlined";
 import DashboardOutlined from "@ant-design/icons/es/icons/DashboardOutlined";
 import FolderOutlined from "@ant-design/icons/es/icons/FolderOutlined";
-import MessageOutlined from "@ant-design/icons/es/icons/MessageOutlined";
+import RobotOutlined from "@ant-design/icons/es/icons/RobotOutlined";
 import SettingOutlined from "@ant-design/icons/es/icons/SettingOutlined";
 import type { PageKey } from "@/lib/pageRegistry";
 import { useThemeStore } from "@/stores/themeStore";
 
 export type V2MainTab =
   | "workbench"
+  | "agentHub"
   | "providers"
-  | "gateway"
   | "usage"
   | "workspace"
-  | "sessions"
   | "settings";
 
 export interface TopNavigationProps {
@@ -27,8 +25,8 @@ export interface TopNavigationProps {
   compact?: boolean;
 }
 
-/** Full label dock for 8 short items needs extra width in the center slot. */
-const COMPACT_BREAKPOINT = 820;
+/** Full labels for the six primary items. Narrower slots fall back to icons. */
+const COMPACT_BREAKPOINT = 760;
 
 export const TopNavigation: React.FC<TopNavigationProps> = ({
   activeKey,
@@ -74,8 +72,10 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
 
   const getActiveTab = (key: PageKey): V2MainTab => {
     if (key === "workbench") return "workbench";
-    if (key === "providers") return "providers";
-    if (key === "gateway" || key === "proxy" || key === "antigravity") return "gateway";
+    if (key === "agentHub" || key === "agentTools") return "agentHub";
+    if (key === "providers" || key === "gateway" || key === "proxy" || key === "antigravity") {
+      return "providers";
+    }
     if (key === "usage") return "usage";
     if (
       key === "workspace" ||
@@ -84,17 +84,16 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       key === "skills" ||
       key === "agents" ||
       key === "plugins" ||
-      key === "profiles"
+      key === "profiles" ||
+      key === "sessions"
     ) {
       return "workspace";
     }
-    if (key === "sessions") return "sessions";
     if (
       key === "settings" ||
       key === "environment" ||
       key === "localization" ||
       key === "about" ||
-      key === "agentTools" ||
       key === "localProxy"
     ) {
       return "settings";
@@ -112,20 +111,20 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       targetPage: "workbench",
     },
     {
+      key: "agentHub",
+      label: t("navigation.agentHub", { defaultValue: "Agent" }),
+      icon: <RobotOutlined />,
+      targetPage: "agentHub",
+    },
+    {
       key: "providers",
       label: t("navigation.providers", { defaultValue: "供应商" }),
       icon: <ClusterOutlined />,
       targetPage: "providers",
     },
     {
-      key: "gateway",
-      label: t("navigation.gatewayShort", { defaultValue: "网关" }),
-      icon: <ApiOutlined />,
-      targetPage: "gateway",
-    },
-    {
       key: "usage",
-      label: t("navigation.usageShort", { defaultValue: "用量" }),
+      label: t("navigation.usage", { defaultValue: "用量统计" }),
       icon: <BarChartOutlined />,
       targetPage: "usage",
     },
@@ -134,12 +133,6 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
       label: t("navigation.workspace", { defaultValue: "工作区" }),
       icon: <FolderOutlined />,
       targetPage: "workspace",
-    },
-    {
-      key: "sessions",
-      label: t("navigation.sessions", { defaultValue: "会话" }),
-      icon: <MessageOutlined />,
-      targetPage: "sessions",
     },
     {
       key: "settings",

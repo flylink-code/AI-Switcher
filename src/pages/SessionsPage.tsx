@@ -106,7 +106,7 @@ const EMPTY_RESULT: SessionScanResult = { sessions: [], providers: [], total: 0,
 const RUNTIME_RECOVERED_EVENT = "runtime-recovered";
 const CODEX_EMPTY_RETRY_DELAYS_MS = [2_000, 5_000, 12_000] as const;
 
-export default function SessionsPage() {
+export default function SessionsPage({ target }: { target?: SessionProvider } = {}) {
   const { t, i18n } = useTranslation();
   const [toast, toastContext] = message.useMessage();
   const { token } = theme.useToken();
@@ -115,8 +115,9 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [contentSearch, setContentSearch] = useState(false);
-  const provider = usePagePreferencesStore((state) => state.sessionsProvider);
+  const storedProvider = usePagePreferencesStore((state) => state.sessionsProvider);
   const setSessionsProvider = usePagePreferencesStore((state) => state.setSessionsProvider);
+  const provider = target ?? storedProvider;
   const [directory, setDirectory] = useState<DirectoryFilter>("all");
   const [time, setTime] = useState<TimeFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
@@ -551,12 +552,14 @@ export default function SessionsPage() {
         />
       ) : null}
 
+      {target ? null : (
       <WorkspaceTargetSegmented<SessionProvider>
         value={provider}
         onChange={setSessionsProvider}
         t={t}
         targets={filterUiAgents(["claude_code", "codex", "opencode", "pi", "dsh", "cline"])}
       />
+      )}
 
       <Card size="small" className="page-surface">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>

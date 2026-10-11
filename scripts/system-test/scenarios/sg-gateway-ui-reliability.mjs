@@ -69,9 +69,9 @@ export async function run() {
     await withCdp((send) => send("Page.reload"));
     await waitFor(() => evaluate("!window.__aiswBeforeReload").catch(() => false), "新页面加载");
     await waitForTauri();
-    await waitFor(() => evaluate(`Boolean(${nav("网关")})`), "网关导航渲染");
-    await click(nav("网关"));
-    await waitFor(() => bodyHas("智能网关服务"), "服务与绑定");
+    await waitFor(() => evaluate(`Boolean(${nav("供应商")})`), "供应商导航渲染");
+    await click(nav("供应商"));
+    await waitFor(() => bodyHas("智能网关"), "智能网关分段");
     assert(await invoke("get_agent_connection_mode", { target: "claude_code" }) === "direct", "打开网关页不能抢占 direct");
     assert(await invoke("get_agent_connection_mode", { target: "codex" }) === "external", "打开网关页不能隐式绑定 Codex");
     await screenshot("gateway-service");
@@ -80,7 +80,7 @@ export async function run() {
     await invoke("stop_smart_gateway");
     const status = await invoke("get_smart_gateway_status");
     assert(!status.running && status.port !== 15828, "应使用停止状态的隔离网关端口");
-    await click(nav("供应商"));
+    await click(nav("Agent"));
     await waitFor(() => bodyHas(`网关未启动 (:${status.port})`), "连接卡显示真实端口和停止状态");
     await screenshot("gateway-stopped");
     await invoke("start_smart_gateway");
