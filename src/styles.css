@@ -1250,6 +1250,26 @@ body {
   white-space: nowrap;
 }
 
+/* Overview trend: fixed slot width so one busy hour cannot fill the row. */
+.metric-trend-bars {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.metric-trend-bars .hourly-bars,
+.metric-trend-bars .hourly-bars-axis {
+  width: max-content;
+  min-width: 100%;
+}
+
+.metric-trend-bars .hourly-bars-col,
+.metric-trend-bars .hourly-bars-axis-label {
+  flex: 0 0 16px;
+  width: 16px;
+  min-width: 16px;
+  max-width: 16px;
+}
+
 /* ===== Bottom Status Footer ===== */
 .app-status-footer {
   height: 26px;

@@ -6,6 +6,7 @@ import InfoCircleOutlined from "@ant-design/icons/es/icons/InfoCircleOutlined";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { UsageCalendar } from "@/components/UsageCalendar";
+import { MetricTrendBars, type TrendMetric } from "@/components/usage/MetricTrendBars";
 import { UsageSourceFilterSelect } from "@/components/UsageSourceFilterSelect";
 import { usageSourceIcon, isUsageSourceFilter, usageSourceLabelKey } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS } from "@/components/AgentTargetSwitcher";
@@ -38,7 +39,6 @@ import { filterUiAgents } from "@/lib/agentVisibility";
 const { Text } = Typography;
 
 type OverviewPeriod = "today" | "24h" | 7 | 30;
-type TrendMetric = "requests" | "tokens" | "cost";
 
 const OVERVIEW_PERIODS: OverviewPeriod[] = ["today", "24h", 7, 30];
 
@@ -475,7 +475,7 @@ export default function WorkbenchPage() {
                 ]}
               />
             </div>
-            <WorkbenchTrend data={trend} metric={trendMetric} />
+            <MetricTrendBars data={trend} period={period} metric={trendMetric} />
           </>
         )}
       </Card>
@@ -602,45 +602,6 @@ function RankingList({ title, rows }: { title: string; rows: UsageBreakdown[] })
       )}
     </div>
   );
-}
-
-function WorkbenchTrend({ data, metric }: { data: UsageTrendPoint[]; metric: TrendMetric }) {
-  const values = data.map((row) => trendMetricValue(row, metric));
-  const max = Math.max(...values, 0);
-  if (data.length === 0) return null;
-  return (
-    <div role="img" style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 72, marginTop: 8 }}>
-      {data.map((row, index) => {
-        const value = values[index] ?? 0;
-        const height = max > 0 ? Math.max(2, (value / max) * 100) : 1;
-        return (
-          <Tooltip key={`${row.date}-${index}`} title={`${row.date}: ${formatTrendValue(value, metric)}`}>
-            <span style={{ flex: 1, height: `${height}%`, minWidth: 2, borderRadius: 2, background: "var(--color-brand, #1677ff)", opacity: value > 0 ? 1 : 0.25 }} />
-          </Tooltip>
-        );
-      })}
-    </div>
-  );
-}
-
-function trendMetricValue(row: UsageTrendPoint, metric: TrendMetric): number {
-  switch (metric) {
-    case "requests":
-      return row.requestCount;
-    case "tokens":
-      return row.inputTokens + row.cacheReadInputTokens + row.cacheCreationInputTokens + row.outputTokens;
-    case "cost":
-      return row.estimatedCost;
-    default: {
-      const _exhaustive: never = metric;
-      return _exhaustive;
-    }
-  }
-}
-
-function formatTrendValue(value: number, metric: TrendMetric): string {
-  if (metric === "cost") return value.toFixed(2);
-  return formatCompactNumber(value);
 }
 
 function tokenSum(summary: { inputTokens: number; cacheReadInputTokens: number; cacheCreationInputTokens: number; outputTokens: number } | undefined): number {

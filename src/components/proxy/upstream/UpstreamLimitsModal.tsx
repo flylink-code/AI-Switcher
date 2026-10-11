@@ -9,6 +9,7 @@ export interface UpstreamLimitsModalProps {
   upstreamId: string | null;
   upstreamName: string;
   onClose: () => void;
+  afterClose?: () => void;
 }
 
 const DEFAULT_LIMIT_POLICY: UpstreamLimitPolicy = {
@@ -26,7 +27,7 @@ const FIELDS = [
   { name: "firstOutputTimeoutMs", max: 300_000, step: 1000 },
 ] as const;
 
-export function UpstreamLimitsModal({ open, upstreamId, upstreamName, onClose }: UpstreamLimitsModalProps) {
+export function UpstreamLimitsModal({ open, upstreamId, upstreamName, onClose, afterClose }: UpstreamLimitsModalProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<UpstreamLimitPolicy>();
   const [loading, setLoading] = useState(false);
@@ -84,6 +85,7 @@ export function UpstreamLimitsModal({ open, upstreamId, upstreamName, onClose }:
       title={t("upstreamLimits.modalTitle", { name: upstreamName || upstreamId || "" })}
       onCancel={() => { if (!savingRef.current) onClose(); }}
       destroyOnHidden
+      afterClose={afterClose}
       width={640}
       maskClosable={!saving}
       closable={!saving}

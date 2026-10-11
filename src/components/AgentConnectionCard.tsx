@@ -1,5 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  Alert,
+  Button,
   Card,
   Radio,
   Select,
@@ -42,6 +44,20 @@ interface AgentRow {
   currentMode: AgentConnectionMode;
   displayMode: AgentConnectionMode;
   isPendingDirect: boolean;
+}
+
+function OpenAiOnClaudeGuide() {
+  const { t } = useTranslation();
+  return (
+    <ExpandableSection title={t("providers.openaiOnClaudeTitle", { defaultValue: "OpenAI 协议上游（如 sub2api）怎么用" })}>
+      <Text type="secondary" style={{ display: "block", fontSize: 12, lineHeight: 1.6 }}>
+        {t("providers.openaiOnClaudeSteps", {
+          defaultValue:
+            "1. 在供应商 → 智能网关里新增上游，协议选 OpenAI Chat 或 OpenAI Responses，地址带 /v1，并填写模型名。2. 在本页把 Claude Code 设为「智能网关」，不要选直连。3. 重启 Claude Code，用 /model 从聚合目录里选这个模型。若该站点同时提供 Anthropic /v1/messages，可以再加一条 Anthropic 协议的上游，那时才可以直连。",
+        })}
+      </Text>
+    </ExpandableSection>
+  );
 }
 
 export function checkUpstreamDirectCompatibility(
@@ -182,12 +198,7 @@ export function AgentConnectionCard({
       );
 
       if (validUpstreams.length === 0) {
-        void message.warning(
-          t("providers.noCompatibleUpstreamForDirect", {
-            agent: agentLabel,
-            defaultValue: `没有适用于 ${agentLabel} 的兼容直连上游，如需协议转换请切换至智能网关`,
-          }),
-        );
+        setPendingDirect((prev) => ({ ...prev, [target]: true }));
         return;
       }
 
@@ -310,13 +321,24 @@ export function AgentConnectionCard({
         const isDirect = row.displayMode === "direct";
         const optionsForTarget = upstreams.map((upstream) => {
           const compat = checkUpstreamDirectCompatibility(row.target, upstream, t);
+          const name = `${upstream.name} (${upstream.model || upstream.protocolType})`;
           return {
             value: upstream.id,
-            label: `${upstream.name} (${upstream.model || upstream.protocolType})`,
+            label: compat.compatible || !compat.reason ? name : `${name} — ${compat.reason}`,
             disabled: !compat.compatible,
-            reason: compat.reason,
           };
         });
+        const directGroups = [
+          {
+            label: t("providers.directCompatibleGroup", { defaultValue: "可直连" }),
+            options: optionsForTarget.filter((option) => !option.disabled),
+          },
+          {
+            label: t("providers.directGatewayGroup", { defaultValue: "需走智能网关" }),
+            options: optionsForTarget.filter((option) => option.disabled),
+          },
+        ].filter((group) => group.options.length > 0);
+        const hasCompatibleDirect = optionsForTarget.some((option) => !option.disabled);
         const selectedUpstreamId =
           (row.binding?.mode === "direct" ? row.binding.directUpstreamId : undefined) ||
           rememberedDirect[row.target] ||
@@ -349,15 +371,31 @@ export function AgentConnectionCard({
                   ]}
                 />
                 {isDirect ? (
-                  <Select
-                    size="small"
-                    style={{ maxWidth: 360 }}
-                    disabled={isRowBusy}
-                    value={selectedUpstreamId}
-                    placeholder={t("providers.selectDirectUpstream", { defaultValue: "请选择直连上游..." })}
-                    options={optionsForTarget}
-                    onChange={(value) => void handleSelectDirectUpstream(row.target, String(value))}
-                  />
+                  hasCompatibleDirect ? (
+                    <Select
+                      size="small"
+                      style={{ maxWidth: 420 }}
+                      disabled={isRowBusy}
+                      value={selectedUpstreamId}
+                      placeholder={t("providers.selectDirectUpstream", { defaultValue: "请选择直连上游..." })}
+                      options={directGroups}
+                      onChange={(value) => void handleSelectDirectUpstream(row.target, String(value))}
+                    />
+                  ) : (
+                    <Alert
+                      type="info"
+                      showIcon
+                      message={t("providers.noCompatibleUpstreamForDirect", {
+                        agent: t(LABEL_KEYS[row.target] ?? `workspace.${row.target}`),
+                        defaultValue: "没有可直连的上游。协议不匹配时请改用智能网关。",
+                      })}
+                      action={
+                        <Button size="small" type="primary" disabled={isRowBusy} onClick={() => void handleModeChange(row.target, "gateway")}>
+                          {t("providers.useSmartGateway", { defaultValue: "改用智能网关" })}
+                        </Button>
+                      }
+                    />
+                  )
                 ) : row.displayMode === "gateway" ? (
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {!smartGateway
@@ -375,6 +413,7 @@ export function AgentConnectionCard({
                     {t("providers.gatewayCatalogHint", { defaultValue: "使用聚合目录中的模型" })}
                   </Text>
                 ) : null}
+                {row.target === "claude_code" ? <OpenAiOnClaudeGuide /> : null}
                 {row.isT1 ? <AgentConfigDrift target={row.target} /> : null}
                 {advanced ? (
                   <ExpandableSection title={t("agentHub.advanced", { defaultValue: "高级设置" })}>

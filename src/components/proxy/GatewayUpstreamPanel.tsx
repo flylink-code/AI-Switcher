@@ -5,7 +5,6 @@ import {
   Dropdown,
   Form,
   Modal,
-  Popconfirm,
   Space,
   Table,
   Tag,
@@ -23,6 +22,7 @@ import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
 import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MoreMenu } from "@/components/common/MoreMenu";
 import { useTranslation } from "react-i18next";
 import {
   addAntigravityGatewayUpstream,
@@ -58,6 +58,7 @@ import {
 import { ProviderQuotaView } from "@/components/ProviderQuotaView";
 import type {
   BatchSpeedtestResult,
+  ClaudeModelMapping,
   CodexOauthDeviceStart,
   EndpointSpeedtestResult,
   Provider,
@@ -81,6 +82,21 @@ import { refreshUsageQuery, useUsageLogRefresh } from "@/lib/useUsageLogRefresh"
 import { UpstreamDailyStats } from "./upstream/UpstreamDailyStats";
 
 const { Text } = Typography;
+
+function emptyModelMapping(): ClaudeModelMapping {
+  return { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" };
+}
+
+function normalizeModelMapping(mapping: ClaudeModelMapping | undefined): ClaudeModelMapping {
+  const source = mapping ?? emptyModelMapping();
+  return {
+    sonnet: source.sonnet.trim(),
+    opus: source.opus.trim(),
+    haiku: source.haiku.trim(),
+    fable: source.fable.trim(),
+    subagent: source.subagent.trim(),
+  };
+}
 
 function canQueryUpstreamQuota(row: Provider): boolean {
   if (!row.apiKeySet) return false;
@@ -124,6 +140,9 @@ export function GatewayUpstreamPanel({
 
   const [modelsUpstream, setModelsUpstream] = useState<Provider | null>(null);
   const [limitsUpstream, setLimitsUpstream] = useState<Provider | null>(null);
+  const limitsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Provider | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [modelsSaving, setModelsSaving] = useState(false);
 
   // Codex / ChatGPT OAuth state
@@ -240,7 +259,7 @@ export function GatewayUpstreamPanel({
       protocolType: "anthropic",
       notes: "",
       targetApp: "claude_code",
-      modelMapping: { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" },
+      modelMapping: emptyModelMapping(),
     });
     setOpen(true);
   };
@@ -258,7 +277,7 @@ export function GatewayUpstreamPanel({
       protocolType: provider.protocolType,
       notes: provider.notes,
       targetApp: "claude_code",
-      modelMapping: { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" },
+      modelMapping: provider.modelMapping ?? emptyModelMapping(),
     });
     setOpen(true);
   };
@@ -330,7 +349,7 @@ export function GatewayUpstreamPanel({
         protocolType: values.protocolType,
         notes: values.notes ?? "",
         targetApp: "claude_code",
-        modelMapping: { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" },
+        modelMapping: normalizeModelMapping(values.modelMapping),
         providerKind:
           editing?.providerKind === "antigravity" || editing?.providerKind === "kiro"
             ? editing.providerKind
@@ -346,14 +365,19 @@ export function GatewayUpstreamPanel({
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await deleteGatewayUpstream(id);
-      setSelectedIds((current) => current.filter((item) => item !== id));
+      await deleteGatewayUpstream(pendingDelete.id);
+      setSelectedIds((current) => current.filter((item) => item !== pendingDelete.id));
       await invalidatePool();
+      setPendingDelete(null);
       void message.success(t("proxy.upstreamDeleted"));
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -804,6 +828,7 @@ export function GatewayUpstreamPanel({
         size="small"
         rowKey="id"
         pagination={false}
+        scroll={{ x: "max-content" }}
         loading={upstreamsQuery.isLoading}
         dataSource={upstreams}
         locale={{ emptyText: t("proxy.upstreamEmpty") }}
@@ -812,17 +837,18 @@ export function GatewayUpstreamPanel({
           onChange: (keys) => setSelectedIds(keys.map(String)),
         }}
         columns={[
-          { title: t("proxy.upstreamName"), dataIndex: "name", ellipsis: true },
-          { title: t("proxy.upstreamUrl"), dataIndex: "baseUrl", ellipsis: true },
-          { title: t("proxy.upstreamModel"), dataIndex: "model", ellipsis: true, width: 160 },
+          { title: t("proxy.upstreamName"), dataIndex: "name", ellipsis: true, width: 160 },
+          { title: t("proxy.upstreamUrl"), dataIndex: "baseUrl", ellipsis: true, width: 220 },
+          { title: t("proxy.upstreamModel"), dataIndex: "model", ellipsis: true, width: 140 },
           {
             title: t("proxy.upstreamProtocol"),
             dataIndex: "protocolType",
-            width: 140,
+            width: 120,
+            ellipsis: true,
           },
           {
             title: t("proxy.upstreamQuota"),
-            width: 200,
+            width: 140,
             render: (_, row: Provider) =>
               canQueryUpstreamQuota(row) ? (
                 <ProviderQuotaView providerId={row.id} />
@@ -830,7 +856,7 @@ export function GatewayUpstreamPanel({
           },
           {
             title: t("upstreamStats.title"),
-            width: 180,
+            width: 140,
             render: (_, row: Provider) => (
               <UpstreamDailyStats
                 stat={dailyStatsMap.get(row.id)}
@@ -841,7 +867,7 @@ export function GatewayUpstreamPanel({
           },
           {
             title: t("proxy.upstreamHealth", { defaultValue: "健康" }),
-            width: 180,
+            width: 120,
             render: (_: unknown, row: Provider) => {
               const speedtest = speedtestResults[row.id];
               return (
@@ -872,9 +898,10 @@ export function GatewayUpstreamPanel({
           },
           {
             title: t("proxy.upstreamActions"),
-            width: 240,
+            width: 168,
+            fixed: "right",
             render: (_, row: Provider) => (
-              <Space size={4}>
+              <Space size={0}>
                 <Button
                   type="link"
                   size="small"
@@ -884,34 +911,64 @@ export function GatewayUpstreamPanel({
                 >
                   {t("proxy.testConnection", { defaultValue: "测试" })}
                 </Button>
-                <Button type="link" size="small" onClick={() => setModelsUpstream(row)}>
-                  {t("proxy.upstreamModels")}
-                </Button>
-                <Button type="link" size="small" onClick={() => setLimitsUpstream(row)}>
-                  {t("upstreamLimits.button", { defaultValue: "网关限额" })}
-                </Button>
                 <Button type="link" size="small" onClick={() => openEdit(row)}>
                   {t("common.edit")}
                 </Button>
-                <Popconfirm
-                  title={t("proxy.deleteUpstreamConfirm")}
-                  onConfirm={() => void handleDelete(row.id)}
-                >
-                  <Button type="link" size="small" danger>
-                    {t("common.delete")}
-                  </Button>
-                </Popconfirm>
+                <span data-upstream-more={row.id}>
+                  <MoreMenu
+                    ariaLabel={t("proxy.rowMore", { defaultValue: "更多操作" })}
+                    items={[
+                      {
+                        key: "models",
+                        label: t("proxy.upstreamModels"),
+                        onClick: () => setModelsUpstream(row),
+                      },
+                      {
+                        key: "limits",
+                        label: t("upstreamLimits.button", { defaultValue: "网关限额" }),
+                        onClick: () => {
+                          limitsTriggerRef.current = document.querySelector(
+                            `[data-upstream-more="${CSS.escape(row.id)}"] button`,
+                          );
+                          setLimitsUpstream(row);
+                        },
+                      },
+                      { type: "divider" },
+                      {
+                        key: "delete",
+                        danger: true,
+                        label: t("common.delete"),
+                        onClick: () => setPendingDelete(row),
+                      },
+                    ]}
+                  />
+                </span>
               </Space>
             ),
           },
         ]}
       />
 
+      <Modal
+        open={pendingDelete != null}
+        title={t("proxy.deleteUpstreamConfirm")}
+        okText={t("common.delete")}
+        okButtonProps={{ danger: true, loading: deleting }}
+        cancelText={t("common.cancel")}
+        onOk={() => void handleDelete()}
+        onCancel={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+      >
+        {pendingDelete?.name}
+      </Modal>
+
       <UpstreamLimitsModal
         open={Boolean(limitsUpstream)}
         upstreamId={limitsUpstream?.id ?? null}
         upstreamName={limitsUpstream?.name ?? ""}
         onClose={() => setLimitsUpstream(null)}
+        afterClose={() => limitsTriggerRef.current?.focus()}
       />
 
       <UpstreamFormModal

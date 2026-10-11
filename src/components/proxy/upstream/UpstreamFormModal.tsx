@@ -8,6 +8,7 @@ import {
   Space,
   Typography,
 } from "antd";
+import { ExpandableSection } from "@/components/common/ExpandableSection";
 import type { FormInstance } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -179,9 +180,37 @@ export function UpstreamFormModal({
         <Form.Item name="model" label={t("proxy.upstreamModel")} rules={[{ required: true }]}>
           <Input />
         </Form.Item>
-        <Form.Item name="protocolType" label={t("proxy.upstreamProtocol")} rules={[{ required: true }]}>
+        <Form.Item
+          name="protocolType"
+          label={t("proxy.upstreamProtocol")}
+          extra={t("providers.protocolDirectHint", {
+            defaultValue: "Anthropic 可被 Claude Code 直连。OpenAI Chat / Responses 可被 Codex 直连；Claude Code 使用这类上游时请连接智能网关。",
+          })}
+          rules={[{ required: true }]}
+        >
           <Select options={PROTOCOL_OPTIONS} />
         </Form.Item>
+        <ExpandableSection title={t("providers.modelMappingTitle", { defaultValue: "模型映射" })}>
+          <Text type="secondary" style={{ display: "block", marginBottom: 8, fontSize: 12 }}>
+            {t("providers.modelMappingHint", {
+              defaultValue:
+                "留空则使用上面的默认模型。直连 Claude Code 时，这里会写入 ANTHROPIC_DEFAULT_* 和子代理模型。经智能网关时，Claude Code 从聚合目录选择具体模型；只有请求里仍是 Claude 角色名（如 claude-sonnet）时，出网才会改写成对应的上游模型。",
+            })}
+          </Text>
+          {(
+            [
+              ["sonnet", "Sonnet"],
+              ["opus", "Opus"],
+              ["haiku", "Haiku"],
+              ["fable", "Fable"],
+              ["subagent", t("providers.modelMappingSubagent", { defaultValue: "子代理" })],
+            ] as const
+          ).map(([role, label]) => (
+            <Form.Item key={role} name={["modelMapping", role]} label={label}>
+              <Input placeholder={t("providers.modelMappingPlaceholder", { defaultValue: "留空使用默认模型" })} />
+            </Form.Item>
+          ))}
+        </ExpandableSection>
         <Form.Item name="notes" label={t("proxy.upstreamNotes")}>
           <Input.TextArea rows={2} />
         </Form.Item>

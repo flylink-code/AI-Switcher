@@ -10,7 +10,16 @@ async function until(expression) {
     if (await evaluate(expression)) return;
     await wait(150);
   }
-  throw new Error(`DOM 等待超时：${expression}`);
+  const snapshot = await evaluate(`(() => {
+    const rows = Array.from(document.querySelectorAll('tr')).slice(0, 8).map((row) => row.innerText.replace(/\\s+/g, ' ').slice(0, 160));
+    const buttons = Array.from(document.querySelectorAll('button')).slice(0, 40).map((button) => {
+      const label = button.getAttribute('aria-label') || '';
+      const text = (button.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 40);
+      return label ? label + '|' + text : text;
+    });
+    return JSON.stringify({ rows, buttons });
+  })()`).catch((error) => String(error));
+  throw new Error(`DOM 等待超时：${expression}\n${snapshot}`);
 }
 async function click(expression) {
   await evaluate(`(${expression}).scrollIntoView({block:'center'})`);
@@ -41,9 +50,15 @@ export async function run() {
     const nav = `document.querySelector('.v2-top-nav button[aria-label="供应商"]')`;
     await until(`Boolean(${nav})`);
     await click(nav);
-    const limits = `(() => { const row = Array.from(document.querySelectorAll('tr')).find(e => e.textContent.includes('限额验收超长名称')); return row ? Array.from(row.querySelectorAll('button')).find(e => e.textContent.trim()==='网关限额') : null; })()`;
-    await until(`Boolean(${limits})`);
-    await click(limits);
+    const more = `(() => { const row = Array.from(document.querySelectorAll('tr')).find(e => e.textContent.includes('限额验收超长名称')); return row ? row.querySelector('button[aria-label="更多操作"]') : null; })()`;
+    const limits = `Array.from(document.querySelectorAll('.ant-dropdown-menu-item')).find(e => e.textContent.trim()==='网关限额')`;
+    const openLimits = async () => {
+      await until(`Boolean(${more})`);
+      await click(more);
+      await until(`Boolean(${limits})`);
+      await click(limits);
+    };
+    await openLimits();
     const ready = `document.querySelector('.ant-modal input[id$="maxConcurrency"]:not(:disabled)')`;
     await until(`Boolean(${ready})`);
     const before = await invoke("get_gateway_upstream_policy", { id: upstream.id });
@@ -57,7 +72,7 @@ export async function run() {
     await click(save);
     await until("!document.querySelector('.ant-modal')");
     assert((await invoke("get_gateway_upstream_policy", { id: upstream.id })).maxConcurrency === 2, "保存实际后端策略");
-    await click(limits);
+    await openLimits();
     await until(`Boolean(${ready})`);
     assert(await evaluate(`(${ready}).value==='2'`), "再次打开应加载已保存策略");
     const dir = path.resolve("scripts/system-test/artifacts", `limits-${process.env.AISW_CDP_PORT}-${process.pid}`);
@@ -68,7 +83,7 @@ export async function run() {
     console.log(`[limits] ${file}`);
     await key("Escape", "Escape", 27);
     await until("!document.querySelector('.ant-modal')");
-    assert(await evaluate(`document.activeElement === (${limits})`), "关闭弹窗后焦点应回到入口");
+    assert(await evaluate(`document.activeElement === (${more})`), "关闭弹窗后焦点应回到入口");
   } finally {
     await invoke("delete_gateway_upstream", { id: upstream.id });
   }
