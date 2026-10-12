@@ -1772,6 +1772,7 @@ mod tests {
             is_current: false,
             created_at: 0,
             health_latency_ms: None,
+            enabled: true,
             health_status: None,
             health_checked_at: None,
         }

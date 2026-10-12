@@ -217,7 +217,7 @@ export function AgentConnectionCard({
         (binding?.mode === "direct" ? binding.directUpstreamId : "") || rememberedDirect[target];
 
       const validUpstreams = upstreams.filter(
-        (u) => checkUpstreamDirectCompatibility(target, u, t).compatible,
+        (u) => u.enabled !== false && checkUpstreamDirectCompatibility(target, u, t).compatible,
       );
 
       if (validUpstreams.length === 0) {
@@ -344,11 +344,14 @@ export function AgentConnectionCard({
         const isDirect = row.displayMode === "direct";
         const optionsForTarget = upstreams.map((upstream) => {
           const compat = checkUpstreamDirectCompatibility(row.target, upstream, t);
+          const paused = upstream.enabled === false;
           const name = `${upstream.name} (${upstream.model || upstream.protocolType})`;
+          const reason = paused ? t("proxy.upstreamPaused") : compat.reason;
+          const showReason = paused || (!compat.compatible && Boolean(compat.reason));
           return {
             value: upstream.id,
-            label: compat.compatible || !compat.reason ? name : `${name} — ${compat.reason}`,
-            disabled: !compat.compatible,
+            label: showReason ? `${name} — ${reason}` : name,
+            disabled: paused || !compat.compatible,
           };
         });
         const directGroups = [

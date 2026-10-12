@@ -49,7 +49,17 @@ fn rewrite_body(provider: &Provider, original: &Bytes) -> Bytes {
         Err(_) => return original.clone(),
     };
 
-    if !provider.model.trim().is_empty() && value.get("model").is_some() {
+    let body_model = value.get("model").and_then(Value::as_str).unwrap_or("").trim();
+    let smart_gateway = provider.is_smart_gateway();
+    let fill_gateway_default = smart_gateway && crate::gateway::is_auto_model_id(body_model);
+    if smart_gateway {
+        // Desktop picks a catalog alias. The local proxy must forward that id
+        // so the smart gateway can map it. Only an empty or Auto id uses the
+        // card default.
+        if fill_gateway_default && !provider.model.trim().is_empty() {
+            value["model"] = Value::String(provider.model.trim().to_string());
+        }
+    } else if !provider.model.trim().is_empty() && value.get("model").is_some() {
         value["model"] = Value::String(provider.model.trim().to_string());
     }
 

@@ -34,8 +34,6 @@ export function MetricTrendBars({
   const scrollerRef = useRef<HTMLDivElement>(null);
   const buckets = buildBuckets(data, period, metric);
   const max = Math.max(...buckets.map((item) => item.value), 0);
-  const total = buckets.reduce((sum, item) => sum + item.value, 0);
-  const average = buckets.length > 0 ? total / buckets.length : 0;
   const peakIndex = buckets.reduce((best, item, index) => (item.value > (buckets[best]?.value ?? -1) ? index : best), 0);
   const hourly = period === "today" || period === "24h";
   const labelStep = hourly ? 3 : Math.max(1, Math.ceil(buckets.length / 8));
@@ -51,16 +49,6 @@ export function MetricTrendBars({
   return (
     <div ref={scrollerRef} className={`metric-trend-bars ${hourly ? "metric-trend-bars-hour" : "metric-trend-bars-day"}`} style={{ marginTop: 8 }}>
       <div className="hourly-bars" role="img" aria-label={t("workbench.trendChart", { defaultValue: "用量趋势" })} style={{ height: 112 }}>
-        {max > 0 && average > 0 ? (
-          <span
-            className="hourly-bars-refline"
-            style={{ bottom: `calc((100% - var(--trend-label-band, 14px)) * ${average / max})` }}
-          >
-            <span className="hourly-bars-refline-label">
-              {t("usage.chartAverage")} {formatMetric(average, metric)}
-            </span>
-          </span>
-        ) : null}
         {buckets.map((item, index) => {
           const level = intensityLevel(item.value, max);
           const heightPct = max > 0 ? (item.value / max) * 100 : 0;

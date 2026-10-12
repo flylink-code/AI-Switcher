@@ -30,8 +30,13 @@ export function UpstreamPoolSummary({
     let cooling = 0;
     let failing = 0;
     let unknown = 0;
+    let paused = 0;
 
     for (const u of upstreams) {
+      if (u.enabled === false) {
+        paused++;
+        continue;
+      }
       const h = healthMap.get(u.id);
       if (!h || h.status === "unknown") {
         unknown++;
@@ -52,6 +57,7 @@ export function UpstreamPoolSummary({
       cooling,
       failing,
       unknown,
+      paused,
     };
   }, [upstreams, healthList]);
 
@@ -91,6 +97,11 @@ export function UpstreamPoolSummary({
           {stats.failing > 0 ? (
             <Tag color="error" icon={<CloseCircleOutlined />}>
               {t("proxy.upstreamFailingCount", { count: stats.failing, defaultValue: `异常 ${stats.failing}` })}
+            </Tag>
+          ) : null}
+          {stats.paused > 0 ? (
+            <Tag>
+              {t("proxy.upstreamPausedCount", { count: stats.paused, defaultValue: `已暂停 ${stats.paused}` })}
             </Tag>
           ) : null}
           {stats.unknown > 0 ? (

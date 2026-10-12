@@ -6,6 +6,7 @@ import {
   Form,
   Modal,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -43,6 +44,7 @@ import {
   listUpstreamDailyUsageStats,
   listProviders,
   pollCodexOauthLogin,
+  setGatewayUpstreamEnabled,
   setGatewayUpstreamModelVisible,
   startCodexOauthLogin,
   testUpstreamConnection,
@@ -151,6 +153,7 @@ export function GatewayUpstreamPanel({
 
   // Test connection state
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Batch speedtest state
   const [batchSpeedtesting, setBatchSpeedtesting] = useState(false);
@@ -245,6 +248,18 @@ export function GatewayUpstreamPanel({
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
     await queryClient.invalidateQueries({ queryKey: ["provider-quota"] });
+  };
+
+  const handleToggleEnabled = async (row: Provider, enabled: boolean) => {
+    setTogglingId(row.id);
+    try {
+      await setGatewayUpstreamEnabled(row.id, enabled);
+      await invalidatePool();
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const openCreate = () => {
@@ -832,12 +847,43 @@ export function GatewayUpstreamPanel({
         loading={upstreamsQuery.isLoading}
         dataSource={upstreams}
         locale={{ emptyText: t("proxy.upstreamEmpty") }}
+        onRow={(row) => ({
+          style: row.enabled === false ? { opacity: 0.72 } : undefined,
+        })}
         rowSelection={{
           selectedRowKeys: selectedIds,
           onChange: (keys) => setSelectedIds(keys.map(String)),
         }}
         columns={[
-          { title: t("proxy.upstreamName"), dataIndex: "name", ellipsis: true, width: 160 },
+          {
+            title: t("proxy.upstreamEnabled"),
+            width: 72,
+            render: (_, row: Provider) => (
+              <Tooltip title={t("proxy.upstreamPauseHint")}>
+                <span>
+                  <Switch
+                    size="small"
+                    checked={row.enabled !== false}
+                    loading={togglingId === row.id}
+                    aria-label={t("proxy.upstreamEnabled")}
+                    onChange={(checked) => void handleToggleEnabled(row, checked)}
+                  />
+                </span>
+              </Tooltip>
+            ),
+          },
+          {
+            title: t("proxy.upstreamName"),
+            dataIndex: "name",
+            ellipsis: true,
+            width: 160,
+            render: (name: string, row: Provider) => (
+              <Space size={4}>
+                <span>{name}</span>
+                {row.enabled === false ? <Tag>{t("proxy.upstreamPaused")}</Tag> : null}
+              </Space>
+            ),
+          },
           { title: t("proxy.upstreamUrl"), dataIndex: "baseUrl", ellipsis: true, width: 220 },
           { title: t("proxy.upstreamModel"), dataIndex: "model", ellipsis: true, width: 140 },
           {

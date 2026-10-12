@@ -491,6 +491,7 @@ fn row_to_provider(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         health_status: row.get(11)?,
         health_checked_at: row.get(12)?,
         health_latency_ms: parse_health_latency_ms(health_detail.as_deref()),
+        enabled: true,
         model_context_window: row.get(14)?,
         auto_review_model_override: row.get(15)?,
         web_search_enabled: row.get::<_, Option<i64>>(18)?.map(|value| value != 0),

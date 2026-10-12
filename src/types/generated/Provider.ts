@@ -50,4 +50,8 @@ hiddenModels: Array<string>, thinkingConfig: ThinkingConfig | null, customHeader
 /**
  * Parsed from last health probe detail (`|latency_ms=N`).
  */
-healthLatencyMs: number | null, };
+healthLatencyMs: number | null, 
+/**
+ * Upstream pool switch. Paused rows stay listed and drop out of routing.
+ */
+enabled: boolean, };

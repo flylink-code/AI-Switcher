@@ -115,6 +115,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 

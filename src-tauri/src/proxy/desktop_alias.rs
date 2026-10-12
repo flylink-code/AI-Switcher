@@ -146,6 +146,33 @@ pub fn public_id_for_listed(listed: &str, entries: &[CatalogEntry]) -> Option<St
     })
 }
 
+/// True when a Desktop request is neither Auto, a bare role, a catalog id, nor
+/// a unique upstream slug. The gateway should reject it instead of sending the
+/// first upstream's default model.
+pub fn is_unmapped_desktop_request(requested: &str, entries: &[CatalogEntry]) -> bool {
+    let requested = requested.trim();
+    if requested.is_empty()
+        || is_auto_public_id(requested)
+        || crate::gateway::is_auto_model_id(requested)
+    {
+        return false;
+    }
+    let (stem, _) = crate::provider::split_model_window_label(requested);
+    if desktop_role(&stem).is_some() {
+        return false;
+    }
+    if public_id_for_listed(&stem, entries).is_some() {
+        return false;
+    }
+    let slug_hits = entries
+        .iter()
+        .filter(|entry| {
+            !is_auto_public_id(&entry.public_id) && entry.upstream_slug.eq_ignore_ascii_case(&stem)
+        })
+        .count();
+    slug_hits != 1
+}
+
 /// Map a Desktop request id back to a catalog public id.
 ///
 /// Aliases reverse to the hashed public id. Bare role names use an explicit
@@ -353,6 +380,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 
@@ -423,5 +451,21 @@ mod tests {
             canonical_request("haiku", &entries, &[unmapped]),
             "claude.ag.gemini-3.8-flash-high"
         );
+    }
+
+    #[test]
+    fn unknown_alias_is_unmapped_and_known_alias_resolves() {
+        let public_id = "claude.ag.gemini-3.8-flash";
+        let entries = vec![entry(public_id, "gemini-3.8-flash")];
+        let alias = alias_for(public_id);
+        assert_eq!(canonical_request(&alias, &entries, &[]), public_id);
+        assert!(!is_unmapped_desktop_request(&alias, &entries));
+        assert!(!is_unmapped_desktop_request(
+            &canonical_request(&alias, &entries, &[]),
+            &entries
+        ));
+        assert!(is_unmapped_desktop_request("anthropic/aisw-0000000000", &entries));
+        assert!(!is_unmapped_desktop_request("sonnet", &entries));
+        assert!(!is_unmapped_desktop_request("claude.auto", &entries));
     }
 }

@@ -837,6 +837,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 
@@ -982,6 +983,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         };
         let profile = build_profile(&provider, 15_821, &[]).expect("profile");
         assert_eq!(

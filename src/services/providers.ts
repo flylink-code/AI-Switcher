@@ -114,6 +114,10 @@ export async function listGatewayUpstreams(): Promise<Provider[]> {
   return call<Provider[]>("list_gateway_upstreams");
 }
 
+export async function setGatewayUpstreamEnabled(id: string, enabled: boolean): Promise<Provider> {
+  return call<Provider>("set_gateway_upstream_enabled", { id, enabled });
+}
+
 export async function upsertGatewayUpstream(input: ProviderInput): Promise<Provider> {
   return call<Provider>("upsert_gateway_upstream", { input });
 }

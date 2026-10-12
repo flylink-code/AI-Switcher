@@ -7,7 +7,8 @@ use serde::Serialize;
 use crate::database::dao::gateway::{
     delete_upstream, ensure_profile_for_target, import_providers_as_upstreams,
     list_upstream_models, list_upstream_providers, get_upstream_provider, replace_upstream_models,
-    set_upstream_model_visible, upsert_upstream, AgentConnectionView, ConnectionType,
+    set_upstream_enabled, set_upstream_model_visible, upsert_upstream, AgentConnectionView,
+    ConnectionType,
     GatewayUpstreamImportResult, GatewayUpstreamModelRow,
 };
 use crate::error::{AppError, AppResult};
@@ -83,6 +84,24 @@ pub fn list_gateway_upstreams(state: tauri::State<'_, AppState>) -> AppResult<Ve
     state
         .db
         .with_read_conn(|conn| list_upstream_providers(conn, true))
+}
+
+#[tauri::command]
+pub async fn set_gateway_upstream_enabled(
+    id: String,
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Provider> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    let mut provider = state
+        .db
+        .with_conn(|conn| set_upstream_enabled(conn, &id, enabled))?;
+    crate::catalog::invalidate_view_cache();
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    if !provider.api_key.starts_with("kr://") {
+        provider.api_key = String::new();
+    }
+    Ok(provider)
 }
 
 #[tauri::command]

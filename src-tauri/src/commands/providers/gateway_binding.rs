@@ -270,7 +270,7 @@ fn temporary_provider(input: &ProviderInput, state: &AppState) -> AppResult<Prov
         thinking_config: input.thinking_config.clone(),
         custom_headers: input.custom_headers.clone(),
         is_current: false, created_at: 0,
-        health_status: None, health_checked_at: None, health_latency_ms: None,
+        health_status: None, health_checked_at: None, health_latency_ms: None, enabled: true,
     })
 }
 

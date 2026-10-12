@@ -1392,6 +1392,7 @@ fn row_to_upstream_provider(
         )
     };
     let health_latency_ms = parse_health_latency_ms(health_detail.as_deref());
+    let enabled = row.get::<_, i64>(10).unwrap_or(1) != 0;
     Ok(Provider {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -1419,6 +1420,7 @@ fn row_to_upstream_provider(
         health_status,
         health_checked_at,
         health_latency_ms,
+        enabled,
     })
 }
 
@@ -1435,6 +1437,27 @@ pub fn get_upstream_provider(conn: &Connection, id: &str) -> AppResult<Option<Pr
     Ok(list_upstream_providers(conn, true)?
         .into_iter()
         .find(|provider| provider.id == id))
+}
+
+pub fn set_upstream_enabled(conn: &Connection, id: &str, enabled: bool) -> AppResult<Provider> {
+    let id = id.trim();
+    if id.is_empty() {
+        return Err(AppError::Config("上游 ID 不能为空".to_string()));
+    }
+    let existing = get_upstream_provider(conn, id)?
+        .ok_or_else(|| AppError::Config(format!("上游不存在: {id}")))?;
+    if existing.is_smart_gateway() {
+        return Err(AppError::Config("托管 Auto 卡不能暂停".to_string()));
+    }
+    let changed = conn.execute(
+        "UPDATE upstreams SET enabled = ? WHERE id = ?
+           AND COALESCE(provider_kind, 'standard') != 'smart_gateway';",
+        params![if enabled { 1 } else { 0 }, id],
+    )?;
+    if changed == 0 {
+        return Err(AppError::Config(format!("上游不存在: {id}")));
+    }
+    get_upstream_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("上游不存在: {id}")))
 }
 
 pub fn provider_from_upstream(
@@ -3114,6 +3137,9 @@ pub fn set_direct_binding(
     if upstream.is_smart_gateway() {
         return Err(AppError::Config("不能将智能网关 Auto 卡设为直连上游".to_string()));
     }
+    if !upstream.enabled {
+        return Err(AppError::Config("已暂停的上游不能设为直连".to_string()));
+    }
 
     let now = chrono::Utc::now().timestamp_millis();
     let has_v34 = bindings_have_v34(conn);
@@ -3334,6 +3360,7 @@ mod tests {
         current_profile, delete_profile, delete_upstream, ensure_profile_for_target,
         is_gateway_connection, get_upstream_provider, list_upstream_models,
         list_direct_bindings_for_upstream, list_profiles, list_upstream_providers,
+        set_upstream_enabled,
         migrate_v33_to_v34, provider_from_upstream, rollback_v34, set_binding_profile,
         set_direct_binding, set_gateway_binding, upstream_endpoint_key,
         upstream_identity_dedup_key, upsert_binding, upsert_upstream,
@@ -4234,6 +4261,60 @@ mod tests {
             assert_eq!(b_remigrated.mode, BINDING_MODE_DIRECT);
             assert_eq!(b_remigrated.entry_token, "gwt_initial_token");
 
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    fn sample_upstream(id: &str, name: &str) -> ProviderInput {
+        ProviderInput {
+            id: Some(id.to_string()),
+            name: name.to_string(),
+            base_url: "https://api.example.com/v1".to_string(),
+            api_key: String::new(),
+            clear_api_key: false,
+            model: "demo-model".to_string(),
+            model_context_window: None,
+            auto_review_model_override: None,
+            web_search_enabled: None,
+            model_mapping: ClaudeModelMapping::default(),
+            protocol_type: ProtocolType::Anthropic,
+            provider_kind: ProviderKind::Standard,
+            auth_binding: String::new(),
+            target_app: ProviderTarget::ClaudeCode,
+            notes: String::new(),
+            failover_group: 0,
+            failover_models: Vec::new(),
+            hidden_models: Vec::new(),
+            thinking_config: None,
+            custom_headers: None,
+        }
+    }
+
+    #[test]
+    fn paused_upstream_leaves_routing_and_blocks_new_direct() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let created = upsert_upstream(conn, &sample_upstream("up_pause", "Pause Me"))?;
+            assert!(created.enabled);
+            assert_eq!(list_upstream_providers(conn, false)?.len(), 1);
+
+            let paused = set_upstream_enabled(conn, &created.id, false)?;
+            assert!(!paused.enabled);
+            assert!(list_upstream_providers(conn, false)?.is_empty());
+            let listed = list_upstream_providers(conn, true)?;
+            assert_eq!(listed.len(), 1);
+            assert!(!listed[0].enabled);
+
+            let edited = upsert_upstream(conn, &sample_upstream("up_pause", "Renamed"))?;
+            assert_eq!(edited.name, "Renamed");
+            assert!(!edited.enabled, "saving an upstream must keep its pause");
+            assert!(set_direct_binding(conn, ProviderTarget::ClaudeCode, &created.id).is_err());
+
+            let resumed = set_upstream_enabled(conn, &created.id, true)?;
+            assert!(resumed.enabled);
+            assert_eq!(list_upstream_providers(conn, false)?.len(), 1);
+            assert!(set_direct_binding(conn, ProviderTarget::ClaudeCode, &created.id).is_ok());
             Ok(())
         })
         .unwrap();

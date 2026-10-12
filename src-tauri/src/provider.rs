@@ -1006,6 +1006,13 @@ pub struct Provider {
     /// Parsed from last health probe detail (`|latency_ms=N`).
     #[serde(default)]
     pub health_latency_ms: Option<u64>,
+    /// Upstream pool switch. Paused rows stay listed and drop out of routing.
+    #[serde(default = "default_provider_enabled")]
+    pub enabled: bool,
+}
+
+fn default_provider_enabled() -> bool {
+    true
 }
 
 impl Provider {
@@ -1413,6 +1420,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         };
         assert!(provider.requires_local_proxy());
     }
@@ -1446,6 +1454,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         };
         assert!(!provider.requires_local_proxy());
     }
@@ -1479,6 +1488,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         };
         assert!(!provider.requires_local_proxy());
     }
@@ -1517,6 +1527,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 
@@ -1629,6 +1640,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 

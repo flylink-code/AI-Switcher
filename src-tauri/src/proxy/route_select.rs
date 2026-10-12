@@ -28,7 +28,13 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state.db.with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target)).ok().flatten();
     let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
-        desktop_alias::canonical_request(requested_model, &entries, &providers)
+        let canonical = desktop_alias::canonical_request(requested_model, &entries, &providers);
+        if desktop_alias::is_unmapped_desktop_request(&canonical, &entries) {
+            return Err(GatewaySelectionError::Catalog(
+                crate::catalog::CatalogRequestError::StalePublicId(canonical),
+            ));
+        }
+        canonical
     } else {
         requested_model.trim().to_string()
     };
@@ -175,8 +181,15 @@ fn prepare_upstream_request(
     incoming_stream: bool,
     client_model: &str,
 ) -> AppResult<PreparedUpstreamRequest> {
-    let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("");
-    provider.model = resolve_upstream_model(provider, requested_model);
+    let requested_model = incoming.get("model").and_then(Value::as_str).unwrap_or("").trim();
+    if provider.is_smart_gateway() {
+        let concrete = !crate::gateway::is_auto_model_id(requested_model);
+        if concrete {
+            provider.model = requested_model.to_string();
+        }
+    } else {
+        provider.model = resolve_upstream_model(provider, requested_model);
+    }
     let image_gen = state.request_path.contains("/images/generations");
     let endpoint_path = if image_gen {
         "/v1/images/generations"

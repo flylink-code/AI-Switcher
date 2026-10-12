@@ -729,6 +729,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 
@@ -765,6 +766,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         };
         let value = managed_provider_value(&provider, &[]);
         assert_eq!(value["options"]["baseURL"], "http://127.0.0.1:15830/v1");

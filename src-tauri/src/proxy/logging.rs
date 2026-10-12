@@ -514,6 +514,7 @@ mod tests {
             health_status: None,
             health_checked_at: None,
             health_latency_ms: None,
+            enabled: true,
         }
     }
 
@@ -1289,6 +1290,38 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn smart_gateway_rewrite_keeps_requested_model_unless_auto() {
+        let mut gateway = provider(ProtocolType::Anthropic);
+        gateway.provider_kind = ProviderKind::SmartGateway;
+        gateway.model = "claude.sub2api.gpt-6-astra".into();
+        let alias = "anthropic/aisw-0123456789";
+        let incoming = serde_json::json!({
+            "model": alias,
+            "max_tokens": 32,
+            "messages": [{"role": "user", "content": "hello"}],
+        });
+        let original = Bytes::from(serde_json::to_vec(&incoming).unwrap());
+        let kept = rewrite_body(&gateway, &original);
+        let kept: Value = serde_json::from_slice(&kept).unwrap();
+        assert_eq!(kept["model"], alias);
+
+        for auto_id in ["auto", "claude.auto", ""] {
+            let mut body = incoming.clone();
+            body["model"] = serde_json::json!(auto_id);
+            let bytes = Bytes::from(serde_json::to_vec(&body).unwrap());
+            let filled = rewrite_body(&gateway, &bytes);
+            let filled: Value = serde_json::from_slice(&filled).unwrap();
+            assert_eq!(filled["model"], "claude.sub2api.gpt-6-astra", "{auto_id:?}");
+        }
+
+        let mut standard = provider(ProtocolType::Anthropic);
+        standard.model = "opus-upstream".into();
+        let replaced = rewrite_body(&standard, &original);
+        let replaced: Value = serde_json::from_slice(&replaced).unwrap();
+        assert_eq!(replaced["model"], "opus-upstream");
     }
 
     #[test]
