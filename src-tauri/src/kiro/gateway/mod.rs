@@ -5,6 +5,7 @@ mod handlers;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{any, get, post};
 use axum::Router;
 use serde::Serialize;
@@ -251,6 +252,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<KiroGatewayStatus> {
         .route("/v1/messages", any(handlers::anthropic_messages))
         .route("/v1/chat/completions", any(handlers::openai_chat))
         .route("/v1/responses", any(handlers::openai_responses))
+        .layer(DefaultBodyLimit::max(crate::proxy::LOCAL_LISTENER_BODY_LIMIT))
         .with_state(state)
         .layer(CorsLayer::permissive());
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();

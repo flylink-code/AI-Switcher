@@ -355,14 +355,53 @@ fn anthropic_images(content: Option<&Value>) -> Vec<Value> {
         .collect()
 }
 
-fn extra_fields(incoming: &Value, backend_model: &str) -> Option<Value> {
-    if !thinking_requested(incoming)
-        && !incoming
-            .get("model")
+/// Models confirmed to accept `additionalModelRequestFields`.
+/// Haiku 4.5, Sonnet 4.5/4.8/5.5 and unknown ids return
+/// `additionalModelRequestFields is not supported for this model`.
+fn model_supports_kiro_reasoning(model_id: &str) -> bool {
+    matches!(
+        model_id.to_ascii_lowercase().as_str(),
+        "gpt-5.6-sol"
+            | "gpt-5.6-terra"
+            | "gpt-5.6-luna"
+            | "claude-opus-4.6"
+            | "claude-opus-4.7"
+            | "claude-opus-4.8"
+            | "claude-sonnet-4.6"
+            | "claude-sonnet-5"
+            | "claude-fable-5"
+            | "claude-mythos-5"
+    )
+}
+
+fn model_uses_gpt_reasoning(model_id: &str) -> bool {
+    matches!(
+        model_id.to_ascii_lowercase().as_str(),
+        "gpt-5.6-sol" | "gpt-5.6-terra" | "gpt-5.6-luna"
+    )
+}
+
+fn kiro_reasoning_requested(incoming: &Value, model_id: &str) -> bool {
+    let thinking_type = incoming
+        .pointer("/thinking/type")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    if thinking_type.eq_ignore_ascii_case("disabled") {
+        return false;
+    }
+    // Opus 4.6 only accepts the field on adaptive thinking.
+    if model_id.eq_ignore_ascii_case("claude-opus-4.6") {
+        return thinking_type.eq_ignore_ascii_case("adaptive");
+    }
+    thinking_requested(incoming)
+        || incoming
+            .pointer("/output_config/effort")
             .and_then(|item| item.as_str())
-            .unwrap_or("")
-            .to_ascii_lowercase()
-            .ends_with("-thinking")
+            .is_some_and(|effort| !effort.trim().is_empty())
+}
+
+fn extra_fields(incoming: &Value, backend_model: &str) -> Option<Value> {
+    if !model_supports_kiro_reasoning(backend_model) || !kiro_reasoning_requested(incoming, backend_model)
     {
         return None;
     }
@@ -377,7 +416,7 @@ fn extra_fields(incoming: &Value, backend_model: &str) -> Option<Value> {
             _ => "high",
         }
     };
-    if backend_model.starts_with("gpt") {
+    if model_uses_gpt_reasoning(backend_model) {
         Some(json!({"reasoning": {"effort": effort}}))
     } else {
         Some(json!({"output_config": {"effort": effort}}))
@@ -643,7 +682,8 @@ pub fn responses_json(client_model: &str, reply: &CollectedReply) -> Value {
         }],
         "usage": {
             "input_tokens": reply.input_tokens,
-            "output_tokens": reply.output_tokens
+            "output_tokens": reply.output_tokens,
+            "total_tokens": reply.input_tokens.saturating_add(reply.output_tokens)
         }
     })
 }
@@ -715,6 +755,44 @@ mod tests {
             "high"
         );
         assert!(prepared.body["additionalModelRequestFields"].get("outputConfig").is_none());
+    }
+
+    #[test]
+    fn unsupported_models_omit_additional_model_request_fields() {
+        for model in ["claude-haiku-4.5", "claude-sonnet-4.5", "claude-sonnet-5.5", "glm-5"] {
+            let incoming = json!({
+                "model": model,
+                "thinking": {"type": "enabled", "budget_tokens": 8000},
+                "messages": [{"role":"user","content":"think"}]
+            });
+            let prepared = prepare(WireProtocol::Anthropic, &incoming, &account()).unwrap();
+            assert!(
+                prepared.body.get("additionalModelRequestFields").is_none(),
+                "{model} must not send additionalModelRequestFields"
+            );
+        }
+    }
+
+    #[test]
+    fn opus_4_6_effort_requires_adaptive_thinking() {
+        let enabled = json!({
+            "model": "claude-opus-4.6",
+            "thinking": {"type": "enabled", "budget_tokens": 8000},
+            "messages": [{"role":"user","content":"think"}]
+        });
+        let prepared = prepare(WireProtocol::Anthropic, &enabled, &account()).unwrap();
+        assert!(prepared.body.get("additionalModelRequestFields").is_none());
+
+        let adaptive = json!({
+            "model": "claude-opus-4.6",
+            "thinking": {"type": "adaptive", "budget_tokens": 8000},
+            "messages": [{"role":"user","content":"think"}]
+        });
+        let prepared = prepare(WireProtocol::Anthropic, &adaptive, &account()).unwrap();
+        assert_eq!(
+            prepared.body["additionalModelRequestFields"]["output_config"]["effort"],
+            "high"
+        );
     }
 
     #[test]

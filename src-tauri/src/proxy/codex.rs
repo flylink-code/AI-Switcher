@@ -9,7 +9,7 @@ use axum::extract::State;
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use bytes::Bytes;
-use futures_util::StreamExt;
+use futures_util::{stream, StreamExt};
 use serde_json::Value;
 
 use crate::catalog::{openai_models_payload, rewrite_json_model};
@@ -18,7 +18,8 @@ use crate::database::dao::proxy_logs::{update_proxy_log_usage_idempotent, ProxyR
 use crate::provider::{api_endpoint_url, ProtocolType, Provider};
 
 use super::codex_anthropic::{
-    anthropic_response_to_responses, anthropic_version_header, parse_anthropic_sse_frame,
+    anthropic_response_to_responses, anthropic_version_header, ensure_response_usage_fields,
+    ensure_responses_sse_usage, parse_anthropic_sse_frame,
     responses_request_to_anthropic_messages, AnthropicSseToResponsesConverter,
 };
 use super::codex_chat::{
@@ -605,6 +606,9 @@ pub async fn codex_proxy_handler(
         if is_hop_by_hop_header(name.as_str()) {
             continue;
         }
+        if is_streaming && name.as_str().eq_ignore_ascii_case("content-length") {
+            continue;
+        }
         resp_builder = resp_builder.header(name, value);
     }
 
@@ -655,6 +659,7 @@ pub async fn codex_proxy_handler(
                 });
             }
         }
+        let response_bytes = ensure_responses_json_usage(response_bytes);
         return resp_builder
             .header(header::CONTENT_TYPE, "application/json")
             .body(Body::from(response_bytes))
@@ -667,11 +672,19 @@ pub async fn codex_proxy_handler(
     let history = Arc::clone(&state.codex_history);
     let mut sse_buffer = Vec::new();
     let mut history_buffer = Vec::new();
+    let mut outbound_buffer = Vec::new();
     let mut current_response_id = None;
     let target_app = state.target.as_str().to_string();
     let provider_id = provider.id.clone();
-    let stream = upstream.bytes_stream().map(move |chunk| match chunk {
-        Ok(bytes) => {
+    let stream = upstream
+        .bytes_stream()
+        .map(|chunk| match chunk {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(_) => Err(()),
+        })
+        .chain(stream::once(async { Ok(None) }))
+        .map(move |chunk| match chunk {
+        Ok(Some(bytes)) => {
             history_buffer.extend_from_slice(&bytes);
             while let Some(block) = super::codex_history::take_sse_block(&mut history_buffer) {
                 if let Ok(text) = std::str::from_utf8(&block) {
@@ -708,9 +721,19 @@ pub async fn codex_proxy_handler(
                     });
                 }
             }
-            Ok::<Bytes, Infallible>(bytes)
+            outbound_buffer.extend_from_slice(&bytes);
+            Ok::<Bytes, Infallible>(Bytes::from(drain_responses_frames(&mut outbound_buffer)))
         }
-        Err(_) => {
+        Ok(None) => {
+            if !outbound_buffer.is_empty()
+                && !outbound_buffer.ends_with(b"\n\n")
+                && !outbound_buffer.ends_with(b"\r\n\r\n")
+            {
+                outbound_buffer.extend_from_slice(b"\n\n");
+            }
+            Ok(Bytes::from(drain_responses_frames(&mut outbound_buffer)))
+        }
+        Err(()) => {
             if let Some(id) = log_id.as_deref() {
                 let _ = db.with_conn(|conn| {
                     crate::database::dao::proxy_logs::update_proxy_log_stream_outcome(
@@ -728,6 +751,28 @@ pub async fn codex_proxy_handler(
             Body::from_stream(stream), body_db, body_log_id,
         ))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn ensure_responses_json_usage(bytes: Bytes) -> Bytes {
+    let Ok(mut value) = serde_json::from_slice::<Value>(&bytes) else {
+        return bytes;
+    };
+    let before = value.clone();
+    ensure_response_usage_fields(&mut value);
+    if value == before {
+        return bytes;
+    }
+    Bytes::from(serde_json::to_vec(&value).unwrap_or_else(|_| bytes.to_vec()))
+}
+
+fn drain_responses_frames(buffer: &mut Vec<u8>) -> Vec<u8> {
+    let mut emitted = Vec::new();
+    while let Some(block) = super::codex_history::take_sse_block(buffer) {
+        let rewritten = ensure_responses_sse_usage(&block);
+        emitted.extend_from_slice(&rewritten);
+        emitted.extend_from_slice(b"\n\n");
+    }
+    emitted
 }
 
 fn next_codex_failover_provider(

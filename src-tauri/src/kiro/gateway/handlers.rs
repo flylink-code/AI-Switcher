@@ -118,8 +118,15 @@ async fn handle(
             return error_response(protocol, StatusCode::GATEWAY_TIMEOUT, &message);
         }
         let text = String::from_utf8_lossy(&reply.body);
-        let class = classify_upstream(reply.status, &text, false);
-        if should_force_refresh(reply.status, &text, refreshed) {
+        // 2xx bodies are binary event-stream; classifying them would turn a
+        // successful reply into a client error.
+        let upstream_ok = (200..300).contains(&reply.status);
+        let class = if upstream_ok {
+            FailureClass::Rotate
+        } else {
+            classify_upstream(reply.status, &text, false)
+        };
+        if !upstream_ok && should_force_refresh(reply.status, &text, refreshed) {
             refreshed = true;
             match ensure_access_token(&account, true).await {
                 Ok(updated) => {
@@ -132,7 +139,7 @@ async fn handle(
                 }
             }
         }
-        if reply.status == 401 || class == FailureClass::Auth {
+        if !upstream_ok && (reply.status == 401 || class == FailureClass::Auth) {
             log_failure(&state, &headers, &incoming, protocol, started, 401, "auth");
             return error_response(
                 protocol,
@@ -140,17 +147,18 @@ async fn handle(
                 "Kiro 鉴权失败",
             );
         }
-        if class == FailureClass::Client {
+        if !upstream_ok && class == FailureClass::Client {
             log_failure(&state, &headers, &incoming, protocol, started, reply.status as i64, "client");
             return error_response(protocol, StatusCode::BAD_REQUEST, &text.chars().take(400).collect::<String>());
         }
-        if matches!(class, FailureClass::Rotate | FailureClass::CoolAndRotate | FailureClass::Disable)
+        if !upstream_ok
+            && matches!(class, FailureClass::Rotate | FailureClass::CoolAndRotate | FailureClass::Disable)
             && attempts < max_attempts
         {
             state.pool.note_failure(&account.id, class);
             continue;
         }
-        if !(200..300).contains(&reply.status) {
+        if !upstream_ok {
             let status = if reply.status == 429 {
                 StatusCode::TOO_MANY_REQUESTS
             } else if reply.status == 504 {

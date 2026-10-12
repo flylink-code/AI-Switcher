@@ -5,6 +5,7 @@ mod handlers;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{any, get};
 use axum::Router;
 use serde::Serialize;
@@ -517,6 +518,7 @@ pub async fn start_gateway(port: Option<u16>) -> AppResult<AntigravityGatewaySta
             "/images/generations",
             any(handlers::openai_images_generations),
         )
+        .layer(DefaultBodyLimit::max(crate::proxy::LOCAL_LISTENER_BODY_LIMIT))
         .with_state(state)
         .layer(CorsLayer::permissive());
 

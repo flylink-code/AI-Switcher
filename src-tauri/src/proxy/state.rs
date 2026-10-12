@@ -156,6 +156,7 @@ impl ProxyManager {
         };
 
         let app = app
+            .layer(DefaultBodyLimit::max(LOCAL_LISTENER_BODY_LIMIT))
             .layer(CorsLayer::permissive())
             .with_state(state);
 
@@ -320,6 +321,7 @@ pub fn smart_gateway_router(db: Arc<Database>, port: u16) -> Router {
         .route("/v1/responses/compact", any(smart_gateway_openai_handler))
         .route("/responses/compact", any(smart_gateway_openai_handler))
         .route("/v1/images/generations", any(proxy_handler))
+        .layer(DefaultBodyLimit::max(LOCAL_LISTENER_BODY_LIMIT))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }

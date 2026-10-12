@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 use std::convert::Infallible;
 
 use axum::body::Body;
-use axum::extract::{Path, State};
+use axum::extract::{DefaultBodyLimit, Path, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
@@ -60,6 +60,9 @@ use crate::provider::{
 };
 
 const DEFAULT_PORT: u16 = 15821;
+/// Codex turns with tools exceed Axum's 2MB default and the client then
+/// reports `error sending request` before the handler runs.
+pub(crate) const LOCAL_LISTENER_BODY_LIMIT: usize = 64 * 1024 * 1024;
 const LOG_RETENTION_DAYS_KEY: &str = "proxy_log_retention_days";
 const LOG_MAX_ROWS_KEY: &str = "proxy_log_max_rows";
 const LOG_AUTO_MAINTAIN_KEY: &str = "proxy_log_auto_maintain";

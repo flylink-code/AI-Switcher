@@ -510,7 +510,6 @@ fn write_catalog_entries(entries: &[CatalogEntry]) -> AppResult<()> {
             let mut value = codex_model_catalog_entry(
                 &entry.public_id,
                 entry.context_window,
-                entry.anthropic_upstream,
                 entry.web_search_enabled,
                 1 + index as i64,
             );
@@ -537,7 +536,6 @@ fn write_catalog_entries(entries: &[CatalogEntry]) -> AppResult<()> {
 fn codex_model_catalog_entry(
     model: &str,
     context_window: u64,
-    anthropic_upstream: bool,
     web_search_enabled: bool,
     priority: i64,
 ) -> Value {
@@ -571,8 +569,9 @@ fn codex_model_catalog_entry(
         "default_reasoning_summary": summary,
         "support_verbosity": true,
         "default_verbosity": verbosity,
-        "apply_patch_tool_type": if anthropic_upstream { "structured" } else { "freeform" },
-        "web_search_tool_type": if web_search_enabled { "text_and_image" } else { "disabled" },
+        // Current Codex rejects any other variant and refuses the whole catalog.
+        "apply_patch_tool_type": "freeform",
+        "web_search_tool_type": if web_search_enabled { "text_and_image" } else { "text" },
         "truncation_policy": {
             "mode": "tokens",
             "limit": 10000
@@ -1238,7 +1237,6 @@ mod tests {
             let entry = codex_model_catalog_entry(
                 "gpt-5",
                 effective_model_context_window(&provider),
-                false,
                 true,
                 1,
             );
@@ -1252,9 +1250,9 @@ mod tests {
     fn anthropic_upstream_catalog_disables_incompatible_codex_tools() {
         let temp = tempfile::tempdir().unwrap();
         with_isolated_codex_home(temp.path(), || {
-            let entry = codex_model_catalog_entry("claude-sonnet", 272_000, true, false, 1);
-            assert_eq!(entry["apply_patch_tool_type"], "structured");
-            assert_eq!(entry["web_search_tool_type"], "disabled");
+            let entry = codex_model_catalog_entry("claude-sonnet", 272_000, false, 1);
+            assert_eq!(entry["apply_patch_tool_type"], "freeform");
+            assert_eq!(entry["web_search_tool_type"], "text");
             assert_eq!(entry["supports_search_tool"], false);
         });
     }
@@ -1268,11 +1266,10 @@ mod tests {
             let entry = codex_model_catalog_entry(
                 &provider.model,
                 effective_model_context_window(&provider),
-                false,
                 provider.web_search_enabled.unwrap_or(true),
                 1,
             );
-            assert_eq!(entry["web_search_tool_type"], "disabled");
+            assert_eq!(entry["web_search_tool_type"], "text");
             assert_eq!(entry["supports_search_tool"], false);
         });
     }
@@ -1303,7 +1300,7 @@ mod tests {
     fn catalog_advertises_fast_mode_for_sol() {
         let temp = tempfile::tempdir().unwrap();
         with_isolated_codex_home(temp.path(), || {
-            let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, false, true, 1);
+            let entry = codex_model_catalog_entry("gpt-5.6-sol", 272_000, true, 1);
             assert_eq!(entry["service_tiers"][0]["id"], "fast");
             assert_eq!(entry["additional_speed_tiers"][0], "fast");
             assert!(model_supports_codex_fast("gpt-6-astra"));
@@ -1388,7 +1385,7 @@ mod tests {
         with_isolated_codex_home(root.path(), || {
         fs::write(root.path().join("config.toml"), "").unwrap();
         set_output_profile(CodexOutputProfile::Full, false).unwrap();
-        let entry = codex_model_catalog_entry("gpt-6-astra", 272_000, false, true, 1);
+        let entry = codex_model_catalog_entry("gpt-6-astra", 272_000, true, 1);
         assert_eq!(entry["default_verbosity"], "high");
         assert_eq!(entry["default_reasoning_summary"], "detailed");
         });

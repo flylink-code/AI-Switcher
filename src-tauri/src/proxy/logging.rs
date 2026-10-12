@@ -518,6 +518,31 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn smart_gateway_accepts_request_larger_than_axum_default() {
+        use tower::ServiceExt;
+        let db = Arc::new(Database::memory().unwrap());
+        let body = format!(
+            r#"{{"model":"gemini-3.8-flash","input":"{}","stream":true}}"#,
+            "x".repeat(3 * 1024 * 1024)
+        );
+        let request = http::Request::builder()
+            .method("POST")
+            .uri("/v1/responses")
+            .header("content-type", "application/json")
+            .body(Body::from(body))
+            .unwrap();
+        let response = tokio::time::timeout(
+            Duration::from_secs(10),
+            smart_gateway_router(db, 0).oneshot(request),
+        )
+        .await
+        .expect("router timed out")
+        .expect("router failed");
+        assert_ne!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
     pub(super) fn circuit_test_state() -> ProxyState {
         ProxyState {
             db: Arc::new(Database::memory().unwrap()),

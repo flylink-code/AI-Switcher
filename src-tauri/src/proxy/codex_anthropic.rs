@@ -139,6 +139,12 @@ pub fn anthropic_response_to_responses(body: &Value) -> Value {
     }
     if let Some(usage) = body.get("usage") {
         result["usage"] = anthropic_usage_to_responses(usage);
+    } else {
+        result["usage"] = json!({
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        });
     }
     result
 }
@@ -166,9 +172,11 @@ fn anthropic_usage_to_responses(usage: &Value) -> Value {
         .and_then(Value::as_i64)
         .unwrap_or(0);
     let total_input = input_tokens.saturating_add(cache_read);
+    let output_tokens = usage.get("output_tokens").and_then(Value::as_i64).unwrap_or(0);
     let mut result = json!({
         "input_tokens": total_input,
-        "output_tokens": usage.get("output_tokens").and_then(Value::as_i64).unwrap_or(0),
+        "output_tokens": output_tokens,
+        "total_tokens": total_input.saturating_add(output_tokens),
     });
     if cache_read > 0 {
         result["input_tokens_details"] = json!({"cached_tokens": cache_read});
@@ -364,6 +372,105 @@ fn copy_if_present(from: &Value, to: &mut Value, key: &str) {
     }
 }
 
+/// Codex 0.162 rejects `response.completed` unless `usage.total_tokens` is present.
+pub(crate) fn ensure_response_usage_fields(value: &mut Value) {
+    let kind = value.get("type").and_then(Value::as_str).unwrap_or("");
+    if kind == "response.completed" || kind == "response.incomplete" {
+        if let Some(response) = value.get_mut("response") {
+            fill_responses_usage(response);
+        }
+        return;
+    }
+    if value.get("object").and_then(Value::as_str) == Some("response") {
+        fill_responses_usage(value);
+    }
+}
+
+fn fill_responses_usage(response: &mut Value) {
+    let Some(object) = response.as_object_mut() else {
+        return;
+    };
+    let usage = object.entry("usage").or_insert_with(|| {
+        json!({
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        })
+    });
+    let Some(usage) = usage.as_object_mut() else {
+        return;
+    };
+    let input = json_i64(usage.get("input_tokens"))
+        .or_else(|| json_i64(usage.get("prompt_tokens")))
+        .unwrap_or(0);
+    let output = json_i64(usage.get("output_tokens"))
+        .or_else(|| json_i64(usage.get("completion_tokens")))
+        .unwrap_or(0);
+    usage.entry("input_tokens").or_insert(json!(input));
+    usage.entry("output_tokens").or_insert(json!(output));
+    usage
+        .entry("total_tokens")
+        .or_insert(json!(input.saturating_add(output)));
+}
+
+fn json_i64(value: Option<&Value>) -> Option<i64> {
+    value.and_then(Value::as_i64).or_else(|| {
+        value
+            .and_then(Value::as_u64)
+            .and_then(|number| i64::try_from(number).ok())
+    })
+}
+
+/// Rewrite one SSE frame so a terminal Responses event carries `total_tokens`.
+/// Unchanged frames are returned as-is. The frame delimiter is not included.
+pub(crate) fn ensure_responses_sse_usage(block: &[u8]) -> Vec<u8> {
+    let Ok(text) = std::str::from_utf8(block) else {
+        return block.to_vec();
+    };
+    let Some((event, mut value)) = parse_sse_event(text) else {
+        return block.to_vec();
+    };
+    if event != "response.completed" && event != "response.incomplete" {
+        return block.to_vec();
+    }
+    let before = value.clone();
+    ensure_response_usage_fields(&mut value);
+    if value == before {
+        return block.to_vec();
+    }
+    let mut out = String::new();
+    out.push_str("event: ");
+    out.push_str(&event);
+    out.push('\n');
+    out.push_str("data: ");
+    out.push_str(&value.to_string());
+    out.into_bytes()
+}
+
+fn parse_sse_event(frame: &str) -> Option<(String, Value)> {
+    let mut event_type = None;
+    let mut data_lines = Vec::new();
+    for line in frame.lines() {
+        if let Some(value) = line.strip_prefix("event:") {
+            event_type = Some(value.trim());
+        } else if let Some(value) = line.strip_prefix("data:") {
+            let value = value.trim_start();
+            if !value.is_empty() {
+                data_lines.push(value);
+            }
+        }
+    }
+    let data = data_lines.join("\n");
+    if data.is_empty() || data == "[DONE]" {
+        return None;
+    }
+    let parsed = serde_json::from_str::<Value>(&data).ok()?;
+    let event_type = event_type
+        .map(str::to_string)
+        .or_else(|| parsed.get("type").and_then(Value::as_str).map(str::to_string))?;
+    Some((event_type, parsed))
+}
+
 pub(crate) fn push_responses_event(output: &mut String, event_type: &str, data: Value) {
     output.push_str("event: ");
     output.push_str(event_type);
@@ -371,6 +478,13 @@ pub(crate) fn push_responses_event(output: &mut String, event_type: &str, data: 
     output.push_str("data: ");
     output.push_str(&serde_json::to_string(&data).unwrap_or_else(|_| "{}".to_string()));
     output.push_str("\n\n");
+}
+
+struct PendingTool {
+    output_index: usize,
+    call_id: String,
+    name: String,
+    arguments: String,
 }
 
 /// Incrementally convert Anthropic Messages SSE into Responses SSE.
@@ -383,6 +497,9 @@ pub struct AnthropicSseToResponsesConverter {
     output_index: usize,
     content_index: usize,
     text_item_started: bool,
+    text_output_index: usize,
+    text: String,
+    tools: Vec<PendingTool>,
     tool_output_indices: std::collections::BTreeMap<usize, usize>,
     input_tokens: i64,
     cache_read_input_tokens: i64,
@@ -401,6 +518,9 @@ impl AnthropicSseToResponsesConverter {
             output_index: 0,
             content_index: 0,
             text_item_started: false,
+            text_output_index: 0,
+            text: String::new(),
+            tools: Vec::new(),
             tool_output_indices: std::collections::BTreeMap::new(),
             input_tokens: 0,
             cache_read_input_tokens: 0,
@@ -439,6 +559,20 @@ impl AnthropicSseToResponsesConverter {
                     Some("tool_use") => {
                         let output_index = self.output_index;
                         self.tool_output_indices.insert(index, output_index);
+                        self.tools.push(PendingTool {
+                            output_index,
+                            call_id: block
+                                .get("id")
+                                .and_then(Value::as_str)
+                                .unwrap_or("tool_call")
+                                .to_string(),
+                            name: block
+                                .get("name")
+                                .and_then(Value::as_str)
+                                .unwrap_or("tool")
+                                .to_string(),
+                            arguments: String::new(),
+                        });
                         self.output_index += 1;
                         push_responses_event(
                             &mut output,
@@ -468,6 +602,7 @@ impl AnthropicSseToResponsesConverter {
                         }
                         if let Some(text) = delta.get("text").and_then(Value::as_str).filter(|text| !text.is_empty())
                         {
+                            self.text.push_str(text);
                             push_responses_event(
                                 &mut output,
                                 "response.output_text.delta",
@@ -488,6 +623,13 @@ impl AnthropicSseToResponsesConverter {
                             .unwrap_or(self.output_index.saturating_sub(1));
                         if let Some(partial) = delta.get("partial_json").and_then(Value::as_str).filter(|value| !value.is_empty())
                         {
+                            if let Some(tool) = self
+                                .tools
+                                .iter_mut()
+                                .find(|tool| tool.output_index == output_index)
+                            {
+                                tool.arguments.push_str(partial);
+                            }
                             push_responses_event(
                                 &mut output,
                                 "response.function_call_arguments.delta",
@@ -550,15 +692,90 @@ impl AnthropicSseToResponsesConverter {
             "response.completed"
         };
         let total_input = self.input_tokens.saturating_add(self.cache_read_input_tokens);
+        let mut final_output = Vec::new();
+        if self.text_item_started || !self.text.is_empty() {
+            final_output.push((
+                self.text_output_index,
+                json!({
+                    "type": "message",
+                    "id": self.response_id.clone(),
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": self.text.clone()}],
+                }),
+            ));
+        }
+        for tool in &self.tools {
+            final_output.push((
+                tool.output_index,
+                json!({
+                    "type": "function_call",
+                    "call_id": tool.call_id,
+                    "name": tool.name,
+                    "arguments": tool.arguments,
+                    "status": "completed",
+                }),
+            ));
+        }
+        final_output.sort_by_key(|(index, _)| *index);
+        for (index, item) in &final_output {
+            if item.get("type").and_then(Value::as_str) == Some("message") {
+                let text = item
+                    .pointer("/content/0/text")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                push_responses_event(
+                    &mut output,
+                    "response.output_text.done",
+                    json!({
+                        "type": "response.output_text.done",
+                        "output_index": index,
+                        "content_index": 0,
+                        "text": text,
+                    }),
+                );
+                push_responses_event(
+                    &mut output,
+                    "response.content_part.done",
+                    json!({
+                        "type": "response.content_part.done",
+                        "output_index": index,
+                        "content_index": 0,
+                        "part": {"type": "output_text", "text": text},
+                    }),
+                );
+            } else if item.get("type").and_then(Value::as_str) == Some("function_call") {
+                push_responses_event(
+                    &mut output,
+                    "response.function_call_arguments.done",
+                    json!({
+                        "type": "response.function_call_arguments.done",
+                        "output_index": index,
+                        "arguments": item.get("arguments").and_then(Value::as_str).unwrap_or(""),
+                    }),
+                );
+            }
+            push_responses_event(
+                &mut output,
+                "response.output_item.done",
+                json!({
+                    "type": "response.output_item.done",
+                    "output_index": index,
+                    "item": item,
+                }),
+            );
+        }
+        let final_output: Vec<Value> = final_output.into_iter().map(|(_, item)| item).collect();
         let mut response = json!({
-            "id": self.response_id,
+            "id": self.response_id.clone(),
             "object": "response",
-            "status": self.status,
+            "status": self.status.clone(),
             "model": if self.model.is_empty() { &self.fallback_model } else { &self.model },
-            "output": [],
+            "output": final_output,
             "usage": {
                 "input_tokens": total_input,
                 "output_tokens": self.output_tokens,
+                "total_tokens": total_input.saturating_add(self.output_tokens),
             }
         });
         if self.cache_read_input_tokens > 0 {
@@ -634,6 +851,7 @@ impl AnthropicSseToResponsesConverter {
         if self.text_item_started {
             return;
         }
+        self.text_output_index = self.output_index;
         push_responses_event(
             output,
             "response.output_item.added",
@@ -660,17 +878,15 @@ impl AnthropicSseToResponsesConverter {
     }
 
     fn observe_usage(&mut self, usage: &Value) {
-        let input = usage.get("input_tokens").and_then(Value::as_i64).unwrap_or(0);
-        let cache = usage
-            .get("cache_read_input_tokens")
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
-        self.input_tokens = input;
-        self.cache_read_input_tokens = cache;
-        self.output_tokens = usage
-            .get("output_tokens")
-            .and_then(Value::as_i64)
-            .unwrap_or(self.output_tokens);
+        if let Some(input) = usage.get("input_tokens").and_then(Value::as_i64) {
+            self.input_tokens = input;
+        }
+        if let Some(cache) = usage.get("cache_read_input_tokens").and_then(Value::as_i64) {
+            self.cache_read_input_tokens = cache;
+        }
+        if let Some(output) = usage.get("output_tokens").and_then(Value::as_i64) {
+            self.output_tokens = output;
+        }
     }
 }
 
@@ -748,6 +964,7 @@ mod tests {
         assert_eq!(responses["usage"]["input_tokens"], 5);
         assert_eq!(responses["usage"]["input_tokens_details"]["cached_tokens"], 1);
         assert_eq!(responses["usage"]["output_tokens"], 5);
+        assert_eq!(responses["usage"]["total_tokens"], 10);
     }
 
     #[test]
@@ -787,7 +1004,22 @@ mod tests {
         assert!(start.contains("response.created"));
         assert!(delta.contains("response.output_text.delta"));
         assert!(delta.contains("\"delta\":\"Hi\""));
+        assert!(stop.contains("response.output_item.done"));
         assert!(stop.contains("response.completed"));
+        assert!(stop.contains("\"total_tokens\":1") || stop.contains("\"total_tokens\": 1"));
+        assert!(stop.contains("\"text\":\"Hi\""));
+    }
+
+    #[test]
+    fn responses_completed_without_total_tokens_is_filled() {
+        let block = b"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"object\":\"response\",\"status\":\"completed\",\"usage\":{\"input_tokens\":3,\"output_tokens\":4}}}";
+        let rewritten = String::from_utf8(ensure_responses_sse_usage(block)).unwrap();
+        assert!(rewritten.contains("\"total_tokens\":7"));
+        let unchanged = ensure_responses_sse_usage(b"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"x\"}");
+        assert_eq!(
+            unchanged,
+            b"event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"x\"}"
+        );
     }
 
     #[test]

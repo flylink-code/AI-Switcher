@@ -131,10 +131,21 @@ pub fn chat_response_to_responses(body: &Value, fallback_model: &str) -> Value {
         result["incomplete_details"] = json!({ "reason": "max_output_tokens" });
     }
     if let Some(usage) = body.get("usage") {
+        let input_tokens = usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0);
+        let output_tokens = usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0);
         result["usage"] = json!({
-            "input_tokens": usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0),
-            "output_tokens": usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0),
-            "total_tokens": usage.get("total_tokens").and_then(Value::as_i64).unwrap_or(0),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": usage
+                .get("total_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(input_tokens.saturating_add(output_tokens)),
+        });
+    } else {
+        result["usage"] = json!({
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
         });
     }
     result
@@ -152,6 +163,7 @@ pub struct ChatSseToResponsesConverter {
     started: bool,
     completed: bool,
     text_started: bool,
+    text: String,
 }
 
 impl ChatSseToResponsesConverter {
@@ -162,6 +174,7 @@ impl ChatSseToResponsesConverter {
             started: false,
             completed: false,
             text_started: false,
+            text: String::new(),
         }
     }
 
@@ -183,6 +196,7 @@ impl ChatSseToResponsesConverter {
         self.ensure_started(&mut out);
         let delta = chunk.pointer("/choices/0/delta").unwrap_or(&Value::Null);
         if let Some(text) = delta.get("content").and_then(Value::as_str).filter(|t| !t.is_empty()) {
+            self.text.push_str(text);
             self.emit_text_start(&mut out);
             push_responses_event(
                 &mut out,
@@ -278,18 +292,77 @@ impl ChatSseToResponsesConverter {
         } else {
             "completed"
         };
+        let text = std::mem::take(&mut self.text);
+        let output = if self.text_started || !text.is_empty() {
+            json!([{
+                "type": "message",
+                "id": self.response_id.clone(),
+                "role": "assistant",
+                "status": "completed",
+                "content": [{"type": "output_text", "text": text.clone()}],
+            }])
+        } else {
+            json!([])
+        };
         let mut response = json!({
-            "id": self.response_id,
+            "id": self.response_id.clone(),
             "object": "response",
             "status": status,
             "model": self.model.clone(),
-            "output": [],
+            "output": output,
         });
-        if let Some(usage) = usage {
-            response["usage"] = json!({
-                "input_tokens": usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0),
-                "output_tokens": usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0),
-            });
+        let (input_tokens, output_tokens, total_tokens) = if let Some(usage) = usage {
+            let input_tokens = usage.get("prompt_tokens").and_then(Value::as_i64).unwrap_or(0);
+            let output_tokens = usage.get("completion_tokens").and_then(Value::as_i64).unwrap_or(0);
+            let total_tokens = usage
+                .get("total_tokens")
+                .and_then(Value::as_i64)
+                .unwrap_or(input_tokens.saturating_add(output_tokens));
+            (input_tokens, output_tokens, total_tokens)
+        } else {
+            (0, 0, 0)
+        };
+        response["usage"] = json!({
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+        });
+        if self.text_started || !text.is_empty() {
+            push_responses_event(
+                out,
+                "response.output_text.done",
+                json!({
+                    "type": "response.output_text.done",
+                    "output_index": 0,
+                    "content_index": 0,
+                    "text": text.clone(),
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.content_part.done",
+                json!({
+                    "type": "response.content_part.done",
+                    "output_index": 0,
+                    "content_index": 0,
+                    "part": {"type": "output_text", "text": text.clone()},
+                }),
+            );
+            push_responses_event(
+                out,
+                "response.output_item.done",
+                json!({
+                    "type": "response.output_item.done",
+                    "output_index": 0,
+                    "item": {
+                        "type": "message",
+                        "id": self.response_id.clone(),
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": text.clone()}],
+                    },
+                }),
+            );
         }
         push_responses_event(
             out,
