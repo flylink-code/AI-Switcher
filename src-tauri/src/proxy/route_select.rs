@@ -50,6 +50,10 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let Some((provider_id, upstream)) = resolved else {
         return Ok(None);
     };
+    // Same-name models are one row: use the highest-priority source that is not cooling down.
+    let provider_id = crate::catalog::pick_available_source(&entries, &provider_id, &upstream, |id| {
+        crate::gateway::health::is_available(id, Some(&upstream))
+    });
     let Some(provider) = providers.into_iter().find(|item| item.id == provider_id) else {
         return Ok(None);
     };

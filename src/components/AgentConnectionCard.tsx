@@ -6,6 +6,7 @@ import {
   Radio,
   Select,
   Space,
+  Tag,
   Typography,
   message,
 } from "antd";
@@ -19,6 +20,7 @@ import { filterUiAgents } from "@/lib/agentVisibility";
 import {
   bindSmartGateway,
   getAgentConnectionMode,
+  getSmartGatewayStatus,
   listGatewayUpstreams,
   listSmartGatewayBindings,
   setAgentDirect,
@@ -176,6 +178,14 @@ export function AgentConnectionCard({
     queryKey: ["gateway-upstreams"],
     queryFn: listGatewayUpstreams,
   });
+
+  // Shared with the providers page; tells a gateway-bound Agent whether 15828 is up.
+  const gatewayStatusQuery = useQuery({
+    queryKey: ["smart-gateway-status"],
+    queryFn: getSmartGatewayStatus,
+    refetchInterval: 10_000,
+  });
+  const gatewayStatus = gatewayStatusQuery.data;
 
   const connectionModesQuery = useQuery({
     queryKey: ["agent-connection-modes"],
@@ -395,6 +405,21 @@ export function AgentConnectionCard({
                           { label: t("providers.modeOfficial", { defaultValue: "官方" }), value: "official" },
                         ]}
                       />
+                      {row.displayMode === "gateway" ? (
+                        gatewayStatus ? (
+                          <Tag
+                            color={gatewayStatus.running ? "success" : "warning"}
+                            style={{ marginInlineEnd: 0 }}
+                            title={gatewayStatus.running ? undefined : t("providers.gatewayStoppedHint")}
+                          >
+                            {gatewayStatus.running
+                              ? t("providers.statusGateway", { port: gatewayStatus.port })
+                              : t("providers.statusGatewayStopped", { port: gatewayStatus.port })}
+                          </Tag>
+                        ) : (
+                          <Tag style={{ marginInlineEnd: 0 }}>{t("providers.statusGatewayUnknown")}</Tag>
+                        )
+                      ) : null}
                       {isDirect && hasCompatibleDirect ? (
                         <Select
                           size="small"

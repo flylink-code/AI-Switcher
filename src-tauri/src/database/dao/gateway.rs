@@ -1460,6 +1460,64 @@ pub fn set_upstream_enabled(conn: &Connection, id: &str, enabled: bool) -> AppRe
     get_upstream_provider(conn, id)?.ok_or_else(|| AppError::Config(format!("上游不存在: {id}")))
 }
 
+/// Settings key: the user confirmed the account-login (reverse-proxy) providers.
+pub const LOCAL_GATEWAY_ENABLED_KEY: &str = "local_gateway_enabled";
+
+/// Account-login providers stay hidden until confirmed. Anyone who already uses
+/// them (a pool row of that kind, or saved AG / Kiro accounts) counts as enabled,
+/// so an upgrade never makes an existing row disappear.
+pub fn local_gateway_enabled_with(conn: &Connection, has_saved_accounts: bool) -> AppResult<bool> {
+    if crate::database::dao::settings::get_setting(conn, LOCAL_GATEWAY_ENABLED_KEY)?
+        .is_some_and(|value| matches!(value.trim(), "true" | "1"))
+    {
+        return Ok(true);
+    }
+    if has_saved_accounts {
+        return Ok(true);
+    }
+    Ok(list_upstream_providers(conn, true)?.iter().any(|provider| {
+        matches!(
+            provider.provider_kind,
+            ProviderKind::Antigravity | ProviderKind::Kiro | ProviderKind::CodexOauth
+        )
+    }))
+}
+
+/// Rewrite `sort_index` (0..n) so the pool order matches `ordered_ids`.
+/// Unknown / duplicate ids are ignored; upstreams not listed keep their relative
+/// order after the listed ones. The managed smart-gateway card is never touched.
+pub fn reorder_upstreams(conn: &Connection, ordered_ids: &[String]) -> AppResult<()> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM upstreams
+          WHERE COALESCE(provider_kind, 'standard') != 'smart_gateway'
+          ORDER BY sort_index ASC, created_at ASC;",
+    )?;
+    let existing: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<_, _>>()?;
+    drop(stmt);
+
+    let mut final_order: Vec<String> = Vec::with_capacity(existing.len());
+    for id in ordered_ids {
+        let id = id.trim();
+        if existing.iter().any(|item| item == id) && !final_order.iter().any(|item| item == id) {
+            final_order.push(id.to_string());
+        }
+    }
+    for id in &existing {
+        if !final_order.contains(id) {
+            final_order.push(id.clone());
+        }
+    }
+    for (index, id) in final_order.iter().enumerate() {
+        conn.execute(
+            "UPDATE upstreams SET sort_index = ? WHERE id = ?;",
+            params![index as i64, id],
+        )?;
+    }
+    Ok(())
+}
+
 pub fn provider_from_upstream(
     conn: &Connection,
     id: &str,
@@ -3354,8 +3412,10 @@ pub fn list_route_rules(conn: &Connection, profile_id: &str) -> AppResult<Vec<Ro
 
 #[cfg(test)]
 mod tests {
-    use rusqlite::params;
+    use rusqlite::{params, Connection};
+    use crate::error::AppResult;
     use super::{
+        local_gateway_enabled_with, reorder_upstreams, LOCAL_GATEWAY_ENABLED_KEY,
         assert_upstream_deletable, binding_by_token, binding_for_target, create_profile,
         current_profile, delete_profile, delete_upstream, ensure_profile_for_target,
         is_gateway_connection, get_upstream_provider, list_upstream_models,
@@ -4289,6 +4349,58 @@ mod tests {
             thinking_config: None,
             custom_headers: None,
         }
+    }
+
+    #[test]
+    fn local_gateway_is_off_until_confirmed_or_already_in_use() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            assert!(!local_gateway_enabled_with(conn, false)?);
+            upsert_upstream(conn, &sample_upstream("up_plain", "Plain"))?;
+            assert!(!local_gateway_enabled_with(conn, false)?, "API key rows do not count");
+            assert!(local_gateway_enabled_with(conn, true)?, "saved accounts count");
+
+            let mut kiro = sample_upstream("up_kiro_15831", "Kiro");
+            kiro.provider_kind = ProviderKind::Kiro;
+            upsert_upstream(conn, &kiro)?;
+            assert!(local_gateway_enabled_with(conn, false)?, "an existing Kiro row counts");
+            Ok(())
+        })
+        .unwrap();
+
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            crate::database::dao::settings::set_setting(conn, LOCAL_GATEWAY_ENABLED_KEY, "true")?;
+            assert!(local_gateway_enabled_with(conn, false)?);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reorder_upstreams_rewrites_priority_and_new_ones_go_last() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            for (id, name) in [("up_a", "A"), ("up_b", "B"), ("up_c", "C")] {
+                upsert_upstream(conn, &sample_upstream(id, name))?;
+            }
+            let ids = |conn: &Connection| -> AppResult<Vec<String>> {
+                Ok(list_upstream_providers(conn, true)?
+                    .into_iter()
+                    .map(|provider| provider.id)
+                    .collect())
+            };
+            assert_eq!(ids(conn)?, ["up_a", "up_b", "up_c"]);
+
+            reorder_upstreams(conn, &["up_c".into(), "up_a".into(), "ghost".into(), "up_c".into()])?;
+            // Unlisted `up_b` keeps its place after the listed ones.
+            assert_eq!(ids(conn)?, ["up_c", "up_a", "up_b"]);
+
+            upsert_upstream(conn, &sample_upstream("up_d", "D"))?;
+            assert_eq!(ids(conn)?, ["up_c", "up_a", "up_b", "up_d"]);
+            Ok(())
+        })
+        .unwrap();
     }
 
     #[test]

@@ -9,6 +9,7 @@ const SCENARIOS = [
   "./scenarios/sg-regress-auto-current.mjs",
   "./scenarios/sg-p0-agent-proxy-hop.mjs",
   "./scenarios/sg-providers-pool-crud.mjs",
+  "./scenarios/sg-same-name-priority.mjs",
   "./scenarios/sg-agent-connection-card.mjs",
   "./scenarios/sg-gateway-ui-reliability.mjs",
   "./scenarios/sg-upstream-limits-ui.mjs",

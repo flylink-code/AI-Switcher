@@ -114,6 +114,19 @@ export async function listGatewayUpstreams(): Promise<Provider[]> {
   return call<Provider[]>("list_gateway_upstreams");
 }
 
+/** `orderedIds` is the new priority order; unlisted upstreams keep their relative order after it. */
+export async function reorderGatewayUpstreams(orderedIds: string[]): Promise<Provider[]> {
+  return call<Provider[]>("reorder_gateway_upstreams", { orderedIds });
+}
+
+export async function getLocalGatewayEnabled(): Promise<boolean> {
+  return call<boolean>("get_local_gateway_enabled");
+}
+
+export async function setLocalGatewayEnabled(enabled: boolean): Promise<boolean> {
+  return call<boolean>("set_local_gateway_enabled", { enabled });
+}
+
 export async function setGatewayUpstreamEnabled(id: string, enabled: boolean): Promise<Provider> {
   return call<Provider>("set_gateway_upstream_enabled", { id, enabled });
 }

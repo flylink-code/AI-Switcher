@@ -32,6 +32,7 @@ export function SmartGatewaySection() {
   const [busy, setBusy] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
   const [limitsOpen, setLimitsOpen] = useState(false);
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [snippetKind, setSnippetKind] = useState<SnippetKind>("sdk");
 
   const statusQuery = useQuery({
@@ -49,22 +50,15 @@ export function SmartGatewaySection() {
   const listenUrl = (status?.baseUrl ?? `http://127.0.0.1:${status?.port ?? port}`).replace(/\/+$/, "");
   const openaiUrl = `${listenUrl}/v1`;
 
-  const models = useMemo(() => {
-    const grouped = new Map<string, { label: string; sources: Set<string> }>();
-    for (const entry of catalogQuery.data ?? []) {
-      const key = entry.publicId || entry.displayName;
-      const current = grouped.get(key);
-      if (current) {
-        if (entry.providerName) current.sources.add(entry.providerName);
-      } else {
-        grouped.set(key, {
-          label: entry.displayName || entry.publicId,
-          sources: new Set(entry.providerName ? [entry.providerName] : []),
-        });
-      }
-    }
-    return [...grouped.entries()].map(([id, value]) => ({ id, label: value.label, sources: value.sources.size }));
-  }, [catalogQuery.data]);
+  // Same-name models arrive as one row; `sourceNames` is the call-priority order.
+  const models = useMemo(
+    () =>
+      (catalogQuery.data ?? []).map((entry) => {
+        const sources = entry.sourceNames?.length ? entry.sourceNames : entry.providerName ? [entry.providerName] : [];
+        return { id: entry.publicId || entry.displayName, label: entry.displayName || entry.publicId, sources };
+      }),
+    [catalogQuery.data],
+  );
 
   const curlSnippet = useMemo(() => {
     const key = apiKey || "sk-aisw-your-key";
@@ -154,12 +148,30 @@ export function SmartGatewaySection() {
       <GatewayUpstreamPanel allowlistTarget="claude_code" />
       <ExpandableSection title={t("providers.catalogModels", { count: models.length, defaultValue: "模型（{{count}}）" })}>
         <Space direction="vertical" size={4} style={{ width: "100%" }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t("providers.modelPriorityHint", {
+              defaultValue: "同名模型合并为一行，按供应商列表顺序调用；来源冷却时自动用下一个，请求失败不会换来源。",
+            })}
+          </Text>
           {models.map((model) => (
-            <div key={model.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-              <Text>{model.label}</Text>
-              {model.sources > 1 ? (
-                <Text type="secondary">
-                  {t("providers.modelSources", { count: model.sources, defaultValue: "{{count}} 个来源" })}
+            <div key={model.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <Text>{model.label}</Text>
+                {model.sources.length > 1 ? (
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, height: "auto" }}
+                    aria-expanded={expandedModel === model.id}
+                    onClick={() => setExpandedModel((current) => (current === model.id ? null : model.id))}
+                  >
+                    {t("providers.modelSources", { count: model.sources.length, defaultValue: "{{count}} 个来源" })}
+                  </Button>
+                ) : null}
+              </div>
+              {expandedModel === model.id ? (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {model.sources.map((name, index) => `${index + 1}. ${name}`).join("  →  ")}
                 </Text>
               ) : null}
             </div>

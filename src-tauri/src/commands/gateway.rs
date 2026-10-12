@@ -105,6 +105,59 @@ pub async fn set_gateway_upstream_enabled(
 }
 
 #[tauri::command]
+pub fn get_local_gateway_enabled(state: tauri::State<'_, AppState>) -> AppResult<bool> {
+    let has_saved_accounts = crate::antigravity::list_accounts()
+        .map(|accounts| !accounts.is_empty())
+        .unwrap_or(false)
+        || crate::kiro::list_accounts()
+            .map(|accounts| !accounts.is_empty())
+            .unwrap_or(false);
+    state
+        .db
+        .with_read_conn(|conn| {
+            crate::database::dao::gateway::local_gateway_enabled_with(conn, has_saved_accounts)
+        })
+}
+
+#[tauri::command]
+pub fn set_local_gateway_enabled(
+    enabled: bool,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<bool> {
+    state.db.with_conn(|conn| {
+        crate::database::dao::settings::set_setting(
+            conn,
+            crate::database::dao::gateway::LOCAL_GATEWAY_ENABLED_KEY,
+            if enabled { "true" } else { "false" },
+        )
+    })?;
+    Ok(enabled)
+}
+
+/// Pool order is the call priority for same-name models.
+#[tauri::command]
+pub async fn reorder_gateway_upstreams(
+    ordered_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<Provider>> {
+    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+    state
+        .db
+        .with_conn(|conn| crate::database::dao::gateway::reorder_upstreams(conn, &ordered_ids))?;
+    crate::catalog::invalidate_view_cache();
+    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    let mut providers = state
+        .db
+        .with_read_conn(|conn| list_upstream_providers(conn, true))?;
+    for provider in &mut providers {
+        if !provider.api_key.starts_with("kr://") {
+            provider.api_key = String::new();
+        }
+    }
+    Ok(providers)
+}
+
+#[tauri::command]
 pub async fn upsert_gateway_upstream(
     input: ProviderInput,
     app: tauri::AppHandle,

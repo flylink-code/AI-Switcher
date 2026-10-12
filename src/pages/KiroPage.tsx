@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button, Card, Empty, Popover, Skeleton, Space, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Empty, Input, Popover, Skeleton, Space, Tag, Typography, message } from "antd";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import LoginOutlined from "@ant-design/icons/es/icons/LoginOutlined";
 import ImportOutlined from "@ant-design/icons/es/icons/ImportOutlined";
 import QuestionCircleOutlined from "@ant-design/icons/es/icons/QuestionCircleOutlined";
@@ -22,6 +23,7 @@ import {
   startKiroGateway,
   startKiroSocialLogin,
   stopKiroGateway,
+  submitKiroLoginCallback,
   type KiroExitProxyInput,
   type KiroOutboundMode,
 } from "@/services/kiro";
@@ -60,6 +62,7 @@ export default function KiroPage() {
   const queryClient = useQueryClient();
   const [importOpen, setImportOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pastedCallback, setPastedCallback] = useState("");
 
   const accountsQuery = useQuery({
     queryKey: ["kiro-accounts"],
@@ -104,6 +107,15 @@ export default function KiroPage() {
     onSuccess: async (account) => {
       message.success(t("kiro.loginSuccess", { label: account.label || account.id }));
       await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
+  const pasteMutation = useMutation({
+    mutationFn: (url: string) => submitKiroLoginCallback(url),
+    onSuccess: async (nextUrl) => {
+      setPastedCallback("");
+      if (nextUrl) await openUrl(nextUrl);
     },
     onError: (error: unknown) => message.error(errMsg(error), 10),
   });
@@ -231,6 +243,29 @@ export default function KiroPage() {
           </Button>
         </Space>
       </div>
+
+      {socialMutation.isPending ? (
+        <Alert
+          type="info"
+          showIcon
+          message={t("kiro.pasteCallbackTitle")}
+          description={
+            <Space direction="vertical" style={{ width: "100%" }} size={8}>
+              <Text type="secondary">{t("kiro.pasteCallbackHint")}</Text>
+              <Input.Search
+                value={pastedCallback}
+                onChange={(event) => setPastedCallback(event.target.value)}
+                placeholder="http://localhost:3128/oauth/callback?code=…&state=…"
+                enterButton={t("kiro.pasteCallbackSubmit")}
+                loading={pasteMutation.isPending}
+                onSearch={(value) => {
+                  if (value.trim()) pasteMutation.mutate(value.trim());
+                }}
+              />
+            </Space>
+          }
+        />
+      ) : null}
 
       <Text type="secondary" style={{ fontSize: "var(--font-size-xs)" }}>
         {t("kiro.scopeHint")}

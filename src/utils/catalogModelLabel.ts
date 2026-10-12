@@ -70,19 +70,19 @@ function providerFromDisplayName(displayName: string): string {
 /** Short UI label for a catalog publicId. Stored values stay the full id. */
 export function catalogModelView(source: CatalogModelLabelSource): CatalogModelView {
   const publicId = String(source.publicId || "").trim();
-  if (!publicId || publicId.toLowerCase() === "auto") {
-    return {
-      short: publicId || "auto",
-      provider: "",
-      title: "auto",
-      searchText: "auto",
-    };
+  if (!publicId) {
+    return { short: "", provider: "", title: "", searchText: "" };
   }
   const displayName = String(source.displayName || "").trim();
   const provider =
     String(source.providerName || "").trim() || providerFromDisplayName(displayName);
+  // Catalog display names are bare model names; older ones were "Provider · model".
+  const bareDisplayName = displayName && !displayName.includes(DISPLAY_SEP) ? displayName : "";
   const short =
-    slugFromDisplayName(displayName) || stripKnownProviderPrefix(publicId, provider) || publicId;
+    slugFromDisplayName(displayName) ||
+    bareDisplayName ||
+    stripKnownProviderPrefix(publicId, provider) ||
+    publicId;
   const title =
     provider && provider.toLowerCase() !== short.toLowerCase()
       ? `${provider}${DISPLAY_SEP}${short}`

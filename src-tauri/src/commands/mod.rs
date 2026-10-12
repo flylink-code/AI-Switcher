@@ -56,7 +56,7 @@ pub use kiro::{
     probe_kiro_exit_latency, probe_kiro_exit_proxy, refresh_kiro_account_quota, refresh_kiro_quotas,
     remove_kiro_account, set_kiro_exit_proxy, set_kiro_gateway_api_key, set_kiro_gateway_port,
     set_kiro_outbound_proxy, start_kiro_builder_id_login, start_kiro_gateway, start_kiro_social_login,
-    stop_kiro_gateway, test_kiro_account,
+    stop_kiro_gateway, submit_kiro_login_callback, test_kiro_account,
 };
 pub use claude_plugins::{
     add_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,
@@ -152,6 +152,7 @@ pub use gateway::{
     discover_gateway_upstream_models_batch, get_agent_connection, 
     import_gateway_upstreams_from_providers,  
     list_gateway_upstream_models, list_gateway_upstreams, set_agent_connection,
+    reorder_gateway_upstreams, get_local_gateway_enabled, set_local_gateway_enabled,
     set_gateway_upstream_enabled, set_gateway_upstream_model_visible,   upsert_gateway_upstream,
     get_smart_gateway_status, set_smart_gateway_port, set_smart_gateway_api_key,
     rotate_smart_gateway_api_key, start_smart_gateway, stop_smart_gateway,

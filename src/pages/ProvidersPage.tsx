@@ -1,52 +1,50 @@
-import { Segmented, Space } from "antd";
+import { Space } from "antd";
 import { useTranslation } from "react-i18next";
-import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { DetailDrawer } from "@/components/common/DetailDrawer";
 import AntigravityPage from "@/pages/AntigravityPage";
 import KiroPage from "@/pages/KiroPage";
 import { ChatGptSection } from "@/pages/providers/ChatGptSection";
 import { SmartGatewaySection } from "@/pages/providers/SmartGatewaySection";
-import type { ProvidersTab, ReverseGatewayTab } from "@/stores/pagePreferencesStore";
+import { useProviderAccountsStore } from "@/stores/providerAccountsStore";
+import type { ProviderAccountKind } from "@/stores/providerAccountsStore";
 
 export default function ProvidersPage() {
   const { t } = useTranslation();
-  const tab = usePagePreferencesStore((state) => state.providersTab);
-  const setTab = usePagePreferencesStore((state) => state.setProvidersTab);
-  const reverseTab = usePagePreferencesStore((state) => state.reverseTab);
-  const setReverseTab = usePagePreferencesStore((state) => state.setReverseTab);
+  const drawer = useProviderAccountsStore((state) => state.drawer);
+  const closeDrawer = useProviderAccountsStore((state) => state.closeDrawer);
 
   return (
     <Space direction="vertical" size={16} style={{ width: "100%" }}>
-      <Segmented<ProvidersTab>
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: "smart", label: t("gateway.tabSmart", { defaultValue: "智能网关" }) },
-          { value: "reverse", label: t("gateway.tabAntigravity", { defaultValue: "反代网关" }) },
-        ]}
-      />
-      {tab === "smart" ? (
-        <SmartGatewaySection />
-      ) : (
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
-          <Segmented<ReverseGatewayTab>
-            size="small"
-            value={reverseTab}
-            onChange={setReverseTab}
-            options={[
-              { value: "antigravity", label: t("gateway.reverseAntigravity", { defaultValue: "Antigravity" }) },
-              { value: "kiro", label: t("gateway.reverseKiro", { defaultValue: "Kiro" }) },
-              { value: "chatgpt", label: "ChatGPT" },
-            ]}
-          />
-          <ReverseBody tab={reverseTab} />
-        </Space>
-      )}
+      <SmartGatewaySection />
+      <DetailDrawer
+        open={drawer != null}
+        title={drawer ? accountDrawerTitle(drawer, t) : ""}
+        onClose={closeDrawer}
+        width={720}
+      >
+        {drawer ? <AccountDrawerBody kind={drawer} /> : null}
+      </DetailDrawer>
     </Space>
   );
 }
 
-function ReverseBody({ tab }: { tab: ReverseGatewayTab }) {
-  switch (tab) {
+function accountDrawerTitle(kind: ProviderAccountKind, t: ReturnType<typeof useTranslation>["t"]): string {
+  switch (kind) {
+    case "antigravity":
+      return t("gateway.reverseAntigravity", { defaultValue: "Antigravity" });
+    case "kiro":
+      return t("gateway.reverseKiro", { defaultValue: "Kiro" });
+    case "chatgpt":
+      return "ChatGPT / Codex";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function AccountDrawerBody({ kind }: { kind: ProviderAccountKind }) {
+  switch (kind) {
     case "antigravity":
       return <AntigravityPage embedded />;
     case "kiro":
@@ -54,7 +52,7 @@ function ReverseBody({ tab }: { tab: ReverseGatewayTab }) {
     case "chatgpt":
       return <ChatGptSection />;
     default: {
-      const _exhaustive: never = tab;
+      const _exhaustive: never = kind;
       return _exhaustive;
     }
   }

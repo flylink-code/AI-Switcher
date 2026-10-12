@@ -79,6 +79,31 @@ pub fn public_id_for_listed(listed: &str, entries: &[CatalogEntry]) -> Option<St
 /// Settings key that remembers the model Desktop last used successfully.
 const SELECTED_SETTING: &str = "claude_desktop_selected_model";
 
+/// Marks which catalog id scheme the stored selection belongs to.
+const ID_SCHEME_SETTING: &str = "catalog_id_scheme";
+/// Scheme 2: same-name models merged and `claude.<model>` ids (no provider segment).
+const ID_SCHEME: &str = "2";
+
+/// Aliases are hashes of the public id, so the id scheme change (provider segment
+/// dropped, same-name models merged) orphans the remembered alias. Forget it once;
+/// the user picks a model again in Desktop. Later startups leave the selection alone.
+pub fn reset_selection_for_catalog_id_scheme(db: &Database) {
+    let current = db
+        .with_read_conn(|conn| get_setting(conn, ID_SCHEME_SETTING))
+        .ok()
+        .flatten();
+    if current.as_deref() == Some(ID_SCHEME) {
+        return;
+    }
+    let _ = db.with_conn(|conn| {
+        set_setting(conn, SELECTED_SETTING, "")?;
+        set_setting(conn, ID_SCHEME_SETTING, ID_SCHEME)
+    });
+    if let Ok(mut slot) = LAST_SELECTED.lock() {
+        *slot = None;
+    }
+}
+
 static LAST_SELECTED: Mutex<Option<String>> = Mutex::new(None);
 
 pub fn last_selected(db: &Database) -> Option<String> {
@@ -208,7 +233,29 @@ mod tests {
             context_window: 200_000,
             anthropic_upstream: false,
             web_search_enabled: false,
+            alt_provider_ids: Vec::new(),
         }
+    }
+
+    #[test]
+    fn id_scheme_migration_clears_the_old_selection_once() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| set_setting(conn, SELECTED_SETTING, "anthropic/aisw-0000000001"))
+            .unwrap();
+        reset_selection_for_catalog_id_scheme(&db);
+        let stored = db
+            .with_read_conn(|conn| get_setting(conn, SELECTED_SETTING))
+            .unwrap();
+        assert_eq!(stored.as_deref(), Some(""));
+
+        // A selection made after the migration survives later startups.
+        db.with_conn(|conn| set_setting(conn, SELECTED_SETTING, "anthropic/aisw-0000000002"))
+            .unwrap();
+        reset_selection_for_catalog_id_scheme(&db);
+        let stored = db
+            .with_read_conn(|conn| get_setting(conn, SELECTED_SETTING))
+            .unwrap();
+        assert_eq!(stored.as_deref(), Some("anthropic/aisw-0000000002"));
     }
 
     #[test]

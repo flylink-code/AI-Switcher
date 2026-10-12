@@ -326,12 +326,6 @@ fn gateway_live_entry(
         .map(|entry| entry.public_id.clone())
         .collect();
     let mut live = template.clone();
-    if let Some(auto) = catalog
-        .iter()
-        .find(|entry| catalog::is_auto_public_id(&entry.public_id))
-    {
-        live.model_context_window = Some(auto.context_window);
-    }
     live.base_url = match live.protocol_type {
         ProtocolType::Anthropic => {
             if target == ProviderTarget::OpenCode {
@@ -350,7 +344,9 @@ fn gateway_live_entry(
             .map(|entry| entry.public_id.clone())
             .unwrap_or_default()
     } else {
-        normalized
+        // A saved id from before same-name models were merged becomes today's id.
+        let providers: Vec<Provider> = pairs.iter().map(|(provider, _)| provider.clone()).collect();
+        catalog::canonical_public_id(&catalog, &providers, &normalized).unwrap_or(normalized)
     };
     Ok((live, extra))
 }

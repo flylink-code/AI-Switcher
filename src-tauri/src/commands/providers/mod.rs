@@ -103,6 +103,9 @@ pub struct GatewayCatalogModelOption {
     pub public_id: String,
     pub display_name: String,
     pub provider_name: String,
+    /// Providers that publish this model, highest priority first.
+    #[serde(default)]
+    pub source_names: Vec<String>,
     #[serde(default)]
     pub context_window: u64,
     #[serde(default)]
@@ -161,13 +164,10 @@ fn catalog_public_ids_for(state: &AppState, target: ProviderTarget) -> AppResult
     let style = catalog::catalog_style_for(target);
     let pairs = load_gateway_pairs(state, target)?;
     let hide_official = catalog::hide_official(state.db.as_ref(), target);
-    Ok(catalog::with_auto_public_ids(
-        style,
-        build_catalog_with(style, &pairs, hide_official)
-            .into_iter()
-            .map(|entry| entry.public_id)
-            .collect(),
-    ))
+    Ok(build_catalog_with(style, &pairs, hide_official)
+        .into_iter()
+        .map(|entry| entry.public_id)
+        .collect())
 }
 
 fn saved_smart_gateway_port(state: &AppState) -> u16 {
@@ -219,22 +219,19 @@ pub fn list_gateway_catalog_entries(
         .iter()
         .map(|(provider, _)| (provider.id.clone(), provider.name.clone()))
         .collect();
-    let mut options: Vec<GatewayCatalogModelOption> = vec![GatewayCatalogModelOption {
-        provider_name: "Auto".to_string(),
-        public_id: "auto".to_string(),
-        display_name: "Auto".to_string(),
-        context_window: 0,
-        web_search_enabled: false,
-        vision_enabled: false,
-        reasoning_levels: vec!["off".into(), "low".into(), "medium".into(), "high".into()],
-    }];
-    options.extend(build_catalog_with(style, &pairs, hide_official).into_iter().map(|entry| {
+    let options = build_catalog_with(style, &pairs, hide_official).into_iter().map(|entry| {
         let inferred = crate::gateway::metadata::infer(&entry.public_id);
+        // Highest-priority source first; the rest only matter while it cools down.
+        let source_names: Vec<String> = std::iter::once(&entry.provider_id)
+            .chain(entry.alt_provider_ids.iter())
+            .filter_map(|id| names.get(id).cloned())
+            .collect();
         GatewayCatalogModelOption {
             provider_name: names
                 .get(&entry.provider_id)
                 .cloned()
                 .unwrap_or_else(|| entry.display_name.clone()),
+            source_names,
             public_id: entry.public_id,
             display_name: entry.display_name,
             context_window: entry.context_window,
@@ -247,8 +244,8 @@ pub fn list_gateway_catalog_entries(
                 inferred.reasoning_levels
             },
         }
-    }));
-    Ok(options)
+    });
+    Ok(options.collect())
 }
 
 

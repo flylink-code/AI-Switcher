@@ -186,6 +186,10 @@ pub struct CatalogEntry {
     pub context_window: u64,
     pub anthropic_upstream: bool,
     pub web_search_enabled: bool,
+    /// Lower-priority providers that publish the same model name, in pool order.
+    /// `provider_id` is the highest-priority source; these are only used when it
+    /// is cooling down. Empty for models with a single source.
+    pub alt_provider_ids: Vec<String>,
 }
 
 pub fn provider_slug(name: &str, id: &str) -> String {
@@ -278,15 +282,26 @@ pub fn build_catalog_with(
     hide_official: bool,
 ) -> Vec<CatalogEntry> {
     let mut taken = BTreeSet::new();
-    let mut entries = Vec::new();
+    let mut entries: Vec<CatalogEntry> = Vec::new();
+    // Same model name from several providers is one catalog row. `providers` is in
+    // pool order, so the first provider to publish a name owns the row.
+    let mut row_by_model: HashMap<String, usize> = HashMap::new();
     for (provider, cached) in providers {
         let slug = provider_slug(&provider.name, &provider.id);
         let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
         let web_search_enabled = !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
         for upstream in collect_provider_slugs_with(provider, cached, hide_official) {
             let (slug_id, _) = crate::provider::split_model_window_label(&upstream);
+            if let Some(&row) = row_by_model.get(&slug_id.to_ascii_lowercase()) {
+                let owner = &mut entries[row];
+                if owner.provider_id != provider.id && !owner.alt_provider_ids.contains(&provider.id) {
+                    owner.alt_provider_ids.push(provider.id.clone());
+                }
+                continue;
+            }
             let context_window = crate::provider::context_window_for_model(provider, &upstream);
             let public_id = unique_public_id(style, &slug_id, &slug, &mut taken);
+            row_by_model.insert(slug_id.to_ascii_lowercase(), entries.len());
             entries.push(CatalogEntry {
                 public_id,
                 display_name: format!("{} · {}", provider.name.trim(), slug_id),
@@ -295,6 +310,7 @@ pub fn build_catalog_with(
                 context_window,
                 anthropic_upstream,
                 web_search_enabled,
+                alt_provider_ids: Vec::new(),
             });
         }
     }
@@ -306,166 +322,10 @@ pub const AUTO_PUBLIC_ID: &str = "auto";
 /// Claude Code `/v1/models` Auto id; must contain `claude` to pass discovery.
 pub const CLAUDE_AUTO_PUBLIC_ID: &str = "claude.auto";
 
-pub fn auto_public_id(style: CatalogStyle) -> &'static str {
-    match style {
-        CatalogStyle::Claude => CLAUDE_AUTO_PUBLIC_ID,
-        CatalogStyle::Codex => AUTO_PUBLIC_ID,
-    }
-}
-
 pub fn is_auto_public_id(id: &str) -> bool {
     let trimmed = id.trim();
     trimmed.eq_ignore_ascii_case(AUTO_PUBLIC_ID)
         || trimmed.eq_ignore_ascii_case(CLAUDE_AUTO_PUBLIC_ID)
-}
-
-/// Fallback when no route-mode slot has a model. Claude Code also defaults here.
-pub const DEFAULT_DISCOVERY_CONTEXT_WINDOW: u64 = 200_000;
-
-const AUTO_WINDOW_MODE_IDS: &[&str] = &[
-    "default",
-    "long_context",
-    "think",
-    "plan",
-    "background",
-];
-
-#[allow(dead_code)]
-pub fn auto_catalog_entry(style: CatalogStyle) -> CatalogEntry {
-    auto_catalog_entry_with_window(style, DEFAULT_DISCOVERY_CONTEXT_WINDOW)
-}
-
-fn auto_catalog_entry_with_window(style: CatalogStyle, context_window: u64) -> CatalogEntry {
-    CatalogEntry {
-        public_id: auto_public_id(style).to_string(),
-        display_name: "Auto".to_string(),
-        upstream_slug: AUTO_PUBLIC_ID.to_string(),
-        provider_id: String::new(),
-        context_window: context_window.max(1),
-        anthropic_upstream: false,
-        web_search_enabled: false,
-    }
-}
-
-pub fn with_auto_entry(style: CatalogStyle, entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
-    with_auto_entry_from_modes(style, entries, &[])
-}
-
-/// Insert Auto (and Claude official roles) using the smallest enabled slot window
-/// so Claude Code occupancy / auto-compact never assume a larger context than
-/// the cheapest route-mode model can actually serve.
-pub fn with_auto_entry_from_modes(
-    style: CatalogStyle,
-    mut entries: Vec<CatalogEntry>,
-    modes: &[gateway::RouteMode],
-) -> Vec<CatalogEntry> {
-    let auto_window = min_enabled_mode_window(modes, &entries);
-    entries.retain(|entry| !is_auto_public_id(&entry.public_id));
-    entries.insert(0, auto_catalog_entry_with_window(style, auto_window));
-    if style == CatalogStyle::Claude {
-        ensure_claude_role_windows(&mut entries, modes, auto_window);
-    }
-    entries
-}
-
-fn min_enabled_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
-    let mut min_window: Option<u64> = None;
-    for mode in modes {
-        if !AUTO_WINDOW_MODE_IDS.contains(&mode.id.as_str()) {
-            continue;
-        }
-        if !mode.enabled || mode.model.trim().is_empty() {
-            continue;
-        }
-        let window = window_for_mode_model(entries, &mode.model);
-        if window > 0 {
-            min_window = Some(min_window.map_or(window, |current| current.min(window)));
-        }
-        for fallback in &mode.fallback_models {
-            if fallback.trim().is_empty() {
-                continue;
-            }
-            let window = window_for_mode_model(entries, fallback);
-            if window > 0 {
-                min_window = Some(min_window.map_or(window, |current| current.min(window)));
-            }
-        }
-    }
-    min_window.unwrap_or(DEFAULT_DISCOVERY_CONTEXT_WINDOW)
-}
-
-fn window_for_mode_model(entries: &[CatalogEntry], model: &str) -> u64 {
-    let trimmed = model.trim();
-    if trimmed.is_empty() {
-        return 0;
-    }
-    if let Some(entry) = entries.iter().find(|entry| {
-        entry.public_id.eq_ignore_ascii_case(trimmed)
-            || entry.upstream_slug.eq_ignore_ascii_case(trimmed)
-    }) {
-        return entry.context_window;
-    }
-    let slug = trimmed.rsplit('.').next().unwrap_or(trimmed);
-    if slug != trimmed {
-        if let Some(entry) = entries
-            .iter()
-            .find(|entry| entry.upstream_slug.eq_ignore_ascii_case(slug))
-        {
-            return entry.context_window;
-        }
-    }
-    crate::gateway::metadata::context_window_for(trimmed)
-}
-
-fn background_mode_window(modes: &[gateway::RouteMode], entries: &[CatalogEntry]) -> u64 {
-    modes
-        .iter()
-        .find(|mode| mode.id == "background" && mode.enabled && !mode.model.trim().is_empty())
-        .map(|mode| window_for_mode_model(entries, &mode.model))
-        .filter(|window| *window > 0)
-        .unwrap_or(DEFAULT_DISCOVERY_CONTEXT_WINDOW)
-}
-
-fn ensure_claude_role_windows(
-    entries: &mut Vec<CatalogEntry>,
-    modes: &[gateway::RouteMode],
-    auto_window: u64,
-) {
-    let haiku_window = background_mode_window(modes, entries);
-    upsert_claude_role_entry(
-        entries,
-        CLAUDE_HAIKU_ROLE_ID,
-        "Haiku / subagent",
-        haiku_window,
-    );
-    upsert_claude_role_entry(entries, CLAUDE_SONNET_ROLE_ID, "Sonnet", auto_window);
-    upsert_claude_role_entry(entries, CLAUDE_OPUS_ROLE_ID, "Opus", auto_window);
-    upsert_claude_role_entry(entries, CLAUDE_FABLE_ROLE_ID, "Fable", auto_window);
-}
-
-fn upsert_claude_role_entry(
-    entries: &mut Vec<CatalogEntry>,
-    public_id: &str,
-    display_name: &str,
-    window: u64,
-) {
-    let window = window.max(1);
-    if let Some(entry) = entries
-        .iter_mut()
-        .find(|entry| entry.public_id.eq_ignore_ascii_case(public_id))
-    {
-        entry.context_window = window;
-        return;
-    }
-    entries.push(CatalogEntry {
-        public_id: public_id.to_string(),
-        display_name: display_name.to_string(),
-        upstream_slug: public_id.to_string(),
-        provider_id: String::new(),
-        context_window: window,
-        anthropic_upstream: false,
-        web_search_enabled: false,
-    });
 }
 
 fn claude_role_stem(id: &str) -> String {
@@ -520,12 +380,6 @@ pub fn is_explicit_catalog_passthrough(entries: &[CatalogEntry], requested: &str
             && (entry.public_id.eq_ignore_ascii_case(requested)
                 || entry.upstream_slug.eq_ignore_ascii_case(requested))
     })
-}
-
-pub fn with_auto_public_ids(style: CatalogStyle, mut ids: Vec<String>) -> Vec<String> {
-    ids.retain(|id| !is_auto_public_id(id));
-    ids.insert(0, auto_public_id(style).to_string());
-    ids
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -613,11 +467,32 @@ pub fn resolve_request_strict(
             resolve_upstream_model(first, requested),
         )));
     }
-    if let Some(stripped) = strip_claude_alias(requested) {
-        if let Some(entry) = entries
+    // Ids issued before same-name models were merged (`claude.<provider>.<model>`
+    // or `<provider>.<model>`) keep resolving to the merged row.
+    // A provider-qualified id still pins that provider when it is a source of the model.
+    let qualified = requested.strip_prefix("claude.").unwrap_or(requested);
+    if let Some((first, model)) = qualified.split_once('.') {
+        if let Some(provider) = providers
             .iter()
-            .find(|entry| entry.upstream_slug.eq_ignore_ascii_case(stripped))
+            .find(|p| provider_slug(&p.name, &p.id).eq_ignore_ascii_case(first))
         {
+            if let Some(entry) = entries.iter().find(|entry| {
+                entry.upstream_slug.eq_ignore_ascii_case(model)
+                    && (entry.provider_id == provider.id
+                        || entry.alt_provider_ids.contains(&provider.id))
+            }) {
+                return Ok(Some((provider.id.clone(), entry.upstream_slug.clone())));
+            }
+        }
+    }
+    let legacy_candidates = claude_alias_candidates(requested)
+        .into_iter()
+        .chain(provider_qualified_model(requested, providers));
+    for candidate in legacy_candidates {
+        if let Some(entry) = entries.iter().find(|entry| {
+            !entry.provider_id.trim().is_empty()
+                && entry.upstream_slug.eq_ignore_ascii_case(candidate)
+        }) {
             return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
         }
     }
@@ -646,6 +521,52 @@ pub fn resolve_request_strict(
         resolve_upstream_model(first, requested),
     )))
 }
+/// Same-name models are one catalog row owned by the highest-priority provider.
+/// While that owner is cooling down, use the next source that is available. When
+/// none is, keep the owner so the caller sees its real error. Never changes the
+/// model, and is only a pre-flight choice: a failed request is not retried here.
+pub fn pick_available_source(
+    entries: &[CatalogEntry],
+    provider_id: &str,
+    upstream_slug: &str,
+    is_available: impl Fn(&str) -> bool,
+) -> String {
+    if is_available(provider_id) {
+        return provider_id.to_string();
+    }
+    entries
+        .iter()
+        .find(|entry| entry.provider_id == provider_id && entry.upstream_slug == upstream_slug)
+        .and_then(|entry| entry.alt_provider_ids.iter().find(|id| is_available(id)))
+        .cloned()
+        .unwrap_or_else(|| provider_id.to_string())
+}
+
+/// Today's public id for a saved model id, when it names a published model under
+/// an older id scheme (`claude.<provider>.<model>`). `None` when the id is already
+/// current or does not name a catalog model.
+pub fn canonical_public_id(
+    entries: &[CatalogEntry],
+    providers: &[Provider],
+    saved: &str,
+) -> Option<String> {
+    let saved = saved.trim();
+    if saved.is_empty()
+        || is_auto_public_id(saved)
+        || entries.iter().any(|entry| entry.public_id.eq_ignore_ascii_case(saved))
+    {
+        return None;
+    }
+    let (provider_id, slug) = resolve_request_strict(entries, providers, saved).ok().flatten()?;
+    entries
+        .iter()
+        .find(|entry| {
+            entry.upstream_slug == slug
+                && (entry.provider_id == provider_id || entry.alt_provider_ids.contains(&provider_id))
+        })
+        .map(|entry| entry.public_id.clone())
+}
+
 /// Map a client-facing model id to `(provider_id, upstream_slug)`.
 pub fn resolve_request(
     entries: &[CatalogEntry],
@@ -982,6 +903,10 @@ fn is_explicit_visible_cached_model(provider: &Provider, cached: &[String], id: 
 fn catalog_model_stem(id: &str) -> &str {
     let trimmed = id.trim();
     if let Some(rest) = trimmed.strip_prefix("claude.") {
+        // `claude.<model>` where the model name itself has dots (`gpt-5.4`).
+        if is_official_openai_builtin(rest) {
+            return rest;
+        }
         if let Some((_, model)) = rest.split_once('.') {
             return model;
         }
@@ -1013,9 +938,12 @@ fn unique_public_id(
     provider_slug: &str,
     taken: &mut BTreeSet<String>,
 ) -> String {
+    // Same-name models are merged before this runs, so the model name is already
+    // unique; the provider slug is only a collision fallback. Claude discovery
+    // still needs `claude` / `anthropic` in the id, hence the bare `claude.` prefix.
     let preferred = match style {
         CatalogStyle::Claude if passes_claude_discovery(upstream) => upstream.to_string(),
-        CatalogStyle::Claude => format!("claude.{provider_slug}.{upstream}"),
+        CatalogStyle::Claude => format!("claude.{upstream}"),
         CatalogStyle::Codex => upstream.to_string(),
     };
     if taken.insert(preferred.clone()) {
@@ -1057,9 +985,27 @@ fn is_claude_role_request(requested: &str) -> bool {
         || normalized.contains("subagent")
 }
 
-fn strip_claude_alias(requested: &str) -> Option<&str> {
-    let rest = requested.strip_prefix("claude.")?;
-    rest.split_once('.').map(|(_, model)| model)
+/// Model-name candidates behind a `claude.` id: `claude.<model>` (current) and the
+/// older provider-qualified `claude.<provider>.<model>`. Model names may contain
+/// dots (`gpt-5.4`), so both readings are tried, whole name first.
+fn claude_alias_candidates(requested: &str) -> Vec<&str> {
+    let Some(rest) = requested.strip_prefix("claude.") else {
+        return Vec::new();
+    };
+    let mut candidates = vec![rest];
+    if let Some((_, model)) = rest.split_once('.') {
+        candidates.push(model);
+    }
+    candidates
+}
+
+/// Older Codex-style collision ids were `<provider>.<model>`.
+fn provider_qualified_model<'a>(requested: &'a str, providers: &[Provider]) -> Option<&'a str> {
+    let (first, model) = requested.split_once('.')?;
+    providers
+        .iter()
+        .any(|provider| provider_slug(&provider.name, &provider.id).eq_ignore_ascii_case(first))
+        .then_some(model)
 }
 
 fn uses_antigravity_catalog(provider: &Provider) -> bool {
@@ -1149,7 +1095,7 @@ mod tests {
     fn claude_non_claude_slugs_get_discovery_prefix() {
         let kimi = provider("p1", "Kimi", "kimi-k2");
         let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]);
-        assert_eq!(catalog[0].public_id, "claude.kimi.kimi-k2");
+        assert_eq!(catalog[0].public_id, "claude.kimi-k2");
         assert!(passes_claude_discovery(&catalog[0].public_id));
         assert_eq!(catalog[0].upstream_slug, "kimi-k2");
         assert_eq!(catalog[0].display_name, "Kimi · kimi-k2");
@@ -1173,21 +1119,103 @@ mod tests {
     }
 
     #[test]
-    fn claude_native_slugs_keep_original_id_until_collision() {
+    fn same_name_claude_models_merge_into_the_first_provider() {
         let first = provider("a", "Alpha", "claude-sonnet-4");
         let second = provider("b", "Beta", "claude-sonnet-4");
         let catalog = build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
+        assert_eq!(catalog.len(), 1, "same model name is one row");
         assert_eq!(catalog[0].public_id, "claude-sonnet-4");
-        assert_eq!(catalog[1].public_id, "claude.beta.claude-sonnet-4");
+        assert_eq!(catalog[0].provider_id, "a", "pool order decides the owner");
+        assert_eq!(catalog[0].alt_provider_ids, vec!["b".to_string()]);
     }
 
     #[test]
-    fn codex_colliding_slugs_get_provider_prefix() {
+    fn same_name_codex_models_merge_and_keep_a_bare_id() {
         let first = provider("a", "Alpha", "deepseek-v3");
-        let second = provider("b", "Beta", "deepseek-v3");
-        let catalog = build_catalog(CatalogStyle::Codex, &[(first, vec![]), (second, vec![])]);
+        let second = provider("b", "Beta", "DeepSeek-V3");
+        let third = provider("c", "Gamma", "deepseek-v3");
+        let catalog = build_catalog(
+            CatalogStyle::Codex,
+            &[(first, vec![]), (second, vec![]), (third, vec![])],
+        );
+        assert_eq!(catalog.len(), 1);
         assert_eq!(catalog[0].public_id, "deepseek-v3");
-        assert_eq!(catalog[1].public_id, "beta.deepseek-v3");
+        assert_eq!(catalog[0].provider_id, "a");
+        assert_eq!(
+            catalog[0].alt_provider_ids,
+            vec!["b".to_string(), "c".to_string()]
+        );
+    }
+
+    #[test]
+    fn model_names_with_dots_resolve_and_legacy_ids_still_work() {
+        let relay = provider("p1", "Relay", "gpt-5.4");
+        let kimi = provider("p2", "Kimi", "kimi-k2");
+        let providers = vec![relay.clone(), kimi.clone()];
+        let catalog = build_catalog(CatalogStyle::Claude, &[(relay, vec![]), (kimi, vec![])]);
+        assert_eq!(catalog[0].public_id, "claude.gpt-5.4");
+        assert_eq!(
+            resolve_request_strict(&catalog, &providers, "claude.gpt-5.4"),
+            Ok(Some(("p1".into(), "gpt-5.4".into())))
+        );
+        // Ids issued before same-name models were merged.
+        assert_eq!(
+            resolve_request_strict(&catalog, &providers, "claude.kimi.kimi-k2"),
+            Ok(Some(("p2".into(), "kimi-k2".into())))
+        );
+        assert_eq!(
+            resolve_request_strict(&catalog, &providers, "claude.relay.gpt-5.4"),
+            Ok(Some(("p1".into(), "gpt-5.4".into())))
+        );
+        let codex = build_catalog(
+            CatalogStyle::Codex,
+            &[(providers[0].clone(), vec![]), (providers[1].clone(), vec![])],
+        );
+        assert_eq!(
+            resolve_request_strict(&codex, &providers, "kimi.kimi-k2"),
+            Ok(Some(("p2".into(), "kimi-k2".into())))
+        );
+        assert_eq!(
+            canonical_public_id(&catalog, &providers, "claude.kimi.kimi-k2").as_deref(),
+            Some("claude.kimi-k2")
+        );
+        assert_eq!(canonical_public_id(&catalog, &providers, "claude.kimi-k2"), None);
+        assert_eq!(canonical_public_id(&catalog, &providers, "claude.auto"), None);
+        // A retired model is still rejected rather than sent to the first provider.
+        assert!(matches!(
+            resolve_request_strict(&catalog, &providers, "claude.gpt-5.9"),
+            Err(CatalogRequestError::StalePublicId(_))
+        ));
+    }
+
+    #[test]
+    fn cooling_owner_hands_a_same_name_model_to_the_next_available_source() {
+        let first = provider("a", "Alpha", "shared-model");
+        let second = provider("b", "Beta", "shared-model");
+        let third = provider("c", "Gamma", "shared-model");
+        let catalog = build_catalog(
+            CatalogStyle::Codex,
+            &[(first, vec![]), (second, vec![]), (third, vec![])],
+        );
+        let pick = |down: &[&str]| {
+            pick_available_source(&catalog, "a", "shared-model", |id| !down.contains(&id))
+        };
+        assert_eq!(pick(&[]), "a");
+        assert_eq!(pick(&["a"]), "b");
+        assert_eq!(pick(&["a", "b"]), "c");
+        assert_eq!(pick(&["a", "b", "c"]), "a", "all cooling: keep the owner");
+    }
+
+    #[test]
+    fn merged_same_name_model_resolves_to_the_highest_priority_provider() {
+        let first = provider("a", "Alpha", "shared-model");
+        let second = provider("b", "Beta", "shared-model");
+        let providers = vec![first.clone(), second.clone()];
+        let catalog = build_catalog(CatalogStyle::Codex, &[(first, vec![]), (second, vec![])]);
+        assert_eq!(
+            resolve_request_strict(&catalog, &providers, "shared-model"),
+            Ok(Some(("a".into(), "shared-model".into())))
+        );
     }
 
     #[test]
@@ -1197,7 +1225,7 @@ mod tests {
         let providers = vec![kimi.clone(), ds.clone()];
         let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![]), (ds, vec![])]);
         assert_eq!(
-            resolve_request(&catalog, &providers, "claude.kimi.kimi-k2"),
+            resolve_request(&catalog, &providers, "claude.kimi-k2"),
             Some(("p1".into(), "kimi-k2".into()))
         );
         assert_eq!(
@@ -1233,7 +1261,7 @@ mod tests {
             .expect("catalog keeps an explicitly saved 3.6-flash-low default");
         assert_eq!(
             public.public_id,
-            "claude.antigravity--built-in.gemini-3.6-flash-low"
+            "claude.gemini-3.6-flash-low"
         );
         assert_eq!(
             resolve_request(&catalog, &providers, &public.public_id),
@@ -1255,10 +1283,16 @@ mod tests {
 
     #[test]
     fn strict_resolver_rejects_ambiguous_raw_models() {
+        // `build_catalog` merges same-name models, so duplicates only reach the
+        // resolver from hand-built entries; it must still refuse to guess.
         let first = provider("a", "Alpha", "shared-model");
         let second = provider("b", "Beta", "shared-model");
         let providers = vec![first.clone(), second.clone()];
-        let entries = build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
+        let mut entries = build_catalog(CatalogStyle::Claude, &[(first, vec![])]);
+        let mut duplicate = entries[0].clone();
+        duplicate.provider_id = "b".into();
+        duplicate.public_id = "claude.beta.shared-model".into();
+        entries.push(duplicate);
 
         assert_eq!(
             resolve_request_strict(&entries, &providers, "shared-model"),
@@ -1297,7 +1331,7 @@ mod tests {
 
     #[test]
     fn rewrite_json_model_replaces_slug() {
-        let body = br#"{"model":"claude.kimi.kimi-k2","stream":true}"#;
+        let body = br#"{"model":"claude.kimi-k2","stream":true}"#;
         let rewritten = rewrite_json_model(body, "kimi-k2");
         let value: Value = serde_json::from_slice(&rewritten).unwrap();
         assert_eq!(value["model"], "kimi-k2");
@@ -1442,12 +1476,12 @@ mod tests {
                 &providers,
                 CLAUDE_HAIKU_ROLE_ID,
                 true,
-                Some("claude.kimi.kimi-k2"),
+                Some("claude.kimi-k2"),
                 false,
                 None,
                 None,
             ),
-            "claude.kimi.kimi-k2"
+            "claude.kimi-k2"
         );
     }
 
@@ -1472,13 +1506,13 @@ mod tests {
             &providers,
             CLAUDE_HAIKU_ROLE_ID,
             false,
-            Some("claude.antigravity--built-in.gemini-3.6-flash-low"),
+            Some("claude.gemini-3.6-flash-low"),
             false,
             None,
             None,
         );
         assert_eq!(
-            routed, "claude.antigravity--built-in.gemini-3.6-flash-low",
+            routed, "claude.gemini-3.6-flash-low",
             "Haiku/Explore must use the catalog subagent, not the current default high"
         );
     }
@@ -1547,8 +1581,8 @@ mod tests {
                 (kimi, vec!["kimi-k2".into()]),
             ],
         );
-        let plan = "claude.antigravity--built-in.gemini-3.8-flash-high";
-        let execute = "claude.kimi.kimi-k2";
+        let plan = "claude.gemini-3.8-flash-high";
+        let execute = "claude.kimi-k2";
         assert_eq!(
             normalize_client_request(
                 CatalogStyle::Claude,
@@ -1612,12 +1646,12 @@ mod tests {
                 &providers,
                 CLAUDE_HAIKU_ROLE_ID,
                 true,
-                Some("claude.kimi.kimi-k2"),
+                Some("claude.kimi-k2"),
                 false,
                 Some(plan),
-                Some("claude.antigravity--built-in.gemini-3.8-flash-high"),
+                Some("claude.gemini-3.8-flash-high"),
             ),
-            "claude.kimi.kimi-k2"
+            "claude.kimi-k2"
         );
         assert_eq!(
             normalize_client_request(
@@ -1656,15 +1690,14 @@ mod tests {
     }
 
     #[test]
-    fn claude_auto_public_id_passes_discovery() {
+    fn auto_ids_are_recognised_but_never_listed() {
+        assert!(is_auto_public_id("auto"));
+        assert!(is_auto_public_id(" Claude.Auto "));
+        assert!(!is_auto_public_id("claude.kimi-k2"));
+
         let kimi = provider("p1", "Kimi", "kimi-k2");
-        let catalog = with_auto_entry(
-            CatalogStyle::Claude,
-            build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]),
-        );
-        assert_eq!(catalog[0].public_id, CLAUDE_AUTO_PUBLIC_ID);
-        assert_eq!(catalog[0].display_name, "Auto");
-        assert!(passes_claude_discovery(&catalog[0].public_id));
+        let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]);
+        assert!(catalog.iter().all(|entry| !is_auto_public_id(&entry.public_id)));
         let payload = claude_discovery_payload(&catalog);
         let ids: Vec<&str> = payload["data"]
             .as_array()
@@ -1672,162 +1705,18 @@ mod tests {
             .iter()
             .map(|item| item["id"].as_str().unwrap())
             .collect();
-        assert_eq!(ids[0], CLAUDE_AUTO_PUBLIC_ID);
-        assert!(ids.contains(&"claude.kimi.kimi-k2"));
-        assert!(ids.contains(&CLAUDE_HAIKU_ROLE_ID));
-        assert!(ids.contains(&CLAUDE_SONNET_ROLE_ID));
-        assert!(ids.contains(&CLAUDE_OPUS_ROLE_ID));
-        assert!(ids.contains(&CLAUDE_FABLE_ROLE_ID));
-        let auto = &payload["data"][0];
-        assert_eq!(payload["object"], "list");
-        assert_eq!(auto["type"], "model");
-        assert_eq!(auto["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-        assert_eq!(auto["max_input_tokens"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-        assert!(auto["max_output_tokens"].as_u64().unwrap_or(0) > 0);
-        assert_eq!(auto["max_tokens"], auto["max_output_tokens"]);
-        let retrieved = find_catalog_entry(&catalog, CLAUDE_SONNET_ROLE_ID).expect("sonnet");
-        let row = claude_discovery_model(retrieved);
-        assert_eq!(row["id"], CLAUDE_SONNET_ROLE_ID);
-        assert_eq!(row["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-        for role in [
-            CLAUDE_SONNET_ROLE_ID,
-            CLAUDE_OPUS_ROLE_ID,
-            CLAUDE_FABLE_ROLE_ID,
-        ] {
-            let row = payload["data"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|item| item["id"].as_str() == Some(role))
-                .expect(role);
-            assert_eq!(row["context_window"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-            assert_eq!(row["max_input_tokens"], DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-        }
-    }
-
-    fn route_mode(id: &str, enabled: bool, model: &str) -> gateway::RouteMode {
-        gateway::RouteMode {
-            id: id.into(),
-            profile_id: "gprof_shared".into(),
-            enabled,
-            model: model.into(),
-            thinking_config_json: "{}".into(),
-            fallback_models: vec![],
-            threshold: 0,
-            sort_index: 0,
-        }
-    }
-
-    #[test]
-    fn auto_window_follows_min_enabled_mode_slot() {
-        let modes = vec![
-            route_mode("default", true, "claude.ag.gemini-3.8-flash-high"),
-            route_mode("background", true, "claude.ag.gemini-3.8-flash-low"),
-            route_mode("think", true, "gpt-6-astra"),
-        ];
-        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
-        assert_eq!(catalog[0].public_id, CLAUDE_AUTO_PUBLIC_ID);
-        assert_eq!(catalog[0].context_window, 200_000);
-        let payload = claude_discovery_payload(&catalog);
-        assert_eq!(payload["data"][0]["context_window"], 200_000);
-        assert_eq!(payload["data"][0]["max_input_tokens"], 200_000);
-        let haiku = catalog
-            .iter()
-            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
-            .expect("haiku role");
-        assert_eq!(haiku.context_window, 1_000_000);
-        assert!(passes_claude_discovery(&haiku.public_id));
-        for role in [
-            CLAUDE_SONNET_ROLE_ID,
-            CLAUDE_OPUS_ROLE_ID,
-            CLAUDE_FABLE_ROLE_ID,
-        ] {
-            let entry = catalog
-                .iter()
-                .find(|item| item.public_id == role)
-                .expect(role);
-            assert_eq!(entry.context_window, 200_000);
-            assert!(entry.provider_id.is_empty());
-        }
-    }
-
-    #[test]
-    fn haiku_window_uses_background_slot_not_auto_min() {
-        let modes = vec![
-            route_mode("default", true, "gpt-6-astra"),
-            route_mode("background", true, "gemini-3.8-flash-high"),
-        ];
-        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, vec![], &modes);
-        assert_eq!(catalog[0].context_window, 200_000);
-        let haiku = catalog
-            .iter()
-            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
-            .expect("haiku role");
-        assert_eq!(haiku.context_window, 1_000_000);
-        let sonnet = catalog
-            .iter()
-            .find(|entry| entry.public_id == CLAUDE_SONNET_ROLE_ID)
-            .expect("sonnet role");
-        assert_eq!(sonnet.context_window, 200_000);
-    }
-
-    #[test]
-    fn existing_haiku_catalog_id_gets_background_window() {
-        let entries = vec![CatalogEntry {
-            public_id: CLAUDE_HAIKU_ROLE_ID.into(),
-            display_name: "Haiku".into(),
-            upstream_slug: CLAUDE_HAIKU_ROLE_ID.into(),
-            provider_id: "ag".into(),
-            context_window: 200_000,
-            anthropic_upstream: false,
-            web_search_enabled: false,
-        }];
-        let modes = vec![route_mode(
-            "background",
-            true,
-            "claude.ag.gemini-3.8-flash-low",
-        )];
-        let catalog = with_auto_entry_from_modes(CatalogStyle::Claude, entries, &modes);
-        let haiku = catalog
-            .iter()
-            .find(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
-            .expect("haiku role");
-        assert_eq!(haiku.context_window, 1_000_000);
-        assert_eq!(
-            catalog
-                .iter()
-                .filter(|entry| entry.public_id == CLAUDE_HAIKU_ROLE_ID)
-                .count(),
-            1
-        );
-    }
-
-    #[test]
-    fn codex_auto_public_id_stays_bare_auto() {
-        let first = provider("a", "Alpha", "deepseek-v3");
-        let catalog = with_auto_entry(
-            CatalogStyle::Codex,
-            build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
-        );
-        assert_eq!(catalog[0].public_id, AUTO_PUBLIC_ID);
-        assert!(catalog.iter().all(|entry| {
-            entry.public_id != CLAUDE_HAIKU_ROLE_ID
-                && entry.public_id != CLAUDE_SONNET_ROLE_ID
-                && entry.public_id != CLAUDE_OPUS_ROLE_ID
-                && entry.public_id != CLAUDE_FABLE_ROLE_ID
-        }));
-        let ids = with_auto_public_ids(CatalogStyle::Codex, vec!["deepseek-v3".into()]);
-        assert_eq!(ids[0], AUTO_PUBLIC_ID);
+        assert_eq!(ids, vec!["claude.kimi-k2"]);
+        assert!(passes_claude_discovery(ids[0]));
+        let row = &payload["data"][0];
+        assert_eq!(row["type"], "model");
+        assert!(row["max_output_tokens"].as_u64().unwrap_or(0) > 0);
+        assert_eq!(row["max_tokens"], row["max_output_tokens"]);
     }
 
     #[test]
     fn injected_claude_roles_are_not_explicit_passthrough() {
         let kimi = provider("p1", "Kimi", "kimi-k2");
-        let catalog = with_auto_entry(
-            CatalogStyle::Claude,
-            build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]),
-        );
-        assert!(catalog_in_entries(&catalog, CLAUDE_SONNET_ROLE_ID));
+        let catalog = build_catalog(CatalogStyle::Claude, &[(kimi, vec![])]);
         assert!(!is_explicit_catalog_passthrough(
             &catalog,
             CLAUDE_SONNET_ROLE_ID
@@ -1839,40 +1728,28 @@ mod tests {
         assert!(!is_explicit_catalog_passthrough(&catalog, "claude.auto"));
         assert!(is_explicit_catalog_passthrough(
             &catalog,
-            "claude.kimi.kimi-k2"
+            "claude.kimi-k2"
         ));
         assert!(is_sticky_remap_role_id(CLAUDE_SONNET_ROLE_ID));
         assert!(!is_sticky_remap_role_id(CLAUDE_HAIKU_ROLE_ID));
-        assert_eq!(
-            find_catalog_entry(&catalog, "claude-sonnet-5[1m]")
-                .map(|entry| entry.public_id.as_str()),
-            Some(CLAUDE_SONNET_ROLE_ID)
-        );
     }
 
     #[test]
     fn openai_discovery_lists_windows() {
         let first = provider("a", "Alpha", "gemini-3.8-flash-high");
-        let catalog = with_auto_entry(
-            CatalogStyle::Codex,
-            build_catalog(CatalogStyle::Codex, &[(first, vec![])]),
-        );
+        let catalog = build_catalog(CatalogStyle::Codex, &[(first, vec![])]);
         let payload = openai_models_payload(&catalog);
         assert_eq!(payload["object"], "list");
-        let auto = &payload["data"][0];
-        assert_eq!(auto["id"], AUTO_PUBLIC_ID);
-        assert_eq!(auto["object"], "model");
-        assert!(auto["context_window"].as_u64().unwrap_or(0) >= DEFAULT_DISCOVERY_CONTEXT_WINDOW);
-        assert_eq!(auto["max_input_tokens"], auto["context_window"]);
+        assert_eq!(payload["data"].as_array().map(Vec::len), Some(1));
         let retrieved = find_catalog_entry(&catalog, "gemini-3.8-flash-high").expect("gemini");
         let row = openai_discovery_model(retrieved);
         assert_eq!(row["id"], retrieved.public_id);
+        assert_eq!(row["object"], "model");
         assert_eq!(row["context_window"], retrieved.context_window);
         assert_eq!(row["max_input_tokens"], retrieved.context_window);
         assert!(row["max_output_tokens"].as_u64().unwrap_or(0) > 0);
         assert_eq!(row["max_tokens"], row["max_output_tokens"]);
     }
-
     #[test]
     fn advertised_window_does_not_inflate_gateway_extra_models() {
         let mut auto = provider("sg", "Auto", "auto");

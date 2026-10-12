@@ -91,9 +91,10 @@ use crate::commands::{
     download_desktop_localization_pack, export_providers, get_autostart_config, get_data_root,
     get_autostart_enabled, get_current_provider, get_agent_connection, set_agent_connection,
     list_gateway_upstreams, set_gateway_upstream_enabled, upsert_gateway_upstream, delete_gateway_upstream, add_antigravity_gateway_upstream,
+    reorder_gateway_upstreams, get_local_gateway_enabled, set_local_gateway_enabled,
     add_kiro_gateway_upstream,
     list_kiro_accounts, import_kiro_accounts, remove_kiro_account,
-    start_kiro_builder_id_login, start_kiro_social_login,
+    start_kiro_builder_id_login, start_kiro_social_login, submit_kiro_login_callback,
     get_kiro_gateway_status, set_kiro_gateway_port, set_kiro_gateway_api_key,
     set_kiro_outbound_proxy, set_kiro_exit_proxy, probe_kiro_exit_proxy, probe_kiro_exit_latency,
     refresh_kiro_account_quota, refresh_kiro_quotas, test_kiro_account,
@@ -299,6 +300,9 @@ pub fn run() {
             get_agent_connection,
             set_agent_connection,
             list_gateway_upstreams,
+            reorder_gateway_upstreams,
+            get_local_gateway_enabled,
+            set_local_gateway_enabled,
             set_gateway_upstream_enabled,
             upsert_gateway_upstream,
             delete_gateway_upstream,
@@ -420,6 +424,7 @@ pub fn run() {
             remove_kiro_account,
             start_kiro_builder_id_login,
             start_kiro_social_login,
+            submit_kiro_login_callback,
             get_kiro_gateway_status,
             set_kiro_gateway_port,
             set_kiro_gateway_api_key,
@@ -658,6 +663,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let state = app_handle.state::<AppState>();
         let repair_started = std::time::Instant::now();
+        proxy::desktop_alias::reset_selection_for_catalog_id_scheme(&state.db);
         if let Err(error) = commands::providers::repair_current_desktop_profile(&state).await {
             log::error!("Claude Desktop managed profile migration failed: {error}");
         }

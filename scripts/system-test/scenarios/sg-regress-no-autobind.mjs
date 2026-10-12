@@ -1,7 +1,10 @@
 import { invoke } from "../cdp-invoke.mjs";
 import { assert, expectInvokeError, SHARED_PROFILE_ID } from "../lib.mjs";
 
-/** SG-regress-no-autobind: picking a profile must not create gateway_bindings. */
+/**
+ * SG-regress-no-autobind: profile selection is retired (frozen gprof_shared), so
+ * the old IPC must stay gone and nothing may create gateway_bindings by itself.
+ */
 export const id = "SG-regress-no-autobind";
 
 export async function run() {
@@ -12,7 +15,7 @@ export async function run() {
   await expectInvokeError(
     "set_gateway_binding_profile",
     { target: "opencode", profileId: SHARED_PROFILE_ID },
-    "请先绑定智能网关"
+    "not found"
   );
 
   const after = await invoke("list_smart_gateway_bindings");

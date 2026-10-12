@@ -35,6 +35,9 @@ import {
   discoverGatewayUpstreamModelsBatch,
   ensureCodexOauthProvider,
   exportGatewayUpstreams,
+  getLocalGatewayEnabled,
+  reorderGatewayUpstreams,
+  setLocalGatewayEnabled,
   importGatewayUpstreamsFromProviders,
   importGatewayUpstreamsJson,
   importLiveConfigAsUpstreams,
@@ -81,6 +84,8 @@ import {
 } from "./upstream";
 import { UpstreamLimitsModal } from "./upstream/UpstreamLimitsModal";
 import { refreshUsageQuery, useUsageLogRefresh } from "@/lib/useUsageLogRefresh";
+import { useProviderAccountsStore } from "@/stores/providerAccountsStore";
+import type { ProviderAccountKind } from "@/stores/providerAccountsStore";
 import { UpstreamDailyStats } from "./upstream/UpstreamDailyStats";
 
 const { Text } = Typography;
@@ -117,6 +122,25 @@ function canQueryUpstreamQuota(row: Provider): boolean {
   }
 }
 
+/** Account-login rows are managed in the providers-page account drawer. */
+function accountKindOf(row: Provider): ProviderAccountKind | null {
+  switch (row.providerKind) {
+    case "antigravity":
+      return "antigravity";
+    case "kiro":
+      return "kiro";
+    case "codex_oauth":
+      return "chatgpt";
+    case "standard":
+    case "smart_gateway":
+      return null;
+    default: {
+      const _exhaustive: never = row.providerKind;
+      return _exhaustive;
+    }
+  }
+}
+
 export function GatewayUpstreamPanel({
   allowlistTarget = "claude_code",
 }: {
@@ -130,6 +154,10 @@ export function GatewayUpstreamPanel({
   const [saving, setSaving] = useState(false);
   const [addingAg, setAddingAg] = useState(false);
   const [addingKiro, setAddingKiro] = useState(false);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [pendingAccountKind, setPendingAccountKind] = useState<ProviderAccountKind | null>(null);
+  const [enablingLocalGateway, setEnablingLocalGateway] = useState(false);
+  const openAccountDrawer = useProviderAccountsStore((state) => state.openDrawer);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -184,6 +212,10 @@ export function GatewayUpstreamPanel({
   const upstreamsQuery = useQuery({
     queryKey: ["gateway-upstreams"],
     queryFn: listGatewayUpstreams,
+  });
+  const localGatewayQuery = useQuery({
+    queryKey: ["local-gateway-enabled"],
+    queryFn: getLocalGatewayEnabled,
   });
   const healthQuery = useQuery({
     queryKey: ["gateway-upstream-health"],
@@ -402,6 +434,7 @@ export function GatewayUpstreamPanel({
       await addAntigravityGatewayUpstream();
       await invalidatePool();
       void message.success(t("proxy.upstreamAgAdded"));
+      openAccountDrawer("antigravity");
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -415,10 +448,72 @@ export function GatewayUpstreamPanel({
       await addKiroGatewayUpstream();
       await invalidatePool();
       void message.success(t("proxy.upstreamKiroAdded"));
+      openAccountDrawer("kiro");
     } catch (error) {
       void message.error(error instanceof Error ? error.message : String(error));
     } finally {
       setAddingKiro(false);
+    }
+  };
+
+  const runAccountLogin = async (kind: ProviderAccountKind) => {
+    switch (kind) {
+      case "antigravity":
+        await handleAddAg();
+        return;
+      case "kiro":
+        await handleAddKiro();
+        return;
+      case "chatgpt":
+        await handleCodexOauthLogin();
+        return;
+      default: {
+        const _exhaustive: never = kind;
+        return _exhaustive;
+      }
+    }
+  };
+
+  // Account login goes through local reverse-proxy ports, so it stays off until confirmed.
+  const requestAccountLogin = (kind: ProviderAccountKind) => {
+    if (localGatewayQuery.data === true) {
+      void runAccountLogin(kind);
+      return;
+    }
+    setPendingAccountKind(kind);
+  };
+
+  const handleEnableLocalGateway = async () => {
+    if (!pendingAccountKind) return;
+    const kind = pendingAccountKind;
+    setEnablingLocalGateway(true);
+    try {
+      await setLocalGatewayEnabled(true);
+      queryClient.setQueryData(["local-gateway-enabled"], true);
+      setPendingAccountKind(null);
+      await runAccountLogin(kind);
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEnablingLocalGateway(false);
+    }
+  };
+
+  const handleMove = async (row: Provider, delta: -1 | 1) => {
+    const ids = (upstreamsQuery.data ?? []).map((item) => item.id);
+    const from = ids.indexOf(row.id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    setReorderingId(row.id);
+    try {
+      const next = await reorderGatewayUpstreams(ids);
+      queryClient.setQueryData(["gateway-upstreams"], next);
+      await invalidatePool();
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReorderingId(null);
     }
   };
 
@@ -763,28 +858,6 @@ export function GatewayUpstreamPanel({
             menu={{
               items: [
                 {
-                  key: "addAg",
-                  icon: <ThunderboltOutlined />,
-                  label: t("proxy.addAntigravityUpstream", { defaultValue: "添加 Antigravity (:15830)" }),
-                  disabled: addingAg,
-                  onClick: () => void handleAddAg(),
-                },
-                {
-                  key: "addKiro",
-                  icon: <ThunderboltOutlined />,
-                  label: t("proxy.addKiroUpstream", { defaultValue: "添加 Kiro (:15831)" }),
-                  disabled: addingKiro,
-                  onClick: () => void handleAddKiro(),
-                },
-                {
-                  key: "addCodexOauth",
-                  icon: <LoginOutlined />,
-                  label: t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex OAuth 登录" }),
-                  disabled: oauthPolling,
-                  onClick: () => void handleCodexOauthLogin(),
-                },
-                { type: "divider" },
-                {
                   key: "importFromProviders",
                   icon: <ImportOutlined />,
                   label: t("proxy.importFromProviders"),
@@ -826,9 +899,50 @@ export function GatewayUpstreamPanel({
               </Space>
             </Button>
           </Dropdown>
-          <Button size="small" type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t("proxy.addUpstream")}
-          </Button>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: "addApiKey",
+                  icon: <PlusOutlined />,
+                  label: t("providers.addApiKeyUpstream", { defaultValue: "API Key 供应商" }),
+                  onClick: openCreate,
+                },
+                {
+                  key: "addAccount",
+                  icon: <LoginOutlined />,
+                  label: t("providers.addAccountUpstream", { defaultValue: "账号登录" }),
+                  children: [
+                    {
+                      key: "addAg",
+                      label: t("gateway.reverseAntigravity", { defaultValue: "Antigravity" }),
+                      disabled: addingAg,
+                      onClick: () => requestAccountLogin("antigravity"),
+                    },
+                    {
+                      key: "addKiro",
+                      label: t("gateway.reverseKiro", { defaultValue: "Kiro" }),
+                      disabled: addingKiro,
+                      onClick: () => requestAccountLogin("kiro"),
+                    },
+                    {
+                      key: "addChatgpt",
+                      label: t("providers.chatgptLogin", { defaultValue: "ChatGPT / Codex" }),
+                      disabled: oauthPolling,
+                      onClick: () => requestAccountLogin("chatgpt"),
+                    },
+                  ],
+                },
+              ],
+            }}
+          >
+            <Button size="small" type="primary" icon={<PlusOutlined />}>
+              <Space size={4}>
+                {t("proxy.addUpstream")}
+                <DownOutlined style={{ fontSize: 10 }} />
+              </Space>
+            </Button>
+          </Dropdown>
         </Space>
       }
     >
@@ -855,6 +969,19 @@ export function GatewayUpstreamPanel({
           onChange: (keys) => setSelectedIds(keys.map(String)),
         }}
         columns={[
+          {
+            title: t("providers.priority", { defaultValue: "优先级" }),
+            width: 72,
+            render: (_: unknown, _row: Provider, index: number) => (
+              <Tooltip
+                title={t("providers.priorityHint", {
+                  defaultValue: "同名模型按此顺序调用：数字越小越优先",
+                })}
+              >
+                <Tag style={{ marginInlineEnd: 0 }}>{index + 1}</Tag>
+              </Tooltip>
+            ),
+          },
           {
             title: t("proxy.upstreamEnabled"),
             width: 72,
@@ -965,6 +1092,31 @@ export function GatewayUpstreamPanel({
                     ariaLabel={t("proxy.rowMore", { defaultValue: "更多操作" })}
                     items={[
                       {
+                        key: "moveUp",
+                        label: t("providers.moveUp", { defaultValue: "上移（提高优先级）" }),
+                        disabled: reorderingId != null || upstreams[0]?.id === row.id,
+                        onClick: () => void handleMove(row, -1),
+                      },
+                      {
+                        key: "moveDown",
+                        label: t("providers.moveDown", { defaultValue: "下移（降低优先级）" }),
+                        disabled: reorderingId != null || upstreams[upstreams.length - 1]?.id === row.id,
+                        onClick: () => void handleMove(row, 1),
+                      },
+                      ...(accountKindOf(row)
+                        ? [
+                            {
+                              key: "manageAccounts",
+                              label: t("providers.manageAccounts", { defaultValue: "管理账号" }),
+                              onClick: () => {
+                                const kind = accountKindOf(row);
+                                if (kind) openAccountDrawer(kind);
+                              },
+                            },
+                          ]
+                        : []),
+                      { type: "divider" as const },
+                      {
                         key: "models",
                         label: t("proxy.upstreamModels"),
                         onClick: () => setModelsUpstream(row),
@@ -1054,6 +1206,33 @@ export function GatewayUpstreamPanel({
         onRefresh={() => void handleRefreshDrawer()}
         onToggleModel={(modelId, visible) => void handleToggleModel(modelId, visible)}
       />
+
+      <Modal
+        open={pendingAccountKind != null}
+        title={t("providers.enableLocalGatewayTitle", { defaultValue: "启用本地网关" })}
+        okText={t("providers.enableLocalGatewayOk", { defaultValue: "启用并继续" })}
+        okButtonProps={{ loading: enablingLocalGateway }}
+        cancelText={t("common.cancel")}
+        onOk={() => void handleEnableLocalGateway()}
+        onCancel={() => {
+          if (!enablingLocalGateway) setPendingAccountKind(null);
+        }}
+      >
+        <Space direction="vertical" size={8}>
+          <Text>
+            {t("providers.enableLocalGatewayBody", {
+              defaultValue:
+                "账号登录（Antigravity / Kiro / ChatGPT）通过本机 127.0.0.1 的反代端口（:15830 / :15831）转发请求，使用的是第三方账号凭据。",
+            })}
+          </Text>
+          <Text type="secondary">
+            {t("providers.enableLocalGatewayRisk", {
+              defaultValue:
+                "请只用于你自己的账号，并自行确认是否符合对应服务条款；账号可能被限流或封禁。启用后可随时删除对应上游。",
+            })}
+          </Text>
+        </Space>
+      </Modal>
 
       <CodexOauthModal
         device={oauthDevice}

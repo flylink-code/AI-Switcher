@@ -113,6 +113,11 @@ export async function startKiroSocialLogin(): Promise<KiroAccountPublic> {
   return call<KiroAccountPublic>("start_kiro_social_login");
 }
 
+/** Returns the next URL to open (AWS leg) or null when the sign-in was completed. */
+export async function submitKiroLoginCallback(url: string): Promise<string | null> {
+  return call<string | null>("submit_kiro_login_callback", { url });
+}
+
 export async function getKiroGatewayStatus(): Promise<KiroGatewayStatus> {
   return call<KiroGatewayStatus>("get_kiro_gateway_status");
 }

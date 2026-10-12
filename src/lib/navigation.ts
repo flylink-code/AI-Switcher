@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { PageKey } from "@/lib/pageRegistry";
 import { usePagePreferencesStore } from "@/stores/pagePreferencesStore";
+import { useProviderAccountsStore } from "@/stores/providerAccountsStore";
 
 /** Lets any page trigger shell navigation without prop drilling. */
 export const NavigationContext = createContext<(key: PageKey) => void>(() => {});
@@ -14,14 +15,13 @@ export function useNavigatePage(): (key: PageKey) => void {
  * section. Callers still pass the old key; the active page is the resolved one.
  */
 export function resolvePageNavigation(key: PageKey): PageKey {
-  const { setProvidersTab, setReverseTab, setWorkspaceTab } = usePagePreferencesStore.getState();
+  const { setWorkspaceTab } = usePagePreferencesStore.getState();
   if (key === "gateway" || key === "proxy") {
-    setProvidersTab("smart");
     return "providers";
   }
   if (key === "antigravity") {
-    setProvidersTab("reverse");
-    setReverseTab("antigravity");
+    // The reverse-proxy account pool is now a drawer on the providers page.
+    useProviderAccountsStore.getState().openDrawer("antigravity");
     return "providers";
   }
   if (key === "sessions") {

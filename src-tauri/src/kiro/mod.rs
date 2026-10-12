@@ -24,4 +24,4 @@ pub use gateway::{
     stop_gateway, KiroGatewayStatus,
 };
 pub use models::preferred_default_model;
-pub use oauth::{login_builder_id, login_social};
+pub use oauth::{login_builder_id, login_social, submit_login_callback};

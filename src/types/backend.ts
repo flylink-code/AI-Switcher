@@ -234,6 +234,8 @@ export interface GatewayCatalogModelOption {
   publicId: string;
   displayName: string;
   providerName: string;
+  /** Source names in priority order; the first one serves requests. Same-name models share one row. */
+  sourceNames?: string[];
   contextWindow?: number;
   webSearchEnabled?: boolean;
   visionEnabled?: boolean;

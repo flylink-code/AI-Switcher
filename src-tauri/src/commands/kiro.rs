@@ -7,7 +7,8 @@ use crate::error::{AppError, AppResult};
 use crate::kiro::{
     gateway_status, import_accounts_json, list_accounts, login_builder_id, login_social,
     preferred_default_model, remove_account, set_gateway_api_key, set_gateway_port,
-    set_outbound_proxy, start_gateway, stop_gateway, KiroAccountPublic, KiroGatewayStatus,
+    set_outbound_proxy, start_gateway, stop_gateway, submit_login_callback, KiroAccountPublic,
+    KiroGatewayStatus,
 };
 use crate::kiro::models::{preferred_haiku, preferred_opus};
 use crate::provider::{
@@ -38,6 +39,13 @@ pub async fn start_kiro_builder_id_login(app: AppHandle) -> AppResult<KiroAccoun
 #[tauri::command]
 pub async fn start_kiro_social_login(app: AppHandle) -> AppResult<KiroAccountPublic> {
     login_social(&app).await
+}
+
+/// Pasted browser address for an in-progress sign-in. Returns the next URL to open
+/// (AWS leg of Builder ID / Enterprise) or `None` when the login task was completed.
+#[tauri::command]
+pub async fn submit_kiro_login_callback(url: String) -> AppResult<Option<String>> {
+    submit_login_callback(&url).await
 }
 
 #[tauri::command]

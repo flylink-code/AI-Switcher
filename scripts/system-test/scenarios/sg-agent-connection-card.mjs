@@ -1,15 +1,15 @@
 import { invoke } from "../cdp-invoke.mjs";
-import { assert, codeBaseUrl, providerInput, upsertUpstream, SHARED_PROFILE_ID } from "../lib.mjs";
+import { assert, codeBaseUrl, providerInput, upsertUpstream } from "../lib.mjs";
 
 /**
  * Agent Connection Card state machine:
  * - IPC verification of set_agent_direct / bind_smart_gateway / switch_to_official
- * - Unbound (official) rejects set_gateway_binding_profile
- * - Direct mode rejects set_gateway_binding_profile and does NOT write 15828
+ * - Direct mode does NOT write 15828
  * - Direct upstream deletion rejected while in use
- * - Gateway mode connects to 15828 and allows profile selection
+ * - Gateway mode connects to 15828
  *
- * Note: Verified via Tauri IPC commands, not DOM selectors.
+ * Note: Verified via Tauri IPC commands, not DOM selectors. Profile selection is
+ * retired (frozen gprof_shared), so there is no per-binding profile IPC to check.
  */
 export const id = "SG-agent-connection-card";
 
@@ -21,18 +21,6 @@ export async function run() {
 
   const initialUrl = codeBaseUrl();
   assert(!initialUrl.includes("15828"), `official mode should not have 15828 in base URL: ${initialUrl}`);
-
-  // Without a binding, set_gateway_binding_profile must be rejected
-  let unboundProfileRejected = false;
-  try {
-    await invoke("set_gateway_binding_profile", {
-      target: "claude_code",
-      profileId: SHARED_PROFILE_ID,
-    });
-  } catch (error) {
-    unboundProfileRejected = true;
-  }
-  assert(unboundProfileRejected, "set_gateway_binding_profile on unbound target should be rejected");
 
   // 2. Create upstream and switch to direct mode
   const directUpstream = await upsertUpstream(
@@ -64,18 +52,6 @@ export async function run() {
     `direct mode should write upstream base URL: ${directUrl}`
   );
 
-  // In direct mode, set_gateway_binding_profile must be rejected
-  let directProfileRejected = false;
-  try {
-    await invoke("set_gateway_binding_profile", {
-      target: "claude_code",
-      profileId: SHARED_PROFILE_ID,
-    });
-  } catch (error) {
-    directProfileRejected = true;
-  }
-  assert(directProfileRejected, "set_gateway_binding_profile in direct mode should be rejected");
-
   // Direct upstream cannot be deleted while referenced
   let directDeleteRejected = false;
   try {
@@ -95,13 +71,6 @@ export async function run() {
     gatewayUrl.includes("15828") || /16\d{3}/.test(gatewayUrl),
     `gateway mode must contain 15828: ${gatewayUrl}`
   );
-
-  // In gateway mode, set_gateway_binding_profile succeeds
-  const binding = await invoke("set_gateway_binding_profile", {
-    target: "claude_code",
-    profileId: SHARED_PROFILE_ID,
-  });
-  assert(binding && binding.profileId === SHARED_PROFILE_ID, "set_gateway_binding_profile should succeed in gateway mode");
 
   // 4. Restore official
   await invoke("switch_to_official", { target: "claude_code" });
