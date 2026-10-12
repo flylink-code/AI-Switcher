@@ -18,6 +18,7 @@ pub mod outbound;
 pub mod pool;
 pub mod quota;
 pub mod quota_sync;
+pub mod request_shape;
 pub mod retry_info;
 pub mod session_effort;
 pub mod thinking;

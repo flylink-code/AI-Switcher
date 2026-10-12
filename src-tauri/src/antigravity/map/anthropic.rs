@@ -552,34 +552,54 @@ pub fn effort_mapping_diagnostic(body: &Value, mapped_model: &str) -> String {
     format!("effort={effort} thinking={thinking} mapped={mapped_model}")
 }
 
+/// Claude Desktop / Claude Code put a client-internal line such as
+/// `x-anthropic-billing-header: cc_version=…; cc_entrypoint=…;` in the system
+/// prompt. Cloud Code answers requests carrying it (together with a large tool
+/// set) with a false 429 RESOURCE_EXHAUSTED, on every account. Drop those lines
+/// only; the rest of the prompt is untouched.
+fn strip_billing_metadata(text: &str) -> Option<String> {
+    if !text.to_ascii_lowercase().contains("billing-header") {
+        return Some(text.to_string());
+    }
+    let kept: Vec<&str> = text
+        .split('\n')
+        .filter(|line| {
+            let lower = line.trim().to_ascii_lowercase();
+            !(lower.starts_with("x-") && lower.contains("billing") && lower.contains(':'))
+        })
+        .collect();
+    let joined = kept.join("\n");
+    (!joined.trim().is_empty()).then_some(joined)
+}
+
+fn push_system_text(text: &str, out: &mut Vec<Value>) {
+    if text.is_empty() {
+        return;
+    }
+    if let Some(clean) = strip_billing_metadata(text) {
+        out.push(json!({ "text": clean }));
+    }
+}
+
 fn push_system_parts(system: &Value, out: &mut Vec<Value>) {
     match system {
-        Value::String(text) if !text.is_empty() => {
-            out.push(json!({ "text": text }));
-        }
+        Value::String(text) => push_system_text(text, out),
         Value::Array(items) => {
             for item in items {
                 if let Some(text) = item.as_str() {
-                    if !text.is_empty() {
-                        out.push(json!({ "text": text }));
-                    }
+                    push_system_text(text, out);
                 } else if item.get("type").and_then(Value::as_str) == Some("text") {
                     if let Some(text) = item.get("text").and_then(Value::as_str) {
-                        if !text.is_empty() {
-                            out.push(json!({ "text": text }));
-                        }
+                        push_system_text(text, out);
                     }
                 }
             }
         }
-        Value::Object(map)
-            if map.get("type").and_then(Value::as_str) == Some("text") => {
-                if let Some(text) = map.get("text").and_then(Value::as_str) {
-                    if !text.is_empty() {
-                        out.push(json!({ "text": text }));
-                    }
-                }
+        Value::Object(map) if map.get("type").and_then(Value::as_str) == Some("text") => {
+            if let Some(text) = map.get("text").and_then(Value::as_str) {
+                push_system_text(text, out);
             }
+        }
         _ => {}
     }
 }
@@ -2064,6 +2084,29 @@ mod tests {
             parts.request["generationConfig"]["thinkingConfig"]["thinkingLevel"],
             json!("high")
         );
+    }
+
+    #[test]
+    fn client_billing_metadata_is_dropped_from_system_prompt() {
+        let body = json!({
+            "model": "gemini-3.8-flash-high",
+            "max_tokens": 100,
+            "system": [
+                { "type": "text", "text": "x-anthropic-billing-header: cc_version=2.1.295.05c; cc_entrypoint=claude-desktop-3p;" },
+                { "type": "text", "text": "You are an agent." },
+                { "type": "text", "text": "x-anthropic-billing-header: cc_version=1;\nKeep this line." }
+            ],
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let parts = anthropic_to_gemini_request(&body, None, None).unwrap();
+        let system = parts.request["systemInstruction"]["parts"]
+            .as_array()
+            .unwrap();
+        let texts: Vec<&str> = system
+            .iter()
+            .filter_map(|part| part["text"].as_str())
+            .collect();
+        assert_eq!(texts, vec!["You are an agent.", "Keep this line."]);
     }
 
     #[test]

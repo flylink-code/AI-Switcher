@@ -131,8 +131,34 @@ async fn proxy_handler_inner(
     // with an upstream slug; Claude Code must still see the id it sent.
     let client_model = requested_model.clone();
 
+    if state.target == ProviderTarget::ClaudeDesktop {
+        let max_tokens = incoming.get("max_tokens").and_then(Value::as_i64).unwrap_or(0);
+        if max_tokens > 0 && max_tokens <= 64 {
+            // Shape only (no text): used to tell Desktop's model-switch confirm
+            // request apart from a real turn.
+            let messages = incoming.get("messages").and_then(Value::as_array);
+            log::info!(
+                "Claude Desktop 小请求: model={requested_model} stream={incoming_stream} max_tokens={max_tokens} messages={} content_chars={} system={} tools={} thinking={} path={}",
+                messages.map_or(0, Vec::len),
+                messages
+                    .and_then(|items| items.first())
+                    .and_then(|item| item.get("content"))
+                    .map_or(0, |content| content.to_string().len()),
+                incoming.get("system").is_some(),
+                incoming.get("tools").and_then(Value::as_array).map_or(0, Vec::len),
+                incoming
+                    .get("thinking")
+                    .and_then(|thinking| thinking.get("type"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("none"),
+                uri.path(),
+            );
+        }
+    }
+
     // Claude Desktop 1.49585.0+ introduces a hard 10-second client-side health probe
-    // (max_tokens: 1, single user message with content ".") on start / profile load.
+    // (max_tokens: 1, single short user message) on start / profile load and when
+    // the user switches model.
     // Flaky upstream / sub2api latencies frequently breach 10s, triggering an unwanted
     // "Gateway was unreachable" modal. If credentials and base URL are valid, fast-respond
     // to the probe locally with an Anthropic message structure.
@@ -161,14 +187,19 @@ async fn proxy_handler_inner(
                 "output_tokens": 1
             }
         });
-        log_request(
+        // Log the id Desktop sent, not the card default (first catalog entry),
+        // so the row does not read as if that model had been called.
+        let mut probe_provider = provider.clone();
+        probe_provider.model = probe_model.clone();
+        log_request_with_diagnostic(
             &state,
-            &provider,
+            &probe_provider,
             Some(200),
             started.elapsed().as_millis() as i64,
             uri.path(),
             false,
             None,
+            Some("本地探活（未请求上游）"),
         );
         return axum::Json(probe_response).into_response();
     }
@@ -255,10 +286,15 @@ async fn proxy_handler_inner(
         .filter(|plan| !plan.explicit_pinned)
         .map(|plan| plan.attempts.iter().skip(1).map(|attempt| attempt.model.clone()).collect())
         .unwrap_or_default();
-    let allow_cross_provider_failover = !route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned);
+    // The smart-gateway entry card forwards to 15828, which already owns model
+    // fallback. Retrying here would silently swap in another model (the card's
+    // default is the first catalog entry) after one 429.
+    let entry_is_smart_gateway = provider.is_smart_gateway();
+    let allow_cross_provider_failover = !entry_is_smart_gateway
+        && !route_plan.as_ref().is_some_and(|plan| plan.explicit_pinned);
     let has_explicit_chain = !explicit_models.is_empty();
     let mut explicit_models = explicit_models.into_iter();
-    let mut legacy_models = if route_plan.is_none() {
+    let mut legacy_models = if route_plan.is_none() && !entry_is_smart_gateway {
         provider.failover_models.clone().into_iter()
     } else {
         Vec::new().into_iter()
@@ -1307,14 +1343,34 @@ fn is_claude_desktop_inference_probe(
     if first_msg.get("role").and_then(Value::as_str) != Some("user") {
         return false;
     }
-    let content = first_msg.get("content");
-    let is_dot_str = content.and_then(Value::as_str) == Some(".");
-    let is_dot_array = content.and_then(Value::as_array).is_some_and(|blocks| {
-        blocks.len() == 1
-            && blocks[0].get("text").and_then(Value::as_str) == Some(".")
-    });
-    is_dot_str || is_dot_array
+    // A turn that may emit one token carries no conversation. Desktop sends it
+    // both as the "." health probe and as the model-switch confirmation (a
+    // short sentence plus a system prompt). Both only check reachability within
+    // a ~5s client timeout, which a reasoning upstream often misses.
+    if incoming.get("tools").and_then(Value::as_array).is_some_and(|tools| !tools.is_empty())
+        || incoming.get("thinking").is_some_and(|thinking| !thinking.is_null())
+    {
+        return false;
+    }
+    let text_chars = match first_msg.get("content") {
+        Some(Value::String(text)) => text.chars().count(),
+        Some(Value::Array(blocks)) => {
+            let mut total = 0usize;
+            for block in blocks {
+                let is_text = block.get("type").and_then(Value::as_str).is_none_or(|kind| kind == "text");
+                let Some(text) = block.get("text").and_then(Value::as_str).filter(|_| is_text) else {
+                    return false;
+                };
+                total += text.chars().count();
+            }
+            total
+        }
+        _ => return false,
+    };
+    text_chars > 0 && text_chars <= PROBE_MAX_TEXT_CHARS
 }
+
+const PROBE_MAX_TEXT_CHARS: usize = 256;
 
 #[cfg(test)]
 mod probe_tests {
@@ -1373,6 +1429,62 @@ mod probe_tests {
             ProviderTarget::ClaudeDesktop,
             "/v1/messages",
             &normal_chat,
+            false
+        ));
+    }
+
+    #[test]
+    fn detects_model_switch_confirmation_but_not_real_turns() {
+        let confirm = serde_json::json!({
+            "model": "anthropic/aisw-1761822770",
+            "max_tokens": 1,
+            "system": [{ "type": "text", "text": "You are a helpful assistant." }],
+            "messages": [{
+                "role": "user",
+                "content": [{ "type": "text", "text": "Reply with just the word OK so I can confirm the model works." }]
+            }]
+        });
+        assert!(is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/claude-desktop/v1/messages",
+            &confirm,
+            false
+        ));
+        let mut with_tools = confirm.clone();
+        with_tools["tools"] = serde_json::json!([{ "name": "t", "input_schema": {} }]);
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &with_tools,
+            false
+        ));
+        let mut with_thinking = confirm.clone();
+        with_thinking["thinking"] = serde_json::json!({ "type": "adaptive" });
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &with_thinking,
+            false
+        ));
+        let long_text = "x".repeat(PROBE_MAX_TEXT_CHARS + 1);
+        let long = serde_json::json!({
+            "max_tokens": 1,
+            "messages": [{ "role": "user", "content": long_text }]
+        });
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &long,
+            false
+        ));
+        let with_image = serde_json::json!({
+            "max_tokens": 1,
+            "messages": [{ "role": "user", "content": [{ "type": "image", "source": {} }] }]
+        });
+        assert!(!is_claude_desktop_inference_probe(
+            ProviderTarget::ClaudeDesktop,
+            "/v1/messages",
+            &with_image,
             false
         ));
     }

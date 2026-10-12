@@ -24,8 +24,14 @@ fn local_failure(status: StatusCode, category: &str, message: &str, retry_after:
     response
 }
 
+/// 本机反代（AG / Kiro）和智能网关入口卡自己管理账号池、模型级冷却；
+/// 入口不能因为某个模型的 429 / 5xx 把整张卡封掉，否则其它模型也会被本地拒绝。
+fn hop_manages_own_health(provider: &Provider) -> bool {
+    provider.is_antigravity() || provider.is_kiro() || provider.is_smart_gateway()
+}
+
 fn first_output_failure(provider: &Provider, error: FirstOutputError) -> reqwest::Response {
-    if !provider.is_antigravity() && !provider.is_kiro() {
+    if !hop_manages_own_health(provider) {
         health::record_failure(&provider.id);
     }
     let status = if error == FirstOutputError::Timeout { StatusCode::GATEWAY_TIMEOUT } else { StatusCode::BAD_GATEWAY };
@@ -141,7 +147,7 @@ async fn send_observed_upstream_inner(
         Ok(response) => response,
         Err(error) => {
             // 本机反代管理自己的账号池，网络连接失败不应给账号或整个反代冷却。
-            if !provider.is_antigravity() && !provider.is_kiro() {
+            if !hop_manages_own_health(provider) {
                 health::record_failure(&provider.id);
             }
             return Err(error);
@@ -171,8 +177,8 @@ async fn send_observed_upstream_inner(
         if body.len() >= MAX_UPSTREAM_ERROR_BYTES { break; }
     }
     let text = String::from_utf8_lossy(&body);
-    let kind = if provider.is_antigravity() || provider.is_kiro() {
-        // 429/504/5xx 已在反代内部处理，不能在入口再封掉整个账号池。
+    let kind = if hop_manages_own_health(provider) {
+        // 429/504/5xx 已在反代或智能网关内部处理，不能在入口再封掉整个账号池 / 整张入口卡。
         let classified = health::classify_failure(status.as_u16(), Some(&headers), Some(&text));
         if matches!(classified.kind, FailureKind::Auth | FailureKind::ModelUnsupported) {
             health::record_http_failure(&provider.id, Some(&provider.model), status.as_u16(), Some(&headers), Some(&text));
@@ -338,6 +344,51 @@ mod tests {
         let attempt = build_request_attempt(1, &provider, "model", 1, &result).with_queue_wait_ms(wait);
         assert_eq!(attempt.queue_wait_ms, wait);
         health::record_success(&provider.id, None);
+    }
+
+    #[tokio::test]
+    async fn smart_gateway_entry_card_is_not_cooled_by_one_models_429() {
+        use axum::{routing::post, Router};
+        let app = Router::new().route("/", post(|| async {
+            Response::builder().status(StatusCode::TOO_MANY_REQUESTS)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"error":{"type":"rate_limit_error","message":"upstream 429"}}"#))
+                .unwrap()
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
+        let client = Client::builder().no_proxy().build().unwrap();
+
+        let mut entry = test_provider("sgw-entry-isolated", "gateway", "anthropic/aisw-0031052110");
+        entry.provider_kind = crate::provider::ProviderKind::SmartGateway;
+        entry.target_app = ProviderTarget::ClaudeDesktop;
+        for _ in 0..3 {
+            let (result, _) = send_observed_upstream_with_timing(
+                client.post(format!("http://{addr}/")), &entry, None, false,
+            ).await;
+            assert_eq!(result.unwrap().status(), StatusCode::TOO_MANY_REQUESTS);
+        }
+        assert!(health::is_available(&entry.id, None), "entry card must stay available");
+
+        // 换一个模型仍应发给下游，而不是被本地「上游正在冷却」拒绝。
+        entry.model = "anthropic/aisw-1761822770".into();
+        let (result, _) = send_observed_upstream_with_timing(
+            client.post(format!("http://{addr}/")), &entry, None, false,
+        ).await;
+        let response = result.unwrap();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert!(response.extensions().get::<LocalAttemptFailure>().is_none(), "must reach the downstream");
+
+        // 普通上游仍按原规则冷却。
+        let standard = test_provider("standard-still-cools", "standard", "model");
+        let (result, _) = send_observed_upstream_with_timing(
+            client.post(format!("http://{addr}/")), &standard, None, false,
+        ).await;
+        assert_eq!(result.unwrap().status(), StatusCode::TOO_MANY_REQUESTS);
+        assert!(!health::is_available(&standard.id, None));
+        health::record_success(&standard.id, None);
+        server.abort();
     }
 
     #[test]

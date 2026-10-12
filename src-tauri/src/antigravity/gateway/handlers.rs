@@ -755,8 +755,9 @@ async fn dispatch_generation(
                     _ => {}
                 }
                 last_error = format!(
-                    "upstream 429: {}",
-                    text.trim().chars().take(240).collect::<String>()
+                    "upstream 429: {} | {}",
+                    text.trim().chars().take(240).collect::<String>(),
+                    crate::antigravity::request_shape::summarize(&request)
                 );
                 last_fail_status = 429;
 

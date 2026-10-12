@@ -28,13 +28,12 @@ pub(crate) fn select_gateway_runtime_provider_with(
     let (providers, entries) = load_gateway_catalog(state, style)?;
     let profile = state.db.with_read_conn(|conn| crate::database::dao::gateway::current_profile(conn, state.target)).ok().flatten();
     let requested_model = if state.target == ProviderTarget::ClaudeDesktop {
-        let canonical = desktop_alias::canonical_request(requested_model, &entries, &providers);
-        if desktop_alias::is_unmapped_desktop_request(&canonical, &entries) {
-            return Err(GatewaySelectionError::Catalog(
-                crate::catalog::CatalogRequestError::StalePublicId(canonical),
-            ));
-        }
-        canonical
+        // 只调用用户选的模型：Desktop 自带的标题 / 侧查询 / 裸角色名不另选模型。
+        let last_selected = desktop_alias::last_selected(&state.db);
+        desktop_alias::resolve_selected(requested_model, &entries, last_selected.as_deref())
+            .map_err(|unresolved| {
+                GatewaySelectionError::Catalog(crate::catalog::CatalogRequestError::StalePublicId(unresolved))
+            })?
     } else {
         requested_model.trim().to_string()
     };
@@ -89,12 +88,19 @@ pub(crate) fn select_gateway_runtime_provider_with(
 }
 
 pub(crate) fn remember_gateway_success_upstream(
-    _state: &ProxyState,
+    state: &ProxyState,
     _headers: &HeaderMap,
-    _incoming: &Value,
+    incoming: &Value,
     _provider_id: &str,
     _is_subagent: bool,
 ) {
+    if state.listener_kind != ListenerKind::SmartGateway || state.target != ProviderTarget::ClaudeDesktop {
+        return;
+    }
+    // 只记录完成过的、网关自己列出的别名；失败的切换试探不会改变 Desktop 的默认模型。
+    if let Some(model) = incoming.get("model").and_then(Value::as_str) {
+        desktop_alias::remember_selected(&state.db, model);
+    }
 }
 
 fn note_gateway_inflight(
