@@ -7,7 +7,7 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { StatusBadge } from "@/components/ui";
-import { KIRO_CATALOG } from "@/components/kiro/models";
+import { useKiroModels } from "@/components/kiro/models";
 import {
   refreshKiroAccountQuota,
   testKiroAccount,
@@ -79,6 +79,7 @@ function isTestCategory(value: string): value is KiroAccountTestCategory {
 export function AccountCard({ account, onRemove, isPending = false }: AccountCardProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const modelsQuery = useKiroModels();
   const title = account.label.trim() || account.id;
   const [testOpen, setTestOpen] = useState(false);
   const [testModel, setTestModel] = useState(DEFAULT_MODEL);
@@ -241,7 +242,7 @@ export function AccountCard({ account, onRemove, isPending = false }: AccountCar
               value={testModel}
               onChange={(value) => setTestModel(String(value))}
               style={{ width: "100%", marginTop: 4 }}
-              options={KIRO_CATALOG.map((model) => ({ value: model.id, label: model.id }))}
+              options={(modelsQuery.data?.models ?? []).map((model) => ({ value: model.id, label: model.id }))}
             />
           </div>
           <div>

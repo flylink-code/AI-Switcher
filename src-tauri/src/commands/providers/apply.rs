@@ -215,9 +215,6 @@ fn is_kiro_gateway_base_url(base_url: &str) -> bool {
 
 fn kiro_catalog_model_ids() -> Vec<String> {
     crate::kiro::models::catalog_ids()
-        .iter()
-        .map(|id| (*id).to_string())
-        .collect()
 }
 
 fn is_antigravity_gateway_base_url(base_url: &str) -> bool {

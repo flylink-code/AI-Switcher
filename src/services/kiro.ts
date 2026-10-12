@@ -113,6 +113,30 @@ export async function startKiroSocialLogin(): Promise<KiroAccountPublic> {
   return call<KiroAccountPublic>("start_kiro_social_login");
 }
 
+export interface KiroModelInfo {
+  id: string;
+  name: string;
+  /** Input window in tokens, 0 when Kiro has not listed it yet. */
+  context: number;
+  output: number;
+  images: boolean;
+}
+
+export interface KiroModelList {
+  models: KiroModelInfo[];
+  /** `live` after a refresh from a real account, otherwise `builtin`. */
+  source: "live" | "builtin";
+  fetchedAt: number;
+}
+
+export async function listKiroModels(): Promise<KiroModelList> {
+  return call<KiroModelList>("list_kiro_models");
+}
+
+export async function refreshKiroModels(): Promise<KiroModelList> {
+  return call<KiroModelList>("refresh_kiro_models");
+}
+
 /** Returns the next URL to open (AWS leg) or null when the sign-in was completed. */
 export async function submitKiroLoginCallback(url: string): Promise<string | null> {
   return call<string | null>("submit_kiro_login_callback", { url });

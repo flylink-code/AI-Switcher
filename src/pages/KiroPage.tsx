@@ -21,6 +21,7 @@ import {
   setKiroOutboundProxy,
   startKiroBuilderIdLogin,
   startKiroGateway,
+  refreshKiroModels,
   startKiroSocialLogin,
   stopKiroGateway,
   submitKiroLoginCallback,
@@ -32,8 +33,11 @@ import {
   AccountPoolOverview,
   GatewayCard,
   ImportAccountsModal,
-  KIRO_CATALOG,
   KIRO_MODEL_GROUPS,
+  KIRO_MODELS_QUERY_KEY,
+  kiroContextLabel,
+  kiroModelGroup,
+  useKiroModels,
 } from "@/components/kiro";
 import { errMsg } from "@/lib/errMsg";
 
@@ -48,8 +52,10 @@ function modelGroupColor(group: (typeof KIRO_MODEL_GROUPS)[number]): string {
       return "geekblue";
     case "haiku":
       return "cyan";
-    case "fable":
-      return "gold";
+    case "gpt":
+      return "green";
+    case "other":
+      return "default";
     default: {
       const _exhaustive: never = group;
       return _exhaustive;
@@ -73,13 +79,16 @@ export default function KiroPage() {
     queryFn: getKiroGatewayStatus,
     refetchInterval: 5_000,
   });
+  const modelsQuery = useKiroModels();
   const accounts = accountsQuery.data ?? [];
   const status = statusQuery.data;
+  const modelList = modelsQuery.data;
 
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["kiro-accounts"] }),
       queryClient.invalidateQueries({ queryKey: ["kiro-gateway"] }),
+      queryClient.invalidateQueries({ queryKey: KIRO_MODELS_QUERY_KEY }),
     ]);
   };
 
@@ -107,6 +116,15 @@ export default function KiroPage() {
     onSuccess: async (account) => {
       message.success(t("kiro.loginSuccess", { label: account.label || account.id }));
       await refresh();
+    },
+    onError: (error: unknown) => message.error(errMsg(error), 10),
+  });
+
+  const modelsMutation = useMutation({
+    mutationFn: refreshKiroModels,
+    onSuccess: async (list) => {
+      message.success(t("kiro.modelsRefreshed", { count: list.models.length }));
+      await queryClient.invalidateQueries({ queryKey: KIRO_MODELS_QUERY_KEY });
     },
     onError: (error: unknown) => message.error(errMsg(error), 10),
   });
@@ -337,24 +355,47 @@ export default function KiroPage() {
         }}
       />
 
-      <Card title={t("kiro.models")} size="small">
+      <Card
+        title={t("kiro.models")}
+        size="small"
+        extra={
+          <Button
+            size="small"
+            loading={modelsMutation.isPending}
+            disabled={accounts.length === 0}
+            onClick={() => modelsMutation.mutate()}
+          >
+            {t("kiro.refreshModels")}
+          </Button>
+        }
+      >
         <Space direction="vertical" style={{ width: "100%" }} size={8}>
-          <Text type="secondary">{t("kiro.modelsHint")}</Text>
-          {KIRO_MODEL_GROUPS.map((group) => (
-            <div key={group}>
-              <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
-                {group[0].toUpperCase()}
-                {group.slice(1)}
-              </Text>
-              <Space wrap size={[4, 4]}>
-                {KIRO_CATALOG.filter((model) => model.group === group).map((model) => (
-                  <Tag key={model.id} color={modelGroupColor(group)} style={{ marginInlineEnd: 0 }}>
-                    {model.id}
-                  </Tag>
-                ))}
-              </Space>
-            </div>
-          ))}
+          <Text type="secondary">
+            {modelList?.source === "live" ? t("kiro.modelsHintLive") : t("kiro.modelsHint")}
+          </Text>
+          {KIRO_MODEL_GROUPS.map((group) => {
+            const rows = (modelList?.models ?? []).filter((model) => kiroModelGroup(model.id) === group);
+            if (rows.length === 0) return null;
+            return (
+              <div key={group}>
+                <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+                  {group[0].toUpperCase()}
+                  {group.slice(1)}
+                </Text>
+                <Space wrap size={[4, 4]}>
+                  {rows.map((model) => {
+                    const context = kiroContextLabel(model);
+                    return (
+                      <Tag key={model.id} color={modelGroupColor(group)} style={{ marginInlineEnd: 0 }}>
+                        {model.id}
+                        {context ? ` · ${context}` : ""}
+                      </Tag>
+                    );
+                  })}
+                </Space>
+              </div>
+            );
+          })}
         </Space>
       </Card>
 

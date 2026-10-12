@@ -56,7 +56,8 @@ pub use kiro::{
     probe_kiro_exit_latency, probe_kiro_exit_proxy, refresh_kiro_account_quota, refresh_kiro_quotas,
     remove_kiro_account, set_kiro_exit_proxy, set_kiro_gateway_api_key, set_kiro_gateway_port,
     set_kiro_outbound_proxy, start_kiro_builder_id_login, start_kiro_gateway, start_kiro_social_login,
-    stop_kiro_gateway, submit_kiro_login_callback, test_kiro_account,
+    stop_kiro_gateway, submit_kiro_login_callback, test_kiro_account, list_kiro_models,
+    refresh_kiro_models,
 };
 pub use claude_plugins::{
     add_claude_plugin_marketplace, check_claude_plugin_update, check_claude_plugin_updates,

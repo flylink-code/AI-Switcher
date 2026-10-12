@@ -252,12 +252,7 @@ pub fn collect_provider_slugs_with(
         });
     }
     if uses_kiro_catalog(provider) {
-        extend_unique(
-            &mut ids,
-            crate::kiro::models::catalog_ids()
-                .iter()
-                .map(|id| (*id).to_string()),
-        );
+        extend_unique(&mut ids, crate::kiro::models::catalog_ids());
     }
     if hide_official {
         ids.retain(|id| {

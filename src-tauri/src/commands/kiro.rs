@@ -10,7 +10,8 @@ use crate::kiro::{
     set_outbound_proxy, start_gateway, stop_gateway, submit_login_callback, KiroAccountPublic,
     KiroGatewayStatus,
 };
-use crate::kiro::models::{preferred_haiku, preferred_opus};
+use crate::kiro::model_list::refresh_models;
+use crate::kiro::models::{model_list, preferred_haiku, preferred_opus, KiroModelList};
 use crate::provider::{
     ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget,
 };
@@ -33,12 +34,28 @@ pub fn remove_kiro_account(id: String) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn start_kiro_builder_id_login(app: AppHandle) -> AppResult<KiroAccountPublic> {
-    login_builder_id(&app).await
+    let account = login_builder_id(&app).await?;
+    let _ = refresh_models().await;
+    Ok(account)
 }
 
 #[tauri::command]
 pub async fn start_kiro_social_login(app: AppHandle) -> AppResult<KiroAccountPublic> {
-    login_social(&app).await
+    let account = login_social(&app).await?;
+    let _ = refresh_models().await;
+    Ok(account)
+}
+
+/// Cached live model list, or the built-in one before the first refresh.
+#[tauri::command]
+pub fn list_kiro_models() -> KiroModelList {
+    model_list()
+}
+
+/// Asks Kiro for the account's current models and updates the catalog.
+#[tauri::command]
+pub async fn refresh_kiro_models() -> AppResult<KiroModelList> {
+    refresh_models().await
 }
 
 /// Pasted browser address for an in-progress sign-in. Returns the next URL to open

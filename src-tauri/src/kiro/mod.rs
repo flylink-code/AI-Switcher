@@ -9,6 +9,7 @@ pub mod account_test;
 pub mod event_stream;
 pub mod gateway;
 pub mod map;
+pub mod model_list;
 pub mod models;
 pub mod oauth;
 pub mod outbound;
