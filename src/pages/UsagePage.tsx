@@ -25,6 +25,7 @@ import ExpandOutlined from "@ant-design/icons/es/icons/ExpandOutlined";
 import LineChartOutlined from "@ant-design/icons/es/icons/LineChartOutlined";
 import PlusOutlined from "@ant-design/icons/es/icons/PlusOutlined";
 import UnorderedListOutlined from "@ant-design/icons/es/icons/UnorderedListOutlined";
+import ArrowLeftOutlined from "@ant-design/icons/es/icons/ArrowLeftOutlined";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -438,6 +439,7 @@ export default function UsagePage() {
     <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
       {pageError && <Alert type="error" showIcon message={errMsg(pageError)} />}
 
+      {!pricingManagerOpen && (<>
       <UsageToolbar
         period={period}
         onPeriodChange={(p) => { setPeriod(p); setLogPage(0); }}
@@ -769,15 +771,15 @@ export default function UsagePage() {
         />
         </div>
       </Card>
+      </>)}
 
       {/* Modals & Drawers */}
-      <Modal
-        title={t("usage.pricing")}
-        open={pricingManagerOpen}
-        width="min(1100px, calc(100vw - 32px))"
-        footer={<Button onClick={() => setPricingManagerOpen(false)}>{t("common.cancel")}</Button>}
-        onCancel={() => { setPricingManagerOpen(false); setPricingFormOpen(false); form.resetFields(); }}
-      >
+      {pricingManagerOpen && (
+      <Stack gap="md" style={{ width: "100%", minWidth: 0 }}>
+        <Space>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => { setPricingManagerOpen(false); setPricingFormOpen(false); form.resetFields(); }}>{t("settings.back")}</Button>
+          <Text strong style={{ fontSize: 16 }}>{t("usage.pricing")}</Text>
+        </Space>
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <Space style={{ justifyContent: "space-between", width: "100%" }}>
             <Text type="secondary">{t("usage.cachePricingIncluded")}</Text>
@@ -829,7 +831,8 @@ export default function UsagePage() {
             ]}
           />
         </Space>
-      </Modal>
+      </Stack>
+      )}
 
       <Drawer
         title={t("usage.logDetail")}

@@ -476,6 +476,7 @@
     }
   },
   "nav": {
+    "more": "更多",
     "workbench": "工作台",
     "overview": "总览",
     "providers": "供应商",
@@ -849,7 +850,7 @@
     "chatgptLoginFailed": "ChatGPT 登录失败",
     "chatgptLoginExpired": "登录流程已过期，请重试",
     "priority": "优先级",
-    "priorityHint": "同名模型按此顺序调用：数字越小越优先",
+    "priorityHint": "供应商优先级：数字越小越靠前（裸模型名和目录默认项按此顺序）",
     "manageAccounts": "管理账号",
     "addApiKeyUpstream": "API Key 供应商",
     "addAccountUpstream": "账号登录",
@@ -860,8 +861,7 @@
     "accessInfo": "接入信息",
     "limits": "限额",
     "catalogModels": "模型（{{count}}）",
-    "modelSources": "{{count}} 个来源",
-    "modelPriorityHint": "同名模型合并为一行，按供应商列表顺序调用；来源冷却时自动用下一个，请求失败不会换来源。",
+    "modelPriorityHint": "多个供应商提供同名模型时，模型 ID 会带供应商前缀，按所选 ID 调用对应供应商；不会自动换来源。",
     "codexLoginHint": "Codex 官方账号请用终端登录；下方「使用 ChatGPT 订阅」仅用于把订阅能力接到 Claude，不出现在此页。",
     "codexLoginDetected": "已检测到 Codex 登录配置",
     "codexLoginNeeded": "使用官方 Codex 前请先在终端登录",

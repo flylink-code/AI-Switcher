@@ -32,7 +32,6 @@ export function SmartGatewaySection() {
   const [busy, setBusy] = useState(false);
   const [accessOpen, setAccessOpen] = useState(false);
   const [limitsOpen, setLimitsOpen] = useState(false);
-  const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [snippetKind, setSnippetKind] = useState<SnippetKind>("sdk");
 
   const statusQuery = useQuery({
@@ -50,13 +49,14 @@ export function SmartGatewaySection() {
   const listenUrl = (status?.baseUrl ?? `http://127.0.0.1:${status?.port ?? port}`).replace(/\/+$/, "");
   const openaiUrl = `${listenUrl}/v1`;
 
-  // Same-name models arrive as one row; `sourceNames` is the call-priority order.
+  // Same-name models from several providers arrive as separate rows whose public id
+  // already carries the provider; a model with one source keeps its bare name.
   const models = useMemo(
     () =>
-      (catalogQuery.data ?? []).map((entry) => {
-        const sources = entry.sourceNames?.length ? entry.sourceNames : entry.providerName ? [entry.providerName] : [];
-        return { id: entry.publicId || entry.displayName, label: entry.displayName || entry.publicId, sources };
-      }),
+      (catalogQuery.data ?? []).map((entry) => ({
+        id: entry.publicId || entry.displayName,
+        label: entry.displayName || entry.publicId,
+      })),
     [catalogQuery.data],
   );
 
@@ -150,30 +150,15 @@ export function SmartGatewaySection() {
         <Space direction="vertical" size={4} style={{ width: "100%" }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {t("providers.modelPriorityHint", {
-              defaultValue: "同名模型合并为一行，按供应商列表顺序调用；来源冷却时自动用下一个，请求失败不会换来源。",
+              defaultValue: "多个供应商提供同名模型时，模型 ID 会带供应商前缀，按所选 ID 调用对应供应商；不会自动换来源。",
             })}
           </Text>
           {models.map((model) => (
-            <div key={model.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <Text>{model.label}</Text>
-                {model.sources.length > 1 ? (
-                  <Button
-                    type="link"
-                    size="small"
-                    style={{ padding: 0, height: "auto" }}
-                    aria-expanded={expandedModel === model.id}
-                    onClick={() => setExpandedModel((current) => (current === model.id ? null : model.id))}
-                  >
-                    {t("providers.modelSources", { count: model.sources.length, defaultValue: "{{count}} 个来源" })}
-                  </Button>
-                ) : null}
-              </div>
-              {expandedModel === model.id ? (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {model.sources.map((name, index) => `${index + 1}. ${name}`).join("  →  ")}
-                </Text>
-              ) : null}
+            <div key={model.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <Text>{model.label}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }} copyable>
+                {model.id}
+              </Text>
             </div>
           ))}
         </Space>

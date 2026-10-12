@@ -221,11 +221,7 @@ pub fn list_gateway_catalog_entries(
         .collect();
     let options = build_catalog_with(style, &pairs, hide_official).into_iter().map(|entry| {
         let inferred = crate::gateway::metadata::infer(&entry.public_id);
-        // Highest-priority source first; the rest only matter while it cools down.
-        let source_names: Vec<String> = std::iter::once(&entry.provider_id)
-            .chain(entry.alt_provider_ids.iter())
-            .filter_map(|id| names.get(id).cloned())
-            .collect();
+        let source_names: Vec<String> = names.get(&entry.provider_id).cloned().into_iter().collect();
         GatewayCatalogModelOption {
             provider_name: names
                 .get(&entry.provider_id)

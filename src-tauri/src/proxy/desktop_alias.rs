@@ -233,7 +233,6 @@ mod tests {
             context_window: 200_000,
             anthropic_upstream: false,
             web_search_enabled: false,
-            alt_provider_ids: Vec::new(),
         }
     }
 

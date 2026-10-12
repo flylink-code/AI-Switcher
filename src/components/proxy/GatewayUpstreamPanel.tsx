@@ -1089,7 +1089,7 @@ export function GatewayUpstreamPanel({
                 />
                 <Tooltip
                   title={t("providers.priorityHint", {
-                    defaultValue: "同名模型按此顺序调用：数字越小越优先",
+                    defaultValue: "供应商优先级：数字越小越靠前（裸模型名和目录默认项按此顺序）",
                   })}
                 >
                   <Tag style={{ marginInlineEnd: 0 }}>{index + 1}</Tag>

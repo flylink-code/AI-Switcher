@@ -3,6 +3,7 @@ import { Alert, Button, Select, Space, Switch, Typography, message } from "antd"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AgentConnectionCard } from "@/components/AgentConnectionCard";
+import { CodexAdvancedSettings } from "@/components/agent/CodexAdvancedSettings";
 import {
   claudeDesktopAppOptions,
   claudeVersionOptions,
@@ -402,7 +403,14 @@ export default function AgentHubPage() {
         </Space>
       );
     }
-    if (target === "codex") return maintenance;
+    if (target === "codex") {
+      return (
+        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+          <CodexAdvancedSettings />
+          {maintenance}
+        </Space>
+      );
+    }
     return null;
   };
 

@@ -476,6 +476,7 @@
     }
   },
   "nav": {
+    "more": "More",
     "workbench": "Workbench",
     "overview": "Overview",
     "providers": "Providers",
@@ -849,7 +850,7 @@
     "chatgptLoginFailed": "ChatGPT sign-in failed",
     "chatgptLoginExpired": "The sign-in flow expired. Please try again.",
     "priority": "Priority",
-    "priorityHint": "Same-name models are called in this order; lower number wins",
+    "priorityHint": "Provider priority: lower number comes first (bare model names and the catalog default follow this order)",
     "manageAccounts": "Manage accounts",
     "addApiKeyUpstream": "API key provider",
     "addAccountUpstream": "Account sign-in",
@@ -860,8 +861,7 @@
     "accessInfo": "Access info",
     "limits": "Limits",
     "catalogModels": "Models ({{count}})",
-    "modelSources": "{{count}} sources",
-    "modelPriorityHint": "Same-name models share one row and are called in provider-list order; a cooling source is skipped, but a failed request does not switch source.",
+    "modelPriorityHint": "When several providers publish the same model, its ID carries the provider prefix and calls go to the provider you pick; there is no automatic source switch.",
     "codexLoginHint": "For official Codex, sign in from the terminal. The ChatGPT-subscription button on Claude tabs is not for this page.",
     "codexLoginDetected": "Codex login config detected",
     "codexLoginNeeded": "Sign in from the terminal before using official Codex",

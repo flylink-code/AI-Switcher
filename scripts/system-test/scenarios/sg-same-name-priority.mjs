@@ -2,19 +2,19 @@ import { invoke } from "../cdp-invoke.mjs";
 import { assert, providerInput, upsertUpstream } from "../lib.mjs";
 
 /**
- * Same-name models share one catalog row owned by the highest-priority upstream.
- * Reordering upstreams changes the owner and the source order; the local gateway
+ * Same-name models from several upstreams get one row each with a provider-prefixed id,
+ * listed in priority order. Reordering upstreams flips the row order; the local gateway
  * (account login) switch round-trips through its setting.
  */
 export const id = "SG-same-name-priority";
 
 const MODEL = "system-test-shared-model";
 
-async function sharedRow() {
+async function sharedRows() {
   const rows = await invoke("list_gateway_catalog_entries", { target: "claude_code" });
   const matches = rows.filter((row) => row.publicId.toLowerCase().endsWith(MODEL));
-  assert(matches.length === 1, `same-name model should be one row, got ${matches.length}`);
-  return matches[0];
+  assert(matches.length === 2, `same-name model should have one row per provider, got ${matches.length}`);
+  return matches;
 }
 
 export async function run() {
@@ -40,12 +40,14 @@ export async function run() {
     const indexOfSecond = initial.findIndex((row) => row.id === second.id);
     assert(indexOfFirst >= 0 && indexOfSecond > indexOfFirst, "new upstreams must be appended in creation order");
 
-    const before = await sharedRow();
-    assert(before.publicId === `claude.${MODEL}`, `Claude-style id should drop the provider segment: ${before.publicId}`);
-    assert(before.providerName === first.name, `first upstream should own the row, got ${before.providerName}`);
+    const before = await sharedRows();
     assert(
-      JSON.stringify(before.sourceNames) === JSON.stringify([first.name, second.name]),
-      `source order should follow priority: ${JSON.stringify(before.sourceNames)}`
+      before.every((row) => row.publicId.startsWith("claude.system-test-prio-")),
+      `conflicting names should carry the provider: ${JSON.stringify(before.map((row) => row.publicId))}`
+    );
+    assert(
+      JSON.stringify(before.map((row) => row.providerName)) === JSON.stringify([first.name, second.name]),
+      `row order should follow priority: ${JSON.stringify(before.map((row) => row.providerName))}`
     );
     const rows = await invoke("list_gateway_catalog_entries", { target: "claude_code" });
     assert(!rows.some((row) => row.publicId.toLowerCase() === "auto"), "catalog must not list auto");
@@ -55,11 +57,10 @@ export async function run() {
     const reordered = await invoke("reorder_gateway_upstreams", { orderedIds: order });
     assert(reordered.findIndex((row) => row.id === second.id) < reordered.findIndex((row) => row.id === first.id), "reorder did not take effect");
 
-    const after = await sharedRow();
-    assert(after.providerName === second.name, `second upstream should own the row after reorder, got ${after.providerName}`);
+    const after = await sharedRows();
     assert(
-      JSON.stringify(after.sourceNames) === JSON.stringify([second.name, first.name]),
-      `source order should flip: ${JSON.stringify(after.sourceNames)}`
+      JSON.stringify(after.map((row) => row.providerName)) === JSON.stringify([second.name, first.name]),
+      `row order should flip: ${JSON.stringify(after.map((row) => row.providerName))}`
     );
 
     // Account login stays off until confirmed; API-key rows never count as "in use".

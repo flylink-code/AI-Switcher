@@ -186,10 +186,6 @@ pub struct CatalogEntry {
     pub context_window: u64,
     pub anthropic_upstream: bool,
     pub web_search_enabled: bool,
-    /// Lower-priority providers that publish the same model name, in pool order.
-    /// `provider_id` is the highest-priority source; these are only used when it
-    /// is cooling down. Empty for models with a single source.
-    pub alt_provider_ids: Vec<String>,
 }
 
 pub fn provider_slug(name: &str, id: &str) -> String {
@@ -277,37 +273,43 @@ pub fn build_catalog_with(
     hide_official: bool,
 ) -> Vec<CatalogEntry> {
     let mut taken = BTreeSet::new();
-    let mut entries: Vec<CatalogEntry> = Vec::new();
-    // Same model name from several providers is one catalog row. `providers` is in
-    // pool order, so the first provider to publish a name owns the row.
-    let mut row_by_model: HashMap<String, usize> = HashMap::new();
-    for (provider, cached) in providers {
+    // `providers` is in pool order. A model name published by several providers
+    // keeps one row per provider, and each of those rows carries the provider slug
+    // in its public id; a name with a single source stays bare.
+    let mut pending: Vec<(usize, String, String)> = Vec::new();
+    let mut sources_by_model: HashMap<String, BTreeSet<usize>> = HashMap::new();
+    for (index, (provider, cached)) in providers.iter().enumerate() {
+        let mut seen = BTreeSet::new();
+        for upstream in collect_provider_slugs_with(provider, cached, hide_official) {
+            let (slug_id, _) = crate::provider::split_model_window_label(&upstream);
+            let key = slug_id.to_ascii_lowercase();
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            sources_by_model.entry(key).or_default().insert(index);
+            pending.push((index, upstream, slug_id));
+        }
+    }
+    let mut entries: Vec<CatalogEntry> = Vec::with_capacity(pending.len());
+    for (index, upstream, slug_id) in pending {
+        let (provider, _) = &providers[index];
         let slug = provider_slug(&provider.name, &provider.id);
         let anthropic_upstream = provider.protocol_type == ProtocolType::Anthropic;
         let web_search_enabled = !anthropic_upstream && provider.web_search_enabled.unwrap_or(true);
-        for upstream in collect_provider_slugs_with(provider, cached, hide_official) {
-            let (slug_id, _) = crate::provider::split_model_window_label(&upstream);
-            if let Some(&row) = row_by_model.get(&slug_id.to_ascii_lowercase()) {
-                let owner = &mut entries[row];
-                if owner.provider_id != provider.id && !owner.alt_provider_ids.contains(&provider.id) {
-                    owner.alt_provider_ids.push(provider.id.clone());
-                }
-                continue;
-            }
-            let context_window = crate::provider::context_window_for_model(provider, &upstream);
-            let public_id = unique_public_id(style, &slug_id, &slug, &mut taken);
-            row_by_model.insert(slug_id.to_ascii_lowercase(), entries.len());
-            entries.push(CatalogEntry {
-                public_id,
-                display_name: format!("{} · {}", provider.name.trim(), slug_id),
-                upstream_slug: slug_id,
-                provider_id: provider.id.clone(),
-                context_window,
-                anthropic_upstream,
-                web_search_enabled,
-                alt_provider_ids: Vec::new(),
-            });
-        }
+        let shared = sources_by_model
+            .get(&slug_id.to_ascii_lowercase())
+            .is_some_and(|sources| sources.len() > 1);
+        let context_window = crate::provider::context_window_for_model(provider, &upstream);
+        let public_id = unique_public_id(style, &slug_id, &slug, shared, &mut taken);
+        entries.push(CatalogEntry {
+            public_id,
+            display_name: format!("{} · {}", provider.name.trim(), slug_id),
+            upstream_slug: slug_id,
+            provider_id: provider.id.clone(),
+            context_window,
+            anthropic_upstream,
+            web_search_enabled,
+        });
     }
     entries
 }
@@ -383,23 +385,19 @@ pub enum CatalogRequestError {
     StalePublicId(String),
     /// The client sent a gateway-looking id which is not known to this catalog.
     UnknownPublicId(String),
-    /// A raw upstream slug exists on more than one provider and cannot be selected safely.
-    AmbiguousUpstream(String),
 }
 
 impl CatalogRequestError {
     #[allow(dead_code)]
     pub fn requested(&self) -> &str {
         match self {
-            Self::StalePublicId(value)
-            | Self::UnknownPublicId(value)
-            | Self::AmbiguousUpstream(value) => value,
+            Self::StalePublicId(value) | Self::UnknownPublicId(value) => value,
         }
     }
 
     #[allow(dead_code)]
     pub fn is_model_not_found(&self) -> bool {
-        !matches!(self, Self::AmbiguousUpstream(_))
+        true
     }
 }
 
@@ -411,9 +409,6 @@ impl fmt::Display for CatalogRequestError {
             }
             Self::UnknownPublicId(model) => {
                 write!(f, "模型不在智能网关目录中: {model}，请刷新模型列表后重新选择")
-            }
-            Self::AmbiguousUpstream(model) => {
-                write!(f, "上游模型 {model} 在多个供应商中重复，请使用目录中的供应商限定模型 ID")
             }
         }
     }
@@ -445,12 +440,10 @@ pub fn resolve_request_strict(
                 && entry.upstream_slug.eq_ignore_ascii_case(requested)
         })
         .collect();
-    if upstream_hits.len() == 1 {
-        let entry = upstream_hits[0];
+    // A bare name published by several providers resolves to the first one in pool
+    // order (highest `sort_index`); a provider-qualified id pins a specific source.
+    if let Some(entry) = upstream_hits.first() {
         return Ok(Some((entry.provider_id.clone(), entry.upstream_slug.clone())));
-    }
-    if upstream_hits.len() > 1 {
-        return Err(CatalogRequestError::AmbiguousUpstream(requested.to_string()));
     }
 
     if is_claude_role_request(requested) {
@@ -462,9 +455,8 @@ pub fn resolve_request_strict(
             resolve_upstream_model(first, requested),
         )));
     }
-    // Ids issued before same-name models were merged (`claude.<provider>.<model>`
-    // or `<provider>.<model>`) keep resolving to the merged row.
-    // A provider-qualified id still pins that provider when it is a source of the model.
+    // Provider-qualified ids (`claude.<provider>.<model>` or `<provider>.<model>`)
+    // issued while the model had a single source keep resolving to that provider.
     let qualified = requested.strip_prefix("claude.").unwrap_or(requested);
     if let Some((first, model)) = qualified.split_once('.') {
         if let Some(provider) = providers
@@ -473,8 +465,7 @@ pub fn resolve_request_strict(
         {
             if let Some(entry) = entries.iter().find(|entry| {
                 entry.upstream_slug.eq_ignore_ascii_case(model)
-                    && (entry.provider_id == provider.id
-                        || entry.alt_provider_ids.contains(&provider.id))
+                    && entry.provider_id == provider.id
             }) {
                 return Ok(Some((provider.id.clone(), entry.upstream_slug.clone())));
             }
@@ -516,27 +507,6 @@ pub fn resolve_request_strict(
         resolve_upstream_model(first, requested),
     )))
 }
-/// Same-name models are one catalog row owned by the highest-priority provider.
-/// While that owner is cooling down, use the next source that is available. When
-/// none is, keep the owner so the caller sees its real error. Never changes the
-/// model, and is only a pre-flight choice: a failed request is not retried here.
-pub fn pick_available_source(
-    entries: &[CatalogEntry],
-    provider_id: &str,
-    upstream_slug: &str,
-    is_available: impl Fn(&str) -> bool,
-) -> String {
-    if is_available(provider_id) {
-        return provider_id.to_string();
-    }
-    entries
-        .iter()
-        .find(|entry| entry.provider_id == provider_id && entry.upstream_slug == upstream_slug)
-        .and_then(|entry| entry.alt_provider_ids.iter().find(|id| is_available(id)))
-        .cloned()
-        .unwrap_or_else(|| provider_id.to_string())
-}
-
 /// Today's public id for a saved model id, when it names a published model under
 /// an older id scheme (`claude.<provider>.<model>`). `None` when the id is already
 /// current or does not name a catalog model.
@@ -556,8 +526,7 @@ pub fn canonical_public_id(
     entries
         .iter()
         .find(|entry| {
-            entry.upstream_slug == slug
-                && (entry.provider_id == provider_id || entry.alt_provider_ids.contains(&provider_id))
+            entry.upstream_slug == slug && entry.provider_id == provider_id
         })
         .map(|entry| entry.public_id.clone())
 }
@@ -931,18 +900,21 @@ fn unique_public_id(
     style: CatalogStyle,
     upstream: &str,
     provider_slug: &str,
+    shared: bool,
     taken: &mut BTreeSet<String>,
 ) -> String {
-    // Same-name models are merged before this runs, so the model name is already
-    // unique; the provider slug is only a collision fallback. Claude discovery
-    // still needs `claude` / `anthropic` in the id, hence the bare `claude.` prefix.
-    let preferred = match style {
-        CatalogStyle::Claude if passes_claude_discovery(upstream) => upstream.to_string(),
-        CatalogStyle::Claude => format!("claude.{upstream}"),
-        CatalogStyle::Codex => upstream.to_string(),
-    };
-    if taken.insert(preferred.clone()) {
-        return preferred;
+    // A model name with one source stays bare. When several providers publish the
+    // same name, every row carries its provider slug so the source is explicit.
+    // Claude discovery still needs `claude` / `anthropic` in the id, hence `claude.`.
+    if !shared {
+        let preferred = match style {
+            CatalogStyle::Claude if passes_claude_discovery(upstream) => upstream.to_string(),
+            CatalogStyle::Claude => format!("claude.{upstream}"),
+            CatalogStyle::Codex => upstream.to_string(),
+        };
+        if taken.insert(preferred.clone()) {
+            return preferred;
+        }
     }
     let prefixed = match style {
         CatalogStyle::Claude => format!("claude.{provider_slug}.{upstream}"),
@@ -1114,18 +1086,26 @@ mod tests {
     }
 
     #[test]
-    fn same_name_claude_models_merge_into_the_first_provider() {
+    fn same_name_claude_models_get_provider_prefixed_ids() {
         let first = provider("a", "Alpha", "claude-sonnet-4");
         let second = provider("b", "Beta", "claude-sonnet-4");
-        let catalog = build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
-        assert_eq!(catalog.len(), 1, "same model name is one row");
-        assert_eq!(catalog[0].public_id, "claude-sonnet-4");
-        assert_eq!(catalog[0].provider_id, "a", "pool order decides the owner");
-        assert_eq!(catalog[0].alt_provider_ids, vec!["b".to_string()]);
+        let other = provider("c", "Gamma", "kimi-k2");
+        let catalog = build_catalog(
+            CatalogStyle::Claude,
+            &[(first, vec![]), (second, vec![]), (other, vec![])],
+        );
+        let ids: Vec<&str> = catalog.iter().map(|entry| entry.public_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["claude.alpha.claude-sonnet-4", "claude.beta.claude-sonnet-4", "claude.kimi-k2"],
+            "only the conflicting name carries the provider"
+        );
+        assert_eq!(catalog[0].provider_id, "a");
+        assert_eq!(catalog[1].provider_id, "b");
     }
 
     #[test]
-    fn same_name_codex_models_merge_and_keep_a_bare_id() {
+    fn same_name_codex_models_get_provider_prefixed_ids() {
         let first = provider("a", "Alpha", "deepseek-v3");
         let second = provider("b", "Beta", "DeepSeek-V3");
         let third = provider("c", "Gamma", "deepseek-v3");
@@ -1133,13 +1113,16 @@ mod tests {
             CatalogStyle::Codex,
             &[(first, vec![]), (second, vec![]), (third, vec![])],
         );
+        let ids: Vec<&str> = catalog.iter().map(|entry| entry.public_id.as_str()).collect();
+        assert_eq!(ids, vec!["alpha.deepseek-v3", "beta.DeepSeek-V3", "gamma.deepseek-v3"]);
+    }
+
+    #[test]
+    fn a_provider_with_one_source_per_model_stays_bare() {
+        let only = provider("a", "Alpha", "deepseek-v3");
+        let catalog = build_catalog(CatalogStyle::Codex, &[(only, vec!["deepseek-v3".into()])]);
         assert_eq!(catalog.len(), 1);
         assert_eq!(catalog[0].public_id, "deepseek-v3");
-        assert_eq!(catalog[0].provider_id, "a");
-        assert_eq!(
-            catalog[0].alt_provider_ids,
-            vec!["b".to_string(), "c".to_string()]
-        );
     }
 
     #[test]
@@ -1184,32 +1167,27 @@ mod tests {
     }
 
     #[test]
-    fn cooling_owner_hands_a_same_name_model_to_the_next_available_source() {
-        let first = provider("a", "Alpha", "shared-model");
-        let second = provider("b", "Beta", "shared-model");
-        let third = provider("c", "Gamma", "shared-model");
-        let catalog = build_catalog(
-            CatalogStyle::Codex,
-            &[(first, vec![]), (second, vec![]), (third, vec![])],
-        );
-        let pick = |down: &[&str]| {
-            pick_available_source(&catalog, "a", "shared-model", |id| !down.contains(&id))
-        };
-        assert_eq!(pick(&[]), "a");
-        assert_eq!(pick(&["a"]), "b");
-        assert_eq!(pick(&["a", "b"]), "c");
-        assert_eq!(pick(&["a", "b", "c"]), "a", "all cooling: keep the owner");
-    }
-
-    #[test]
-    fn merged_same_name_model_resolves_to_the_highest_priority_provider() {
+    fn prefixed_ids_pin_a_source_and_bare_names_use_the_first_provider() {
         let first = provider("a", "Alpha", "shared-model");
         let second = provider("b", "Beta", "shared-model");
         let providers = vec![first.clone(), second.clone()];
         let catalog = build_catalog(CatalogStyle::Codex, &[(first, vec![]), (second, vec![])]);
         assert_eq!(
+            resolve_request_strict(&catalog, &providers, "beta.shared-model"),
+            Ok(Some(("b".into(), "shared-model".into())))
+        );
+        assert_eq!(
+            resolve_request_strict(&catalog, &providers, "alpha.shared-model"),
+            Ok(Some(("a".into(), "shared-model".into())))
+        );
+        // A bare name saved before the conflict appeared still resolves.
+        assert_eq!(
             resolve_request_strict(&catalog, &providers, "shared-model"),
             Ok(Some(("a".into(), "shared-model".into())))
+        );
+        assert_eq!(
+            canonical_public_id(&catalog, &providers, "shared-model").as_deref(),
+            Some("alpha.shared-model")
         );
     }
 
@@ -1277,21 +1255,16 @@ mod tests {
     }
 
     #[test]
-    fn strict_resolver_rejects_ambiguous_raw_models() {
-        // `build_catalog` merges same-name models, so duplicates only reach the
-        // resolver from hand-built entries; it must still refuse to guess.
+    fn strict_resolver_takes_the_first_provider_for_a_shared_raw_model() {
         let first = provider("a", "Alpha", "shared-model");
         let second = provider("b", "Beta", "shared-model");
         let providers = vec![first.clone(), second.clone()];
-        let mut entries = build_catalog(CatalogStyle::Claude, &[(first, vec![])]);
-        let mut duplicate = entries[0].clone();
-        duplicate.provider_id = "b".into();
-        duplicate.public_id = "claude.beta.shared-model".into();
-        entries.push(duplicate);
+        let entries =
+            build_catalog(CatalogStyle::Claude, &[(first, vec![]), (second, vec![])]);
 
         assert_eq!(
             resolve_request_strict(&entries, &providers, "shared-model"),
-            Err(CatalogRequestError::AmbiguousUpstream("shared-model".into()))
+            Ok(Some(("a".into(), "shared-model".into())))
         );
     }
 
