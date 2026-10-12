@@ -107,6 +107,113 @@ pub async fn set_agent_direct(
     set_agent_direct_for_target(target, &upstream_id, Some(&app), &state).await
 }
 
+const CATALOG_SYNC_FAILED_EVENT: &str = "gateway-catalog-sync-failed";
+const CATALOG_SYNC_DEBOUNCE_MS: u64 = 300;
+
+fn catalog_sync_generation() -> &'static std::sync::atomic::AtomicU64 {
+    static GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    &GENERATION
+}
+
+/// Rewrites bound-agent live catalogs (and direct connections of `upstream_id`)
+/// off the request path. Bursts of calls collapse into the last one.
+pub(crate) fn schedule_gateway_catalog_sync(app: tauri::AppHandle, upstream_id: Option<String>) {
+    use std::sync::atomic::Ordering;
+
+    let generation = catalog_sync_generation().fetch_add(1, Ordering::SeqCst) + 1;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(CATALOG_SYNC_DEBOUNCE_MS)).await;
+        if catalog_sync_generation().load(Ordering::SeqCst) != generation {
+            return;
+        }
+        let state = tauri::Manager::state::<AppState>(&app);
+        let _guard = agent_connection_lock().lock().await;
+        let mut failure: Option<String> = None;
+        if let Some(id) = upstream_id.as_deref() {
+            if let Err(error) = refresh_direct_upstream_locked(id, Some(&app), &state).await {
+                failure = Some(error.to_string());
+            }
+        }
+        if let Err(error) = push_bound_gateway_catalogs(&state).await {
+            failure.get_or_insert_with(|| error.to_string());
+        }
+        if let Some(message) = failure {
+            let _ = app.emit(CATALOG_SYNC_FAILED_EVENT, message);
+        }
+    });
+}
+
+fn ensure_agent_supports_direct_mapping(target: ProviderTarget) -> AppResult<()> {
+    match target {
+        ProviderTarget::ClaudeCode | ProviderTarget::ClaudeDesktop => Ok(()),
+        _ => Err(AppError::Config(
+            "只有 Claude Code / Claude Desktop 支持直连模型映射".into(),
+        )),
+    }
+}
+
+#[tauri::command]
+pub fn get_agent_direct_model_mapping(
+    target: ProviderTarget,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ClaudeModelMapping> {
+    ensure_agent_supports_direct_mapping(target)?;
+    state.db.with_read_conn(|conn| {
+        crate::database::dao::gateway::get_agent_direct_model_mapping(conn, target)
+    })
+}
+
+/// 保存 Agent 级直连角色映射；当前正直连该 Agent 时重写 live 配置。
+#[tauri::command]
+pub async fn set_agent_direct_model_mapping(
+    target: ProviderTarget,
+    mapping: ClaudeModelMapping,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<ClaudeModelMapping> {
+    set_agent_direct_model_mapping_for_target(target, mapping, Some(&app), &state).await
+}
+
+pub(crate) async fn set_agent_direct_model_mapping_for_target<R: tauri::Runtime>(
+    target: ProviderTarget,
+    mapping: ClaudeModelMapping,
+    app: Option<&tauri::AppHandle<R>>,
+    state: &AppState,
+) -> AppResult<ClaudeModelMapping> {
+    ensure_agent_supports_direct_mapping(target)?;
+    let _guard = agent_connection_lock().lock().await;
+    let previous = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::get_agent_direct_model_mapping(conn, target)
+    })?;
+    let saved = state.db.with_conn(|conn| {
+        crate::database::dao::gateway::set_agent_direct_model_mapping(conn, target, &mapping)
+    })?;
+    let Some(upstream_id) = direct_connection_upstream(state, target)? else {
+        return Ok(saved);
+    };
+    let result = async {
+        let provider = state.db.with_read_conn(|conn| {
+            crate::database::dao::gateway::provider_from_upstream(conn, &upstream_id, target)
+        })?;
+        validate_direct_provider_for_target(target, &provider)?;
+        apply_runtime_provider(&provider, app, state).await
+    }
+    .await;
+    if let Err(error) = result {
+        // 写出失败时恢复旧映射，避免库里和 live 不一致。
+        let restored = state.db.with_conn(|conn| {
+            crate::database::dao::gateway::set_agent_direct_model_mapping(conn, target, &previous)
+        });
+        return Err(match restored {
+            Ok(_) => error,
+            Err(restore_error) => AppError::Config(format!(
+                "{error}；映射回滚失败：{restore_error}"
+            )),
+        });
+    }
+    Ok(saved)
+}
+
 pub(crate) async fn set_agent_direct_for_target<R: tauri::Runtime>(
     target: ProviderTarget,
     upstream_id: &str,

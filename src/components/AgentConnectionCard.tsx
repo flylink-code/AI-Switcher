@@ -14,6 +14,10 @@ import RightOutlined from "@ant-design/icons/es/icons/RightOutlined";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AgentConfigDrift } from "@/components/AgentConfigDrift";
+import {
+  AgentDirectModelMapping,
+  supportsDirectModelMapping,
+} from "@/components/AgentDirectModelMapping";
 import { usageSourceIcon } from "@/components/UsageSourceIcons";
 import { LABEL_KEYS, PROVIDER_TARGET_OPTIONS } from "@/components/AgentTargetSwitcher";
 import { filterUiAgents } from "@/lib/agentVisibility";
@@ -445,6 +449,13 @@ export function AgentConnectionCard({
                             {t("providers.useSmartGateway", { defaultValue: "改用智能网关" })}
                           </Button>
                         }
+                      />
+                    ) : null}
+                    {isDirect && hasCompatibleDirect && selectedUpstreamId && supportsDirectModelMapping(row.target) ? (
+                      <AgentDirectModelMapping
+                        target={row.target}
+                        upstreamId={selectedUpstreamId}
+                        disabled={isRowBusy}
                       />
                     ) : null}
                     {row.isT1 ? <AgentConfigDrift target={row.target} /> : null}

@@ -10,6 +10,7 @@ export function reapplyAgentConfig(target: ProviderTarget, revision: string): Pr
 }
 
 import type {
+  ClaudeModelMapping,
   CodexAuthStatus,
   CodexOauthAccount,
   CodexOauthDeviceStart,
@@ -73,6 +74,22 @@ export async function ensureCodexOauthProvider(
 
 export async function setAgentDirect(target: ProviderTarget, upstreamId: string): Promise<Provider> {
   return call<Provider>("set_agent_direct", { target, upstreamId });
+}
+
+/** Discover models from an unsaved upstream form; nothing is persisted. */
+export async function discoverProviderModelsInput(input: ProviderInput): Promise<ModelDiscoveryResult> {
+  return call<ModelDiscoveryResult>("discover_provider_models_input", { input });
+}
+
+export async function getAgentDirectModelMapping(target: ProviderTarget): Promise<ClaudeModelMapping> {
+  return call<ClaudeModelMapping>("get_agent_direct_model_mapping", { target });
+}
+
+export async function setAgentDirectModelMapping(
+  target: ProviderTarget,
+  mapping: ClaudeModelMapping,
+): Promise<ClaudeModelMapping> {
+  return call<ClaudeModelMapping>("set_agent_direct_model_mapping", { target, mapping });
 }
 
 export async function getAgentConnectionMode(target: ProviderTarget): Promise<string> {

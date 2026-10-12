@@ -36,13 +36,14 @@ export function providerInput({
   baseUrl,
   model,
   protocolType = "anthropic",
+  modelMapping = emptyMapping(),
 }) {
   const input = {
     name,
     baseUrl,
     apiKey: "sk-system-test",
     model,
-    modelMapping: emptyMapping(),
+    modelMapping,
     protocolType,
     providerKind: "standard",
     targetApp,

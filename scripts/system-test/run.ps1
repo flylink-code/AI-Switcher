@@ -7,12 +7,16 @@
 #   .\scripts\system-test\run.ps1 -Scenario SG-regress-no-autobind
 #   .\scripts\system-test\run.ps1 -ClaudeCode
 #   .\scripts\system-test\run.ps1 -KeepHome   # keep AISW_TEST_HOME even on success
+#   .\scripts\system-test\run.ps1 -Clean      # cargo clean before build
+#   .\scripts\system-test\run.ps1 -MaxTargetGB 20  # auto-clean when target >= N GB (default 0 = off)
 #
 # Never writes the user's real ~/.claude or ~/.claude-switcher.
 
 param(
     [switch]$SkipBuild,
     [switch]$SkipClean,
+    [switch]$Clean,
+    [double]$MaxTargetGB = 0,
     [switch]$ClaudeCode,
     [switch]$KeepHome,
     [string]$Scenario = "*",
@@ -117,13 +121,13 @@ function Stop-PidTree([int]$ProcessId) {
 
 function Set-DevUrlPort([string]$ConfPath, [int]$ListenPort) {
     $raw = [System.IO.File]::ReadAllText($ConfPath, [System.Text.Encoding]::UTF8)
-    $updated = [regex]::Replace(
-        $raw,
-        '("devUrl"\s*:\s*"https?://)(?:localhost|127\.0\.0\.1):\d+(")',
-        "`${1}127.0.0.1:$ListenPort`${2}"
-    )
+    $pattern = '("devUrl"\s*:\s*"https?://)(?:localhost|127\.0\.0\.1):\d+(")'
+    if (-not [regex]::IsMatch($raw, $pattern)) {
+        throw "Could not find devUrl in $ConfPath"
+    }
+    $updated = [regex]::Replace($raw, $pattern, "`${1}127.0.0.1:$ListenPort`${2}")
     if ($updated -eq $raw) {
-        throw "Could not update devUrl in $ConfPath"
+        return
     }
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($ConfPath, $updated, $utf8NoBom)
@@ -281,14 +285,18 @@ try {
         }
 
         $targetGb = Get-DirSizeGB $targetDir
-        Write-Host ("[system-test] src-tauri\target size: {0:N1} GB (auto-clean >= 20 GB)" -f $targetGb)
-        if ($targetGb -ge 20 -and (Test-Path $targetDir)) {
+        if ($MaxTargetGB -gt 0) {
+            Write-Host ("[system-test] src-tauri\target size: {0:N1} GB (auto-clean >= {1} GB)" -f $targetGb, $MaxTargetGB)
+        } else {
+            Write-Host ("[system-test] src-tauri\target size: {0:N1} GB (auto-clean off)" -f $targetGb)
+        }
+        if ((($MaxTargetGB -gt 0 -and $targetGb -ge $MaxTargetGB) -or $Clean) -and (Test-Path $targetDir)) {
             $cargoBusy = @(Get-Process -Name "cargo", "rustc" -ErrorAction SilentlyContinue)
             if ($cargoBusy.Count -gt 0) {
                 $pids = ($cargoBusy | ForEach-Object { $_.Id }) -join ", "
                 throw "Another cargo/rustc process is running (PIDs: $pids). Stop it before cargo clean."
             }
-            Write-Host "[system-test] target exceeds 20 GB; performing cargo clean before build"
+            Write-Host "[system-test] cargo clean before build (-Clean or target >= $MaxTargetGB GB)"
             Push-Location $tauriDir
             try {
                 & cargo clean

@@ -5,3 +5,4 @@ export * from "./UpstreamImportModal";
 export * from "./UpstreamImportJsonModal";
 export * from "./UpstreamModelsDrawer";
 export * from "./CodexOauthModal";
+export * from "./SortableRow";

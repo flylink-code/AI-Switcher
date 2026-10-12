@@ -6,7 +6,7 @@
   "identifier": "com.claude-switcher.desktop",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:5250",
+    "devUrl": "http://127.0.0.1:5251",
     "beforeDevCommand": "corepack pnpm dev",
     "beforeBuildCommand": "corepack pnpm build"
   },

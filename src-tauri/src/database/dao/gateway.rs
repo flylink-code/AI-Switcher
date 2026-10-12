@@ -8,7 +8,9 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
-use crate::provider::{ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget};
+use crate::provider::{
+    ClaudeModelMapping, ProtocolType, Provider, ProviderInput, ProviderKind, ProviderTarget,
+};
 use crate::secrets;
 
 use super::settings::{get_setting, set_setting};
@@ -1278,12 +1280,11 @@ pub fn profile_entry_token(conn: &Connection, target: ProviderTarget) -> AppResu
         .filter(|token| !token.trim().is_empty()))
 }
 
-pub fn profile_allows_upstream(profile: &GatewayProfile, upstream_id: &str) -> bool {
-    profile.allowed_upstream_ids.is_empty()
-        || profile
-            .allowed_upstream_ids
-            .iter()
-            .any(|id| id.eq_ignore_ascii_case(upstream_id))
+/// Profiles are frozen (`gprof_shared`) and have no editor, so a stored
+/// allowlist from an older version must not hide newly added upstreams. The
+/// column is kept untouched for rollback; it no longer filters anything.
+pub fn profile_allows_upstream(_profile: &GatewayProfile, _upstream_id: &str) -> bool {
+    true
 }
 
 fn parse_health_latency_ms(detail: Option<&str>) -> Option<u64> {
@@ -1518,6 +1519,74 @@ pub fn reorder_upstreams(conn: &Connection, ordered_ids: &[String]) -> AppResult
     Ok(())
 }
 
+const AGENT_DIRECT_MAPPING_KEY_PREFIX: &str = "agent_direct_model_mapping:";
+
+fn agent_direct_mapping_key(target: ProviderTarget) -> String {
+    format!("{AGENT_DIRECT_MAPPING_KEY_PREFIX}{}", target.as_str())
+}
+
+fn trim_model_mapping(mapping: &ClaudeModelMapping) -> ClaudeModelMapping {
+    ClaudeModelMapping {
+        sonnet: mapping.sonnet.trim().to_string(),
+        opus: mapping.opus.trim().to_string(),
+        haiku: mapping.haiku.trim().to_string(),
+        fable: mapping.fable.trim().to_string(),
+        subagent: mapping.subagent.trim().to_string(),
+    }
+}
+
+/// Per-role overlay: a non-empty role in `agent` wins over `upstream`.
+pub fn overlay_model_mapping(
+    upstream: &ClaudeModelMapping,
+    agent: &ClaudeModelMapping,
+) -> ClaudeModelMapping {
+    let pick = |over: &str, base: &str| {
+        if over.trim().is_empty() {
+            base.trim().to_string()
+        } else {
+            over.trim().to_string()
+        }
+    };
+    ClaudeModelMapping {
+        sonnet: pick(&agent.sonnet, &upstream.sonnet),
+        opus: pick(&agent.opus, &upstream.opus),
+        haiku: pick(&agent.haiku, &upstream.haiku),
+        fable: pick(&agent.fable, &upstream.fable),
+        subagent: pick(&agent.subagent, &upstream.subagent),
+    }
+}
+
+/// Agent-level direct-connection role mapping (settings KV, no schema change).
+pub fn get_agent_direct_model_mapping(
+    conn: &Connection,
+    target: ProviderTarget,
+) -> AppResult<ClaudeModelMapping> {
+    let Some(raw) = get_setting(conn, &agent_direct_mapping_key(target))? else {
+        return Ok(ClaudeModelMapping::default());
+    };
+    // A corrupt value must not block direct connections; treat it as unset.
+    Ok(serde_json::from_str::<ClaudeModelMapping>(&raw)
+        .map(|mapping| trim_model_mapping(&mapping))
+        .unwrap_or_default())
+}
+
+pub fn set_agent_direct_model_mapping(
+    conn: &Connection,
+    target: ProviderTarget,
+    mapping: &ClaudeModelMapping,
+) -> AppResult<ClaudeModelMapping> {
+    let normalized = trim_model_mapping(mapping);
+    let key = agent_direct_mapping_key(target);
+    if normalized.has_explicit_roles() {
+        let raw = serde_json::to_string(&normalized)
+            .map_err(|error| AppError::Config(format!("序列化模型映射失败: {error}")))?;
+        set_setting(conn, &key, &raw)?;
+    } else {
+        conn.execute("DELETE FROM settings WHERE key = ?;", params![key])?;
+    }
+    Ok(normalized)
+}
+
 pub fn provider_from_upstream(
     conn: &Connection,
     id: &str,
@@ -1528,6 +1597,8 @@ pub fn provider_from_upstream(
     let mut provider = upstream;
     provider.id = id.to_string();
     provider.target_app = target;
+    let agent_mapping = get_agent_direct_model_mapping(conn, target)?;
+    provider.model_mapping = overlay_model_mapping(&provider.model_mapping, &agent_mapping);
     if !provider.api_key.trim().is_empty() && !secrets::is_keyring_ref(&provider.api_key) {
         provider.api_key = secrets::keyring_ref(id);
     }
@@ -4427,6 +4498,98 @@ mod tests {
             assert!(resumed.enabled);
             assert_eq!(list_upstream_providers(conn, false)?.len(), 1);
             assert!(set_direct_binding(conn, ProviderTarget::ClaudeCode, &created.id).is_ok());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn agent_direct_mapping_overlays_upstream_mapping_per_role() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let mut input = provider_input(
+                Some("up_map"),
+                ProviderTarget::ClaudeCode,
+                ProviderKind::Standard,
+                ProtocolType::Anthropic,
+                "https://api.example.test",
+                "default-model",
+            );
+            input.model_mapping = ClaudeModelMapping {
+                sonnet: "up-sonnet".into(),
+                opus: "up-opus".into(),
+                ..ClaudeModelMapping::default()
+            };
+            upsert_upstream(conn, &input)?;
+
+            let plain = provider_from_upstream(conn, "up_map", ProviderTarget::ClaudeCode)?;
+            assert_eq!(plain.model_mapping.sonnet, "up-sonnet");
+            assert_eq!(plain.model_mapping.haiku, "");
+
+            let saved = super::set_agent_direct_model_mapping(
+                conn,
+                ProviderTarget::ClaudeCode,
+                &ClaudeModelMapping {
+                    sonnet: "  agent-sonnet ".into(),
+                    haiku: "agent-haiku".into(),
+                    ..ClaudeModelMapping::default()
+                },
+            )?;
+            assert_eq!(saved.sonnet, "agent-sonnet");
+
+            let merged = provider_from_upstream(conn, "up_map", ProviderTarget::ClaudeCode)?;
+            assert_eq!(merged.model_mapping.sonnet, "agent-sonnet");
+            assert_eq!(merged.model_mapping.opus, "up-opus");
+            assert_eq!(merged.model_mapping.haiku, "agent-haiku");
+            assert_eq!(merged.model_mapping.fable, "");
+
+            // Another agent keeps its own (empty) mapping.
+            let desktop = provider_from_upstream(conn, "up_map", ProviderTarget::ClaudeDesktop)?;
+            assert_eq!(desktop.model_mapping.sonnet, "up-sonnet");
+
+            // The stored upstream row is never rewritten by the overlay.
+            let stored = get_upstream_provider(conn, "up_map")?.unwrap();
+            assert_eq!(stored.model_mapping.sonnet, "up-sonnet");
+
+            super::set_agent_direct_model_mapping(
+                conn,
+                ProviderTarget::ClaudeCode,
+                &ClaudeModelMapping::default(),
+            )?;
+            assert!(!super::get_agent_direct_model_mapping(conn, ProviderTarget::ClaudeCode)?
+                .has_explicit_roles());
+            let cleared = provider_from_upstream(conn, "up_map", ProviderTarget::ClaudeCode)?;
+            assert_eq!(cleared.model_mapping.sonnet, "up-sonnet");
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn stale_profile_allowlist_does_not_hide_new_upstreams() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            let profile = ensure_profile_for_target(conn, ProviderTarget::ClaudeCode)?;
+            conn.execute(
+                "UPDATE gateway_profiles SET allowed_upstream_ids_json = ? WHERE id = ?;",
+                params![r#"["p_old"]"#, profile.id],
+            )?;
+            let reloaded = super::get_profile(conn, &profile.id)?.unwrap();
+            assert_eq!(reloaded.allowed_upstream_ids, vec!["p_old".to_string()]);
+            assert!(super::profile_allows_upstream(&reloaded, "up_kiro_15831"));
+            assert!(super::profile_allows_upstream(&reloaded, "p_old"));
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn corrupt_agent_direct_mapping_is_treated_as_unset() {
+        let db = Database::memory().unwrap();
+        db.with_conn(|conn| {
+            super::set_setting(conn, "agent_direct_model_mapping:claude_code", "{not json")?;
+            let mapping = super::get_agent_direct_model_mapping(conn, ProviderTarget::ClaudeCode)?;
+            assert!(!mapping.has_explicit_roles());
             Ok(())
         })
         .unwrap();

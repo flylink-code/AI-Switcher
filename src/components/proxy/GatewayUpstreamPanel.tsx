@@ -21,6 +21,16 @@ import ReloadOutlined from "@ant-design/icons/es/icons/ReloadOutlined";
 import ThunderboltOutlined from "@ant-design/icons/es/icons/ThunderboltOutlined";
 import DownOutlined from "@ant-design/icons/es/icons/DownOutlined";
 import ScanOutlined from "@ant-design/icons/es/icons/ScanOutlined";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MoreMenu } from "@/components/common/MoreMenu";
@@ -33,6 +43,7 @@ import {
   deleteGatewayUpstream,
   discoverGatewayUpstreamModels,
   discoverGatewayUpstreamModelsBatch,
+  discoverProviderModelsInput,
   ensureCodexOauthProvider,
   exportGatewayUpstreams,
   getLocalGatewayEnabled,
@@ -66,6 +77,7 @@ import type {
   ClaudeModelMapping,
   CodexOauthDeviceStart,
   EndpointSpeedtestResult,
+  GatewayUpstreamModelRow,
   Provider,
   UpstreamDailyUsageStat,
   ProviderInput,
@@ -74,6 +86,8 @@ import type {
 } from "@/types/backend";
 import {
   CodexOauthModal,
+  DragHandle,
+  SortableRow,
   UPSTREAM_PRESETS,
   UpstreamFormModal,
   UpstreamHealthBadge,
@@ -92,17 +106,6 @@ const { Text } = Typography;
 
 function emptyModelMapping(): ClaudeModelMapping {
   return { sonnet: "", opus: "", haiku: "", fable: "", subagent: "" };
-}
-
-function normalizeModelMapping(mapping: ClaudeModelMapping | undefined): ClaudeModelMapping {
-  const source = mapping ?? emptyModelMapping();
-  return {
-    sonnet: source.sonnet.trim(),
-    opus: source.opus.trim(),
-    haiku: source.haiku.trim(),
-    fable: source.fable.trim(),
-    subagent: source.subagent.trim(),
-  };
 }
 
 function canQueryUpstreamQuota(row: Provider): boolean {
@@ -152,6 +155,8 @@ export function GatewayUpstreamPanel({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
   const [addingAg, setAddingAg] = useState(false);
   const [addingKiro, setAddingKiro] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
@@ -274,6 +279,26 @@ export function GatewayUpstreamPanel({
     return options;
   }, [upstreamsQuery.data]);
 
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<string>("gateway-catalog-sync-failed", (event) => {
+      void message.warning(
+        t("proxy.catalogSyncFailed", {
+          error: event.payload,
+          defaultValue: "已保存，但同步到 Agent 配置失败：{{error}}",
+        }),
+      );
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [t]);
+
   const invalidatePool = async () => {
     await queryClient.invalidateQueries({ queryKey: ["gateway-upstreams"] });
     await queryClient.invalidateQueries({ queryKey: ["gateway-upstream-health"] });
@@ -306,8 +331,8 @@ export function GatewayUpstreamPanel({
       protocolType: "anthropic",
       notes: "",
       targetApp: "claude_code",
-      modelMapping: emptyModelMapping(),
     });
+    setFetchedModels([]);
     setOpen(true);
   };
 
@@ -324,8 +349,8 @@ export function GatewayUpstreamPanel({
       protocolType: provider.protocolType,
       notes: provider.notes,
       targetApp: "claude_code",
-      modelMapping: provider.modelMapping ?? emptyModelMapping(),
     });
+    setFetchedModels([]);
     setOpen(true);
   };
 
@@ -376,6 +401,48 @@ export function GatewayUpstreamPanel({
     }
   };
 
+  const handleFetchModels = async () => {
+    const values = form.getFieldsValue();
+    const rawUrl = String(values.baseUrl ?? "").trim();
+    if (!rawUrl) {
+      void message.warning(t("proxy.fetchModelsNeedUrl"));
+      return;
+    }
+    setFetchingModels(true);
+    try {
+      let baseUrl = normalizeBaseUrl(rawUrl);
+      if (values.protocolType === "openai_chat" || values.protocolType === "openai_responses") {
+        baseUrl = ensureOpenAiV1Suffix(baseUrl);
+      }
+      const result = await discoverProviderModelsInput({
+        id: editing?.id,
+        name: values.name ?? "",
+        baseUrl,
+        apiKey: values.apiKey ?? "",
+        model: values.model ?? "",
+        protocolType: values.protocolType,
+        notes: values.notes ?? "",
+        targetApp: "claude_code",
+        modelMapping: editing?.modelMapping ?? emptyModelMapping(),
+        providerKind: editing?.providerKind ?? "standard",
+      });
+      if (result.error) {
+        void message.warning(result.error);
+      }
+      setFetchedModels(result.models);
+      if (result.models.length > 0) {
+        if (!String(values.model ?? "").trim()) {
+          form.setFieldValue("model", result.models[0]);
+        }
+        void message.success(t("proxy.fetchModelsDone", { count: result.models.length }));
+      }
+    } catch (error) {
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
   const handleSave = async () => {
     const values = await form.validateFields();
     setSaving(true);
@@ -387,7 +454,7 @@ export function GatewayUpstreamPanel({
       if (isReservedListenerUrl(baseUrl)) {
         throw new Error(t("proxy.upstreamReservedUrl", { defaultValue: "上游不能指向本机 15821–15828" }));
       }
-      await upsertGatewayUpstream({
+      const saved = await upsertGatewayUpstream({
         id: editing?.id,
         name: values.name,
         baseUrl,
@@ -396,12 +463,21 @@ export function GatewayUpstreamPanel({
         protocolType: values.protocolType,
         notes: values.notes ?? "",
         targetApp: "claude_code",
-        modelMapping: normalizeModelMapping(values.modelMapping),
+        // Upstream-side mapping UI was removed; keep whatever is stored.
+        modelMapping: editing?.modelMapping ?? emptyModelMapping(),
         providerKind:
           editing?.providerKind === "antigravity" || editing?.providerKind === "kiro"
             ? editing.providerKind
             : "standard",
       });
+      if (fetchedModels.length > 0) {
+        try {
+          await discoverGatewayUpstreamModels(saved.id);
+          await queryClient.invalidateQueries({ queryKey: ["gateway-upstream-models", saved.id] });
+        } catch {
+          // Models were fetched for the form only; persistence is best effort.
+        }
+      }
       await invalidatePool();
       setOpen(false);
       void message.success(t("proxy.upstreamSaved"));
@@ -499,22 +575,48 @@ export function GatewayUpstreamPanel({
     }
   };
 
+  /** Applies a new pool order instantly; the server rewrites agent configs in the background. */
+  const applyOrder = async (orderedIds: string[]) => {
+    const previous = upstreamsQuery.data ?? [];
+    const byId = new Map(previous.map((item) => [item.id, item]));
+    const optimistic = orderedIds
+      .map((id) => byId.get(id))
+      .filter((item): item is Provider => item != null);
+    if (optimistic.length !== previous.length) return;
+    queryClient.setQueryData(["gateway-upstreams"], optimistic);
+    setReorderingId("pending");
+    try {
+      const next = await reorderGatewayUpstreams(orderedIds);
+      queryClient.setQueryData(["gateway-upstreams"], next);
+      void queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
+      void queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
+    } catch (error) {
+      queryClient.setQueryData(["gateway-upstreams"], previous);
+      void message.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   const handleMove = async (row: Provider, delta: -1 | 1) => {
     const ids = (upstreamsQuery.data ?? []).map((item) => item.id);
     const from = ids.indexOf(row.id);
     const to = from + delta;
     if (from < 0 || to < 0 || to >= ids.length) return;
     ids.splice(to, 0, ids.splice(from, 1)[0]);
-    setReorderingId(row.id);
-    try {
-      const next = await reorderGatewayUpstreams(ids);
-      queryClient.setQueryData(["gateway-upstreams"], next);
-      await invalidatePool();
-    } catch (error) {
-      void message.error(error instanceof Error ? error.message : String(error));
-    } finally {
-      setReorderingId(null);
-    }
+    await applyOrder(ids);
+  };
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || reorderingId != null) return;
+    const ids = (upstreamsQuery.data ?? []).map((item) => item.id);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from < 0 || to < 0) return;
+    void applyOrder(arrayMove(ids, from, to));
   };
 
   const handleImport = async () => {
@@ -574,15 +676,19 @@ export function GatewayUpstreamPanel({
 
   const handleToggleModel = async (modelId: string, visible: boolean) => {
     if (!modelsUpstream) return;
-    setModelsSaving(true);
+    const upstreamId = modelsUpstream.id;
+    const key = ["gateway-upstream-models", upstreamId];
+    // Flip the row at once; later toggles are not blocked by earlier requests.
+    queryClient.setQueryData<GatewayUpstreamModelRow[]>(key, (rows) =>
+      (rows ?? []).map((row) => (row.modelId === modelId ? { ...row, visible } : row)),
+    );
     try {
-      const rows = await setGatewayUpstreamModelVisible(modelsUpstream.id, modelId, visible);
-      queryClient.setQueryData(["gateway-upstream-models", modelsUpstream.id], rows);
-      await queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
+      await setGatewayUpstreamModelVisible(upstreamId, modelId, visible);
+      void queryClient.invalidateQueries({ queryKey: ["gateway-catalog-entries"] });
+      void queryClient.invalidateQueries({ queryKey: ["gateway-catalog-models"] });
     } catch (error) {
+      void queryClient.invalidateQueries({ queryKey: key });
       void message.error(error instanceof Error ? error.message : String(error));
-    } finally {
-      setModelsSaving(false);
     }
   };
 
@@ -953,6 +1059,8 @@ export function GatewayUpstreamPanel({
       {/* Upstream Health Overview */}
       <UpstreamPoolSummary upstreams={upstreams} healthList={healthList} />
 
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={upstreams.map((item) => item.id)} strategy={verticalListSortingStrategy}>
       <Table
         size="small"
         rowKey="id"
@@ -960,6 +1068,7 @@ export function GatewayUpstreamPanel({
         scroll={{ x: "max-content" }}
         loading={upstreamsQuery.isLoading}
         dataSource={upstreams}
+        components={{ body: { row: SortableRow } }}
         locale={{ emptyText: t("proxy.upstreamEmpty") }}
         onRow={(row) => ({
           style: row.enabled === false ? { opacity: 0.72 } : undefined,
@@ -971,15 +1080,21 @@ export function GatewayUpstreamPanel({
         columns={[
           {
             title: t("providers.priority", { defaultValue: "优先级" }),
-            width: 72,
+            width: 104,
             render: (_: unknown, _row: Provider, index: number) => (
-              <Tooltip
-                title={t("providers.priorityHint", {
-                  defaultValue: "同名模型按此顺序调用：数字越小越优先",
-                })}
-              >
-                <Tag style={{ marginInlineEnd: 0 }}>{index + 1}</Tag>
-              </Tooltip>
+              <Space size={2}>
+                <DragHandle
+                  label={t("providers.dragToReorder", { defaultValue: "拖动调整优先级" })}
+                  disabled={reorderingId != null}
+                />
+                <Tooltip
+                  title={t("providers.priorityHint", {
+                    defaultValue: "同名模型按此顺序调用：数字越小越优先",
+                  })}
+                >
+                  <Tag style={{ marginInlineEnd: 0 }}>{index + 1}</Tag>
+                </Tooltip>
+              </Space>
             ),
           },
           {
@@ -1146,6 +1261,8 @@ export function GatewayUpstreamPanel({
           },
         ]}
       />
+      </SortableContext>
+      </DndContext>
 
       <Modal
         open={pendingDelete != null}
@@ -1180,6 +1297,9 @@ export function GatewayUpstreamPanel({
         onApplyPreset={applyPreset}
         onNormalizeBaseUrl={normalizeBaseUrlField}
         onAppendV1Suffix={appendV1Suffix}
+        modelOptions={fetchedModels}
+        fetchingModels={fetchingModels}
+        onFetchModels={() => void handleFetchModels()}
         onSubmit={() => void handleSave()}
         onClose={() => setOpen(false)}
       />

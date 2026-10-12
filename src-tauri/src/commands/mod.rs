@@ -144,6 +144,7 @@ pub use providers::{
     set_opencode_permission_mode,
     batch_speedtest_upstream_endpoints, cancel_batch_speedtest,
     switch_provider, switch_to_official, set_agent_direct, get_agent_connection_mode,
+    get_agent_direct_model_mapping, set_agent_direct_model_mapping,
     test_upstream_connection, export_gateway_upstreams, import_gateway_upstreams_json, import_live_config_as_upstreams,
     test_provider_input,
     ensure_smart_gateway_provider,

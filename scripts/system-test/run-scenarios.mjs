@@ -11,6 +11,7 @@ const SCENARIOS = [
   "./scenarios/sg-providers-pool-crud.mjs",
   "./scenarios/sg-same-name-priority.mjs",
   "./scenarios/sg-agent-connection-card.mjs",
+  "./scenarios/sg-agent-direct-mapping.mjs",
   "./scenarios/sg-gateway-ui-reliability.mjs",
   "./scenarios/sg-upstream-limits-ui.mjs",
   "./scenarios/sg-ui-layout-matrix.mjs",

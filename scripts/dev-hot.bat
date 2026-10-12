@@ -8,7 +8,7 @@ REM   scripts\dev-hot.bat
 REM   scripts\dev-hot.bat clean
 REM   scripts\dev-hot.bat 5251
 REM   scripts\dev-hot.bat maxgb=30
-REM Auto-clean when src-tauri\target >= 20 GB (override with maxgb=N).
+REM Auto-clean is off by default; pass maxgb=N to clean when src-tauri\target >= N GB.
 
 set "PS_SCRIPT=%~dp0dev-hot.ps1"
 set "PS_ARGS="

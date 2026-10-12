@@ -138,22 +138,25 @@ pub fn set_local_gateway_enabled(
 #[tauri::command]
 pub async fn reorder_gateway_upstreams(
     ordered_ids: Vec<String>,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<Provider>> {
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
-    state
-        .db
-        .with_conn(|conn| crate::database::dao::gateway::reorder_upstreams(conn, &ordered_ids))?;
-    crate::catalog::invalidate_view_cache();
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
-    let mut providers = state
-        .db
-        .with_read_conn(|conn| list_upstream_providers(conn, true))?;
+    let mut providers = {
+        let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+        state
+            .db
+            .with_conn(|conn| crate::database::dao::gateway::reorder_upstreams(conn, &ordered_ids))?;
+        crate::catalog::invalidate_view_cache();
+        state
+            .db
+            .with_read_conn(|conn| list_upstream_providers(conn, true))?
+    };
     for provider in &mut providers {
         if !provider.api_key.starts_with("kr://") {
             provider.api_key = String::new();
         }
     }
+    crate::commands::providers::schedule_gateway_catalog_sync(app, None);
     Ok(providers)
 }
 
@@ -230,12 +233,15 @@ pub async fn set_gateway_upstream_model_visible(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<GatewayUpstreamModelRow>> {
-    let _guard = crate::commands::providers::agent_connection_lock().lock().await;
-    let rows = state
-        .db
-        .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))?;
-    crate::commands::providers::refresh_direct_upstream_locked(&id, Some(&app), &state).await?;
-    let _ = crate::commands::providers::push_bound_gateway_catalogs(&state).await;
+    let rows = {
+        let _guard = crate::commands::providers::agent_connection_lock().lock().await;
+        let rows = state
+            .db
+            .with_conn(|conn| set_upstream_model_visible(conn, &id, &model_id, visible))?;
+        crate::catalog::invalidate_view_cache();
+        rows
+    };
+    crate::commands::providers::schedule_gateway_catalog_sync(app, Some(id));
     Ok(rows)
 }
 

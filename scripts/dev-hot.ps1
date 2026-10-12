@@ -7,7 +7,7 @@
 # Usage:
 #   .\scripts\dev-hot.ps1
 #   .\scripts\dev-hot.ps1 -Clean          # always cargo clean first
-#   .\scripts\dev-hot.ps1 -MaxTargetGB 30 # auto-clean when target exceeds N GB (default 20)
+#   .\scripts\dev-hot.ps1 -MaxTargetGB 30 # auto-clean when target exceeds N GB (default 0 = off)
 #   .\scripts\dev-hot.ps1 -Port 5251      # pin Vite / baked-in devUrl port
 #
 # Stops leftover debug exe + this-repo Vite (ports 5250-5270) first, then starts
@@ -15,7 +15,7 @@
 
 param(
     [switch]$Clean,
-    [double]$MaxTargetGB = 20,
+    [double]$MaxTargetGB = 0,
     [int]$Port = 0,
     [int]$CdpPort = 9222,
     [switch]$NoLaunch
@@ -170,7 +170,11 @@ if (Test-Path $nestedTarget) {
 }
 
 $targetGb = Get-DirSizeGB $targetDir
-Write-Host ("[dev-hot] src-tauri\target size: {0:N1} GB (auto-clean >= {1} GB)" -f $targetGb, $MaxTargetGB)
+if ($MaxTargetGB -gt 0) {
+    Write-Host ("[dev-hot] src-tauri\target size: {0:N1} GB (auto-clean >= {1} GB)" -f $targetGb, $MaxTargetGB)
+} else {
+    Write-Host ("[dev-hot] src-tauri\target size: {0:N1} GB (auto-clean off)" -f $targetGb)
+}
 
 # Stop last session before cargo clean / port pick so the debug exe is not locked
 # and leftover Vite does not occupy 5250.
