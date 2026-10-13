@@ -465,6 +465,9 @@ pub struct CollectedReply {
     pub output_tokens: i64,
     pub cache_read: i64,
     pub cache_write: i64,
+    /// `contextUsageEvent.contextUsagePercentage` (0–100). Exact `tokenUsage` wins.
+    context_percent: Option<f64>,
+    usage_measured: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -519,28 +522,150 @@ impl CollectedReply {
                 }
             }
             "metadataEvent" => {
-                if let Some(usage) = payload.get("tokenUsage") {
-                    self.input_tokens = usage
-                        .get("uncachedInputTokens")
-                        .and_then(|item| item.as_i64())
-                        .unwrap_or(self.input_tokens);
-                    self.output_tokens = usage
-                        .get("outputTokens")
-                        .and_then(|item| item.as_i64())
-                        .unwrap_or(self.output_tokens);
-                    self.cache_read = usage
-                        .get("cacheReadInputTokens")
-                        .and_then(|item| item.as_i64())
-                        .unwrap_or(self.cache_read);
-                    self.cache_write = usage
-                        .get("cacheWriteInputTokens")
-                        .and_then(|item| item.as_i64())
-                        .unwrap_or(self.cache_write);
+                if let Some(usage) = payload
+                    .get("tokenUsage")
+                    .or_else(|| payload.pointer("/metadataEvent/tokenUsage"))
+                    .or_else(|| payload.pointer("/messageMetadataEvent/tokenUsage"))
+                {
+                    self.apply_token_usage(usage);
                 }
             }
-            _ => {}
+            "contextUsageEvent" => {
+                if let Some(percent) = json_f64(payload.get("contextUsagePercentage")) {
+                    self.context_percent = Some(percent);
+                }
+            }
+            _ => {
+                if let Some(usage) = payload.get("tokenUsage") {
+                    self.apply_token_usage(usage);
+                } else if let Some(percent) = json_f64(payload.get("contextUsagePercentage")) {
+                    self.context_percent = Some(percent);
+                }
+            }
         }
     }
+
+    /// Fill tokens the client and the smart gateway can store.
+    ///
+    /// Kiro often omits `metadataEvent`. `contextUsagePercentage` is
+    /// `totalTokens / contextWindow * 100` for the whole turn, so the reply
+    /// text is split out as output and the rest is input. With neither signal,
+    /// a short local estimate is used so a finished reply is not logged as
+    /// "upstream did not provide usage".
+    pub fn finalize_usage(&mut self, context_window: u64, request_chars: usize) {
+        if self.usage_measured
+            && (self.input_tokens > 0
+                || self.output_tokens > 0
+                || self.cache_read > 0
+                || self.cache_write > 0)
+        {
+            return;
+        }
+        if let Some(percent) = self.context_percent.filter(|value| *value > 0.0) {
+            if context_window > 0 {
+                let total = ((percent / 100.0) * context_window as f64)
+                    .round()
+                    .max(0.0) as i64;
+                let output = estimate_tokens(&self.generated_text()).min(total);
+                self.output_tokens = output;
+                self.input_tokens = total.saturating_sub(output);
+                return;
+            }
+        }
+        let output = estimate_tokens(&self.generated_text());
+        let input = estimate_chars(request_chars);
+        if input > 0 || output > 0 {
+            self.input_tokens = input;
+            self.output_tokens = output;
+        }
+    }
+
+    fn apply_token_usage(&mut self, usage: &Value) {
+        let mut saw = false;
+        if let Some(value) = json_i64_field(usage, &["uncachedInputTokens", "inputTokens"]) {
+            self.input_tokens = value;
+            saw = true;
+        }
+        if let Some(value) = json_i64_field(usage, &["outputTokens"]) {
+            self.output_tokens = value;
+            saw = true;
+        }
+        if let Some(value) = json_i64_field(usage, &["cacheReadInputTokens"]) {
+            self.cache_read = value;
+            saw = true;
+        }
+        if let Some(value) = json_i64_field(usage, &["cacheWriteInputTokens"]) {
+            self.cache_write = value;
+            saw = true;
+        }
+        if self.input_tokens == 0 && self.cache_read == 0 && self.cache_write == 0 {
+            if let Some(total) = json_i64_field(usage, &["totalTokens"]) {
+                if total > self.output_tokens {
+                    self.input_tokens = total
+                        .saturating_sub(self.output_tokens)
+                        .saturating_sub(self.cache_read)
+                        .saturating_sub(self.cache_write);
+                }
+                saw = true;
+            }
+        }
+        if let Some(percent) = json_f64(usage.get("contextUsagePercentage")) {
+            self.context_percent = Some(percent);
+        }
+        if saw {
+            self.usage_measured = true;
+        }
+    }
+
+    fn generated_text(&self) -> String {
+        let mut text = String::new();
+        text.push_str(&self.text);
+        text.push_str(&self.thinking);
+        for tool in &self.tools {
+            text.push_str(&tool.name);
+            text.push_str(&tool.input);
+        }
+        text
+    }
+}
+
+fn json_i64_field(value: &Value, keys: &[&str]) -> Option<i64> {
+    keys.iter().find_map(|key| json_i64(value.get(*key)))
+}
+
+fn json_i64(value: Option<&Value>) -> Option<i64> {
+    let value = value?;
+    if let Some(number) = value.as_i64() {
+        return Some(number);
+    }
+    if let Some(number) = value.as_u64() {
+        return i64::try_from(number).ok();
+    }
+    value
+        .as_f64()
+        .filter(|number| number.is_finite())
+        .map(|number| number.round() as i64)
+}
+
+fn json_f64(value: Option<&Value>) -> Option<f64> {
+    let value = value?;
+    value
+        .as_f64()
+        .or_else(|| value.as_i64().map(|number| number as f64))
+        .or_else(|| value.as_u64().map(|number| number as f64))
+        .filter(|number| number.is_finite())
+}
+
+fn estimate_chars(chars: usize) -> i64 {
+    if chars == 0 {
+        0
+    } else {
+        ((chars + 3) / 4) as i64
+    }
+}
+
+fn estimate_tokens(text: &str) -> i64 {
+    estimate_chars(text.chars().count())
 }
 
 pub fn anthropic_message(client_model: &str, reply: &CollectedReply) -> Value {
@@ -669,7 +794,12 @@ pub fn anthropic_sse(client_model: &str, reply: &CollectedReply) -> String {
     push_sse(
         &mut out,
         "message_delta",
-        &json!({"type":"message_delta","delta":{"stop_reason": stop, "stop_sequence": null}, "usage": {"output_tokens": reply.output_tokens}}),
+        &json!({"type":"message_delta","delta":{"stop_reason": stop, "stop_sequence": null}, "usage": {
+            "input_tokens": reply.input_tokens,
+            "output_tokens": reply.output_tokens,
+            "cache_read_input_tokens": reply.cache_read,
+            "cache_creation_input_tokens": reply.cache_write
+        }}),
     );
     push_sse(&mut out, "message_stop", &json!({"type":"message_stop"}));
     let _ = index;
@@ -724,7 +854,12 @@ pub fn openai_chat_sse(client_model: &str, reply: &CollectedReply) -> String {
         "id": id,
         "object": "chat.completion.chunk",
         "model": client_model,
-        "choices": [{"index": 0, "delta": {}, "finish_reason": if reply.tools.is_empty() { "stop" } else { "tool_calls" }}]
+        "choices": [{"index": 0, "delta": {}, "finish_reason": if reply.tools.is_empty() { "stop" } else { "tool_calls" }}],
+        "usage": {
+            "prompt_tokens": reply.input_tokens,
+            "completion_tokens": reply.output_tokens,
+            "total_tokens": reply.input_tokens.saturating_add(reply.output_tokens)
+        }
     });
     out.push_str(&format!("data: {done}\n\n"));
     out.push_str("data: [DONE]\n\n");
@@ -886,5 +1021,81 @@ mod tests {
     fn count_tokens_is_not_usage() {
         assert!(!should_log_usage("/v1/messages/count_tokens"));
         assert!(should_log_usage("/v1/messages"));
+    }
+
+    fn reply_from_payload(event_type: &str, payload: &Value) -> CollectedReply {
+        let bytes = crate::kiro::event_stream::encode_frame(
+            event_type,
+            payload.to_string().as_bytes(),
+        );
+        let (frame, _) = crate::kiro::event_stream::parse_frame(&bytes)
+            .unwrap()
+            .unwrap();
+        let mut reply = CollectedReply::default();
+        reply.push_frame(&frame);
+        reply
+    }
+
+    #[test]
+    fn metadata_token_usage_accepts_floats_and_total_only() {
+        let mut reply = reply_from_payload(
+            "metadataEvent",
+            &json!({"tokenUsage": {
+                "uncachedInputTokens": 12.2,
+                "outputTokens": 7,
+                "cacheReadInputTokens": 3,
+                "cacheWriteInputTokens": 1
+            }}),
+        );
+        reply.finalize_usage(200_000, 100);
+        assert_eq!(reply.input_tokens, 12);
+        assert_eq!(reply.output_tokens, 7);
+        assert_eq!(reply.cache_read, 3);
+        assert_eq!(reply.cache_write, 1);
+
+        let mut totals = reply_from_payload(
+            "metadataEvent",
+            &json!({"tokenUsage": {"totalTokens": 100, "outputTokens": 25}}),
+        );
+        totals.finalize_usage(200_000, 100);
+        assert_eq!(totals.input_tokens, 75);
+        assert_eq!(totals.output_tokens, 25);
+    }
+
+    #[test]
+    fn context_usage_percentage_fills_tokens_when_metadata_is_absent() {
+        let bytes = crate::kiro::event_stream::encode_frame(
+            "assistantResponseEvent",
+            br#"{"content":"hello!!!"}"#,
+        );
+        let usage = crate::kiro::event_stream::encode_frame(
+            "contextUsageEvent",
+            br#"{"contextUsagePercentage":2.5}"#,
+        );
+        let mut decoder = crate::kiro::event_stream::FrameDecoder::new();
+        let mut combined = bytes;
+        combined.extend(usage);
+        let frames = decoder.push(&combined).unwrap();
+        let mut reply = CollectedReply::default();
+        for frame in &frames {
+            reply.push_frame(frame);
+        }
+        reply.finalize_usage(200_000, 40);
+        assert_eq!(reply.output_tokens, 2);
+        assert_eq!(reply.input_tokens, 4998);
+        let sse = anthropic_sse("claude-haiku-4.5", &reply);
+        assert!(sse.contains("\"input_tokens\":4998"));
+        assert!(sse.contains("\"output_tokens\":2"));
+    }
+
+    #[test]
+    fn local_estimate_is_used_when_kiro_sends_no_usage_event() {
+        let mut reply = reply_from_payload(
+            "assistantResponseEvent",
+            &json!({"content": "abcd"}),
+        );
+        reply.finalize_usage(0, 8);
+        assert_eq!(reply.input_tokens, 2);
+        assert_eq!(reply.output_tokens, 1);
     }
 }

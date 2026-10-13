@@ -117,6 +117,19 @@ pub fn model_list() -> KiroModelList {
     }
 }
 
+/// Context window from the live catalog, in tokens. `0` when the id is unknown.
+pub fn context_window(model: &str) -> u64 {
+    let Some(id) = map_model(model) else {
+        return 0;
+    };
+    model_list()
+        .models
+        .into_iter()
+        .find(|row| row.id.eq_ignore_ascii_case(&id))
+        .map(|row| row.context)
+        .unwrap_or(0)
+}
+
 /// Models the local `/v1/models` list exposes. No synthetic `-thinking` ids.
 pub fn catalog_ids() -> Vec<String> {
     model_list()

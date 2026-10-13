@@ -224,6 +224,12 @@ async fn handle(
             }
         }
         let client_model = client_model(&headers, &prepared.client_model);
+        if !frames.is_empty() {
+            collected.finalize_usage(
+                crate::kiro::models::context_window(&prepared.backend_model),
+                body.len(),
+            );
+        }
         if map::should_log_usage("/v1/messages") {
             if let Some(id) = crate::kiro::usage_log::insert_request(
                 &state.db,
